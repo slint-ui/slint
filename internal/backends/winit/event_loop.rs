@@ -252,6 +252,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                                         => $char.into(),
                         )* )? )*
                         winit::keyboard::Key::Character(str) => str.as_str().into(),
+                        winit::keyboard::Key::Dead(Some(c)) => {
+                            let mut buf = [0u8; 4];
+                            let s: &str = c.encode_utf8(&mut buf);
+                            s.into()
+                        }
                         _ => {
                             if let Some(text) = &event.text {
                                 text.as_str().into()

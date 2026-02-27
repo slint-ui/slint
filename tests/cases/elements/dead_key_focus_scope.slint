@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that dead key characters (e.g. ^ on a German layout) are received
+// by FocusScope's key-pressed callback and can trigger Shortcuts.
+// Dead keys in winit only produce a KeyPressed event (no KeyReleased),
+// so shortcuts must be able to fire on press-only sequences.
+// Related: https://github.com/slint-ui/slint/issues/10862
+
+export component TestCase inherits Window {
+    in-out property <int> shortcut-matches: 0;
+    in-out property <string> last-key-pressed: "";
+    out property has-focus <=> scope.has-focus;
+
+    forward-focus: scope;
+
+    scope := FocusScope {
+        Shortcut {
+            keys: @keys(Circumflex);
+            activated => { shortcut-matches += 1; }
+        }
+
+        key-pressed(event) => {
+            last-key-pressed = event.text;
+            EventResult.reject
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_has_focus());
+
+use slint::platform::WindowEvent;
+
+// Simulate dead key behavior: only send KeyPressed, no KeyReleased.
+// This is what winit produces for dead keys when IME is disabled
+// (FocusScope does not enable IME).
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: "^".into() });
+
+// The key event should be consumed by the shortcut
+assert_eq!(instance.get_last_key_pressed(), "");
+
+assert_eq!(instance.get_shortcut_matches(), 1, "shortcut should fire on dead key press without KeyReleased");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_has_focus());
+
+instance.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { "^" });
+
+assert_eq(instance.get_last_key_pressed(), "");
+
+assert_eq(instance.get_shortcut_matches(), 1);
+```
+*/

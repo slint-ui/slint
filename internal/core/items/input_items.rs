@@ -477,6 +477,21 @@ impl FocusScope {
 
         None
     }
+
+    /// Processes any shortcuts for this key event - returns whether any Shortcut handled the key
+    /// event.
+    fn handle_shortcuts(self: Pin<&Self>, self_rc: &ItemRc, event: &KeyEvent) -> bool {
+        let shortcut = self.visit_shortcuts(self_rc, |shortcut| {
+            let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
+            if keys.matches(&event) { Some(VRcMapped::clone(shortcut)) } else { None }
+        });
+        if let Some(shortcut) = shortcut {
+            Shortcut::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl Item for FocusScope {
@@ -555,20 +570,14 @@ impl Item for FocusScope {
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
-            }
-            KeyEventType::KeyReleased => {
-                let shortcut = self.visit_shortcuts(self_rc, |shortcut| {
-                    let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
-                    if keys.matches(&event) { Some(VRcMapped::clone(shortcut)) } else { None }
-                });
-
-                if let Some(shortcut) = shortcut {
-                    Shortcut::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
+                if self.handle_shortcuts(self_rc, event) {
                     EventResult::Accept
                 } else {
-                    Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
+                    Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
                 }
+            }
+            KeyEventType::KeyReleased => {
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 EventResult::Reject
