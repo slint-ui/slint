@@ -7,7 +7,7 @@ interface Inverter {
 
 export component InverterDuplicate implements Inverter {
     callback invert(bool) -> bool;
-//           >    <error{Duplicated callback declaration}
+//  >                            <error{Conflict with 'Inverter' which expected purity declaration: 'true'}
 }
 
 export component InverterAliases implements Inverter {
