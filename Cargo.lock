@@ -9742,7 +9742,6 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "indexmap",
- "paste",
  "pyo3",
  "pyo3-stub-gen",
  "slint-interpreter",

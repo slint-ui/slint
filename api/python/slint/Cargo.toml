@@ -55,7 +55,6 @@ spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 pyo3-stub-gen = { version = "0.18.0", default-features = false }
 smol = { version = "2.0.0" }
-paste = "1.0.15"
 
 [package.metadata.maturin]
 python-source = "slint"
