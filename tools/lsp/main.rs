@@ -614,7 +614,7 @@ async fn handle_preview_to_lsp_message(
             .await;
         }
         M::PreviewTypeChanged { target } => {
-            tracing::debug!("Preview type changed: target={target}");
+            tracing::debug!("Preview type changed: target={target:?}");
             ctx.to_preview.set_preview_target(target)?;
         }
         M::RequestState { .. } => {
