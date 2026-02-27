@@ -341,28 +341,22 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
-                // Handle NamedTuple instances (e.g. StandardListViewItem).
-                // These are registered as `typing.NamedTuple` in language.rs rather than
-                // #[pyclass] structs, so they aren't caught by the PyStruct extraction above.
-                // All NamedTuples expose an `_asdict()` method that returns an OrderedDict,
-                // which we convert field-by-field into a slint_interpreter::Struct.
-                let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
-                let dict = asdict.cast::<PyDict>()?;
-                let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
-                    .iter()
-                    .map(|(name, pyval)| {
-                        let name = name.extract::<&str>()?.to_string();
-                        let slintval =
-                            Self::slint_value_from_py_value_bound(&pyval, type_collection)?;
-                        Ok((name, slintval))
-                    })
-                    .collect::<Result<Vec<(_, _)>, PyErr>>();
-                Ok::<_, PyErr>(slint_interpreter::Value::Struct(
-                    slint_interpreter::Struct::from_iter(dict_items?.into_iter()),
-                ))
-            })
-            .or_else(|_| {
-                let dict = ob.cast::<PyDict>()?;
+                // Try direct PyDict cast first, then fall back to NamedTuple conversion.
+                // NamedTuples (e.g. StandardListViewItem) are tuple subclasses registered
+                // as `typing.NamedTuple` in language.rs. We guard with an isinstance(ob, tuple)
+                // check to avoid false positives from unrelated types that also have `_asdict`.
+                let dict =
+                    ob.cast::<PyDict>().cloned().map_err(|e| -> PyErr { e.into() }).or_else(
+                        |_| {
+                            if !ob.is_instance_of::<pyo3::types::PyTuple>() {
+                                return Err(pyo3::exceptions::PyTypeError::new_err(
+                                    "Object is not a dict or NamedTuple",
+                                ));
+                            }
+                            let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
+                            asdict.cast::<PyDict>().cloned().map_err(|e| e.into())
+                        },
+                    )?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {
