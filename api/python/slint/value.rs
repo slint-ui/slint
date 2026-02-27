@@ -341,6 +341,11 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
+                // Handle NamedTuple instances (e.g. StandardListViewItem).
+                // These are registered as `typing.NamedTuple` in language.rs rather than
+                // #[pyclass] structs, so they aren't caught by the PyStruct extraction above.
+                // All NamedTuples expose an `_asdict()` method that returns an OrderedDict,
+                // which we convert field-by-field into a slint_interpreter::Struct.
                 let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
                 let dict = asdict.cast::<PyDict>()?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
