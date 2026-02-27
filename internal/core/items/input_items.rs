@@ -603,13 +603,13 @@ impl Item for FocusScope {
                 };
 
                 self.has_focus.set(true);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((*reason,)));
-                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&((*reason,)));
+                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&(*reason,));
+                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&(*reason,));
             }
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((*reason,)));
-                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&((*reason,)));
+                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&(*reason,));
+                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&(*reason,));
             }
         }
         FocusEventResult::FocusAccepted

@@ -376,6 +376,7 @@ impl FlickableDataInner {
     }
 
     /// Whether the delta is a scroll in a orthogonal direction than what is allowed by the Flickable
+    #[allow(clippy::nonminimal_bool)] // more readable this way
     fn is_allowed_scroll_direction(
         flick: Pin<&Flickable>,
         delta: LogicalVector,

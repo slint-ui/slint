@@ -383,7 +383,7 @@ fn create_text_paragraphs(
                         return None;
                     }
                     eot = true;
-                    return Some(start..text.len());
+                    Some(start..text.len())
                 }
             });
 
