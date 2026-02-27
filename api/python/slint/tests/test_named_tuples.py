@@ -59,3 +59,10 @@ class TestNamedTupleGeneric:
         first_field = next(iter(defaults))
         replaced = instance._replace(**{first_field: defaults[first_field]})
         assert getattr(replaced, first_field) == defaults[first_field]
+
+
+def test_manual_StandardListViewItem() -> None:
+    item = StandardListViewItem()
+    assert item.text == ""
+    item = item._replace(text="Test")
+    assert item.text == "Test"
