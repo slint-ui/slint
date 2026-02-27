@@ -182,7 +182,9 @@ pub(super) fn get_implemented_interface(
     }
 }
 
-pub(super) fn apply_implements_specifier(
+/// Apply the properties declared in the interface to the element, emitting diagnostics if there are any conflicts.
+/// Existing property declarations are permitted, provided they match the declaration from the interface.
+pub(super) fn apply_interface_properties(
     e: &mut Element,
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
@@ -196,29 +198,97 @@ pub(super) fn apply_implements_specifier(
     for (unresolved_prop_name, prop_decl) in
         interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
             // Functions are expected to be implemented manually, so we don't automatically add them.
-            !matches!(prop_decl.property_type, Type::Function { .. })
+            !matches!(prop_decl.property_type, Type::Function { .. } | Type::Callback { .. })
         })
     {
-        let lookup_result = e.lookup_property(unresolved_prop_name);
-
-        if lookup_result.property_type != Type::Invalid
-            && property_matches_interface(&lookup_result, prop_decl).is_ok()
-        {
-            continue;
-        }
-
-        if let Err(message) = validate_property_declaration_for_interface(
-            InterfaceUseMode::Implements,
-            &lookup_result,
-            &e.base_type,
-            &interface_name,
-        ) {
-            diag.push_error(message, &implements_specifier.QualifiedName());
-            continue;
-        }
-
-        e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+        apply_interface_property_declaration(
+            e,
+            unresolved_prop_name,
+            prop_decl,
+            implements_specifier,
+            interface_name,
+            diag,
+        );
     }
+}
+
+/// Apply the callbacks declared in the interface to the element, emitting diagnostics if there are any conflicts.
+/// Existing callback declarations are permitted, provided they match the declaration from the interface.
+pub(super) fn apply_interface_callbacks(
+    e: &mut Element,
+    implemented_interface: &Option<ImplementedInterface>,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+        implemented_interface
+    else {
+        return;
+    };
+
+    for (unresolved_prop_name, prop_decl) in
+        interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
+            // Functions are expected to be implemented manually, so we don't automatically add them.
+            matches!(prop_decl.property_type, Type::Callback { .. })
+        })
+    {
+        apply_interface_property_declaration(
+            e,
+            unresolved_prop_name,
+            prop_decl,
+            implements_specifier,
+            interface_name,
+            diag,
+        );
+    }
+}
+
+/// Apply a [PropertyDeclaration] from an interface to the element, emitting diagnostics if there are any conflicts. An
+/// existing declaration with the same name is permitted, provided it matches the declaration from the interface.
+fn apply_interface_property_declaration(
+    e: &mut Element,
+    unresolved_prop_name: &SmolStr,
+    prop_decl: &PropertyDeclaration,
+    implements_specifier: &syntax_nodes::ImplementsSpecifier,
+    interface_name: &SmolStr,
+    diag: &mut BuildDiagnostics,
+) {
+    let lookup_result = e.lookup_property(unresolved_prop_name);
+
+    if lookup_result.property_type != Type::Invalid {
+        match property_matches_interface(&lookup_result, prop_decl) {
+            Ok(()) => {
+                // The property already exists and matches the interface declaration, so we don't need to do anything.
+                return;
+            }
+            Err(error) => {
+                // Attempt to find a node for the existing property for better diagnostics. If the property is not local
+                // to the component, we fall back to pointing at the implements specifier below.
+                if let Some(local_property_node) = e
+                    .property_declarations
+                    .get(unresolved_prop_name)
+                    .and_then(|decl| decl.node.clone())
+                {
+                    diag.push_error(
+                        format!("Conflict with '{}' which {}", interface_name, error),
+                        &local_property_node,
+                    );
+                    return;
+                }
+            }
+        }
+    }
+
+    if let Err(message) = validate_property_declaration_for_interface(
+        InterfaceUseMode::Implements,
+        &lookup_result,
+        &e.base_type,
+        &interface_name,
+    ) {
+        diag.push_error(message, &implements_specifier.QualifiedName());
+        return;
+    }
+
+    e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
 }
 
 /// Apply default property values defined in the interface to the element.
