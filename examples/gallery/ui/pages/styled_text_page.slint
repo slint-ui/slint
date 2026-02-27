@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { GroupBox, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { Page } from "page.slint";
+
+export component StyledTextPage inherits Page {
+    show-enable-switch: false;
+    title: @tr("Styled Text");
+    description: @tr("StyledText demos");
+
+    VerticalBox {
+        GroupBox {
+            title: @tr("Basic Styles");
+
+            VerticalBox {
+                StyledText {
+                    text: @markdown("**bold text**, *italic text*, __underlined text__, ~~strikethrough text~~, ***bold italic***.");
+                }
+            }
+        }
+
+        GroupBox {
+            title: @tr("Colors");
+
+            VerticalBox {
+                StyledText {
+                    text: @markdown("<font color='#e74c3c'>Red text</font> and <font color='#27ae60'>green text</font> and <font color='#3498db'>blue text</font>.");
+                }
+
+                StyledText {
+                    text: @markdown("<font color='#9b59b6'>Purple</font> **bold** <font color='#f39c12'>orange</font> *italic* mixed together.");
+                }
+            }
+        }
+
+        GroupBox {
+            title: @tr("Hyperlinks");
+
+            VerticalBox {
+                StyledText {
+                    text: @markdown("Visit [Slint Website](https://slint.dev) for more information.");
+                }
+
+                StyledText {
+                    text: @markdown("Check out our [GitHub](https://github.com/slint-ui/slint) repository and [Documentation](https://slint.dev/docs).");
+                }
+            }
+        }
+
+        GroupBox {
+            title: @tr("Lists");
+
+            VerticalBox {
+                StyledText {
+                    text: @markdown("* First item\n* Second item\n* Third item\n  1. Item one\n  2. Item two\n  3. Item three");
+                }
+
+                StyledText {
+                    text: @markdown("1. First step\n2. Second step\n3. Third step");
+                }
+            }
+        }
+    }
+}
