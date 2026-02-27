@@ -191,7 +191,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(init_translations, m)?)?;
 
-    language::register_StandardListViewItem(m.py(), m)?;
+    language::register_all(m.py(), m)?;
 
     Ok(())
 }

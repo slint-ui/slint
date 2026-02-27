@@ -81,8 +81,8 @@ class {}(typing.NamedTuple):
     Ok(())
 }
 
-/// This macro processes `for_each_builtin_structs` and generates `#[pyclass]` wrappers
-/// for public structs only (those matched with `BuiltinPublicStruct`).
+/// This macro processes `for_each_builtin_structs` and generates a single `register_all`
+/// function that registers all public structs as NamedTuples in the `slint.language` submodule.
 macro_rules! declare_python_public_structs {
     ($(
         $(#[doc = $struct_doc:literal])*
@@ -98,35 +98,34 @@ macro_rules! declare_python_public_structs {
             }
         }
     )*) => {
-        $(
-            declare_python_public_structs!(@check $NameTy, $NameVariant, $Name;
-                docs: [$(#[doc = $struct_doc])*],
-                fields: [$( $(#[doc = $pub_doc])* $pub_field : $pub_type ,)*],
-            );
-        )*
+        pub fn register_all(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+            $(
+                declare_python_public_structs!(@register $NameTy, $Name, py, m;
+                    docs: [$(#[doc = $struct_doc])*],
+                    fields: [$( $(#[doc = $pub_doc])* $pub_field : $pub_type ,)*],
+                );
+            )*
+            Ok(())
+        }
     };
 
-    (@check BuiltinPublicStruct, $Variant:ident, $Name:ident;
+    (@register BuiltinPublicStruct, $Name:ident, $py:ident, $m:ident;
         docs: [$(#[doc = $struct_doc:literal])*],
         fields: [$( $(#[doc = $field_doc:literal])* $pub_field:ident : $pub_type:ident ,)*],
     ) => {
-        paste::paste! {
-            #[allow(non_snake_case)]
-            pub fn [< register_ $Name >](py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-                let class_doc = [ $($struct_doc),* ].join("\n");
-                let fields = vec![
-                    $(
-                        (stringify!($pub_field), stringify!($pub_type), [ $($field_doc),* ].join("\n")),
-                    )*
-                ];
-
-                register_named_tuple(py, m, stringify!($Name), &class_doc, &fields)
-            }
+        {
+            let class_doc = [ $($struct_doc),* ].join("\n");
+            let fields = vec![
+                $(
+                    (stringify!($pub_field), stringify!($pub_type), [ $($field_doc),* ].join("\n")),
+                )*
+            ];
+            register_named_tuple($py, $m, stringify!($Name), &class_doc, &fields)?;
         }
     };
 
     // Skip all private structs
-    (@check BuiltinPrivateStruct, $_variant:ident, $Name:ident;
+    (@register BuiltinPrivateStruct, $_Name:ident, $py:ident, $m:ident;
         docs: [$(#[$struct_meta:meta])*],
         fields: [$( $(#[$field_meta:meta])* $pub_field:ident : $pub_type:ty ,)*],
     ) => {};
