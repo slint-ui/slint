@@ -17,8 +17,9 @@ use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::object_tree::interfaces::{
-    apply_implements_specifier, apply_interface_default_property_values, apply_uses_statement,
-    get_implemented_interface, validate_function_implementations_for_interface,
+    apply_interface_callbacks, apply_interface_default_property_values, apply_interface_properties,
+    apply_uses_statement, get_implemented_interface,
+    validate_function_implementations_for_interface,
 };
 use crate::parser;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
@@ -1106,8 +1107,17 @@ impl Element {
             ..Default::default()
         };
 
-        let implemented_interface = get_implemented_interface(&r, &node, tr, diag);
-        apply_implements_specifier(&mut r, &implemented_interface, diag);
+        let mut property_bindings: Vec<(
+            SmolStr,
+            syntax_nodes::BindingExpression,
+            syntax_nodes::DeclaredIdentifier,
+        )> = Vec::new();
+
+        let mut two_way_bindings: Vec<(
+            SmolStr,
+            syntax_nodes::TwoWayBinding,
+            syntax_nodes::DeclaredIdentifier,
+        )> = Vec::new();
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
@@ -1198,27 +1208,38 @@ impl Element {
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
-                match r.bindings.entry(prop_name.clone().into()) {
-                    Entry::Vacant(e) => {
-                        e.insert(BindingExpression::new_uncompiled(csn.into()).into());
-                    }
-                    Entry::Occupied(_) => {
-                        diag.push_error(
-                            "Duplicated property binding".into(),
-                            &prop_decl.DeclaredIdentifier(),
-                        );
-                    }
+                property_bindings.push((
+                    prop_name.clone().into(),
+                    csn,
+                    prop_decl.DeclaredIdentifier(),
+                ));
+            }
+
+            if let Some(csn) = prop_decl.TwoWayBinding() {
+                two_way_bindings.push((prop_name.into(), csn, prop_decl.DeclaredIdentifier()));
+            }
+        }
+
+        let implemented_interface = get_implemented_interface(&r, &node, tr, diag);
+        apply_interface_properties(&mut r, &implemented_interface, diag);
+
+        for (prop_name, csn, source) in property_bindings {
+            match r.bindings.entry(prop_name.clone().into()) {
+                Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_uncompiled(csn.into()).into());
+                }
+                Entry::Occupied(_) => {
+                    diag.push_error("Duplicated property binding".into(), &source);
                 }
             }
-            if let Some(csn) = prop_decl.TwoWayBinding()
-                && r.bindings
-                    .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()).into())
-                    .is_some()
+        }
+
+        for (prop_name, csn, source) in two_way_bindings {
+            if r.bindings
+                .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()).into())
+                .is_some()
             {
-                diag.push_error(
-                    "Duplicated property binding".into(),
-                    &prop_decl.DeclaredIdentifier(),
-                );
+                diag.push_error("Duplicated property binding".into(), &source);
             }
         }
 
@@ -1323,6 +1344,8 @@ impl Element {
                 },
             );
         }
+
+        apply_interface_callbacks(&mut r, &implemented_interface, diag);
 
         for func in node.Function() {
             let name =

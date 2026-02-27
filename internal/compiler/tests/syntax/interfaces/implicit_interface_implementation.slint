@@ -33,3 +33,32 @@ export component DerivedImplementsInterfaceIncorrectly implements ValidInterface
 //                                                                >             <error{Cannot implement interface 'ValidInterface' because 'value' conflicts with an existing property in 'IncorrectImpl'}
 //                                                                >             <^error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'IncorrectImpl'}
 //                                                                >             <^^error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
+
+export component ComponentImplementsInterfaceImplicitly implements ValidInterface {
+    in-out property <int> value: 24;
+    callback speak();
+    public function reset() {
+        self.value = 0;
+    }
+}
+
+export component ComponentImplementsInterfaceImplicitlyWithTwoWayBinding implements ValidInterface {
+    in-out property <int> other: 32;
+    in-out property <int> value <=> self.other;
+    callback speak();
+    public function reset() {
+        self.value = 0;
+    }
+}
+
+export component ComponentImplementsInterfaceIncorrectly implements ValidInterface {
+    in-out property <float> value;
+//  >                            <error{Conflict with 'ValidInterface' which expected type: 'int'}
+    callback speak(string);
+//  >                     <error{Conflict with 'ValidInterface' which expected type: 'callback-> void'}
+    public function reset(to: float) {
+//  >error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
+        self.value = to;
+    }
+//  <error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
+}
