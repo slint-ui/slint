@@ -634,5 +634,4 @@ __all__ = [
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
-
 ]

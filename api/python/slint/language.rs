@@ -1,15 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module generates Python bindings for public Slint structs using the
-//! `for_each_builtin_structs` macro, reusing documentation from `builtin_structs.rs`.
+//! This module generates Python `typing.NamedTuple` bindings for public Slint
+//! structs using the `for_each_builtin_structs` macro, reusing documentation
+//! from `builtin_structs.rs`.
 //!
 //! The pattern follows `cbindgen.rs`: a macro consumes `for_each_builtin_structs`,
-//! matches on `BuiltinPublicStruct` variants, and generates `#[pyclass]` wrappers
+//! matches on `BuiltinPublicStruct` variants, and generates NamedTuple classes
 //! with the original doc comments. Private structs are skipped.
-#![allow(unsafe_op_in_unsafe_fn)]
 
 use pyo3::prelude::*;
+use std::fmt::Write;
 
 fn map_type_to_python(ty: &str) -> (&'static str, &'static str) {
     match ty {
@@ -21,6 +22,12 @@ fn map_type_to_python(ty: &str) -> (&'static str, &'static str) {
     }
 }
 
+/// Dynamically creates a Python `typing.NamedTuple` class and registers it
+/// in the `slint.language` submodule.
+///
+/// This works by generating Python source code for the class, compiling it
+/// via `PyModule::from_code`, and then moving the resulting class object
+/// into the `slint.language` submodule.
 fn register_named_tuple(
     py: Python<'_>,
     m: &Bound<'_, PyModule>,
@@ -28,14 +35,16 @@ fn register_named_tuple(
     class_doc: &str,
     fields: &[(&str, &str, String)], // name, rust_type, doc
 ) -> PyResult<()> {
+    // Phase 1: Build Python source code for the NamedTuple class.
+    // Each field gets a type annotation and a default value, plus an optional docstring.
     let mut fields_code = String::new();
     for (name, rust_ty, doc) in fields {
         let (py_ty, default) = map_type_to_python(rust_ty);
-        fields_code.push_str(&format!("    {}: {} = {}\n", name, py_ty, default));
+        let _ = writeln!(fields_code, "    {name}: {py_ty} = {default}");
         if !doc.is_empty() {
             fields_code.push_str("    \"\"\"\n");
             for line in doc.lines() {
-                fields_code.push_str(&format!("    {}\n", line));
+                let _ = writeln!(fields_code, "    {line}");
             }
             fields_code.push_str("    \"\"\"\n");
         }
@@ -44,26 +53,34 @@ fn register_named_tuple(
     let code = format!(
         r#"
 import typing
-class {}(typing.NamedTuple):
+class {class_name}(typing.NamedTuple):
     """
-    {}
+    {class_doc}
     """
-{}
-"#,
-        class_name, class_doc, fields_code
+{fields_code}
+"#
     );
 
-    let code_c = std::ffi::CString::new(code)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-    let file_name = std::ffi::CString::new(format!("{}.py", class_name))
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-    let module_name = std::ffi::CString::new(class_name)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    // Phase 2: Compile the generated source into a temporary Python module
+    // and extract the class object from it.
+    let to_cstring = |s: String| {
+        std::ffi::CString::new(s)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    };
 
-    let temp_module = PyModule::from_code(py, &code_c, &file_name, &module_name)?;
+    let temp_module = PyModule::from_code(
+        py,
+        &to_cstring(code)?,
+        &to_cstring(format!("{class_name}.py"))?,
+        &to_cstring(class_name.to_string())?,
+    )?;
     let class = temp_module.getattr(class_name)?;
 
-    // Get or create the "language" submodule
+    // Set the module path so repr/pickle/introspection report "slint.language"
+    class.setattr("__module__", "slint.language")?;
+
+    // Phase 3: Register the class in the "slint.language" submodule.
+    // The submodule is created lazily on the first call and reused for subsequent structs.
     let language_mod = match m.getattr("language") {
         Ok(existing) => existing.cast_into::<PyModule>()?,
         Err(_) => {
@@ -73,7 +90,7 @@ class {}(typing.NamedTuple):
             let sys = py.import("sys")?;
             let modules = sys.getattr("modules")?;
             modules.set_item("slint.language", &sub)?;
-            sub.into_any().cast_into::<PyModule>()?
+            sub
         }
     };
 
@@ -84,6 +101,10 @@ class {}(typing.NamedTuple):
 /// This macro processes `for_each_builtin_structs` and generates a single `register_all`
 /// function that registers all public structs as NamedTuples in the `slint.language` submodule.
 macro_rules! declare_python_public_structs {
+    // Top-level arm: matches the full list of struct definitions emitted by
+    // `for_each_builtin_structs!`. For each struct, it delegates to the
+    // `@register` arm which decides whether to register or skip it based
+    // on whether it's a BuiltinPublicStruct or BuiltinPrivateStruct.
     ($(
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
@@ -98,6 +119,8 @@ macro_rules! declare_python_public_structs {
             }
         }
     )*) => {
+        /// Registers all public builtin structs as NamedTuples in `slint.language`.
+        /// Called once during module initialization from `lib.rs`.
         pub fn register_all(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
             $(
                 declare_python_public_structs!(@register $NameTy, $Name, py, m;
@@ -109,6 +132,8 @@ macro_rules! declare_python_public_structs {
         }
     };
 
+    // Public struct arm: collects doc comments and field metadata, then calls
+    // `register_named_tuple` to create and register the NamedTuple class.
     (@register BuiltinPublicStruct, $Name:ident, $py:ident, $m:ident;
         docs: [$(#[doc = $struct_doc:literal])*],
         fields: [$( $(#[doc = $field_doc:literal])* $pub_field:ident : $pub_type:ident ,)*],
@@ -124,7 +149,7 @@ macro_rules! declare_python_public_structs {
         }
     };
 
-    // Skip all private structs
+    // Private struct arm: intentionally empty — private structs are not exposed to Python.
     (@register BuiltinPrivateStruct, $_Name:ident, $py:ident, $m:ident;
         docs: [$(#[$struct_meta:meta])*],
         fields: [$( $(#[$field_meta:meta])* $pub_field:ident : $pub_type:ty ,)*],
