@@ -792,6 +792,12 @@ pub mod builtin_structs {
                 }
             }
 
+            impl Default for BuiltinStructs {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
+
             $(
             #[allow(non_snake_case)]
             pub fn $Name() -> Rc<Struct> {

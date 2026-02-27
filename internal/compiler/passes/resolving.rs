@@ -96,7 +96,7 @@ fn resolve_expression(
             }
         };
         match expr {
-            Expression::DebugHook { expression, .. } => *expression = Box::new(new_expr),
+            Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
     }
@@ -796,7 +796,7 @@ impl Expression {
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(string.into()),
+                Expression::StringLiteral(string),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -1046,21 +1046,21 @@ impl Expression {
         }
 
         // If there is a string literal, use it as the key
-        node.child_token(SyntaxKind::StringLiteral).map(|token| {
-            if let Some(key) = crate::literals::unescape_string(&token.text()) {
-                shortcut.key = key;
+        if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
+            && let Some(key) = crate::literals::unescape_string(token.text())
+        {
+            shortcut.key = key;
 
-                let lowercase = shortcut.key.to_lowercase();
-                if lowercase != shortcut.key {
-                    ctx.diag.push_error(
-                        format!(
-                            "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
-                        ),
-                        &token,
-                    );
-                }
+            let lowercase = shortcut.key.to_lowercase();
+            if lowercase != shortcut.key {
+                ctx.diag.push_error(
+                    format!(
+                        "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
+                    ),
+                    &token,
+                );
             }
-        });
+        }
 
         Expression::KeyboardShortcut(shortcut)
     }

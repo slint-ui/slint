@@ -254,7 +254,7 @@ pub fn check_no_reference_to_popup(
             if let Expression::ElementReference(element) = exp {
                 let elem = element.upgrade().unwrap();
                 if !Rc::ptr_eq(&elem, popup_window_element) {
-                    check_element(&elem, new_weak, diag, popup_window_element, &"");
+                    check_element(&elem, new_weak, diag, popup_window_element, "");
                 }
             }
         });

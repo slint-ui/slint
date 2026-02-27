@@ -975,7 +975,7 @@ impl LookupObject for StringExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
@@ -1097,7 +1097,7 @@ impl LookupObject for NumberExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
 
         let mut f2 = |s, res| f(&SmolStr::new_static(s), res);
@@ -1132,7 +1132,7 @@ fn builtin_member_function_generator<'a>(
     }
 }
 
-fn member_macro_generator<'a>(
+fn member_macro_generator(
     base: Expression,
     base_node: Option<NodeOrToken>,
 ) -> impl FnMut(BuiltinMacroFunction) -> LookupResult {
@@ -1154,7 +1154,7 @@ impl LookupObject for NumberWithUnitExpression<'_> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("mod", member_macro(BuiltinMacroFunction::Mod)))
             .or_else(|| f("clamp", member_macro(BuiltinMacroFunction::Clamp)))
@@ -1180,7 +1180,7 @@ impl LookupObject for KeyboardShortcutExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         None.or_else(|| {
             f(
                 &SmolStr::new_static("matches"),

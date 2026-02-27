@@ -372,8 +372,8 @@ fn update(
                 source.push('\n');
             }
             source.insert_str(byte_offset, &to_insert);
-            for line in (l - 1)..lines.len() {
-                lines[line] += to_insert.len();
+            for line_offset in lines.iter_mut().skip(l - 1) {
+                *line_offset += to_insert.len();
             }
             last_line_adjust[l - 1] += 1;
         };
