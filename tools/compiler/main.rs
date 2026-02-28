@@ -9,13 +9,21 @@ use std::io::{BufWriter, Write};
 
 #[cfg(all(
     feature = "jemalloc",
-    not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux")))
+    not(any(
+        target_os = "openbsd",
+        target_os = "windows",
+        all(target_arch = "aarch64", target_os = "linux")
+    ))
 ))]
 use tikv_jemallocator::Jemalloc;
 
 #[cfg(all(
     feature = "jemalloc",
-    not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux")))
+    not(any(
+        target_os = "openbsd",
+        target_os = "windows",
+        all(target_arch = "aarch64", target_os = "linux")
+    ))
 ))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;

@@ -43,6 +43,7 @@ use std::task::{Poll, Waker};
 use crate::common::document_cache::CompilerConfiguration;
 
 #[cfg(not(any(
+    target_os = "openbsd",
     target_os = "windows",
     target_arch = "wasm32",
     all(target_arch = "aarch64", target_os = "linux")
@@ -50,6 +51,7 @@ use crate::common::document_cache::CompilerConfiguration;
 use tikv_jemallocator::Jemalloc;
 
 #[cfg(not(any(
+    target_os = "openbsd",
     target_os = "windows",
     target_arch = "wasm32",
     all(target_arch = "aarch64", target_os = "linux")
