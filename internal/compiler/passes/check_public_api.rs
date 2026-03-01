@@ -38,11 +38,17 @@ pub fn check_public_api(
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1
                 && !c.is_global() && !super::windows::inherits_window(c) {
+                    if cfg!(feature = "experimental-library-module") && config.library_name.is_some() {
+                        // In library mode, we want to allow exporting for all Slintcomponents, as they might be used
+                        // as base components for the users of the library.
+                        return true;
+                    }
+
                     let is_last = last.as_ref().is_some_and(|last| !Rc::ptr_eq(last, c));
                     if is_last {
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. No code will be generated for it", export.0.name), &export.0.name_ident);
                         return false;
-                    } else if config.library_name.is_none () {
+                    } else {
                         diag.push_warning(format!("Exported component '{}' doesn't inherit Window. This is deprecated", export.0.name), &export.0.name_ident);
                     }
                 }
