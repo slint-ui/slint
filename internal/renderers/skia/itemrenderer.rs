@@ -242,7 +242,9 @@ impl<'a> SkiaItemRenderer<'a> {
             // source size.
             return;
         }
-        let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&source).into() {
+        let fits = if let i_slint_core::ImageInner::NineSlice(nine) =
+            <&i_slint_core::ImageInner>::from(&source)
+        {
             i_slint_core::graphics::fit9slice(
                 source_size.cast(),
                 nine.1,
@@ -298,7 +300,7 @@ impl<'a> SkiaItemRenderer<'a> {
                             .recording_context()
                             .as_mut()
                             .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
-                        &src,
+                        src,
                         skia_safe::image::RequiredProperties::default(),
                     )
                     .and_then(|i| {
@@ -421,9 +423,7 @@ impl<'a> SkiaItemRenderer<'a> {
         if !local_to_device.is_translate() || local_to_device.is_identity() {
             return None;
         }
-        let Some(device_to_local) = local_to_device.invert() else {
-            return None;
-        };
+        let device_to_local = local_to_device.invert()?;
         let mut target_point = local_to_device.map_point(skia_safe::Point::default());
 
         target_point.x = target_point.x.round();
@@ -497,7 +497,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
             let rounded_rect = to_skia_rrect(&geometry, &stroke_border_radius);
 
-            (rounded_rect.clone(), rounded_rect)
+            (rounded_rect, rounded_rect)
         } else {
             let background_rect = to_skia_rrect(&geometry, &fill_radius);
 
@@ -524,17 +524,16 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self.canvas.draw_rrect(background_rect, &fill_paint);
         }
 
-        if border_width.get() > 0.0 {
-            if let Some(mut border_paint) =
+        if border_width.get() > 0.0
+            && let Some(mut border_paint) =
                 self.brush_to_paint(border_color, geometry.width_length(), geometry.height_length())
-            {
-                border_paint.set_style(skia_safe::PaintStyle::Stroke);
-                border_paint.set_stroke_width(border_width.get());
-                if !border_rect.is_rect() {
-                    border_paint.set_anti_alias(true);
-                }
-                self.canvas.draw_rrect(border_rect, &border_paint);
+        {
+            border_paint.set_style(skia_safe::PaintStyle::Stroke);
+            border_paint.set_stroke_width(border_width.get());
+            if !border_rect.is_rect() {
+                border_paint.set_anti_alias(true);
             }
+            self.canvas.draw_rrect(border_rect, &border_paint);
         }
     }
 
@@ -975,7 +974,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             None
         } else {
             let mut paint = self.default_paint().unwrap_or_default();
-            paint.set_shader(skia_safe::shaders::color(to_skia_color(&color)));
+            paint.set_shader(skia_safe::shaders::color(to_skia_color(color)));
             Some(paint)
         }
     }

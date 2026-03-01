@@ -503,16 +503,16 @@ impl SkiaRenderer {
         };
 
         // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-        if !self.rendering_first_time.get() {
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                surface
-                    .with_active_surface(&mut || {
-                        surface.with_graphics_api(&mut |api| {
-                            callback.notify(RenderingState::RenderingTeardown, &api)
-                        })
+        if !self.rendering_first_time.get()
+            && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
+        {
+            surface
+                .with_active_surface(&mut || {
+                    surface.with_graphics_api(&mut |api| {
+                        callback.notify(RenderingState::RenderingTeardown, &api)
                     })
-                    .ok();
-            }
+                })
+                .ok();
         }
 
         drop(surface);
@@ -636,12 +636,11 @@ impl SkiaRenderer {
             })
             .unwrap_or_default();
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            if let Some(surface) = surface {
-                surface.with_graphics_api(&mut |api| {
-                    callback.notify(RenderingState::AfterRendering, &api)
-                })
-            }
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
+            && let Some(surface) = surface
+        {
+            surface
+                .with_graphics_api(&mut |api| callback.notify(RenderingState::AfterRendering, &api))
         }
 
         dirty_region
@@ -802,10 +801,9 @@ impl SkiaRenderer {
                 collector.measure_frame_rendered(item_renderer, Default::default());
                 if collector.refresh_mode()
                     == i_slint_core::graphics::rendering_metrics_collector::RefreshMode::FullSpeed
+                    && let Some(partial_rendering_state) = self.partial_rendering_state()
                 {
-                    if let Some(partial_rendering_state) = self.partial_rendering_state() {
-                        partial_rendering_state.force_screen_refresh();
-                    }
+                    partial_rendering_state.force_screen_refresh();
                 }
             }
 

@@ -86,16 +86,16 @@ impl super::Surface for OpenGLSurface {
         let width = size.width.try_into().ok();
         let height = size.height.try_into().ok();
 
-        if let Some((width, height)) = width.zip(height) {
-            if width != surface.width() || height != surface.height() {
-                *surface = Self::create_internal_surface(
-                    self.fb_info,
-                    current_context,
-                    gr_context,
-                    width,
-                    height,
-                )?;
-            }
+        if let Some((width, height)) = width.zip(height)
+            && (width != surface.width() || height != surface.height())
+        {
+            *surface = Self::create_internal_surface(
+                self.fb_info,
+                current_context,
+                gr_context,
+                width,
+                height,
+            )?;
         }
 
         let skia_canvas = surface.canvas();
@@ -133,7 +133,7 @@ impl super::Surface for OpenGLSurface {
             Some(glutin::config::ColorBufferType::Rgb { r_size, g_size, b_size }) => {
                 r_size + g_size + b_size
             }
-            other @ _ => {
+            other => {
                 return Err(format!(
                     "Skia OpenGL Renderer: unsupported color buffer {other:?} encountered"
                 )
@@ -333,7 +333,7 @@ impl OpenGLSurface {
             gl_display
                 .find_configs(config_template)
                 .map_err(|e| format!("Could not find valid OpenGL display configurations: {e}"))?
-                .filter(|config| config_filter.as_ref().map_or(true, |filter_fn| filter_fn(config)))
+                .filter(|config| config_filter.as_ref().is_none_or(|filter_fn| filter_fn(config)))
                 .reduce(|accum, config| {
                     let transparency_check = config.supports_transparency().unwrap_or(false)
                         & !accum.supports_transparency().unwrap_or(false);
