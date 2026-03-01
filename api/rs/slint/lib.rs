@@ -284,10 +284,10 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 ///
 /// * Tokio futures require entering the context of a global Tokio runtime.
 /// * Tokio futures aren't guaranteed to hand off their work to separate threads and may therefore not complete, because
-/// the Slint runtime can't drive the Tokio runtime.
+///   the Slint runtime can't drive the Tokio runtime.
 /// * Tokio futures require regular yielding to the Tokio runtime for fairness, a constraint that also can't be met by Slint.
 /// * Tokio's [current-thread schedule](https://docs.rs/tokio/latest/tokio/runtime/index.html#current-thread-scheduler)
-/// cannot be used in Slint main thread, because Slint cannot yield to it.
+///   cannot be used in Slint main thread, because Slint cannot yield to it.
 ///
 /// To address these constraints, use [async_compat](https://docs.rs/async-compat/latest/async_compat/index.html)'s [Compat::new()](https://docs.rs/async-compat/latest/async_compat/struct.Compat.html#method.new)
 /// to implicitly allocate a shared, multi-threaded Tokio runtime that will be used for Tokio futures.
