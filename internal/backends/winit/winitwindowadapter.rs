@@ -119,9 +119,7 @@ fn icon_to_winit(
 ) -> Option<winit::window::Icon> {
     let image_inner: &ImageInner = (&icon).into();
 
-    let Some(pixel_buffer) = image_inner.render_to_buffer(Some(size.cast())) else {
-        return None;
-    };
+    let pixel_buffer = image_inner.render_to_buffer(Some(size.cast()))?;
 
     // This could become a method in SharedPixelBuffer...
     let rgba_pixels: Vec<u8> = match &pixel_buffer {
@@ -162,6 +160,7 @@ fn window_is_resizable(
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum WinitWindowOrNone {
     HasWindow {
         window: Arc<winit::window::Window>,

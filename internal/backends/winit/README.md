@@ -32,10 +32,8 @@ winit = "0.w"
 To ensure that the runtime backend is selected, initialize the backend as the first step in the `main` function:
 
 ```rust
-fn main() {
-    slint::platform::set_platform(Box::new(i_slint_backend_winit::Backend::new().unwrap()));
-    // ...
-}
+slint::platform::set_platform(Box::new(i_slint_backend_winit::Backend::new().unwrap()));
+// ...
 ```
 
 Once you have a [`slint::Window`](i_slint_core::api::Window)
