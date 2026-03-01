@@ -499,6 +499,12 @@ impl ElementHandle {
         })
     }
 
+    /// Returns the layout kind if this element is a layout (`h-box`, `v-box`, `grid`, or `flex-box`);
+    /// None if the element is not a layout or is not valid anymore.
+    pub fn layout_kind(&self) -> Option<SharedString> {
+        self.item.upgrade().and_then(|item| item.element_layout_kind(self.element_index))
+    }
+
     /// Returns the value of the element's `accessible-role` property, if present. Use this property to
     /// locate elements by their type/role, i.e. buttons, checkboxes, etc.
     pub fn accessible_role(&self) -> Option<crate::AccessibleRole> {

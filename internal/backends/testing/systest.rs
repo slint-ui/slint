@@ -379,6 +379,13 @@ impl TestingClient {
                 .to_string(),
             accessible_enabled: element.accessible_enabled().unwrap_or_default(),
             accessible_read_only: element.accessible_read_only().unwrap_or_default(),
+            layout_kind: match element.layout_kind().as_ref().map(|s| s.as_str()) {
+                Some("h-box") => proto::LayoutKind::HorizontalBox.into(),
+                Some("v-box") => proto::LayoutKind::VerticalBox.into(),
+                Some("grid") => proto::LayoutKind::Grid.into(),
+                Some("flex-box") => proto::LayoutKind::FlexBox.into(),
+                _ => proto::LayoutKind::NotALayout.into(),
+            },
         })
     }
 

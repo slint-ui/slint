@@ -472,23 +472,23 @@ impl ItemRc {
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
     }
 
-    pub fn element_count(&self) -> Option<usize> {
+    /// Returns the raw element-info string for this item, if debug info is available.
+    fn raw_element_infos(&self) -> Option<SharedString> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
-        comp_ref_pin
-            .as_ref()
-            .item_element_infos(self.index, &mut result)
-            .then(|| result.as_str().split("/").count())
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then(|| result)
+    }
+
+    pub fn element_count(&self) -> Option<usize> {
+        self.raw_element_infos().map(|s| s.as_str().split("/").count())
     }
 
     pub fn element_type_names_and_ids(
         &self,
         element_index: usize,
     ) -> Option<Vec<(SharedString, SharedString)>> {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
-        let mut result = SharedString::new();
-        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then(|| {
-            result
+        self.raw_element_infos().map(|infos| {
+            infos
                 .as_str()
                 .split("/")
                 .nth(element_index)
@@ -501,6 +501,17 @@ impl ItemRc {
                     (type_name, id)
                 })
                 .collect()
+        })
+    }
+
+    pub fn element_layout_kind(&self, element_index: usize) -> Option<SharedString> {
+        self.raw_element_infos().and_then(|infos| {
+            let first_debug_entry =
+                infos.as_str().split("/").nth(element_index)?.split(';').next()?;
+            let mut decoder = first_debug_entry.split(',');
+            let _type_name = decoder.next();
+            let _id = decoder.next();
+            decoder.next().filter(|s| !s.is_empty()).map(|s| SharedString::from(s))
         })
     }
 

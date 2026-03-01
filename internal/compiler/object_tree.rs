@@ -731,13 +731,26 @@ pub struct ElementDebugInfo {
 }
 
 impl ElementDebugInfo {
-    // Returns a comma separate string that encodes the element type name (`Rectangle`, `MyButton`, etc.)
-    // and the qualified id (`SurroundingComponent::my-id`).
+    // Returns a comma separate string that encodes the element type name (`Rectangle`, `MyButton`, etc.),
+    // the qualified id (`SurroundingComponent::my-id`), and optionally the layout kind
+    // (`h-box`, `v-box`, `grid`, `flex-box`).
     fn encoded_element_info(&self) -> String {
         let mut info = self.type_name.clone();
         info.push(',');
         if let Some(id) = self.qualified_id.as_ref() {
             info.push_str(id);
+        }
+        info.push(',');
+        if let Some(layout) = &self.layout {
+            use crate::layout::{Layout, Orientation};
+            match layout {
+                Layout::BoxLayout(b) => match b.orientation {
+                    Orientation::Horizontal => info.push_str("h-box"),
+                    Orientation::Vertical => info.push_str("v-box"),
+                },
+                Layout::GridLayout(_) => info.push_str("grid"),
+                Layout::FlexBoxLayout(_) => info.push_str("flex-box"),
+            }
         }
         info
     }

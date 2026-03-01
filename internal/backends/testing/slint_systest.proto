@@ -81,6 +81,14 @@ message WindowEvent {
 // Copied from enums.rs - can't be auto-generated :(
 // with one difference: None became Unknown, because None doesn't compile.
 // Upside: AccessKit also uses Unknown :)
+enum LayoutKind {
+    NotALayout = 0;
+    HorizontalBox = 1;
+    VerticalBox = 2;
+    Grid = 3;
+    FlexBox = 4;
+}
+
 enum AccessibleRole {
     Unknown = 0;
     Button = 1;
@@ -244,6 +252,7 @@ message ElementPropertiesResponse {
     string accessible_placeholder_text = 14;
     bool accessible_enabled = 15;
     bool accessible_read_only = 16;
+    LayoutKind layout_kind = 17;
 }
 
 message InvokeElementAccessibilityActionResponse {
