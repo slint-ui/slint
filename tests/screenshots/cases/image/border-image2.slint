@@ -16,9 +16,11 @@ export component TestCase inherits Window {
             Image {
                 // The border is bigger than the image
                 source: @image-url("border-image-rect.png", nine-slice(50 2));
+                image-rendering: pixelated;
             }
             Image {
                 source: @image-url("border-image-rect.png", nine-slice(1 0));
+                image-rendering: pixelated;
             }
         }
     }
