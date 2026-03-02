@@ -62,7 +62,7 @@ impl PyComponentsDifference {
             .filter_map(|(name, orig_global)| {
                 let new_glob = new_components.get(name)?;
 
-                let diff = ComponentDifference::compare(&orig_global, &new_glob);
+                let diff = ComponentDifference::compare(orig_global, new_glob);
 
                 diff.map(|diff| ((*name).into(), diff))
             })
@@ -259,7 +259,7 @@ impl PyStructsOrEnumsDifference {
             .filter_map(|(name, orig_struct)| {
                 let new_struct = new_structs.get(name)?;
 
-                let diff = StructDifference::compare(&orig_struct, &new_struct);
+                let diff = StructDifference::compare(orig_struct, new_struct);
 
                 diff.map(|diff| ((*name).into(), diff))
             })
@@ -270,7 +270,7 @@ impl PyStructsOrEnumsDifference {
             .filter_map(|(name, orig_enum)| {
                 let new_enum = new_enums.get(name)?;
 
-                let diff = EnumDifference::compare(&orig_enum, &new_enum);
+                let diff = EnumDifference::compare(orig_enum, new_enum);
 
                 diff.map(|diff| ((*name).into(), diff))
             })

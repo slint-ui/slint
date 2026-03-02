@@ -112,7 +112,7 @@ impl PyComponent {
 
         file.declarations.extend(self.aliases.iter().map(|exported_name| {
             python_ast::Declaration::Variable(Variable {
-                name: ident(&exported_name),
+                name: ident(exported_name),
                 value: self.name.clone(),
             })
         }))
@@ -134,7 +134,7 @@ impl From<&llr::GlobalComponent> for PyComponent {
         Self {
             name: ident(&llr_global.name),
             properties: llr_global.public_properties.iter().map(From::from).collect(),
-            aliases: llr_global.aliases.iter().map(|exported_name| ident(&exported_name)).collect(),
+            aliases: llr_global.aliases.iter().map(|exported_name| ident(exported_name)).collect(),
         }
     }
 }
@@ -162,11 +162,11 @@ impl TryFrom<&Rc<crate::langtype::Struct>> for PyStruct {
             return Err(AnonymousStruct);
         };
         Ok(Self {
-            name: ident(&name),
+            name: ident(name),
             fields: structty
                 .fields
                 .iter()
-                .map(|(name, ty)| PyStructField { name: ident(&name), ty: python_type_name(ty) })
+                .map(|(name, ty)| PyStructField { name: ident(name), ty: python_type_name(ty) })
                 .collect(),
             aliases: Vec::new(),
         })
@@ -190,7 +190,6 @@ impl From<&PyStruct> for python_ast::Declaration {
             positional_parameters: Vec::default(),
             keyword_parameters: py_fields
                 .iter()
-                .cloned()
                 .map(|field| {
                     let mut kw_field = field.clone();
                     kw_field.ty.as_mut().unwrap().optional = true;
@@ -242,7 +241,7 @@ impl From<&Rc<crate::langtype::Enumeration>> for PyEnum {
             variants: enumty
                 .values
                 .iter()
-                .map(|val| PyEnumVariant { name: ident(&val), strvalue: val.clone() })
+                .map(|val| PyEnumVariant { name: ident(val), strvalue: val.clone() })
                 .collect(),
             aliases: Vec::new(),
         }
@@ -352,13 +351,13 @@ pub fn generate_py_module(
             }
             Either::Right(ty) => match &ty {
                 Type::Struct(s) if s.node().is_some() => {
-                    if let StructName::User { name: orig_name, .. } = &s.name {
-                        if export.0.name != *orig_name {
-                            struct_aliases
-                                .entry(orig_name.clone())
-                                .or_default()
-                                .push(export.0.name.clone());
-                        }
+                    if let StructName::User { name: orig_name, .. } = &s.name
+                        && export.0.name != *orig_name
+                    {
+                        struct_aliases
+                            .entry(orig_name.clone())
+                            .or_default()
+                            .push(export.0.name.clone());
                     }
                 }
                 Type::Enumeration(en) => {
@@ -681,8 +680,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
             StructName::User { name, .. } => ident(name),
             StructName::BuiltinPrivate(_) => SmolStr::new_static("None"),
             StructName::BuiltinPublic(_) | StructName::None => {
-                let tuple_types =
-                    s.fields.values().map(|ty| python_type_name(ty)).collect::<Vec<_>>();
+                let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }
         },
@@ -696,11 +694,11 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Callback(function) | Type::Function(function) => {
             format_smolstr!(
                 "typing.Callable[[{}], {}]",
-                function.args.iter().map(|arg_ty| python_type_name(arg_ty)).join(", "),
+                function.args.iter().map(python_type_name).join(", "),
                 python_type_name(&function.return_type)
             )
         }
         Type::KeyboardShortcutType => SmolStr::new_static("str"),
-        ty @ _ => unimplemented!("implemented type conversion {:#?}", ty),
+        ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }
