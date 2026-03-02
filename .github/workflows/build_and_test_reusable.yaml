@@ -123,14 +123,14 @@ jobs:
               shell: bash
             - name: Upload build timing report
               if: always()
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}
                   path: target/cargo-timings/cargo-timing.html
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: screenshots-${{ inputs.os }}
                   path: |
