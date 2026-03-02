@@ -16,8 +16,8 @@ catalogs:
       specifier: 2.4.4
       version: 2.4.4
     '@expressive-code/plugin-line-numbers':
-      specifier: 0.41.6
-      version: 0.41.6
+      specifier: 0.41.7
+      version: 0.41.7
     '@playwright/test':
       specifier: 1.58.2
       version: 1.58.2
@@ -119,7 +119,7 @@ importers:
         version: 0.37.6(astro@5.18.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))
       '@expressive-code/plugin-line-numbers':
         specifier: 'catalog:'
-        version: 0.41.6
+        version: 0.41.7
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -166,8 +166,8 @@ importers:
         specifier: 11.3.3
         version: 11.3.3
       simple-git:
-        specifier: 3.32.2
-        version: 3.32.2
+        specifier: 3.32.3
+        version: 3.32.3
       vscode-languageclient:
         specifier: 9.0.1
         version: 9.0.1
@@ -401,7 +401,7 @@ importers:
         version: 1.0.0-beta.8(astro@5.18.0(@types/node@20.16.10)(jiti@2.4.2)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))
       '@expressive-code/plugin-line-numbers':
         specifier: 'catalog:'
-        version: 0.41.6
+        version: 0.41.7
       '@fontsource-variable/inter':
         specifier: 5.2.8
         version: 5.2.8
@@ -452,14 +452,14 @@ importers:
         specifier: 'catalog:'
         version: 2.4.4
       '@expressive-code/core':
-        specifier: 0.41.6
-        version: 0.41.6
+        specifier: 0.41.7
+        version: 0.41.7
       '@iconify-json/flat-color-icons':
         specifier: 1.2.3
         version: 1.2.3
       '@iconify-json/tabler':
-        specifier: 1.2.27
-        version: 1.2.27
+        specifier: 1.2.28
+        version: 1.2.28
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.58.2
@@ -1490,17 +1490,14 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@expressive-code/core@0.41.6':
-    resolution: {integrity: sha512-FvJQP+hG0jWi/FLBSmvHInDqWR7jNANp9PUDjdMqSshHb0y7sxx3vHuoOr6SgXjWw+MGLqorZyPQ0aAlHEok6g==}
-
   '@expressive-code/core@0.41.7':
     resolution: {integrity: sha512-ck92uZYZ9Wba2zxkiZLsZGi9N54pMSAVdrI9uW3Oo9AtLglD5RmrdTwbYPCT2S/jC36JGB2i+pnQtBm/Ib2+dg==}
 
   '@expressive-code/plugin-frames@0.41.7':
     resolution: {integrity: sha512-diKtxjQw/979cTglRFaMCY/sR6hWF0kSMg8jsKLXaZBSfGS0I/Hoe7Qds3vVEgeoW+GHHQzMcwvgx/MOIXhrTA==}
 
-  '@expressive-code/plugin-line-numbers@0.41.6':
-    resolution: {integrity: sha512-YS8oLrGNBjY8qVVl6ZntwPXIh5HGrLEq23R6eyJ0tCJQmq03tCOOiWw9cc2R3J/XobXAI7coAtVbqAiGFB8pXQ==}
+  '@expressive-code/plugin-line-numbers@0.41.7':
+    resolution: {integrity: sha512-wI9D5NBcgE9ksiJJV8YfOC0RPI3283+9AYWIb8pBUM5TSM8msIs1YRPDt8c8Ub0XGQvbjJKtB+f9fAl2RiHJ2A==}
 
   '@expressive-code/plugin-shiki@0.41.7':
     resolution: {integrity: sha512-DL605bLrUOgqTdZ0Ot5MlTaWzppRkzzqzeGEu7ODnHF39IkEBbFdsC7pbl3LbUQ1DFtnfx6rD54k/cdofbW6KQ==}
@@ -1535,8 +1532,8 @@ packages:
   '@iconify-json/flat-color-icons@1.2.3':
     resolution: {integrity: sha512-KcmJ7CY0TKFv5GuBjiS4/v++jEcNXna1jfY+yq014tnw/MN/jMI2oYpoMHGuIpYtUqDu7eove+WySnOYO8nS3w==}
 
-  '@iconify-json/tabler@1.2.27':
-    resolution: {integrity: sha512-ZpPD83YxRepw0uxEbDNJqRlSFRiek9TPaKvQ/62FrqfyCmgPidR3Q9uM5Mzb1miQC36BlLFhmadoKtpzQkoAUQ==}
+  '@iconify-json/tabler@1.2.28':
+    resolution: {integrity: sha512-HKF7K9Ba67GdB2b2tYWF1DS2Ydpxmo1Fsda7bQRwKUPYOiYM99F7rgJp6BN7TFQiRmCaxilfro6FQeCMSjuV1g==}
 
   '@iconify/tools@4.2.0':
     resolution: {integrity: sha512-WRxPva/ipxYkqZd1+CkEAQmd86dQmrwH0vwK89gmp2Kh2WyyVw57XbPng0NehP3x4V1LzLsXUneP1uMfTMZmUA==}
@@ -5301,8 +5298,8 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  simple-git@3.32.2:
-    resolution: {integrity: sha512-n/jhNmvYh8dwyfR6idSfpXrFazuyd57jwNMzgjGnKZV/1lTh0HKvPq20v4AQ62rP+l19bWjjXPTCdGHMt0AdrQ==}
+  simple-git@3.32.3:
+    resolution: {integrity: sha512-56a5oxFdWlsGygOXHWrG+xjj5w9ZIt2uQbzqiIGdR/6i5iococ7WQ/bNPzWxCJdEUGUCmyMH0t9zMpRJTaKxmw==}
 
   simple-xml-to-json@1.2.3:
     resolution: {integrity: sha512-kWJDCr9EWtZ+/EYYM5MareWj2cRnZGF93YDNpH4jQiHB+hBIZnfPFSQiVMzZOdk+zXWqTZ/9fTeQNu2DqeiudA==}
@@ -7207,18 +7204,6 @@ snapshots:
   '@esbuild/win32-x64@0.27.3':
     optional: true
 
-  '@expressive-code/core@0.41.6':
-    dependencies:
-      '@ctrl/tinycolor': 4.2.0
-      hast-util-select: 6.0.4
-      hast-util-to-html: 9.0.5
-      hast-util-to-text: 4.0.2
-      hastscript: 9.0.1
-      postcss: 8.5.6
-      postcss-nested: 6.2.0(postcss@8.5.6)
-      unist-util-visit: 5.1.0
-      unist-util-visit-parents: 6.0.2
-
   '@expressive-code/core@0.41.7':
     dependencies:
       '@ctrl/tinycolor': 4.2.0
@@ -7235,9 +7220,9 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.41.7
 
-  '@expressive-code/plugin-line-numbers@0.41.6':
+  '@expressive-code/plugin-line-numbers@0.41.7':
     dependencies:
-      '@expressive-code/core': 0.41.6
+      '@expressive-code/core': 0.41.7
 
   '@expressive-code/plugin-shiki@0.41.7':
     dependencies:
@@ -7281,7 +7266,7 @@ snapshots:
     dependencies:
       '@iconify/types': 2.0.0
 
-  '@iconify-json/tabler@1.2.27':
+  '@iconify-json/tabler@1.2.28':
     dependencies:
       '@iconify/types': 2.0.0
 
@@ -11979,7 +11964,7 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-git@3.32.2:
+  simple-git@3.32.3:
     dependencies:
       '@kwsites/file-exists': 1.1.1
       '@kwsites/promise-deferred': 1.1.1
