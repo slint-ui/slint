@@ -222,6 +222,40 @@ mock_elapsed_time(500);
 assert_eq!(instance.get_current_index(), 0);
 assert_eq!(instance.get_current_value(), &SharedString::from("A"));
 assert_eq!(combobox.accessible_value(), Some(SharedString::from("A")));
+
+// Model replacement preserves current-index when it's still valid in the new model
+instance.set_current_index(1);
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_current_value(), &SharedString::from("B"));
+
+// Replace with a 3-item model - index 1 is still valid, so it must be preserved (not reset to 0)
+instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("X"), SharedString::from("Y"), SharedString::from("Z")])).into());
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_current_value(), &SharedString::from("Y"));
+assert_eq!(combobox.accessible_value(), Some(SharedString::from("Y")));
+
+// Select the last index and replace with a two-item model - index 2 is not valid anymore, so it should be clamped to 1
+instance.set_current_index(2);
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_current_value(), &SharedString::from("Z"));
+assert_eq!(combobox.accessible_value(), Some(SharedString::from("Z")));
+
+instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("X"), SharedString::from("Y")])).into());
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_current_value(), &SharedString::from("Y"));
+assert_eq!(combobox.accessible_value(), Some(SharedString::from("Y")));
+
+// Set an empty model, this should reset the current-index to 0 and current-value to ""
+instance.set_model(Rc::new(VecModel::default()).into());
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_current_value(), &SharedString::from(""));
+assert_eq!(combobox.accessible_value(), Some(SharedString::from("")));
+
 ```
 
 */

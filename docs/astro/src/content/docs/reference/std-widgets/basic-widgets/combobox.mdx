@@ -28,8 +28,8 @@ A button that, when clicked, opens a popup to select a value.
 ## Properties
 
 ### current-index
-<SlintProperty propName="current-index" typeName="int" defaultValue="-1" propertyVisibility="in-out">
-The index of the selected value (-1 if no value is selected)
+<SlintProperty propName="current-index" typeName="int" defaultValue="0" propertyVisibility="in-out">
+The index of the selected value.
 ```slint "current-index: 1;"
 ComboBox {
     model: ["first", "second", "third"];
@@ -61,6 +61,12 @@ ComboBox {
     model: ["first", "second", "third"];
 }
 ```
+
+:::note[Note]
+When setting this property, the `ComboBox` will try to preserve the `current-index`.
+If the `current-index` is larger than the new model length, it is set to the last item in the model.
+:::
+
 </SlintProperty>
 
 
