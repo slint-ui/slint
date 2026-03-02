@@ -375,7 +375,7 @@ impl JavaHelper {
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
                 }
                 InputType::Number => AndroidInputType::TYPE_CLASS_NUMBER(env)?,
-                InputType::Decimal => {
+                InputType::Decimal | InputType::DecimalLocalized => {
                     AndroidInputType::TYPE_CLASS_NUMBER(env)?
                         | AndroidInputType::TYPE_NUMBER_FLAG_DECIMAL(env)?
                 }
