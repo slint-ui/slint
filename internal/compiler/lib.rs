@@ -235,10 +235,7 @@ impl CompilerConfiguration {
             #[cfg(feature = "cpp")]
             OutputFormat::Cpp(config) => match config.namespace {
                 Some(namespace) => Some(namespace),
-                None => match std::env::var("SLINT_CPP_NAMESPACE") {
-                    Ok(namespace) => Some(namespace),
-                    Err(_) => None,
-                },
+                None => std::env::var("SLINT_CPP_NAMESPACE").ok(),
             },
             _ => None,
         };
