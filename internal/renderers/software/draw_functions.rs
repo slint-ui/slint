@@ -965,6 +965,86 @@ impl From<Rgb565Pixel> for Rgb8Pixel {
     }
 }
 
+/// A 16bit RGB565 pixel stored in big-endian byte order.
+///
+/// On a little-endian CPU the internal u16 holds `GGGBBBBB_RRRRRGGG`,
+/// so that the memory representation is `[RRRRRGGG, GGGBBBBB]` — the
+/// format expected by most SPI display controllers (ILI9341, ILI9342C,
+/// ST7789, etc.) without any post-render byte swapping.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Rgb565PixelBE(pub u16);
+
+impl Rgb565PixelBE {
+    /// Return the red component as a u8.
+    ///
+    /// The bits are shifted so that the result is between 0 and 255
+    fn red(self) -> u8 {
+        (self.0 & 0x00F8) as u8
+    }
+    /// Return the green component as a u8.
+    ///
+    /// The bits are shifted so that the result is between 0 and 255
+    fn green(self) -> u8 {
+        // G high 3 bits at u16 bits 2-0, G low 3 bits at u16 bits 15-13
+        (((self.0 & 0x0007) << 5) | ((self.0 >> 11) & 0x1C)) as u8
+    }
+    /// Return the blue component as a u8.
+    ///
+    /// The bits are shifted so that the result is between 0 and 255
+    fn blue(self) -> u8 {
+        ((self.0 >> 5) & 0xF8) as u8
+    }
+}
+
+impl TargetPixel for Rgb565PixelBE {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        let a = (u8::MAX - color.alpha) as u32;
+        // convert to 5 bits
+        let a = (a + 4) >> 3;
+
+        // Expand into the same u32 layout as Rgb565Pixel::blend:
+        // 00000ggg_ggg00000_rrrrr000_000bbbbb
+        let rb = ((self.0 & 0x00F8) as u32) << 8 | ((self.0 >> 8) & 0x1F) as u32;
+        let g = (((self.0 & 0x0007) << 3) | ((self.0 >> 13) & 0x07)) as u32;
+        let expanded = rb | (g << 21);
+
+        // Identical premultiplied color positioning
+        let c =
+            ((color.red as u32) << 13) | ((color.green as u32) << 24) | ((color.blue as u32) << 2);
+        let c = c & 0b11111100_00011111_00000011_11100000;
+
+        let res = expanded * a + c;
+
+        // Extract 5/6/5 values and pack directly into BE layout
+        let r5 = ((res >> 16) & 0x1F) as u16;
+        let g6 = ((res >> 26) & 0x3F) as u16;
+        let b5 = ((res >> 5) & 0x1F) as u16;
+        self.0 = ((g6 & 0x07) << 13) | (b5 << 8) | (r5 << 3) | (g6 >> 3);
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self(
+            ((g as u16 & 0x1C) << 11) // G low 3 bits → bits 15-13
+            | ((b as u16 & 0xF8) << 5) // B → bits 12-8
+            | (r as u16 & 0xF8) // R → bits 7-3
+            | ((g as u16) >> 5), // G high 3 bits → bits 2-0
+        )
+    }
+}
+
+impl From<Rgb8Pixel> for Rgb565PixelBE {
+    fn from(p: Rgb8Pixel) -> Self {
+        Self::from_rgb(p.r, p.g, p.b)
+    }
+}
+
+impl From<Rgb565PixelBE> for Rgb8Pixel {
+    fn from(p: Rgb565PixelBE) -> Self {
+        Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
+    }
+}
+
 #[test]
 fn rgb565() {
     let pix565 = Rgb565Pixel::from_rgb(0xff, 0x25, 0);
@@ -974,4 +1054,44 @@ fn rgb565() {
     let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
     let pix888: Rgb8Pixel = pix565.into();
     assert_eq!(pix565, pix888.into());
+}
+
+#[test]
+fn rgb565_be() {
+    // BE should be byte-swapped LE for any color
+    for &(r, g, b) in &[(0xff, 0x25, 0u8), (0x56, 0x42, 0xe3), (0, 0xff, 0), (0, 0, 0xff)] {
+        let le = Rgb565Pixel::from_rgb(r, g, b);
+        let be = Rgb565PixelBE::from_rgb(r, g, b);
+        assert_eq!(le.0.swap_bytes(), be.0, "mismatch for ({r}, {g}, {b})");
+    }
+
+    // Round-trip through Rgb8Pixel
+    let pix_be = Rgb565PixelBE::from_rgb(0xff, 0x25, 0);
+    let pix888: Rgb8Pixel = pix_be.into();
+    assert_eq!(pix_be, pix888.into());
+
+    let pix_be = Rgb565PixelBE::from_rgb(0x56, 0x42, 0xe3);
+    let pix888: Rgb8Pixel = pix_be.into();
+    assert_eq!(pix_be, pix888.into());
+}
+
+#[test]
+fn rgb565_be_blend() {
+    // Blending a BE pixel should produce the same visual result as LE
+    let color = PremultipliedRgbaColor { red: 127, green: 0, blue: 0, alpha: 127 };
+
+    let mut le = Rgb565Pixel::from_rgb(0, 0, 255);
+    le.blend(color);
+    let mut be = Rgb565PixelBE::from_rgb(0, 0, 255);
+    be.blend(color);
+    assert_eq!(le.0.swap_bytes(), be.0);
+
+    // Blend with green over a white background
+    let color = PremultipliedRgbaColor { red: 0, green: 200, blue: 0, alpha: 200 };
+
+    let mut le = Rgb565Pixel::from_rgb(255, 255, 255);
+    le.blend(color);
+    let mut be = Rgb565PixelBE::from_rgb(255, 255, 255);
+    be.blend(color);
+    assert_eq!(le.0.swap_bytes(), be.0);
 }

@@ -19,7 +19,7 @@ use embassy_rp::spi::Spi;
 use embassy_time::Delay;
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
-use slint::platform::software_renderer::{self as renderer, Rgb565Pixel, SoftwareRenderer};
+use slint::platform::software_renderer::{self as renderer, Rgb565PixelBE, SoftwareRenderer};
 use slint::platform::{PointerEventButton, WindowEvent};
 
 use crate::embassy::{EmbassyBackend, PlatformBackend};
@@ -34,7 +34,7 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 static ALLOCATOR: Heap = Heap::empty();
 
 /// The Pixel type of the backing store
-pub type TargetPixel = Rgb565Pixel;
+pub type TargetPixel = Rgb565PixelBE;
 
 /// Raw UART0 writer for defmt_serial.
 /// Embassy-rp 0.4.0 implements embedded_io 0.6, but defmt_serial 0.11.0 requires 0.7.
@@ -142,9 +142,9 @@ pub fn init() {
 
     // --- Line buffers (double-buffered for DMA) ---
     let line_buffer_a =
-        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].into_boxed_slice();
+        vec![Rgb565PixelBE::default(); DISPLAY_SIZE.width as usize].into_boxed_slice();
     let line_buffer_b =
-        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as usize].into_boxed_slice();
+        vec![Rgb565PixelBE::default(); DISPLAY_SIZE.width as usize].into_boxed_slice();
 
     let pico_backend = PicoEmbassyBackend {
         display,
@@ -178,8 +178,8 @@ struct PicoEmbassyBackend {
         embassy_rp::i2c::I2c<'static, embassy_rp::peripherals::I2C1, embassy_rp::i2c::Blocking>,
     >,
     last_touch: Option<slint::LogicalPosition>,
-    line_buffer_a: Box<[Rgb565Pixel]>,
-    line_buffer_b: Box<[Rgb565Pixel]>,
+    line_buffer_a: Box<[Rgb565PixelBE]>,
+    line_buffer_b: Box<[Rgb565PixelBE]>,
     tp_int: Input<'static>,
 }
 
@@ -297,8 +297,8 @@ fn dc_high() {
 
 struct DmaLineBufferProvider<'a> {
     display: &'a mut Display,
-    buffer: &'a mut [Rgb565Pixel],
-    dma_buffer: &'a mut [Rgb565Pixel],
+    buffer: &'a mut [Rgb565PixelBE],
+    dma_buffer: &'a mut [Rgb565PixelBE],
     dma_busy: bool,
 }
 
@@ -315,33 +315,28 @@ impl DmaLineBufferProvider<'_> {
 }
 
 impl renderer::LineBufferProvider for &mut DmaLineBufferProvider<'_> {
-    type TargetPixel = Rgb565Pixel;
+    type TargetPixel = Rgb565PixelBE;
 
     fn process_line(
         &mut self,
         line: usize,
         range: core::ops::Range<usize>,
-        render_fn: impl FnOnce(&mut [Rgb565Pixel]),
+        render_fn: impl FnOnce(&mut [Rgb565PixelBE]),
     ) {
         // 1. Render pixels into CPU buffer
         render_fn(&mut self.buffer[range.clone()]);
 
-        // 2. Byte-swap LE→BE for ST7789
-        for x in &mut self.buffer[range.clone()] {
-            *x = Rgb565Pixel(x.0.to_be());
-        }
-
-        // 3. If DMA is busy from previous line, wait for it
+        // 2. If DMA is busy from previous line, wait for it
         if self.dma_busy {
             wait_dma();
             flush_spi1();
             cs_high();
         }
 
-        // 4. Swap buffers — CPU-rendered data moves to DMA buffer
+        // 3. Swap buffers — CPU-rendered data moves to DMA buffer
         core::mem::swap(&mut self.buffer, &mut self.dma_buffer);
 
-        // 5. Send window command via mipidsi (empty pixel iterator = command only)
+        // 4. Send window command via mipidsi (empty pixel iterator = command only)
         self.display
             .set_pixels(
                 range.start as u16,
@@ -352,10 +347,10 @@ impl renderer::LineBufferProvider for &mut DmaLineBufferProvider<'_> {
             )
             .unwrap();
 
-        // 6. Assert CS, set DC=data, start DMA from dma_buffer
+        // 5. Assert CS, set DC=data, start DMA from dma_buffer
         cs_low();
         dc_high();
-        let byte_count = range.len() * core::mem::size_of::<Rgb565Pixel>();
+        let byte_count = range.len() * core::mem::size_of::<Rgb565PixelBE>();
         let src = self.dma_buffer[range.start..range.end].as_ptr() as *const u8;
         start_dma_to_spi1(src, byte_count);
         self.dma_busy = true;

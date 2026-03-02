@@ -22,7 +22,7 @@ use hal::timer::{Alarm, Alarm0};
 use pac::interrupt;
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
-use renderer::Rgb565Pixel;
+use renderer::Rgb565PixelBE;
 
 mod rp_pico2;
 use rp_pico2::hal::{self, Timer, pac, prelude::*, timer::CopyableTimer0};
@@ -46,7 +46,7 @@ const SPI_ST7789VW_MAX_FREQ: Hertz<u32> = Hertz::<u32>::Hz(62_500_000);
 const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 
 /// The Pixel type of the backing store
-pub type TargetPixel = Rgb565Pixel;
+pub type TargetPixel = Rgb565PixelBE;
 
 type SpiPins = (
     gpio::Pin<gpio::bank0::Gpio11, gpio::FunctionSpi, gpio::PullDown>,
@@ -185,12 +185,12 @@ pub fn init() {
     let dma = pac.DMA.split(&mut pac.RESETS);
     let pio = PioTransfer::Idle(
         dma.ch0,
-        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
+        vec![Rgb565PixelBE::default(); DISPLAY_SIZE.width as _].leak(),
         stolen_spi,
     );
     let buffer_provider = DrawBuffer {
         display,
-        buffer: vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
+        buffer: vec![Rgb565PixelBE::default(); DISPLAY_SIZE.width as _].leak(),
         pio: Some(pio),
         stolen_pin: (dc_copy, cs_copy),
     };
@@ -396,10 +396,6 @@ impl<
         );
         return;*/
 
-        // convert from little to big endian before sending to the DMA channel
-        for x in &mut self.buffer[range.clone()] {
-            *x = Rgb565Pixel(x.0.to_be())
-        }
         let (ch, mut b, spi) = self.pio.take().unwrap().wait();
         core::mem::swap(&mut self.buffer, &mut b);
 
@@ -446,13 +442,13 @@ impl<
     }
 }
 
-struct PartialReadBuffer(&'static mut [Rgb565Pixel], core::ops::Range<usize>);
+struct PartialReadBuffer(&'static mut [Rgb565PixelBE], core::ops::Range<usize>);
 unsafe impl embedded_dma::ReadBuffer for PartialReadBuffer {
     type Word = u8;
 
     unsafe fn read_buffer(&self) -> (*const <Self as embedded_dma::ReadBuffer>::Word, usize) {
         let act_slice = &self.0[self.1.clone()];
-        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565Pixel>())
+        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565PixelBE>())
     }
 }
 
