@@ -9,25 +9,22 @@
 //! matches on `BuiltinPublicStruct` variants, and generates NamedTuple classes
 //! with the original doc comments. Private structs are skipped.
 
+use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
-use std::fmt::Write;
+use pyo3::types::{PyDict, PyTuple};
 
-fn map_type_to_python(ty: &str) -> (&'static str, &'static str) {
+fn get_default_value<'py>(py: Python<'py>, ty: &str) -> PyResult<Bound<'py, PyAny>> {
     match ty {
-        "bool" => ("bool", "False"),
-        "SharedString" => ("str", "\"\""),
-        "i32" => ("int", "0"),
-        "f32" | "Coord" => ("float", "0.0"),
-        _ => ("typing.Any", "None"),
+        "bool" => false.into_bound_py_any(py),
+        "SharedString" => "".into_bound_py_any(py),
+        "i32" => 0_i32.into_bound_py_any(py),
+        "f32" | "Coord" => 0.0_f32.into_bound_py_any(py),
+        _ => Ok(py.None().into_bound(py)),
     }
 }
 
 /// Dynamically creates a Python `typing.NamedTuple` class and registers it
 /// in the `slint.language` submodule.
-///
-/// This works by generating Python source code for the class, compiling it
-/// via `PyModule::from_code`, and then moving the resulting class object
-/// into the `slint.language` submodule.
 fn register_named_tuple(
     py: Python<'_>,
     m: &Bound<'_, PyModule>,
@@ -35,51 +32,30 @@ fn register_named_tuple(
     class_doc: &str,
     fields: &[(&str, &str, String)], // name, rust_type, doc
 ) -> PyResult<()> {
-    // Phase 1: Build Python source code for the NamedTuple class.
-    // Each field gets a type annotation and a default value, plus an optional docstring.
-    let mut fields_code = String::new();
+    let collections = py.import("collections")?;
+    let namedtuple = collections.getattr("namedtuple")?;
+
+    let mut field_names = Vec::new();
+    let mut defaults = Vec::new();
+    let mut full_doc = class_doc.to_string();
+
     for (name, rust_ty, doc) in fields {
-        let (py_ty, default) = map_type_to_python(rust_ty);
-        let _ = writeln!(fields_code, "    {name}: {py_ty} = {default}");
+        field_names.push(*name);
+        defaults.push(get_default_value(py, rust_ty)?);
         if !doc.is_empty() {
-            fields_code.push_str("    \"\"\"\n");
-            for line in doc.lines() {
-                let _ = writeln!(fields_code, "    {line}");
-            }
-            fields_code.push_str("    \"\"\"\n");
+            use std::fmt::Write;
+            let _ = write!(full_doc, "\n\n:param {name}: {doc}");
         }
     }
 
-    let code = format!(
-        r#"
-import typing
-class {class_name}(typing.NamedTuple):
-    """
-    {class_doc}
-    """
-{fields_code}
-"#
-    );
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("defaults", PyTuple::new(py, defaults)?)?;
+    kwargs.set_item("module", "slint.language")?;
 
-    // Phase 2: Compile the generated source into a temporary Python module
-    // and extract the class object from it.
-    let to_cstring = |s: String| {
-        std::ffi::CString::new(s)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    };
+    let class = namedtuple.call((class_name, field_names), Some(&kwargs))?;
+    class.setattr("__doc__", full_doc)?;
 
-    let temp_module = PyModule::from_code(
-        py,
-        &to_cstring(code)?,
-        &to_cstring(format!("{class_name}.py"))?,
-        &to_cstring(class_name.to_string())?,
-    )?;
-    let class = temp_module.getattr(class_name)?;
-
-    // Set the module path so repr/pickle/introspection report "slint.language"
-    class.setattr("__module__", "slint.language")?;
-
-    // Phase 3: Register the class in the "slint.language" submodule.
+    // Register the class in the "slint.language" submodule.
     // The submodule is created lazily on the first call and reused for subsequent structs.
     let language_mod = match m.getattr("language") {
         Ok(existing) => existing.cast_into::<PyModule>()?,
