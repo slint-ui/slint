@@ -123,6 +123,11 @@ impl SlintContext {
         None
     }
 
+    /// Returns the locale's decimal separator, falling back to `'.'`.
+    pub fn locale_decimal_separator(&self) -> char {
+        self.0.locale_decimal_separator.get().unwrap_or('.')
+    }
+
     /// Override the locale used for decimal separator detection (testing only).
     #[cfg(feature = "std")]
     pub fn set_locale(&self, locale: &str) {

@@ -1370,6 +1370,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 corelib::items::InputType::Text
                 | corelib::items::InputType::Number
                 | corelib::items::InputType::Decimal
+                | corelib::items::InputType::DecimalLocalized
                 | _ => winit::window::ImePurpose::Normal,
             });
             winit_window.set_ime_cursor_area(
