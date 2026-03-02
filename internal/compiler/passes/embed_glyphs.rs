@@ -92,7 +92,7 @@ pub fn embed_glyphs<'a>(
 
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
-            match std::fs::read(&font_path) {
+            match std::fs::read(font_path) {
                 Err(e) => {
                     diag.push_error(format!("Error loading font: {e}"), import_token);
                 }
@@ -248,8 +248,8 @@ pub fn embed_glyphs<'a>(
     };
 
     for (path, font) in default_fonts.iter() {
-        custom_fonts.remove(&path.to_owned());
-        embed_font_by_path(&path, &font);
+        custom_fonts.remove(path);
+        embed_font_by_path(path, font);
     }
 
     for (path, font) in custom_fonts {
@@ -348,7 +348,7 @@ fn embed_alpha_map_glyphs(
             RefCell::new(swash::scale::ScaleContext::new());
     }
 
-    let glyphs = pixel_sizes
+    pixel_sizes
         .par_iter()
         .map(|pixel_size| {
             let glyph_data = character_map
@@ -405,8 +405,7 @@ fn embed_alpha_map_glyphs(
 
             BitmapGlyphs { pixel_size: *pixel_size, glyph_data }
         })
-        .collect();
-    glyphs
+        .collect()
 }
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "sdf-fonts"))]
