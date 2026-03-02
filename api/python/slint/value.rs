@@ -353,6 +353,11 @@ impl TypeCollection {
                                     "Object is not a dict or NamedTuple",
                                 ));
                             }
+                            if !ob.hasattr(pyo3::intern!(ob.py(), "_fields"))? {
+                                return Err(pyo3::exceptions::PyTypeError::new_err(
+                                    "Tuple is not a NamedTuple (missing _fields)",
+                                ));
+                            }
                             let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
                             asdict.cast::<PyDict>().cloned().map_err(|e| e.into())
                         },
