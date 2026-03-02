@@ -493,7 +493,7 @@ type EvaluationContext<'a> = llr_EvaluationContext<'a, CppGeneratorContext<'a>>;
 impl CppType for StructName {
     fn cpp_type(&self) -> Option<SmolStr> {
         match self {
-            StructName::None => return None,
+            StructName::None => None,
             StructName::User { name, .. } => Some(ident(name)),
             StructName::BuiltinPrivate(builtin_private) => builtin_private.cpp_type(),
             StructName::BuiltinPublic(builtin_public) => builtin_public.cpp_type(),
@@ -898,7 +898,7 @@ pub fn generate(
 
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
         use std::io::Write;
-        let mut cpp_writer = BufWriter::new(std::fs::File::create(&cpp_file_name)?);
+        let mut cpp_writer = BufWriter::new(std::fs::File::create(cpp_file_name)?);
         write!(&mut cpp_writer, "{cpp_file}")?;
         cpp_writer.flush()?;
     }
@@ -1104,7 +1104,7 @@ fn embed_resource(
                     init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
                         format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::private_api::make_slice({}, {}) }}",
                         glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance,
-                        format!("slint_embedded_resource_{}_gs_{}_gd_{}", resource.id, glyphset_index, glyph_index),
+                        format_args!("slint_embedded_resource_{}_gs_{}_gd_{}", resource.id, glyphset_index, glyph_index),
                         glyph.data.len()
                     )
                     }).join(", \n"))),
@@ -1126,7 +1126,7 @@ fn embed_resource(
                         .enumerate()
                         .map(|(glyphset_index, glyphset)| format!(
                             "{{ .pixel_size = {}, .glyph_data = slint::private_api::make_slice({}, {}) }}",
-                            glyphset.pixel_size, format!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index), glyphset.glyph_data.len()
+                            glyphset.pixel_size, format_args!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index), glyphset.glyph_data.len()
                         ))
                         .join(", \n")
                 )),
@@ -1559,8 +1559,8 @@ fn generate_item_tree(
     ));
 
     let parent_item_from_parent_component = parent_ctx.as_ref()
-        .and_then(|parent| {
-            Some(parent.repeater_index.map_or_else(|| {
+        .map(|parent| {
+            parent.repeater_index.map_or_else(|| {
                 // No repeater index, this could be a PopupWindow
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
@@ -1576,7 +1576,7 @@ fn generate_item_tree(
                     format!("auto parent = self->parent.lock().value();"),
                     format!("*result = {{ parent->self_weak, parent->tree_index_of_first_child + {} }};", parent_index - 1),
                 ]
-            }))
+            })
         })
         .unwrap_or_default();
     target_struct.members.push((
@@ -2131,7 +2131,7 @@ fn generate_sub_component(
 
     for (prop1, prop2, fields) in &component.two_way_bindings {
         if fields.is_empty() {
-            let ty = ctx.property_ty(&prop1).cpp_type().unwrap();
+            let ty = ctx.property_ty(prop1).cpp_type().unwrap();
             let p1 = access_member(prop1, &ctx).unwrap();
             init.push(
                 access_member(prop2, &ctx).then(|p2| {
@@ -2140,13 +2140,13 @@ fn generate_sub_component(
             );
         } else {
             let mut access = "x".to_string();
-            let mut ty = ctx.property_ty(&prop2);
+            let mut ty = ctx.property_ty(prop2);
             let cpp_ty = ty.cpp_type().unwrap();
             for f in fields {
                 let Type::Struct(s) = &ty else {
                     panic!("Field of two way binding on a non-struct type")
                 };
-                access = struct_field_access(access, &s, f);
+                access = struct_field_access(access, s, f);
                 ty = s.fields.get(f).unwrap();
             }
 
@@ -2263,7 +2263,7 @@ fn generate_sub_component(
 
     user_init.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
         let code = compile_expression(&e.borrow(), &ctx);
-        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone().into()), &ctx);
+        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
         format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
     }));
 
@@ -3219,7 +3219,7 @@ impl MemberAccess {
     /// Used for code that is meant to return `()`
     fn then(&self, f: impl FnOnce(&str) -> String) -> String {
         match self {
-            MemberAccess::Direct(t) => f(&t),
+            MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 format!("slint::private_api::optional_then({t}, [&](auto&&x) {{ {}; }})", f("x"))
             }
@@ -3234,7 +3234,7 @@ impl MemberAccess {
 
     fn map_or_default(&self, f: impl FnOnce(&str) -> String) -> String {
         match self {
-            MemberAccess::Direct(t) => f(&t),
+            MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 format!(
                     "slint::private_api::optional_or_default(slint::private_api::optional_transform({t}, [&](auto&&x) {{ return {}; }}))",
@@ -3252,7 +3252,7 @@ impl MemberAccess {
 
     fn and_then(&self, f: impl Fn(&str) -> String) -> MemberAccess {
         match self {
-            MemberAccess::Direct(t) => MemberAccess::Option(f(&t)),
+            MemberAccess::Direct(t) => MemberAccess::Option(f(t)),
             MemberAccess::Option(t) => MemberAccess::Option(format!(
                 "slint::private_api::optional_and_then({t}, [&](auto&&x) {{ return {}; }})",
                 f("x")
@@ -3376,7 +3376,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let function_name = format!(
                 "slint_{}_{}",
                 native.class_name.to_lowercase(),
-                ident(&name).to_lowercase()
+                ident(name).to_lowercase()
             );
             if expr.ty(ctx) == Type::Void {
                 item.then(|item| {
