@@ -16,11 +16,6 @@ use crate::langtype::{
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
-use crate::object_tree::interfaces::{
-    apply_interface_callbacks, apply_interface_default_property_values, apply_interface_properties,
-    apply_uses_statement, get_implemented_interface,
-    validate_function_implementations_for_interface,
-};
 use crate::parser;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -475,7 +470,7 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
-        apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
+        interfaces::apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
         c
     }
 
@@ -1242,8 +1237,8 @@ impl Element {
             }
         }
 
-        let implemented_interface = get_implemented_interface(&r, &node, tr, diag);
-        apply_interface_properties(&mut r, &implemented_interface, diag);
+        let implemented_interface = interfaces::get_implemented_interface(&r, &node, tr, diag);
+        interfaces::apply_properties(&mut r, &implemented_interface, diag);
 
         for (prop_name, csn, source) in property_bindings {
             match r.bindings.entry(prop_name.clone()) {
@@ -1367,7 +1362,7 @@ impl Element {
             );
         }
 
-        apply_interface_callbacks(&mut r, &implemented_interface, diag);
+        interfaces::apply_callbacks(&mut r, &implemented_interface, diag);
 
         for func in node.Function() {
             let name =
@@ -1758,8 +1753,8 @@ impl Element {
             }
         }
 
-        apply_interface_default_property_values(&mut r.borrow_mut(), &implemented_interface);
-        validate_function_implementations_for_interface(&r.borrow(), &implemented_interface, diag);
+        interfaces::apply_default_property_values(&mut r.borrow_mut(), &implemented_interface);
+        interfaces::validate_function_implementations(&r.borrow(), &implemented_interface, diag);
 
         r
     }
