@@ -216,7 +216,7 @@ impl World {
                         })
                         .await
                         .unwrap();
-                        buffer.map(|buffer| slint::Image::from_rgba8(buffer)).unwrap_or_default()
+                        buffer.map(slint::Image::from_rgba8).unwrap_or_default()
                     })
                 });
             }

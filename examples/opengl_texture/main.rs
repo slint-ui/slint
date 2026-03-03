@@ -448,7 +448,7 @@ fn main() {
                             app.get_requested_texture_width() as u32,
                             app.get_requested_texture_height() as u32,
                         );
-                        app.set_texture(slint::Image::from(texture));
+                        app.set_texture(texture);
                         app.window().request_redraw();
                     }
                 }

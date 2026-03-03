@@ -65,7 +65,7 @@ impl AudioPlaybackThread {
                             ),
                             output_channel_layout,
                         ),
-                        format @ _ => todo!("unsupported cpal output format {:#?}", format),
+                        format => todo!("unsupported cpal output format {:#?}", format),
                     };
 
                     let packet_receiver_impl =
@@ -105,8 +105,8 @@ impl AudioPlaybackThread {
 
     pub async fn receive_packet(&self, packet: ffmpeg_next::codec::packet::packet::Packet) -> bool {
         match self.packet_sender.send(packet).await {
-            Ok(_) => return true,
-            Err(smol::channel::SendError(_)) => return false,
+            Ok(_) => true,
+            Err(smol::channel::SendError(_)) => false,
         }
     }
 
