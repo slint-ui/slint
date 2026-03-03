@@ -184,7 +184,7 @@ pub(super) fn get_implemented_interface(
 
 /// Apply the properties declared in the interface to the element, emitting diagnostics if there are any conflicts.
 /// Existing property declarations are permitted, provided they match the declaration from the interface.
-pub(super) fn apply_interface_properties(
+pub(super) fn apply_properties(
     e: &mut Element,
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
@@ -214,7 +214,7 @@ pub(super) fn apply_interface_properties(
 
 /// Apply the callbacks declared in the interface to the element, emitting diagnostics if there are any conflicts.
 /// Existing callback declarations are permitted, provided they match the declaration from the interface.
-pub(super) fn apply_interface_callbacks(
+pub(super) fn apply_callbacks(
     e: &mut Element,
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
@@ -293,7 +293,7 @@ fn apply_interface_property_declaration(
 }
 
 /// Apply default property values defined in the interface to the element.
-pub(super) fn apply_interface_default_property_values(
+pub(super) fn apply_default_property_values(
     e: &mut Element,
     implemented_interface: &Option<ImplementedInterface>,
 ) {
@@ -314,7 +314,7 @@ pub(super) fn apply_interface_default_property_values(
 }
 
 /// Validate that the functions declared in the interface are correctly implemented in the element. Emits diagnostics if not.
-pub(super) fn validate_function_implementations_for_interface(
+pub(super) fn validate_function_implementations(
     e: &Element,
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
