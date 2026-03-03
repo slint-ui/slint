@@ -1,0 +1,44 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface InterfaceA {
+    in-out property <bool> a: true;
+}
+
+interface InterfaceB {
+    in-out property <bool> b: false;
+}
+
+component A implements InterfaceA inherits Rectangle { }
+
+component B implements InterfaceB inherits Rectangle { }
+
+component Base uses { InterfaceA from a-impl, InterfaceB from b-impl } {
+    a-impl := A { }
+
+    b-impl := B { }
+}
+
+export component TestCase inherits Base { }
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_a(), true);
+assert_eq!(instance.get_b(), false);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_a(), true);
+assert_eq(instance.get_b(), false);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.a, true);
+assert.equal(instance.b, false);
+```
+*/

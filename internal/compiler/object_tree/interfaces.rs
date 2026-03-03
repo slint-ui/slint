@@ -5,6 +5,7 @@
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -258,7 +259,11 @@ fn apply_interface_property_declaration(
     if lookup_result.property_type != Type::Invalid {
         match property_matches_interface(&lookup_result, prop_decl) {
             Ok(()) => {
-                // The property already exists and matches the interface declaration, so we don't need to do anything.
+                // The property already exists and matches the interface declaration. Ensure `is_from_interface` is set
+                // so it is exposed in the public API. Don't insert a new local declaration if the property comes from
+                // a native/builtin base type — that would shadow the native property and break its behavior.
+                let insert_if_missing = matches!(e.base_type, ElementType::Component(..));
+                set_is_from_interface(e, unresolved_prop_name, prop_decl, insert_if_missing);
                 return;
             }
             Err(error) => {
@@ -289,7 +294,7 @@ fn apply_interface_property_declaration(
         return;
     }
 
-    e.property_declarations.insert(unresolved_prop_name.clone(), prop_decl.clone());
+    set_is_from_interface(e, unresolved_prop_name, prop_decl, true);
 }
 
 /// Apply default property values defined in the interface to the element.
@@ -337,8 +342,9 @@ pub(super) fn apply_default_property_values(
 }
 
 /// Validate that the functions declared in the interface are correctly implemented in the element. Emits diagnostics if not.
+/// Also marks validated functions with `is_from_interface` so they are exposed in the public API.
 pub(super) fn validate_function_implementations(
-    e: &Element,
+    e: &mut Element,
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
@@ -454,6 +460,34 @@ pub(super) fn validate_function_implementations(
                     function_impl.return_type,
                 ),
             );
+        }
+
+        let insert_if_missing = matches!(e.base_type, ElementType::Component(..))
+            || found_function.is_local_to_component;
+        set_is_from_interface(e, function_name, function_property_decl, insert_if_missing);
+    }
+}
+
+/// Set the `is_from_interface` flag for the given property declaration on the element.
+/// When `insert_if_missing` is true and no local declaration exists, a new one is inserted.
+/// When false, only existing local declarations are updated (to avoid shadowing base type properties).
+/// This is used to mark properties as being from an interface so that they are exposed in the public API.
+fn set_is_from_interface(
+    e: &mut Element,
+    name: &SmolStr,
+    property_decl: &PropertyDeclaration,
+    insert_if_missing: bool,
+) {
+    match e.property_declarations.entry(name.clone()) {
+        Entry::Occupied(mut entry) => {
+            entry.get_mut().is_from_interface = true;
+        }
+        Entry::Vacant(entry) => {
+            if insert_if_missing {
+                let mut decl = property_decl.clone();
+                decl.is_from_interface = true;
+                entry.insert(decl);
+            }
         }
     }
 }
