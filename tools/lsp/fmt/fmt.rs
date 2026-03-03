@@ -202,14 +202,14 @@ fn fold(
             } else {
                 state.after_comment = t.kind() == SyntaxKind::Comment;
                 state.skip_all_whitespace = false;
-                if let Some(ws) = state.last_removed_whitespace.take() {
-                    if state.after_comment {
-                        // restore the previously skipped spaces before comment.
-                        state.insertion_count += 1;
-                        writer.insert_before(t, &ws)?;
-                        state.whitespace_to_add = None;
-                        return Ok(());
-                    }
+                if let Some(ws) = state.last_removed_whitespace.take()
+                    && state.after_comment
+                {
+                    // restore the previously skipped spaces before comment.
+                    state.insertion_count += 1;
+                    writer.insert_before(t, &ws)?;
+                    state.whitespace_to_add = None;
+                    return Ok(());
                 }
                 if let Some(x) = state.whitespace_to_add.take() {
                     state.insertion_count += 1;
@@ -346,12 +346,12 @@ fn format_element(
     let mut inserted_newline = false;
 
     for n in sub {
-        if n.kind() != SyntaxKind::Comment {
-            if let Some(last_removed_whitespace) = state.last_removed_whitespace.take() {
-                let is_empty_line = last_removed_whitespace.contains("\n\n");
-                if is_empty_line && !inserted_newline {
-                    state.new_line();
-                }
+        if n.kind() != SyntaxKind::Comment
+            && let Some(last_removed_whitespace) = state.last_removed_whitespace.take()
+        {
+            let is_empty_line = last_removed_whitespace.contains("\n\n");
+            if is_empty_line && !inserted_newline {
+                state.new_line();
             }
         }
         if n.kind() == SyntaxKind::Whitespace && !state.after_comment {
@@ -1371,11 +1371,8 @@ fn format_import_specifier(
     for n in node.children_with_tokens() {
         match n.kind() {
             SyntaxKind::ImportIdentifierList => {
-                match n {
-                    NodeOrToken::Node(n) => {
-                        format_import_identifier(&n, writer, state, is_too_long)?
-                    }
-                    _ => {}
+                if let NodeOrToken::Node(n) = n {
+                    format_import_identifier(&n, writer, state, is_too_long)?
                 };
             }
             _ => {

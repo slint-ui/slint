@@ -46,10 +46,10 @@ impl ElementSelection {
 // Look at an element and if it is a sub component, jump to its root_element()
 fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
     let elem = element.borrow();
-    if elem.repeated.is_some() {
-        if let i_slint_compiler::langtype::ElementType::Component(base) = &elem.base_type {
-            return base.root_element.clone();
-        }
+    if elem.repeated.is_some()
+        && let i_slint_compiler::langtype::ElementType::Component(base) = &elem.base_type
+    {
+        return base.root_element.clone();
     }
 
     element.clone()

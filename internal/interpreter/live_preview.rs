@@ -284,14 +284,12 @@ impl Watcher {
                 let Some(watcher) = watcher_weak.upgrade() else { return };
                 if matches!(event.kind, K::Modify(M::Data(_) | M::Any) | K::Create(_))
                     && watcher.lock().is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
-                {
-                    if let WatcherState::Waiting(waker) =
+                    && let WatcherState::Waiting(waker) =
                         std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
-                    {
-                        // Wait a bit to let the time to write multiple files
-                        std::thread::sleep(std::time::Duration::from_millis(15));
-                        waker.wake();
-                    }
+                {
+                    // Wait a bit to let the time to write multiple files
+                    std::thread::sleep(std::time::Duration::from_millis(15));
+                    waker.wake();
                 }
             })
             .ok();

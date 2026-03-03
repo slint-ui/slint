@@ -289,15 +289,15 @@ fn find_property_binding_offset(
 
     let element = element.element.borrow();
 
-    if let Some(v) = element.bindings.get(property_name) {
-        if let Some(span) = &v.borrow().span {
-            let offset = span.span().offset as u32;
-            if element.source_file().map(|sf| sf.path())
-                == span.source_file.as_ref().map(|sf| sf.path())
-                && element_range.contains(offset.into())
-            {
-                return Some(offset);
-            }
+    if let Some(v) = element.bindings.get(property_name)
+        && let Some(span) = &v.borrow().span
+    {
+        let offset = span.span().offset as u32;
+        if element.source_file().map(|sf| sf.path())
+            == span.source_file.as_ref().map(|sf| sf.path())
+            && element_range.contains(offset.into())
+        {
+            return Some(offset);
         }
     }
 
@@ -670,10 +670,10 @@ fn find_insert_position_relative_to_defined_properties(
             if property_index == usize::MAX {
                 previous_property = Some((i, defined_at.selection_range.end()));
             } else {
-                if let Some((pi, _)) = previous_property {
-                    if (i - property_index) >= (property_index - pi) {
-                        break;
-                    }
+                if let Some((pi, _)) = previous_property
+                    && (i - property_index) >= (property_index - pi)
+                {
+                    break;
                 }
                 let p = defined_at.selection_range.start();
                 return Some((TextRange::new(p, p), InsertPosition::Before));

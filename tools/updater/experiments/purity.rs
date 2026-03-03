@@ -30,33 +30,32 @@ pub(crate) fn fold_node(
                     let lk = twb.property.element().borrow().lookup_property(twb.property.name());
                     if lk.declared_pure == Some(true) {
                         write!(file, "pure ")?;
-                    } else if let Type::Callback(callback) = lk.property_type {
-                        if !matches!(callback.return_type, Type::Void) {
-                            write!(file, "pure ")?;
-                        }
+                    } else if let Type::Callback(callback) = lk.property_type
+                        && !matches!(callback.return_type, Type::Void)
+                    {
+                        write!(file, "pure ")?;
                     }
                 }
             }
         }
-    } else if let Some(s) = syntax_nodes::Function::new(node.clone()) {
-        if state.current_elem.as_ref().is_some_and(|e| e.borrow().is_legacy_syntax)
-            && s.ReturnType().is_some()
+    } else if let Some(s) = syntax_nodes::Function::new(node.clone())
+        && state.current_elem.as_ref().is_some_and(|e| e.borrow().is_legacy_syntax)
+        && s.ReturnType().is_some()
+    {
+        let (mut pure, mut public) = (false, false);
+        for t in s
+            .children_with_tokens()
+            .filter_map(NodeOrToken::into_token)
+            .filter(|t| t.kind() == SyntaxKind::Identifier)
         {
-            let (mut pure, mut public) = (false, false);
-            for t in s
-                .children_with_tokens()
-                .filter_map(NodeOrToken::into_token)
-                .filter(|t| t.kind() == SyntaxKind::Identifier)
-            {
-                match t.text() {
-                    "pure" => pure = true,
-                    "public" => public = true,
-                    _ => (),
-                }
+            match t.text() {
+                "pure" => pure = true,
+                "public" => public = true,
+                _ => (),
             }
-            if !pure && public {
-                write!(file, "pure ")?;
-            }
+        }
+        if !pure && public {
+            write!(file, "pure ")?;
         }
     }
     Ok(false)

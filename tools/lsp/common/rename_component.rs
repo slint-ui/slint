@@ -203,43 +203,43 @@ fn fix_specifier(
 
         return query.update_parent_token_info(type_name);
     }
-    if let Some(renamed_to) = renamed_to {
-        if i_slint_compiler::parser::normalize_identifier(renamed_to.text()) == ti.name {
-            if i_slint_compiler::parser::normalize_identifier(type_name.text())
-                == i_slint_compiler::parser::normalize_identifier(new_type)
-            {
-                if query.has_parent_token_info() {
-                    return Some(query.clone());
-                }
-
-                // `New as Old` => `New`
-                edits.push(replace_x_as_y_with_newtype(
-                    document_cache,
-                    source_file,
-                    &type_name,
-                    &renamed_to,
-                    new_type,
-                ));
-            } else {
-                // `Foo as Old` => `Foo as New`
-                if query.has_parent_token_info() {
-                    return None;
-                }
-
-                edits.push(
-                    common::SingleTextEdit::from_path(
-                        document_cache,
-                        source_file.path(),
-                        lsp_types::TextEdit {
-                            range: util::token_to_lsp_range(&renamed_to, document_cache.format),
-                            new_text: new_type.to_string(),
-                        },
-                    )
-                    .expect("URL conversion can not fail here"),
-                );
+    if let Some(renamed_to) = renamed_to
+        && i_slint_compiler::parser::normalize_identifier(renamed_to.text()) == ti.name
+    {
+        if i_slint_compiler::parser::normalize_identifier(type_name.text())
+            == i_slint_compiler::parser::normalize_identifier(new_type)
+        {
+            if query.has_parent_token_info() {
+                return Some(query.clone());
             }
-            return query.update_parent_token_info(renamed_to);
+
+            // `New as Old` => `New`
+            edits.push(replace_x_as_y_with_newtype(
+                document_cache,
+                source_file,
+                &type_name,
+                &renamed_to,
+                new_type,
+            ));
+        } else {
+            // `Foo as Old` => `Foo as New`
+            if query.has_parent_token_info() {
+                return None;
+            }
+
+            edits.push(
+                common::SingleTextEdit::from_path(
+                    document_cache,
+                    source_file.path(),
+                    lsp_types::TextEdit {
+                        range: util::token_to_lsp_range(&renamed_to, document_cache.format),
+                        new_text: new_type.to_string(),
+                    },
+                )
+                .expect("URL conversion can not fail here"),
+            );
         }
+        return query.update_parent_token_info(renamed_to);
     }
 
     None
@@ -931,15 +931,14 @@ fn find_declaration_node_impl(
             }
 
             for specifier in export_item.ExportSpecifier() {
-                if let Some(export_name) = specifier.ExportName() {
-                    if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
+                if let Some(export_name) = specifier.ExportName()
+                    && i_slint_compiler::parser::identifier_text(&export_name).as_ref()
                         == Some(&pti.name)
-                    {
-                        return Some(DeclarationNode {
-                            kind: DeclarationNodeKind::ExportName(export_name),
-                            query,
-                        });
-                    }
+                {
+                    return Some(DeclarationNode {
+                        kind: DeclarationNodeKind::ExportName(export_name),
+                        query,
+                    });
                 }
             }
         }
@@ -1018,15 +1017,14 @@ fn find_declaration_node_impl(
             }
         } else {
             for specifier in export_item.ExportSpecifier() {
-                if let Some(export_name) = specifier.ExportName() {
-                    if i_slint_compiler::parser::identifier_text(&export_name).as_ref()
+                if let Some(export_name) = specifier.ExportName()
+                    && i_slint_compiler::parser::identifier_text(&export_name).as_ref()
                         == Some(&pti.name)
-                    {
-                        return Some(DeclarationNode {
-                            kind: DeclarationNodeKind::ExportName(export_name),
-                            query,
-                        });
-                    }
+                {
+                    return Some(DeclarationNode {
+                        kind: DeclarationNodeKind::ExportName(export_name),
+                        query,
+                    });
                 }
 
                 let identifier =

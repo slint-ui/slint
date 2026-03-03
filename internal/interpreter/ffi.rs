@@ -98,12 +98,11 @@ pub extern "C" fn slint_interpreter_value_to_model(
     val: &Value,
     vtable: &ModelAdaptorVTable,
 ) -> *const u8 {
-    if let Value::Model(m) = val {
-        if let Some(m) = m.as_any().downcast_ref::<ModelAdaptorWrapper>() {
-            if core::ptr::eq(m.0.get_vtable() as *const _, vtable as *const _) {
-                return m.0.as_ptr();
-            }
-        }
+    if let Value::Model(m) = val
+        && let Some(m) = m.as_any().downcast_ref::<ModelAdaptorWrapper>()
+        && core::ptr::eq(m.0.get_vtable() as *const _, vtable as *const _)
+    {
+        return m.0.as_ptr();
     }
     core::ptr::null()
 }

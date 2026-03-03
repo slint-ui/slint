@@ -91,15 +91,15 @@ pub(crate) fn fold_node(
                 return Ok(true);
             }
         }
-    } else if matches!(kind, SyntaxKind::PropertyDeclaration | SyntaxKind::CallbackDeclaration) {
-        if let Some(el) = &state.current_elem {
-            let prop_name = i_slint_compiler::parser::normalize_identifier(
-                &node.child_node(SyntaxKind::DeclaredIdentifier).unwrap().text().to_string(),
-            );
-            let nr = NamedReference::new(el, prop_name);
-            if state.lookup_change.property_mappings.contains_key(&nr) {
-                return Ok(true);
-            }
+    } else if matches!(kind, SyntaxKind::PropertyDeclaration | SyntaxKind::CallbackDeclaration)
+        && let Some(el) = &state.current_elem
+    {
+        let prop_name = i_slint_compiler::parser::normalize_identifier(
+            &node.child_node(SyntaxKind::DeclaredIdentifier).unwrap().text().to_string(),
+        );
+        let nr = NamedReference::new(el, prop_name);
+        if state.lookup_change.property_mappings.contains_key(&nr) {
+            return Ok(true);
         }
     }
     Ok(false)
@@ -219,8 +219,7 @@ fn move_properties_to_root(
                 let decl =
                     nr.element().borrow().property_declarations.get(nr.name()).unwrap().clone();
                 let n2: SyntaxNode = decl.node.clone().unwrap();
-                let old_current_element =
-                    std::mem::replace(&mut state.current_elem, Some(nr.element()));
+                let old_current_element = state.current_elem.replace(nr.element());
                 state.lookup_change.replace_self = Some(
                     state
                         .lookup_change

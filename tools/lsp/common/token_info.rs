@@ -267,15 +267,14 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                         i_slint_compiler::parser::normalize_identifier(token.text()).as_str(),
                     )
                     .ok()?;
-                if let ElementType::Component(component) = &element_type {
-                    if component
+                if let ElementType::Component(component) = &element_type
+                    && component
                         .node
                         .as_ref()
                         .map(|n| n.text_range().contains_range(token.text_range()))
                         .unwrap_or_default()
-                    {
-                        return Some(TokenInfo::ElementType(element_type));
-                    }
+                {
+                    return Some(TokenInfo::ElementType(element_type));
                 }
             }
             if parent.kind() == SyntaxKind::StructDeclaration {

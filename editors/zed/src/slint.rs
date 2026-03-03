@@ -34,14 +34,14 @@ impl SlintExtension {
             return Ok(SlintBinary { path, args: binary_args });
         }
 
-        if let Some(path) = &self.cached_binary_path {
-            if fs::metadata(path).is_ok_and(|stat| stat.is_file()) {
-                zed::set_language_server_installation_status(
-                    language_server_id,
-                    &zed::LanguageServerInstallationStatus::None,
-                );
-                return Ok(SlintBinary { path: path.to_owned(), args: binary_args });
-            }
+        if let Some(path) = &self.cached_binary_path
+            && fs::metadata(path).is_ok_and(|stat| stat.is_file())
+        {
+            zed::set_language_server_installation_status(
+                language_server_id,
+                &zed::LanguageServerInstallationStatus::None,
+            );
+            return Ok(SlintBinary { path: path.to_owned(), args: binary_args });
         }
 
         zed::set_language_server_installation_status(
