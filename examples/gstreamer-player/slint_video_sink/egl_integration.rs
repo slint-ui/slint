@@ -152,18 +152,17 @@ impl SlintOpenGLSink {
                                 gst_context.set_gl_display(&gst_gl_display);
                                 element.set_context(&gst_context);
                             }
-                        } else if ctx_type == "gst.gl.app_context" {
-                            if let Some(element) =
+                        } else if ctx_type == "gst.gl.app_context"
+                            && let Some(element) =
                                 msg.src().and_then(|source| source.downcast_ref::<gst::Element>())
+                        {
+                            let mut gst_context = gst::Context::new(ctx_type, true);
                             {
-                                let mut gst_context = gst::Context::new(ctx_type, true);
-                                {
-                                    let gst_context = gst_context.get_mut().unwrap();
-                                    let structure = gst_context.structure_mut();
-                                    structure.set("context", &gst_gl_context);
-                                }
-                                element.set_context(&gst_context);
+                                let gst_context = gst_context.get_mut().unwrap();
+                                let structure = gst_context.structure_mut();
+                                structure.set("context", &gst_gl_context);
                             }
+                            element.set_context(&gst_context);
                         }
                     }
                     _ => {

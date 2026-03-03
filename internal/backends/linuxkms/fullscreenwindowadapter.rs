@@ -53,12 +53,11 @@ impl WindowAdapter for FullscreenWindowAdapter {
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
-        if visible {
-            if let Some(scale_factor) =
+        if visible
+            && let Some(scale_factor) =
                 std::env::var("SLINT_SCALE_FACTOR").ok().and_then(|sf| sf.parse().ok())
-            {
-                self.window.try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
-            }
+        {
+            self.window.try_dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor })?;
         }
         Ok(())
     }

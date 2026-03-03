@@ -15,14 +15,12 @@ use std::rc::Rc;
 use vtable::VRc;
 
 fn normalize_repeated_element(element: ElementRc) -> ElementRc {
-    if element.borrow().repeated.is_some() {
-        if let i_slint_compiler::langtype::ElementType::Component(base) =
+    if element.borrow().repeated.is_some()
+        && let i_slint_compiler::langtype::ElementType::Component(base) =
             &element.borrow().base_type
-        {
-            if base.parent_element.upgrade().is_some() {
-                return base.root_element.clone();
-            }
-        }
+        && base.parent_element.upgrade().is_some()
+    {
+        return base.root_element.clone();
     }
 
     element

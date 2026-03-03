@@ -246,12 +246,11 @@ impl DrmOutput {
                 return;
             };
 
-            if event_it.any(|event| matches!(event, drm::control::Event::PageFlip(..))) {
-                if let PageFlipState::WaitingForPageFlip { .. } =
+            if event_it.any(|event| matches!(event, drm::control::Event::PageFlip(..)))
+                && let PageFlipState::WaitingForPageFlip { .. } =
                     self.page_flip_state.replace(PageFlipState::ReadyForNextBuffer)
-                {
-                    return;
-                }
+            {
+                return;
             }
         }
     }
@@ -265,13 +264,13 @@ impl DrmOutput {
         // Iterate through all planes and collect formats from compatible ones
         if let Ok(plane_handles) = self.drm_device.plane_handles() {
             for &plane_handle in &plane_handles {
-                if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
-                    if plane.crtc() == Some(self.crtc) {
-                        // Collect formats from this compatible plane
-                        for &format_u32 in plane.formats() {
-                            if let Ok(format) = drm::buffer::DrmFourcc::try_from(format_u32) {
-                                all_formats.insert(format);
-                            }
+                if let Ok(plane) = self.drm_device.get_plane(plane_handle)
+                    && plane.crtc() == Some(self.crtc)
+                {
+                    // Collect formats from this compatible plane
+                    for &format_u32 in plane.formats() {
+                        if let Ok(format) = drm::buffer::DrmFourcc::try_from(format_u32) {
+                            all_formats.insert(format);
                         }
                     }
                 }

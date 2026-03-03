@@ -225,10 +225,10 @@ fn visit_node(
                     .iter()
                     .find(|c| c.borrow().debug.first().is_some_and(|n| n.node.node == node.node))
                     .cloned()
-            } else if let Some(parent_co) = &state.current_component {
-                if node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component) {
-                    state.current_elem = Some(parent_co.root_element.clone())
-                }
+            } else if let Some(parent_co) = &state.current_component
+                && node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component)
+            {
+                state.current_elem = Some(parent_co.root_element.clone())
             }
 
             experiments::lookup_changes::enter_element(&mut state);

@@ -111,11 +111,11 @@ fn main() -> Result<()> {
                 let path = entry.path();
                 let ext = path.extension();
 
-                if ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx")) {
-                    if let Err(e) = process_doc_file(path, &project_root, &args) {
-                        print_error(&mut stderr, &format!("{e:?}"));
-                        error_count += 1;
-                    }
+                if (ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx")))
+                    && let Err(e) = process_doc_file(path, &project_root, &args)
+                {
+                    print_error(&mut stderr, &format!("{e:?}"));
+                    error_count += 1;
                 }
             }
         }

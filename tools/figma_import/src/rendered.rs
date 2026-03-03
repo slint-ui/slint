@@ -166,12 +166,12 @@ fn render_vector(
     }
 
     for p in vector.fills.iter() {
-        if let Some(color) = &p.color {
-            if !color.is_transparent() {
-                rc.begin_element("Rectangle", &vector.node, Some(&vector.absoluteBoundingBox))?;
-                handle_paint(p, rc, "background")?;
-                rc.end_element()?;
-            }
+        if let Some(color) = &p.color
+            && !color.is_transparent()
+        {
+            rc.begin_element("Rectangle", &vector.node, Some(&vector.absoluteBoundingBox))?;
+            handle_paint(p, rc, "background")?;
+            rc.end_element()?;
         }
         if let Some(imr) = &p.imageRef {
             rc.begin_element("Image", &vector.node, Some(&vector.absoluteBoundingBox))?;
@@ -331,11 +331,11 @@ fn handle_paint(p: &Paint, rc: &mut Ctx, arg: &str) -> Result<bool, Box<dyn std:
         }
         writeln!(rc, ");")?;
         has_something = true;
-    } else if let Some(color) = &p.color {
-        if !color.is_transparent() {
-            writeln!(rc, "{arg}: {color};")?;
-            has_something = true;
-        }
+    } else if let Some(color) = &p.color
+        && !color.is_transparent()
+    {
+        writeln!(rc, "{arg}: {color};")?;
+        has_something = true;
     }
     Ok(has_something)
 }

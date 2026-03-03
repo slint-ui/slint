@@ -127,24 +127,23 @@ impl<'a> Iterator for EditIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.state {
             EditIteratorState::Changes { urls, main_index, index } => {
-                if let Some(changes) = &self.workspace_edit.changes {
-                    if let Some(uri) = urls.get(*main_index) {
-                        if let Some(edits) = changes.get(uri) {
-                            if let Some(edit) = edits.get(*index) {
-                                *index += 1;
-                                return Some((
-                                    lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                        uri: (*uri).clone(),
-                                        version: None,
-                                    },
-                                    edit,
-                                ));
-                            } else {
-                                *index = 0;
-                                *main_index += 1;
-                                return self.next();
-                            }
-                        }
+                if let Some(changes) = &self.workspace_edit.changes
+                    && let Some(uri) = urls.get(*main_index)
+                    && let Some(edits) = changes.get(uri)
+                {
+                    if let Some(edit) = edits.get(*index) {
+                        *index += 1;
+                        return Some((
+                            lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                uri: (*uri).clone(),
+                                version: None,
+                            },
+                            edit,
+                        ));
+                    } else {
+                        *index = 0;
+                        *main_index += 1;
+                        return self.next();
                     }
                 }
 
@@ -154,20 +153,19 @@ impl<'a> Iterator for EditIterator<'a> {
             EditIteratorState::DocumentChanges { main_index, index } => {
                 if let Some(lsp_types::DocumentChanges::Edits(edits)) =
                     &self.workspace_edit.document_changes
+                    && let Some(doc_edit) = edits.get(*main_index)
                 {
-                    if let Some(doc_edit) = edits.get(*main_index) {
-                        if let Some(edit) = doc_edit.edits.get(*index) {
-                            *index += 1;
-                            let te = match edit {
-                                lsp_types::OneOf::Left(te) => te,
-                                lsp_types::OneOf::Right(ate) => &ate.text_edit,
-                            };
-                            return Some((doc_edit.text_document.clone(), te));
-                        } else {
-                            *index = 0;
-                            *main_index += 1;
-                            return self.next();
-                        }
+                    if let Some(edit) = doc_edit.edits.get(*index) {
+                        *index += 1;
+                        let te = match edit {
+                            lsp_types::OneOf::Left(te) => te,
+                            lsp_types::OneOf::Right(ate) => &ate.text_edit,
+                        };
+                        return Some((doc_edit.text_document.clone(), te));
+                    } else {
+                        *index = 0;
+                        *main_index += 1;
+                        return self.next();
                     }
                 }
 
@@ -299,9 +297,7 @@ pub fn reversed_edit(
 
     for (doc, edit) in EditIterator::new(edit) {
         if !processing.contains_key(&doc.uri) {
-            let Some(document) = document_cache.get_document(&doc.uri) else {
-                return None;
-            };
+            let document = document_cache.get_document(&doc.uri)?;
             let Some(document_node) = &document.node else {
                 return None;
             };
