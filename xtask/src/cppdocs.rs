@@ -47,7 +47,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
         let entry = entry.context("Error reading directory entry")?;
         let path = entry.path();
         let file_name = path.file_name().unwrap();
-        let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
+        let symlink_source = target_to_source.as_ref().to_path_buf().join(file_name);
         let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
         let filetype = entry.file_type().context("Cannot determine file type")?;
         if filetype.is_file() {
