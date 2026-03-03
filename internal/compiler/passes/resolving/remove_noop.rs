@@ -46,6 +46,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         }
         Expression::NumberLiteral(_, _) => true,
         Expression::StringLiteral(_) => true,
+        Expression::IncludeString(_) => true,
         Expression::BoolLiteral(_) => true,
         Expression::KeyboardShortcut(_) => true,
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),

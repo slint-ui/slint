@@ -2393,6 +2393,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
+        Expression::IncludeString(path) => {
+            let path = path.as_str();
+            quote!(sp::SharedString::from(include_str!(#path)))
+        }
         Expression::KeyboardShortcutLiteral(shortcut) => {
                 let key = &*shortcut.key;
                 let alt = shortcut.modifiers.alt;

@@ -545,36 +545,23 @@ impl Expression {
 
         let path = std::path::Path::new(&s);
         if crate::pathutils::is_absolute(path) {
-            match std::fs::read_to_string(path) {
-                Ok(content) => Expression::StringLiteral(content.into()),
-                Err(e) => {
-                    ctx.diag.push_error(format!("Cannot read file: {}", e), &node);
-                    Self::Invalid
-                }
-            }
-        } else {
-            let resolved_path = ctx
-                .type_loader
-                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
-                .map(|i| i.0.to_string_lossy().into())
-                .unwrap_or_else(|| {
-                    crate::pathutils::join(
-                        &crate::pathutils::dirname(node.source_file.path()),
-                        path,
-                    )
-                    .map(|p| p.to_string_lossy().into())
-                    .unwrap_or(s.clone())
-                });
-
-            match std::fs::read_to_string(&resolved_path) {
-                Ok(content) => Expression::StringLiteral(content.into()),
-                Err(e) => {
-                    ctx.diag
-                        .push_error(format!("Cannot read file '{}': {}", resolved_path, e), &node);
-                    Self::Invalid
-                }
-            }
+            return Expression::IncludeString(s.into());
         }
+
+        let resolved_path = ctx
+            .type_loader
+            .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
+            .map(|i| i.0.to_string_lossy().into())
+            .unwrap_or_else(|| {
+                crate::pathutils::join(
+                    &crate::pathutils::dirname(node.source_file.path()),
+                    path,
+                )
+                .map(|p| p.to_string_lossy().into())
+                .unwrap_or(s.clone())
+            });
+
+        Expression::IncludeString(resolved_path.into())
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {

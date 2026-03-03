@@ -3318,6 +3318,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
     use llr::Expression;
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
+        Expression::IncludeString(path) => {
+            format!("slint::private_api::include_str!({})", shared_string_literal(path))
+        }
         Expression::NumberLiteral(num) => {
             if !num.is_finite() {
                 // just print something

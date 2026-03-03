@@ -22,6 +22,7 @@ const INLINE_SINGLE_THRESHOLD: isize = ALLOC_COST * 10;
 fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
     let mut cost = match exp {
         Expression::StringLiteral(_) => ALLOC_COST,
+        Expression::IncludeString(_) => ALLOC_COST,
         Expression::NumberLiteral(_) => 0,
         Expression::BoolLiteral(_) => 0,
         Expression::KeyboardShortcutLiteral(_) => 0,
