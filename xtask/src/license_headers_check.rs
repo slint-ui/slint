@@ -142,19 +142,13 @@ impl<'a> SourceFileWithTags<'a> {
 
         // Find default gettext copyright statements
         let location = location.or_else(|| {
-            let Some(start) =
-                source.find("# SOME DESCRIPTIVE TITLE").or_else(|| source.find("# Copyright (C) "))
-            else {
-                return None;
-            };
+            let start = source
+                .find("# SOME DESCRIPTIVE TITLE")
+                .or_else(|| source.find("# Copyright (C) "))?;
             let end_line = "# This file is distributed under the same license as the ";
-            let Some(end) = source[start..].find(end_line) else {
-                return None;
-            };
+            let end = source[start..].find(end_line)?;
             let end = start + end + end_line.len();
-            let Some(end_nl) = source[end..].find('\n') else {
-                return None;
-            };
+            let end_nl = source[end..].find('\n')?;
             Some(std::ops::Range { start, end: end + end_nl + 1 })
         });
 
@@ -971,7 +965,7 @@ impl LicenseHeaderCheck {
 
         if doc.is_workspace() {
             let mut wv = self.workspace_version.borrow_mut();
-            if &*wv == "" {
+            if (*wv).is_empty() {
                 *wv = doc.workspace_version()?.to_string();
             }
             let expected_version = wv.clone();
