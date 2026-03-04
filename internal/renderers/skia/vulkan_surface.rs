@@ -120,7 +120,7 @@ impl VulkanSurface {
                 .physical_device()
                 .surface_capabilities(&surface, Default::default())
                 .map_err(|vke| format!("Error matching Vulkan surface capabilities: {vke}"))?;
-            let image_format = vulkano::format::Format::B8G8R8A8_UNORM.into();
+            let image_format = vulkano::format::Format::B8G8R8A8_UNORM;
 
             Swapchain::new(
                 device.clone(),

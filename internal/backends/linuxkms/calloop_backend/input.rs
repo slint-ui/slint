@@ -66,7 +66,7 @@ impl<'a> LibinputInterface for SeatWrap {
                 // Safety: API requires us to own it, but in close_restricted() we'll take it back.
                 unsafe { OwnedFd::from_raw_fd(raw_fd) }
             })
-            .map_err(|e| e.0.into())
+            .map_err(|e| e.0)
     }
     fn close_restricted(&mut self, fd: OwnedFd) {
         // Transfer ownership back to libseat
