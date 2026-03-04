@@ -132,7 +132,7 @@ impl LinuxFBDisplay {
         let format = super::negotiate_format(renderer_formats, &available_formats)
             .ok_or_else(|| PlatformError::Other(
                 format!("No compatible format found for LinuxFB. Renderer supports: {:?}, FB supports: {:?}",
-                        renderer_formats, available_formats).into()))?;
+                        renderer_formats, available_formats)))?;
 
         let bpp = vinfo.bits_per_pixel / 8;
 

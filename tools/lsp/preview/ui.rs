@@ -341,7 +341,7 @@ pub fn ui_set_known_components(
 
     api.set_known_components(result.clone().into());
     api.on_library_search(move |term| {
-        result.set_search_text(term.into());
+        result.set_search_text(term);
     });
 }
 

@@ -1442,7 +1442,7 @@ fn format_import_identifier(
                             }
                             SyntaxKind::ExternalName => {
                                 if stay_single_line {
-                                    state.insert_whitespace(" ".into());
+                                    state.insert_whitespace(" ");
                                 } else {
                                     state.new_line();
                                 }
