@@ -210,7 +210,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         let screen_size = window.size().to_logical(window.scale_factor());
 
         for event in &mut self.libinput {
-            if self.libinput_event_hook.as_ref().map_or(false, |hook| hook(&event)) {
+            if self.libinput_event_hook.as_ref().is_some_and(|hook| hook(&event)) {
                 continue;
             };
             match event {

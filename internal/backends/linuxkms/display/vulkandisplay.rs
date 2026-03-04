@@ -54,7 +54,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                 .iter()
                 .position(|q| {
                     q.queue_flags.intersects(QueueFlags::GRAPHICS)
-                        && p.display_properties().map_or(false, |displays| !displays.is_empty())
+                        && p.display_properties().is_ok_and(|displays| !displays.is_empty())
                 })
                 .map(|i| (p, i as u32))
         })

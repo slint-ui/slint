@@ -72,7 +72,7 @@ impl UndoRedoStack {
         let Some(top) = self.undo_stack.last() else {
             return true;
         };
-        let ok = top.file_hashes.get(url).map_or(true, |hash| {
+        let ok = top.file_hashes.get(url).is_none_or(|hash| {
             let mut hasher = std::hash::DefaultHasher::new();
             content.hash(&mut hasher);
             *hash == hasher.finish()
