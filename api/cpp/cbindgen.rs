@@ -109,7 +109,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
-    writeln!(structs_pub, "namespace slint {{")?;
+    writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
         std::fs::File::create(path.join("slint_builtin_structs_internal.h"))
@@ -123,12 +123,14 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"slint_image.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
+    let mut compat_aliases: Vec<String> = Vec::new();
     macro_rules! struct_file {
-        (StandardListViewItem) => {{
-            writeln!(structs_priv, "using slint::StandardListViewItem;")?;
+        (BuiltinPublicStruct, $Name:ident) => {{
+            writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
+            compat_aliases.push(stringify!($Name).to_string());
             &mut structs_pub
         }};
-        ($_:ident) => {
+        (BuiltinPrivateStruct, $_:ident) => {
             &mut structs_priv
         };
     }
@@ -138,7 +140,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
             struct $Name:ident {
-                @name = $inner_name:expr,
+                @name = $NameTy:ident :: $NameVariant:ident,
                 export {
                     $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
                 }
@@ -148,7 +150,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
             }
         )*) => {
             $(
-                let file = struct_file!($Name);
+                let file = struct_file!($NameTy, $Name);
                 $(writeln!(file, "///{}", $struct_doc)?;)*
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(
@@ -184,6 +186,10 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     i_slint_common::for_each_builtin_structs!(print_structs);
     writeln!(structs_priv, "}}")?;
     writeln!(structs_pub, "}}")?;
+    // Backward-compatible aliases: public structs are also available directly under slint::
+    for name in &compat_aliases {
+        writeln!(structs_pub, "namespace slint {{ using slint::language::{name}; }}")?;
+    }
     structs_priv.flush()?;
     structs_pub.flush()?;
     Ok(())
