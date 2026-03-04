@@ -37,6 +37,7 @@ struct SeatWrap {
 
 #[cfg(feature = "libseat")]
 impl SeatWrap {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(seat: &Rc<RefCell<libseat::Seat>>) -> input::Libinput {
         let seat_name = seat.borrow_mut().name().to_string();
         let mut libinput = input::Libinput::new_with_udev(Self {
@@ -82,6 +83,7 @@ struct DirectDeviceAccess {}
 
 #[cfg(not(feature = "libseat"))]
 impl DirectDeviceAccess {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> input::Libinput {
         let mut libinput = input::Libinput::new_with_udev(Self {});
         libinput.udev_assign_seat("seat0").unwrap();

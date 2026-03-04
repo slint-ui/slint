@@ -26,7 +26,7 @@ impl ElementRoot for RootWrapper<'_> {
 
 impl super::Sealed for RootWrapper<'_> {}
 
-#[allow(non_snake_case, unused_imports, non_camel_case_types)]
+#[allow(non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/proto.rs"));
 }

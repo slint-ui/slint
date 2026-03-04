@@ -88,6 +88,7 @@ impl SkiaRendererAdapter {
     }
 
     #[cfg(feature = "renderer-skia-opengl")]
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new_opengl(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {

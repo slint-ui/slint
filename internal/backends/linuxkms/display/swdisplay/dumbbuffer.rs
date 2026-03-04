@@ -19,6 +19,7 @@ pub struct DumbBufferDisplay {
 }
 
 impl DumbBufferDisplay {
+    #[allow(clippy::new_ret_no_self, clippy::arc_with_non_send_sync)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
         renderer_formats: &[drm::buffer::DrmFourcc],

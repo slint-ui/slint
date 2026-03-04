@@ -146,6 +146,7 @@ impl TargetPixel for DumbBufferPixelBgra8888 {
 }
 
 impl SoftwareRendererAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {

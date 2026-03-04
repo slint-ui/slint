@@ -161,6 +161,7 @@ pub enum RequestedOpenGLVersion {
 /// Internal enum specify which graphics API should be used, when
 /// the backend selector requests that from a built-in backend.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum RequestedGraphicsAPI {
     /// OpenGL (ES)
     OpenGL(RequestedOpenGLVersion),
