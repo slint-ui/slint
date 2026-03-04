@@ -425,7 +425,7 @@ impl super::Surface for VulkanSurface {
         #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         Ok(match self.swapchain.borrow().image_format() {
             vulkano::format::Format::B8G8R8A8_UNORM => 32,
-            fmt @ _ => {
+            fmt => {
                 return Err(format!(
                     "Skia Vulkan Renderer: Unsupported swapchain image format found {fmt:?}"
                 )

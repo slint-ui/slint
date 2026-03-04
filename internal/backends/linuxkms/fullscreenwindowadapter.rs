@@ -151,6 +151,6 @@ fn mouse_cursor_image() -> Image {
 
             mouse_pointer_pixel_image.into()
         }
-        cached_image @ _ => cached_image.clone().into(),
+        cached_image => cached_image.clone().into(),
     }
 }

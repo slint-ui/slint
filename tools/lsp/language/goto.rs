@@ -27,7 +27,7 @@ pub fn goto_definition(
                 goto_node(&doc_node, document_cache.format)
             } else if f.is_file() || cfg!(test) {
                 // WASM will never get here, but that is fine: Slintpad can not open images anyway;-)
-                return Some(GotoDefinitionResponse::Link(vec![LocationLink {
+                Some(GotoDefinitionResponse::Link(vec![LocationLink {
                     origin_selection_range: Some(util::token_to_lsp_range(
                         &token,
                         document_cache.format,
@@ -35,7 +35,7 @@ pub fn goto_definition(
                     target_uri: lsp_types::Url::from_file_path(&f).ok()?,
                     target_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
                     target_selection_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
-                }]));
+                }]))
             } else {
                 None
             }
