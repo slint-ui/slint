@@ -64,7 +64,7 @@ impl GbmDisplay {
         match &config {
             glutin::config::Config::Egl(egl_config) => {
                 drm::buffer::DrmFourcc::try_from(egl_config.native_visual())
-                    .map_or(false, |egl_config_fourcc| egl_config_fourcc == self.surface_format)
+                    == Ok(self.surface_format)
             }
             _ => false,
         }

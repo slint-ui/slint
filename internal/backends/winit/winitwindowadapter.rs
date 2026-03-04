@@ -1506,20 +1506,22 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn window_handle_06_rc(
         &self,
     ) -> Result<Arc<dyn raw_window_handle::HasWindowHandle>, raw_window_handle::HandleError> {
-        self.winit_window_or_none
+        Ok(self
+            .winit_window_or_none
             .borrow()
             .as_window()
-            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
+            .ok_or(raw_window_handle::HandleError::Unavailable)?)
     }
 
     #[cfg(feature = "raw-window-handle-06")]
     fn display_handle_06_rc(
         &self,
     ) -> Result<Arc<dyn raw_window_handle::HasDisplayHandle>, raw_window_handle::HandleError> {
-        self.winit_window_or_none
+        Ok(self
+            .winit_window_or_none
             .borrow()
             .as_window()
-            .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(window))
+            .ok_or(raw_window_handle::HandleError::Unavailable)?)
     }
 
     fn bring_to_front(&self) -> Result<(), PlatformError> {
