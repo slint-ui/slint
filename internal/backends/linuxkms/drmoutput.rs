@@ -114,7 +114,7 @@ impl DrmOutput {
                     (connector.state() == drm::control::connector::State::Connected)
                         .then(|| connector)
                 })
-                .ok_or_else(|| format!("No connected display connector found"))?
+                .ok_or_else(|| "No connected display connector found".to_string())?
         };
 
         let mode = std::env::var("SLINT_DRM_MODE").map_or_else(
@@ -137,7 +137,7 @@ impl DrmOutput {
                         current.cmp(&next)
                     })
                     .cloned()
-                    .ok_or_else(|| format!("No preferred or non-zero size display mode found"))
+                    .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
             },
             |mode_str| {
                 let mut modes_and_index = connector.modes().iter().cloned().enumerate();
@@ -172,7 +172,7 @@ impl DrmOutput {
             .and_then(|current| drm_device.get_encoder(current).ok());
 
         let crtc = if let Some(encoder) = encoder {
-            encoder.crtc().ok_or_else(|| format!("no crtc for encoder"))?
+            encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?
         } else {
             // No crtc found for current encoder? Pick the first possible crtc
             // as described in https://manpages.debian.org/testing/libdrm-dev/drm-kms.7.en.html#CRTC/Encoder_Selection
