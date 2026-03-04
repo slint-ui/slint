@@ -341,27 +341,20 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
-                // Try direct PyDict cast first, then fall back to NamedTuple conversion.
+                // Try NamedTuple conversion first, then fall back to direct PyDict cast.
                 // NamedTuples (e.g. StandardListViewItem) are tuple subclasses registered
                 // as `typing.NamedTuple` in language.rs. We guard with an isinstance(ob, tuple)
                 // check to avoid false positives from unrelated types that also have `_asdict`.
-                let dict =
-                    ob.cast::<PyDict>().cloned().map_err(|e| -> PyErr { e.into() }).or_else(
-                        |_| {
-                            if !ob.is_instance_of::<pyo3::types::PyTuple>() {
-                                return Err(pyo3::exceptions::PyTypeError::new_err(
-                                    "Object is not a dict or NamedTuple",
-                                ));
-                            }
-                            if !ob.hasattr(pyo3::intern!(ob.py(), "_fields"))? {
-                                return Err(pyo3::exceptions::PyTypeError::new_err(
-                                    "Tuple is not a NamedTuple (missing _fields)",
-                                ));
-                            }
-                            let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
-                            asdict.cast::<PyDict>().cloned().map_err(|e| e.into())
-                        },
-                    )?;
+                let dict = if ob.is_instance_of::<pyo3::types::PyTuple>()
+                    && ob.hasattr(pyo3::intern!(ob.py(), "_fields")).unwrap_or(false)
+                {
+                    let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
+                    asdict.cast::<PyDict>().cloned().map_err(|e| -> PyErr { e.into() })
+                } else {
+                    ob.cast::<PyDict>().cloned().map_err(|_| {
+                        pyo3::exceptions::PyTypeError::new_err("Object is not a dict or NamedTuple")
+                    })
+                }?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {
