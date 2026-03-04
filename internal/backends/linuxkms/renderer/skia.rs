@@ -159,7 +159,7 @@ impl SkiaRendererAdapter {
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         #[allow(unused_assignments)]
-        let mut result = Err(format!("No skia renderer available").into());
+        let mut result = Err("No skia renderer available".to_string().into());
 
         #[cfg(feature = "renderer-skia-vulkan")]
         {

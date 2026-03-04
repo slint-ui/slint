@@ -66,7 +66,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
             PhysicalDeviceType::Other => 4,
             _ => 5,
         })
-        .ok_or_else(|| format!("Vulkan: Failed to find suitable physical device"))?;
+        .ok_or_else(|| "Vulkan: Failed to find suitable physical device".to_string())?;
 
     let displays =
         physical_device.display_properties().map_err(|e| format!("Error reading displays: {e}"))?;
@@ -74,7 +74,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
     let displays = displays.into_iter();
 
     let Some(first_display) = displays.clone().next() else {
-        return Err(format!("Vulkan: No displays found").into());
+        return Err("Vulkan: No displays found".to_string().into());
     };
 
     let display = std::env::var("SLINT_VULKAN_DISPLAY").map_or_else(
@@ -123,7 +123,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                         next_refresh_rate,
                     ))
                 })
-                .ok_or_else(|| format!("Vulkan: No modes found for display"))
+                .ok_or_else(|| "Vulkan: No modes found for display".to_string())
         },
         |mode_str| {
             let mut modes_and_index = display
