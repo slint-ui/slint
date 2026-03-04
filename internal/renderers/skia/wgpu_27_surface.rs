@@ -279,7 +279,7 @@ impl Backend {
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_context(&_adapter, &device, &queue) },
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            Self::Vulkan => unsafe { vulkan::make_vulkan_context(&device, &queue) },
+            Self::Vulkan => unsafe { vulkan::make_vulkan_context(device, queue) },
         }
     }
 

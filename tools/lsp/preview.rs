@@ -56,7 +56,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
-    let ui = ui::create_ui(&to_lsp, &"")?;
+    let ui = ui::create_ui(&to_lsp, "")?;
 
     to_lsp
         .send_telemetry(&mut [(
@@ -190,7 +190,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
         //
         // This is a rather heavy-handed operation, but currently the best we can do.
         // Ideally, this should just reload that specific resource.
-        preview_state.resources.contains(&url)
+        preview_state.resources.contains(url)
     });
 
     if needs_reload {

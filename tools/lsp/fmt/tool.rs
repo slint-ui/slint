@@ -24,10 +24,10 @@ use super::{fmt, writer};
 
 pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
     for path in files {
-        let source = std::fs::read_to_string(&path)?;
+        let source = std::fs::read_to_string(path)?;
 
         if inplace {
-            let file = BufWriter::new(std::fs::File::create(&path)?);
+            let file = BufWriter::new(std::fs::File::create(path)?);
             process_file(source, path, file)?;
         } else {
             process_file(source, path, std::io::stdout())?
@@ -93,7 +93,7 @@ fn process_slint_file(
     mut file: impl Write,
 ) -> std::io::Result<()> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file)?;
     if diag.has_errors() {
