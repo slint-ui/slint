@@ -290,7 +290,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                     .into()),
                 },
                 age,
-                pixels.as_mut(),
+                pixels,
             )?;
             Ok(())
         })

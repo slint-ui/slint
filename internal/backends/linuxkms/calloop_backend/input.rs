@@ -49,7 +49,7 @@ impl SeatWrap {
 }
 
 #[cfg(feature = "libseat")]
-impl<'a> LibinputInterface for SeatWrap {
+impl LibinputInterface for SeatWrap {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<OwnedFd, i32> {
         self.seat
             .borrow_mut()
@@ -90,7 +90,7 @@ impl DirectDeviceAccess {
 }
 
 #[cfg(not(feature = "libseat"))]
-impl<'a> LibinputInterface for DirectDeviceAccess {
+impl LibinputInterface for DirectDeviceAccess {
     fn open_restricted(&mut self, path: &Path, flags_raw: i32) -> Result<OwnedFd, i32> {
         let flags = nix::fcntl::OFlag::from_bits_retain(flags_raw);
         OpenOptions::new()

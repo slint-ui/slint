@@ -258,8 +258,8 @@ pub extern "C" fn slint_interpreter_struct_get_field(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_interpreter_struct_set_field<'a>(
-    stru: &'a mut StructOpaque,
+pub extern "C" fn slint_interpreter_struct_set_field(
+    stru: &mut StructOpaque,
     name: Slice<u8>,
     value: &Value,
 ) {

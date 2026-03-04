@@ -181,7 +181,7 @@ impl super::Surface for WGPUSurface {
             | wgpu_28::TextureFormat::Rgba8UnormSrgb
             | wgpu_28::TextureFormat::Bgra8Unorm
             | wgpu_28::TextureFormat::Bgra8UnormSrgb => 32,
-            fmt @ _ => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
+            fmt => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
         })
     }
 
@@ -258,9 +258,9 @@ impl TryFrom<wgpu::Backend> for Backend {
             wgpu_28::Backend::Metal => Ok(Self::Metal),
             #[cfg(target_family = "windows")]
             wgpu_28::Backend::Dx12 => Ok(Self::Dx12),
-            other @ _ => Err(PlatformError::from(format!(
+            other => Err(PlatformError::from(format!(
                 "Unsupported WGPU backend for use with Skia: {}",
-                other.to_string()
+                other
             ))),
         }
     }
