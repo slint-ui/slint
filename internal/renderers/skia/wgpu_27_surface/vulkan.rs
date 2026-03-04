@@ -46,7 +46,7 @@ pub unsafe fn make_vulkan_surface(
 
         let backend_render_target = skia_safe::gpu::backend_render_targets::make_vk(
             (size.width as i32, size.height as i32),
-            &texture_info,
+            texture_info,
         );
 
         skia_safe::gpu::surfaces::wrap_backend_render_target(
@@ -99,7 +99,7 @@ pub unsafe fn import_vulkan_texture(
 
         let backend_texture = skia_safe::gpu::backend_textures::make_vk(
             (size.width as _, size.height as _),
-            &texture_info,
+            texture_info,
             "Borrowed Vulkan texture",
         );
         Some(
