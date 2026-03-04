@@ -104,6 +104,8 @@ pub(crate) fn as_skia_image(
         ImageInner::WGPUTexture(any_wgpu_texture) => {
             surface.and_then(|surface| surface.import_wgpu_texture(canvas, any_wgpu_texture))
         }
+        #[allow(unreachable_patterns)]
+        _ => None,
     }
 }
 

@@ -7,6 +7,7 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(unsafe_code)]
+#![allow(clippy::missing_safety_doc)] // FFI surface has many exported unsafe entry points
 #![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
 #![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 #![no_std]

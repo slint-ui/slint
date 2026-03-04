@@ -24,6 +24,7 @@ pub struct LinuxFBDisplay {
 }
 
 impl LinuxFBDisplay {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
         renderer_formats: &[drm::buffer::DrmFourcc],
@@ -47,6 +48,7 @@ impl LinuxFBDisplay {
         )))
     }
 
+    #[allow(clippy::arc_with_non_send_sync)]
     fn new_with_path(
         device_opener: &crate::DeviceOpener,
         path: &std::path::Path,

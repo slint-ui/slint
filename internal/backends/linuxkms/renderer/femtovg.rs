@@ -154,6 +154,7 @@ unsafe impl i_slint_renderer_femtovg::opengl::OpenGLInterface for GlContextWrapp
 }
 
 impl FemtoVGRendererAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {

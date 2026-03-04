@@ -312,6 +312,7 @@ pub(crate) fn collect_movable_properties(state: &mut crate::State) {
     }
 }
 
+#[allow(clippy::mutable_key_type)] // identity map keyed by ElementRc is intentional
 fn ensure_element_has_id(
     element: &ElementRc,
     elements_id: &mut HashMap<ByAddress<ElementRc>, SmolStr>,

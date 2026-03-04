@@ -141,13 +141,14 @@ pub extern "C" fn slint_interpreter_value_to_bool(val: &Value) -> Option<&bool> 
 /// `out` parameter and returns true; returns false if the value does not hold an extractable
 /// array.
 #[unsafe(no_mangle)]
+#[allow(clippy::borrowed_box)]
 pub extern "C" fn slint_interpreter_value_to_array(
     val: &Box<Value>,
     out: &mut SharedVector<Box<Value>>,
 ) -> bool {
     match val.as_ref() {
         Value::Model(m) => {
-            let vec = m.iter().map(|vb| Box::new(vb)).collect::<SharedVector<_>>();
+            let vec = m.iter().map(Box::new).collect::<SharedVector<_>>();
             *out = vec;
             true
         }
