@@ -919,7 +919,7 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_properties(
     def: &ComponentDefinitionOpaque,
     props: &mut SharedVector<PropertyDescriptor>,
 ) {
-    props.extend((&*def).as_component_definition().properties().map(
+    props.extend(def.as_component_definition().properties().map(
         |(property_name, property_type)| PropertyDescriptor {
             property_name: property_name.into(),
             property_type,
@@ -933,7 +933,7 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_callbacks(
     def: &ComponentDefinitionOpaque,
     callbacks: &mut SharedVector<SharedString>,
 ) {
-    callbacks.extend((&*def).as_component_definition().callbacks().map(|name| name.into()))
+    callbacks.extend(def.as_component_definition().callbacks().map(|name| name.into()))
 }
 
 /// Returns the list of function names of the component the component definition describes
@@ -942,7 +942,7 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_functions(
     def: &ComponentDefinitionOpaque,
     functions: &mut SharedVector<SharedString>,
 ) {
-    functions.extend((&*def).as_component_definition().functions().map(|name| name.into()))
+    functions.extend(def.as_component_definition().functions().map(|name| name.into()))
 }
 
 /// Return the name of the component definition
@@ -951,7 +951,7 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_name(
     def: &ComponentDefinitionOpaque,
     name: &mut SharedString,
 ) {
-    *name = (&*def).as_component_definition().name().into()
+    *name = def.as_component_definition().name().into()
 }
 
 /// Returns a vector of strings with the names of all exported global singletons.
@@ -960,7 +960,7 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_globals(
     def: &ComponentDefinitionOpaque,
     names: &mut SharedVector<SharedString>,
 ) {
-    names.extend((&*def).as_component_definition().globals().map(|name| name.into()))
+    names.extend(def.as_component_definition().globals().map(|name| name.into()))
 }
 
 /// Returns a vector of the property descriptors of the properties of the specified publicly exported global
@@ -971,9 +971,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_propertie
     global_name: Slice<u8>,
     properties: &mut SharedVector<PropertyDescriptor>,
 ) -> bool {
-    if let Some(property_it) = (&*def)
-        .as_component_definition()
-        .global_properties(std::str::from_utf8(&global_name).unwrap())
+    if let Some(property_it) =
+        def.as_component_definition().global_properties(std::str::from_utf8(&global_name).unwrap())
     {
         properties.extend(property_it.map(|(property_name, property_type)| PropertyDescriptor {
             property_name: property_name.into(),
@@ -993,9 +992,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_callbacks
     global_name: Slice<u8>,
     names: &mut SharedVector<SharedString>,
 ) -> bool {
-    if let Some(name_it) = (&*def)
-        .as_component_definition()
-        .global_callbacks(std::str::from_utf8(&global_name).unwrap())
+    if let Some(name_it) =
+        def.as_component_definition().global_callbacks(std::str::from_utf8(&global_name).unwrap())
     {
         names.extend(name_it.map(|name| name.into()));
         true
@@ -1012,9 +1010,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_functions
     global_name: Slice<u8>,
     names: &mut SharedVector<SharedString>,
 ) -> bool {
-    if let Some(name_it) = (&*def)
-        .as_component_definition()
-        .global_functions(std::str::from_utf8(&global_name).unwrap())
+    if let Some(name_it) =
+        def.as_component_definition().global_functions(std::str::from_utf8(&global_name).unwrap())
     {
         names.extend(name_it.map(|name| name.into()));
         true
