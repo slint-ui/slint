@@ -123,11 +123,9 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"slint_image.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
-    let mut compat_aliases: Vec<String> = Vec::new();
     macro_rules! struct_file {
         (BuiltinPublicStruct, $Name:ident) => {{
             writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
-            compat_aliases.push(stringify!($Name).to_string());
             &mut structs_pub
         }};
         (BuiltinPrivateStruct, $_:ident) => {
@@ -186,10 +184,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     i_slint_common::for_each_builtin_structs!(print_structs);
     writeln!(structs_priv, "}}")?;
     writeln!(structs_pub, "}}")?;
-    // Backward-compatible aliases: public structs are also available directly under slint::
-    for name in &compat_aliases {
-        writeln!(structs_pub, "namespace slint {{ using slint::language::{name}; }}")?;
-    }
+    // Backward-compatible alias: StandardListViewItem was previously exposed directly under slint::
+    writeln!(structs_pub, "namespace slint {{ using slint::language::StandardListViewItem; }}")?;
     structs_priv.flush()?;
     structs_pub.flush()?;
     Ok(())
