@@ -28,7 +28,7 @@ class _SlintSelectorMapping(Mapping[typing.Any, selectors.SelectorKey]):
     def __len__(self) -> int:
         return len(self.slint_selector.fd_to_selector_key)
 
-    def get(self, fileobj, default=None):  # type: ignore
+    def get(self, fileobj, default=None):
         fd = fd_for_fileobj(fileobj)
         return self.slint_selector.fd_to_selector_key.get(fd, default)
 
@@ -36,7 +36,7 @@ class _SlintSelectorMapping(Mapping[typing.Any, selectors.SelectorKey]):
         fd = fd_for_fileobj(fileobj)
         return self.slint_selector.fd_to_selector_key[fd]
 
-    def __iter__(self):  # type: ignore
+    def __iter__(self):
         return iter(self.slint_selector.fd_to_selector_key)
 
 
@@ -134,7 +134,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             self._is_running = False
             asyncio.events._set_running_loop(None)
 
-    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:  # type: ignore[override]
+    def run_until_complete[T](self, future: typing.Awaitable[T]) -> T | None:
         def stop_loop(future: typing.Any) -> None:
             self.stop()
 
@@ -177,7 +177,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
     def is_closed(self) -> bool:
         return False
 
-    def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:  # type: ignore
+    def call_later(self, delay, callback, *args, context=None) -> asyncio.TimerHandle:
         timer = native.Timer()
 
         handle = asyncio.TimerHandle(
@@ -205,10 +205,10 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
 
         return handle
 
-    def call_at(self, when, callback, *args, context=None) -> asyncio.TimerHandle:  # type: ignore
+    def call_at(self, when, callback, *args, context=None) -> asyncio.TimerHandle:
         return self.call_later(when - self.time(), callback, *args, context=context)
 
-    def call_soon(self, callback, *args, context=None) -> asyncio.TimerHandle:  # type: ignore
+    def call_soon(self, callback, *args, context=None) -> asyncio.TimerHandle:
         # Collect call-soon tasks in a separate list to ensure FIFO order, as there's no guarantee
         # that multiple single-shot timers in Slint are run in order.
         handle = asyncio.TimerHandle(
@@ -225,7 +225,7 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
             if not handle._cancelled:
                 handle._run()
 
-    def call_soon_threadsafe(self, callback, *args, context=None) -> asyncio.Handle:  # type: ignore
+    def call_soon_threadsafe(self, callback, *args, context=None) -> asyncio.Handle:
         handle = asyncio.Handle(
             callback=callback,
             args=args,

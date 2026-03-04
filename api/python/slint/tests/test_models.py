@@ -48,7 +48,7 @@ def test_model_notify() -> None:
     assert instance.get_property("layout-height") == 150
     model.append(75)
     assert instance.get_property("layout-height") == 225
-    del model[1:]  # type: ignore
+    del model[1:]
     assert instance.get_property("layout-height") == 100
 
     assert isinstance(instance.get_property("fixed-height-model"), models.ListModel)
