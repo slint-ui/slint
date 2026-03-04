@@ -5,7 +5,9 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
-#![recursion_limit = "2048"]
+// Bumped from 2048 to accommodate the number of rust!() invocations inside
+// the large cpp! {{ }} block in qt_window.rs (gesture/input event handling).
+#![recursion_limit = "4096"]
 #![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
 #![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
