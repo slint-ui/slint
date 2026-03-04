@@ -242,7 +242,7 @@ fn move_properties_to_root(
         }
 
         if k == SyntaxKind::RBrace {
-            file.write_all(&*std::mem::take(
+            file.write_all(&std::mem::take(
                 &mut *state.lookup_change.extra_component_stuff.borrow_mut(),
             ))?;
         }

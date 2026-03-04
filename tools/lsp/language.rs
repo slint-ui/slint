@@ -846,7 +846,7 @@ pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::
         let mut extra_files = HashSet::new();
         extra_files.extend(uri_to_file(&url));
 
-        send_diagnostics(&ctx.server_notifier, &mut *document_cache, &extra_files, diagnostics);
+        send_diagnostics(&ctx.server_notifier, &document_cache, &extra_files, diagnostics);
     } else {
         tracing::trace!("Document not in cache, loading from disk: {url}");
 

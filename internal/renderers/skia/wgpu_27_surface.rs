@@ -133,7 +133,7 @@ impl super::Surface for WGPUSurface {
             }
             // Outdated or lost: re-configure and try again
             Err(_) => {
-                self.surface.configure(&self.device, &*self.surface_config.borrow());
+                self.surface.configure(&self.device, &self.surface_config.borrow());
                 self.surface.get_current_texture().map_err(|e| {
                     format!("Error obtaining current surface texture after initial error: {e}")
                 })?
