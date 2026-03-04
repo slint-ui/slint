@@ -359,6 +359,9 @@ pub enum PlainOrStyledText {
 #[allow(missing_docs)]
 pub trait RenderString: HasFont {
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        0
+    }
 }
 
 /// Trait for an item that represents an Text towards the renderer
