@@ -3,7 +3,7 @@
 
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 pub use wasm::*;
@@ -56,7 +56,7 @@ pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
 
 pub struct SwitchableLspToPreview {
     lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-    current_target: RefCell<common::PreviewTarget>,
+    current_target: common::AtomicPreviewTarget,
 }
 
 impl SwitchableLspToPreview {
@@ -65,9 +65,12 @@ impl SwitchableLspToPreview {
         current_target: common::PreviewTarget,
     ) -> common::Result<Self> {
         if lsp_to_previews.contains_key(&current_target) {
-            Ok(Self { lsp_to_previews, current_target: RefCell::new(current_target) })
+            Ok(Self {
+                lsp_to_previews,
+                current_target: common::AtomicPreviewTarget::new(current_target),
+            })
         } else {
-            Err("No such target".into())
+            anyhow::bail!("No such target");
         }
     }
 
@@ -76,11 +79,14 @@ impl SwitchableLspToPreview {
         let lsp_to_previews =
             std::iter::once((target, Box::new(lsp_to_preview) as Box<dyn common::LspToPreview>))
                 .collect();
-        Self { lsp_to_previews, current_target: RefCell::new(target) }
+        Self { lsp_to_previews, current_target: common::AtomicPreviewTarget::new(target) }
     }
 
     pub fn send(&self, message: &common::LspToPreviewMessage) {
-        self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
+        self.lsp_to_previews
+            .get(&self.current_target.load(std::sync::atomic::Ordering::Relaxed))
+            .unwrap()
+            .send(message);
     }
 
     #[allow(unused)]
@@ -110,10 +116,10 @@ impl SwitchableLspToPreview {
 
     pub fn set_preview_target(&self, target: common::PreviewTarget) -> common::Result<()> {
         if self.lsp_to_previews.contains_key(&target) {
-            *self.current_target.borrow_mut() = target;
+            self.current_target.store(target, std::sync::atomic::Ordering::Relaxed);
             Ok(())
         } else {
-            Err("Target not found".into())
+            anyhow::bail!("Target not found");
         }
     }
 }

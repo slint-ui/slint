@@ -197,7 +197,7 @@ fn parse_source(source: &str) -> parser::SyntaxNode {
     let mut diagnostics = BuildDiagnostics::default();
     let tokens = i_slint_compiler::lexer::lex(source);
     let source_file: SourceFile =
-        Rc::new(SourceFileInner::new(PathBuf::from("bench.slint"), source.to_string()));
+        std::sync::Arc::new(SourceFileInner::new(PathBuf::from("bench.slint"), source.to_string()));
     parser::parse_tokens(tokens, source_file, &mut diagnostics)
 }
 

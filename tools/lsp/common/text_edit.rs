@@ -188,7 +188,7 @@ pub struct TextEditor {
 impl TextEditor {
     pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> crate::Result<Self> {
         let Some(contents) = source_file.source().map(|s| s.to_string()) else {
-            return Err(format!("Source file {:?} had no contents set", source_file.path()).into());
+            anyhow::bail!("Source file {:?} had no contents set", source_file.path());
         };
         Ok(Self {
             source_file,
@@ -208,7 +208,7 @@ impl TextEditor {
         let adjusted_range = self.adjustments.adjust_range(current_range);
 
         if self.contents.len() < adjusted_range.end().into() {
-            return Err("Text edit range is out of bounds".into());
+            anyhow::bail!("Text edit range is out of bounds");
         }
 
         // Book keeping:
@@ -939,7 +939,7 @@ fn test_texteditor_no_content_in_source_file() {
 fn test_texteditor_edit_out_of_range() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#""#.to_string(),
     ));
@@ -960,7 +960,7 @@ fn test_texteditor_edit_out_of_range() {
 fn test_texteditor_delete_everything() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#"abc
 def
@@ -990,7 +990,7 @@ geh"#
 fn test_texteditor_replace() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#"abc
 def
@@ -1025,7 +1025,7 @@ geh"#
 fn test_texteditor_2step_replace_all() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = std::rc::Rc::new(SourceFileInner::new(
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
         std::path::PathBuf::from("/tmp/foo.slint"),
         r#"abc
 def
