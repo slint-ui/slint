@@ -85,7 +85,9 @@ impl lsp_types::notification::Notification for LspToPreviewMessage {
     const METHOD: &'static str = "slint/lsp_to_preview";
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "atomic_enum", atomic_enum::atomic_enum)]
+#[cfg_attr(not(feature = "atomic_enum"), derive(Clone, Copy, Debug))]
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {
     #[allow(dead_code)]
@@ -117,6 +119,11 @@ pub enum PreviewToLspMessage {
     TelemetryEvent(serde_json::Map<String, serde_json::Value>),
     /// Request a file from the LSP server
     RequestFile { file: Url },
+}
+
+impl lsp_types::notification::Notification for PreviewToLspMessage {
+    type Params = Self;
+    const METHOD: &'static str = "slint/preview_to_lsp";
 }
 
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {

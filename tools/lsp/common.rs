@@ -26,7 +26,7 @@ pub mod text_edit;
 pub mod token_info;
 pub mod watcher;
 
-pub type Error = Box<dyn std::error::Error>;
+pub type Error = anyhow::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(target_arch = "wasm32")]
 use lsp_protocol::wasm_prelude::*;
@@ -36,8 +36,8 @@ use lsp_protocol::wasm_prelude::*;
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
 pub use lsp_protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewTarget, PreviewToLspMessage,
-    VersionedUrl, file_to_uri, uri_to_file,
+    AtomicPreviewTarget, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewTarget,
+    PreviewToLspMessage, VersionedUrl, file_to_uri, uri_to_file,
 };
 
 #[allow(dead_code)]
@@ -86,7 +86,7 @@ pub trait PreviewToLsp {
         take_focus: bool,
     ) -> Result<()> {
         let file = lsp_types::Url::from_file_path(file)
-            .map_err(|_| "Failed to convert URL".to_string())?;
+            .map_err(|_| anyhow::Error::msg("Failed to convert URL"))?;
         if selection.start.character == 0 || selection.end.character == 0 {
             return Ok(());
         }
@@ -337,7 +337,7 @@ impl ElementRcNode {
             return false;
         };
 
-        std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
+        std::sync::Arc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
     }
 
     pub fn contains_offset(&self, offset: TextSize) -> bool {
@@ -611,11 +611,7 @@ pub mod lsp_to_editor {
         else {
             return;
         };
-        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-            return;
-        };
-
-        let _ = fut.await;
+        let _ = sender.send_request::<lsp_types::request::ShowDocument>(params).await;
     }
 }
 

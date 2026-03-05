@@ -543,6 +543,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-lsp"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aa3be9cb3e4959184a598f9874641d297fb45f09940ac0e8326574a7cb81940"
+dependencies = [
+ "futures",
+ "lsp-types",
+ "pin-project-lite",
+ "rustix 1.1.4",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+ "waitpid-any",
+]
+
+[[package]]
 name = "async-net"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -666,6 +686,17 @@ name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+
+[[package]]
+name = "atomic_enum"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99e1aca718ea7b89985790c94aad72d77533063fe00bc497bb79a7c2dae6a661"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "atomic_refcell"
@@ -5529,6 +5560,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "if-addrs"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf39cc0423ee66021dc5eccface85580e4a001e0c5288bae8bea7ecb69225e90"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "if-addrs"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0a05c691e1fae256cf7013d99dad472dc52d5543322761f83ec8d47eab40d2b"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "image"
 version = "0.25.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6250,22 +6301,10 @@ dependencies = [
 name = "lsp-protocol"
 version = "1.16.0"
 dependencies = [
+ "atomic_enum",
  "i-slint-compiler",
  "lsp-types",
  "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lsp-server"
-version = "0.7.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d6ada348dbc2703cbe7637b2dda05cff84d3da2819c24abcb305dd613e0ba2e"
-dependencies = [
- "crossbeam-channel",
- "log",
- "serde",
- "serde_derive",
  "serde_json",
 ]
 
@@ -6495,7 +6534,22 @@ checksum = "183d7ebd9fe3815c1635cd039d1ed95f1d315731cc13e6d504e4ae039d527b8d"
 dependencies = [
  "fastrand",
  "flume",
- "if-addrs",
+ "if-addrs 0.14.0",
+ "mio",
+ "socket-pktinfo",
+ "socket2 0.6.2",
+]
+
+[[package]]
+name = "mdns-sd"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c23fd301a08742925d79fd29bba538c9cb0408d67907905f8f9d4e5cd8bc816"
+dependencies = [
+ "fastrand",
+ "flume",
+ "if-addrs 0.15.0",
+ "log",
  "mio",
  "socket-pktinfo",
  "socket2 0.6.2",
@@ -8777,7 +8831,7 @@ dependencies = [
  "i-slint-core",
  "lsp-protocol",
  "lsp-types",
- "mdns-sd",
+ "mdns-sd 0.17.2",
  "postcard",
  "serde",
  "slint",
@@ -9965,12 +10019,15 @@ dependencies = [
 name = "slint-lsp"
 version = "1.16.0"
 dependencies = [
- "arc-swap",
+ "anyhow",
+ "async-lsp",
+ "atomic_enum",
  "by_address",
  "clap",
  "clru",
  "console_error_panic_hook",
  "crossbeam-channel",
+ "dashmap",
  "dissimilar",
  "event-listener 5.4.1",
  "futures-util",
@@ -9984,8 +10041,8 @@ dependencies = [
  "itertools 0.14.0",
  "js-sys",
  "lsp-protocol",
- "lsp-server",
  "lsp-types",
+ "mdns-sd 0.18.0",
  "muda",
  "nucleo-matcher",
  "objc2-foundation 0.3.2",
@@ -10000,6 +10057,10 @@ dependencies = [
  "smol_str 0.3.2",
  "spin_on",
  "tikv-jemallocator",
+ "tokio",
+ "tokio-tungstenite-wasm",
+ "tokio-util",
+ "tower",
  "tracing",
  "tracing-subscriber",
  "wasm-bindgen",
@@ -11103,6 +11164,7 @@ checksum = "9ae9cec805b01e8fc3fd2fe289f89149a9b66dd16786abd8b19cfa7b48cb0098"
 dependencies = [
  "bytes",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite",
  "tokio",
@@ -11836,6 +11898,16 @@ dependencies = [
  "smallvec",
  "thread_local",
  "vk-parse",
+]
+
+[[package]]
+name = "waitpid-any"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18aa3ce681e189f125c4c1e1388c03285e2fd434ef52c7203084012ac29c5e4a"
+dependencies = [
+ "rustix 1.1.4",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

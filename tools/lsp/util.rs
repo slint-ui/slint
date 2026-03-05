@@ -13,6 +13,9 @@ use smol_str::SmolStr;
 
 use crate::common;
 
+mod local_thread_wrapper;
+pub use local_thread_wrapper::LocalThreadWrapper;
+
 #[cfg(target_arch = "wasm32")]
 use lsp_protocol::wasm_prelude::UrlWasm;
 
