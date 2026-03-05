@@ -62,8 +62,7 @@ fn main() -> std::io::Result<()> {
         .unwrap_or_else(|| format!("{}.po", args.domain.as_deref().unwrap_or("messages")).into());
 
     let mut messages = if args.join_existing {
-        let po = rspolib::pofile(&*output).map_err(|x| std::io::Error::other(x))?;
-        po
+        rspolib::pofile(&*output).map_err(std::io::Error::other)?
     } else {
         let package = args.package_name.as_ref().map(|x| x.as_ref()).unwrap_or("PACKAGE");
         let version = args.package_version.as_ref().map(|x| x.as_ref()).unwrap_or("VERSION");

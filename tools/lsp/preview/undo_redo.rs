@@ -151,7 +151,7 @@ pub fn setup(ui: &ui::PreviewUi) {
 pub fn set_undo_redo_enabled(state: &super::PreviewState) {
     if let Some(ui) = state.ui.as_ref() {
         let api = ui.global::<ui::Api>();
-        api.set_undo_enabled(state.undo_redo_stack.undo_stack.len() > 0);
-        api.set_redo_enabled(state.undo_redo_stack.redo_stack.len() > 0);
+        api.set_undo_enabled(!state.undo_redo_stack.undo_stack.is_empty());
+        api.set_redo_enabled(!state.undo_redo_stack.redo_stack.is_empty());
     }
 }

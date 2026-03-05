@@ -1338,8 +1338,7 @@ pub(crate) mod ffi {
         unsafe {
             core::ptr::write(
                 image,
-                Image::load_from_path(std::path::Path::new(path.as_str()))
-                    .unwrap_or(Image::default()),
+                Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or_default(),
             )
         }
     }

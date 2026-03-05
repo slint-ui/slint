@@ -88,7 +88,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                         format!(
                             "Index: {} Name: {}",
                             index,
-                            display.name().unwrap_or_else(|| "unknown")
+                            display.name().unwrap_or("unknown")
                         )
                     })
                     .collect();
