@@ -262,14 +262,15 @@ fn process_context_menu(
             .clone()
             .into();
 
-        let mut menu_elem = None;
+        let mut menu_elem: Option<Rc<RefCell<Element>>> = None;
         context_menu_elem.borrow_mut().children.retain(|x| {
             if x.borrow().base_type == menu_element_type {
-                if menu_elem.is_some() {
+                if let Some(ref existing) = menu_elem {
                     diag.push_error(
                         "Only one Menu is allowed in a ContextMenu".into(),
                         &*x.borrow(),
                     );
+                    diag.push_note("First Menu defined here".into(), &*existing.borrow());
                 } else {
                     menu_elem = Some(x.clone());
                 }
