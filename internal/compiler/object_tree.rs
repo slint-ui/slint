@@ -393,7 +393,7 @@ pub struct Component {
     pub root_element: ElementRc,
 
     /// The parent element within the parent component if this component represents a repeated element
-    pub parent_element: Weak<RefCell<Element>>,
+    pub parent_element: RefCell<ElementWeak>,
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
@@ -855,7 +855,7 @@ pub fn pretty_print(
         write!(f, ":")?;
         if let ElementType::Component(base) = &e.base_type {
             write!(f, "(base) ")?;
-            if base.parent_element.upgrade().is_some() {
+            if base.parent_element.borrow().upgrade().is_some() {
                 pretty_print(f, &base.root_element.borrow(), indentation)?;
                 return Ok(());
             }
@@ -2306,7 +2306,7 @@ pub fn recurse_elem_including_sub_components<State>(
         ));
         if elem.borrow().repeated.is_some()
             && let ElementType::Component(base) = &elem.borrow().base_type
-            && base.parent_element.upgrade().is_some()
+            && base.parent_element.borrow().upgrade().is_some()
         {
             recurse_elem_including_sub_components(base, state, vis);
         }
@@ -2346,7 +2346,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
         let base = if elem.borrow().repeated.is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
+                if base.parent_element.borrow().upgrade().is_some() {
                     Some(base.clone())
                 } else {
                     // The process_repeater_components pass was not run yet

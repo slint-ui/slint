@@ -10,7 +10,7 @@ use crate::langtype::ElementType;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub fn process_repeater_components(component: &Rc<Component>) {
     create_repeater_components(component);
@@ -18,19 +18,19 @@ pub fn process_repeater_components(component: &Rc<Component>) {
 }
 
 fn create_repeater_components(component: &Rc<Component>) {
-    recurse_elem(&component.root_element, &(), &mut |original_elem, _| {
-        let is_listview = match &original_elem.borrow().repeated {
+    recurse_elem(&component.root_element, &(), &mut |original_elem_rc, _| {
+        let is_listview = match &original_elem_rc.borrow().repeated {
             Some(r) => r.is_listview.clone(),
             None => return,
         };
-        let original_elem_as_weak = Rc::downgrade(original_elem);
-        let mut original_elem = original_elem.borrow_mut();
+        let original_elem_as_weak = Rc::downgrade(original_elem_rc);
+        let mut original_elem = original_elem_rc.borrow_mut();
 
-        if matches!(&original_elem.base_type, ElementType::Component(c) if c.parent_element.upgrade().is_some())
+        if matches!(&original_elem.base_type, ElementType::Component(c) if c.parent_element.borrow().upgrade().is_some())
         {
             debug_assert!(std::rc::Weak::ptr_eq(
                 &original_elem_as_weak,
-                &original_elem.base_type.as_component().parent_element
+                &*original_elem.base_type.as_component().parent_element.borrow()
             ));
             // Already processed (can happen if a component is both used and exported root)
             return;
@@ -65,7 +65,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 inline_depth: 0,
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),
             })),
-            parent_element: original_elem_as_weak,
+            parent_element: RefCell::new(Weak::clone(&original_elem_as_weak)),
             ..Component::default()
         });
 
@@ -93,20 +93,24 @@ fn create_repeater_components(component: &Rc<Component>) {
         recurse_elem(&repeated_component.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = repeated_component_weak.clone()
         });
+        // Remove the mutable borrow from the RefCell, so that we can later compare it with the parent_element of the menu items
+        drop(original_elem);
 
         // Move all the menus that belong to the newly created component
         // Could use Vec::extract_if if MSRV >= 1.87
         component.menu_item_tree.borrow_mut().retain(|menu_item| {
-            if menu_item
-                .parent_element
-                .upgrade()
-                .unwrap()
-                .try_borrow() // borrow fails if `x.parent_element` == `elem`
-                .ok()
-                .is_none_or(|parent| {
-                    std::rc::Weak::ptr_eq(&parent.enclosing_component, &repeated_component_weak)
-                })
-            {
+            let mut parent_elem = menu_item.parent_element.borrow_mut();
+
+            // When parent_element IS the element being split, update the parent_elem
+            // to point to the new sub-component's root.
+            if Weak::ptr_eq(&parent_elem, &original_elem_as_weak) {
+                *parent_elem = Rc::downgrade(&repeated_component.root_element);
+            }
+
+            let enclosing_component =
+                parent_elem.upgrade().unwrap().borrow().enclosing_component.clone();
+            let should_move = Weak::ptr_eq(&enclosing_component, &repeated_component_weak);
+            if should_move {
                 repeated_component.menu_item_tree.borrow_mut().push(menu_item.clone());
                 false
             } else {
@@ -115,7 +119,7 @@ fn create_repeater_components(component: &Rc<Component>) {
         });
 
         create_repeater_components(&repeated_component);
-        original_elem.base_type = ElementType::Component(repeated_component);
+        original_elem_rc.borrow_mut().base_type = ElementType::Component(repeated_component);
     });
 
     for p in component.popup_windows.borrow().iter() {
