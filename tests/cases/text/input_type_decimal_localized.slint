@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput {
+        input-type: decimal-localized;
+    }
+
+    out property <bool> input_focused: ti.has_focus;
+    in-out property <string> text <=> ti.text;
+}
+
+/*
+```rust
+// Test comma-separator locale (e.g. German)
+let instance = TestCase::new().unwrap();
+slint_testing::set_locale(&instance, "de-DE");
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+
+let send_and_check = |seq: &str, expected: &str| {
+    slint_testing::send_keyboard_string_sequence(&instance, seq);
+    assert_eq!(instance.get_text(), expected);
+};
+
+// comma should be accepted as decimal separator
+send_and_check(",", ",");
+
+// dot should be rejected in a comma locale
+instance.set_text("".into());
+send_and_check(".", "");
+
+// build a full decimal number with comma separator
+instance.set_text("".into());
+for (seq, expected) in [("-", "-"), ("1", "-1"), (",", "-1,"), ("5", "-1,5")] {
+    send_and_check(seq, expected);
+}
+
+// only one comma allowed
+send_and_check(",", "-1,5");
+
+// switch to a dot-separator locale (e.g. English)
+slint_testing::set_locale(&instance, "en-US");
+instance.set_text("".into());
+
+// comma should now be rejected
+send_and_check("3", "3");
+send_and_check(",", "3");
+
+// dot should now be accepted
+for (seq, expected) in [(".", "3."), ("1", "3.1")] {
+    send_and_check(seq, expected);
+}
+```
+*/

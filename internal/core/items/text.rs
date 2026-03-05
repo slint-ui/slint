@@ -1067,7 +1067,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.text.as_str()) {
+                if !self.accept_text_input(event.text.as_str(), window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1113,7 +1113,7 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.text) {
+                if !self.accept_text_input(&event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -2203,19 +2203,38 @@ impl TextInput {
         window_adapter.renderer().font_metrics(font_request)
     }
 
-    fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
+    fn accept_text_input(
+        self: Pin<&Self>,
+        text_to_insert: &str,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> bool {
         let input_type = self.input_type();
-        if input_type == InputType::Number && !text_to_insert.chars().all(|ch| ch.is_ascii_digit())
-        {
-            return false;
-        } else if input_type == InputType::Decimal {
-            let (a, c) = self.selection_anchor_and_cursor();
-            let text = self.text();
-            let text = [&text[..a], text_to_insert, &text[c..]].concat();
-            if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err() {
-                return false;
-            }
+        if input_type == InputType::Number {
+            return text_to_insert.chars().all(|ch| ch.is_ascii_digit());
         }
+
+        if input_type == InputType::Decimal || input_type == InputType::DecimalLocalized {
+            let (a, c) = self.selection_anchor_and_cursor();
+            let current = self.text();
+            let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
+
+            let to_parse = if input_type == InputType::DecimalLocalized {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                let sep = window_inner.context().locale_decimal_separator();
+                // Only allow the locale's decimal separator, not '.'
+                if sep != '.' && candidate.contains('.') {
+                    return false;
+                }
+                // Normalize locale separator to '.' because f64::parse only accepts '.'
+                if sep != '.' { candidate.replace(sep, ".") } else { candidate }
+            } else {
+                candidate
+            };
+
+            return matches!(to_parse.as_str(), "." | "-" | "-.")
+                || to_parse.parse::<f64>().is_ok();
+        }
+
         true
     }
 }
