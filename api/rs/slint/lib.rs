@@ -435,6 +435,31 @@ pub mod platform {
 /// See also the list of [global structs and enums](slint:StructType)
 pub mod language {
     pub use i_slint_core::items::ColorScheme;
+
+    macro_rules! export_builtin_structs {
+        ($(
+            $(#[$attr:meta])*
+            struct $Name:ident {
+                @name = $NameTy:ident :: $NameVariant:ident,
+                export {
+                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
+                }
+                private {
+                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
+                }
+            }
+        )*) => {
+            $(
+                export_builtin_structs!(@export $NameTy $Name);
+            )*
+        };
+        (@export BuiltinPublicStruct $Name:ident) => {
+            pub use i_slint_core::model::$Name;
+        };
+        (@export BuiltinPrivateStruct $Name:ident) => {};
+    }
+
+    i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 }
 
 #[cfg(any(
