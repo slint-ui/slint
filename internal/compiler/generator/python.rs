@@ -679,7 +679,8 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
             StructName::BuiltinPrivate(_) => SmolStr::new_static("None"),
-            StructName::BuiltinPublic(_) | StructName::None => {
+            StructName::BuiltinPublic(name) => format_smolstr!("slint.language.{:?}", name),
+            StructName::None => {
                 let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }
