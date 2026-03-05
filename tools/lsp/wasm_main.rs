@@ -9,12 +9,14 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+mod request_handler;
 pub mod util;
 
 use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
 use js_sys::Function;
-pub use language::{Context, RequestHandler};
+pub use language::Context;
 use lsp_types::Url;
+pub use request_handler::RequestHandler;
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;

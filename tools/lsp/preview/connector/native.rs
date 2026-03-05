@@ -210,7 +210,7 @@ impl RemoteControlledPreviewToLsp {
 
 impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
-        let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
+        let message = serde_json::to_string(message)?;
         println!("{message}");
         Ok(())
     }

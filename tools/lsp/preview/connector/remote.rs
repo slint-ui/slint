@@ -11,7 +11,7 @@ use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
 struct RemoteLspConnection {
     sender: SplitSink<WebSocketStream, Message>,
-    task: slint::JoinHandle<()>,
+    task: crate::JoinHandle<()>,
 }
 
 pub struct RemoteLspToPreview {
@@ -73,7 +73,15 @@ impl RemoteLspToPreview {
                                     addresses: resolved_service
                                         .addresses
                                         .into_iter()
-                                        .map(|addr| addr.to_string())
+                                        .map(|addr| match addr {
+                                            mdns_sd::ScopedIp::V4(scoped_ip_v4) => {
+                                                scoped_ip_v4.addr().to_string()
+                                            }
+                                            mdns_sd::ScopedIp::V6(scoped_ip_v6) => {
+                                                format!("[{}]", scoped_ip_v6.addr())
+                                            }
+                                            _ => unimplemented!(),
+                                        })
                                         .collect(),
                                 },
                             )
@@ -102,14 +110,16 @@ impl RemoteLspToPreview {
         addresses: impl IntoIterator<Item = &str>,
         port: u16,
     ) -> crate::common::Result<()> {
+        tracing::debug!("RemoteLspToPreview::connect");
         let mut addresses = addresses.into_iter();
         let stream = loop {
             let Some(address) = addresses.next() else {
-                return Err("Unable to connect to remote viewer".into());
+                anyhow::bail!("Unable to connect to remote viewer");
             };
             tracing::info!("Attempting to connect to remote preview server at {address}:{port}");
             // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
-            match tokio_tungstenite_wasm::connect(format!("ws://{address}:{port}")).await {
+            let connect_future = tokio_tungstenite_wasm::connect(format!("ws://{address}:{port}"));
+            match connect_future.await {
                 Ok(stream) => {
                     tracing::info!("Connected to remote preview server at {address}:{port}");
                     break stream;
@@ -124,12 +134,12 @@ impl RemoteLspToPreview {
 
         let (socket_sender, socket_receiver) = stream.split();
 
+        let receive_task_future =
+            Self::receive_task(socket_receiver, self.preview_to_lsp_channel.clone());
+
         let Some(old) = self.connection.lock().await.replace(RemoteLspConnection {
             sender: socket_sender,
-            task: slint::spawn_local(Self::receive_task(
-                socket_receiver,
-                self.preview_to_lsp_channel.clone(),
-            ))?,
+            task: crate::spawn_local(receive_task_future),
         }) else {
             return Ok(());
         };
@@ -218,19 +228,27 @@ impl crate::common::LspToPreview for RemoteLspToPreview {
         tracing::debug!("Sending websocket message {message:?}");
         let connection = Arc::downgrade(&self.connection);
         let message = postcard::to_allocvec(message).unwrap();
-        let _ = slint::spawn_local(async move {
+        tracing::debug!("Sending {} bytes", message.len());
+        crate::spawn_local(async move {
+            tracing::debug!("A");
             let Some(connection) = connection.upgrade() else {
                 tracing::warn!("Not connected to remote preview server, dropping message");
                 return;
             };
+            tracing::debug!("B");
             let mut connection = connection.lock().await;
+            tracing::debug!("C");
             let Some(connection) = connection.as_mut() else {
                 tracing::warn!("Not connected to remote preview server, dropping message");
                 return;
             };
-            if let Err(err) = connection.sender.send(Message::binary(message)).await {
+            tracing::debug!("D");
+            let sender_future = connection.sender.send(Message::binary(message));
+            tracing::debug!("E");
+            if let Err(err) = sender_future.await {
                 tracing::error!("Error sending message to remote preview server: {err}");
             }
+            tracing::debug!("Succeeded sending websocket message!");
         });
     }
 

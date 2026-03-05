@@ -573,7 +573,7 @@ impl TokenInformation {
             node: &SyntaxNode,
         ) -> bool {
             if element.borrow().debug.iter().any(|di| {
-                Rc::ptr_eq(&di.node.source_file, &node.source_file)
+                std::sync::Arc::ptr_eq(&di.node.source_file, &node.source_file)
                     && di.node.text_range() == node.text_range()
             }) {
                 return true;
@@ -602,7 +602,10 @@ impl TokenInformation {
             (
                 common::token_info::TokenInfo::LocalProperty(s),
                 common::token_info::TokenInfo::LocalProperty(o),
-            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            ) => {
+                std::sync::Arc::ptr_eq(&s.source_file, &o.source_file)
+                    && s.text_range() == o.text_range()
+            }
             (
                 common::token_info::TokenInfo::NamedReference(nl),
                 common::token_info::TokenInfo::NamedReference(nr),
@@ -656,7 +659,10 @@ impl TokenInformation {
             (
                 common::token_info::TokenInfo::LocalCallback(s),
                 common::token_info::TokenInfo::LocalCallback(o),
-            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            ) => {
+                std::sync::Arc::ptr_eq(&s.source_file, &o.source_file)
+                    && s.text_range() == o.text_range()
+            }
             (
                 common::token_info::TokenInfo::NamedReference(nr),
                 common::token_info::TokenInfo::LocalCallback(s),
@@ -685,7 +691,10 @@ impl TokenInformation {
             (
                 common::token_info::TokenInfo::LocalFunction(s),
                 common::token_info::TokenInfo::LocalFunction(o),
-            ) => Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range(),
+            ) => {
+                std::sync::Arc::ptr_eq(&s.source_file, &o.source_file)
+                    && s.text_range() == o.text_range()
+            }
             (
                 common::token_info::TokenInfo::NamedReference(nr),
                 common::token_info::TokenInfo::LocalFunction(s),
@@ -1064,7 +1073,7 @@ fn rename_declared_identifier(
         .expect("Identifier is in unknown document");
 
     let Some(document_node) = &document.node else {
-        return Err("No document found".into());
+        anyhow::bail!("No document found");
     };
 
     let parent = declared_identifier.parent().unwrap();
@@ -1075,12 +1084,12 @@ fn rename_declared_identifier(
         && document.local_registry.lookup(normalized_new_type.as_str())
             != i_slint_compiler::langtype::Type::Invalid
     {
-        return Err(format!("{new_type} is already a registered type").into());
+        anyhow::bail!("{new_type} is already a registered type");
     }
     if parent.kind() == SyntaxKind::Component
         && document.local_registry.lookup_element(normalized_new_type.as_str()).is_ok()
     {
-        return Err(format!("{new_type} is already a registered element").into());
+        anyhow::bail!("{new_type} is already a registered element");
     }
 
     let old_type = &ti.name;

@@ -341,8 +341,8 @@ impl DocumentCache {
         content: String,
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
-        let path =
-            uri_to_file(url).ok_or_else(|| format!("Failed to convert path for loading: {url}"))?;
+        let path = uri_to_file(url)
+            .ok_or_else(|| anyhow::format_err!("Failed to convert path for loading: {url}"))?;
         self.type_loader.load_file(&path, &path, content, false, diag).await;
         self.source_file_versions.borrow_mut().insert(path, version);
         Ok(())

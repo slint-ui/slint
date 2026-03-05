@@ -14,7 +14,9 @@ pub mod test;
 
 use crate::common::uri_to_file;
 use crate::preview::connector::SwitchableLspToPreview;
-use crate::{common, util};
+use crate::request_handler::RequestHandler;
+use crate::util::LocalThreadWrapper;
+use crate::{SendDiagnosticsEvent, common, util};
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
@@ -38,13 +40,11 @@ use lsp_types::{
     Url, WorkDoneProgressOptions,
 };
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
@@ -88,43 +88,39 @@ fn create_populate_command(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
-    let document_cache = ctx.document_cache.borrow();
+pub fn send_state_to_preview(ctx: &Context) {
+    let to_preview = ctx.to_preview.clone();
+    let server_notifier = ctx.server_notifier.clone();
+    let config = ctx.preview_config.clone();
+    ctx.document_cache.oneway(move |document_cache| {
+        let mut doc_count = 0;
+        for (url, node) in document_cache.all_url_documents() {
+            if url.scheme() == "builtin" {
+                continue;
+            }
+            let version = document_cache.document_version(&url);
+            let contents = node.text().to_string().into();
 
-    let mut doc_count = 0;
-    for (url, node) in document_cache.all_url_documents() {
-        if url.scheme() == "builtin" {
-            continue;
+            to_preview.oneway(move |to_preview| {
+                to_preview.send(&common::LspToPreviewMessage::SetContents {
+                    url: common::VersionedUrl::new(url, version),
+                    contents,
+                })
+            });
+            doc_count += 1;
         }
-        let version = document_cache.document_version(&url);
 
-        ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url, version),
-            contents: node.text().to_string().into(),
-        });
-        doc_count += 1;
-    }
-
-    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration {
-        config: ctx.preview_config.borrow().clone(),
+        server_notifier.send_event(crate::ConfigurePreviewEvent { config, doc_count });
     });
-
-    if let Some(c) = ctx.to_show.borrow().clone() {
-        tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
-    } else {
-        tracing::debug!(
-            "Sending state to preview: {} documents, showing default component",
-            doc_count
-        );
-    }
 }
 
-async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
+async fn register_file_watcher(
+    init_params: &InitializeParams,
+    client: &async_lsp::ClientSocket,
+) -> common::Result<()> {
     use lsp_types::notification::Notification;
 
-    if ctx
-        .init_param
+    if init_params
         .capabilities
         .workspace
         .as_ref()
@@ -138,16 +134,14 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
                 kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
             }],
         };
-        ctx.server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(
-                lsp_types::RegistrationParams {
-                    registrations: vec![lsp_types::Registration {
-                        id: "slint.file_watcher.registration".to_string(),
-                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                    }],
-                },
-            )?
+        client
+            .request::<lsp_types::request::RegisterCapability>(lsp_types::RegistrationParams {
+                registrations: vec![lsp_types::Registration {
+                    id: "slint.file_watcher.registration".to_string(),
+                    method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
+                    register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
+                }],
+            })
             .await?;
     }
 
@@ -155,25 +149,32 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 }
 
 pub struct Context {
-    pub document_cache: RefCell<common::DocumentCache>,
-    pub preview_config: RefCell<common::PreviewConfig>,
+    pub document_cache: LocalThreadWrapper<common::DocumentCache>,
+    pub preview_config: common::PreviewConfig,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: RefCell<Option<common::PreviewComponent>>,
+    pub to_show: Option<common::PreviewComponent>,
     /// File currently open in the editor
-    pub open_urls: RefCell<HashSet<lsp_types::Url>>,
-    pub to_preview: Rc<SwitchableLspToPreview>,
+    pub open_urls: HashSet<lsp_types::Url>,
+    pub to_preview: LocalThreadWrapper<SwitchableLspToPreview>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
-    pub pending_recompile: RefCell<HashSet<lsp_types::Url>>,
+    pub pending_recompile: HashSet<lsp_types::Url>,
 }
 
 /// An error from a LSP request
 pub struct LspError {
     pub code: LspErrorCode,
     pub message: String,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl From<async_lsp::ResponseError> for LspError {
+    fn from(value: async_lsp::ResponseError) -> Self {
+        Self { code: value.code.into(), message: value.message }
+    }
 }
 
 /// The code of a LspError. Correspond to the lsp_server::ErrorCode
@@ -202,42 +203,28 @@ pub enum LspErrorCode {
     ContentModified = -32801,
 }
 
-#[derive(Default)]
-pub struct RequestHandler(
-    pub  HashMap<
-        &'static str,
-        Box<
-            dyn Fn(
-                serde_json::Value,
-                Rc<Context>,
-            )
-                -> Pin<Box<dyn Future<Output = Result<serde_json::Value, LspError>>>>,
-        >,
-    >,
-);
+#[cfg(not(target_arch = "wasm32"))]
+impl From<async_lsp::ErrorCode> for LspErrorCode {
+    fn from(value: async_lsp::ErrorCode) -> Self {
+        match value {
+            async_lsp::ErrorCode::INVALID_PARAMS => Self::InvalidParameter,
+            async_lsp::ErrorCode::INTERNAL_ERROR => Self::InternalError,
+            async_lsp::ErrorCode::REQUEST_FAILED => Self::RequestFailed,
+            async_lsp::ErrorCode::CONTENT_MODIFIED => Self::ContentModified,
+            _ => Self::InternalError,
+        }
+    }
+}
 
-impl RequestHandler {
-    pub fn register<
-        R: lsp_types::request::Request,
-        Fut: Future<Output = std::result::Result<R::Result, LspError>> + 'static,
-    >(
-        &mut self,
-        handler: fn(R::Params, Rc<Context>) -> Fut,
-    ) where
-        R::Params: 'static,
-    {
-        self.0.insert(
-            R::METHOD,
-            Box::new(move |value, ctx| {
-                Box::pin(async move {
-                    let params = serde_json::from_value(value).map_err(|e| LspError {
-                        code: LspErrorCode::InvalidParameter,
-                        message: format!("error when deserializing request: {e:?}"),
-                    })?;
-                    handler(params, ctx).await.map(|x| serde_json::to_value(x).unwrap())
-                })
-            }),
-        );
+#[cfg(not(target_arch = "wasm32"))]
+impl From<LspErrorCode> for async_lsp::ErrorCode {
+    fn from(value: LspErrorCode) -> Self {
+        match value {
+            LspErrorCode::InvalidParameter => Self::INVALID_PARAMS,
+            LspErrorCode::InternalError => Self::INTERNAL_ERROR,
+            LspErrorCode::RequestFailed => Self::REQUEST_FAILED,
+            LspErrorCode::ContentModified => Self::CONTENT_MODIFIED,
+        }
     }
 }
 
@@ -314,90 +301,114 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
 }
 
 pub fn register_request_handlers(rh: &mut RequestHandler) {
-    rh.register::<GotoDefinition, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        let result = token_descr(
-            document_cache,
-            &params.text_document_position_params.text_document.uri,
-            &params.text_document_position_params.position,
-        )
-        .and_then(|token| goto::goto_definition(document_cache, token.0));
-        Ok(result)
-    });
-    rh.register::<Completion, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-
-        let result = token_descr(
-            document_cache,
-            &params.text_document_position.text_document.uri,
-            &params.text_document_position.position,
-        )
-        .and_then(|token| {
-            completion::completion_at(
+    rh.register::<GotoDefinition, _>(|ctx, params| {
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(token_descr(
                 document_cache,
-                token.0,
-                token.1,
-                ctx.init_param
-                    .capabilities
-                    .text_document
-                    .as_ref()
-                    .and_then(|t| t.completion.as_ref()),
+                &params.text_document_position_params.text_document.uri,
+                &params.text_document_position_params.position,
             )
-            .map(Into::into)
-        });
-        Ok(result)
+            .and_then(|token| goto::goto_definition(document_cache, token.0)))
+        })
     });
-    rh.register::<HoverRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        let result = token_descr(
-            document_cache,
-            &params.text_document_position_params.text_document.uri,
-            &params.text_document_position_params.position,
-        )
-        .and_then(|(token, _)| hover::get_tooltip(document_cache, token));
-
-        Ok(result)
+    rh.register::<Completion, _>(|ctx, params| {
+        let text_document = ctx.init_param.capabilities.text_document.clone();
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(token_descr(
+                document_cache,
+                &params.text_document_position.text_document.uri,
+                &params.text_document_position.position,
+            )
+            .and_then(|token| {
+                completion::completion_at(
+                    document_cache,
+                    token.0,
+                    token.1,
+                    text_document.as_ref().and_then(|t| t.completion.as_ref()),
+                )
+                .map(Into::into)
+            }))
+        })
     });
-    rh.register::<SignatureHelpRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        let result = token_descr(
-            document_cache,
-            &params.text_document_position_params.text_document.uri,
-            &params.text_document_position_params.position,
-        )
-        .and_then(|(token, _)| signature_help::get_signature_help(document_cache, token));
-        Ok(result)
+    rh.register::<HoverRequest, _>(|ctx, params| {
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(token_descr(
+                document_cache,
+                &params.text_document_position_params.text_document.uri,
+                &params.text_document_position_params.position,
+            )
+            .and_then(|(token, _)| hover::get_tooltip(document_cache, token)))
+        })
     });
-    rh.register::<CodeActionRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-
-        let result = token_descr(document_cache, &params.text_document.uri, &params.range.start)
-            .and_then(|(token, _)| {
-                get_code_actions(document_cache, token, &ctx.init_param.capabilities)
-            });
-        Ok(result)
+    rh.register::<SignatureHelpRequest, _>(|ctx, params| {
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(token_descr(
+                document_cache,
+                &params.text_document_position_params.text_document.uri,
+                &params.text_document_position_params.position,
+            )
+            .and_then(|(token, _)| signature_help::get_signature_help(document_cache, token)))
+        })
     });
-    rh.register::<ExecuteCommand, _>(|params, ctx| async move {
-        if params.command.as_str() == SHOW_PREVIEW_COMMAND {
+    rh.register::<CodeActionRequest, _>(|ctx, params| {
+        let client_capabilites = ctx.init_param.capabilities.clone();
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(token_descr(document_cache, &params.text_document.uri, &params.range.start)
+                .and_then(|(token, _)| {
+                    get_code_actions(document_cache, token, &client_capabilites)
+                }))
+        })
+    });
+    rh.register::<ExecuteCommand, _>(|ctx, params| match params.command.as_str() {
+        SHOW_PREVIEW_COMMAND => {
             #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-            show_preview_command(&params.arguments, &ctx)?;
-            return Ok(None::<serde_json::Value>);
+            {
+                let url: Url = match extract_param(&params.arguments, 0, "url") {
+                    Ok(url) => url,
+                    Err(err) => {
+                        return Box::pin(std::future::ready(Err(err)))
+                            as Pin<Box<dyn Future<Output = _> + Send>>;
+                    }
+                };
+
+                // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
+                let Some(url) = common::uri_to_file(&url).and_then(|u| Url::from_file_path(u).ok())
+                else {
+                    return Box::pin(std::future::ready(Err(LspError {
+                        code: LspErrorCode::InvalidParameter,
+                        message: "invalid document url".into(),
+                    })));
+                };
+
+                let component = params
+                    .arguments
+                    .get(1)
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|v| !v.is_empty())
+                    .map(std::string::ToString::to_string);
+
+                let result =
+                    show_preview_command(lsp_protocol::PreviewComponent { url, component }, ctx);
+                Box::pin(std::future::ready(result.map(|_| None)))
+                    as Pin<Box<dyn Future<Output = _> + Send>>
+            }
         }
-        if params.command.as_str() == POPULATE_COMMAND {
-            populate_command(&params.arguments, &ctx).await?;
-            return Ok(None::<serde_json::Value>);
-        }
+        POPULATE_COMMAND => Box::pin(populate_command(&params.arguments, ctx)),
         #[cfg(feature = "preview-remote")]
-        if params.command.as_str() == CONNECT_REMOTE_PREVIEW_COMMAND {
-            connect_remote_preview_command(&params.arguments, &ctx).await?;
+        CONNECT_REMOTE_PREVIEW_COMMAND => {
+            Box::pin(connect_remote_preview_command(&params.arguments, ctx))
         }
-        Ok(None::<serde_json::Value>)
+        _ => {
+            tracing::error!("Received unknown command {}", params.command.as_str());
+            Box::pin(std::future::ready(Ok(None)))
+        }
     });
-    rh.register::<DocumentColor, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        Ok(get_document_color(document_cache, &params.text_document).unwrap_or_default())
+    rh.register::<DocumentColor, _>(|ctx, params| {
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(get_document_color(document_cache, &params.text_document).unwrap_or_default())
+        })
     });
-    rh.register::<ColorPresentationRequest, _>(|params, _ctx| async move {
+    rh.register::<ColorPresentationRequest, _>(|_ctx, params| async move {
         // Convert the color from the color picker to a string representation. This could try to produce a minimal
         // representation.
         let requested_color = params.color;
@@ -421,147 +432,170 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         Ok(vec![ColorPresentation { label: color_literal, ..Default::default() }])
     });
-    rh.register::<DocumentSymbolRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        Ok(get_document_symbols(document_cache, &params.text_document))
+    rh.register::<DocumentSymbolRequest, _>(|ctx, params| {
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(get_document_symbols(document_cache, &params.text_document))
+        })
     });
-    rh.register::<CodeLensRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        Ok(get_code_lenses(document_cache, &params.text_document))
+    rh.register::<CodeLensRequest, _>(|ctx, params| {
+        ctx.document_cache
+            .clone()
+            .exec(move |document_cache| Ok(get_code_lenses(document_cache, &params.text_document)))
     });
-    rh.register::<SemanticTokensFullRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
-        Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
+    rh.register::<SemanticTokensFullRequest, _>(|ctx, params| {
+        ctx.document_cache.clone().exec(move |document_cache| {
+            Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
+        })
     });
-    rh.register::<DocumentHighlightRequest, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
+    rh.register::<DocumentHighlightRequest, _>(|ctx, params| {
+        let document_cache = ctx.document_cache.clone();
+        let to_preview = ctx.to_preview.clone();
         let uri = params.text_document_position_params.text_document.uri;
-        if let Some((tk, _)) =
-            token_descr(document_cache, &uri, &params.text_document_position_params.position)
-        {
-            let p = tk.parent();
-            let gp = p.parent();
-
-            if p.kind() == SyntaxKind::DeclaredIdentifier
-                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
+        document_cache.exec(move |document_cache| {
+            if let Some((tk, _)) =
+                token_descr(document_cache, &uri, &params.text_document_position_params.position)
             {
-                let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+                let p = tk.parent();
+                let gp = p.parent();
 
-                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
-                    url: Some(uri),
-                    offset: element.text_range().start().into(),
-                });
-
-                let range = util::node_to_lsp_range(&p, document_cache.format);
-                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-            }
-
-            if p.kind() == SyntaxKind::QualifiedName
-                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
-            {
-                let range = util::node_to_lsp_range(&p, document_cache.format);
-
-                if gp
-                    .as_ref()
-                    .unwrap()
-                    .parent()
-                    .as_ref()
-                    .is_some_and(|n| n.kind() != SyntaxKind::Component)
+                if p.kind() == SyntaxKind::DeclaredIdentifier
+                    && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
                 {
-                    ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
-                        url: Some(uri),
-                        offset: gp.unwrap().text_range().start().into(),
-                    });
-                }
-                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-            }
+                    let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+                    let offset = element.text_range().start().into();
 
-            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
-                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                    to_preview.oneway(move |to_preview| {
+                        to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                            url: Some(uri),
+                            offset,
+                        })
+                    });
+
+                    let range = util::node_to_lsp_range(&p, document_cache.format);
+                    return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
+                }
+
+                if p.kind() == SyntaxKind::QualifiedName
+                    && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
+                {
+                    let range = util::node_to_lsp_range(&p, document_cache.format);
+
+                    if gp
+                        .as_ref()
+                        .unwrap()
+                        .parent()
+                        .as_ref()
+                        .is_some_and(|n| n.kind() != SyntaxKind::Component)
+                    {
+                        let offset = gp.unwrap().text_range().start().into();
+                        to_preview.oneway(move |to_preview| {
+                            to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                                url: Some(uri),
+                                offset,
+                            })
+                        });
+                    }
+                    return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
+                }
+
+                if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
+                    to_preview.oneway(|to_preview| {
+                        to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                            url: None,
+                            offset: 0,
+                        })
+                    });
+                    return Ok(Some(
+                        value
+                            .into_iter()
+                            .map(|r| lsp_types::DocumentHighlight {
+                                range: util::text_range_to_lsp_range(
+                                    &p.source_file,
+                                    r,
+                                    document_cache.format,
+                                ),
+                                kind: None,
+                            })
+                            .collect(),
+                    ));
+                }
+            }
+            to_preview.oneway(|to_preview| {
+                to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
                     url: None,
                     offset: 0,
-                });
-                return Ok(Some(
-                    value
+                })
+            });
+            Ok(None)
+        })
+    });
+    rh.register::<Rename, _>(|ctx, params| {
+        let document_cache = ctx.document_cache.clone();
+        let uri = params.text_document_position.text_document.uri;
+        document_cache.exec(move |document_cache| {
+            if let Some((tk, _off)) =
+                token_descr(document_cache, &uri, &params.text_document_position.position)
+            {
+                let p = tk.parent();
+                let version = document_cache.document_version(&uri);
+                if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
+                    let edits: Vec<_> = value
                         .into_iter()
-                        .map(|r| lsp_types::DocumentHighlight {
+                        .map(|r| TextEdit {
                             range: util::text_range_to_lsp_range(
                                 &p.source_file,
                                 r,
                                 document_cache.format,
                             ),
-                            kind: None,
+                            new_text: params.new_name.clone(),
                         })
-                        .collect(),
-                ));
+                        .collect();
+                    return Ok(Some(common::create_workspace_edit(uri, version, edits)));
+                }
+                if let Some(declaration_node) =
+                    common::rename_component::find_declaration_node(&document_cache, &tk)
+                {
+                    return declaration_node
+                        .rename(document_cache, &params.new_name)
+                        .map(Some)
+                        .map_err(|e| LspError {
+                            code: LspErrorCode::RequestFailed,
+                            message: e.to_string(),
+                        });
+                }
             }
-        }
-        ctx.to_preview
-            .send(&common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
-        Ok(None)
-    });
-    rh.register::<Rename, _>(|params, ctx| async move {
-        let mut document_cache = ctx.document_cache.borrow_mut();
-        let uri = params.text_document_position.text_document.uri;
-        if let Some((tk, _off)) =
-            token_descr(&mut document_cache, &uri, &params.text_document_position.position)
-        {
-            let p = tk.parent();
-            let version = document_cache.document_version(&uri);
-            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
-                let edits: Vec<_> = value
-                    .into_iter()
-                    .map(|r| TextEdit {
-                        range: util::text_range_to_lsp_range(
-                            &p.source_file,
-                            r,
-                            document_cache.format,
-                        ),
-                        new_text: params.new_name.clone(),
-                    })
-                    .collect();
-                return Ok(Some(common::create_workspace_edit(uri, version, edits)));
-            }
-            if let Some(declaration_node) =
-                common::rename_component::find_declaration_node(&document_cache, &tk)
-            {
-                return declaration_node
-                    .rename(&document_cache, &params.new_name)
-                    .map(Some)
-                    .map_err(|e| LspError {
-                        code: LspErrorCode::RequestFailed,
-                        message: e.to_string(),
-                    });
-            }
-        }
 
-        Err(LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "This symbol cannot be renamed.".into(),
+            Err(LspError {
+                code: LspErrorCode::RequestFailed,
+                message: "This symbol cannot be renamed.".into(),
+            })
         })
     });
-    rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
-        let mut document_cache = ctx.document_cache.borrow_mut();
+    rh.register::<PrepareRenameRequest, _>(|ctx, params| {
+        let document_cache = ctx.document_cache.clone();
         let uri = params.text_document.uri;
-        if let Some((tk, _)) = token_descr(&mut document_cache, &uri, &params.position) {
-            if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
-                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
-                    &tk,
-                    document_cache.format,
-                ))));
+        document_cache.exec(move |document_cache| {
+            if let Some((tk, _)) = token_descr(document_cache, &uri, &params.position) {
+                if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
+                    return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
+                        &tk,
+                        document_cache.format,
+                    ))));
+                }
+                if common::rename_component::find_declaration_node(&document_cache, &tk).is_some() {
+                    return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
+                        &tk,
+                        document_cache.format,
+                    ))));
+                }
             }
-            if common::rename_component::find_declaration_node(&document_cache, &tk).is_some() {
-                return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
-                    &tk,
-                    document_cache.format,
-                ))));
-            }
-        }
-        Ok(None)
+            Ok(None)
+        })
     });
-    rh.register::<Formatting, _>(|params, ctx| async move {
-        let document_cache = ctx.document_cache.borrow_mut();
-        Ok(formatting::format_document(params, &document_cache))
+    rh.register::<Formatting, _>(|ctx, params| {
+        ctx.document_cache
+            .clone()
+            .exec(move |document_cache| Ok(formatting::format_document(params, &document_cache)))
     });
 }
 
@@ -584,68 +618,64 @@ fn extract_param<T: serde::de::DeserializeOwned>(
 
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn show_preview_command(
-    params: &[serde_json::Value],
-    ctx: &Rc<Context>,
+    params: lsp_protocol::PreviewComponent,
+    ctx: &mut Context,
 ) -> Result<(), LspError> {
-    let url: Url = extract_param(params, 0, "url")?;
-
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url =
-        common::uri_to_file(&url).and_then(|u| Url::from_file_path(u).ok()).ok_or_else(|| {
-            LspError {
-                code: LspErrorCode::InvalidParameter,
-                message: "invalid document url".into(),
-            }
+    let url = common::uri_to_file(&params.url)
+        .and_then(|u| Url::from_file_path(u).ok())
+        .ok_or_else(|| LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "invalid document url".into(),
         })?;
 
-    let component =
-        params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
-
-    tracing::debug!("Show preview: url={}, component={:?}", url, component);
-    let c = common::PreviewComponent { url, component };
-    ctx.to_show.replace(Some(c.clone()));
-    ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+    tracing::debug!("Show preview: url={}, component={:?}", url, params.component);
+    let c = common::PreviewComponent { url, component: params.component };
+    ctx.to_show.replace(c.clone());
+    ctx.to_preview
+        .oneway(move |to_preview| to_preview.send(&common::LspToPreviewMessage::ShowPreview(c)));
 
     Ok(())
 }
 
 #[cfg(feature = "preview-remote")]
-pub async fn connect_remote_preview_command(
+pub fn connect_remote_preview_command(
     params: &[serde_json::Value],
-    ctx: &Rc<Context>,
-) -> Result<(), LspError> {
-    let Some(addresses) = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
-        addresses.iter().filter_map(serde_json::Value::as_str).collect::<Vec<_>>()
-    }) else {
-        return Err(LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "Need array of string as the first parameter".to_owned(),
-        });
-    };
-    let Some(port) = params.get(1).and_then(serde_json::Value::as_u64) else {
-        return Err(LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "Need number as the second parameter".to_owned(),
-        });
-    };
+    ctx: &Context,
+) -> impl std::future::Future<Output = Result<Option<serde_json::Value>, LspError>> + Send + 'static
+{
+    let addresses = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
+        addresses.iter().filter_map(serde_json::Value::as_str).map(String::from).collect::<Vec<_>>()
+    });
+    let port = params.get(1).and_then(serde_json::Value::as_u64);
 
-    let _ = ctx.to_preview.set_preview_target(common::PreviewTarget::Remote);
-
-    ctx.to_preview
-        .with_preview_target_async::<crate::preview::connector::remote::RemoteLspToPreview, Result<(), LspError>>(
-            async |remote| {
-                remote.connect(addresses, port as u16).await.map_err(|err| {
-                    LspError {
-                        code: LspErrorCode::RequestFailed,
-                        message: format!("Failed to connect to remote preview: {err}"),
-                    }
-                })?;
-                Ok(())
-            },
-        )
-        .await.unwrap()?;
-
-    Ok(())
+    ctx.to_preview.clone().exec_async(async move |to_preview| {
+        if let Some(addresses) = addresses {
+            if let Some(port) = port {
+                let _ = to_preview.set_preview_target(common::PreviewTarget::Remote);
+                to_preview.with_preview_target_async::<crate::preview::connector::remote::RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
+                    async |remote| {
+                        remote.connect(addresses.iter().map(String::as_str), port as u16).await.map_err(|err| {
+                            LspError {
+                                code: LspErrorCode::RequestFailed,
+                                message: format!("Failed to connect to remote preview: {err}"),
+                            }
+                        })?;
+                        Ok(None)
+                    }).await.unwrap()
+            } else {
+                Err(LspError {
+                    code: LspErrorCode::InvalidParameter,
+                    message: "Need number as the second parameter".to_owned(),
+                })
+            }
+        } else {
+            Err(LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "Need array of string as the first parameter".to_owned(),
+            })
+        }
+    })
 }
 
 fn populate_command_range(
@@ -668,40 +698,43 @@ fn populate_command_range(
     ))
 }
 
-pub async fn populate_command(
+pub fn populate_command(
     params: &[serde_json::Value],
-    ctx: &Rc<Context>,
-) -> Result<serde_json::Value, LspError> {
-    let text_document =
-        serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
+    ctx: &Context,
+) -> impl std::future::Future<Output = Result<Option<serde_json::Value>, LspError>> + Send + 'static
+{
+    fn inner(
+        params: &[serde_json::Value],
+        document_cache: &common::DocumentCache,
+    ) -> Result<lsp_types::WorkspaceEdit, LspError> {
+        let text_document =
+            serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
+                params
+                    .first()
+                    .ok_or_else(|| LspError {
+                        code: LspErrorCode::InvalidParameter,
+                        message: "No textdocument provided".into(),
+                    })?
+                    .clone(),
+            )
+            .map_err(|_| LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "First parameter is not a OptionalVersionedTextDocumentIdentifier".into(),
+            })?;
+        let new_text = serde_json::from_value::<String>(
             params
-                .first()
+                .get(1)
                 .ok_or_else(|| LspError {
                     code: LspErrorCode::InvalidParameter,
-                    message: "No textdocument provided".into(),
+                    message: "No code to insert".into(),
                 })?
                 .clone(),
         )
         .map_err(|_| LspError {
             code: LspErrorCode::InvalidParameter,
-            message: "First parameter is not a OptionalVersionedTextDocumentIdentifier".into(),
+            message: "Invalid second parameter".into(),
         })?;
-    let new_text = serde_json::from_value::<String>(
-        params
-            .get(1)
-            .ok_or_else(|| LspError {
-                code: LspErrorCode::InvalidParameter,
-                message: "No code to insert".into(),
-            })?
-            .clone(),
-    )
-    .map_err(|_| LspError {
-        code: LspErrorCode::InvalidParameter,
-        message: "Invalid second parameter".into(),
-    })?;
 
-    let edit = {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = text_document.uri;
         let version = document_cache.document_version(&uri);
 
@@ -742,41 +775,45 @@ pub async fn populate_command(
         };
 
         let edit = lsp_types::TextEdit { range, new_text };
-        common::create_workspace_edit(uri, version, vec![edit])
-    };
-
-    let response = ctx
-        .server_notifier
-        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-            lsp_types::ApplyWorkspaceEditParams { label: Some("Populate empty file".into()), edit },
-        )
-        .map_err(|_| LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "Failed to send populate edit".into(),
-        })?
-        .await
-        .map_err(|_| LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "Failed to send populate edit".into(),
-        })?;
-
-    if !response.applied {
-        return Err(LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "Failed to apply population edit".into(),
-        });
+        Ok(common::create_workspace_edit(uri, version, vec![edit]))
     }
 
-    Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
+    let server_notifier = ctx.server_notifier.clone();
+    let document_cache = ctx.document_cache.clone();
+    let params = params.to_vec();
+    document_cache.exec_async(async move |document_cache| {
+        let edit = inner(&params, &document_cache);
+        let response = server_notifier
+            .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                lsp_types::ApplyWorkspaceEditParams {
+                    label: Some("Populate empty file".into()),
+                    edit: edit?,
+                },
+            )
+            .await
+            .map_err(|_| LspError {
+                code: LspErrorCode::RequestFailed,
+                message: "Failed to send populate edit".into(),
+            })?;
+
+        if !response.applied {
+            return Err(LspError {
+                code: LspErrorCode::RequestFailed,
+                message: "Failed to apply population edit".into(),
+            });
+        }
+
+        Ok(Some(serde_json::to_value(()).expect("Failed to serialize ()!")))
+    })
 }
 
-pub(crate) async fn load_document_impl(
-    ctx: Option<&Rc<Context>>,
+pub(crate) fn load_document_impl(
+    ctx: Option<&mut Context>,
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: &mut common::DocumentCache,
-) -> (HashSet<PathBuf>, BuildDiagnostics) {
+    document_cache: LocalThreadWrapper<common::DocumentCache>,
+) -> impl Future<Output = (HashSet<PathBuf>, BuildDiagnostics)> + Send + 'static {
     enum FileAction {
         ProcessContent(String),
         IgnoreFile,
@@ -785,133 +822,161 @@ pub(crate) async fn load_document_impl(
 
     tracing::trace!("Loading document: {url} (version: {version:?})");
 
-    let Some(path) = common::uri_to_file(&url) else { return Default::default() };
-    // Normalize the URL
-    let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
+    let to_preview = ctx.as_ref().map(|ctx| ctx.to_preview.clone());
+    let open_urls = ctx.map(|ctx| ctx.open_urls.clone());
+    document_cache.exec_async(async move |document_cache| {
+        let Some(path) = common::uri_to_file(&url) else { return Default::default() };
+        // Normalize the URL
+        let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
 
-    let action = if path.extension().is_some_and(|e| e == "rs") {
-        match i_slint_compiler::lexer::extract_rust_macro(content) {
-            Some(content) => FileAction::ProcessContent(content),
-            // A rust file without a rust macro, just ignore it
-            None => {
-                if document_cache.get_document(&url).is_some() {
-                    // This had contents before: Continue so we can invalidate it!
-                    FileAction::InvalidateFile
-                } else {
-                    FileAction::IgnoreFile
+        let action = if path.extension().is_some_and(|e| e == "rs") {
+            match i_slint_compiler::lexer::extract_rust_macro(content) {
+                Some(content) => FileAction::ProcessContent(content),
+                // A rust file without a rust macro, just ignore it
+                None => {
+                    if document_cache.get_document(&url).is_some() {
+                        // This had contents before: Continue so we can invalidate it!
+                        FileAction::InvalidateFile
+                    } else {
+                        FileAction::IgnoreFile
+                    }
                 }
             }
-        }
-    } else {
-        FileAction::ProcessContent(content)
-    };
+        } else {
+            FileAction::ProcessContent(content)
+        };
 
-    let mut diag = BuildDiagnostics::default();
+        let mut diag = BuildDiagnostics::default();
 
-    let dependencies = match action {
-        FileAction::ProcessContent(content) => {
-            if let Some(ctx) = ctx {
-                ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-                    url: common::VersionedUrl::new(url.clone(), version),
-                    contents: content.as_bytes().to_owned(),
-                });
+        let dependencies = match action {
+            FileAction::ProcessContent(content) => {
+                if let Some(to_preview) = to_preview {
+                    let url = url.clone();
+                    let contents = content.as_bytes().to_owned();
+                    to_preview.oneway(move |to_preview| {
+                        to_preview.send(&common::LspToPreviewMessage::SetContents {
+                            url: common::VersionedUrl::new(url, version),
+                            contents,
+                        })
+                    });
+                }
+                let dependencies = document_cache.invalidate_url(&url);
+                let _ = document_cache.load_url(&url, version, content, &mut diag).await;
+                dependencies
             }
-            let dependencies = document_cache.invalidate_url(&url);
-            let _ = document_cache.load_url(&url, version, content, &mut diag).await;
-            dependencies
-        }
-        FileAction::IgnoreFile => return Default::default(),
-        FileAction::InvalidateFile => {
-            if let Some(ctx) = ctx {
-                ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+            FileAction::IgnoreFile => return Default::default(),
+            FileAction::InvalidateFile => {
+                if let Some(to_preview) = to_preview {
+                    let url = url.clone();
+                    to_preview.oneway(move |to_preview| {
+                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url })
+                    });
+                }
+                document_cache.invalidate_url(&url)
             }
-            document_cache.invalidate_url(&url)
+        };
+
+        for dep in &dependencies {
+            if open_urls.as_ref().is_some_and(|open_urls| open_urls.contains(dep)) {
+                document_cache.reload_cached_file(dep, &mut diag).await;
+            }
         }
-    };
 
-    for dep in &dependencies {
-        if ctx.is_some_and(|ctx| ctx.open_urls.borrow().contains(dep)) {
-            document_cache.reload_cached_file(dep, &mut diag).await;
-        }
-    }
+        let extra_files = dependencies
+            .iter()
+            .filter_map(common::uri_to_file)
+            .chain(core::iter::once(path))
+            .collect();
 
-    let extra_files =
-        dependencies.iter().filter_map(common::uri_to_file).chain(core::iter::once(path)).collect();
-
-    (extra_files, diag)
+        (extra_files, diag)
+    })
 }
 
-pub async fn open_document(
-    ctx: &Rc<Context>,
+pub fn open_document(
+    ctx: &mut Context,
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: &mut common::DocumentCache,
-) -> common::Result<()> {
+) -> impl Future<Output = common::Result<()>> + Send + 'static {
     tracing::debug!("Opening document: {url}");
-    ctx.open_urls.borrow_mut().insert(url.clone());
+    ctx.open_urls.insert(url.clone());
 
-    load_document(ctx, content, url, version, document_cache).await
+    load_document(ctx, content, url, version)
 }
 
-pub async fn close_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+pub fn close_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Closing document: {url}");
-    ctx.open_urls.borrow_mut().remove(&url);
-    drop_document(ctx, url).await
+    ctx.open_urls.remove(&url);
+    drop_document(ctx, url)
 }
 
-pub async fn load_document(
-    ctx: &Rc<Context>,
+pub fn load_document(
+    ctx: &mut Context,
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: &mut common::DocumentCache,
-) -> common::Result<()> {
-    let (extra_files, diag) =
-        load_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
+) -> impl Future<Output = common::Result<()>> + Send + 'static {
+    let document_cache = ctx.document_cache.clone();
+    let server_notifier = ctx.server_notifier.clone();
+    let future = load_document_impl(Some(ctx), content, url.clone(), version, document_cache);
 
-    tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
+    async move {
+        let (extra_files, diag) = future.await;
 
-    send_diagnostics(&ctx.server_notifier, document_cache, &extra_files, diag);
+        tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
 
-    Ok(())
+        server_notifier.send_event(crate::SendDiagnosticsEvent { extra_files, diag });
+
+        Ok(())
+    }
 }
 
-pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+pub fn reload_document(
+    ctx: &mut Context,
+    url: lsp_types::Url,
+) -> impl Future<Output = common::Result<()>> + Send + 'static {
     tracing::debug!("Reloading document: {url}");
 
-    // Check if document is in cache (can use reload_cached_file)
-    let in_cache = ctx.document_cache.borrow().all_urls().contains(&url);
+    let document_cache = ctx.document_cache.clone();
+    let server_notifier = ctx.server_notifier.clone();
 
-    if in_cache {
-        tracing::trace!("Document is in cache, reloading: {url}");
+    document_cache.exec_async(async move |document_cache| {
+        // Check if document is in cache (can use reload_cached_file)
+        let in_cache = document_cache.all_urls().contains(&url);
 
-        let mut document_cache = ctx.document_cache.borrow_mut();
-        let mut diagnostics = BuildDiagnostics::default();
+        if in_cache {
+            tracing::trace!("Document is in cache, reloading: {url}");
 
-        document_cache.reload_cached_file(&url, &mut diagnostics).await;
-        let mut extra_files = HashSet::new();
-        extra_files.extend(uri_to_file(&url));
+            let mut diagnostics = BuildDiagnostics::default();
 
-        send_diagnostics(&ctx.server_notifier, &document_cache, &extra_files, diagnostics);
-    } else {
-        tracing::trace!("Document not in cache, loading from disk: {url}");
+            document_cache.reload_cached_file(&url, &mut diagnostics).await;
+            let mut extra_files = HashSet::new();
+            extra_files.extend(uri_to_file(&url));
 
-        let Some(path) = common::uri_to_file(&url) else {
-            // The file was likely deleted, log and move on
-            tracing::debug!("Failed to locate file: {url}");
-            return Ok(());
-        };
-        match std::fs::read_to_string(&path) {
-            Ok(content) => {
-                load_document(ctx, content, url, None, &mut ctx.document_cache.borrow_mut()).await?
-            }
-            // The file was likely deleted, log and move on
-            Err(err) => tracing::debug!("Failed to read {} from disk: {err}", path.display()),
-        };
-    }
+            send_diagnostics(server_notifier, document_cache, &extra_files, diagnostics);
+        } else {
+            tracing::trace!("Document not in cache, loading from disk: {url}");
 
-    Ok(())
+            let Some(path) = common::uri_to_file(&url) else {
+                // The file was likely deleted, log and move on
+                tracing::debug!("Failed to locate file: {url}");
+                return Ok(());
+            };
+            match tokio::fs::read_to_string(&path).await {
+                Ok(content) => {
+                    server_notifier.send_event(crate::LoadDocumentEvent {
+                        content,
+                        url,
+                        version: None,
+                    });
+                }
+                // The file was likely deleted, log and move on
+                Err(err) => tracing::debug!("Failed to read {} from disk: {err}", path.display()),
+            };
+        }
+
+        Ok(())
+    })
 }
 
 pub fn convert_diagnostics(
@@ -939,8 +1004,8 @@ pub fn convert_diagnostics(
     lsp_diags
 }
 
-fn send_diagnostics(
-    _server_notifier: &crate::ServerNotifier,
+pub fn send_diagnostics(
+    server_notifier: crate::ServerNotifier,
     document_cache: &common::DocumentCache,
     extra_files: &HashSet<PathBuf>,
     diag: BuildDiagnostics,
@@ -953,7 +1018,7 @@ fn send_diagnostics(
 
         #[cfg(feature = "preview-engine")]
         let _ = common::lsp_to_editor::notify_lsp_diagnostics(
-            _server_notifier,
+            &server_notifier,
             uri,
             _version,
             _diagnostics,
@@ -961,27 +1026,26 @@ fn send_diagnostics(
     }
 }
 
-fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
-    let dependencies = ctx.document_cache.borrow_mut().drop_document(&url)?;
+fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
+    let dependencies = ctx.document_cache.drop_document(&url)?;
 
-    let open_urls = ctx.open_urls.borrow();
-    let open_dependencies = open_urls.intersection(&dependencies).cloned();
-    ctx.pending_recompile.borrow_mut().extend(open_dependencies);
+    let open_dependencies = ctx.open_urls.intersection(&dependencies).cloned();
+    ctx.pending_recompile.extend(open_dependencies);
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    if let Some(preview_url) = ctx.to_show.borrow().as_ref().map(|c| c.url.clone()) {
+    if let Some(preview_url) = ctx.to_show.as_ref().map(|c| c.url.clone()) {
         // The external preview only has access to the files the LSP recompiles, so we need to
         // ensure the preview file is recompiled if anything it depends on changes, even if it's
         // not in the open_urls.
         if preview_url == url || dependencies.contains(&preview_url) {
-            ctx.pending_recompile.borrow_mut().insert(preview_url);
+            ctx.pending_recompile.insert(preview_url);
         }
     }
 
     Ok(())
 }
 
-pub async fn drop_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+pub fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Dropping document: {url}");
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() });
@@ -989,7 +1053,7 @@ pub async fn drop_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Re
     drop_document_impl(ctx, url)
 }
 
-pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<()> {
+pub fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Deleting document: {url}");
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
@@ -997,22 +1061,22 @@ pub async fn delete_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::
     drop_document_impl(ctx, url)
 }
 
-pub async fn trigger_file_watcher(
-    ctx: &Rc<Context>,
+pub fn trigger_file_watcher(
+    ctx: &mut Context,
     url: lsp_types::Url,
     typ: lsp_types::FileChangeType,
 ) -> common::Result<()> {
-    if !ctx.open_urls.borrow().contains(&url) {
+    if !ctx.open_urls.contains(&url) {
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
         if typ == lsp_types::FileChangeType::DELETED {
-            delete_document(ctx, url).await?;
+            delete_document(ctx, url)
         } else {
-            drop_document(ctx, url).await?;
+            drop_document(ctx, url)
         }
     } else {
         tracing::trace!("Ignoring file watcher event for open document: {url}");
+        Ok(())
     }
-    Ok(())
 }
 
 /// return the token, and the offset within the file
@@ -1523,9 +1587,13 @@ export component MainWindow inherits Window {
     (!result.is_empty()).then_some(result)
 }
 
-pub async fn startup_lsp(ctx: &Context) -> common::Result<()> {
-    register_file_watcher(ctx).await?;
-    load_configuration(ctx).await
+pub async fn startup_lsp(
+    params: &InitializeParams,
+    client: &async_lsp::ClientSocket,
+    document_cache: LocalThreadWrapper<common::DocumentCache>,
+) -> common::Result<Option<common::PreviewConfig>> {
+    register_file_watcher(params, client).await?;
+    load_configuration(params, client.clone(), document_cache).await
 }
 
 #[derive(Debug)]
@@ -1580,30 +1648,24 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
     WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
 }
 
-pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
+pub async fn load_configuration(
+    init_params: &InitializeParams,
+    client: async_lsp::ClientSocket,
+    document_cache: LocalThreadWrapper<common::DocumentCache>,
+) -> common::Result<Option<lsp_protocol::PreviewConfig>> {
     tracing::debug!("Loading configuration from client");
 
-    if !ctx
-        .init_param
-        .capabilities
-        .workspace
-        .as_ref()
-        .and_then(|w| w.configuration)
-        .unwrap_or(false)
-    {
-        return Ok(());
+    if !init_params.capabilities.workspace.as_ref().and_then(|w| w.configuration).unwrap_or(false) {
+        return Ok(None);
     }
 
-    let workspace_config = ctx
-        .server_notifier
-        .send_request::<lsp_types::request::WorkspaceConfiguration>(
-            lsp_types::ConfigurationParams {
-                items: vec![lsp_types::ConfigurationItem {
-                    scope_uri: None,
-                    section: Some("slint".into()),
-                }],
-            },
-        )?
+    let workspace_config = client
+        .request::<lsp_types::request::WorkspaceConfiguration>(lsp_types::ConfigurationParams {
+            items: vec![lsp_types::ConfigurationItem {
+                scope_uri: None,
+                section: Some("slint".into()),
+            }],
+        })
         .await?;
 
     let workspace_config = parse_configuration(workspace_config);
@@ -1611,33 +1673,37 @@ pub async fn load_configuration(ctx: &Context) -> common::Result<()> {
     let WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental } =
         workspace_config;
 
-    let document_cache = &mut ctx.document_cache.borrow_mut();
     let mut diag = BuildDiagnostics::default();
-    let (cc, all_files) = document_cache
-        .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
-        .await;
+    let config = document_cache
+        .with_async(async move |document_cache| {
+            let (cc, all_files) = document_cache
+                .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
+                .await;
 
-    send_diagnostics(
-        &ctx.server_notifier,
-        document_cache,
-        &all_files.iter().filter_map(common::uri_to_file).collect(),
-        diag,
-    );
+            client.emit(SendDiagnosticsEvent {
+                extra_files: all_files.iter().filter_map(common::uri_to_file).collect(),
+                diag,
+            })?;
 
-    let config = common::PreviewConfig {
-        hide_ui,
-        style: cc.style.clone().unwrap_or_default(),
-        include_paths: cc.include_paths.clone(),
-        library_paths: cc.library_paths.clone(),
-        format_utf8: cc.format == common::ByteFormat::Utf8,
-        enable_experimental: cc.enable_experimental,
-    };
-    *ctx.preview_config.borrow_mut() = config.clone();
-    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
+            Ok::<_, async_lsp::Error>(common::PreviewConfig {
+                hide_ui,
+                style: cc.style.clone().unwrap_or_default(),
+                include_paths: cc.include_paths.clone(),
+                library_paths: cc.library_paths.clone(),
+                format_utf8: cc.format == common::ByteFormat::Utf8,
+                enable_experimental: cc.enable_experimental,
+            })
+        })
+        .await?;
+
+    // ctx.preview_config = config.clone();
+    // ctx.to_preview.oneway(move |to_preview| {
+    //     to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
+    // });
 
     tracing::debug!("Loaded configuration from client");
 
-    Ok(())
+    Ok(Some(config))
 }
 
 #[cfg(test)]
@@ -1677,9 +1743,9 @@ pub mod tests {
         //
         // In that case, make sure we do not return an error, as that would crash the LSP.
         // The reload_document function is a best-effort anyway.
-        let ctx = Rc::new(test::mock_context());
+        let mut ctx = test::mock_context();
         spin_on::spin_on(reload_document(
-            &ctx,
+            &mut ctx,
             Url::parse("file:///non/existent/file.slint").unwrap(),
         ))
         .expect("reload_document failed");

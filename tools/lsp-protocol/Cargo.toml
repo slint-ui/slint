@@ -22,3 +22,4 @@ serde.workspace = true
 lsp-types = { version = "0.95.0" }
 serde_json.workspace = true
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
+atomic_enum = { version = "0.3.0", optional = true }
