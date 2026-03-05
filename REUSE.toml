@@ -175,6 +175,7 @@ path = [
   "editors/**.md",
   "editors/sublime/LSP.sublime-settings",
   "editors/tree-sitter-slint/corpus/**.txt",
+  "editors/tree-sitter-slint/tree-sitter.json",
   "editors/vscode/**.json",
   "editors/vscode/css/**.css",
   "editors/vscode/tests/grammar/**.slint",
