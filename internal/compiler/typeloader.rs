@@ -324,7 +324,7 @@ impl Snapshotter {
     ) -> Rc<object_tree::Component> {
         let input_address = by_address::ByAddress(component.clone());
 
-        let parent_element = if let Some(pe) = component.parent_element.borrow().upgrade() {
+        let parent_element = if let Some(pe) = component.parent_element() {
             Rc::downgrade(&self.use_element(&pe))
         } else {
             Weak::default()

@@ -133,7 +133,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        let is_repeated = s.description.original.parent_element.borrow().upgrade().is_some_and(|p| {
+        let is_repeated = s.description.original.parent_element().is_some_and(|p| {
             p.borrow().repeated.as_ref().is_some_and(|r| !r.is_conditional_element)
         });
         if is_repeated {
@@ -1336,7 +1336,7 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
-    if let Some(parent_element) = component.parent_element.borrow().upgrade()
+    if let Some(parent_element) = component.parent_element()
         && let Some(r) = &parent_element.borrow().repeated
         && !r.is_conditional_element
     {
@@ -1357,7 +1357,7 @@ pub(crate) fn generate_item_tree<'id>(
     }
 
     let parent_item_tree_offset =
-        if component.parent_element.borrow().upgrade().is_some() || is_popup_menu_impl {
+        if component.parent_element().is_some() || is_popup_menu_impl {
             Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
         } else {
             None
@@ -1380,7 +1380,7 @@ pub(crate) fn generate_item_tree<'id>(
         .collect();
 
     // only the public exported component needs the public property list
-    let public_properties = if component.parent_element.borrow().upgrade().is_none() {
+    let public_properties = if component.parent_element().is_none() {
         component.root_element.borrow().property_declarations.clone()
     } else {
         Default::default()

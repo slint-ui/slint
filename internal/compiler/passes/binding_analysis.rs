@@ -107,7 +107,7 @@ impl PropertyPath {
         let mut elements = self.elements.clone();
         loop {
             let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
-            if enclosing.parent_element.borrow().upgrade().is_some()
+            if enclosing.parent_element().is_some()
                 || !Rc::ptr_eq(&element, &enclosing.root_element)
             {
                 break;

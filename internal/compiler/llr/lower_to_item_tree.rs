@@ -280,7 +280,7 @@ fn lower_sub_component(
     let mut accessible_prop = Vec::new();
     let mut change_callbacks = Vec::new();
 
-    if let Some(parent) = component.parent_element.borrow().upgrade() {
+    if let Some(parent) = component.parent_element() {
         // Add properties for the model data and index
         if parent.borrow().repeated.as_ref().is_some_and(|x| !x.is_conditional_element) {
             sub_component.properties.push(Property {

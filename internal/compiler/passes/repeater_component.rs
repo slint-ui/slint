@@ -26,7 +26,7 @@ fn create_repeater_components(component: &Rc<Component>) {
         let original_elem_as_weak = Rc::downgrade(original_elem_rc);
         let mut original_elem = original_elem_rc.borrow_mut();
 
-        if matches!(&original_elem.base_type, ElementType::Component(c) if c.parent_element.borrow().upgrade().is_some())
+        if matches!(&original_elem.base_type, ElementType::Component(c) if c.parent_element().is_some())
         {
             debug_assert!(std::rc::Weak::ptr_eq(
                 &original_elem_as_weak,

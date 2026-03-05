@@ -847,7 +847,7 @@ fn call_builtin_function(
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
                 let parent_component = {
-                    let parent_elem = pop_comp.parent_element.borrow().upgrade().unwrap();
+                    let parent_elem = pop_comp.parent_element().unwrap();
                     parent_elem.borrow().enclosing_component.upgrade().unwrap()
                 };
                 let popup_list = parent_component.popup_windows.borrow();
@@ -904,7 +904,7 @@ fn call_builtin_function(
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
                 let parent_component = {
-                    let parent_elem = pop_comp.parent_element.borrow().upgrade().unwrap();
+                    let parent_elem = pop_comp.parent_element().unwrap();
                     parent_elem.borrow().enclosing_component.upgrade().unwrap()
                 };
                 let popup_list = parent_component.popup_windows.borrow();

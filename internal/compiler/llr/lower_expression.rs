@@ -430,7 +430,7 @@ pub fn repeater_special_property(
     let mut parent_level = 0;
     let mut component = component.clone();
     while !Rc::ptr_eq(&enclosing, &component) {
-        let parent_elem = component.parent_element.borrow().upgrade().unwrap();
+        let parent_elem = component.parent_element().unwrap();
         component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
         parent_level += 1;
     }
@@ -470,7 +470,7 @@ fn lower_show_popup_window(
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-        let parent_elem = pop_comp.parent_element.borrow().upgrade().unwrap();
+        let parent_elem = pop_comp.parent_element().unwrap();
         let parent_component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
         let popup_list = parent_component.popup_windows.borrow();
         let (popup_index, popup) = popup_list
@@ -503,7 +503,7 @@ fn lower_close_popup_window(
     if let [tree_Expression::ElementReference(e)] = args {
         let popup_window = e.upgrade().unwrap();
         let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-        let parent_elem = pop_comp.parent_element.borrow().upgrade().unwrap();
+        let parent_elem = pop_comp.parent_element().unwrap();
         let parent_component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
         let popup_list = parent_component.popup_windows.borrow();
         let (popup_index, popup) = popup_list
