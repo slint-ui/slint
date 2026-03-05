@@ -519,7 +519,10 @@ impl CppType for BuiltinPrivateStruct {
 impl CppType for BuiltinPublicStruct {
     fn cpp_type(&self) -> Option<SmolStr> {
         let name: &'static str = self.into();
-        Some(format_smolstr!("slint::language::{}", name))
+        match self {
+            Self::StandardListViewItem => Some(format_smolstr!("slint::language::{}", name)),
+            _ => Some(format_smolstr!("slint::{}", name)),
+        }
     }
 }
 
