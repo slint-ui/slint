@@ -1064,7 +1064,7 @@ pub fn parse(
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
-    p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
+    p.source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
         path.map(crate::pathutils::clean_path).unwrap_or_default(),
         source,
     ));

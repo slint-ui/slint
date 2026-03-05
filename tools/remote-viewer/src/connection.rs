@@ -14,7 +14,7 @@ use mdns_sd::ServiceInfo;
 use serde::Serialize;
 use tokio::{
     net::TcpStream,
-    sync::{self, oneshot},
+    sync::{self, mpsc::UnboundedSender, oneshot},
     task::JoinHandle,
 };
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
@@ -61,6 +61,7 @@ impl Connection {
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
         let inner_file_cache = file_cache.clone();
+        let inner_message_sender = message_sender.clone();
         let task_handle = tokio::spawn(async move {
             let message_handler = Arc::new(message_handler);
             let mut current_sink = None;
@@ -73,17 +74,19 @@ impl Connection {
                                 return;
                             }
                             Ok((stream, addr)) => {
+                                tracing::info!("Connected to {addr:?}");
                                 match tokio_tungstenite::accept_async(stream).await {
                                     Err(err) => {
                                         tracing::error!("Failed to establish websocket connection: {err}")
                                     }
                                     Ok(stream) => {
-                                        tracing::info!("Connected to {addr:?}");
+                                        tracing::info!("Websocket established with {addr:?}");
                                         let (sink, receiver) = stream.split();
                                         tokio::spawn(Self::handle_connection(
                                             receiver,
                                             message_handler.clone(),
                                             inner_file_cache.clone(),
+                                            inner_message_sender.clone(),
                                         ));
                                         if let Some(_old_sink) = current_sink.replace(sink) {
                                             tracing::error!(
@@ -112,17 +115,19 @@ impl Connection {
         mut receiver: SplitStream<WebSocketStream<TcpStream>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
         file_cache: Arc<DashMap<Url, CacheEntry>>,
+        message_sender: UnboundedSender<Message>,
     ) {
         while let Some(msg) = receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
                     // Handle incoming text messages
-                    eprintln!("Received text message: {text}");
+                    tracing::warn!("Received text message: {text}");
                 }
                 Ok(Message::Binary(bin)) => {
                     // Handle incoming binary messages
                     match postcard::from_bytes::<lsp_protocol::LspToPreviewMessage>(&bin) {
                         Ok(message) => {
+                            tracing::debug!("Received message {message:?}");
                             // Process the data
                             match message {
                                 lsp_protocol::LspToPreviewMessage::InvalidateContents { url } => {
@@ -185,12 +190,12 @@ impl Connection {
                             }
                         }
                         Err(err) => {
-                            eprintln!("Failed to deserialize message: {err}");
+                            tracing::error!("Failed to deserialize message: {err}");
                         }
                     }
                 }
-                Ok(Message::Ping(_data)) => {
-                    todo!()
+                Ok(Message::Ping(data)) => {
+                    message_sender.send(Message::Pong(data)).ok();
                 }
                 Ok(Message::Pong(_)) => {}
                 Ok(Message::Close(_)) => {
@@ -199,7 +204,7 @@ impl Connection {
                 }
                 Ok(Message::Frame(_)) => unreachable!(),
                 Err(err) => {
-                    eprintln!("WebSocket error: {err}");
+                    tracing::error!("WebSocket error: {err}");
                     break;
                 }
             }

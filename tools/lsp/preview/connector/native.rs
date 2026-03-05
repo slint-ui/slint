@@ -17,14 +17,12 @@ struct ChildProcessLspToPreviewInner {
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
-    preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
+    server_notifier: crate::ServerNotifier,
 }
 
 impl ChildProcessLspToPreview {
-    pub fn new(
-        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
-    ) -> Self {
-        Self { inner: RefCell::new(None), preview_to_lsp_channel }
+    pub fn new(server_notifier: crate::ServerNotifier) -> Self {
+        Self { inner: RefCell::new(None), server_notifier }
     }
 
     fn preview_is_running(&self) -> bool {
@@ -49,16 +47,16 @@ impl ChildProcessLspToPreview {
         let from_child = child.stdout.take().expect("Child has no stdout");
         let to_child = child.stdin.take().expect("Child has no stdin");
 
-        let channel = self.preview_to_lsp_channel.clone();
-
-        let preview_to_lsp_channel = self.preview_to_lsp_channel.clone();
+        let server_notifier = self.server_notifier.clone();
 
         let communication_handle = std::thread::spawn(move || -> Result<(), String> {
             let reader = std::io::BufReader::new(from_child);
             for line in reader.lines() {
                 let line = line.map_err(|e| e.to_string())?;
-                if let Ok(message) = serde_json::from_str(&line) {
-                    channel.send(message).map_err(|e| e.to_string())?;
+                if let Ok(message) =
+                    serde_json::from_str::<lsp_protocol::LspToPreviewMessage>(&line)
+                {
+                    server_notifier.send_event(message).map_err(|e| e.to_string())?;
                 }
             }
 
@@ -70,12 +68,14 @@ impl ChildProcessLspToPreview {
                         .to_string();
                 eprintln!("{message}");
 
-                let _ = preview_to_lsp_channel.send(common::PreviewToLspMessage::SendShowMessage {
-                    message: lsp_types::ShowMessageParams {
-                        typ: lsp_types::MessageType::ERROR,
-                        message,
+                let _ = server_notifier.send_event(
+                    lsp_protocol::PreviewToLspMessage::SendShowMessage {
+                        message: lsp_types::ShowMessageParams {
+                            typ: lsp_types::MessageType::ERROR,
+                            message,
+                        },
                     },
-                });
+                );
             }
             Ok(())
         });
@@ -210,7 +210,7 @@ impl RemoteControlledPreviewToLsp {
 
 impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
-        let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
+        let message = serde_json::to_string(message)?;
         println!("{message}");
         Ok(())
     }
