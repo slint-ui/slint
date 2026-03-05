@@ -57,16 +57,19 @@ assert_eq!(combobox.accessible_expandable(), Some(true));
 assert_eq!(combobox.accessible_expanded(), Some(false));
 assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
 
+let assert_selection = |index: i32, value: &str| {
+    assert_eq!(instance.get_current_index(), index);
+    assert_eq!(instance.get_current_value(), value);
+    assert_eq!(combobox.accessible_value(), Some(SharedString::from(value)));
+};
+
 // Change the index programmatically
 instance.set_current_index(1);
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Bbb")));
+assert_selection(1, "Bbb");
 assert_eq!(instance.get_output(), "");
+
 instance.set_current_index(0);
-assert_eq!(instance.get_current_value(), "Aaa");
-assert_eq!(instance.get_current_index(), 0);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
+assert_selection(0, "Aaa");
 assert_eq!(instance.get_output(), "");
 assert_eq!(instance.get_has_focus(), false);
 
@@ -79,9 +82,7 @@ assert_eq!(combobox.accessible_expanded(), Some(true));
 // click outside of the combobox, this should close it
 slint_testing::send_mouse_click(&instance, 100., 10.);
 assert_eq!(instance.get_output(), "");
-assert_eq!(instance.get_current_value(), "Aaa");
-assert_eq!(instance.get_current_index(), 0);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
+assert_selection(0, "Aaa");
 assert_eq!(instance.get_has_focus(), true);
 assert_eq!(combobox.accessible_expanded(), Some(false));
 
@@ -89,28 +90,20 @@ assert_eq!(combobox.accessible_expanded(), Some(false));
 slint_testing::send_mouse_click(&instance, 100., 10.);
 assert_eq!(instance.get_output(), "clicked-under\n");
 instance.set_output(Default::default());
-assert_eq!(instance.get_current_value(), "Aaa");
-assert_eq!(instance.get_current_index(), 0);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Aaa")));
+assert_selection(0, "Aaa");
 assert_eq!(instance.get_has_focus(), true);
 assert_eq!(combobox.accessible_expanded(), Some(false));
 
 
 // The arrow change the values
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Bbb")));
+assert_selection(1, "Bbb");
 assert_eq!(instance.get_output(), "selected(Bbb,1)\n");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
-assert_eq!(instance.get_current_value(), "Ccc");
-assert_eq!(instance.get_current_index(), 2);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Ccc")));
+assert_selection(2, "Ccc");
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\n");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Bbb")));
+assert_selection(1, "Bbb");
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
 instance.set_output(Default::default());
 
@@ -136,14 +129,10 @@ instance.set_current_index(0);
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
 // The arrow change the values while the popup is shown
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Bbb")));
+assert_selection(1, "Bbb");
 assert_eq!(instance.get_output(), "selected(Bbb,1)\n");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
-assert_eq!(instance.get_current_value(), "Ccc");
-assert_eq!(instance.get_current_index(), 2);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Ccc")));
+assert_selection(2, "Ccc");
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\n");
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
 assert_eq!(instance.get_current_value(), "Bbb");
@@ -152,9 +141,7 @@ assert_eq!(combobox.accessible_value(), Some(SharedString::from("Bbb")));
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
 // close the popup
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Escape));
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Bbb")));
+assert_selection(1, "Bbb");
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
 instance.set_output(Default::default());
 slint_testing::send_mouse_click(&instance, 100., 10.);
@@ -180,18 +167,15 @@ let wheel_change_value = !module_path!().contains("cupertino");
 instance.set_output(Default::default());
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: 20.0 });
 if wheel_change_value {
-    assert_eq!(instance.get_current_value(), "Aaa");
-    assert_eq!(instance.get_current_index(), 0);
+    assert_selection(0, "Aaa");
     assert_eq!(instance.get_output(), "selected(Aaa,0)\n");
 } else {
-    assert_eq!(instance.get_current_value(), "Bbb");
-    assert_eq!(instance.get_current_index(), 1);
+    assert_selection(1, "Bbb");
     assert_eq!(instance.get_output(), "");
 }
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: -5.0 });
 assert_eq!(instance.get_has_focus(), true);
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
+assert_selection(1, "Bbb");
 if wheel_change_value {
     assert_eq!(instance.get_output(), "selected(Aaa,0)\nselected(Bbb,1)\n");
 }
@@ -200,12 +184,10 @@ instance.invoke_unfocus();
 instance.set_output(Default::default());
 assert_eq!(instance.get_has_focus(), false);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: 20.0 });
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
+assert_selection(1, "Bbb");
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(100.0, 100.0), delta_x: 0.0, delta_y: -5.0 });
 assert_eq!(instance.get_has_focus(), false);
-assert_eq!(instance.get_current_value(), "Bbb");
-assert_eq!(instance.get_current_index(), 1);
+assert_selection(1, "Bbb");
 assert_eq!(instance.get_output(), "");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq!(instance.get_has_focus(), true);
@@ -213,49 +195,36 @@ assert_eq!(instance.get_has_focus(), true);
 // Set current-index to -1
 instance.set_current_index(-1);
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_value(), &SharedString::from(""));
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("")));
+assert_selection(-1, "");
 
 // Replace model
 instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("A"), SharedString::from("B")])).into());
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 0);
-assert_eq!(instance.get_current_value(), &SharedString::from("A"));
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("A")));
+assert_selection(0, "A");
 
 // Model replacement preserves current-index when it's still valid in the new model
 instance.set_current_index(1);
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(instance.get_current_value(), &SharedString::from("B"));
+assert_selection(1, "B");
 
 // Replace with a 3-item model - index 1 is still valid, so it must be preserved (not reset to 0)
 instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("X"), SharedString::from("Y"), SharedString::from("Z")])).into());
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(instance.get_current_value(), &SharedString::from("Y"));
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Y")));
+assert_selection(1, "Y");
 
 // Select the last index and replace with a two-item model - index 2 is not valid anymore, so it should be clamped to 1
 instance.set_current_index(2);
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 2);
-assert_eq!(instance.get_current_value(), &SharedString::from("Z"));
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Z")));
+assert_selection(2, "Z");
 
 instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("X"), SharedString::from("Y")])).into());
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 1);
-assert_eq!(instance.get_current_value(), &SharedString::from("Y"));
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("Y")));
+assert_selection(1, "Y");
 
 // Set an empty model, this should reset the current-index to 0 and current-value to ""
 instance.set_model(Rc::new(VecModel::default()).into());
 mock_elapsed_time(500);
-assert_eq!(instance.get_current_index(), 0);
-assert_eq!(instance.get_current_value(), &SharedString::from(""));
-assert_eq!(combobox.accessible_value(), Some(SharedString::from("")));
-
+assert_selection(0, "");
 ```
 
 */
