@@ -1142,7 +1142,7 @@ fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {
     for modifier in ["Shift", "Alt"] {
         completions.push(
             CompletionItem::new_simple(
-                format!("Ignore{modifier}"),
+                format!("{modifier}?"),
                 format!("Ignore the {modifier} modifier when matching this shortcut"),
             )
             .with_kind(CompletionItemKind::KEYWORD),

@@ -379,7 +379,7 @@ module.exports = grammar({
       ),
 
     // @keys(...)
-    _keys_entry: ($) => choice($.simple_identifier, $.string_value),
+    _keys_entry: ($) => choice(seq($.simple_identifier, optional("?")), $.string_value),
     keys: ($) =>
       seq(
         "@keys",

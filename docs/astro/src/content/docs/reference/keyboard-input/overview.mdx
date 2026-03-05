@@ -107,17 +107,17 @@ For example: `@keys(Control + "ä")`.
 Note though that the `@keys(..)` macro no longer automatically handles different keyboard layouts and Shift behavior in this case.
 The provided string is simply matched against the **lowercased** `text`, plus the modifiers of the given `KeyEvent`
 
-To prevent issues with characters that entirely change their keycode when `Shift` (or sometimes `Alt` on macOS) is applied, you can use two additional special modifiers:
+To prevent issues with characters that entirely change their keycode when `Shift` (or sometimes `Alt` on macOS) is applied, you can mark these modifiers as optional with a trailing `?`, e.g.:
 
-- `IgnoreShift`
-- `IgnoreAlt`
+- `Shift?`
+- `Alt?`
 
-When these keywords are added to the `@keys(..)` macro, the `keyboard-shortcut` will ignore the state of the corresponding modifier when matching.
+When a modifier is marked as optional, the `keyboard-shortcut` will ignore the state of the corresponding modifier when matching.
 
-For example, to support keyboard shortcuts that produce a Euro-Sign (€), add both `IgnoreShift` and `IgnoreAlt`: `@keys(Control + IgnoreShift + IgnoreAlt + "€")`.
+For example, to support keyboard shortcuts that produce a Euro-Sign (€), add both `Shift?` and `Alt?`: `@keys(Control + Shift? + Alt? + "€")`.
 This will allow your users to reach the shortcut on almost all keyboard layouts that have a key with this label.
 
-As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + IgnoreShift + "+")`.
+As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + Shift? + "+")`.
 
 ## Key Namespace
 
