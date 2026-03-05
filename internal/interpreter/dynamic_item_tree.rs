@@ -1346,8 +1346,10 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
 
-        let model_ty =
-            Expression::RepeaterModelReference { element: component.parent_element.borrow().clone() }.ty();
+        let model_ty = Expression::RepeaterModelReference {
+            element: component.parent_element.borrow().clone(),
+        }
+        .ty();
         let (prop, type_info) =
             property_info_for_type(&model_ty, SPECIAL_PROPERTY_MODEL_DATA).unwrap();
         custom_properties.insert(
@@ -1356,12 +1358,11 @@ pub(crate) fn generate_item_tree<'id>(
         );
     }
 
-    let parent_item_tree_offset =
-        if component.parent_element().is_some() || is_popup_menu_impl {
-            Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
-        } else {
-            None
-        };
+    let parent_item_tree_offset = if component.parent_element().is_some() || is_popup_menu_impl {
+        Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
+    } else {
+        None
+    };
 
     let root_offset = builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>();
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
