@@ -22,7 +22,7 @@ impl<'a> Iterator for LineBreakIterator<'a> {
     type Item = (usize, BreakOpportunity);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((byte_offset, char)) = self.it.next() {
+        for (byte_offset, char) in self.it.by_ref() {
             let maybe_opportunity = match char {
                 '\u{2028}' | '\u{2029}' => Some(BreakOpportunity::Mandatory), // unicode line- and paragraph separators
                 '\n' => Some(BreakOpportunity::Mandatory),                    // ascii line break

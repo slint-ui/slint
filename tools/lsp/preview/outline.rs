@@ -235,9 +235,7 @@ fn create_node(
     ui::OutlineTreeNode {
         has_children: element
             .SubElement()
-            .filter(|n| !crate::common::is_element_node_ignored(&n.Element()))
-            .next()
-            .is_some()
+            .any(|n| !crate::common::is_element_node_ignored(&n.Element()))
             || element.RepeatedElement().next().is_some()
             || element.ConditionalElement().next().is_some(),
         is_expanded: true,

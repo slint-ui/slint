@@ -349,8 +349,9 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         //key_code, state, sym
                         //);
 
-                        if control && alt && sym == xkb::Keysym::BackSpace
-                            || control && alt && sym == xkb::Keysym::Delete
+                        if (sym == xkb::Keysym::Delete || sym == xkb::Keysym::BackSpace)
+                            && alt
+                            && control
                         {
                             i_slint_core::api::quit_event_loop()
                                 .expect("Unable to quit event loop multiple times");

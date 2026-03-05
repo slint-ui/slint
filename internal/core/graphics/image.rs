@@ -1362,17 +1362,17 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
-            ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                #[cfg(feature = "std")]
-                ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
-                _ => None,
-            },
+            #[cfg(feature = "std")]
+            ImageInner::EmbeddedImage {
+                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
+                ..
+            } => Some(path),
             ImageInner::NineSlice(nine) => match &nine.0 {
-                ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                    #[cfg(feature = "std")]
-                    ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
-                    _ => None,
-                },
+                #[cfg(feature = "std")]
+                ImageInner::EmbeddedImage {
+                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
+                    ..
+                } => Some(path),
                 _ => None,
             },
             _ => None,

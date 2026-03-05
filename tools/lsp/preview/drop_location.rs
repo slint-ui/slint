@@ -1039,12 +1039,11 @@ fn extract_text_of_element(
             .take_while(|c| c.is_whitespace())
             .collect()
     });
-    let lines = lines
-        .iter()
-        .map(|l| if l.starts_with(&indent) { l[indent.len()..].to_string() } else { l.to_string() })
-        .collect::<Vec<_>>();
 
     lines
+        .iter()
+        .map(|l| if l.starts_with(&indent) { l[indent.len()..].to_string() } else { l.to_string() })
+        .collect::<Vec<_>>()
 }
 
 fn node_removal_text_edit(

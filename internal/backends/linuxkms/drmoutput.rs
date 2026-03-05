@@ -112,7 +112,7 @@ impl DrmOutput {
                 .find_map(|handle| {
                     let connector = drm_device.get_connector(*handle, false).ok()?;
                     (connector.state() == drm::control::connector::State::Connected)
-                        .then(|| connector)
+                        .then_some(connector)
                 })
                 .ok_or_else(|| "No connected display connector found".to_string())?
         };
@@ -168,7 +168,7 @@ impl DrmOutput {
 
         let encoder = connector
             .current_encoder()
-            .filter(|current| connector.encoders().iter().any(|h| *h == *current))
+            .filter(|current| connector.encoders().contains(current))
             .and_then(|current| drm_device.get_encoder(current).ok());
 
         let crtc = if let Some(encoder) = encoder {

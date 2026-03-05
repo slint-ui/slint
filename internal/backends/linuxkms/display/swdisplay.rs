@@ -25,12 +25,10 @@ pub fn negotiate_format(
     renderer_formats: &[drm::buffer::DrmFourcc],
     display_formats: &[drm::buffer::DrmFourcc],
 ) -> Option<drm::buffer::DrmFourcc> {
-    for &renderer_format in renderer_formats {
-        if display_formats.contains(&renderer_format) {
-            return Some(renderer_format);
-        }
-    }
-    None
+    renderer_formats
+        .iter()
+        .find(|&&renderer_format| display_formats.contains(&renderer_format))
+        .copied()
 }
 
 pub fn new(

@@ -72,7 +72,7 @@ impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
         PremultipliedRgbaColor {
             red: (v >> 16) as u8,
             green: (v >> 8) as u8,
-            blue: (v >> 0) as u8,
+            blue: v as u8,
             alpha: (v >> 24) as u8,
         }
     }
@@ -95,7 +95,7 @@ impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     fn from(pixel: DumbBufferPixelBgra8888) -> Self {
         let v = pixel.0;
         PremultipliedRgbaColor {
-            red: (v >> 0) as u8,
+            red: v as u8,
             green: (v >> 8) as u8,
             blue: (v >> 16) as u8,
             alpha: (v >> 24) as u8,

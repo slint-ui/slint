@@ -91,7 +91,7 @@ impl PhysicalPosition {
     }
 
     #[cfg(feature = "ffi")]
-    pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Point2D<i32> {
+    pub(crate) fn to_euclid(self) -> crate::graphics::euclid::default::Point2D<i32> {
         [self.x, self.y].into()
     }
 
@@ -198,7 +198,7 @@ impl PhysicalSize {
     }
 
     #[cfg(feature = "ffi")]
-    pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Size2D<u32> {
+    pub(crate) fn to_euclid(self) -> crate::graphics::euclid::default::Size2D<u32> {
         [self.width, self.height].into()
     }
 }
