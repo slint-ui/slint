@@ -1192,7 +1192,7 @@ trait RemEuclid {
 #[cfg(not(feature = "std"))]
 impl RemEuclid for f32 {
     fn rem_euclid(self, b: f32) -> f32 {
-        return num_traits::Euclid::rem_euclid(&self, &b);
+        num_traits::Euclid::rem_euclid(&self, &b)
     }
 }
 

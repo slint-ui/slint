@@ -140,7 +140,7 @@ pub fn init() {
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
         SPI_ST7789VW_MAX_FREQ,
-        &embedded_hal::spi::MODE_3,
+        embedded_hal::spi::MODE_3,
     );
 
     // SAFETY: This is not safe :-(  But we need to access the SPI and its control pins for the PIO
@@ -438,7 +438,7 @@ impl<
         // After the DMA operated, we need to empty the receive FIFO, otherwise the touch screen
         // driver will pick wrong values.
         // Continue to read as long as we don't get a Err(WouldBlock)
-        while !spi.read().is_err() {}
+        while spi.read().is_ok() {}
 
         self.pio = Some(PioTransfer::Idle(ch, b, spi));
     }
@@ -450,7 +450,7 @@ unsafe impl embedded_dma::ReadBuffer for PartialReadBuffer {
 
     unsafe fn read_buffer(&self) -> (*const <Self as embedded_dma::ReadBuffer>::Word, usize) {
         let act_slice = &self.0[self.1.clone()];
-        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565Pixel>())
+        (act_slice.as_ptr() as *const u8, core::mem::size_of_val(act_slice))
     }
 }
 
@@ -599,7 +599,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
         4_000_000u32.Hz(),
-        &embedded_hal::spi::MODE_3,
+        embedded_hal::spi::MODE_3,
     );
 
     let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
