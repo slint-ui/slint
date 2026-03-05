@@ -8,3 +8,4 @@ Makefile
 package.json
 package-lock.json
 libtree-sitter-slint.*
+tree-sitter-slint.wasm

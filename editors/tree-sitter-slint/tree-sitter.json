@@ -1,0 +1,40 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "slint",
+      "camelcase": "Slint",
+      "title": "Slint",
+      "scope": "source.slint",
+      "file-types": [
+        "slint"
+      ],
+      "injection-regex": "^slint$",
+      "class-name": "TreeSitterSlint"
+    }
+  ],
+  "metadata": {
+    "version": "1.16.0",
+    "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
+    "description": "Parser for the Slint language used by the Slint UI Toolkit.",
+    "authors": [
+      {
+        "name": "Slint Team",
+        "email": "info@slint.dev",
+        "url": "https://slint.dev/"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/slint-ui/slint"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": true,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": true,
+    "zig": false
+  }
+}
