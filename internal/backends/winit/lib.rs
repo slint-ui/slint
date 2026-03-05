@@ -412,19 +412,18 @@ impl BackendBuilder {
                 enable_skia_renderer,
                 any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
             ))]
-            (Some("skia-wgpu"), maybe_graphics_api @ _) => {
+            (Some("skia-wgpu"), maybe_graphics_api) => {
                 if let Some(factory) = maybe_graphics_api.map_or_else(
                     || {
-                        let result;
                         cfg_if::cfg_if!(
                             if #[cfg(feature = "unstable-wgpu-28")]
                         {
-                            result = Some(
+                            let result = Some(
                                 renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
                                     as RendererFactoryFn,
                             );
                         } else {
-                             result = Some(
+                            let result = Some(
                                 renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
                                     as RendererFactoryFn,
                             );
@@ -452,9 +451,9 @@ impl BackendBuilder {
                 ) {
                     factory
                 } else {
-                    return Err(
-                        format!("Skia with WGPU doesn't support non-WGPU graphics API").into()
-                    );
+                    return Err("Skia with WGPU doesn't support non-WGPU graphics API"
+                        .to_string()
+                        .into());
                 }
             }
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
