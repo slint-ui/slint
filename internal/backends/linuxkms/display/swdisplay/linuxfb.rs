@@ -331,7 +331,6 @@ const FBIOGET_VSCREENINFO: u32 = 0x4600;
 #[repr(C)]
 #[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
-
 pub struct fb_bitfield {
     offset: u32,
     length: u32,

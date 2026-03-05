@@ -170,7 +170,7 @@ impl SwitchableLspToPreview {
 
 impl common::LspToPreview for SwitchableLspToPreview {
     fn send(&self, message: &common::LspToPreviewMessage) {
-        let _ = self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
+        self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
     }
 
     fn preview_target(&self) -> common::PreviewTarget {

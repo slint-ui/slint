@@ -226,7 +226,7 @@ pub(crate) fn completion_at(
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
     } else if node.kind() == SyntaxKind::AtKeys {
-        return with_lookup_ctx(document_cache, node, Some(offset), |ctx| at_keys_completions(ctx));
+        return with_lookup_ctx(document_cache, node, Some(offset), at_keys_completions);
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
