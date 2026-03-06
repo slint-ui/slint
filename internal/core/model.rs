@@ -7,7 +7,7 @@
 
 use crate::item_tree::ItemTreeVTable;
 use crate::item_tree::TraversalOrder;
-pub use crate::items::{StandardListViewItem, TableColumn};
+use crate::items::StandardListViewItem;
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property, SharedString, SharedVector};
