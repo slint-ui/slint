@@ -35,7 +35,7 @@ The `keyboard-shortcut` type represents a key, combined with modifiers and is co
 
 Keyboard shortcuts in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
 This means, for example, that `@keys(Control + Z)` activates when the user presses the key that produces `z` on their layout, regardless of where that key sits on the keyboard.
-As a consequence, numpad digit keys are not distinguished from the main row digit keys, and `AltGr` is not available as a modifier (it is consumed by the OS to produce characters).
+As a consequence, numpad digit keys are not distinguished from the main row digit keys, and `AltGr` isn't available as a modifier (it is consumed by the OS to produce characters).
 
 The `@keys(..)` macro accepts a key from the [`Key` namespace](#key-namespace), combined with any of these modifiers:
 
@@ -94,12 +94,12 @@ export component MyComponent inherits Window {
 
 ### Different Keyboard Layouts
 
-Using the `@keys(..)` macro with a key from the [`Key` namespace](#key-namespace) will handle different keyboard layouts automatically.
+Different keyboard layouts are handled automatically by the `@keys(..)` macro for keys from the [`Key` namespace](#key-namespace).
 For example, `@keys(Control + Plus)` fires whenever the user presses the key that produces `+` on their layout — on a US layout that requires `Shift` + `=`, while on a German layout `+` has its own key and no `Shift` is needed.
 
 Named keys inside `@keys(..)` are logical: `A` represents the character `a`, not a specific physical key location. This means `@keys(Control + A)` will activate on whichever key produces `a` on the user's layout, regardless of where that key sits on the keyboard.
 
-If the [`Key` namespace](#key-namespace) does not include the needed key, the @key macro also supports advanced keyboard shortcut definitions...
+If the [`Key` namespace](#key-namespace) doesn't include the needed key, the `@key` macro also supports advanced keyboard shortcut definitions...
 
 ### Advanced Keyboard Shortcuts
 
