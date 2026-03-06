@@ -3484,6 +3484,10 @@ fn compile_builtin_function_call(
                 sp::Color::from_oklch(l, c, #h as f32, alpha)
             })
         }
+        BuiltinFunction::FragmentShader => {
+            let string = a.next().unwrap();
+            quote!(sp::Brush::FragmentShader(#string.into()))
+        }
         BuiltinFunction::ColorScheme => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
