@@ -8,6 +8,8 @@ r"""
 import os
 import sys
 from . import slint as native
+from . import language
+
 import types
 import logging
 import copy
@@ -634,4 +636,5 @@ __all__ = [
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
+    "language",
 ]
