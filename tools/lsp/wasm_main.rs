@@ -9,12 +9,14 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+mod request_handler;
 pub mod util;
 
-use common::{DocumentCache, LspToPreview, LspToPreviewMessage, Result, VersionedUrl};
+use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
 use js_sys::Function;
-pub use language::{Context, RequestHandler};
+pub use language::Context;
 use lsp_types::Url;
+pub use request_handler::RequestHandler;
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -22,27 +24,9 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
-
-pub mod wasm_prelude {
-    use std::path::{Path, PathBuf};
-
-    /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
-    pub trait UrlWasm {
-        fn to_file_path(&self) -> Result<PathBuf, ()>;
-        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<lsp_types::Url, ()>;
-    }
-    impl UrlWasm for lsp_types::Url {
-        fn to_file_path(&self) -> Result<PathBuf, ()> {
-            Ok(self.to_string().into())
-        }
-        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
-            Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct ServerNotifier {
@@ -187,10 +171,12 @@ pub fn create(
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    let to_preview =
+        Rc::new(preview::connector::SwitchableLspToPreview::with_one(common::DummyLspToPreview {}));
     #[cfg(feature = "preview-engine")]
-    let to_preview: Rc<dyn LspToPreview> =
-        Rc::new(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+    let to_preview = Rc::new(preview::connector::SwitchableLspToPreview::with_one(
+        preview::connector::WasmLspToPreview::new(server_notifier.clone()),
+    ));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
@@ -204,7 +190,7 @@ pub fn create(
             if let Ok(contents) = &contents {
                 to_preview.send(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url, None),
-                    contents: contents.clone(),
+                    contents: contents.clone().into(),
                 });
             }
             Some(contents.map(|c| (None, c)))
@@ -291,7 +277,7 @@ impl SlintServer {
                     .await
                 });
             }
-            M::PreviewTypeChanged { is_external: _ } => {
+            M::PreviewTypeChanged { .. } => {
                 // Nothing to do!
             }
             M::RequestState { .. } => {
@@ -314,6 +300,7 @@ impl SlintServer {
                         lsp_types::OneOf::Left(object),
                     );
             }
+            M::RequestFile { file } => todo!(),
         }
         Ok(())
     }

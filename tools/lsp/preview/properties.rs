@@ -633,7 +633,7 @@ fn get_property_information(
     if let Some(property) = properties.iter().find(|pi| pi.name == property_name) {
         Ok(property.clone())
     } else {
-        Err(format!("Element has no property with name {property_name}").into())
+        anyhow::bail!("Element has no property with name {property_name}");
     }
 }
 
@@ -801,23 +801,23 @@ fn element_at_source_code_position(
     position: &common::VersionedPosition,
 ) -> Result<common::ElementRcNode> {
     if &document_cache.document_version(position.url()) != position.version() {
-        return Err("Document version mismatch.".into());
+        anyhow::bail!("Document version mismatch.");
     }
 
     let doc = document_cache
         .get_document(position.url())
-        .ok_or_else(|| "Document not found".to_string())?;
+        .ok_or_else(|| anyhow::Error::msg("Document not found"))?;
 
     let source_file = doc
         .node
         .as_ref()
         .map(|n| n.source_file.clone())
-        .ok_or_else(|| "Document had no node".to_string())?;
+        .ok_or_else(|| anyhow::Error::msg("Document had no node"))?;
     let element_position =
         util::text_size_to_lsp_position(&source_file, position.offset(), document_cache.format);
 
     Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
-        format!("No element found at the given start position {:?}", &element_position)
+        anyhow::format_err!("No element found at the given start position {:?}", &element_position)
     })?)
 }
 
@@ -860,16 +860,17 @@ pub fn remove_binding(
         .and_then(|offset| {
             element.with_element_node(|node| node.token_at_offset(offset.into()).right_biased())
         })
-        .ok_or("Could not find property to delete.")?;
+        .ok_or_else(|| anyhow::Error::msg("Could not find property to delete."))?;
 
     for ancestor in token.parent_ancestors() {
         if ancestor.kind() == SyntaxKind::PropertyDeclaration {
             let prop_decl = syntax_nodes::PropertyDeclaration::from(ancestor.clone());
-            let binding =
-                prop_decl.BindingExpression().ok_or("property declaration has no binding")?;
+            let binding = prop_decl
+                .BindingExpression()
+                .ok_or_else(|| anyhow::Error::msg("property declaration has no binding"))?;
             let colon = ancestor
                 .child_token(SyntaxKind::Colon)
-                .ok_or("property peclaration has no colon")?;
+                .ok_or_else(|| anyhow::Error::msg("property peclaration has no colon"))?;
             let start = colon.text_range().start();
             if let Some(semi_colon) = binding.child_token(SyntaxKind::Semicolon) {
                 let end = semi_colon.text_range().start();
@@ -886,11 +887,13 @@ pub fn remove_binding(
                 let edit = lsp_types::TextEdit { range, new_text: ";".into() };
                 return Ok(common::create_workspace_edit(uri.clone(), version, vec![edit]));
             } else {
-                return Err("Could not find end of range to delete.".into());
+                anyhow::bail!("Could not find end of range to delete.");
             }
         } else if ancestor.kind() == SyntaxKind::Binding {
             let start = {
-                let token = left_extend(ancestor.first_token().ok_or("empty binding")?);
+                let token = left_extend(
+                    ancestor.first_token().ok_or_else(|| anyhow::Error::msg("empty binding"))?,
+                );
                 let start = token.text_range().start();
                 token
                     .prev_token()
@@ -906,7 +909,9 @@ pub fn remove_binding(
                     .unwrap_or(start)
             };
             let end = {
-                let token = right_extend(ancestor.last_token().ok_or("empty binding")?);
+                let token = right_extend(
+                    ancestor.last_token().ok_or_else(|| anyhow::Error::msg("empty binding"))?,
+                );
                 let end = token.text_range().end();
                 token
                     .next_token()
@@ -931,7 +936,7 @@ pub fn remove_binding(
             break;
         }
     }
-    Err("Could not find range to delete.".into())
+    anyhow::bail!("Could not find range to delete.");
 }
 
 #[cfg(test)]

@@ -1,8 +1,16 @@
 {
     "extends": "../tsconfig.default.json",
     "compilerOptions": {
-        "lib": ["es2021", "webworker"],
-        "types": ["vscode"]
+        "target": "ES2021",
+        "lib": [
+            "es2021",
+            "webworker"
+        ],
+        "types": [
+            "vscode"
+        ]
     },
-    "include": ["./*.ts"]
+    "include": [
+        "./*.ts"
+    ]
 }
