@@ -3655,7 +3655,16 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
         StructName::BuiltinPublic(builtin_public_struct) => {
             let name: &'static str = builtin_public_struct.into();
             let name = format_ident!("{}", name);
-            Some(quote!(slint::#name))
+            if matches!(
+                builtin_public_struct,
+                crate::langtype::BuiltinPublicStruct::Color
+                    | crate::langtype::BuiltinPublicStruct::LogicalPosition
+                    | crate::langtype::BuiltinPublicStruct::LogicalSize
+            ) {
+                Some(quote!(slint::#name))
+            } else {
+                Some(quote!(slint::language::#name))
+            }
         }
     }
 }
