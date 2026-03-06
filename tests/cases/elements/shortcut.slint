@@ -9,6 +9,7 @@ export component TestCase inherits Window {
         @keys(Control + D),
     ];
     out property has-focus <=> scope.has-focus;
+    in-out property <bool> enable-ctrl-a: true;
 
     forward-focus: scope;
 
@@ -17,6 +18,7 @@ export component TestCase inherits Window {
 
         scope := FocusScope {
             Shortcut {
+                enabled: root.enable-ctrl-a;
                 keys: @keys(Control + A);
                 activated => { matches += 1; }
             }
@@ -48,6 +50,10 @@ assert_matches(0);
 use slint::private_unstable_api::re_exports::Key;
 use slint_testing::send_keyboard_shortcut;
 
+send_keyboard_shortcut(&instance, [Key::Control, Key::A]);
+assert_matches(1);
+
+instance.set_enable_ctrl_a(false);
 send_keyboard_shortcut(&instance, [Key::Control, Key::A]);
 assert_matches(1);
 

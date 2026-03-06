@@ -129,6 +129,11 @@ See <Link type="KeyboardShortcuts" label="Keyboard Shortcuts"/> for details.
 The <Link type="keyboard-shortcut" label="keyboard-shortcut" /> to match against incoming key events.
 </SlintProperty>
 
+#### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether this Shortcut is currently enabled. Disabled Shortcut elements don't consume key events and never invoke their `activated()` callback.
+</SlintProperty>
+
 ### Callbacks of `Shortcut`
 
 #### activated()
