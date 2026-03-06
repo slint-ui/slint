@@ -804,6 +804,55 @@ impl Window {
 ///
 /// **Note:** Only globals that are exported or re-exported from the main .slint file will
 /// be exposed in the API
+///
+/// # Storing References to Globals
+///
+/// Globals are strong references to the window they are attached to, unless stored in a `Weak`
+/// reference (see the [`StrongHandle`] trait).
+/// This means that if you store a reference to a global, it will keep the entire window alive
+/// and prevent it from being dropped.
+///
+/// To make this less error-prone, when accessing a global from a window, it is initially bound to
+/// the lifetime of the Window it belongs to.
+/// This prevents you from accidentally capturing the global in a callback closure, which
+/// would result in the window never being dropped.
+///
+/// To store references to a global in a callback or Rust struct, you can convert it into
+/// a weak reference using the [`Global::as_weak`] function.
+/// This will also extend the lifetime of the global to `'static`.
+///
+/// Once the window is dropped, upgrading the weak reference will return `None`.
+///
+/// ## Example
+///
+/// ```rust
+/// # i_slint_backend_testing::init_no_event_loop();
+/// slint::slint!{
+/// export global Palette {
+///     in property<color> foreground-color;
+///     in property<color> background-color;
+/// }
+///
+/// export component App inherits Window {
+///    background: Palette.background-color;
+///    // ...
+/// }
+/// }
+///
+/// struct PaletteBackend {
+///     global: slint::Weak<Palette<'static>>,
+/// }
+///
+/// impl PaletteBackend {
+///     fn global(&self) -> Palette<'static> {
+///         self.global.upgrade().expect("The window was dropped, the global is no longer available")
+///     }
+/// }
+///
+/// let app = App::new().unwrap();
+///
+/// let palette_backend = PaletteBackend { global: app.global::<Palette>().as_weak() };
+/// ```
 pub trait Global<'a, Component> {
     /// The `Self` type, with a `'static` lifetime.
     type StaticSelf: 'static + StrongHandle;
@@ -813,17 +862,18 @@ pub trait Global<'a, Component> {
 
     /// Convert this Global reference into a weak reference.
     ///
-    /// As a side-effect, this will also extend the lifetime of this global to `'static`.
+    /// This will also extend the lifetime of this global to `'static`, to allow storing
+    /// the Weak reference in a struct that does not have a lifetime itself.
     fn as_weak(&self) -> Weak<Self::StaticSelf>;
 }
 
-/// This trait is automatically implemented on all strongly referenced Slint components.
-/// All of these types can be used in a [`Weak`] reference.
+/// This trait is a marker trait that is automatically implemented on all strongly referenced
+/// Slint components. All of these types can be used in a [`Weak`] reference.
 ///
 /// This includes all types that implement the [`ComponentHandle`] trait, as well as all types
 /// implementing the [`Global`] trait.
 ///
-/// Note: Slint implements this trait automatically, it should not be implemented manually.
+/// **Note**: The Slint compiler implements this trait automatically, do not try to implement it manually.
 pub trait StrongHandle {
     /// The internal Inner type for `Weak<Self>::inner`.
     #[doc(hidden)]
