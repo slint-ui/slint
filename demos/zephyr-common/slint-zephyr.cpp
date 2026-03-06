@@ -9,6 +9,7 @@
 LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 
 #include <zephyr/kernel.h>
+#include <zephyr/version.h>
 #include <zephyr/drivers/display.h>
 #include <zephyr/input/input.h>
 
@@ -26,7 +27,7 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
         // Slint supports this format, but it uses more space.
         return false;
     case PIXEL_FORMAT_BGR_565:
-#ifdef CONFIG_SHIELD_RK055HDMIPI4MA0
+#if defined(CONFIG_SHIELD_RK055HDMIPI4MA0) || defined(CONFIG_SHIELD_LCD_PAR_S035)
         // Zephyr expects pixel data to be big endian [1].
 
         // The display driver expects RGB 565 pixel data [2], and appears to expect it to be little
@@ -153,21 +154,41 @@ private:
     const slint::PhysicalSize m_size;
 
     bool m_needs_redraw = true;
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    slint::platform::Rgb565Pixel *m_buffer;
+#else
     std::vector<slint::platform::Rgb565Pixel> m_buffer;
+#endif
     display_buffer_descriptor m_buffer_descriptor;
 };
 
 static ZephyrWindowAdapter *ZEPHYR_WINDOW = nullptr;
+
+// LCD-PAR-S035 shield: fixed 480x320 display resolution, BGR565 pixel format.
+// The render buffer is a static BSS array sized for render_by_line (64 lines at a time)
+// to avoid heap allocation on this RAM-constrained board (320 KB total SRAM).
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+static constexpr std::size_t RENDER_BUFFER_WIDTH = 480;
+static constexpr std::size_t RENDER_BUFFER_HEIGHT = 64;
+alignas(8) static slint::platform::Rgb565Pixel
+        render_buffer[RENDER_BUFFER_WIDTH * RENDER_BUFFER_HEIGHT];
+// GT911 touch X-axis range in native orientation (320 pixels, used for invert-x transform)
+static constexpr int GT911_TOUCH_X_MAX = 319;
+#endif
 
 std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device *display)
 {
     display_capabilities capabilities;
     display_get_capabilities(display, &capabilities);
 
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    RepaintBufferType bufferType = RepaintBufferType::NewBuffer;
+#else
     // TODO: Double buffer
     RepaintBufferType bufferType = RepaintBufferType::ReusedBuffer;
     // if (capabilities.screen_info & SCREEN_INFO_DOUBLE_BUFFER)
     //     bufferType = RepaintBufferType::SwappedBuffers;
+#endif
 
     LOG_INF("Screen size: %u x %u", capabilities.x_resolution, capabilities.y_resolution);
     LOG_INF("Double buffering: %d", (capabilities.screen_info & SCREEN_INFO_DOUBLE_BUFFER));
@@ -241,11 +262,17 @@ ZephyrWindowAdapter::ZephyrWindowAdapter(const device *display, RepaintBufferTyp
       m_rotationInfo(info),
       m_size(transformed(m_rotationInfo.size, m_rotationInfo))
 {
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    m_buffer = render_buffer;
+    m_buffer_descriptor.buf_size = sizeof(render_buffer);
+    m_buffer_descriptor.width = m_size.width;
+    m_buffer_descriptor.height = RENDER_BUFFER_HEIGHT;
+#else
     m_buffer.resize(m_size.width * m_size.height);
-
     m_buffer_descriptor.buf_size = sizeof(m_buffer[0]) * m_buffer.size();
     m_buffer_descriptor.width = m_size.width;
     m_buffer_descriptor.height = m_size.height;
+#endif
     m_buffer_descriptor.pitch = m_size.width;
 }
 
@@ -269,12 +296,28 @@ void ZephyrWindowAdapter::maybe_redraw()
     if (!std::exchange(m_needs_redraw, false))
         return;
 
+#ifdef CONFIG_SHIELD_LCD_PAR_S035
+    display_buffer_descriptor line_desc;
+    line_desc.pitch = m_size.width;
+
+    m_renderer.render_by_line<slint::platform::Rgb565Pixel>(
+            [this, &line_desc](size_t line_y, size_t first_x, size_t last_x, auto render_fn) {
+                size_t width = last_x - first_x;
+                render_fn(std::span<slint::platform::Rgb565Pixel>(m_buffer, width));
+
+                line_desc.width = width;
+                line_desc.height = 1;
+                line_desc.buf_size = width * sizeof(slint::platform::Rgb565Pixel);
+
+                display_write(m_display, first_x, line_y, &line_desc, m_buffer);
+            });
+#else
     auto start = k_uptime_get();
     auto region = m_renderer.render(m_buffer, m_size.width);
     const auto slintRenderDelta = k_uptime_delta(&start);
     LOG_DBG("Rendering %d dirty regions:", std::ranges::size(region.rectangles()));
     for (auto [o, s] : region.rectangles()) {
-#ifndef CONFIG_SHIELD_RK055HDMIPI4MA0
+#    ifndef CONFIG_SHIELD_RK055HDMIPI4MA0
         // Convert to big endian pixel data for Zephyr, unless we are using the RK055HDMIPI4MA0
         // shield. See is_supported_pixel_format above.
         for (int y = o.y; y < o.y + s.height; y++) {
@@ -285,9 +328,9 @@ void ZephyrWindowAdapter::maybe_redraw()
         }
         LOG_DBG("   - converted pixel data for x: %d y: %d w: %d h: %d", o.x, o.y, s.width,
                 s.height);
-#endif
+#    endif
 
-#ifndef CONFIG_MCUX_ELCDIF_PXP
+#    ifndef CONFIG_MCUX_ELCDIF_PXP
         m_buffer_descriptor.width = s.width;
         m_buffer_descriptor.height = s.height;
 
@@ -297,10 +340,10 @@ void ZephyrWindowAdapter::maybe_redraw()
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
         LOG_DBG("   - rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
-#endif
+#    endif
     }
 
-#ifdef CONFIG_MCUX_ELCDIF_PXP
+#    ifdef CONFIG_MCUX_ELCDIF_PXP
     // The display driver cannot do partial updates when the PXP is using the DMA API.
     if (const auto ret =
                 display_write(m_display, 0, 0, &m_buffer_descriptor, m_buffer.data()) != 0) {
@@ -308,11 +351,12 @@ void ZephyrWindowAdapter::maybe_redraw()
     }
     LOG_DBG("   - rendered x: 0 y: 0 w: %d h: %d", m_buffer_descriptor.width,
             m_buffer_descriptor.height);
-#endif
+#    endif
 
     const auto displayWriteDelta = k_uptime_delta(&start);
     LOG_DBG(" - total: %lld ms, slint: %lld ms, write: %lld ms",
             slintRenderDelta + displayWriteDelta, slintRenderDelta, displayWriteDelta);
+#endif
 }
 
 const RotationInfo &ZephyrWindowAdapter::rotationInfo() const
@@ -433,10 +477,20 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
     case INPUT_BTN_TOUCH:
         break;
     case INPUT_ABS_X:
+#if defined(CONFIG_SHIELD_LCD_PAR_S035) && ZEPHYR_VERSION(4, 4, 0) > ZEPHYR_VERSION_CODE
+        // LCD-PAR-S035: swap-xy + invert-x (workaround for GT911 driver lacking
+        // touchscreen-common support before Zephyr v4.4.0; see upstream 0f07faa14b3)
+        pos.y = GT911_TOUCH_X_MAX - event->value;
+#else
         pos.x = event->value;
+#endif
         break;
     case INPUT_ABS_Y:
+#if defined(CONFIG_SHIELD_LCD_PAR_S035) && ZEPHYR_VERSION(4, 4, 0) > ZEPHYR_VERSION_CODE
+        pos.x = event->value;
+#else
         pos.y = event->value;
+#endif
         break;
     default:
         LOG_WRN("Unexpected input event. Type: %#x, code: %u (%#x), value: %d, sync: %d",
