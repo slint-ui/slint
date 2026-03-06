@@ -22,5 +22,11 @@ export component SuperSimple {
 //            > <error{Keyboard shortcut literals must currently be lowercase, use "a" instead}
         @keys(Alt + Control + Shift + Meta + "Ä"),
 //                                           >  <error{Keyboard shortcut literals must currently be lowercase, use "ä" instead}
+
+        // Multi-grapheme cluster
+        @keys("ab"),
+//            >  <error{Keyboard shortcut string literal must contain exactly one grapheme cluster, found 2}
+        @keys(Control + "xy"),
+//                      >  <error{Keyboard shortcut string literal must contain exactly one grapheme cluster, found 2}
     ];
 }

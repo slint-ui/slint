@@ -1788,6 +1788,19 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
+        // NFC-normalize the event text so that shortcut matching works consistently
+        // regardless of the composed/decomposed form the backend provides
+        // (e.g. é as U+00E9 vs e + U+0301).
+        #[cfg(feature = "unicode-normalization")]
+        {
+            use unicode_normalization::{IsNormalized, UnicodeNormalization, is_nfc_quick};
+            // Do a quick normalization check, and only normalize if that check fails.
+            // This avoids allocation in the common case where the key is already normalized.
+            if is_nfc_quick(event.text.chars()) != IsNormalized::Yes {
+                event.text = SharedString::from_iter(event.text.nfc());
+            }
+        }
+
         if let Some(updated_modifier) = self
             .modifiers
             .get()
