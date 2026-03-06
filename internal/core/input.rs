@@ -444,8 +444,10 @@ impl KeyboardShortcut {
         if self.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
-        // Note: The constructor of KeyboardShortcut ensures that the shortcut's key is already
-        // in lowercase, so we can just compare it to the lowercased event text.
+        // Note: The shortcut's key is already in lowercase and NFC-normalized
+        // (by the compiler and backends respectively), so we only need to
+        // lowercase the event text. Backends are expected to NFC-normalize
+        // key event text before dispatching.
         //
         // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
         // if caps lock is active, even if shift is not pressed.

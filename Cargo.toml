@@ -175,6 +175,7 @@ web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
 rayon = { version = "1.10.0", default-features = false }
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
+unicode-normalization = { version = "0.1" }
 unicode-segmentation = { version = "1.12.0" }
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }

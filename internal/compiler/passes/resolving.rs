@@ -21,6 +21,8 @@ use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
+use unicode_normalization::UnicodeNormalization;
+use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
 
@@ -1074,9 +1076,28 @@ impl Expression {
         if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
             && let Some(key) = crate::literals::unescape_string(token.text())
         {
+            // NFC-normalize the key string for consistent matching
+            let key: SmolStr = key.nfc().collect::<String>().into();
+
+            // Validate that the string literal contains exactly one grapheme cluster
+            let grapheme_count = key.graphemes(true).count();
+            if grapheme_count == 0 {
+                ctx.diag.push_error(
+                    "Keyboard shortcut string literal must not be empty".to_string(),
+                    &token,
+                );
+            } else if grapheme_count > 1 {
+                ctx.diag.push_error(
+                    format!(
+                        "Keyboard shortcut string literal must contain exactly one grapheme cluster, found {grapheme_count}",
+                    ),
+                    &token,
+                );
+            }
+
             shortcut.key = key;
 
-            let lowercase = shortcut.key.to_lowercase();
+            let lowercase: SmolStr = shortcut.key.to_lowercase().into();
             if lowercase != shortcut.key {
                 ctx.diag.push_error(
                     format!(
