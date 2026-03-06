@@ -114,7 +114,7 @@ let shortcuts = instance.get_shortcuts();
 let expected = [
     "Control+Shift+\"\\u{1b}\"",
     "Control+Shift+\"a\"",
-    "Control+IgnoreShift+\"+\"",
+    "Control+Shift?+\"+\"",
 ];
 for (shortcut, expected) in shortcuts.iter().zip(expected) {
     assert_eq!(format!("{:?}", shortcut), expected);

@@ -565,14 +565,14 @@ impl core::fmt::Debug for KeyboardShortcut {
         } else {
             let alt = self
                 .ignore_alt
-                .then_some("IgnoreAlt+")
+                .then_some("Alt?+")
                 .or(self.modifiers.alt.then_some("Alt+"))
                 .unwrap_or_default();
             let ctrl = if self.modifiers.control { "Control+" } else { "" };
             let meta = if self.modifiers.meta { "Meta+" } else { "" };
             let shift = self
                 .ignore_shift
-                .then_some("IgnoreShift+")
+                .then_some("Shift?+")
                 .or(self.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
             let keycode: SharedString = self

@@ -972,19 +972,44 @@ impl Expression {
         let mut shortcut = langtype::KeyboardShortcut::default();
 
         let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
-        for identifier in node
+
+        let idents_and_questions: Vec<_> = node
             .children_with_tokens()
-            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier))
+            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier | SyntaxKind::Question))
             // The first identifier is always `keys`
             .skip(1)
-        {
+            .collect();
+
+        for (index, ident_or_question) in idents_and_questions.iter().enumerate() {
+            if ident_or_question.kind() == SyntaxKind::Question {
+                continue;
+            }
+            let identifier = ident_or_question;
+
+            let is_question = || -> bool {
+                matches!(
+                    idents_and_questions.get(index + 1).map(NodeOrToken::kind),
+                    Some(SyntaxKind::Question)
+                )
+            };
+
             match identifier.as_token().unwrap().text() {
-                "Alt" => shortcut.modifiers.alt = true,
+                "Alt" => {
+                    if is_question() {
+                        shortcut.ignore_alt = true;
+                    } else {
+                        shortcut.modifiers.alt = true;
+                    }
+                }
                 "Control" => shortcut.modifiers.control = true,
                 "Meta" => shortcut.modifiers.meta = true,
-                "Shift" => shortcut.modifiers.shift = true,
-                "IgnoreShift" => shortcut.ignore_shift = true,
-                "IgnoreAlt" => shortcut.ignore_alt = true,
+                "Shift" => {
+                    if is_question() {
+                        shortcut.ignore_shift = true;
+                    } else {
+                        shortcut.modifiers.shift = true;
+                    }
+                }
                 key_name => {
                     if let Some((key, shiftbehavior)) = lookup_key(key_name) {
                         key_code = Some((
@@ -1003,7 +1028,7 @@ impl Expression {
                         };
                         ctx.diag.push_error(
                             format!("{key_name} not defined in the Keys namespace\n({hint})"),
-                            &identifier,
+                            identifier,
                         );
                         shortcut.modifiers = KeyboardModifiers::default();
                         break;
@@ -1020,7 +1045,7 @@ impl Expression {
                     if shortcut.ignore_shift {
                         ctx.diag.push_warning(
                             format!(
-                                "{name} already implies IgnoreShift (remove IgnoreShift)",
+                                "{name} already implies Shift? (remove Shift?)",
                                 name = node.as_token().unwrap().text()
                             ),
                             &node,
