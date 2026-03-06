@@ -57,7 +57,10 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 if !parse_rustattr(&mut *p) {
                     break;
                 }
-                let is_export = p.nth(0).as_str() == "export";
+                while p.peek().as_str() == "@" && p.nth(1).as_str() == "rust-attr" {
+                    parse_rustattr(&mut *p);
+                }
+                let is_export = p.peek().as_str() == "export";
                 let i = if is_export { 1 } else { 0 };
                 if !matches!(p.nth(i).as_str(), "enum" | "struct") {
                     p.error("Expected enum or struct after @rust-attr");
@@ -65,9 +68,9 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 }
                 let r = if is_export {
                     parse_export(&mut *p, Some(checkpoint))
-                } else if p.nth(0).as_str() == "struct" {
+                } else if p.peek().as_str() == "struct" {
                     parse_struct_declaration(&mut *p, Some(checkpoint))
-                } else if p.nth(0).as_str() == "enum" {
+                } else if p.peek().as_str() == "enum" {
                     parse_enum_declaration(&mut *p, Some(checkpoint))
                 } else {
                     false
