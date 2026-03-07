@@ -287,6 +287,7 @@ impl ItemConsts for Shortcut {
 #[pin]
 pub struct Shortcut {
     pub keys: Property<KeyboardShortcut>,
+    pub enabled: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -437,7 +438,7 @@ pub struct FocusScope {
 }
 
 impl FocusScope {
-    fn visit_shortcuts<R>(
+    fn visit_enabled_shortcuts<R>(
         self: Pin<&Self>,
         self_rc: &ItemRc,
         mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, Shortcut>) -> Option<R>,
@@ -451,7 +452,9 @@ impl FocusScope {
 
             let mut next = self_rc.first_child();
             while let Some(child) = next {
-                if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child) {
+                if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child)
+                    && Shortcut::FIELD_OFFSETS.enabled.apply_pin(shortcut.as_pin_ref()).get()
+                {
                     found.push(VRcMapped::downgrade(&shortcut));
                 }
                 next = child.next_sibling();
@@ -552,7 +555,7 @@ impl Item for FocusScope {
                 Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
             }
             KeyEventType::KeyReleased => {
-                let shortcut = self.visit_shortcuts(self_rc, |shortcut| {
+                let shortcut = self.visit_enabled_shortcuts(self_rc, |shortcut| {
                     let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
                     if keys.matches(event) { Some(VRcMapped::clone(shortcut)) } else { None }
                 });

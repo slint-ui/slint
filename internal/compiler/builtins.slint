@@ -181,6 +181,7 @@ export component FocusScope {
 }
 
 component Shortcut {
+    in property <bool> enabled: true;
     in property <keyboard-shortcut> keys;
     callback activated();
     //-is_non_item_type
