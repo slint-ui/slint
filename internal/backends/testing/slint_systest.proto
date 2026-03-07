@@ -83,9 +83,9 @@ message WindowEvent {
 // Upside: AccessKit also uses Unknown :)
 enum LayoutKind {
     NotALayout = 0;
-    HorizontalBox = 1;
-    VerticalBox = 2;
-    Grid = 3;
+    HorizontalLayout = 1;
+    VerticalLayout = 2;
+    GridLayout = 3;
     FlexBox = 4;
 }
 

@@ -24,6 +24,32 @@ mod internal {
     pub trait Sealed {}
 }
 
+/// Describes the kind of layout an element represents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum LayoutKind {
+    /// A `HorizontalLayout`.
+    HorizontalLayout,
+    /// A `VerticalLayout`.
+    VerticalLayout,
+    /// A `GridLayout`.
+    GridLayout,
+    /// A flex box layout.
+    FlexBox,
+}
+
+impl LayoutKind {
+    fn from_encoded(s: &str) -> Option<Self> {
+        match s {
+            "h-box" => Some(Self::HorizontalLayout),
+            "v-box" => Some(Self::VerticalLayout),
+            "grid" => Some(Self::GridLayout),
+            "flex-box" => Some(Self::FlexBox),
+            _ => None,
+        }
+    }
+}
+
 pub(crate) use internal::Sealed;
 
 /// Trait for type that can be searched for element. This is implemented for everything that implements [`ComponentHandle`]
@@ -499,10 +525,13 @@ impl ElementHandle {
         })
     }
 
-    /// Returns the layout kind if this element is a layout (`h-box`, `v-box`, `grid`, or `flex-box`);
+    /// Returns the layout kind if this element is a layout container;
     /// None if the element is not a layout or is not valid anymore.
-    pub fn layout_kind(&self) -> Option<SharedString> {
-        self.item.upgrade().and_then(|item| item.element_layout_kind(self.element_index))
+    pub fn layout_kind(&self) -> Option<LayoutKind> {
+        self.item.upgrade().and_then(|item| {
+            item.element_layout_kind(self.element_index)
+                .and_then(|s| LayoutKind::from_encoded(s.as_str()))
+        })
     }
 
     /// Returns the value of the element's `accessible-role` property, if present. Use this property to
