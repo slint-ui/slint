@@ -63,7 +63,7 @@ impl TranslationsBuilder {
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
                     let plural_expr = header.split(';').find_map(|sub_entry| {
                         let (key, expression) = sub_entry.split_once('=')?;
-                        (key.trim() == "plural").then(|| expression)
+                        (key.trim() == "plural").then_some(expression)
                     });
                     plural_expr.ok_or_else(|| {
                         std::io::Error::other(format!(
@@ -74,7 +74,7 @@ impl TranslationsBuilder {
                 } else {
                     "n != 1"
                 };
-                plural_rules.push(Some(plural_rule_parser::parse_rule_expression(&expr).map_err(
+                plural_rules.push(Some(plural_rule_parser::parse_rule_expression(expr).map_err(
                     |_| {
                         std::io::Error::other(format!(
                             "Error parsing plural rules in {}",
@@ -366,7 +366,7 @@ mod plural_rule_parser {
             Ok(ParsingState {
                 expr: Expression::BuiltinFunctionCall {
                     function: crate::expression_tree::BuiltinFunction::Mod,
-                    arguments: vec![state.expr.into(), state2.expr.into()],
+                    arguments: vec![state.expr, state2.expr],
                 },
                 ty: Ty::Number,
                 rest: skip_whitespace(state2.rest),
