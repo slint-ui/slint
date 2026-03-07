@@ -1377,7 +1377,7 @@ fn call_builtin_function(
                     Value::Number(model.row_count() as f64)
                 }
                 _ => {
-                    panic!("First argument not an array");
+                    panic!("First argument not an array: {:?}", arguments[0]);
                 }
             }
         }

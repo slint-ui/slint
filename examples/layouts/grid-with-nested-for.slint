@@ -1,0 +1,53 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: MIT
+
+// Demonstrates nested for loops in a GridLayout:
+// an outer "for row in model" and an inner "for cell in row" to populate each Cell.
+
+component Cell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            text: cell_text;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
+component HeaderCell inherits Cell {
+    background: #ccc;
+}
+
+export component MainWindow inherits Window {
+
+    default-font-size: 20px;
+
+    property <[[string]]> model: [
+        ["Olivier", "ogoffart", "cat"],
+        ["Simon", "tronical", "dog"],
+        ["David", "dfaure", "bird"],
+        ["Alice", "wonderland", "white rabbit"],
+        ["Randriana Tzimabazafi", "rt", "lizard"],
+        ["Verne", "jules", "octopus"],
+        ["Pratchett", "terry", "turtles (all the way down)"],
+    ];
+
+    grid := GridLayout {
+        Row {
+            for header in ["Name", "Account", "Animal"]: HeaderCell {
+                cell_text: header;
+            }
+        }
+
+        for row in model: Row {
+            for cell_data in row: Cell {
+                cell_text: cell_data;
+            }
+        }
+    }
+}
