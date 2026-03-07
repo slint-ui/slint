@@ -366,6 +366,9 @@ impl Expression {
                 NodeOrToken::Node(node) => match node.kind() {
                     SyntaxKind::Expression => Some(Self::from_expression_node(node.into(), ctx)),
                     SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
+                    SyntaxKind::AtIncludeString => {
+                        Some(Self::from_at_include_string_node(node.into(), ctx))
+                    }
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
@@ -518,6 +521,59 @@ impl Expression {
             resource_ref: ImageReference::AbsolutePath(absolute_source_path),
             source_location: Some(node.to_source_location()),
             nine_slice,
+        }
+    }
+
+    fn from_at_include_string_node(
+        node: syntax_nodes::AtIncludeString,
+        ctx: &mut LookupCtx,
+    ) -> Self {
+        let s = match node
+            .child_text(SyntaxKind::StringLiteral)
+            .and_then(|x| crate::literals::unescape_string(&x))
+        {
+            Some(s) => s,
+            None => {
+                ctx.diag.push_error("Cannot parse string literal".into(), &node);
+                return Self::Invalid;
+            }
+        };
+
+        if s.is_empty() {
+            return Expression::StringLiteral(String::new().into());
+        }
+
+        let path = std::path::Path::new(&s);
+        if crate::pathutils::is_absolute(path) {
+            match std::fs::read_to_string(path) {
+                Ok(content) => Expression::StringLiteral(content.into()),
+                Err(e) => {
+                    ctx.diag.push_error(format!("Cannot read file: {}", e), &node);
+                    Self::Invalid
+                }
+            }
+        } else {
+            let resolved_path = ctx
+                .type_loader
+                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
+                .map(|i| i.0.to_string_lossy().into())
+                .unwrap_or_else(|| {
+                    crate::pathutils::join(
+                        &crate::pathutils::dirname(node.source_file.path()),
+                        path,
+                    )
+                    .map(|p| p.to_string_lossy().into())
+                    .unwrap_or(s.clone())
+                });
+
+            match std::fs::read_to_string(&resolved_path) {
+                Ok(content) => Expression::StringLiteral(content.into()),
+                Err(e) => {
+                    ctx.diag
+                        .push_error(format!("Cannot read file '{}': {}", resolved_path, e), &node);
+                    Self::Invalid
+                }
+            }
         }
     }
 
