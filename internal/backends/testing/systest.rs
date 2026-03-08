@@ -299,7 +299,7 @@ impl TestingClient {
                     query = query.match_type_name(type_name)
                 }
                 proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name_or_base(type_name_or_base) => {
-                    query = query.match_type_name(type_name_or_base)
+                    query = query.match_inherits(type_name_or_base)
                 }
                 proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_accessible_role(role) => {
                     query = query.match_accessible_role(convert_from_proto_accessible_role(role).ok_or_else(|| "Unknown accessibility role used in element query".to_string())?)
