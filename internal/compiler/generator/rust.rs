@@ -2701,6 +2701,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( (#op #sub) )
         }
+        Expression::Unwrap { base } => {
+            let base = compile_expression(base, ctx);
+            quote!( (#base).unwrap() )
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            let base = compile_expression(base, ctx);
+            let fallback = compile_expression(fallback, ctx);
+            quote!( (#base).unwrap_or_else(|| #fallback) )
+        }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => {

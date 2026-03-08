@@ -3652,6 +3652,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
+        Expression::Unwrap { base } => {
+            format!("({}).value()", compile_expression(base, ctx))
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            format!(
+                "({}).value_or({})",
+                compile_expression(base, ctx),
+                compile_expression(fallback, ctx)
+            )
+        }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
