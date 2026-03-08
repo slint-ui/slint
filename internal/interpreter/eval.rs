@@ -170,6 +170,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
+        Expression::NoneValue => Value::Void,
         Expression::ElementReference(_) => todo!(
             "Element references are only supported in the context of built-in function calls at the moment"
         ),
@@ -1985,6 +1986,10 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
+        Type::Optional(inner) => {
+            // Optional can be Void (none) or the inner type value
+            matches!(value, Value::Void) || check_value_type(value, inner)
+        }
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
         }
@@ -2305,6 +2310,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
+        Type::Optional(_) => Value::Void, // none by default
         Type::LayoutCache => Value::LayoutCache(Default::default()),
         Type::ArrayOfU16 => Value::ArrayOfU16(Default::default()),
         Type::ComponentFactory => Value::ComponentFactory(Default::default()),
