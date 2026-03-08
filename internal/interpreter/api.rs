@@ -1123,10 +1123,13 @@ impl ComponentDefinition {
     }
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
-        let instance = self.create_with_options(Default::default())?;
-        // Make sure the window adapter is created so call to `window()` do not panic later.
-        instance.inner.window_adapter_ref()?;
-        Ok(instance)
+        i_slint_core::initialization_scope::with_initialization_scope(|| {
+            let instance = self.create_with_options(Default::default())?;
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            instance.inner.window_adapter_ref()?;
+            i_slint_core::properties::ChangeTracker::run_change_handlers();
+            Ok(instance)
+        })
     }
 
     /// Creates a new instance of the component and returns a shared handle to it.

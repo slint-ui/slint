@@ -355,12 +355,18 @@ fn generate_public_component(
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new()?;
-                #init_bundle_translations
-                // ensure that the window exist as this point so further call to window() don't panic
-                inner.globals.get().unwrap().window_adapter_ref()?;
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                ::core::result::Result::Ok(Self(inner))
+                // Use initialization scope to defer change tracker evaluations until
+                // all components are created, preventing recursion issues
+                sp::with_initialization_scope(|| {
+                    let inner = #inner_component_id::new()?;
+                    #init_bundle_translations
+                    // ensure that the window exist as this point so further call to window() don't panic
+                    inner.globals.get().unwrap().window_adapter_ref()?;
+                    #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                    sp::ChangeTracker::run_change_handlers();
+                    // Deferred evaluations are automatically processed when scope ends
+                    ::core::result::Result::Ok(Self(inner))
+                })
             }
 
             #[cfg(#experimental)]
