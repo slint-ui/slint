@@ -17,7 +17,16 @@ for method in model_cls.inherited_members[("builtins", "PyModelBase")]:
     if not method.name.startswith("_") and method.name != "init_self":
         model_cls.own_members.append(method)
 
-all_modules: dict[str, pdoc.doc.Module] = {"slint": doc}
+all_modules: dict[str, pdoc.doc.Module] = {}
+
+
+def add_modules(m: pdoc.doc.Module):
+    all_modules[m.fullname] = m
+    for submod in m.submodules:
+        add_modules(submod)
+
+
+add_modules(doc)
 
 output_directory = pathlib.Path("docs")
 
