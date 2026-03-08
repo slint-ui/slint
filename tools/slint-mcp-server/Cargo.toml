@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-mcp-server"
+version = "0.1.0"
+edition = "2021"
+description = "MCP (Model Context Protocol) server for introspecting Slint applications at runtime"
+authors = ["Slint Developers <info@slint.dev>"]
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+build = "build.rs"
+
+[workspace]
+
+[[bin]]
+name = "slint-mcp-server"
+path = "src/main.rs"
+
+[dependencies]
+quick-protobuf = "0.8.1"
+byteorder = "1.5.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "io-std", "signal", "sync"] }
+base64 = "0.22"
+
+[build-dependencies]
+pb-rs = { version = "0.10.0", default-features = false }

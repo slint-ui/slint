@@ -51,6 +51,7 @@ path = [
   "flake.lock",
   "examples/bevy/Cargo.lock",
   "examples/servo/Cargo.lock",
+  "tools/slint-mcp-server/Cargo.lock",
   "REUSE.toml",
   "biome.json",
   "cspell.json",
