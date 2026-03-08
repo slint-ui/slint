@@ -393,6 +393,12 @@ impl Expression {
                     SyntaxKind::UnaryOpExpression => {
                         Some(Self::from_unaryop_expression_node(node.into(), ctx))
                     }
+                    SyntaxKind::UnwrapExpression => {
+                        Some(Self::from_unwrap_expression_node(node.into(), ctx))
+                    }
+                    SyntaxKind::NullCoalesceExpression => {
+                        Some(Self::from_null_coalesce_expression_node(node.into(), ctx))
+                    }
                     SyntaxKind::ConditionalExpression => {
                         Some(Self::from_conditional_expression_node(node.into(), ctx))
                     }
@@ -1445,6 +1451,25 @@ impl Expression {
         };
 
         Expression::UnaryOp { sub: Box::new(exp), op }
+    }
+
+    fn from_unwrap_expression_node(
+        node: syntax_nodes::UnwrapExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let base_node = node.Expression();
+        let base = Self::from_expression_node(base_node, ctx);
+        Expression::Unwrap { base: Box::new(base) }
+    }
+
+    fn from_null_coalesce_expression_node(
+        node: syntax_nodes::NullCoalesceExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (base_node, fallback_node) = node.Expression();
+        let base = Self::from_expression_node(base_node, ctx);
+        let fallback = Self::from_expression_node(fallback_node, ctx);
+        Expression::NullCoalesce { base: Box::new(base), fallback: Box::new(fallback) }
     }
 
     fn from_conditional_expression_node(
