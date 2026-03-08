@@ -115,6 +115,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     let is_global = !simple_component && p.peek().as_str() == "global";
     let is_interface = !simple_component && p.peek().as_str() == "interface";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
+    let is_component_item = !is_global && !is_interface;
     if !is_global && !simple_component && !is_new_component && !is_interface {
         p.error(
             "Parse error: expected a top-level item such as a component, a struct, or a global",
@@ -177,10 +178,17 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     } else if p.peek().as_str() == "inherits" {
         p.consume();
     } else if p.peek().kind() == SyntaxKind::LBrace {
+        if is_component_item {
+            p.enter_component_slot_scope();
+        }
         let mut p = p.start_node(SyntaxKind::Element);
         p.consume();
         parse_element_content(&mut *p);
-        return p.expect(SyntaxKind::RBrace);
+        let result = p.expect(SyntaxKind::RBrace);
+        if is_component_item {
+            p.exit_component_slot_scope();
+        }
+        return result;
     } else {
         p.error("Expected '{', keyword 'implements' or keyword 'inherits'");
         drop(p.start_node(SyntaxKind::Element));
@@ -194,7 +202,14 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return p.expect(SyntaxKind::RBrace);
     }
 
-    parse_element(&mut *p)
+    if is_component_item {
+        p.enter_component_slot_scope();
+    }
+    let result = parse_element(&mut *p);
+    if is_component_item {
+        p.exit_component_slot_scope();
+    }
+    result
 }
 
 #[cfg_attr(test, parser_test)]
