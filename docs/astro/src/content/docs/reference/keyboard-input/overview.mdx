@@ -33,6 +33,10 @@ If two shortcuts share the same key event, it is undefined which one is activate
 
 The `keyboard-shortcut` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
 
+Keyboard shortcuts in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
+This means, for example, that `@keys(Control + Z)` activates when the user presses the key that produces `z` on their layout, regardless of where that key sits on the keyboard.
+As a consequence, numpad digit keys are not distinguished from the main row digit keys, and `AltGr` isn't available as a modifier (it is consumed by the OS to produce characters).
+
 The `@keys(..)` macro accepts a key from the [`Key` namespace](#key-namespace), combined with any of these modifiers:
 
 - `Meta` (⌃ control on macOS and Windows key on PC)
@@ -90,13 +94,12 @@ export component MyComponent inherits Window {
 
 ### Different Keyboard Layouts
 
-Using the `@keys(..)` macro with a key from the [`Key` namespace](#key-namespace) will handle different keyboard layouts for you and notify you of the most common issues regarding internationalization.
+Different keyboard layouts are handled automatically by the `@keys(..)` macro for keys from the [`Key` namespace](#key-namespace).
+For example, `@keys(Control + Plus)` fires whenever the user presses the key that produces `+` on their layout — on a US layout that requires `Shift` + `=`, while on a German layout `+` has its own key and no `Shift` is needed.
 
-In general, a `keyboard-shortcut` will match a KeyEvent depending on the symbol that the keypress produces on the current layout, not the keys physical position on the keyboard.
-So to match the `@keys(Control + Plus)` shortcut on a U.S. layout you must press "Control + Shift + `=`".
-On a German layout however, only "Control + `+`" must be pressed, as Shift is not required there.
+Named keys inside `@keys(..)` are logical: `A` represents the character `a`, not a specific physical key location. This means `@keys(Control + A)` will activate on whichever key produces `a` on the user's layout, regardless of where that key sits on the keyboard.
 
-The `@keys(..)` macro allows you to explicitly control this behavior for Advanced Keyboard shortcuts, if needed.
+If the [`Key` namespace](#key-namespace) doesn't include the needed key, the `@key` macro also supports advanced keyboard shortcut definitions...
 
 ### Advanced Keyboard Shortcuts
 
@@ -121,7 +124,9 @@ As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + Ig
 
 ## Key Namespace
 
-The `Key` namespace contains a list of well-known key codes (including any non-printable characters).
+The `Key` namespace contains a list of well-known logical key codes (including any non-printable characters).
+Key names in this namespace identify keys by the **character they produce**, not by their physical position on the keyboard.
+For example, `Key.A` represents the character `a`, not the top-left letter key of a QWERTY keyboard.
 
 Note that alphabetic keys (e.g. Key.A-Key.Z) are represented as lowercase (e.g. "a"-"z").
 Make sure to case-convert the [`KeyEvent`](#keyevent) `text` or the Key as necessary.
