@@ -494,7 +494,6 @@ impl NodeCollection {
         } else {
             (
                 match item.accessible_role() {
-                    i_slint_core::items::AccessibleRole::None => Role::Unknown,
                     i_slint_core::items::AccessibleRole::Button => Role::Button,
                     i_slint_core::items::AccessibleRole::Checkbox => Role::CheckBox,
                     i_slint_core::items::AccessibleRole::Combobox => Role::ComboBox,
