@@ -299,6 +299,7 @@ impl LookupObject for SpecialIdLookup {
             })
             .or_else(|| f("true", Expression::BoolLiteral(true)))
             .or_else(|| f("false", Expression::BoolLiteral(false)))
+            .or_else(|| f("none", Expression::NoneValue))
         // "root" is just a normal id
     }
 }
