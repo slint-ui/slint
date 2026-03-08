@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test error cases for optional types
+
+export component TestCase {
+    // Error: Cannot assign optional to non-optional without unwrap/coalesce
+    property <string> text: none;
+//                          ^error{Cannot convert string\? to string}
+
+    property <string?> opt_text: none;
+    property <string> text2: opt_text;
+//                           ^error{Cannot convert string\? to string}
+
+    // Error: Unwrap on non-optional type
+    property <string> regular_text: "hello";
+    property <string> unwrapped: regular_text!;
+//                                            ^error{Cannot unwrap non-optional type 'string'}
+
+    // Error: Null-coalesce on non-optional
+    property <int> regular_num: 42;
+    property <int> coalesced: regular_num ?? 0;
+//                                        ^error{The '\?\?' operator requires an optional left-hand side}
+
+    // Error: Type mismatch in null-coalesce fallback
+    property <string?> opt_str: none;
+    property <string> wrong_fallback: opt_str ?? 123;
+//                                              ^error{Cannot convert int to string}
+}

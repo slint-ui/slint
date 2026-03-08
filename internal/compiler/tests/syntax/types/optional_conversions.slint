@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test type conversions with optionals
+
+export component TestCase {
+    // Implicit wrapping works
+    property <string?> opt1: "text";
+    property <int?> opt2: 42;
+    property <bool?> opt3: true;
+
+    // Numeric conversions still work with optionals
+    property <length?> len1: 100px;
+    property <length?> len2: none;
+    property <physical-length?> phys: 50phx;
+
+    // Optional to optional conversion
+    property <float?> float_val: 3.14;
+    property <int?> int_from_float: float_val; // float? -> int? works if float -> int works
+
+    // Brush/Color optionals
+    property <color?> opt_color: #FF0000;
+    property <brush?> opt_brush_from_color: opt_color; // color? -> brush? works
+
+    // String conversions
+    property <int?> num: 42;
+    property <string?> num_as_str: num; // int? -> string? works if int -> string works
+
+    // Array conversions with optionals
+    property <[int]?> opt_int_array: [1, 2, 3];
+    // Note: Elements are non-optional, array itself is optional
+}
