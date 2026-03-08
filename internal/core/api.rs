@@ -18,7 +18,6 @@ pub use crate::graphics::{
     Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
     SharedPixelBuffer,
 };
-pub use crate::input::KeyboardModifiers;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
 
