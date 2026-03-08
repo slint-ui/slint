@@ -336,6 +336,21 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (sub, op) => panic!("unsupported {op} {sub:?}"),
             }
         }
+        Expression::Unwrap { base } => {
+            let value = eval_expression(base, local_context);
+            if matches!(value, Value::Void) {
+                panic!("Runtime error: unwrap of none value");
+            }
+            value
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            let value = eval_expression(base, local_context);
+            if matches!(value, Value::Void) {
+                eval_expression(fallback, local_context)
+            } else {
+                value
+            }
+        }
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),

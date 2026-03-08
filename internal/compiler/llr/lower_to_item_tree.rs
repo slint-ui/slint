@@ -611,6 +611,9 @@ fn lower_sub_component(
                 Type::Enumeration(e) if e.name == "AccessibleRole" => {
                     super::Expression::PropertyReference(prop)
                 }
+                Type::Optional(inner) if matches!(inner.as_ref(), Type::Enumeration(e) if e.name == "AccessibleRole") => {
+                    super::Expression::PropertyReference(prop)
+                }
                 Type::Callback(callback) => super::Expression::CallBackCall {
                     callback: prop,
                     arguments: (0..callback.args.len())

@@ -22,15 +22,20 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
             apply_builtin(elem);
             let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
                 Some(role) => {
+                    // Check if accessible-role is set to none (the optional literal)
+                    if matches!(
+                        super::ignore_debug_hooks(&role.borrow().expression),
+                        Expression::NoneValue
+                    ) {
+                        return; // No accessible role set
+                    }
+
                     if let Expression::EnumerationValue(val) =
                         super::ignore_debug_hooks(&role.borrow().expression)
                     {
                         debug_assert_eq!(val.enumeration.name, "AccessibleRole");
-                        debug_assert_eq!(val.enumeration.values[0], "none");
-                        if val.value == 0 {
-                            return;
-                        }
-                    } else {
+                        // Note: AccessibleRole.None variant removed in favor of optional types
+                    } else if !matches!(super::ignore_debug_hooks(&role.borrow().expression), Expression::NoneValue) {
                         diag.push_error(
                             "The `accessible-role` property must be a constant expression".into(),
                             &*role.borrow(),

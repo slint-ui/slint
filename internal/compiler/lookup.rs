@@ -570,6 +570,8 @@ impl LookupType {
     fn from_type(ty: Type) -> Option<LookupResult> {
         match ty {
             Type::Enumeration(e) => Some(LookupResult::Enumeration(e)),
+            // Allow enum lookup for optional enum types
+            Type::Optional(inner) => Self::from_type((*inner).clone()),
             _ => None,
         }
     }
@@ -607,6 +609,14 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Brush => ColorSpecific.for_each_entry(ctx, f),
             Type::Easing => EasingSpecific.for_each_entry(ctx, f),
             Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
+            // For optional enums, look up values from the inner enumeration
+            Type::Optional(inner) => match inner.as_ref() {
+                Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
+                Type::Color => ColorSpecific.for_each_entry(ctx, f),
+                Type::Brush => ColorSpecific.for_each_entry(ctx, f),
+                Type::Easing => EasingSpecific.for_each_entry(ctx, f),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -617,6 +627,14 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Brush => ColorSpecific.lookup(ctx, name),
             Type::Easing => EasingSpecific.lookup(ctx, name),
             Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
+            // For optional enums, look up values from the inner enumeration
+            Type::Optional(inner) => match inner.as_ref() {
+                Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
+                Type::Color => ColorSpecific.lookup(ctx, name),
+                Type::Brush => ColorSpecific.lookup(ctx, name),
+                Type::Easing => EasingSpecific.lookup(ctx, name),
+                _ => None,
+            },
             _ => None,
         }
     }
