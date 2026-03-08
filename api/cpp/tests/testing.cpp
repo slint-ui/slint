@@ -112,16 +112,14 @@ SCENARIO("LayoutKind")
     {
         auto elements = slint::testing::ElementHandle::find_by_element_id(instance, "App::vl");
         REQUIRE(elements.size() == 1);
-        REQUIRE(*elements[0].layout_kind()
-                == slint::testing::LayoutKind::VerticalLayout);
+        REQUIRE(*elements[0].layout_kind() == slint::testing::LayoutKind::VerticalLayout);
     }
 
     SECTION("GridLayout")
     {
         auto elements = slint::testing::ElementHandle::find_by_element_id(instance, "App::gl");
         REQUIRE(elements.size() == 1);
-        REQUIRE(*elements[0].layout_kind()
-                == slint::testing::LayoutKind::GridLayout);
+        REQUIRE(*elements[0].layout_kind() == slint::testing::LayoutKind::GridLayout);
     }
 
     SECTION("Non-layout element")
