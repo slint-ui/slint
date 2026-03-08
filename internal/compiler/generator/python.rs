@@ -708,6 +708,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
             )
         }
         Type::KeyboardShortcutType => SmolStr::new_static("str"),
+        Type::Optional(inner) => format_smolstr!("typing.Optional[{}]", python_type_name(inner)),
         ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

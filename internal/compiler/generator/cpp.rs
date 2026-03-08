@@ -567,6 +567,9 @@ impl CppType for Type {
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::private_api::StyledText".into()),
+            Type::Optional(inner) => {
+                Some(format_smolstr!("std::optional<{}>", inner.cpp_type()?))
+            }
             _ => None,
         }
     }
@@ -3335,6 +3338,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
+        Expression::NoneValue => "std::nullopt".to_string(),
         Expression::KeyboardShortcutLiteral(ks) => {
             format!(
                 "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
