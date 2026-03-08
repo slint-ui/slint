@@ -22,24 +22,28 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
             apply_builtin(elem);
             let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
                 Some(role) => {
-                    // Check if accessible-role is set to none (the optional literal)
-                    if matches!(
-                        super::ignore_debug_hooks(&role.borrow().expression),
-                        Expression::NoneValue
-                    ) {
-                        return; // No accessible role set
-                    }
-
-                    if let Expression::EnumerationValue(val) =
-                        super::ignore_debug_hooks(&role.borrow().expression)
-                    {
-                        debug_assert_eq!(val.enumeration.name, "AccessibleRole");
-                        // Note: AccessibleRole.None variant removed in favor of optional types
-                    } else if !matches!(super::ignore_debug_hooks(&role.borrow().expression), Expression::NoneValue) {
-                        diag.push_error(
-                            "The `accessible-role` property must be a constant expression".into(),
-                            &*role.borrow(),
-                        );
+                    // Check if accessible-role is set to none (the optional literal) or a valid enum value
+                    match super::ignore_debug_hooks(&role.borrow().expression) {
+                        Expression::NoneValue => {
+                            return; // No accessible role set
+                        }
+                        // Handle none potentially wrapped in a Cast to Optional(AccessibleRole)
+                        Expression::Cast { from, .. } if matches!(from.as_ref(), Expression::NoneValue) => {
+                            return; // No accessible role set
+                        }
+                        Expression::EnumerationValue(val) => {
+                            debug_assert_eq!(val.enumeration.name, "AccessibleRole");
+                            // Note: AccessibleRole.None variant removed in favor of optional types
+                        }
+                        expr => {
+                            // Check if it's a const expression at least (better error)
+                            if !expr.is_constant(None) {
+                                diag.push_error(
+                                    "The `accessible-role` property must be a constant expression".into(),
+                                    &*role.borrow(),
+                                );
+                            }
+                        }
                     }
                     true
                 }
