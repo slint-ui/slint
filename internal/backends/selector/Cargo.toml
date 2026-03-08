@@ -50,6 +50,7 @@ accessibility = ["i-slint-backend-winit?/accessibility"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-winit?/raw-window-handle-06"]
 
 system-testing = ["i-slint-backend-testing/system-testing"]
+mcp = ["i-slint-backend-testing/mcp"]
 
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
