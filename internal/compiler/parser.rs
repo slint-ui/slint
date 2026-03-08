@@ -438,13 +438,15 @@ declare_syntax! {
         ExternalName -> [],
         InternalName -> [],
         /// The representation of a type
-        Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType ],
+        Type -> [ ?QualifiedName, ?ObjectType, ?ArrayType, ?OptionalType ],
         /// `{foo: string, bar: string} `
         ObjectType ->[ *ObjectTypeMember ],
         /// `foo: type` inside an ObjectType
         ObjectTypeMember -> [ Type ],
         /// `[ type ]`
         ArrayType -> [ Type ],
+        /// `type?`
+        OptionalType -> [ Type ],
         /// `struct Foo { ... }`
         StructDeclaration -> [DeclaredIdentifier, ObjectType, *AtRustAttr],
         /// `enum Foo { bli, bla, blu }`
