@@ -4,3 +4,5 @@
 from . import slint as native
 
 StandardListViewItem = native.language.StandardListViewItem  # type: ignore[unresolved-attribute]
+
+KeyboardModifiers = native.language.KeyboardModifiers  # type: ignore[unresolved-attribute]
