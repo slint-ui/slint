@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import pytest
-from slint.language import StandardListViewItem
+from slint.language import StandardListViewItem, KeyboardModifiers
 
 
 NAMED_TUPLES = [
     (StandardListViewItem, {"text": ""}),
+    (
+        KeyboardModifiers,
+        {"shift": False, "control": False, "alt": False, "meta": False},
+    ),
 ]
 
 
@@ -72,3 +76,35 @@ def test_StandardListViewItem() -> None:
     assert item.text == ""
     item = item._replace(text="Test")
     assert item.text == "Test"
+
+
+def test_KeyboardModifiers() -> None:
+    # Test initialization with default values
+    mods = KeyboardModifiers()
+    assert mods.shift is False
+    assert mods.control is False
+    assert mods.alt is False
+    assert mods.meta is False
+
+    # Test initialization with arguments
+    mods = KeyboardModifiers(shift=True, control=True, alt=True, meta=True)
+    assert mods.shift is True
+    assert mods.control is True
+    assert mods.alt is True
+    assert mods.meta is True
+
+    # Test setters (_replace for NamedTuple)
+    mods = mods._replace(shift=False)
+    assert mods.shift is False
+    mods = mods._replace(control=False)
+    assert mods.control is False
+    mods = mods._replace(alt=False)
+    assert mods.alt is False
+    mods = mods._replace(meta=False)
+    assert mods.meta is False
+
+    # Test equality
+    mods2 = KeyboardModifiers()
+    assert mods == mods2
+    mods3 = mods2._replace(shift=True)
+    assert mods2 != mods3

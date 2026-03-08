@@ -26,6 +26,7 @@ import gettext
 import gzip
 import base64
 
+
 Struct = native.PyStruct
 
 
