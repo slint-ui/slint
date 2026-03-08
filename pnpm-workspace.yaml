@@ -25,7 +25,7 @@ catalog:
   '@types/node': 20.16.10
   astro: 5.18.0
   astro-embed: 0.12.0
-  cspell: 9.6.4
+  cspell: 9.7.0
   playwright-ctrf-json-reporter: 0.0.27
   rehype-external-links: 3.0.0
   sharp: 0.34.5
