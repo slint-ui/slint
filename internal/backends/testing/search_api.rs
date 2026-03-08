@@ -26,6 +26,7 @@ mod internal {
 
 /// Describes the kind of layout an element represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum LayoutKind {
     /// A `HorizontalLayout`.
