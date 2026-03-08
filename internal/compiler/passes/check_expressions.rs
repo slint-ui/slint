@@ -17,20 +17,28 @@ pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDia
 }
 
 fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildDiagnostics) {
-    if let Expression::FunctionCall { function: Callable::Builtin(b), source_location, .. } = e {
-        match b {
-            BuiltinFunction::GetWindowScaleFactor => {
-                if component.is_global() {
-                    diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), source_location);
+    match e {
+        Expression::FunctionCall { function: Callable::Builtin(b), source_location, .. } => {
+            match b {
+                BuiltinFunction::GetWindowScaleFactor => {
+                    if component.is_global() {
+                        diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), source_location);
+                    }
                 }
-            }
-            BuiltinFunction::GetWindowDefaultFontSize => {
-                if component.is_global() {
-                    diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), source_location);
+                BuiltinFunction::GetWindowDefaultFontSize => {
+                    if component.is_global() {
+                        diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), source_location);
+                    }
                 }
+                _ => {}
             }
-            _ => {}
         }
+        Expression::Unwrap { .. } | Expression::NullCoalesce { .. } => {
+            // Type checking for unwrap and null-coalesce is handled by their ty() methods
+            // which return Type::Invalid for invalid usage, causing type mismatches to be
+            // reported elsewhere in the compiler
+        }
+        _ => {}
     }
     e.visit(|e| check_expression(component, e, diag))
 }
