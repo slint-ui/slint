@@ -305,6 +305,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::StringLiteral(x) => write!(f, "{x:?}"),
             Expression::NumberLiteral(x) => write!(f, "{x:?}"),
             Expression::BoolLiteral(x) => write!(f, "{x:?}"),
+            Expression::NoneValue => write!(f, "none"),
             Expression::KeyboardShortcutLiteral(shortcut) => {
                 write!(f, "@keys({shortcut})",)
             }
