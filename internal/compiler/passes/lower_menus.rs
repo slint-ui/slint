@@ -568,7 +568,7 @@ fn lower_menu_items(
         Component {
             id: SmolStr::default(),
             root_element,
-            parent_element: Rc::downgrade(parent),
+            parent_element: RefCell::new(Rc::downgrade(parent)),
             ..Default::default()
         }
     });

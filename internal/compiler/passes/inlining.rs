@@ -34,7 +34,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
                 // First, make sure that the component itself is properly inlined
                 inline_components_recursively(&c, roots, inline_selection, diag);
 
-                if c.parent_element.upgrade().is_some() {
+                if c.parent_element().is_some() {
                     // We should not inline a repeated element
                     return;
                 }
@@ -47,7 +47,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
                             || element_require_inlining(elem)
                             // We always inline the root in case the element that instantiate this component needs full inlining,
                             // except when the root is a repeater component, which are never inlined.
-                            || component.parent_element.upgrade().is_none() && Rc::ptr_eq(elem, &component.root_element)
+                            || component.parent_element().is_none() && Rc::ptr_eq(elem, &component.root_element)
                             // We always inline other roots as a component can't be both a sub component and a root
                             || roots.contains(&ByAddress(c.clone()))
                     }
@@ -92,7 +92,7 @@ fn inline_element(
         inlined_component.root_element.borrow().repeated.is_none(),
         "root element of a component cannot be repeated"
     );
-    debug_assert!(inlined_component.parent_element.upgrade().is_none());
+    debug_assert!(inlined_component.parent_element().is_none());
 
     let mut elem_mut = elem.borrow_mut();
     let priority_delta = 1 + elem_mut.inline_depth;
@@ -184,9 +184,9 @@ fn inline_element(
     elem_mut.debug.extend_from_slice(&inlined_component.root_element.borrow().debug);
 
     if let ElementType::Component(c) = &mut elem_mut.base_type
-        && c.parent_element.upgrade().is_some()
+        && c.parent_element().is_some()
     {
-        debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
+        debug_assert!(Rc::ptr_eq(elem, &c.parent_element().unwrap()));
         *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
     };
 
@@ -404,9 +404,9 @@ fn duplicate_element_with_mapping(
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     if let ElementType::Component(c) = &mut new.borrow_mut().base_type
-        && c.parent_element.upgrade().is_some()
+        && c.parent_element().is_some()
     {
-        debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
+        debug_assert!(Rc::ptr_eq(element, &c.parent_element().unwrap()));
         *c = duplicate_sub_component(c, &new, mapping, priority_delta);
     };
 
@@ -420,7 +420,7 @@ fn duplicate_sub_component(
     mapping: &mut Mapping,
     priority_delta: i32,
 ) -> Rc<Component> {
-    debug_assert!(component_to_duplicate.parent_element.upgrade().is_some());
+    debug_assert!(component_to_duplicate.parent_element().is_some());
     let new_component = Component {
         node: component_to_duplicate.node.clone(),
         id: component_to_duplicate.id.clone(),
@@ -430,7 +430,7 @@ fn duplicate_sub_component(
             component_to_duplicate, // that's the wrong one, but we fixup further
             priority_delta,
         ),
-        parent_element: Rc::downgrade(new_parent),
+        parent_element: RefCell::new(Rc::downgrade(new_parent)),
         optimized_elements: RefCell::new(
             component_to_duplicate
                 .optimized_elements
@@ -488,7 +488,7 @@ fn duplicate_sub_component(
         .iter()
         .map(|it| {
             let new_parent =
-                mapping.get(&element_key(it.parent_element.upgrade().unwrap())).unwrap().clone();
+                mapping.get(&element_key(it.parent_element().unwrap())).unwrap().clone();
             duplicate_sub_component(it, &new_parent, mapping, priority_delta)
         })
         .collect();
@@ -501,7 +501,7 @@ fn duplicate_sub_component(
 
 fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) -> PopupWindow {
     let parent = mapping
-        .get(&element_key(p.component.parent_element.upgrade().expect("must have a parent")))
+        .get(&element_key(p.component.parent_element().expect("must have a parent")))
         .expect("Parent must be in the mapping")
         .clone();
     PopupWindow {

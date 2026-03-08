@@ -18,7 +18,7 @@ fn normalize_repeated_element(element: ElementRc) -> ElementRc {
     if element.borrow().repeated.is_some()
         && let i_slint_compiler::langtype::ElementType::Component(base) =
             &element.borrow().base_type
-        && base.parent_element.upgrade().is_some()
+        && base.parent_element().is_some()
     {
         return base.root_element.clone();
     }
@@ -237,7 +237,7 @@ fn find_element_node_at_source_code_position(
 
 fn repeater_path(elem: &ElementRc) -> Option<Vec<SmolStr>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(parent) = enclosing.parent_element.upgrade() {
+    if let Some(parent) = enclosing.parent_element() {
         // This is not a repeater, it might be a popup menu which is not supported ATM
         parent.borrow().repeated.as_ref()?;
 

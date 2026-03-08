@@ -12,7 +12,7 @@ pub fn collect_init_code(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_some()
             && let ElementType::Component(base) = &elem.borrow().base_type
-            && base.parent_element.upgrade().is_some()
+            && base.parent_element().is_some()
         {
             collect_init_code(base);
         }
