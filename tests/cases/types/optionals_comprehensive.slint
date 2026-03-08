@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Comprehensive test of optional types features
+
+struct OptionalData {
+    title: string?,
+    count: int?,
+    flag: bool?,
+}
+
+TestCase := Rectangle {
+    // Phase 1: Basic declarations and none literal
+    property <string?> opt_text: none;
+    property <int?> opt_number: none;
+    property <bool?> opt_flag: none;
+
+    // Implicit wrapping T -> T?
+    property <string?> text_wrapped: "hello";
+    property <int?> number_wrapped: 42;
+
+    // Phase 2: Null-coalescing operator
+    property <string> text_with_fallback: opt_text ?? "default";
+    property <string> text_with_value: text_wrapped ?? "unused";
+    property <int> number_with_fallback: opt_number ?? 99;
+
+    // Comparison with none
+    property <bool> text_is_none: opt_text == none;
+    property <bool> text_has_value: text_wrapped != none;
+
+    // Optional in structs
+    property <OptionalData> data: {
+        title: "Test",
+        count: 5,
+        // flag is implicitly none
+    };
+
+    property <OptionalData> empty_data: {
+        // All fields implicitly none
+    };
+
+    // Chained operators
+    property <string> chained: (opt_text ?? text_wrapped) ?? "final_fallback";
+
+    // Optional with enum types (testing AccessibleRole? migration)
+    property <AccessibleRole?> role: none;
+    property <AccessibleRole?> button_role: AccessibleRole.button;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Test none values
+assert_eq!(instance.get_opt_text(), None);
+assert_eq!(instance.get_opt_number(), None);
+
+// Test implicit wrapping
+assert_eq!(instance.get_text_wrapped(), Some("hello".into()));
+assert_eq!(instance.get_number_wrapped(), Some(42));
+
+// Test null-coalescing
+assert_eq!(instance.get_text_with_fallback(), "default".into());
+assert_eq!(instance.get_text_with_value(), "hello".into());
+assert_eq!(instance.get_number_with_fallback(), 99);
+
+// Test comparison
+assert_eq!(instance.get_text_is_none(), true);
+assert_eq!(instance.get_text_has_value(), true);
+
+// Test chained operators
+assert_eq!(instance.get_chained(), "hello".into());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Test none values
+assert(!instance.get_opt_text().has_value());
+assert(!instance.get_opt_number().has_value());
+
+// Test implicit wrapping
+assert(instance.get_text_wrapped() == "hello");
+assert(instance.get_number_wrapped() == 42);
+
+// Test null-coalescing
+assert(instance.get_text_with_fallback() == "default");
+assert(instance.get_text_with_value() == "hello");
+assert(instance.get_number_with_fallback() == 99);
+
+// Test comparison
+assert(instance.get_text_is_none() == true);
+assert(instance.get_text_has_value() == true);
+```
+*/
