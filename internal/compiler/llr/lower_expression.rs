@@ -192,6 +192,13 @@ pub fn lower_expression(
         tree_Expression::UnaryOp { sub, op } => {
             llr_Expression::UnaryOp { sub: Box::new(lower_expression(sub, ctx)), op: *op }
         }
+        tree_Expression::Unwrap { base } => {
+            llr_Expression::Unwrap { base: Box::new(lower_expression(base, ctx)) }
+        }
+        tree_Expression::NullCoalesce { base, fallback } => llr_Expression::NullCoalesce {
+            base: Box::new(lower_expression(base, ctx)),
+            fallback: Box::new(lower_expression(fallback, ctx)),
+        },
         tree_Expression::ImageReference { resource_ref, nine_slice, .. } => {
             llr_Expression::ImageReference {
                 resource_ref: resource_ref.clone(),

@@ -144,6 +144,19 @@ pub enum Expression {
         op: char,
     },
 
+    /// Unwrap an optional value (panic if none)
+    /// Syntax: expr!
+    Unwrap {
+        base: Box<Expression>,
+    },
+
+    /// Null-coalescing: use fallback if base is none
+    /// Syntax: expr ?? fallback
+    NullCoalesce {
+        base: Box<Expression>,
+        fallback: Box<Expression>,
+    },
+
     ImageReference {
         resource_ref: crate::expression_tree::ImageReference,
         nine_slice: Option<[u16; 4]>,
@@ -370,6 +383,11 @@ impl Expression {
                 }
             }
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
+            Self::Unwrap { base } => match base.ty(ctx) {
+                Type::Optional(inner) => (*inner).clone(),
+                _ => Type::Invalid,
+            },
+            Self::NullCoalesce { fallback, .. } => fallback.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
             Self::Condition { false_expr, .. } => false_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
@@ -433,6 +451,13 @@ macro_rules! visit_impl {
             }
             Expression::UnaryOp { sub, .. } => {
                 $visitor(sub);
+            }
+            Expression::Unwrap { base } => {
+                $visitor(base);
+            }
+            Expression::NullCoalesce { base, fallback } => {
+                $visitor(base);
+                $visitor(fallback);
             }
             Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {

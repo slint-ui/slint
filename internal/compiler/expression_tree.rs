@@ -741,6 +741,19 @@ pub enum Expression {
         op: char,
     },
 
+    /// Unwrap an optional value (panic if none)
+    /// Syntax: expr!
+    Unwrap {
+        base: Box<Expression>,
+    },
+
+    /// Null-coalescing: use fallback if base is none
+    /// Syntax: expr ?? fallback
+    NullCoalesce {
+        base: Box<Expression>,
+        fallback: Box<Expression>,
+    },
+
     ImageReference {
         resource_ref: ImageReference,
         source_location: Option<SourceLocation>,
@@ -964,6 +977,11 @@ impl Expression {
                 }
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
+            Expression::Unwrap { base } => match base.ty() {
+                Type::Optional(inner) => (*inner).clone(),
+                _ => Type::Invalid,
+            },
+            Expression::NullCoalesce { fallback, .. } => fallback.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
             Expression::Struct { ty, .. } => ty.clone().into(),
             Expression::PathData { .. } => Type::PathData,
@@ -1033,6 +1051,11 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => visitor(sub),
+            Expression::Unwrap { base } => visitor(base),
+            Expression::NullCoalesce { base, fallback } => {
+                visitor(base);
+                visitor(fallback);
+            }
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -1151,6 +1174,11 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => visitor(sub),
+            Expression::Unwrap { base } => visitor(base),
+            Expression::NullCoalesce { base, fallback } => {
+                visitor(base);
+                visitor(fallback);
+            }
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -1283,6 +1311,10 @@ impl Expression {
                 lhs.is_constant(ga) && rhs.is_constant(ga)
             }
             Expression::UnaryOp { sub, .. } => sub.is_constant(ga),
+            Expression::Unwrap { base } => base.is_constant(ga),
+            Expression::NullCoalesce { base, fallback } => {
+                base.is_constant(ga) && fallback.is_constant(ga)
+            }
             // Array will turn into model, and they can't be considered as constant if the model
             // is used and the model is changed. CF issue #5249
             //Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
@@ -1925,6 +1957,17 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::UnaryOp { sub, op } => {
             write!(f, "{op}")?;
             pretty_print(f, sub)
+        }
+        Expression::Unwrap { base } => {
+            pretty_print(f, base)?;
+            write!(f, "!")
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            write!(f, "(")?;
+            pretty_print(f, base)?;
+            write!(f, " ?? ")?;
+            pretty_print(f, fallback)?;
+            write!(f, ")")
         }
         Expression::ImageReference { resource_ref, .. } => write!(f, "{resource_ref:?}"),
         Expression::Condition { condition, true_expr, false_expr } => {
