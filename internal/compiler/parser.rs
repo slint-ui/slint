@@ -323,6 +323,7 @@ declare_syntax! {
         Bang -> "!",
         Dot -> ".",
         Question -> "?",
+        QuestionQuestion -> "??",
         Dollar -> "$",
         At -> "@",
         Pipe -> "|",
@@ -373,8 +374,8 @@ declare_syntax! {
         ReturnStatement -> [ ?Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
-                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
+                       ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?NullCoalesceExpression, ?Array, ?ObjectLiteral,
+                       ?UnaryOpExpression, ?UnwrapExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
                        ?MemberAccess, ?AtKeys ],
         /// Concatenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
@@ -401,8 +402,12 @@ declare_syntax! {
         ConditionalExpression -> [3 Expression],
         /// `expr + expr`
         BinaryExpression -> [2 Expression],
+        /// `expr ?? fallback` - null-coalescing
+        NullCoalesceExpression -> [2 Expression],
         /// `- expr`
         UnaryOpExpression -> [Expression],
+        /// `expr!` - unwrap an optional
+        UnwrapExpression -> [Expression],
         /// `(foo).bar`, where `foo` is the base expression, and `bar` is a Identifier.
         MemberAccess -> [Expression],
         /// `[ ... ]`
