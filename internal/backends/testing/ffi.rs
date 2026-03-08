@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{ElementHandle, ElementRoot};
+use crate::{ElementHandle, ElementRoot, LayoutKind};
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
 use i_slint_core::{SharedString, SharedVector};
@@ -105,6 +105,19 @@ pub extern "C" fn slint_testing_element_bases(
 ) -> bool {
     if let Some(bases_it) = element.bases() {
         out.extend(bases_it);
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_element_layout_kind(
+    element: &ElementHandle,
+    out: &mut LayoutKind,
+) -> bool {
+    if let Some(kind) = element.layout_kind() {
+        *out = kind;
         true
     } else {
         false
