@@ -120,6 +120,10 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
                 u16,
             >
         )),
+        Type::Optional(inner) => {
+            let inner_ty = rust_primitive_type(inner)?;
+            Some(quote!(Option<#inner_ty>))
+        }
         _ => None,
     }
 }

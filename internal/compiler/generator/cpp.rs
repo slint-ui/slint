@@ -565,6 +565,9 @@ impl CppType for Type {
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::private_api::StyledText".into()),
+            Type::Optional(inner) => {
+                Some(format_smolstr!("std::optional<{}>", inner.cpp_type()?))
+            }
             _ => None,
         }
     }
