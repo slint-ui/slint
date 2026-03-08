@@ -13,8 +13,8 @@ import { NavigationItem } from "../items/navigation_item.slint";
 import { BaseNavigationItemTemplate, BaseNavigation } from "./base_navigation.slint";
 
 export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
-    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
-    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+    property <bool> has_icon: root.icon.has-value();
+    property <bool> has_selected_icon: root.selected_icon.has-value();
     property <color> color: MaterialPalette.on_surface;
 
     in property <length> navitem_padding_top: MaterialStyleMetrics.padding_12;
@@ -77,12 +77,12 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                                     }
 
                                     if root.has_icon || root.has_selected_icon : Icon {
-                                        source: root.icon;
+                                        source: root.icon.value-or(@image-url(""));
                                         colorize: root.color;
 
                                         states [
                                             selected when root.selected && root.has_selected_icon : {
-                                                source: root.selected_icon;
+                                                source: root.selected_icon.value-or(@image-url(""));
                                             }
                                         ]
                                     }
@@ -90,10 +90,10 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                              }
                         }
 
-                        if root.show_badge || root.badge != "" : Badge {
+                        if root.show_badge || root.badge.has-value() : Badge {
                             x: parent.width / 2;
                             y: 0;
-                            text: root.badge;
+                            text: root.badge.value-or("");
                         }
                     }
                 }

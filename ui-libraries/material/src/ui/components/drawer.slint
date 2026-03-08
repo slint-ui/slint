@@ -24,7 +24,7 @@ export component DrawerHeader {
 }
 
 export component Drawer {
-    in property <string> title;
+    in property <string?> title;
 
     min_width: max(MaterialStyleMetrics.size_360, layout.min_width);
 
@@ -38,9 +38,9 @@ export component Drawer {
                 alignment: start;
                 padding: MaterialStyleMetrics.padding_12;
 
-                if root.title != "" : DrawerHeader {
+                if root.title.has-value() : DrawerHeader {
                     width: 100%;
-                    title: root.title;
+                    title: root.title.value-or("");
                 }
 
                 @children
@@ -51,7 +51,7 @@ export component Drawer {
 
 export component ModalDrawer inherits PopupWindow {
     in property <bool> position_right;
-    in property <string> title;
+    in property <string?> title;
 
     close_policy: no_auto_close;
 

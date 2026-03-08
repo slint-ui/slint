@@ -13,7 +13,7 @@ import { MaterialAnimations } from "../styling/material_animations.slint";
 
 export component SnackBar inherits PopupWindow {
     in property <string> text;
-    in property <string> action_text;
+    in property <string?> action_text;
     in property <bool> has_close_button;
 
     close_policy: no_auto_close;
@@ -46,8 +46,8 @@ export component SnackBar inherits PopupWindow {
                     color: MaterialPalette.inverse_on_surface;
                 }
 
-                if root.action_text != "" : TextButton {
-                    text: root.action_text;
+                if root.action_text.has-value() : TextButton {
+                    text: root.action_text.value-or("");
                     inverse: true;
 
                     clicked => {

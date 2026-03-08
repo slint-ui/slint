@@ -7,7 +7,7 @@ import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialText } from "material_text.slint";
 
 export component Badge {
-    in property <string> text;
+    in property <string?> text;
 
     width: max(MaterialStyleMetrics.size_16, label.width + 2 * MaterialStyleMetrics.padding_4);
     height: max(MaterialStyleMetrics.size_16, label.height);
@@ -20,7 +20,7 @@ export component Badge {
     }
 
     label := MaterialText {
-        text: root.text;
+        text: root.text.value-or("");
         color: MaterialPalette.on_error;
         vertical_alignment: center;
         horizontal_alignment: center;
@@ -28,7 +28,7 @@ export component Badge {
     }
 
     states [
-        small when root.text == "" : {
+        small when !root.text.has-value() : {
             background_layer.width: MaterialStyleMetrics.size_6;
             background_layer.height: MaterialStyleMetrics.size_6;
         }

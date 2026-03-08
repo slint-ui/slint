@@ -14,7 +14,7 @@ import { IconButton } from "./icon_button.slint";
 import { Icons } from "../icons/icons.slint";
 
 export component FullscreenDialog inherits PopupWindow {
-    in property <string> title;
+    in property <string?> title;
     in property <[string]> actions;
 
     callback action_clicked(index: int);
@@ -59,7 +59,7 @@ export component FullscreenDialog inherits PopupWindow {
                 }
 
                 MaterialText {
-                    text: root.title;
+                    text: root.title.value-or("");
                     style: MaterialTypography.headline_small;
                     color: MaterialPalette.on_surface;
                     vertical_alignment: center;
@@ -90,13 +90,13 @@ export component FullscreenDialog inherits PopupWindow {
 }
 
 export component BaseDialog {
-    in property <string> title;
-    in property <image> icon;
+    in property <string?> title;
+    in property <image?> icon;
     in property <[image]> action_button_icons;
-    in property <string> default_action_text;
+    in property <string?> default_action_text;
     in property <[string]> actions;
 
-    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    property <bool> has_icon: root.icon.has-value();
 
     callback default_action_clicked();
     callback action_button_clicked(index: int);
@@ -110,7 +110,7 @@ export component BaseDialog {
         width: 0;
 
         key_pressed(event) => {
-            if event.text == Key.Return && root.default_action_text != ""  {
+            if event.text == Key.Return && root.default_action_text.has-value()  {
                 root.default_action_clicked();
                 return accept;
             }
@@ -145,12 +145,12 @@ export component BaseDialog {
                     if root.has_icon : Icon {
                         x: (parent.width - self.width) / 2;
                         colorize: MaterialPalette.on_surface;
-                        source: root.icon;
+                        source: root.icon.value-or(@image-url(""));
                     }
 
-                    if root.title != "" : MaterialText {
+                    if root.title.has-value() : MaterialText {
                         horizontal_alignment: root.has_icon ? center : left;
-                        text: root.title;
+                        text: root.title.value-or("");
                         style: MaterialTypography.headline_small;
                         color: MaterialPalette.on_surface;
                     }
@@ -179,8 +179,8 @@ export component BaseDialog {
                             }
                         }
 
-                        if root.default_action_text != "" : FilledButton {
-                            text: root.default_action_text;
+                        if root.default_action_text.has-value() : FilledButton {
+                            text: root.default_action_text.value-or("");
 
                             clicked => {
                                 root.default_action_clicked();
@@ -209,9 +209,9 @@ export component BaseDialog {
 }
 
 export component Dialog inherits PopupWindow {
-    in property <string> title <=> base.title;
-    in property <image> icon <=> base.icon;
-    in property <string> default_action_text <=> base.default_action_text;
+    in property <string?> title <=> base.title;
+    in property <image?> icon <=> base.icon;
+    in property <string?> default_action_text <=> base.default_action_text;
     in property <[string]> actions <=> base.actions;
 
     callback default_action_clicked <=> base.default_action_clicked;

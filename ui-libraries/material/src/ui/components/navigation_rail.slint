@@ -12,7 +12,7 @@ import { BaseNavigation } from "./base_navigation.slint";
 
 export component NavigationRail inherits BaseNavigation {
     in property <bool> has_menu;
-    in property <image> fab_icon;
+    in property <image?> fab_icon;
     in property <LayoutAlignment> alignment;
 
     callback menu_clicked();
@@ -37,11 +37,11 @@ export component NavigationRail inherits BaseNavigation {
             }
 
 
-            if root.fab_icon.width > 0 && root.fab_icon.height > 0 : HorizontalLayout {
+            if root.fab_icon.has-value() : HorizontalLayout {
                 alignment: center;
 
                 FloatingActionButton {
-                    icon: root.fab_icon;
+                    icon: root.fab_icon.value-or(@image-url(""));
                     style: FABStyle.standard;
 
                     clicked => {

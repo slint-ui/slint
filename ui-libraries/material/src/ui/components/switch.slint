@@ -10,11 +10,11 @@ import { Icon } from "./icon.slint";
 export component Switch {
     in_out property <bool> checked;
     in property <bool> enabled: true;
-    in property <string> tooltip <=> touch_area.tooltip;
-    in property <image> on_icon;
-    in property <image> off_icon;
+    in property <string?> tooltip <=> touch_area.tooltip;
+    in property <image?> on_icon;
+    in property <image?> off_icon;
 
-    property <bool> has_icon: (root.checked && root.on_icon.width > 0 && root.on_icon.height > 0) || (root.off_icon.width > 0 && root.off_icon.height > 0);
+    property <bool> has_icon: (root.checked && root.on_icon.has-value()) || root.off_icon.has-value();
     property <color> foreground: root.checked ? MaterialPalette.on_primary_container : MaterialPalette.surface_container_highest;
 
     callback checked_state_changed(checked: bool);
@@ -72,7 +72,7 @@ export component Switch {
                 background: root.checked ? MaterialPalette.primary_container : MaterialPalette.outline;
 
                 if root.has_icon : Icon {
-                    source: root.checked ? root.on_icon : root.off_icon;
+                    source: root.checked ? root.on_icon.value-or(@image-url("")) : root.off_icon.value-or(@image-url(""));
                     colorize: root.foreground;
 
                     animate colorize {

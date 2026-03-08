@@ -14,7 +14,7 @@ import { Icon } from "./icon.slint";
 component TabItemTemplate inherits BaseNavigationItemTemplate {
     out property <length> label_width: label.width;
 
-    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+    property <bool> has_selected_icon: root.selected_icon.has-value();
 
     StateLayerArea {
         color: MaterialPalette.primary;
@@ -24,16 +24,16 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
             padding_bottom: MaterialStyleMetrics.padding_8;
             spacing: MaterialStyleMetrics.spacing_2;
 
-            if root.icon.width > 0 && root.icon.height > 0 : HorizontalLayout {
+            if root.icon.has-value() : HorizontalLayout {
                 alignment: center;
 
                 Icon {
-                    source: root.icon;
+                    source: root.icon.value-or(@image-url(""));
                     colorize: label.color;
 
                     states [
                         selected when root.selected && root.has_selected_icon : {
-                            source: root.selected_icon;
+                            source: root.selected_icon.value-or(@image-url(""));
                         }
                     ]
                 }
@@ -63,7 +63,7 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
 }
 
 component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
-    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+    property <bool> has_selected_icon: root.selected_icon.has-value();
 
     StateLayerArea {
         color: label.color;
@@ -72,16 +72,16 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
             alignment: center;
             spacing: MaterialStyleMetrics.spacing_8;
 
-            if root.icon.width > 0 && root.icon.height > 0 : VerticalLayout {
+            if root.icon.has-value() : VerticalLayout {
                 alignment: center;
 
                 Icon {
-                    source: root.icon;
+                    source: root.icon.value-or(@image-url(""));
                     colorize: label.color;
 
                     states [
                         selected when root.selected && root.has_selected_icon : {
-                            source: root.selected_icon;
+                            source: root.selected_icon.value-or(@image-url(""));
                         }
                     ]
                 }

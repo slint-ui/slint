@@ -13,10 +13,10 @@ export component TextField {
     in property <string> label: placeholder_text;
     // Deprecated: this property was unintentionally made public. Use `label` instead.
     in property <string> placeholder_text;
-    in property <string> supporting_text;
+    in property <string?> supporting_text;
     in property <bool> has_error;
-    in property <image> leading_icon;
-    in property <image> trailing_icon;
+    in property <image?> leading_icon;
+    in property <image?> trailing_icon;
     in property <bool> enabled: true;
     in property <bool> read_only <=> input.read_only;
     out property <bool> has_focus: input.has_focus;
@@ -30,8 +30,8 @@ export component TextField {
     callback key_pressed(event: KeyEvent) -> EventResult;
     callback key_released(event: KeyEvent) -> EventResult;
 
-    property <bool> has_leading: root.leading_icon.width > 0 && root.leading_icon.height > 0;
-    property <bool> has_trailing: root.trailing_icon.width > 0 && root.trailing_icon.height > 0;
+    property <bool> has_leading: root.leading_icon.has-value();
+    property <bool> has_trailing: root.trailing_icon.has-value();
     property <length> computed_x;
     property <color> highlight: root.enabled && root.has_error ? MaterialPalette.error : root.has_focus ? MaterialPalette.primary : MaterialPalette.on_surface_variant;
 
@@ -59,7 +59,7 @@ export component TextField {
                 spacing: MaterialStyleMetrics.spacing_2;
 
                 if root.has_leading : IconButton {
-                    icon: root.leading_icon;
+                    icon: root.leading_icon.value-or(@image-url(""));
                     enabled: root.enabled;
 
                     clicked => {
@@ -138,8 +138,8 @@ export component TextField {
                     }
                 }
 
-                if root.trailing_icon.width > 0 && root.trailing_icon.height > 0 : IconButton {
-                    icon: root.trailing_icon;
+                if root.has_trailing : IconButton {
+                    icon: root.trailing_icon.value-or(@image-url(""));
                     enabled: root.enabled;
                     has_error: root.has_error;
 
@@ -161,12 +161,12 @@ export component TextField {
             }
         }
 
-        if root.supporting_text != "" : HorizontalLayout {
+        if root.supporting_text.has-value() : HorizontalLayout {
             padding_left: MaterialStyleMetrics.padding_16;
             padding_right: self.padding_left;
 
             supporting_text := MaterialText {
-                text: root.supporting_text;
+                text: root.supporting_text.value-or("");
                 style: MaterialTypography.body_small;
                 color: root.highlight;
                 opacity: root.enabled ? 1 : MaterialPalette.disable_opacity;

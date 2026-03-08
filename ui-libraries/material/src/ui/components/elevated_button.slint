@@ -7,16 +7,16 @@ import { MaterialTypography } from "../styling/material_typography.slint";
 import { MaterialPalette } from "../styling/material_palette.slint";
 
 export component ElevatedButton {
-    in property <image> icon <=> base.icon;
-    in property <string> text <=> base.text;
-    in property <string> tooltip <=> base.tooltip;
+    in property <image?> icon <=> base.icon;
+    in property <string?> text <=> base.text;
+    in property <string?> tooltip <=> base.tooltip;
     in property <bool> enabled <=> base.enabled;
 
     callback clicked <=> base.clicked;
 
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-label: root.text.value-or(root.tooltip.value-or(""));
     accessible-action-default => { base.clicked(); }
 
     elevation := Elevation {
