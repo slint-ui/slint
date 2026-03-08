@@ -108,7 +108,7 @@ cfg_if::cfg_if! {
                     }
                     return builder.build().map(|b| Box::new(b) as Box<dyn Platform + 'static>)
                 },
-                #[cfg(feature = "i-slint-backend-testing")]
+                #[cfg(feature = "backend-testing")]
                 "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
                     i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true },
                 ))),
