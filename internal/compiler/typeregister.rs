@@ -278,7 +278,9 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ),
             (
                 "accessible-role",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleRole.clone())),
+                Type::Optional(Box::new(Type::Enumeration(
+                    BUILTIN.with(|e| e.enums.AccessibleRole.clone()),
+                ))),
                 PropertyVisibility::Constexpr,
             ),
         ]))

@@ -415,10 +415,11 @@ macro_rules! for_each_enums {
 
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
+            ///
+            /// **Breaking change**: The `None` variant has been removed. Use `accessible-role: none;` (optional type)
+            /// instead of `accessible-role: AccessibleRole.None;` to indicate an element isn't accessible.
             #[non_exhaustive]
             enum AccessibleRole {
-                /// The element isn't accessible.
-                None,
                 /// The element is a `Button` or behaves like one.
                 Button,
                 /// The element is a `CheckBox` or behaves like one.
