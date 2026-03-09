@@ -49,6 +49,7 @@ jobs:
         updater_test : ${{ steps.filter.outputs.updater_test }}
         servo_example : ${{ steps.filter.outputs.servo_example }}
         bevy_examples : ${{ steps.filter.outputs.bevy_examples }}
+        rust_files : ${{ steps.filter.outputs.rust_files }}
       steps:
         - uses: actions/checkout@v6
         - uses: dorny/paths-filter@v4
@@ -654,3 +655,22 @@ jobs:
         needs: files-changed
         if: needs.files-changed.outputs.bevy_examples == 'true'
         uses: ./.github/workflows/bevy_examples.yaml
+
+    clippy:
+        needs: files-changed
+        if: needs.files-changed.outputs.rust_files == 'true'
+        env:
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install ffmpeg and alsa (Linux)
+              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+            - name: Install gstreamer and libunwind (Linux)
+              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - uses: ./.github/actions/setup-rust
+            - name: Run Clippy
+              run: ./scripts/run_clippy.sh
