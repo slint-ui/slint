@@ -18,7 +18,7 @@ mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
 pub(crate) mod introspection;
 #[cfg(feature = "mcp")]
-pub(crate) mod mcp_server;
+pub mod mcp_server;
 #[cfg(feature = "system-testing")]
 pub mod systest;
 
