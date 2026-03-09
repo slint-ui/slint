@@ -31,7 +31,7 @@ default = ["std", "backend-default", "renderer-femtovg", "renderer-software", "a
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
-std = ["i-slint-core/std", "i-slint-renderer-software?/std"]
+std = ["i-slint-core/std", "i-slint-core/experimental-rich-text", "i-slint-renderer-software?/std"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##

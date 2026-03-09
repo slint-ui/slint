@@ -17,7 +17,6 @@ name = "gallery"
 
 [dependencies]
 slint = { path = "../../api/rs/slint", features = ["gettext"] }
-i-slint-core = { path = "../../internal/core", features = ["experimental-rich-text"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
