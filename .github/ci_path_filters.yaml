@@ -119,3 +119,9 @@ servo_example:
 bevy_examples:
  - 'examples/bevy/**'
  - *ci_config
+
+rust_files:
+ - '**/*.rs'
+ - '**/Cargo.toml'
+ - 'Cargo.lock'
+ - *ci_config
