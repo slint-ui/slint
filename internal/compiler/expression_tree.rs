@@ -1351,6 +1351,11 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
+                (Type::Float32, Type::Percent) => Expression::BinaryExpression {
+                    lhs: Box::new(self),
+                    rhs: Box::new(Expression::NumberLiteral(100., Unit::None)),
+                    op: '*',
+                },
                 (ref from_ty @ Type::Struct(ref left), Type::Struct(right))
                     if left.fields != right.fields =>
                 {
