@@ -1757,7 +1757,7 @@ impl Element {
             }
         }
 
-        interfaces::apply_default_property_values(&mut r.borrow_mut(), &implemented_interface);
+        interfaces::apply_default_property_values(&r, &implemented_interface);
         interfaces::validate_function_implementations(&r.borrow(), &implemented_interface, diag);
 
         r
