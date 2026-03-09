@@ -255,3 +255,67 @@ pub extern "C" fn slint_parse_markdown(
 pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut StyledText) {
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
+
+/// FFI for registering a translator callback from C++
+#[cfg(feature = "tr")]
+mod translator {
+    use crate::SharedString;
+    use crate::Slice;
+    use alloc::boxed::Box;
+    use i_slint_core::translations::Translator;
+    use std::borrow::Cow;
+    use std::ptr;
+
+    type TranslatorCallback = extern "C" fn(
+        context: Slice<u8>,
+        singular: Slice<u8>,
+        plural: Slice<u8>,
+        n: *const u64,
+        out: &mut SharedString,
+    );
+
+    pub struct CppCallbackTranslator {
+        pub callback: TranslatorCallback,
+    }
+
+    impl Translator for CppCallbackTranslator {
+        fn translate<'a>(&'a self, string: &'a str, context: Option<&'a str>) -> Cow<'a, str> {
+            let mut out = SharedString::new();
+            (self.callback)(
+                context.unwrap_or_default().as_bytes().into(),
+                string.as_bytes().into(),
+                "".as_bytes().into(),
+                ptr::null(),
+                &mut out,
+            );
+            Cow::Owned(out.into())
+        }
+
+        fn ntranslate<'a>(
+            &'a self,
+            n: u64,
+            singular: &'a str,
+            plural: &'a str,
+            context: Option<&'a str>,
+        ) -> Cow<'a, str> {
+            let mut out = SharedString::new();
+            (self.callback)(
+                context.unwrap_or_default().as_bytes().into(),
+                singular.as_bytes().into(),
+                plural.as_bytes().into(),
+                &n,
+                &mut out,
+            );
+            Cow::Owned(out.into())
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_translate_set_translator(callback: TranslatorCallback) -> bool {
+        #[cfg(feature = "i-slint-backend-selector")]
+        i_slint_backend_selector::with_global_context(|ctx| {
+            ctx.set_external_translator(Some(Box::new(CppCallbackTranslator { callback })))
+        })
+        .is_ok()
+    }
+}
