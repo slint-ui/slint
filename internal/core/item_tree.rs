@@ -476,7 +476,7 @@ impl ItemRc {
     fn raw_element_infos(&self) -> Option<SharedString> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
-        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then(|| result)
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then_some(result)
     }
 
     pub fn element_count(&self) -> Option<usize> {
@@ -511,7 +511,7 @@ impl ItemRc {
             let mut decoder = first_debug_entry.split(',');
             let _type_name = decoder.next();
             let _id = decoder.next();
-            decoder.next().filter(|s| !s.is_empty()).map(|s| SharedString::from(s))
+            decoder.next().filter(|s| !s.is_empty()).map(SharedString::from)
         })
     }
 
