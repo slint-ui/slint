@@ -11,9 +11,7 @@ use std::io::Cursor;
 use std::rc::Rc;
 
 use crate::LayoutKind;
-use crate::introspection::{
-    AccessibilityAction, IntrospectionState, QueryInstruction,
-};
+use crate::introspection::{AccessibilityAction, IntrospectionState, QueryInstruction};
 
 #[allow(non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 mod proto {
@@ -112,11 +110,9 @@ impl TestingClient {
             proto::mod_RequestToAUT::OneOfmsg::request_element_properties(
                 proto::RequestElementProperties { element_handle },
             ) => {
-                let index = handle_to_index(
-                    element_handle.ok_or_else(|| {
-                        "element properties request missing element handle".to_string()
-                    })?,
-                );
+                let index = handle_to_index(element_handle.ok_or_else(|| {
+                    "element properties request missing element handle".to_string()
+                })?);
                 let element = self.state.element("element properties request", index)?;
                 let ep = self.state.element_properties(&element);
                 proto::mod_AUTResponse::OneOfmsg::element_properties(
@@ -164,9 +160,8 @@ impl TestingClient {
                 let index = handle_to_index(element_handle.ok_or_else(|| {
                     "invoke element accessibility action request missing element handle".to_string()
                 })?);
-                let element = self
-                    .state
-                    .element("invoke element accessibility action request", index)?;
+                let element =
+                    self.state.element("invoke element accessibility action request", index)?;
                 let action = match action {
                     proto::ElementAccessibilityAction::Default_ => AccessibilityAction::Default,
                     proto::ElementAccessibilityAction::Increment => AccessibilityAction::Increment,
@@ -184,8 +179,7 @@ impl TestingClient {
                 let index = handle_to_index(element_handle.ok_or_else(|| {
                     "set element accessible value request missing element handle".to_string()
                 })?);
-                let element =
-                    self.state.element("set element accessible value request", index)?;
+                let element = self.state.element("set element accessible value request", index)?;
                 element.set_accessible_value(value);
                 proto::mod_AUTResponse::OneOfmsg::set_element_accessible_value_response(
                     proto::SetElementAccessibleValueResponse {},
@@ -194,9 +188,10 @@ impl TestingClient {
             proto::mod_RequestToAUT::OneOfmsg::request_take_snapshot(
                 proto::RequestTakeSnapshot { window_handle, image_mime_type },
             ) => {
-                let window_index = handle_to_index(window_handle.ok_or_else(|| {
-                    "grab window request missing window handle".to_string()
-                })?);
+                let window_index = handle_to_index(
+                    window_handle
+                        .ok_or_else(|| "grab window request missing window handle".to_string())?,
+                );
                 let window_contents_as_encoded_image =
                     self.state.take_snapshot(window_index, &image_mime_type)?;
                 proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(
@@ -206,9 +201,10 @@ impl TestingClient {
             proto::mod_RequestToAUT::OneOfmsg::request_element_click(
                 proto::RequestElementClick { element_handle, action, button },
             ) => {
-                let index = handle_to_index(element_handle.ok_or_else(|| {
-                    "element click request missing element handle".to_string()
-                })?);
+                let index =
+                    handle_to_index(element_handle.ok_or_else(|| {
+                        "element click request missing element handle".to_string()
+                    })?);
                 let element = self.state.element("element click request", index)?;
                 let button = convert_pointer_event_button(button);
                 match action {
@@ -225,9 +221,10 @@ impl TestingClient {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
                     "window event dispatch request missing window handle".to_string()
                 })?);
-                let event = convert_window_event(event.ok_or_else(|| {
-                    "window event dispatch request missing event".to_string()
-                })?)?;
+                let event =
+                    convert_window_event(event.ok_or_else(|| {
+                        "window event dispatch request missing event".to_string()
+                    })?)?;
                 self.state.dispatch_window_event(window_index, event)?;
                 proto::mod_AUTResponse::OneOfmsg::dispatch_window_event_response(
                     proto::DispatchWindowEventResponse {},

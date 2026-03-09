@@ -21,9 +21,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::rc::Rc;
 
-use crate::introspection::{
-    self, AccessibilityAction, IntrospectionState, QueryInstruction,
-};
+use crate::introspection::{self, AccessibilityAction, IntrospectionState, QueryInstruction};
 
 // ============================================================================
 // Handle serialization
@@ -314,12 +312,9 @@ async fn handle_tool_call(
         }
         "find_elements_by_id" => {
             let p: FindElementsByIdParams = deserialize_params(args)?;
-            let elements =
-                state.find_elements_by_id(p.window_handle.to_index(), &p.element_id)?;
-            let handles: Vec<Value> = elements
-                .into_iter()
-                .map(|e| handle_to_json(state.element_to_handle(e)))
-                .collect();
+            let elements = state.find_elements_by_id(p.window_handle.to_index(), &p.element_id)?;
+            let handles: Vec<Value> =
+                elements.into_iter().map(|e| handle_to_json(state.element_to_handle(e))).collect();
             Ok(ToolResult::Json(serde_json::json!({ "elements": handles })))
         }
         "get_element_properties" => {
@@ -334,10 +329,8 @@ async fn handle_tool_call(
             let instructions = parse_query_instructions(&p.query)?;
             let find_all = p.find_all.unwrap_or(true);
             let results = state.query_element_descendants(element, instructions, find_all)?;
-            let handles: Vec<Value> = results
-                .into_iter()
-                .map(|e| handle_to_json(state.element_to_handle(e)))
-                .collect();
+            let handles: Vec<Value> =
+                results.into_iter().map(|e| handle_to_json(state.element_to_handle(e))).collect();
             Ok(ToolResult::Json(serde_json::json!({ "elements": handles })))
         }
         "get_element_tree" => {
@@ -402,12 +395,8 @@ async fn handle_tool_call(
                     text: p.text.clone().into(),
                 }],
                 "press_and_release" => vec![
-                    i_slint_core::platform::WindowEvent::KeyPressed {
-                        text: p.text.clone().into(),
-                    },
-                    i_slint_core::platform::WindowEvent::KeyReleased {
-                        text: p.text.into(),
-                    },
+                    i_slint_core::platform::WindowEvent::KeyPressed { text: p.text.clone().into() },
+                    i_slint_core::platform::WindowEvent::KeyReleased { text: p.text.into() },
                 ],
                 other => return Err(format!("Unknown event_type: {other}")),
             };
@@ -436,13 +425,9 @@ fn parse_query_instructions(arr: &[Value]) -> Result<Vec<QueryInstruction>, Stri
             instructions.push(QueryInstruction::MatchId(id.to_string()));
         } else if let Some(tn) = item.get("match_type_name").and_then(|v| v.as_str()) {
             instructions.push(QueryInstruction::MatchTypeName(tn.to_string()));
-        } else if let Some(tn) =
-            item.get("match_type_name_or_base").and_then(|v| v.as_str())
-        {
+        } else if let Some(tn) = item.get("match_type_name_or_base").and_then(|v| v.as_str()) {
             instructions.push(QueryInstruction::MatchTypeNameOrBase(tn.to_string()));
-        } else if let Some(role_str) =
-            item.get("match_accessible_role").and_then(|v| v.as_str())
-        {
+        } else if let Some(role_str) = item.get("match_accessible_role").and_then(|v| v.as_str()) {
             let role = introspection::string_to_accessible_role(role_str)
                 .ok_or_else(|| format!("Unknown accessible role: {role_str}"))?;
             instructions.push(QueryInstruction::MatchAccessibleRole(role));
@@ -497,10 +482,7 @@ fn collect_element_list(
     // Add root element first
     let root_props = state.element_properties(&root_element);
     let mut root_node = element_properties_to_json(&root_props);
-    root_node
-        .as_object_mut()
-        .unwrap()
-        .insert("handle".to_string(), handle_to_json(root_handle));
+    root_node.as_object_mut().unwrap().insert("handle".to_string(), handle_to_json(root_handle));
     elements.push(root_node);
 
     root_element.visit_descendants(|child| {
@@ -511,9 +493,7 @@ fn collect_element_list(
         let child_handle = state.element_to_handle(child.clone());
         let props = state.element_properties(&child);
         let mut node = element_properties_to_json(&props);
-        node.as_object_mut()
-            .unwrap()
-            .insert("handle".to_string(), handle_to_json(child_handle));
+        node.as_object_mut().unwrap().insert("handle".to_string(), handle_to_json(child_handle));
         elements.push(node);
         std::ops::ControlFlow::<()>::Continue(())
     });
@@ -548,13 +528,7 @@ fn json_rpc_error(id: &Value, code: i32, message: String) -> Value {
 async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Value> {
     let request: Value = match serde_json::from_str(body) {
         Ok(v) => v,
-        Err(e) => {
-            return Some(json_rpc_error(
-                &Value::Null,
-                -32700,
-                format!("Parse error: {e}"),
-            ))
-        }
+        Err(e) => return Some(json_rpc_error(&Value::Null, -32700, format!("Parse error: {e}"))),
     };
 
     // Batch requests (JSON arrays) are not supported.
@@ -651,11 +625,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
         }
     };
 
-    if is_notification {
-        None
-    } else {
-        Some(response)
-    }
+    if is_notification { None } else { Some(response) }
 }
 
 // ============================================================================
@@ -708,12 +678,7 @@ async fn read_http_request(
     let parsed_headers: Vec<(String, String)> = req
         .headers
         .iter()
-        .map(|h| {
-            (
-                h.name.to_ascii_lowercase(),
-                String::from_utf8_lossy(h.value).to_string(),
-            )
-        })
+        .map(|h| (h.name.to_ascii_lowercase(), String::from_utf8_lossy(h.value).to_string()))
         .collect();
 
     // Read body based on Content-Length (capped at 4 MB to prevent OOM).
@@ -785,10 +750,8 @@ async fn write_http_response(
 /// The origin after the scheme must be exactly "localhost", "127.0.0.1", or "[::1]",
 /// optionally followed by a port (":1234").
 fn is_localhost_origin(origin: &str) -> bool {
-    let host = origin
-        .strip_prefix("http://")
-        .or_else(|| origin.strip_prefix("https://"))
-        .unwrap_or("");
+    let host =
+        origin.strip_prefix("http://").or_else(|| origin.strip_prefix("https://")).unwrap_or("");
     // Strip optional port
     let host_no_port = if host.starts_with('[') {
         // IPv6: [::1]:port
@@ -812,9 +775,7 @@ fn validate_origin(headers: &[(String, String)]) -> Result<Option<&str>, ()> {
 
 /// Returns true if the client requested connection close.
 fn wants_close(headers: &[(String, String)]) -> bool {
-    headers
-        .iter()
-        .any(|(k, v)| k == "connection" && v.eq_ignore_ascii_case("close"))
+    headers.iter().any(|(k, v)| k == "connection" && v.eq_ignore_ascii_case("close"))
 }
 
 async fn handle_connection(state: &IntrospectionState, mut stream: async_net::TcpStream) {
@@ -861,8 +822,7 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
                 ("Access-Control-Max-Age", "86400"),
                 ("Vary", "Origin"),
             ];
-            let _ =
-                write_http_response(&mut stream, 204, "No Content", &cors_headers, b"").await;
+            let _ = write_http_response(&mut stream, 204, "No Content", &cors_headers, b"").await;
         } else if method != "POST" || (path != "/mcp" && path != "/") {
             let _ =
                 write_http_response(&mut stream, 404, "Not Found", &[], b"404 Not Found\n").await;
@@ -893,24 +853,13 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
             match response {
                 Some(resp) => {
                     let json = serde_json::to_string(&resp).unwrap();
-                    let _ = write_http_response(
-                        &mut stream,
-                        200,
-                        "OK",
-                        &resp_headers,
-                        json.as_bytes(),
-                    )
-                    .await;
+                    let _ =
+                        write_http_response(&mut stream, 200, "OK", &resp_headers, json.as_bytes())
+                            .await;
                 }
                 None => {
-                    let _ = write_http_response(
-                        &mut stream,
-                        202,
-                        "Accepted",
-                        &resp_headers,
-                        b"",
-                    )
-                    .await;
+                    let _ =
+                        write_http_response(&mut stream, 202, "Accepted", &resp_headers, b"").await;
                 }
             }
         }
@@ -975,7 +924,8 @@ pub fn init() -> Result<(), EventLoopError> {
     let state = introspection::shared_state();
 
     // Start the HTTP server. The future is queued and will execute once the event loop runs.
-    let server_started = Rc::new(std::cell::OnceCell::<i_slint_core::future::JoinHandle<()>>::new());
+    let server_started =
+        Rc::new(std::cell::OnceCell::<i_slint_core::future::JoinHandle<()>>::new());
     let server_started_clone = server_started.clone();
     let state_clone = state.clone();
 
@@ -1061,7 +1011,9 @@ mod tests {
         assert!(matches!(instructions[0], QueryInstruction::MatchDescendants));
         assert!(matches!(&instructions[1], QueryInstruction::MatchId(id) if id == "my_id"));
         assert!(matches!(&instructions[2], QueryInstruction::MatchTypeName(n) if n == "Button"));
-        assert!(matches!(&instructions[3], QueryInstruction::MatchTypeNameOrBase(n) if n == "TouchArea"));
+        assert!(
+            matches!(&instructions[3], QueryInstruction::MatchTypeNameOrBase(n) if n == "TouchArea")
+        );
         assert!(matches!(instructions[4], QueryInstruction::MatchAccessibleRole(_)));
     }
 
@@ -1340,10 +1292,7 @@ mod tests {
     fn test_mcp_missing_method() {
         let state = make_state();
         // Valid JSON-RPC but no method field — treated as unknown method ""
-        let resp = block_on(handle_mcp_request(
-            &state,
-            r#"{"jsonrpc":"2.0","id":6}"#,
-        ));
+        let resp = block_on(handle_mcp_request(&state, r#"{"jsonrpc":"2.0","id":6}"#));
         let resp = resp.unwrap();
         assert_eq!(resp["error"]["code"], -32601);
     }
@@ -1637,11 +1586,8 @@ mod tests {
     #[test]
     fn test_tool_click_element_missing_handle() {
         let state = make_state();
-        let result = call_tool(
-            &state,
-            "click_element",
-            serde_json::json!({"action": "triple_click"}),
-        );
+        let result =
+            call_tool(&state, "click_element", serde_json::json!({"action": "triple_click"}));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Invalid parameters"));
     }

@@ -17,10 +17,10 @@ pub use testing_backend::*;
 mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
 pub(crate) mod introspection;
-#[cfg(feature = "system-testing")]
-pub mod systest;
 #[cfg(feature = "mcp")]
 pub(crate) mod mcp_server;
+#[cfg(feature = "system-testing")]
+pub mod systest;
 
 /// Initialize the testing backend without support for event loop.
 /// This means that each test thread can use its own backend, but global functions that needs

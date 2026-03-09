@@ -113,10 +113,9 @@ impl IntrospectionState {
             let root_wrapper = RootWrapper(&item_tree);
             self.element_to_handle(root_wrapper.root_element())
         };
-        self.windows.borrow_mut().insert(TrackedWindow {
-            window_adapter: Rc::downgrade(adapter),
-            root_element_handle,
-        });
+        self.windows
+            .borrow_mut()
+            .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter), root_element_handle });
     }
 
     pub fn window_handles(&self) -> Vec<generational_arena::Index> {
@@ -221,19 +220,18 @@ impl IntrospectionState {
     }
 
     pub fn element_properties(&self, element: &ElementHandle) -> ElementProperties {
-        let type_names_and_ids: Vec<(String, String)> =
-            core::iter::once((
-                element.type_name().unwrap_or_default().to_string(),
-                element.id().unwrap_or_default().to_string(),
-            ))
-            .chain(
-                element
-                    .bases()
-                    .into_iter()
-                    .flatten()
-                    .map(|base_type_name| (base_type_name.to_string(), "root".to_string())),
-            )
-            .collect();
+        let type_names_and_ids: Vec<(String, String)> = core::iter::once((
+            element.type_name().unwrap_or_default().to_string(),
+            element.id().unwrap_or_default().to_string(),
+        ))
+        .chain(
+            element
+                .bases()
+                .into_iter()
+                .flatten()
+                .map(|base_type_name| (base_type_name.to_string(), "root".to_string())),
+        )
+        .collect();
 
         ElementProperties {
             type_names_and_ids,
@@ -241,9 +239,7 @@ impl IntrospectionState {
                 element.accessible_role().unwrap_or(i_slint_core::items::AccessibleRole::None),
             ),
             accessible_label: element.accessible_label().map(|s| s.to_string()),
-            accessible_value: non_empty(
-                element.accessible_value().unwrap_or_default().to_string(),
-            ),
+            accessible_value: non_empty(element.accessible_value().unwrap_or_default().to_string()),
             accessible_description: non_empty(
                 element.accessible_description().unwrap_or_default().to_string(),
             ),
@@ -323,9 +319,7 @@ impl IntrospectionState {
             image::ExtendedColorType::Rgba8,
             format,
         )
-        .map_err(|e| {
-            format!("error encoding {image_mime_type} image after screenshot: {e}")
-        })?;
+        .map_err(|e| format!("error encoding {image_mime_type} image after screenshot: {e}"))?;
         Ok(encoded)
     }
 
@@ -449,9 +443,7 @@ pub(crate) fn accessible_role_to_string(role: i_slint_core::items::AccessibleRol
     }
 }
 
-pub(crate) fn string_to_accessible_role(
-    s: &str,
-) -> Option<i_slint_core::items::AccessibleRole> {
+pub(crate) fn string_to_accessible_role(s: &str) -> Option<i_slint_core::items::AccessibleRole> {
     Some(match s {
         "unknown" => i_slint_core::items::AccessibleRole::None,
         "button" => i_slint_core::items::AccessibleRole::Button,
