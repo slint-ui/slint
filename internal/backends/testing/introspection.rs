@@ -8,9 +8,13 @@ use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
 use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
+
+/// Maximum number of element handles kept in the arena before evicting the oldest.
+const ELEMENT_HANDLE_CAP: usize = 10_000;
 
 thread_local! {
     static SHARED_STATE: RefCell<Option<Rc<IntrospectionState>>> = const { RefCell::new(None) };
@@ -89,6 +93,8 @@ pub(crate) struct TrackedWindow {
 pub(crate) struct IntrospectionState {
     pub windows: RefCell<generational_arena::Arena<TrackedWindow>>,
     pub element_handles: RefCell<generational_arena::Arena<ElementHandle>>,
+    /// Insertion-order queue for FIFO eviction. Front = oldest.
+    element_handle_order: RefCell<VecDeque<generational_arena::Index>>,
 }
 
 impl IntrospectionState {
@@ -96,6 +102,7 @@ impl IntrospectionState {
         Self {
             windows: Default::default(),
             element_handles: Default::default(),
+            element_handle_order: Default::default(),
         }
     }
 
@@ -142,7 +149,43 @@ impl IntrospectionState {
     }
 
     pub fn element_to_handle(&self, element: ElementHandle) -> generational_arena::Index {
-        self.element_handles.borrow_mut().insert(element)
+        let mut arena = self.element_handles.borrow_mut();
+        let index = arena.insert(element);
+        let mut order = self.element_handle_order.borrow_mut();
+        order.push_back(index);
+        // Evict oldest handles when over cap, skipping root element handles.
+        if arena.len() > ELEMENT_HANDLE_CAP {
+            // Collect root indices upfront to avoid borrowing self.windows per iteration.
+            let root_indices: std::collections::HashSet<generational_arena::Index> =
+                self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
+            // Budget prevents infinite spinning when only root/stale entries remain.
+            // Note: arena may remain above cap by at most the number of tracked windows.
+            let mut budget = order.len();
+            while arena.len() > ELEMENT_HANDLE_CAP && budget > 0 {
+                budget -= 1;
+                let Some(oldest) = order.pop_front() else { break };
+                if !arena.contains(oldest) {
+                    continue; // stale entry — don't re-enqueue
+                }
+                if root_indices.contains(&oldest) {
+                    order.push_back(oldest);
+                    continue;
+                }
+                arena.remove(oldest);
+            }
+        }
+        index
+    }
+
+    /// Remove a set of element handles from the arena (used for scoped/ephemeral handles).
+    #[allow(dead_code)]
+    pub fn remove_handles(&self, handles: &[generational_arena::Index]) {
+        let mut arena = self.element_handles.borrow_mut();
+        for &h in handles {
+            arena.remove(h);
+        }
+        // No need to clean up element_handle_order — stale entries are
+        // harmless (remove on an already-removed index is a no-op).
     }
 
     pub fn element(
@@ -451,5 +494,78 @@ pub(crate) fn layout_kind_to_string(lk: &crate::LayoutKind) -> &'static str {
         crate::LayoutKind::VerticalLayout => "vertical",
         crate::LayoutKind::GridLayout => "grid",
         crate::LayoutKind::FlexBox => "flex-box",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy_element() -> ElementHandle {
+        ElementHandle::new_test_dummy()
+    }
+
+    #[test]
+    fn test_element_to_handle_and_remove() {
+        let state = IntrospectionState::new();
+        let h1 = state.element_to_handle(dummy_element());
+        let h2 = state.element_to_handle(dummy_element());
+        assert_eq!(state.element_handles.borrow().len(), 2);
+
+        state.remove_handles(&[h1]);
+        assert_eq!(state.element_handles.borrow().len(), 1);
+        assert!(state.element_handles.borrow().get(h1).is_none());
+        assert!(state.element_handles.borrow().get(h2).is_some());
+    }
+
+    #[test]
+    fn test_remove_handles_idempotent() {
+        let state = IntrospectionState::new();
+        let h = state.element_to_handle(dummy_element());
+        state.remove_handles(&[h]);
+        assert_eq!(state.element_handles.borrow().len(), 0);
+        // Removing again is a no-op
+        state.remove_handles(&[h]);
+        assert_eq!(state.element_handles.borrow().len(), 0);
+    }
+
+    #[test]
+    fn test_eviction_caps_arena_size() {
+        let state = IntrospectionState::new();
+        let mut handles = Vec::new();
+        // Insert more than the cap
+        for _ in 0..ELEMENT_HANDLE_CAP + 100 {
+            handles.push(state.element_to_handle(dummy_element()));
+        }
+        // Arena should be capped
+        assert!(state.element_handles.borrow().len() <= ELEMENT_HANDLE_CAP);
+        // The most recent handles should still be valid
+        let last = *handles.last().unwrap();
+        assert!(state.element_handles.borrow().get(last).is_some());
+        // The earliest handles should have been evicted
+        let first = handles[0];
+        assert!(state.element_handles.borrow().get(first).is_none());
+    }
+
+    #[test]
+    fn test_eviction_preserves_root_element_handles() {
+        let state = IntrospectionState::new();
+        // Simulate a root element handle by inserting a window with a known handle
+        let root_handle = state.element_to_handle(dummy_element());
+        state.windows.borrow_mut().insert(TrackedWindow {
+            window_adapter: Weak::<crate::testing_backend::TestingWindow>::new(),
+            root_element_handle: root_handle,
+        });
+
+        // Fill past the cap
+        for _ in 0..ELEMENT_HANDLE_CAP + 100 {
+            state.element_to_handle(dummy_element());
+        }
+
+        // Root handle must survive eviction
+        assert!(
+            state.element_handles.borrow().get(root_handle).is_some(),
+            "root element handle should not be evicted"
+        );
     }
 }

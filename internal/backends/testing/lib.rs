@@ -20,7 +20,7 @@ pub(crate) mod introspection;
 #[cfg(feature = "system-testing")]
 pub mod systest;
 #[cfg(feature = "mcp")]
-pub mod mcp_server;
+pub(crate) mod mcp_server;
 
 /// Initialize the testing backend without support for event loop.
 /// This means that each test thread can use its own backend, but global functions that needs

@@ -351,12 +351,12 @@ async fn message_loop(
 // ============================================================================
 
 fn index_to_handle(index: generational_arena::Index) -> proto::Handle {
-    let (index, generation) = index.into_raw_parts();
-    proto::Handle { index: index as u64, generation }
+    let (index, generation) = crate::introspection::index_to_parts(index);
+    proto::Handle { index, generation }
 }
 
 fn handle_to_index(handle: proto::Handle) -> generational_arena::Index {
-    generational_arena::Index::from_raw_parts(handle.index as usize, handle.generation)
+    crate::introspection::parts_to_index(handle.index, handle.generation)
 }
 
 fn send_physical_size(sz: i_slint_core::api::PhysicalSize) -> proto::PhysicalSize {
