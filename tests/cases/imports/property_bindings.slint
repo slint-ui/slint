@@ -1,0 +1,42 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+import { ComboBoxInterface } from "export_interfaces.slint";
+
+// ComboBoxInterface contains property bindings to named references in the interface element. This
+// test verifies that they are correctly re-mapped to the implementing element. The interface must
+// be imported from another file so that it has its own element tree, and the named references in
+// the binding expression point to elements that don't exist in the element tree of the components
+// in this file.
+
+component ComboBoxBase implements ComboBoxInterface {
+    model: ["Kiwi", "Mango"];
+}
+
+export component TestCase uses { ComboBoxInterface from base } {
+    base := ComboBoxBase {
+        model: ["Apples", "Oranges"];
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_current_value(), "Apples");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_current_value(), "Apples");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.current_value, "Apples");
+```
+*/
