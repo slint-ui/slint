@@ -98,6 +98,7 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
         renderer_skia_opengl: false,
         renderer_skia_vulkan: false,
         renderer_software: true,
+        tr: true,
         gettext: true,
         accessibility: true,
         system_testing: true,
