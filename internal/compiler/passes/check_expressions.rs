@@ -33,7 +33,7 @@ fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildD
                 _ => {}
             }
         }
-        Expression::Unwrap { .. } | Expression::NullCoalesce { .. } => {
+        Expression::HasValue { .. } | Expression::Unwrap { .. } | Expression::NullCoalesce { .. } => {
             // Type checking for unwrap and null-coalesce is handled by their ty() methods
             // which return Type::Invalid for invalid usage, causing type mismatches to be
             // reported elsewhere in the compiler

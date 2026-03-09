@@ -79,6 +79,7 @@ fn without_side_effects(expression: &Expression) -> bool {
             without_side_effects(lhs) && without_side_effects(rhs)
         }
         Expression::UnaryOp { sub, op: _ } => without_side_effects(sub),
+        Expression::HasValue { base } => without_side_effects(base),
         Expression::Unwrap { base } => without_side_effects(base),
         Expression::NullCoalesce { base, fallback } => {
             without_side_effects(base) && without_side_effects(fallback)

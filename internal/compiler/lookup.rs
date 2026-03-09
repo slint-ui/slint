@@ -946,6 +946,7 @@ impl LookupObject for Expression {
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
+                Type::Optional(_) => OptionalExpression(self).for_each_entry(ctx, f),
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).for_each_entry(ctx, f)
                 }
@@ -974,6 +975,7 @@ impl LookupObject for Expression {
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
+                Type::Optional(_) => OptionalExpression(self).lookup(ctx, name),
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).lookup(ctx, name)
                 }
@@ -1187,6 +1189,31 @@ impl LookupObject for NumberWithUnitExpression<'_> {
                 None.or_else(|| f("sin", member_function(BuiltinFunction::Sin)))
                     .or_else(|| f("cos", member_function(BuiltinFunction::Cos)))
                     .or_else(|| f("tan", member_function(BuiltinFunction::Tan)))
+            })
+    }
+}
+
+struct OptionalExpression<'a>(&'a Expression);
+
+impl LookupObject for OptionalExpression<'_> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
+
+        None.or_else(|| {
+                f(
+                    &SmolStr::new_static("has-value"),
+                    member_macro(BuiltinMacroFunction::OptionalHasValue),
+                )
+            })
+            .or_else(|| {
+                f(
+                    &SmolStr::new_static("value-or"),
+                    member_macro(BuiltinMacroFunction::OptionalValueOr),
+                )
             })
     }
 }

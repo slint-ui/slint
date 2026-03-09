@@ -192,6 +192,9 @@ pub fn lower_expression(
         tree_Expression::UnaryOp { sub, op } => {
             llr_Expression::UnaryOp { sub: Box::new(lower_expression(sub, ctx)), op: *op }
         }
+        tree_Expression::HasValue { base } => {
+            llr_Expression::HasValue { base: Box::new(lower_expression(base, ctx)) }
+        }
         tree_Expression::Unwrap { base } => {
             llr_Expression::Unwrap { base: Box::new(lower_expression(base, ctx)) }
         }

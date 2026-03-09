@@ -28,10 +28,14 @@ pub fn parse_type(p: &mut impl Parser) {
     }
 
     // Check for optional type suffix `?`
-    // If found, wrap the Type in an OptionalType
+    // If found, wrap `Type { base }` in `Type { OptionalType { Type { base }, ? } }`
+    // to match the grammar: Type -> [ ?OptionalType ], OptionalType -> [ Type ]
     if p.nth(0).kind() == SyntaxKind::Question {
-        let mut p = p.start_node_at(checkpoint, SyntaxKind::OptionalType);
-        p.consume(); // consume '?'
+        {
+            let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::OptionalType);
+            p.consume(); // consume '?'
+        }
+        let _ = p.start_node_at(checkpoint, SyntaxKind::Type);
     }
 }
 

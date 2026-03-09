@@ -144,6 +144,12 @@ pub enum Expression {
         op: char,
     },
 
+    /// Check if an optional has a value
+    /// Syntax: expr.has-value()
+    HasValue {
+        base: Box<Expression>,
+    },
+
     /// Unwrap an optional value (panic if none)
     /// Syntax: expr!
     Unwrap {
@@ -385,6 +391,7 @@ impl Expression {
                 }
             }
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
+            Self::HasValue { .. } => Type::Bool,
             Self::Unwrap { base } => match base.ty(ctx) {
                 Type::Optional(inner) => (*inner).clone(),
                 _ => Type::Invalid,
@@ -453,6 +460,9 @@ macro_rules! visit_impl {
             }
             Expression::UnaryOp { sub, .. } => {
                 $visitor(sub);
+            }
+            Expression::HasValue { base } => {
+                $visitor(base);
             }
             Expression::Unwrap { base } => {
                 $visitor(base);

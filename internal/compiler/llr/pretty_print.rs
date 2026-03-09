@@ -362,6 +362,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 write!(f, "({} {} {})", e(lhs), op, e(rhs))
             }
             Expression::UnaryOp { sub, op } => write!(f, "{}{}", op, e(sub)),
+            Expression::HasValue { base } => write!(f, "{}.has-value()", e(base)),
             Expression::Unwrap { base } => write!(f, "{}!", e(base)),
             Expression::NullCoalesce { base, fallback } => {
                 write!(f, "({} ?? {})", e(base), e(fallback))
