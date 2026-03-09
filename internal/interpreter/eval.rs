@@ -332,6 +332,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (sub, op) => panic!("unsupported {op} {sub:?}"),
             }
         }
+        Expression::HasValue { base } => {
+            let value = eval_expression(base, local_context);
+            Value::Bool(!matches!(value, Value::Void))
+        }
         Expression::Unwrap { base } => {
             let value = eval_expression(base, local_context);
             if matches!(value, Value::Void) {

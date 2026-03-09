@@ -3811,6 +3811,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
+        Expression::HasValue { base } => {
+            format!("({}).has_value()", compile_expression(base, ctx))
+        }
         Expression::Unwrap { base } => {
             format!("({}).value()", compile_expression(base, ctx))
         }

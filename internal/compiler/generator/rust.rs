@@ -2917,6 +2917,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( (#op #sub) )
         }
+        Expression::HasValue { base } => {
+            let base = compile_expression(base, ctx);
+            quote!( (#base).is_some() )
+        }
         Expression::Unwrap { base } => {
             let base = compile_expression(base, ctx);
             quote!( (#base).unwrap() )

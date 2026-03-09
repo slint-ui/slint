@@ -45,6 +45,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::SliceIndexAssignment { .. } => return isize::MAX,
         Expression::BinaryExpression { .. } => 1,
         Expression::UnaryOp { .. } => 1,
+        Expression::HasValue { .. } => 1,
         Expression::Unwrap { .. } => 1,
         Expression::NullCoalesce { .. } => 10, // Similar cost to Condition
         // Avoid inlining calls to load the image from the cache, as in the worst case the image isn't cached

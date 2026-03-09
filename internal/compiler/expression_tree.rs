@@ -149,6 +149,10 @@ pub enum BuiltinMacroFunction {
     Oklch,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
+    /// Transform `opt.value-or(fallback)` into `NullCoalesce { base: opt, fallback }`
+    OptionalValueOr,
+    /// Transform `opt.has-value()` into `HasValue { base: opt }`
+    OptionalHasValue,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -741,6 +745,12 @@ pub enum Expression {
         op: char,
     },
 
+    /// Check if an optional has a value
+    /// Syntax: expr.has-value()
+    HasValue {
+        base: Box<Expression>,
+    },
+
     /// Unwrap an optional value (panic if none)
     /// Syntax: expr!
     Unwrap {
@@ -977,6 +987,7 @@ impl Expression {
                 }
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
+            Expression::HasValue { .. } => Type::Bool,
             Expression::Unwrap { base } => match base.ty() {
                 Type::Optional(inner) => (*inner).clone(),
                 _ => Type::Invalid,
@@ -1051,6 +1062,7 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => visitor(sub),
+            Expression::HasValue { base } => visitor(base),
             Expression::Unwrap { base } => visitor(base),
             Expression::NullCoalesce { base, fallback } => {
                 visitor(base);
@@ -1174,6 +1186,7 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => visitor(sub),
+            Expression::HasValue { base } => visitor(base),
             Expression::Unwrap { base } => visitor(base),
             Expression::NullCoalesce { base, fallback } => {
                 visitor(base);
@@ -1311,6 +1324,7 @@ impl Expression {
                 lhs.is_constant(ga) && rhs.is_constant(ga)
             }
             Expression::UnaryOp { sub, .. } => sub.is_constant(ga),
+            Expression::HasValue { base } => base.is_constant(ga),
             Expression::Unwrap { base } => base.is_constant(ga),
             Expression::NullCoalesce { base, fallback } => {
                 base.is_constant(ga) && fallback.is_constant(ga)
@@ -1957,6 +1971,10 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::UnaryOp { sub, op } => {
             write!(f, "{op}")?;
             pretty_print(f, sub)
+        }
+        Expression::HasValue { base } => {
+            pretty_print(f, base)?;
+            write!(f, ".has-value()")
         }
         Expression::Unwrap { base } => {
             pretty_print(f, base)?;

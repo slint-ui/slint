@@ -88,7 +88,70 @@ pub fn lower_macro(
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::OptionalHasValue => {
+            has_value_macro(n, sub_expr.collect(), diag)
+        }
+        BuiltinMacroFunction::OptionalValueOr => {
+            value_or_macro(n, sub_expr.collect(), diag)
+        }
     }
+}
+
+fn has_value_macro(
+    node: &dyn Spanned,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 1 {
+        diag.push_error("has-value() takes no arguments".into(), node);
+
+        return Expression::Invalid;
+    }
+
+    let (base, _) = args.into_iter().next().unwrap();
+
+    if !matches!(base.ty(), Type::Optional(_)) {
+        diag.push_error("has-value() can only be called on optional types".into(), node);
+
+        return Expression::Invalid;
+    }
+
+    Expression::HasValue { base: Box::new(base) }
+}
+
+fn value_or_macro(
+    node: &dyn Spanned,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 2 {
+        diag.push_error("value-or() expects exactly one argument".into(), node);
+
+        return Expression::Invalid;
+    }
+
+    let mut args = args.into_iter();
+    let (base, _) = args.next().unwrap();
+    let (fallback, fallback_node) = args.next().unwrap();
+
+    if !matches!(base.ty(), Type::Optional(_)) {
+        diag.push_error("value-or() can only be called on optional types".into(), node);
+
+        return Expression::Invalid;
+    }
+
+    let inner_ty = match base.ty() {
+        Type::Optional(inner) => *inner,
+        _ => unreachable!(),
+    };
+
+    let fallback = if let Some(fallback_node) = &fallback_node {
+        fallback.maybe_convert_to(inner_ty, fallback_node, diag)
+    } else {
+        fallback.maybe_convert_to(inner_ty, node, diag)
+    };
+
+    Expression::NullCoalesce { base: Box::new(base), fallback: Box::new(fallback) }
 }
 
 fn min_max_macro(
