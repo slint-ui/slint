@@ -376,7 +376,7 @@ inline float get_resolved_default_font_size(const Component &component)
 /// Example
 /// ```cpp
 /// void my_translator(slint::private_api::Slice<uint8_t> context,
-///                    slint::private_api::Slice<uint8_t> string,
+///                    slint::private_api::Slice<uint8_t> singular,
 ///                    slint::private_api::Slice<uint8_t> plural,
 ///                    const uint64_t* n,
 ///                    slint::SharedString* out) noexcept {
