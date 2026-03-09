@@ -276,7 +276,11 @@ impl Document {
     }
 
     pub fn exported_roots(&self) -> impl DoubleEndedIterator<Item = Rc<Component>> + '_ {
-        self.exports.iter().filter_map(|e| e.1.as_ref().left()).filter(|c| !c.is_global()).cloned()
+        self.exports
+            .iter()
+            .filter_map(|e| e.1.as_ref().left())
+            .filter(|c| !c.is_global() && !c.is_interface())
+            .cloned()
     }
 
     /// This is the component that is going to be instantiated by the interpreter
