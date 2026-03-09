@@ -553,12 +553,9 @@ impl Expression {
             .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
             .map(|i| i.0.to_string_lossy().into())
             .unwrap_or_else(|| {
-                crate::pathutils::join(
-                    &crate::pathutils::dirname(node.source_file.path()),
-                    path,
-                )
-                .map(|p| p.to_string_lossy().into())
-                .unwrap_or(s.clone())
+                crate::pathutils::join(&crate::pathutils::dirname(node.source_file.path()), path)
+                    .map(|p| p.to_string_lossy().into())
+                    .unwrap_or(s.clone())
             });
 
         Expression::IncludeString(resolved_path.into())
