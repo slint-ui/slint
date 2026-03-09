@@ -2638,14 +2638,14 @@ fn generate_repeated_component(
             for (idx, child) in root_sc.grid_layout_children.iter().enumerate() {
                 let layout_info_h_code = compile_expression(&child.layout_info_h.borrow(), &ctx);
                 let layout_info_v_code = compile_expression(&child.layout_info_v.borrow(), &ctx);
-                write!(
+                writeln!(
                             child_match_arms,
-                            "        case {idx}: return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};\n",
+                            "        case {idx}: return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};",
                         ).unwrap();
             }
-            write!(
+            writeln!(
                 child_match_arms,
-                "        default: std::abort(); // child_index out of bounds (max {num_children})\n",
+                "        default: std::abort(); // child_index out of bounds (max {num_children})",
             )
             .unwrap();
             child_match_arms.push_str("}}\n
@@ -2668,10 +2668,13 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             layout_item_info_fn,
         ));
-        root_sc.grid_layout_input_for_repeated.as_ref().map(|expr| {
+        if let Some(expr) = root_sc.grid_layout_input_for_repeated.as_ref() {
             let compiled_expr = compile_expression(&expr.borrow(), &ctx);
             // Ensure the expression is terminated as a statement (CodeBlock with 1 item doesn't add semicolon)
-            let statement = if compiled_expr.is_empty() || compiled_expr.ends_with(';') || compiled_expr.ends_with('}') {
+            let statement = if compiled_expr.is_empty()
+                || compiled_expr.ends_with(';')
+                || compiled_expr.ends_with('}')
+            {
                 compiled_expr
             } else {
                 format!("{compiled_expr};")
@@ -2690,7 +2693,7 @@ fn generate_repeated_component(
                     ..Function::default()
                 }),
             ));
-        });
+        }
     }
 
     if let Some(index_prop) = repeated.index_prop {
