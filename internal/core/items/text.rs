@@ -1515,7 +1515,7 @@ impl TextInput {
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
                 loop {
-                    i = i.checked_sub(1).unwrap_or_default();
+                    i = i.saturating_sub(1);
                     if text.is_char_boundary(i) {
                         break i;
                     }
