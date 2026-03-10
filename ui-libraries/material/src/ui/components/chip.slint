@@ -22,7 +22,7 @@ export component ActionChip {
     forward-focus: base;
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text.value-or(root.tooltip.value-or(""));
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-action-default => { base.clicked(); }
 
 
@@ -62,7 +62,7 @@ export component FilterChip {
     forward-focus: base;
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text.value-or(root.tooltip.value-or(""));
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-checkable: true;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }
@@ -133,7 +133,7 @@ export component InputChip {
     forward-focus: base;
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text.value-or(root.tooltip.value-or(""));
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }
@@ -159,7 +159,7 @@ export component InputChip {
                 alignment: center;
 
                 IconButton {
-                    icon: root.trailing_icon.value-or(@image-url(""));
+                    icon: root.trailing_icon.value-or-default();
                     inline: true;
                     enabled: root.enabled;
 

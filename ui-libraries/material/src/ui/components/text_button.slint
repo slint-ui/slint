@@ -16,7 +16,7 @@ export component TextButton {
 
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text.value-or(root.tooltip.value-or(""));
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-action-default => { base.clicked(); }
 
     base := BaseButton {

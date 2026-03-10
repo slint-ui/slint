@@ -40,7 +40,7 @@ export component Drawer {
 
                 if root.title.has-value() : DrawerHeader {
                     width: 100%;
-                    title: root.title.value-or("");
+                    title: root.title.value-or-default();
                 }
 
                 @children

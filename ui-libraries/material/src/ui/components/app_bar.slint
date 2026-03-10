@@ -47,7 +47,7 @@ component BaseAppBar {
                     alignment: center;
 
                     IconButton {
-                        icon: root.leading_button.icon.value-or(@image-url(""));
+                        icon: root.leading_button.icon.value-or-default();
                         enabled: root.leading_button.enabled;
                         tooltip: root.leading_button.tooltip;
 
@@ -59,7 +59,7 @@ component BaseAppBar {
 
                 if !root.two_rows : MaterialText {
                     horizontal_stretch: 1;
-                    text: root.title.value-or("");
+                    text: root.title.value-or-default();
                     vertical_alignment: center;
                     horizontal_alignment: root.horizontal_alignment;
                     color: MaterialPalette.on_surface;
@@ -79,7 +79,7 @@ component BaseAppBar {
                         spacing: top_layout.spacing;
 
                         for item[index] in root.trailing_buttons : IconButton {
-                            icon: item.icon.value-or(@image-url(""));
+                            icon: item.icon.value-or-default();
                             enabled: item.enabled;
                             tooltip: item.tooltip;
 
@@ -96,7 +96,7 @@ component BaseAppBar {
                 padding_right: self.padding_left;
 
                  MaterialText {
-                    text: root.title.value-or("");
+                    text: root.title.value-or-default();
                     horizontal_alignment: root.horizontal_alignment;
                     color: MaterialPalette.on_surface;
                     overflow: elide;

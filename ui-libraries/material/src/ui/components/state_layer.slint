@@ -130,7 +130,7 @@ export component FocusTouchArea inherits TouchArea {
 
     if root.tooltip.has-value() && root.has_hover && !MaterialWindowAdapter.disable_hover && !root.pressed : ToolTip {
         y: root.tooltip_offset;
-        text: root.tooltip.value-or("");
+        text: root.tooltip.value-or-default();
     }
 }
 

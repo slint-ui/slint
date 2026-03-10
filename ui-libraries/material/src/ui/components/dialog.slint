@@ -59,7 +59,7 @@ export component FullscreenDialog inherits PopupWindow {
                 }
 
                 MaterialText {
-                    text: root.title.value-or("");
+                    text: root.title.value-or-default();
                     style: MaterialTypography.headline_small;
                     color: MaterialPalette.on_surface;
                     vertical_alignment: center;
@@ -145,12 +145,12 @@ export component BaseDialog {
                     if root.has_icon : Icon {
                         x: (parent.width - self.width) / 2;
                         colorize: MaterialPalette.on_surface;
-                        source: root.icon.value-or(@image-url(""));
+                        source: root.icon.value-or-default();
                     }
 
                     if root.title.has-value() : MaterialText {
                         horizontal_alignment: root.has_icon ? center : left;
-                        text: root.title.value-or("");
+                        text: root.title.value-or-default();
                         style: MaterialTypography.headline_small;
                         color: MaterialPalette.on_surface;
                     }
@@ -180,7 +180,7 @@ export component BaseDialog {
                         }
 
                         if root.default_action_text.has-value() : FilledButton {
-                            text: root.default_action_text.value-or("");
+                            text: root.default_action_text.value-or-default();
 
                             clicked => {
                                 root.default_action_clicked();

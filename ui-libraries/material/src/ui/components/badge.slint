@@ -20,7 +20,7 @@ export component Badge {
     }
 
     label := MaterialText {
-        text: root.text.value-or("");
+        text: root.text.value-or-default();
         color: MaterialPalette.on_error;
         vertical_alignment: center;
         horizontal_alignment: center;

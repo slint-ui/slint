@@ -59,7 +59,7 @@ export component TextField {
                 spacing: MaterialStyleMetrics.spacing_2;
 
                 if root.has_leading : IconButton {
-                    icon: root.leading_icon.value-or(@image-url(""));
+                    icon: root.leading_icon.value-or-default();
                     enabled: root.enabled;
 
                     clicked => {
@@ -139,7 +139,7 @@ export component TextField {
                 }
 
                 if root.has_trailing : IconButton {
-                    icon: root.trailing_icon.value-or(@image-url(""));
+                    icon: root.trailing_icon.value-or-default();
                     enabled: root.enabled;
                     has_error: root.has_error;
 
@@ -166,7 +166,7 @@ export component TextField {
             padding_right: self.padding_left;
 
             supporting_text := MaterialText {
-                text: root.supporting_text.value-or("");
+                text: root.supporting_text.value-or-default();
                 style: MaterialTypography.body_small;
                 color: root.highlight;
                 opacity: root.enabled ? 1 : MaterialPalette.disable_opacity;

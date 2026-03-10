@@ -41,7 +41,7 @@ export component NavigationRail inherits BaseNavigation {
                 alignment: center;
 
                 FloatingActionButton {
-                    icon: root.fab_icon.value-or(@image-url(""));
+                    icon: root.fab_icon.value-or-default();
                     style: FABStyle.standard;
 
                     clicked => {

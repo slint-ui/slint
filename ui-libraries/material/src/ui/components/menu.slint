@@ -41,7 +41,7 @@ component MenuItemTemplate {
                     alignment: center;
 
                     Icon {
-                        source: root.icon.value-or(@image-url(""));
+                        source: root.icon.value-or-default();
                         colorize: root.color;
                     }
                 }
@@ -55,7 +55,7 @@ component MenuItemTemplate {
                 }
 
                 if root.trailing_text.has-value() : MaterialText {
-                    text: root.trailing_text.value-or("");
+                    text: root.trailing_text.value-or-default();
                     style: MaterialTypography.body_large;
                     color: root.color_variant;
                     vertical_alignment: center;

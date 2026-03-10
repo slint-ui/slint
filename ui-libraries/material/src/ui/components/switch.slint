@@ -72,7 +72,7 @@ export component Switch {
                 background: root.checked ? MaterialPalette.primary_container : MaterialPalette.outline;
 
                 if root.has_icon : Icon {
-                    source: root.checked ? root.on_icon.value-or(@image-url("")) : root.off_icon.value-or(@image-url(""));
+                    source: root.checked ? root.on_icon.value-or-default() : root.off_icon.value-or-default();
                     colorize: root.foreground;
 
                     animate colorize {

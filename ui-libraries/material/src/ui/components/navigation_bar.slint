@@ -77,12 +77,12 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                                     }
 
                                     if root.has_icon || root.has_selected_icon : Icon {
-                                        source: root.icon.value-or(@image-url(""));
+                                        source: root.icon.value-or-default();
                                         colorize: root.color;
 
                                         states [
                                             selected when root.selected && root.has_selected_icon : {
-                                                source: root.selected_icon.value-or(@image-url(""));
+                                                source: root.selected_icon.value-or-default();
                                             }
                                         ]
                                     }
@@ -93,7 +93,7 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                         if root.show_badge || root.badge.has-value() : Badge {
                             x: parent.width / 2;
                             y: 0;
-                            text: root.badge.value-or("");
+                            text: root.badge.value-or-default();
                         }
                     }
                 }

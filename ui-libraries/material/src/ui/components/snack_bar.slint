@@ -47,7 +47,7 @@ export component SnackBar inherits PopupWindow {
                 }
 
                 if root.action_text.has-value() : TextButton {
-                    text: root.action_text.value-or("");
+                    text: root.action_text.value-or-default();
                     inverse: true;
 
                     clicked => {

@@ -19,7 +19,7 @@ export component FilledIconButton {
 
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.tooltip.value-or("");
+    accessible-label: root.tooltip.value-or-default();
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }

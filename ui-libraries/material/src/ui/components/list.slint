@@ -23,7 +23,7 @@ export component Avatar {
         clip: true;
 
         Image {
-            source: root.image.value-or(@image-url(""));
+            source: root.image.value-or-default();
         }
     }
 }
@@ -60,7 +60,7 @@ export component ListTile {
                 clip: true;
 
                 if root.avatar_text.has-value() : MaterialText {
-                    text: root.avatar_text.value-or("");
+                    text: root.avatar_text.value-or-default();
                     vertical_alignment: center;
                     horizontal_alignment: center;
                     color: root.avatar_foreground;
@@ -69,7 +69,7 @@ export component ListTile {
 
                 if root.avatar_icon.has-value() : Icon {
                     width: parent.width;
-                    source: root.avatar_icon.value-or(@image-url(""));
+                    source: root.avatar_icon.value-or-default();
                     colorize: root.avatar_foreground;
                 }
             }
@@ -86,7 +86,7 @@ export component ListTile {
                 }
 
                 if root.supporting_text.has-value() : MaterialText {
-                    text: root.supporting_text.value-or("");
+                    text: root.supporting_text.value-or-default();
                     color: root.color;
                     overflow: elide;
                     style: MaterialTypography.body_medium;

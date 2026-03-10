@@ -28,12 +28,12 @@ component TabItemTemplate inherits BaseNavigationItemTemplate {
                 alignment: center;
 
                 Icon {
-                    source: root.icon.value-or(@image-url(""));
+                    source: root.icon.value-or-default();
                     colorize: label.color;
 
                     states [
                         selected when root.selected && root.has_selected_icon : {
-                            source: root.selected_icon.value-or(@image-url(""));
+                            source: root.selected_icon.value-or-default();
                         }
                     ]
                 }
@@ -76,12 +76,12 @@ component SecondaryTabItemTemplate inherits BaseNavigationItemTemplate {
                 alignment: center;
 
                 Icon {
-                    source: root.icon.value-or(@image-url(""));
+                    source: root.icon.value-or-default();
                     colorize: label.color;
 
                     states [
                         selected when root.selected && root.has_selected_icon : {
-                            source: root.selected_icon.value-or(@image-url(""));
+                            source: root.selected_icon.value-or-default();
                         }
                     ]
                 }

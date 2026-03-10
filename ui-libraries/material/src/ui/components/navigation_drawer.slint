@@ -50,12 +50,12 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                     }
 
                     if root.has_icon || root.has_selected_icon : Icon {
-                        source: root.icon.value-or(@image-url(""));
+                        source: root.icon.value-or-default();
                         colorize: root.color;
 
                         states [
                             selected when root.selected && root.has_selected_icon : {
-                                source: root.selected_icon.value-or(@image-url(""));
+                                source: root.selected_icon.value-or-default();
                             }
                         ]
                     }
@@ -70,7 +70,7 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                 }
 
                 if root.badge.has-value() : MaterialText {
-                    text: root.badge.value-or("");
+                    text: root.badge.value-or-default();
                     style: MaterialTypography.label_large;
                     color: root.color;
                     vertical_alignment: center;
@@ -115,7 +115,7 @@ component NavigationGroupTemplate {
         alignment: start;
 
         if root.title.has-value() :  DrawerHeader {
-            title: root.title.value-or("");
+            title: root.title.value-or-default();
         }
 
         for item[index] in root.items : NavigationItemTemplate {

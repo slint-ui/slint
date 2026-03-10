@@ -19,7 +19,7 @@ TestCase := Rectangle {
     property <string> text_value_or: opt_text.value-or("fallback");
     property <string> text_value_or_present: text_with_value.value-or("unused");
     property <int> number_value_or: opt_number.value-or(99);
-    property <int> number_value_or_present: number_with_value.value-or(0);
+    property <int> number_value_or_present: number_with_value.value-or(99);
 
     // value-or-default() — falls back to the type's default value
     property <string> text_value_or_default: opt_text.value-or-default();

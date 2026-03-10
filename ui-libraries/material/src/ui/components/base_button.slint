@@ -46,12 +46,12 @@ export component BaseButton inherits StateLayerArea {
             if root.has_avatar && root.avatar_size > 0 : Avatar {
                 width: root.avatar_size;
                 height: self.width;
-                image: root.avatar_icon.value-or(@image-url(""));
+                image: root.avatar_icon.value-or-default();
                 background: root.avatar_background;
             }
 
             if root.has_icon : Icon {
-                source: root.icon.value-or(@image-url(""));
+                source: root.icon.value-or-default();
                 colorize: root.icon_color;
                 opacity: root.enabled ? 100% : 38%;
                 width: root.icon_size;
@@ -59,7 +59,7 @@ export component BaseButton inherits StateLayerArea {
         }
 
         if root.text.has-value() : MaterialText {
-            text: root.text.value-or("");
+            text: root.text.value-or-default();
             style: MaterialTypography.label_large;
             color: root.color;
             opacity: root.enabled ? 100% : 38%;

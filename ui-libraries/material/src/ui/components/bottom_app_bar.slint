@@ -33,9 +33,9 @@ export component BottomAppBar {
 
                 HorizontalLayout {
                     for button[index] in root.icon_buttons : IconButton {
-                        icon: button.icon.value-or(@image-url(""));
+                        icon: button.icon.value-or-default();
                         enabled: button.enabled;
-                        tooltip: button.tooltip.value-or("");
+                        tooltip: button.tooltip.value-or-default();
 
                         clicked => {
                             root.icon_button_clicked(index);
@@ -51,7 +51,7 @@ export component BottomAppBar {
                 alignment: center;
 
                 FloatingActionButton {
-                    icon: root.fab_icon.value-or(@image-url(""));
+                    icon: root.fab_icon.value-or-default();
                     style: FABStyle.standard;
 
                     clicked => {
