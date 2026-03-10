@@ -3,16 +3,15 @@
 
 import { StyleMetrics, Button } from "std-widgets-impl.slint";
 
-export component StandardButton {
-    in property <StandardButtonKind> kind;
-    in property <bool> enabled <=> base.enabled;
-    in property <bool> primary <=> base.primary;
-    out property <bool> has-focus <=> base.has-focus;
-    out property <bool> pressed <=> base.pressed;
+import { StandardButtonInterface } from "./std-widget-interfaces.slint";
+
+export component StandardButton implements StandardButtonInterface {
+    enabled <=> base.enabled;
+    primary <=> base.primary;
+    has-focus <=> base.has-focus;
+    pressed <=> base.pressed;
 
     forward-focus: base;
-
-    callback clicked <=> base.clicked;
 
     HorizontalLayout {
         base := Button {
@@ -28,6 +27,8 @@ export component StandardButton {
                 root.kind == StandardButtonKind.abort ? @tr("Abort") :
                 root.kind == StandardButtonKind.retry ? @tr("Retry") :
                 root.kind == StandardButtonKind.ignore ? @tr("Ignore") : "";
+
+            clicked() => root.clicked();
         }
     }
 }
