@@ -28,5 +28,6 @@ export component TestCase {
 
     // Array conversions with optionals
     property <[int]?> opt_int_array: [1, 2, 3];
+//                                   >        <error{Cannot convert [float] to [int]?}
     // Note: Elements are non-optional, array itself is optional
 }

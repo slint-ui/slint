@@ -73,6 +73,12 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                 Expression::EnumerationValue(e) => {
                     result.accessible_role = Some(e.enumeration.values[e.value].to_string())
                 }
+                Expression::Cast { from, .. } => {
+                    if let Expression::EnumerationValue(e) = from.as_ref() {
+                        result.accessible_role =
+                            Some(e.enumeration.values[e.value].to_string())
+                    }
+                }
                 e => panic!(
                     "accessible-role not an EnumerationValue : {e:?}    (for {:?})",
                     role.borrow().span

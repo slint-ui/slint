@@ -33,7 +33,11 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                         }
                         Expression::EnumerationValue(val) => {
                             debug_assert_eq!(val.enumeration.name, "AccessibleRole");
-                            // Note: AccessibleRole.None variant removed in favor of optional types
+                        }
+                        Expression::Cast { from, .. }
+                            if matches!(from.as_ref(), Expression::EnumerationValue(_)) =>
+                        {
+                            // EnumerationValue wrapped in Cast to Optional(AccessibleRole)
                         }
                         expr => {
                             // Check if it's a const expression at least (better error)
