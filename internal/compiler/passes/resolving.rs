@@ -12,7 +12,9 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype;
 use crate::langtype::{ElementType, KeyboardModifiers, Struct, StructName, Type};
-use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
+use crate::lookup::{
+    LookupCtx, LookupObject, LookupResult, LookupResultCallable, NarrowingKey, TypeNarrowing,
+};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
@@ -50,6 +52,7 @@ fn resolve_expression(
             type_loader: Some(type_loader),
             current_token: None,
             local_variables: Vec::new(),
+            type_narrowings: Vec::new(),
         };
 
         let new_expr = match node.kind() {
@@ -1462,10 +1465,7 @@ impl Expression {
         let base_ty = base.ty();
 
         if !matches!(base_ty, Type::Optional(_)) && base_ty != Type::Invalid {
-            ctx.diag.push_error(
-                format!("Cannot unwrap non-optional type '{base_ty}'"),
-                &node,
-            );
+            ctx.diag.push_error(format!("Cannot unwrap non-optional type '{base_ty}'"), &node);
 
             return Expression::Invalid;
         }
@@ -1483,10 +1483,8 @@ impl Expression {
         let base_ty = base.ty();
 
         if !matches!(base_ty, Type::Optional(_)) && base_ty != Type::Invalid {
-            ctx.diag.push_error(
-                "The '??' operator requires an optional left-hand side".into(),
-                &node,
-            );
+            ctx.diag
+                .push_error("The '??' operator requires an optional left-hand side".into(), &node);
 
             return Expression::Invalid;
         }
@@ -1505,11 +1503,25 @@ impl Expression {
             &condition_n,
             ctx.diag,
         );
+
+        let (true_narrowings, false_narrowings) = extract_narrowings(&condition);
+
+        // Resolve true branch with narrowings applied
+        let narrowing_count = true_narrowings.len();
+        ctx.type_narrowings.extend(true_narrowings);
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
+        ctx.type_narrowings.truncate(ctx.type_narrowings.len() - narrowing_count);
+
+        // Resolve false branch with narrowings applied
+        let narrowing_count = false_narrowings.len();
+        ctx.type_narrowings.extend(false_narrowings);
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
+        ctx.type_narrowings.truncate(ctx.type_narrowings.len() - narrowing_count);
+
         let result_ty = common_expression_type(&true_expr, &false_expr);
         let true_expr = true_expr.maybe_convert_to(result_ty.clone(), &true_expr_n, ctx.diag);
         let false_expr = false_expr.maybe_convert_to(result_ty, &false_expr_n, ctx.diag);
+
         Expression::Condition {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
@@ -1931,6 +1943,7 @@ fn continue_lookup_within_element(
             elem,
             lookup_result.resolved_name.to_smolstr(),
         ));
+        let prop = ctx.maybe_narrow_expression(prop);
         maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(x) = it.next() {
@@ -2122,6 +2135,7 @@ fn resolve_two_way_bindings(
                             type_loader: None,
                             current_token: Some(node.clone().into()),
                             local_variables: Vec::new(),
+                            type_narrowings: Vec::new(),
                         };
 
                         binding.expression = Expression::Invalid;
@@ -2343,5 +2357,108 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+// MARK: Type narrowing for optionals
+
+/// Analyze a condition expression and return narrowing info for the true and false branches.
+///
+/// Only matches the *top-level* condition expression. Conditions combined with `&&` or `||`
+/// are NOT decomposed — `||` does not guarantee the LHS is true, and `&&` decomposition
+/// is deferred to a future extension.
+fn extract_narrowings(condition: &Expression) -> (Vec<TypeNarrowing>, Vec<TypeNarrowing>) {
+    match condition {
+        // Compound conditions: no narrowing in v1.
+        Expression::BinaryExpression { op: '&' | '|', .. } => (vec![], vec![]),
+
+        // expr != none => narrow expr in true branch
+        Expression::BinaryExpression { lhs, rhs, op: '!' } if is_none_value(rhs) => {
+            if let Some(n) = narrowing_for_optional(lhs) {
+                return (vec![n], vec![]);
+            }
+
+            (vec![], vec![])
+        }
+
+        // none != expr => narrow expr in true branch
+        Expression::BinaryExpression { lhs, rhs, op: '!' } if is_none_value(lhs) => {
+            if let Some(n) = narrowing_for_optional(rhs) {
+                return (vec![n], vec![]);
+            }
+
+            (vec![], vec![])
+        }
+
+        // expr == none => narrow expr in false branch
+        Expression::BinaryExpression { lhs, rhs, op: '=' } if is_none_value(rhs) => {
+            if let Some(n) = narrowing_for_optional(lhs) {
+                return (vec![], vec![n]);
+            }
+
+            (vec![], vec![])
+        }
+
+        // none == expr => narrow expr in false branch
+        Expression::BinaryExpression { lhs, rhs, op: '=' } if is_none_value(lhs) => {
+            if let Some(n) = narrowing_for_optional(rhs) {
+                return (vec![], vec![n]);
+            }
+
+            (vec![], vec![])
+        }
+
+        // expr.has-value() => narrow expr in true branch
+        Expression::HasValue { base } => {
+            if let Some(n) = narrowing_for_optional(base) {
+                return (vec![n], vec![]);
+            }
+
+            (vec![], vec![])
+        }
+
+        _ => (vec![], vec![]),
+    }
+}
+
+fn is_none_value(expr: &Expression) -> bool {
+    match expr {
+        Expression::NoneValue => true,
+        // After type unification, NoneValue gets wrapped in Cast { from: NoneValue, to: Optional(T) }
+        Expression::Cast { from, .. } => is_none_value(from),
+        _ => false,
+    }
+}
+
+fn narrowing_for_optional(expr: &Expression) -> Option<TypeNarrowing> {
+    // Look through Cast wrappers added by type unification
+    let inner_expr = unwrap_casts(expr);
+    let ty = inner_expr.ty();
+    let Type::Optional(inner) = ty else { return None };
+    let key = narrowing_key_for(inner_expr)?;
+
+    Some(TypeNarrowing { key, narrowed_type: *inner })
+}
+
+/// Strip Cast wrappers that may have been added during type unification
+fn unwrap_casts(expr: &Expression) -> &Expression {
+    match expr {
+        Expression::Cast { from, .. } => unwrap_casts(from),
+        _ => expr,
+    }
+}
+
+fn narrowing_key_for(expr: &Expression) -> Option<NarrowingKey> {
+    match expr {
+        Expression::PropertyReference(nr) => {
+            Some(NarrowingKey::Property(Rc::downgrade(&nr.element()), nr.name().clone()))
+        }
+        Expression::ReadLocalVariable { name, .. } => {
+            Some(NarrowingKey::LocalVariable(name.clone()))
+        }
+        Expression::FunctionParameterReference { index, .. } => {
+            Some(NarrowingKey::FunctionParameter(*index))
+        }
+        _ => None,
     }
 }
