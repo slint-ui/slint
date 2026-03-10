@@ -75,8 +75,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                 }
                 Expression::Cast { from, .. } => {
                     if let Expression::EnumerationValue(e) = from.as_ref() {
-                        result.accessible_role =
-                            Some(e.enumeration.values[e.value].to_string())
+                        result.accessible_role = Some(e.enumeration.values[e.value].to_string())
                     }
                 }
                 e => panic!(

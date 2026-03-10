@@ -88,12 +88,8 @@ pub fn lower_macro(
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag),
-        BuiltinMacroFunction::OptionalHasValue => {
-            has_value_macro(n, sub_expr.collect(), diag)
-        }
-        BuiltinMacroFunction::OptionalValueOr => {
-            value_or_macro(n, sub_expr.collect(), diag)
-        }
+        BuiltinMacroFunction::OptionalHasValue => has_value_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::OptionalValueOr => value_or_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::OptionalValueOrDefault => {
             value_or_default_macro(n, sub_expr.collect(), diag)
         }
@@ -171,10 +167,7 @@ fn value_or_default_macro(
     let (base, _) = args.into_iter().next().unwrap();
 
     if !matches!(base.ty(), Type::Optional(_)) {
-        diag.push_error(
-            "value-or-default() can only be called on optional types".into(),
-            node,
-        );
+        diag.push_error("value-or-default() can only be called on optional types".into(), node);
 
         return Expression::Invalid;
     }

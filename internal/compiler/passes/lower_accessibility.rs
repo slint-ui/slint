@@ -28,7 +28,9 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                             return; // No accessible role set
                         }
                         // Handle none potentially wrapped in a Cast to Optional(AccessibleRole)
-                        Expression::Cast { from, .. } if matches!(from.as_ref(), Expression::NoneValue) => {
+                        Expression::Cast { from, .. }
+                            if matches!(from.as_ref(), Expression::NoneValue) =>
+                        {
                             return; // No accessible role set
                         }
                         Expression::EnumerationValue(val) => {
@@ -43,7 +45,8 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                             // Check if it's a const expression at least (better error)
                             if !expr.is_constant(None) {
                                 diag.push_error(
-                                    "The `accessible-role` property must be a constant expression".into(),
+                                    "The `accessible-role` property must be a constant expression"
+                                        .into(),
                                     &*role.borrow(),
                                 );
                             }

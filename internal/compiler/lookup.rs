@@ -119,26 +119,27 @@ impl<'a> LookupCtx<'a> {
             return expr;
         }
 
-        let has_matching_narrowing = self.type_narrowings.iter().rev().any(|n| match (&n.key, &expr) {
-            (NarrowingKey::Property(weak_elem, prop_name), Expression::PropertyReference(nr)) => {
-                weak_elem.upgrade().zip(Some(nr.element())).is_some_and(|(a, b)| {
-                    Rc::ptr_eq(&a, &b) && prop_name == nr.name()
-                })
-            }
-            (NarrowingKey::LocalVariable(narrowed_name), Expression::ReadLocalVariable { name, .. }) => {
-                narrowed_name == name
-            }
-            (NarrowingKey::FunctionParameter(narrowed_idx), Expression::FunctionParameterReference { index, .. }) => {
-                narrowed_idx == index
-            }
-            _ => false,
-        });
+        let has_matching_narrowing =
+            self.type_narrowings.iter().rev().any(|n| match (&n.key, &expr) {
+                (
+                    NarrowingKey::Property(weak_elem, prop_name),
+                    Expression::PropertyReference(nr),
+                ) => weak_elem
+                    .upgrade()
+                    .zip(Some(nr.element()))
+                    .is_some_and(|(a, b)| Rc::ptr_eq(&a, &b) && prop_name == nr.name()),
+                (
+                    NarrowingKey::LocalVariable(narrowed_name),
+                    Expression::ReadLocalVariable { name, .. },
+                ) => narrowed_name == name,
+                (
+                    NarrowingKey::FunctionParameter(narrowed_idx),
+                    Expression::FunctionParameterReference { index, .. },
+                ) => narrowed_idx == index,
+                _ => false,
+            });
 
-        if has_matching_narrowing {
-            Expression::Unwrap { base: Box::new(expr) }
-        } else {
-            expr
-        }
+        if has_matching_narrowing { Expression::Unwrap { base: Box::new(expr) } } else { expr }
     }
 }
 
@@ -1339,23 +1340,20 @@ impl LookupObject for OptionalExpression<'_> {
         let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
 
         None.or_else(|| {
-                f(
-                    &SmolStr::new_static("has-value"),
-                    member_macro(BuiltinMacroFunction::OptionalHasValue),
-                )
-            })
-            .or_else(|| {
-                f(
-                    &SmolStr::new_static("value-or"),
-                    member_macro(BuiltinMacroFunction::OptionalValueOr),
-                )
-            })
-            .or_else(|| {
-                f(
-                    &SmolStr::new_static("value-or-default"),
-                    member_macro(BuiltinMacroFunction::OptionalValueOrDefault),
-                )
-            })
+            f(
+                &SmolStr::new_static("has-value"),
+                member_macro(BuiltinMacroFunction::OptionalHasValue),
+            )
+        })
+        .or_else(|| {
+            f(&SmolStr::new_static("value-or"), member_macro(BuiltinMacroFunction::OptionalValueOr))
+        })
+        .or_else(|| {
+            f(
+                &SmolStr::new_static("value-or-default"),
+                member_macro(BuiltinMacroFunction::OptionalValueOrDefault),
+            )
+        })
     }
 }
 
