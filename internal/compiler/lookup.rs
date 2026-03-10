@@ -299,7 +299,16 @@ impl LookupObject for SpecialIdLookup {
             })
             .or_else(|| f("true", Expression::BoolLiteral(true)))
             .or_else(|| f("false", Expression::BoolLiteral(false)))
-            .or_else(|| f("none", Expression::NoneValue))
+            .or_else(|| {
+                // When the target type is a non-optional enum with a "none" variant,
+                // don't return NoneValue here — let it fall through to enum value lookup
+                if let Type::Enumeration(e) = ctx.return_type() {
+                    if e.values.iter().any(|v| v == "none") {
+                        return None;
+                    }
+                }
+                f("none", Expression::NoneValue)
+            })
         // "root" is just a normal id
     }
 }

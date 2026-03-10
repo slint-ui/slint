@@ -1504,6 +1504,17 @@ impl Expression {
     ) -> Expression {
         let base_node = node.Expression();
         let base = Self::from_expression_node(base_node, ctx);
+        let base_ty = base.ty();
+
+        if !matches!(base_ty, Type::Optional(_)) && base_ty != Type::Invalid {
+            ctx.diag.push_error(
+                format!("Cannot unwrap non-optional type '{base_ty}'"),
+                &node,
+            );
+
+            return Expression::Invalid;
+        }
+
         Expression::Unwrap { base: Box::new(base) }
     }
 
@@ -1514,6 +1525,17 @@ impl Expression {
         let (base_node, fallback_node) = node.Expression();
         let base = Self::from_expression_node(base_node, ctx);
         let fallback = Self::from_expression_node(fallback_node, ctx);
+        let base_ty = base.ty();
+
+        if !matches!(base_ty, Type::Optional(_)) && base_ty != Type::Invalid {
+            ctx.diag.push_error(
+                "The '??' operator requires an optional left-hand side".into(),
+                &node,
+            );
+
+            return Expression::Invalid;
+        }
+
         Expression::NullCoalesce { base: Box::new(base), fallback: Box::new(fallback) }
     }
 
