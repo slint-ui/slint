@@ -149,6 +149,8 @@ pub enum BuiltinMacroFunction {
     Debug,
     /// Transform `opt.value-or(fallback)` into `NullCoalesce { base: opt, fallback }`
     OptionalValueOr,
+    /// Transform `opt.value-or-default()` into `NullCoalesce { base: opt, fallback: default }`
+    OptionalValueOrDefault,
     /// Transform `opt.has-value()` into `HasValue { base: opt }`
     OptionalHasValue,
 }

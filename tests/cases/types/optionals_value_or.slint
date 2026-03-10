@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test value-or() and value-or-default() methods on optional types
+
+TestCase := Rectangle {
+    property <string?> opt_text: none;
+    property <string?> text_with_value: "hello";
+    property <int?> opt_number: none;
+    property <int?> number_with_value: 42;
+    property <bool?> opt_flag: none;
+    property <bool?> flag_with_value: true;
+    property <color?> opt_color: none;
+    property <color?> color_with_value: #FF0000;
+    property <duration?> opt_duration: none;
+    property <duration?> duration_with_value: 500ms;
+
+    // value-or() with fallback
+    property <string> text_value_or: opt_text.value-or("fallback");
+    property <string> text_value_or_present: text_with_value.value-or("unused");
+    property <int> number_value_or: opt_number.value-or(99);
+    property <int> number_value_or_present: number_with_value.value-or(0);
+
+    // value-or-default() — falls back to the type's default value
+    property <string> text_value_or_default: opt_text.value-or-default();
+    property <string> text_value_or_default_present: text_with_value.value-or-default();
+    property <int> number_value_or_default: opt_number.value-or-default();
+    property <int> number_value_or_default_present: number_with_value.value-or-default();
+    property <bool> flag_value_or_default: opt_flag.value-or-default();
+    property <bool> flag_value_or_default_present: flag_with_value.value-or-default();
+    property <duration> duration_value_or_default: opt_duration.value-or-default();
+    property <duration> duration_value_or_default_present: duration_with_value.value-or-default();
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// value-or() on none returns fallback
+assert_eq!(instance.get_text_value_or(), slint::SharedString::from("fallback"));
+assert_eq!(instance.get_number_value_or(), 99);
+
+// value-or() on present value returns the value
+assert_eq!(instance.get_text_value_or_present(), slint::SharedString::from("hello"));
+assert_eq!(instance.get_number_value_or_present(), 42);
+
+// value-or-default() on none returns type default
+assert_eq!(instance.get_text_value_or_default(), slint::SharedString::default());
+assert_eq!(instance.get_number_value_or_default(), 0);
+assert_eq!(instance.get_flag_value_or_default(), false);
+assert_eq!(instance.get_duration_value_or_default(), 0);
+
+// value-or-default() on present value returns the value
+assert_eq!(instance.get_text_value_or_default_present(), slint::SharedString::from("hello"));
+assert_eq!(instance.get_number_value_or_default_present(), 42);
+assert_eq!(instance.get_flag_value_or_default_present(), true);
+assert_eq!(instance.get_duration_value_or_default_present(), 500);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// value-or() on none returns fallback
+assert(instance.get_text_value_or() == "fallback");
+assert(instance.get_number_value_or() == 99);
+
+// value-or() on present value returns the value
+assert(instance.get_text_value_or_present() == "hello");
+assert(instance.get_number_value_or_present() == 42);
+
+// value-or-default() on none returns type default
+assert(instance.get_text_value_or_default() == "");
+assert(instance.get_number_value_or_default() == 0);
+assert(instance.get_flag_value_or_default() == false);
+assert(instance.get_duration_value_or_default() == 0);
+
+// value-or-default() on present value returns the value
+assert(instance.get_text_value_or_default_present() == "hello");
+assert(instance.get_number_value_or_default_present() == 42);
+assert(instance.get_flag_value_or_default_present() == true);
+assert(instance.get_duration_value_or_default_present() == 500);
+```
+*/
