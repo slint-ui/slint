@@ -4,14 +4,10 @@
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component Switch {
-    in property <bool> enabled: true;
-    in property <string> text;
-    in-out property <bool> checked;
-    out property <bool> has-focus: focus-scope.has-focus;
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
-
+export component Switch implements SwitchInterface {
+    has-focus: focus-scope.has-focus;
     private property <color> text-color: FluentPalette.foreground;
 
     function toggle-checked() {
