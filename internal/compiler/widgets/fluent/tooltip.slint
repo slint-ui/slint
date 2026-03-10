@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FluentFontSettings, FluentPalette } from "styling.slint";
+import { FocusBorder } from "components.slint";
+import { Icons } from "../fluent/styling.slint";
+
+export component Tooltip {
+    in property <string> text <=> text.text;
+    in property <bool> has-blocked-icon: false;
+
+    min-width: max(30px, layout.min-height);
+    min-height: max(30px, layout.min-height);
+
+    accessible-role: combobox;  // TODO: define a specific role for tooltips
+    accessible-enabled: root.visible;
+    accessible-value <=> root.text;
+
+    Rectangle {
+        background: FluentPalette.alternate-background;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: FluentPalette.border;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: #0004;
+        drop-shadow-offset-y: 4px;
+
+        layout := HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 6px;
+            padding-bottom: 6px;
+            spacing: (has-blocked-icon && text.text == "") || (!has-blocked-icon && text.text != "") ? 0px : 8px;
+
+            if has-blocked-icon: icon := Image {
+                colorize: FluentPalette.control-foreground;
+                width: 16px;
+                source: Icons.block;
+                accessible-role: none;
+            }
+
+            text := Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                font-size: FluentFontSettings.body.font-size;
+                font-weight: FluentFontSettings.body.font-weight;
+                color: FluentPalette.control-foreground;
+                accessible-role: none;
+                width: self.text == "" ? 0 : self.preferred-width;
+            }
+        }
+    }
+}

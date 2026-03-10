@@ -458,6 +458,8 @@ macro_rules! for_each_enums {
                 ListItem,
                 /// The element is a `RadioButton` or behaves like one.
                 RadioButton,
+                /// The element is a Tooltip or behaves like one.
+                Tooltip,
             }
 
             /// This enum represents the different values of the `sort-order` property.
