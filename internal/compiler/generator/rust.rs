@@ -655,12 +655,27 @@ fn handle_property_init(
         let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
 
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            let t = rust_property_type(prop_type).unwrap_or(quote!(_));
-            quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            if let Type::Optional(inner) = prop_type {
+                let expr_ty = binding_expression.expression.borrow().ty(ctx);
+                if matches!(expr_ty, Type::Optional(_)) {
+                    // Expression is already optional, set directly
+                    quote! { #rust_property.set(#tokens_for_expression); }
+                } else if let Some(inner_ty) = rust_primitive_type(inner) {
+                    // Non-optional expression into optional property: wrap in Some with cast
+                    quote! { #rust_property.set(Some((#tokens_for_expression) as #inner_ty)); }
+                } else {
+                    quote! { #rust_property.set(Some(#tokens_for_expression)); }
+                }
+            } else {
+                let t = rust_property_type(prop_type).unwrap_or(quote!(_));
+                quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            }
         } else {
             let maybe_cast_to_property_type = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
                 // Don't cast if the Rust code is the never type, as with return statements inside a block, the
                 // type of the return expression is `()` instead of `!`.
+                None
+            } else if matches!(prop_type, Type::Optional(_)) {
                 None
             } else {
                 Some(quote!(as _))
@@ -2748,10 +2763,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Keys, Type::String) => {
                     quote!(sp::ToSharedString::to_shared_string(&#f))
                 }
-                (from_ty, Type::Optional(_))
+                (from_ty, Type::Optional(inner))
                     if !matches!(from_ty, Type::Optional(_) | Type::Void) =>
                 {
-                    quote!(Some(#f))
+                    if let Some(inner_ty) = rust_primitive_type(inner) {
+                        quote!(Some((#f).clone() as #inner_ty))
+                    } else {
+                        quote!(Some((#f).clone()))
+                    }
                 }
                 (_, Type::Void) => {
                     quote!({#f;})
@@ -2943,9 +2962,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!( (#base).unwrap() )
         }
         Expression::NullCoalesce { base, fallback } => {
-            let base = compile_expression(base, ctx);
-            let fallback = compile_expression(fallback, ctx);
-            quote!( (#base).unwrap_or_else(|| #fallback) )
+            let base_code = compile_expression(base, ctx);
+            let fallback_code = compile_expression(fallback, ctx);
+            if let Type::Optional(inner) = base.ty(ctx) {
+                if let Some(inner_ty) = rust_primitive_type(&inner) {
+                    return quote!( (#base_code).unwrap_or_else(|| #fallback_code as #inner_ty) );
+                }
+            }
+            quote!( (#base_code).unwrap_or_else(|| #fallback_code) )
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {

@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test optional operators: unwrap (!) and null-coalesce (??)
+
+TestCase := Rectangle {
+    property <string?> optional_text: "hello";
+    property <string?> empty_text: none;
+    property <int?> optional_number: 42;
+    property <int?> empty_number: none;
+
+    // Test null-coalescing operator
+    property <string> text_or_default: empty_text ?? "default";
+    property <string> text_from_value: optional_text ?? "unused";
+    property <int> number_or_default: empty_number ?? 99;
+    property <int> number_from_value: optional_number ?? 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_text_or_default(), "default");
+assert_eq!(instance.get_text_from_value(), "hello");
+assert_eq!(instance.get_number_or_default(), 99);
+assert_eq!(instance.get_number_from_value(), 42);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_text_or_default() == "default");
+assert(instance.get_text_from_value() == "hello");
+assert(instance.get_number_or_default() == 99);
+assert(instance.get_number_from_value() == 42);
+```
+*/

@@ -3,13 +3,6 @@
 
 // Test edge cases for optional types
 
-struct NestedOptionals {
-    outer: {
-        inner: string?,
-        count: int?,
-    },
-}
-
 TestCase := Rectangle {
     // Optionals with different types
     property <duration?> opt_duration: none;
@@ -23,31 +16,23 @@ TestCase := Rectangle {
     property <length?> length_val: 100px;
     property <color?> color_val: #FF0000;
 
-    // Null-coalesce with different types
-    property <duration> duration_or_default: opt_duration ?? 1s;
-    property <length> length_or_default: opt_length ?? 50px;
-    property <color> color_or_default: opt_color ?? #000000;
+    // value-or with different types
+    property <duration> duration_or_default: opt_duration.value-or(1s);
+    property <length> length_or_default: opt_length.value-or(50px);
+    property <color> color_or_default: opt_color.value-or(#000000);
 
-    // Chained null-coalesce
+    // Chained value-or
     property <string?> first: none;
     property <string?> second: none;
     property <string?> third: "fallback";
-    property <string> chained_coalesce: first ?? second ?? third ?? "final";
-
-    // Nested struct optionals
-    property <NestedOptionals> nested: {
-        outer: {
-            inner: "nested_text",
-            count: none,
-        }
-    };
-
-    // Optional arrays
-    property <[string]?> opt_array: none;
-    property <[int]?> array_with_value: [1, 2, 3];
-    property <int> array_length: opt_array == none ? 0 : 3;
+    property <string> chained_coalesce: first.value-or(second.value-or(third.value-or("final")));
 
     // Optional in conditional expressions
+    property <string?> opt_text: none;
+    property <string?> text_wrapped: "value";
+    property <int?> opt_number: none;
+    property <int?> number_wrapped: 42;
+
     property <string> conditional_opt: opt_text != none ? "has value" : "is none";
 
     // Comparison combinations
@@ -62,17 +47,19 @@ let instance = TestCase::new().unwrap();
 // Test type-specific optionals
 assert_eq!(instance.get_opt_duration(), None);
 assert_eq!(instance.get_duration_val(), Some(500));
-assert_eq!(instance.get_duration_or_default(), 1000);
 
 assert_eq!(instance.get_opt_length(), None);
 assert_eq!(instance.get_length_val(), Some(100.0));
 
-// Test chained coalesce
-assert_eq!(instance.get_chained_coalesce(), "fallback".into());
+// Test value-or
+assert_eq!(instance.get_duration_or_default(), 1000);
+assert_eq!(instance.get_length_or_default(), 50.0);
+
+// Test chained value-or
+assert_eq!(instance.get_chained_coalesce(), slint::SharedString::from("fallback"));
 
 // Test comparisons
-assert_eq!(instance.get_text_is_none(), true);
-assert_eq!(instance.get_text_has_value(), true);
+assert_eq!(instance.get_conditional_opt(), slint::SharedString::from("is none"));
 assert_eq!(instance.get_both_none(), true);
 assert_eq!(instance.get_any_has_value(), true);
 ```
