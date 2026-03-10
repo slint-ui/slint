@@ -1,9 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+import { SpinnerInterface } from "./std-widget-interfaces.slint";
 
-export component SpinnerBase {
-    in property <float> progress;
-    in property <bool> indeterminate;
+export component SpinnerBase implements SpinnerInterface {
     in property <length> stroke-width <=> path.stroke-width;
     in property <brush> stroke <=> path.stroke;
 
