@@ -925,6 +925,12 @@ impl Expression {
                     false_type
                 } else if false_type == Type::Invalid {
                     true_type
+                } else if matches!(&false_type, Type::Optional(inner) if **inner == true_type || **inner == Type::Invalid)
+                {
+                    Type::Optional(Box::new(true_type))
+                } else if matches!(&true_type, Type::Optional(inner) if **inner == false_type || **inner == Type::Invalid)
+                {
+                    Type::Optional(Box::new(false_type))
                 } else {
                     Type::Void
                 }

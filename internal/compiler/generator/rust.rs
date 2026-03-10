@@ -1017,7 +1017,12 @@ fn generate_sub_component(
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_branch.push(quote!(#index => #e,));
+            let role_expr = if matches!(expr.borrow().ty(&ctx), Type::Optional(_)) {
+                quote!(#e.unwrap_or_default())
+            } else {
+                e.clone()
+            };
+            accessible_role_branch.push(quote!(#index => #role_expr,));
         } else if let Some(what) = what.strip_prefix("Action") {
             let what = ident(what);
             let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
@@ -2524,6 +2529,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::KeyboardShortcutType, Type::String) => {
                     quote!(sp::ToSharedString::to_shared_string(&#f))
                 }
+                (from_ty, Type::Optional(_))
+                    if !matches!(from_ty, Type::Optional(_) | Type::Void) =>
+                {
+                    quote!(Some(#f))
+                }
                 (_, Type::Void) => {
                     quote!({#f;})
                 }
@@ -2702,8 +2712,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!( (#op #sub) )
         }
         Expression::HasValue { base } => {
-            let base = compile_expression(base, ctx);
-            quote!( (#base).is_some() )
+            if matches!(base.as_ref(), Expression::NoneValue) {
+                quote!(false)
+            } else {
+                let base = compile_expression(base, ctx);
+                quote!( (#base).is_some() )
+            }
         }
         Expression::Unwrap { base } => {
             let base = compile_expression(base, ctx);
@@ -2746,7 +2760,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let condition_code = compile_expression_no_parenthesis(condition, ctx);
             let true_code = compile_expression(true_expr, ctx);
             let false_code = compile_expression_no_parenthesis(false_expr, ctx);
-            let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
+            let false_ty = false_expr.ty(ctx);
+            let semi = if false_ty == Type::Void {
+                quote!(;)
+            } else if matches!(false_ty, Type::Optional(_)) {
+                quote!()
+            } else {
+                quote!(as _)
+            };
             quote!(
                 if #condition_code {
                     (#true_code) #semi

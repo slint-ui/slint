@@ -2424,7 +2424,12 @@ fn generate_sub_component(
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_cases.push(format!("    case {index}: return {e};"));
+            let role_expr = if matches!(expr.borrow().ty(&ctx), Type::Optional(_)) {
+                format!("{e}.value_or(slint::cbindgen_private::AccessibleRole{{}})")
+            } else {
+                e.clone()
+            };
+            accessible_role_cases.push(format!("    case {index}: return {role_expr};"));
         } else if let Some(what) = what.strip_prefix("Action") {
             let has_args = matches!(&*expr.borrow(), llr::Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
 
