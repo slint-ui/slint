@@ -16,23 +16,22 @@ TestCase := Rectangle {
 
 /*
 ```rust
-use slint::*;
 let instance = TestCase::new().unwrap();
 
 // Test initial values
-assert_eq!(instance.get_source(), Some("initial".into()));
-assert_eq!(instance.get_dependent(), Some("initial".into()));
-assert_eq!(instance.get_with_fallback(), "initial".into());
+assert_eq!(instance.get_source(), Some(slint::SharedString::from("initial")));
+assert_eq!(instance.get_dependent(), Some(slint::SharedString::from("initial")));
+assert_eq!(instance.get_with_fallback(), slint::SharedString::from("initial"));
 assert_eq!(instance.get_has_source(), true);
 
 // Test binding updates
 instance.set_source(None);
 assert_eq!(instance.get_dependent(), None);
-assert_eq!(instance.get_with_fallback(), "fallback".into());
+assert_eq!(instance.get_with_fallback(), slint::SharedString::from("fallback"));
 assert_eq!(instance.get_has_source(), false);
 
-instance.set_source(Some("updated".into()));
-assert_eq!(instance.get_dependent(), Some("updated".into()));
-assert_eq!(instance.get_with_fallback(), "updated".into());
+instance.set_source(Some(slint::SharedString::from("updated")));
+assert_eq!(instance.get_dependent(), Some(slint::SharedString::from("updated")));
+assert_eq!(instance.get_with_fallback(), slint::SharedString::from("updated"));
 ```
 */

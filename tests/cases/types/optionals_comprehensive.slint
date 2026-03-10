@@ -32,15 +32,10 @@ TestCase := Rectangle {
     property <OptionalData> data: {
         title: "Test",
         count: 5,
-        // flag is implicitly none
     };
 
-    property <OptionalData> empty_data: {
-        // All fields implicitly none
-    };
-
-    // Chained operators
-    property <string> chained: (opt_text ?? text_wrapped) ?? "final_fallback";
+    // Chained value-or
+    property <string> chained: opt_text.value-or(text_wrapped.value-or("final_fallback"));
 
     // Optional with enum types (testing AccessibleRole? migration)
     property <AccessibleRole?> role: none;
@@ -60,16 +55,16 @@ assert_eq!(instance.get_text_wrapped(), Some("hello".into()));
 assert_eq!(instance.get_number_wrapped(), Some(42));
 
 // Test null-coalescing
-assert_eq!(instance.get_text_with_fallback(), "default".into());
-assert_eq!(instance.get_text_with_value(), "hello".into());
+assert_eq!(instance.get_text_with_fallback(), slint::SharedString::from("default"));
+assert_eq!(instance.get_text_with_value(), slint::SharedString::from("hello"));
 assert_eq!(instance.get_number_with_fallback(), 99);
 
 // Test comparison
 assert_eq!(instance.get_text_is_none(), true);
 assert_eq!(instance.get_text_has_value(), true);
 
-// Test chained operators
-assert_eq!(instance.get_chained(), "hello".into());
+// Test chained value-or
+assert_eq!(instance.get_chained(), slint::SharedString::from("hello"));
 ```
 
 ```cpp

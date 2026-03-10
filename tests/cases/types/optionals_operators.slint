@@ -19,8 +19,8 @@ TestCase := Rectangle {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
-assert_eq!(instance.get_text_or_default(), "default".into());
-assert_eq!(instance.get_text_from_value(), "hello".into());
+assert_eq!(instance.get_text_or_default(), slint::SharedString::from("default"));
+assert_eq!(instance.get_text_from_value(), slint::SharedString::from("hello"));
 assert_eq!(instance.get_number_or_default(), 99);
 assert_eq!(instance.get_number_from_value(), 42);
 ```
