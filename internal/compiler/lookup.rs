@@ -1268,6 +1268,12 @@ impl LookupObject for OptionalExpression<'_> {
                     member_macro(BuiltinMacroFunction::OptionalValueOr),
                 )
             })
+            .or_else(|| {
+                f(
+                    &SmolStr::new_static("value-or-default"),
+                    member_macro(BuiltinMacroFunction::OptionalValueOrDefault),
+                )
+            })
     }
 }
 

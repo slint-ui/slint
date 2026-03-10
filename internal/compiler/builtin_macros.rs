@@ -94,6 +94,9 @@ pub fn lower_macro(
         BuiltinMacroFunction::OptionalValueOr => {
             value_or_macro(n, sub_expr.collect(), diag)
         }
+        BuiltinMacroFunction::OptionalValueOrDefault => {
+            value_or_default_macro(n, sub_expr.collect(), diag)
+        }
     }
 }
 
@@ -150,6 +153,38 @@ fn value_or_macro(
     } else {
         fallback.maybe_convert_to(inner_ty, node, diag)
     };
+
+    Expression::NullCoalesce { base: Box::new(base), fallback: Box::new(fallback) }
+}
+
+fn value_or_default_macro(
+    node: &dyn Spanned,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 1 {
+        diag.push_error("value-or-default() takes no arguments".into(), node);
+
+        return Expression::Invalid;
+    }
+
+    let (base, _) = args.into_iter().next().unwrap();
+
+    if !matches!(base.ty(), Type::Optional(_)) {
+        diag.push_error(
+            "value-or-default() can only be called on optional types".into(),
+            node,
+        );
+
+        return Expression::Invalid;
+    }
+
+    let inner_ty = match base.ty() {
+        Type::Optional(inner) => *inner,
+        _ => unreachable!(),
+    };
+
+    let fallback = Expression::default_value_for_type(&inner_ty);
 
     Expression::NullCoalesce { base: Box::new(base), fallback: Box::new(fallback) }
 }
