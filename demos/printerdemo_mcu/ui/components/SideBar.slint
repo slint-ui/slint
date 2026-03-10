@@ -22,10 +22,13 @@ component SideBarIcon inherits Rectangle {
     }
 
     TouchArea {
-        pointer-event(event) => {
-            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                root.activate();
-            }
+        // pointer-event(event) => {
+        //     if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+        //         root.activate();
+        //     }
+        // }
+        clicked => {
+            root.activate();
         }
 
         width: 150%;
