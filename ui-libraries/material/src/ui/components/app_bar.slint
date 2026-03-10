@@ -79,7 +79,7 @@ component BaseAppBar {
                         spacing: top_layout.spacing;
 
                         for item[index] in root.trailing_buttons : IconButton {
-                            icon: item.icon;
+                            icon: item.icon.value-or(@image-url(""));
                             enabled: item.enabled;
                             tooltip: item.tooltip;
 

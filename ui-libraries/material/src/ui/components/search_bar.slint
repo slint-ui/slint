@@ -272,7 +272,7 @@ export component SearchBar {
                 HorizontalDivider {}
 
                 if root.items.length == 0 : MaterialText {
-                    text: root.empty_text;
+                    text: root.empty_text.value-or("");
                     color: root.color;
                     horizontal_alignment: center;
                     style: MaterialTypography.label_small;
