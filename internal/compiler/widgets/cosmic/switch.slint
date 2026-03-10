@@ -4,13 +4,10 @@
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { StateLayer } from "components.slint";
 
-export component Switch {
-    in property <bool> enabled: true;
-    in property <string> text;
-    in-out property <bool> checked;
-    out property <bool> has-focus: state-layer.has-focus;
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+export component Switch implements SwitchInterface {
+    has-focus: state-layer.has-focus;
 
     private property <color> text-color: CosmicPalette.foreground;
 
