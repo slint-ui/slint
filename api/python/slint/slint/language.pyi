@@ -3,24 +3,41 @@
 
 import typing
 
-class StandardListViewItem(typing.NamedTuple):
-    """Represents an item in a StandardListView and a StandardTableView."""
-
-    text: str = ""
-    """The text content of the item"""
-
 class KeyboardModifiers(typing.NamedTuple):
-    """Indicates which modifier keys are pressed during an event.
+    """
+    The `KeyboardModifiers` struct provides booleans to indicate possible modifier keys on a keyboard, such as Shift, Control, etc.
+     It is provided as part of `KeyEvent`'s `modifiers` field.
 
-    On macOS, the Command key (⌘) is mapped to ``control`` and the Control key is mapped to ``meta``.
-    On Windows, the Windows key is mapped to ``meta``.
+     Keyboard shortcuts on Apple platforms typically use the Command key (⌘), such as Command+C for "Copy". On other platforms
+     the same shortcut is typically represented using Control+C. To make it easier to develop cross-platform applications, on macOS,
+     Slint maps the Command key to the control modifier, and the Control key to the meta modifier.
+
+     On Windows, the Windows key is mapped to the meta modifier.
     """
 
-    shift: bool = False
-    """Indicates the Shift key on a keyboard."""
-    control: bool = False
-    """Indicates the Control key on a keyboard, except on macOS, where it is the Command key (⌘)."""
     alt: bool = False
-    """Indicates the Alt key on a keyboard."""
+    """
+    Indicates the Alt key on a keyboard.
+    """
+    control: bool = False
+    """
+    Indicates the Control key on a keyboard, except on macOS, where it is the Command key (⌘).
+    """
+    shift: bool = False
+    """
+    Indicates the Shift key on a keyboard.
+    """
     meta: bool = False
-    """Indicates the Control key on macOS, and the Windows key on Windows."""
+    """
+    Indicates the Control key on macos, and the Windows key on Windows.
+    """
+
+class StandardListViewItem(typing.NamedTuple):
+    """
+    Represents an item in a StandardListView and a StandardTableView.
+    """
+
+    text: str = ""
+    """
+    The text content of the item
+    """
