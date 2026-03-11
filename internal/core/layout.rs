@@ -1139,7 +1139,7 @@ pub struct LayoutItemInfo {
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
-    // TODO: why *2?
+    // One element results into two coordinates in the result vector. 1. Position, 2. Size
     result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
 
     if data.cells.is_empty() {
