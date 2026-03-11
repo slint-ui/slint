@@ -1148,7 +1148,8 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
 
     let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let num_spacings = (data.cells.len() - 1) as Coord;
-    let content_size = size_without_padding - num_spacings * data.spacing; // The size the cells can occupy without going outside of the layout
+    let spacings = data.spacing * num_spacings;
+    let content_size = size_without_padding - spacings; // The size the cells can occupy without going outside of the layout
     let mut layout_data: Vec<_> = data
         .cells
         .iter()
@@ -1166,7 +1167,6 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         .collect();
 
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
-    let spacings = data.spacing * num_spacings;
 
     let align = match data.alignment {
         LayoutAlignment::Stretch => {
