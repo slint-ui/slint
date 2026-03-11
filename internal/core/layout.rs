@@ -1241,12 +1241,12 @@ pub fn box_layout_info(
         return info;
     };
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
-    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w; // Minimum width of the complete layout
+    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w; // Minimum size of the complete layout
     let max = if is_stretch {
         (cells.iter().map(|c| c.constraint.max).fold(extra_w, Saturating::add)).max(min)
     } else {
         Coord::MAX
-    }; // Maximum width of the complete layout
+    }; // Maximum size of the complete layout
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
