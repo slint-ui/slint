@@ -17,6 +17,7 @@ export component ComboBox {
     callback selected <=> base.selected;
 
     property <int> visible-items: min(6, model.length);
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * MaterialSizeSettings.item-height;
 
     min-width: max(160px, layout.min-width);
     min-height: max(22px, layout.min-height);
@@ -115,6 +116,7 @@ export component ComboBox {
             }
 
             ScrollView {
+                viewport-y: root.popup-scroll-y;
                 VerticalLayout {
                     alignment: start;
 
