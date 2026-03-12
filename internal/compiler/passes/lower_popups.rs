@@ -9,6 +9,7 @@ use crate::langtype::{ElementType, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
+use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 const CLOSE_ON_CLICK: &str = "close-on-click";
@@ -181,7 +182,7 @@ fn lower_popup_window(
 
     let popup_comp = Rc::new(Component {
         root_element: popup_window_element.clone(),
-        parent_element: Rc::downgrade(parent_element),
+        parent_element: RefCell::new(Rc::downgrade(parent_element)),
         ..Component::default()
     });
 
