@@ -64,13 +64,12 @@ export component TextEdit {
     states [
         disabled when !root.enabled: {
             base.background: FluentPalette.control-disabled;
-            base.border-color: FluentPalette.border;
             base.foreground: FluentPalette.text-disabled;
             base.selection-foreground-color: FluentPalette.text-accent-foreground-disabled;
+            base.placeholder-color: FluentPalette.text-disabled;
         }
         focused when root.has-focus: {
             base.background: FluentPalette.control-input-active;
-            base.border-color: FluentPalette.border;
             i-focus-border.background: FluentPalette.accent-background;
         }
     ]
@@ -95,6 +94,7 @@ export component TextEdit {
             y: parent.height - self.height;
             width: parent.width - 2 * parent.border-radius;
             height: 2px;
+            border-radius: 1px;
         }
     }
 }
