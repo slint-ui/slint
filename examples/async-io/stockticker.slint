@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export struct Symbol {
+    name: string,
+    price: float,
+}
+
+export component MainWindow inherits Window {
+    // The symbols and prices here are just to show something in the live-preview. They'll be replaced
+    // with fresh data on start-up.
+    in-out property <[Symbol]> stocks: [
+        {
+            name: "AAPL.US",
+            price: 237.96,
+        },
+        {
+            name: "MSFT.US",
+            price: 509.24,
+        },
+        { name: "AMZN.US", price: 232.94 },
+    ];
+    callback refresh();
+
+    VerticalBox {
+        padding: 10px;
+
+        for stock in root.stocks: HorizontalBox {
+            alignment: start;
+            Text {
+                text: stock.name;
+            }
+
+            Text {
+                text: "$\{stock.price.to-fixed(2)}";
+            }
+        }
+
+        Button {
+            text: @tr("Refresh");
+            clicked => {
+                root.refresh();
+            }
+        }
+    }
+}
