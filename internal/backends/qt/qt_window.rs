@@ -105,6 +105,7 @@ cpp! {{
             // to draw the window background which is set on the palette.
             // (But the window background might not be opaque)
             setAttribute(Qt::WA_NoSystemBackground, false);
+            grabGesture(Qt::PinchGesture);
         }
 
         void paintEvent(QPaintEvent *) override {
@@ -366,6 +367,71 @@ cpp! {{
                     };
                     runtime_window.process_key_input(event);
                 });
+        }
+        static int gesture_phase(Qt::GestureState state) {
+            // 0=Started, 1=Moved, 2=Ended, 3=Cancelled
+            switch (state) {
+                case Qt::GestureStarted:   return 0;
+                case Qt::GestureUpdated:   return 1;
+                case Qt::GestureFinished:  return 2;
+                case Qt::GestureCanceled:  return 3;
+                default:                   return 3;
+            }
+        }
+
+        bool event(QEvent *event) override {
+            if (event->type() == QEvent::Gesture) {
+                auto *ge = static_cast<QGestureEvent*>(event);
+                if (auto *pinch = static_cast<QPinchGesture*>(ge->gesture(Qt::PinchGesture))) {
+                    if (!rust_window) return true;
+
+                    int phase = gesture_phase(pinch->state());
+
+                    // scaleFactor() is the per-step multiplier (e.g. 1.02 = 2% growth
+                    // since last event). totalScaleFactor() is the cumulative product.
+                    // Subtract 1.0 to get an incremental delta matching winit semantics.
+                    float scale_delta = pinch->scaleFactor() - 1.0f;
+
+                    // rotationAngle() is cumulative; compute incremental delta.
+                    // Negate to match Slint convention (positive = clockwise),
+                    // same as the winit backend does for macOS.
+                    float rotation_delta = -(pinch->rotationAngle() - pinch->lastRotationAngle());
+
+                    // centerPoint() is in widget-local coordinates when delivered
+                    // via QWidget::event() (not scene coordinates as the QGraphicsObject
+                    // docs might suggest).
+                    QPointF center = pinch->centerPoint();
+
+                    rust!(Slint_pinchGesture [rust_window: &QtWindow as "void*",
+                            scale_delta: f32 as "float", rotation_delta: f32 as "float",
+                            center: qttypes::QPointF as "QPointF",
+                            phase: i32 as "int"] {
+                        let position = LogicalPoint::new(center.x as _, center.y as _);
+                        let phase = match phase {
+                            0 => i_slint_core::input::TouchPhase::Started,
+                            1 => i_slint_core::input::TouchPhase::Moved,
+                            2 => i_slint_core::input::TouchPhase::Ended,
+                            _ => i_slint_core::input::TouchPhase::Cancelled,
+                        };
+                        rust_window.mouse_event(MouseEvent::PinchGesture {
+                            position, delta: scale_delta, phase,
+                        });
+                        if rotation_delta != 0.0 || matches!(phase,
+                            i_slint_core::input::TouchPhase::Started
+                            | i_slint_core::input::TouchPhase::Ended
+                            | i_slint_core::input::TouchPhase::Cancelled)
+                        {
+                            rust_window.mouse_event(MouseEvent::RotationGesture {
+                                position, delta: rotation_delta, phase,
+                            });
+                        }
+                    });
+
+                    ge->accept();
+                    return true;
+                }
+            }
+            return QWidget::event(event);
         }
     };
 
