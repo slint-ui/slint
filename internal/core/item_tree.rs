@@ -15,11 +15,11 @@ use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
+use core::borrow::Borrow;
 use core::ops::ControlFlow;
 use core::pin::Pin;
-use vtable::*;
-use core::borrow::Borrow;
 use std::println;
+use vtable::*;
 
 pub const ROOT_ITEM_INDEX: u32 = 0;
 
@@ -602,7 +602,9 @@ impl ItemRc {
             for popup in borrow.iter() {
                 if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
                     // Check if component is in a popup
-                    if ItemRc::new(popup.component.clone(), ROOT_ITEM_INDEX).is_root_item_of(&self.item_tree()) {
+                    if ItemRc::new(popup.component.clone(), ROOT_ITEM_INDEX)
+                        .is_root_item_of(&self.item_tree())
+                    {
                         result += location.to_vector();
                     }
                 }
@@ -617,7 +619,6 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
-
         println!("map_from_item_tree_impl. Self: {:?}", self);
         let mut current = self.clone();
         let mut result = p;
@@ -1171,7 +1172,8 @@ impl<'a> ItemTreeNodeArray<'a> {
     /// Get the parent of a node, returns `None` if this is the root node of this item tree.
     pub fn parent(&self, index: u32) -> Option<u32> {
         let index = index as usize;
-        (index < self.node_array.len() && index != ROOT_ITEM_INDEX as usize).then(|| self.node_array[index].parent_index())
+        (index < self.node_array.len() && index != ROOT_ITEM_INDEX as usize)
+            .then(|| self.node_array[index].parent_index())
     }
 
     /// Returns the next sibling or `None` if this is the last sibling.

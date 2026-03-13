@@ -36,8 +36,8 @@ use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Ceil;
 use i_slint_core_macros::*;
-use unicode_segmentation::UnicodeSegmentation;
 use std::println;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// The implementation of the `Text` element
 #[repr(C)]
@@ -1073,7 +1073,10 @@ impl Item for TextInput {
                     let text = self.text();
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
-                println!("Text: key_event: Before insertion: Cursor: {}, Anchor: {}", real_cursor, real_anchor);
+                println!(
+                    "Text: key_event: Before insertion: Cursor: {}, Anchor: {}",
+                    real_cursor, real_anchor
+                );
 
                 if !self.accept_text_input(event.text.as_str()) {
                     return KeyEventResult::EventIgnored;

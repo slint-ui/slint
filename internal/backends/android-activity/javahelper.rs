@@ -360,7 +360,10 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
 
-    println!("Java_SlintAndroidJavaHelper_updateText, preedit_start: {}, preedit_end: {}, cursor_position: {}, anchor_position: {}. Text: {}", preedit_start, preedit_end, cursor_position, anchor_position, text);
+    println!(
+        "Java_SlintAndroidJavaHelper_updateText, preedit_start: {}, preedit_end: {}, cursor_position: {}, anchor_position: {}. Text: {}",
+        preedit_start, preedit_end, cursor_position, anchor_position, text
+    );
 
     let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
     let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
