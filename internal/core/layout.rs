@@ -16,7 +16,7 @@ use num_traits::Float;
 
 pub use crate::items::Orientation;
 
-/// The constraint that applies to an item
+/// The constraint that applies to a layout
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1139,18 +1139,23 @@ pub struct LayoutItemInfo {
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
+    // One element results into two coordinates in the result vector. 1. Position, 2. Size
     result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
 
     if data.cells.is_empty() {
         return result;
     }
 
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let num_spacings = (data.cells.len() - 1) as Coord;
+    let spacings = data.spacing * num_spacings;
+    let content_size = size_without_padding - spacings; // The size the cells can occupy without going outside of the layout
     let mut layout_data: Vec<_> = data
         .cells
         .iter()
         .map(|c| {
-            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100 as Coord);
-            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100 as Coord);
+            let min = c.constraint.min.max(c.constraint.min_percent * content_size / 100 as Coord);
+            let max = c.constraint.max.min(c.constraint.max_percent * content_size / 100 as Coord);
             grid_internal::LayoutData {
                 min,
                 max,
@@ -1161,10 +1166,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         })
         .collect();
 
-    let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
-    let num_spacings = (layout_data.len() - 1) as Coord;
-    let spacings = data.spacing * num_spacings;
 
     let align = match data.alignment {
         LayoutAlignment::Stretch => {
@@ -1239,12 +1241,12 @@ pub fn box_layout_info(
         return info;
     };
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
-    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
+    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w; // Minimum size of the complete layout
     let max = if is_stretch {
         (cells.iter().map(|c| c.constraint.max).fold(extra_w, Saturating::add)).max(min)
     } else {
         Coord::MAX
-    };
+    }; // Maximum size of the complete layout
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
