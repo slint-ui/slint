@@ -13,6 +13,13 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
+// TODO: This can be implemented for wasm32, but it requires some changes
+// to the API, so we can do that when the rest works.
+#[cfg(all(feature = "preview-remote"))]
+pub mod remote;
+#[cfg(all(feature = "preview-remote"))]
+pub use remote::*;
+
 use crate::{common, preview};
 
 pub fn lsp_to_preview(message: common::LspToPreviewMessage) {

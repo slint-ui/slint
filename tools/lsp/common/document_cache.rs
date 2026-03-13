@@ -11,13 +11,13 @@ use i_slint_compiler::typeregister::TypeRegister;
 use lsp_protocol::SourceFileVersion;
 use lsp_types::Url;
 
+use std::rc::Rc;
 use std::{
-    cell::RefCell,
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
     pin::Pin,
-    rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 use crate::common::{ElementRcNode, Result, file_to_uri, uri_to_file};
@@ -32,7 +32,7 @@ fn default_cc() -> i_slint_compiler::CompilerConfiguration {
 }
 
 /// This is i_slint_compiler::OpenImportCallback with version information
-pub type OpenImportCallback = Rc<
+pub type OpenImportCallback = Arc<
     dyn Fn(
         String,
     )
@@ -86,7 +86,7 @@ impl CompilerConfiguration {
 pub struct DocumentCache {
     type_loader: TypeLoader,
     open_import_callback: Option<OpenImportCallback>,
-    source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
+    source_file_versions: Arc<Mutex<SourceFileVersionMap>>,
     pub format: super::ByteFormat,
 }
 
@@ -95,8 +95,8 @@ pub fn document_cache_parts_setup(
     compiler_config: &mut i_slint_compiler::CompilerConfiguration,
     open_import_callback: Option<OpenImportCallback>,
     initial_file_versions: SourceFileVersionMap,
-) -> (Option<OpenImportCallback>, Rc<RefCell<SourceFileVersionMap>>) {
-    let source_file_versions = Rc::new(RefCell::new(initial_file_versions));
+) -> (Option<OpenImportCallback>, Arc<Mutex<SourceFileVersionMap>>) {
+    let source_file_versions = Arc::new(Mutex::new(initial_file_versions));
     DocumentCache::wire_up_import_fallback(
         compiler_config,
         open_import_callback,
@@ -108,8 +108,8 @@ impl DocumentCache {
     fn wire_up_import_fallback(
         compiler_config: &mut i_slint_compiler::CompilerConfiguration,
         open_import_callback: Option<OpenImportCallback>,
-        source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
-    ) -> (Option<OpenImportCallback>, Rc<RefCell<SourceFileVersionMap>>) {
+        source_file_versions: Arc<Mutex<SourceFileVersionMap>>,
+    ) -> (Option<OpenImportCallback>, Arc<Mutex<SourceFileVersionMap>>) {
         let source_versions = source_file_versions.clone();
         if let Some(open_import_callback) = open_import_callback.clone() {
             compiler_config.open_import_callback = Some(Rc::new(move |file_name: String| {
@@ -120,11 +120,11 @@ impl DocumentCache {
                         let path = PathBuf::from(file_name);
                         match r {
                             Ok((v, c)) => {
-                                source_versions.borrow_mut().insert(path, v);
+                                source_versions.lock().unwrap().insert(path, v);
                                 Ok(c)
                             }
                             Err(e) => {
-                                source_versions.borrow_mut().remove(&path);
+                                source_versions.lock().unwrap().remove(&path);
                                 Err(e)
                             }
                         }
@@ -143,7 +143,7 @@ impl DocumentCache {
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
             &mut compiler_config,
             open_import_callback,
-            Rc::new(RefCell::new(SourceFileVersionMap::default())),
+            Arc::new(Mutex::new(SourceFileVersionMap::default())),
         );
 
         Self {
@@ -157,7 +157,7 @@ impl DocumentCache {
     pub fn new_from_raw_parts(
         mut type_loader: TypeLoader,
         open_import_callback: Option<OpenImportCallback>,
-        source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
+        source_file_versions: Arc<Mutex<SourceFileVersionMap>>,
         format: super::ByteFormat,
     ) -> Self {
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
@@ -172,7 +172,7 @@ impl DocumentCache {
     pub fn snapshot(&self) -> Option<Self> {
         let open_import_callback = self.open_import_callback.clone();
         let source_file_versions =
-            Rc::new(RefCell::new(self.source_file_versions.borrow().clone()));
+            Arc::new(Mutex::new(self.source_file_versions.lock().unwrap().clone()));
         i_slint_compiler::typeloader::snapshot(&self.type_loader).map(|tl| {
             Self::new_from_raw_parts(tl, open_import_callback, source_file_versions, self.format)
         })
@@ -191,7 +191,7 @@ impl DocumentCache {
     }
 
     pub fn document_version_by_path(&self, path: &Path) -> SourceFileVersion {
-        self.source_file_versions.borrow().get(path).and_then(|v| *v)
+        self.source_file_versions.lock().unwrap().get(path).and_then(|v| *v)
     }
 
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
@@ -344,7 +344,7 @@ impl DocumentCache {
         let path = uri_to_file(url)
             .ok_or_else(|| anyhow::format_err!("Failed to convert path for loading: {url}"))?;
         self.type_loader.load_file(&path, &path, content, false, diag).await;
-        self.source_file_versions.borrow_mut().insert(path, version);
+        self.source_file_versions.lock().unwrap().insert(path, version);
         Ok(())
     }
 
@@ -485,12 +485,15 @@ mod tests {
     #[test]
     fn test_element_at_position_no_element() {
         let (dc, url, _) = complex_document_cache();
-        assert_eq!(id_at_position(&dc, &url, 0, 10), None);
-        // TODO: This is past the end of the line and should thus return None
-        assert_eq!(id_at_position(&dc, &url, 42, 90), Some(String::new()));
-        assert_eq!(id_at_position(&dc, &url, 1, 0), None);
-        assert_eq!(id_at_position(&dc, &url, 55, 1), None);
-        assert_eq!(id_at_position(&dc, &url, 56, 5), None);
+
+        dc.blocking_with(move |dc| {
+            assert_eq!(id_at_position(&dc, &url, 0, 10), None);
+            // TODO: This is past the end of the line and should thus return None
+            assert_eq!(id_at_position(&dc, &url, 42, 90), Some(String::new()));
+            assert_eq!(id_at_position(&dc, &url, 1, 0), None);
+            assert_eq!(id_at_position(&dc, &url, 55, 1), None);
+            assert_eq!(id_at_position(&dc, &url, 56, 5), None);
+        });
     }
 
     #[test]
@@ -502,38 +505,47 @@ mod tests {
     #[test]
     fn test_element_at_position_no_such_document() {
         let (dc, _, _) = complex_document_cache();
-        assert_eq!(id_at_position(&dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0), None);
+        dc.blocking_with(move |dc| {
+            assert_eq!(
+                id_at_position(&dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0),
+                None
+            );
+        });
     }
 
     #[test]
     fn test_element_at_position_root() {
         let (dc, url, _) = complex_document_cache();
 
-        assert_eq!(id_at_position(&dc, &url, 2, 30), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 2, 32), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 2, 42), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 3, 0), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 3, 53), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 4, 19), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 5, 0), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 6, 8), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 6, 15), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 6, 23), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 8, 15), Some("root".to_string()));
-        assert_eq!(id_at_position(&dc, &url, 12, 3), Some("root".to_string())); // right before child // TODO: Seems wrong!
-        assert_eq!(id_at_position(&dc, &url, 51, 5), Some("root".to_string())); // right after child // TODO: Why does this not work?
-        assert_eq!(id_at_position(&dc, &url, 52, 0), Some("root".to_string()));
+        dc.blocking_with(move |dc| {
+            assert_eq!(id_at_position(&dc, &url, 2, 30), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 2, 32), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 2, 42), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 3, 0), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 3, 53), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 4, 19), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 5, 0), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 6, 8), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 6, 15), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 6, 23), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 8, 15), Some("root".to_string()));
+            assert_eq!(id_at_position(&dc, &url, 12, 3), Some("root".to_string())); // right before child // TODO: Seems wrong!
+            assert_eq!(id_at_position(&dc, &url, 51, 5), Some("root".to_string())); // right after child // TODO: Why does this not work?
+            assert_eq!(id_at_position(&dc, &url, 52, 0), Some("root".to_string()));
+        });
     }
 
     #[test]
     fn test_element_at_position_child() {
         let (dc, url, _) = complex_document_cache();
 
-        assert_eq!(base_type_at_position(&dc, &url, 12, 4), Some("VerticalBox".to_string()));
-        assert_eq!(base_type_at_position(&dc, &url, 14, 22), Some("HorizontalBox".to_string()));
-        assert_eq!(base_type_at_position(&dc, &url, 15, 33), Some("Text".to_string()));
-        assert_eq!(base_type_at_position(&dc, &url, 27, 4), Some("VerticalBox".to_string()));
-        assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
-        assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
+        dc.blocking_with(move |dc| {
+            assert_eq!(base_type_at_position(&dc, &url, 12, 4), Some("VerticalBox".to_string()));
+            assert_eq!(base_type_at_position(&dc, &url, 14, 22), Some("HorizontalBox".to_string()));
+            assert_eq!(base_type_at_position(&dc, &url, 15, 33), Some("Text".to_string()));
+            assert_eq!(base_type_at_position(&dc, &url, 27, 4), Some("VerticalBox".to_string()));
+            assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
+            assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
+        });
     }
 }

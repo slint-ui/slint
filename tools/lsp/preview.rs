@@ -27,6 +27,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 #[cfg(target_arch = "wasm32")]
 use lsp_protocol::wasm_prelude::*;
@@ -1396,7 +1397,7 @@ async fn parse_source(
     Vec<diagnostics::Diagnostic>,
     Option<ComponentDefinition>,
     Option<common::document_cache::OpenImportCallback>,
-    Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
+    Arc<Mutex<common::document_cache::SourceFileVersionMap>>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
 
@@ -1422,7 +1423,7 @@ async fn parse_source(
     let (open_file_fallback, source_file_versions) =
         common::document_cache::document_cache_parts_setup(
             cc,
-            Some(Rc::new(file_loader_fallback)),
+            Some(Arc::new(file_loader_fallback)),
             common::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
         );
 
@@ -1500,7 +1501,7 @@ async fn reload_preview_impl(
         }
         preview_state.to_lsp.borrow().clone().unwrap()
     });
-    let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
+    let diags = convert_diagnostics(&diagnostics, &source_file_versions.lock().unwrap());
     lsp.notify_diagnostics(diags).unwrap();
 
     update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
@@ -1872,7 +1873,7 @@ fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
     open_import_callback: Option<common::document_cache::OpenImportCallback>,
-    source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
+    source_file_versions: Arc<Mutex<common::document_cache::SourceFileVersionMap>>,
     format: common::ByteFormat,
 ) -> Result<(), PlatformError> {
     PREVIEW_STATE.with_borrow_mut(move |preview_state| {
