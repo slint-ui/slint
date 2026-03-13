@@ -18,6 +18,7 @@ use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
+use core::borrow::Borrow;
 use std::println;
 
 #[repr(C)]
@@ -329,7 +330,7 @@ impl ItemRc {
 
     /// Return the parent Item in the item tree.
     ///
-    /// If the item is a the root on its Window or PopupWindow, then the parent is None.
+    /// If the item is the root on its Window or PopupWindow, then the parent is None.
     pub fn parent_item(&self, find_mode: ParentItemTraversalMode) -> Option<ItemRc> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
@@ -338,6 +339,7 @@ impl ItemRc {
             return Some(ItemRc::new(self.item_tree.clone(), parent_index));
         }
 
+        // It is a root item so check if it is a dynamic tree object like a repeater or if a window/popup
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_node(&mut r);
         let parent = r.upgrade()?;
@@ -589,6 +591,20 @@ impl ItemRc {
             result += geometry.origin.to_vector();
             println!("Geometry Origin: {:?}, Result: {:?}", geometry.origin, result);
             current = parent;
+        }
+
+        if let Some(window_adapter) = self.window_adapter() {
+            let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+            let active_popups = window_inner.active_popups();
+            let borrow = active_popups.borrow();
+            for popup in borrow.iter() {
+                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
+                    // Check if component is in a popup
+                    // if popup.component == current {
+                        result += location.to_vector();
+                    // }                   
+                }
+            }
         }
         println!("map_to_item_tree_impl. FINISHED");
         result

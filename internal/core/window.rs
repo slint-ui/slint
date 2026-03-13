@@ -2146,6 +2146,9 @@ impl WindowInner {
                     let mut item_trees = Vec::with_capacity(borrow.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
                     for popup in borrow.iter() {
+                        // If the popup is not a real window and does not have its own coordinate system.
+                        // We have to draw the popup and consider the location for subelements because everything must
+                        // be rendered relative to the main window position
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
@@ -2317,6 +2320,8 @@ impl WindowInner {
             self.close_popup(sibling);
         }
 
+        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
+        // of the current window
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
