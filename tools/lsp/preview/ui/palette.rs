@@ -598,35 +598,44 @@ export component Main { }
             ("fluent-light", 0x00000073u32),
         ];
 
-        for (style, border) in cases {
-            let mut config = crate::common::document_cache::CompilerConfiguration::default();
-            config.style = Some(style.to_string());
-            let mut dc = common::DocumentCache::new(config);
-            let (url, _) = crate::language::test::load(
-                None,
-                &mut dc,
-                &std::env::temp_dir().join("xxx/test.slint"),
-                r#"
+        let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+        let local_set = tokio::task::LocalSet::new();
+
+        local_set.block_on(&rt, async move {
+            for (style, border) in cases {
+                let mut config = crate::common::document_cache::CompilerConfiguration::default();
+                config.style = Some(style.to_string());
+                let mut dc = common::DocumentCache::new(config);
+                let (url, _) = crate::language::test::load(
+                    None,
+                    None,
+                    &mut dc,
+                    &std::env::temp_dir().join("xxx/test.slint"),
+                    r#"
                     import { Palette } from "std-widgets.slint";
                     export component Main { }
                 "#,
-            );
+                )
+                .await;
 
-            let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
-            let r =
-                result.iter().find(|entry| entry.name == "Palette.border").expect("Palette.border");
-            let color = i_slint_core::Color::from_argb_u8(
-                (border & 0xff) as u8,
-                ((border >> 24) & 0xff) as u8,
-                ((border >> 16) & 0xff) as u8,
-                ((border >> 8) & 0xff) as u8,
-            );
-            assert_eq!(
-                r.value.value_brush,
-                slint::Brush::SolidColor(color),
-                "border color for {style}"
-            );
-        }
+                let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
+                let r = result
+                    .iter()
+                    .find(|entry| entry.name == "Palette.border")
+                    .expect("Palette.border");
+                let color = i_slint_core::Color::from_argb_u8(
+                    (border & 0xff) as u8,
+                    ((border >> 24) & 0xff) as u8,
+                    ((border >> 16) & 0xff) as u8,
+                    ((border >> 8) & 0xff) as u8,
+                );
+                assert_eq!(
+                    r.value.value_brush,
+                    slint::Brush::SolidColor(color),
+                    "border color for {style}"
+                );
+            }
+        });
     }
 
     #[test]

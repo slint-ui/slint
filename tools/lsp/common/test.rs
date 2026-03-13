@@ -5,6 +5,7 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
+    sync::Arc,
 };
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
@@ -34,7 +35,7 @@ async fn parse_source(
         }
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
-        tmp.open_import_callback = Some(Rc::new(move |path| {
+        tmp.open_import_callback = Some(Arc::new(move |path| {
             let path = PathBuf::from(&path);
             file_loader_fallback(&path)
         }));

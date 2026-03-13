@@ -486,14 +486,12 @@ mod tests {
     fn test_element_at_position_no_element() {
         let (dc, url, _) = complex_document_cache();
 
-        dc.blocking_with(move |dc| {
-            assert_eq!(id_at_position(&dc, &url, 0, 10), None);
-            // TODO: This is past the end of the line and should thus return None
-            assert_eq!(id_at_position(&dc, &url, 42, 90), Some(String::new()));
-            assert_eq!(id_at_position(&dc, &url, 1, 0), None);
-            assert_eq!(id_at_position(&dc, &url, 55, 1), None);
-            assert_eq!(id_at_position(&dc, &url, 56, 5), None);
-        });
+        assert_eq!(id_at_position(&dc, &url, 0, 10), None);
+        // TODO: This is past the end of the line and should thus return None
+        assert_eq!(id_at_position(&dc, &url, 42, 90), Some(String::new()));
+        assert_eq!(id_at_position(&dc, &url, 1, 0), None);
+        assert_eq!(id_at_position(&dc, &url, 55, 1), None);
+        assert_eq!(id_at_position(&dc, &url, 56, 5), None);
     }
 
     #[test]
@@ -505,47 +503,38 @@ mod tests {
     #[test]
     fn test_element_at_position_no_such_document() {
         let (dc, _, _) = complex_document_cache();
-        dc.blocking_with(move |dc| {
-            assert_eq!(
-                id_at_position(&dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0),
-                None
-            );
-        });
+        assert_eq!(id_at_position(&dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0), None);
     }
 
     #[test]
     fn test_element_at_position_root() {
         let (dc, url, _) = complex_document_cache();
 
-        dc.blocking_with(move |dc| {
-            assert_eq!(id_at_position(&dc, &url, 2, 30), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 2, 32), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 2, 42), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 3, 0), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 3, 53), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 4, 19), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 5, 0), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 6, 8), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 6, 15), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 6, 23), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 8, 15), Some("root".to_string()));
-            assert_eq!(id_at_position(&dc, &url, 12, 3), Some("root".to_string())); // right before child // TODO: Seems wrong!
-            assert_eq!(id_at_position(&dc, &url, 51, 5), Some("root".to_string())); // right after child // TODO: Why does this not work?
-            assert_eq!(id_at_position(&dc, &url, 52, 0), Some("root".to_string()));
-        });
+        assert_eq!(id_at_position(&dc, &url, 2, 30), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 2, 32), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 2, 42), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 3, 0), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 3, 53), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 4, 19), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 5, 0), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 6, 8), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 6, 15), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 6, 23), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 8, 15), Some("root".to_string()));
+        assert_eq!(id_at_position(&dc, &url, 12, 3), Some("root".to_string())); // right before child // TODO: Seems wrong!
+        assert_eq!(id_at_position(&dc, &url, 51, 5), Some("root".to_string())); // right after child // TODO: Why does this not work?
+        assert_eq!(id_at_position(&dc, &url, 52, 0), Some("root".to_string()));
     }
 
     #[test]
     fn test_element_at_position_child() {
         let (dc, url, _) = complex_document_cache();
 
-        dc.blocking_with(move |dc| {
-            assert_eq!(base_type_at_position(&dc, &url, 12, 4), Some("VerticalBox".to_string()));
-            assert_eq!(base_type_at_position(&dc, &url, 14, 22), Some("HorizontalBox".to_string()));
-            assert_eq!(base_type_at_position(&dc, &url, 15, 33), Some("Text".to_string()));
-            assert_eq!(base_type_at_position(&dc, &url, 27, 4), Some("VerticalBox".to_string()));
-            assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
-            assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
-        });
+        assert_eq!(base_type_at_position(&dc, &url, 12, 4), Some("VerticalBox".to_string()));
+        assert_eq!(base_type_at_position(&dc, &url, 14, 22), Some("HorizontalBox".to_string()));
+        assert_eq!(base_type_at_position(&dc, &url, 15, 33), Some("Text".to_string()));
+        assert_eq!(base_type_at_position(&dc, &url, 27, 4), Some("VerticalBox".to_string()));
+        assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
+        assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
     }
 }

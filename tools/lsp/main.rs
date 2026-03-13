@@ -26,25 +26,22 @@ use async_lsp::router::Router;
 use async_lsp::server::LifecycleLayer;
 use async_lsp::tracing::TracingLayer;
 use common::Result;
-use i_slint_compiler::diagnostics::BuildDiagnostics;
+use futures_util::FutureExt;
 use language::*;
 
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
     DidOpenTextDocument, Notification,
 };
-use lsp_types::request::Initialize;
-use lsp_types::{InitializeParams, InitializeResult, Url};
+use lsp_types::{InitializeParams, Url, request::Initialize};
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Write as _;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
-use tower::ServiceBuilder;
+use tower::{Service, ServiceBuilder};
 
 use crate::common::document_cache::CompilerConfiguration;
 use crate::request_handler::RequestHandler;
@@ -140,6 +137,8 @@ pub struct ServerNotifier {
 
 impl ServerNotifier {
     pub fn send_notification<N: Notification>(&self, params: N::Params) -> Result<()> {
+        let json = serde_json::to_string(&params).unwrap();
+        tracing::debug!("Sending notification {json}");
         Ok(self.client.notify::<N>(params)?)
     }
 
@@ -147,6 +146,8 @@ impl ServerNotifier {
         &self,
         request: R::Params,
     ) -> Result<R::Result> {
+        let json = serde_json::to_string(&request).unwrap();
+        tracing::debug!("Sending request {json}");
         Ok(self.client.request::<R>(request).await?)
     }
 
@@ -191,8 +192,7 @@ impl ServerNotifier {
 // }
 // }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_ansi(false)
@@ -258,9 +258,18 @@ async fn main() {
                 }
             },
         }
-    } else if let Err(error) = run_lsp_server(args).await {
-        tracing::error!("Error running LSP server: {error}");
-        std::process::exit(3);
+    } else {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
+        let local_set = tokio::task::LocalSet::new();
+
+        if let Err(error) = local_set.block_on(&rt, run_lsp_server(args)) {
+            tracing::error!("Error running LSP server: {error}");
+            std::process::exit(3);
+        }
     }
 }
 
@@ -268,35 +277,49 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
     let (server, _) = async_lsp::MainLoop::new_server(move |client| {
         let mut router = Router::new(OnceLock::<Context>::new());
         register_notifications(&mut router);
-        let server_notifier = ServerNotifier { client };
+        let server_notifier = ServerNotifier { client: client.clone() };
 
-        router.request::<Initialize, _>(move |ctx, params| {
-            let ctx = ctx.get().unwrap();
-            let document_cache = ctx.document_cache.clone();
-            let server_notifier = ctx.server_notifier.clone();
-            async move {
-                let preview_config =
-                    startup_lsp(&params, server_notifier, document_cache).await.map_err(|err| {
-                        async_lsp::ResponseError::new(async_lsp::ErrorCode::INTERNAL_ERROR, err)
-                    })?;
-                client.emit(SetContextEvent(params, preview_config)).ok();
-                Ok(InitializeResult::default())
-            }
-        });
-        router.event::<events::SetContextEvent>(move |ctx, params| {
-            let new_ctx = create_context(server_notifier, params.0, args.clone(), params.1);
-            if ctx.set(new_ctx).is_err() {
-                std::ops::ControlFlow::Break(Err(async_lsp::Error::Response(
-                    async_lsp::ResponseError::new(
-                        async_lsp::ErrorCode::INTERNAL_ERROR,
-                        "Received SetContextEvent twice",
-                    ),
-                )))
-            } else {
-                std::ops::ControlFlow::Continue(())
-            }
-        });
         let inner_sn = server_notifier.clone();
+        router.request::<Initialize, _>(move |ctx, params| {
+            let document_cache = if ctx
+                .set(create_context(inner_sn.clone(), params.clone(), args.clone(), None))
+                .is_err()
+            {
+                Err(async_lsp::ResponseError::new(
+                    async_lsp::ErrorCode::INTERNAL_ERROR,
+                    "Received Initialize request twice",
+                ))
+            } else {
+                Ok(ctx.get().unwrap().document_cache.clone())
+            };
+            let server_notifier = inner_sn.clone();
+            async move {
+                let document_cache = document_cache?;
+                let result = server_initialize_result(&params.capabilities);
+                // Delay startup until the response to the Initialize request has been sent.
+                tokio::task::spawn_local(async move {
+                    match startup_lsp(&params, &server_notifier, document_cache).await {
+                        Err(err) => {
+                            server_notifier
+                                .send_event(async_lsp::Error::Response(
+                                    async_lsp::ResponseError::new(
+                                        async_lsp::ErrorCode::INTERNAL_ERROR,
+                                        err,
+                                    ),
+                                ))
+                                .ok();
+                        }
+                        Ok(None) => {}
+                        Ok(Some(config)) => {
+                            server_notifier
+                                .send_event(events::ConfigurePreviewEvent { config, doc_count: 0 })
+                                .ok();
+                        }
+                    }
+                });
+                Ok(result)
+            }
+        });
         router.event::<events::SendDiagnosticsEvent>(move |ctx, params| {
             let ctx = ctx.get().unwrap();
             let server_notifier = ctx.server_notifier.clone();
@@ -307,7 +330,8 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
         });
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         router.event::<events::ConfigurePreviewEvent>(move |ctx, params| {
-            let ctx = ctx.get().unwrap();
+            let ctx = ctx.get_mut().unwrap();
+            ctx.preview_config = params.config.clone();
             ctx.to_preview.oneway(move |to_preview| {
                 to_preview
                     .send(&common::LspToPreviewMessage::SetConfiguration { config: params.config });
@@ -358,7 +382,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             if let Some(old_timer) =
                 ctx.recompile_timer.replace(tokio::task::spawn_local(async move {
                     tokio::time::sleep(RECOMPILE_TIMEOUT).await;
-                    server_notifier.send_event(RecompileTimerEvent).ok();
+                    server_notifier.send_event(events::RecompileTimerEvent).ok();
                 }))
             {
                 old_timer.abort();
@@ -376,7 +400,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
                 std::ops::ControlFlow::Continue(())
             }
         });
-        router.event::<RecompileTimerEvent>(move |ctx, _| {
+        router.event::<events::RecompileTimerEvent>(move |ctx, _| {
             let ctx = ctx.get_mut().unwrap();
             let server_notifier = ctx.server_notifier.clone();
             let mut futures = Vec::with_capacity(ctx.pending_recompile.len());
@@ -393,9 +417,14 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             std::ops::ControlFlow::Continue(())
         });
         router.event::<async_lsp::Error>(|_ctx, error| std::ops::ControlFlow::Break(Err(error)));
+        router.request::<lsp_types::request::Shutdown, _>(|ctx, _| {
+            ctx.get_mut().unwrap().to_preview.clone().exec(|to_preview| {
+                to_preview.send(&lsp_protocol::LspToPreviewMessage::Quit);
+                Ok(())
+            })
+        });
         let mut rh = RequestHandler(router);
         register_request_handlers(&mut rh);
-        // TODO: register notification handlers
 
         ServiceBuilder::new()
             .layer(TracingLayer::default())
@@ -403,6 +432,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             .layer(CatchUnwindLayer::default())
             .layer(ConcurrencyLayer::default())
             .layer(ClientProcessMonitorLayer::new(client))
+            .layer(tower::layer::layer_fn(LogService))
             .service(rh.0)
     });
 
@@ -452,10 +482,9 @@ fn create_context(
 
         let sn = server_notifier.clone();
 
-        LocalThreadWrapper::new(|| {
-            let child_preview: Box<dyn common::LspToPreview> = Box::new(
-                preview::connector::ChildProcessLspToPreview::new(server_notifier.clone()),
-            );
+        LocalThreadWrapper::new(move || {
+            let child_preview: Box<dyn common::LspToPreview> =
+                Box::new(preview::connector::ChildProcessLspToPreview::new(sn.clone()));
             let embedded_preview: Box<dyn common::LspToPreview> =
                 Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
             #[cfg(feature = "preview-remote")]
@@ -475,56 +504,64 @@ fn create_context(
     };
 
     let to_preview_clone = to_preview.clone();
-    let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
-        include_paths: cli_args.include_paths,
-        library_paths: cli_args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-        open_import_callback: Some(Rc::new(move |path| {
-            let to_preview = to_preview_clone.clone();
-            // let server_notifier = server_notifier_.clone();
-            Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read_to_string(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
-                    if let Ok(contents) = &contents {
-                        let contents = contents.clone().into();
-                        to_preview.oneway(move |to_preview| {
-                            to_preview.send(&common::LspToPreviewMessage::SetContents {
-                                url: common::VersionedUrl::new(url, None),
-                                contents,
-                            });
-                        });
-                    } else {
-                        to_preview.oneway(move |to_preview| {
-                            to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });
-                        });
-                    }
-                }
-                Some(contents.map(|c| (None, c)))
-            })
-        })),
-        format: if init_param
-            .capabilities
-            .general
-            .as_ref()
-            .and_then(|x| x.position_encodings.as_ref())
-            .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
-        {
-            common::ByteFormat::Utf8
-        } else {
-            common::ByteFormat::Utf16
-        },
-        resource_url_mapper: None,
-        // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
-        enable_experimental: false,
-    };
+
+    let inner_init_param = init_param.clone();
 
     Context {
-        document_cache: util::LocalThreadWrapper::new(|| {
+        document_cache: util::LocalThreadWrapper::new(move || {
+            let compiler_config = CompilerConfiguration {
+                style: Some(if cli_args.style.is_empty() {
+                    "native".into()
+                } else {
+                    cli_args.style
+                }),
+                include_paths: cli_args.include_paths,
+                library_paths: cli_args
+                    .library_paths
+                    .iter()
+                    .filter_map(|entry| {
+                        entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                    })
+                    .collect(),
+                open_import_callback: Some(Arc::new(move |path| {
+                    let to_preview = to_preview_clone.clone();
+                    Box::pin(async move {
+                        tracing::trace!("Importing file: {}", path);
+                        let contents = std::fs::read_to_string(&path);
+                        if let Ok(url) = Url::from_file_path(&path) {
+                            if let Ok(contents) = &contents {
+                                let contents = contents.clone().into();
+                                to_preview.oneway(move |to_preview| {
+                                    to_preview.send(&common::LspToPreviewMessage::SetContents {
+                                        url: common::VersionedUrl::new(url, None),
+                                        contents,
+                                    });
+                                });
+                            } else {
+                                to_preview.oneway(move |to_preview| {
+                                    to_preview
+                                        .send(&common::LspToPreviewMessage::ForgetFile { url });
+                                });
+                            }
+                        }
+                        Some(contents.map(|c| (None, c)))
+                    })
+                })),
+                format: if inner_init_param
+                    .capabilities
+                    .general
+                    .as_ref()
+                    .and_then(|x| x.position_encodings.as_ref())
+                    .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
+                {
+                    common::ByteFormat::Utf8
+                } else {
+                    common::ByteFormat::Utf16
+                },
+                resource_url_mapper: None,
+                // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
+                enable_experimental: false,
+            };
             crate::common::DocumentCache::new(compiler_config)
         }),
         preview_config: preview_config.unwrap_or_default(),
@@ -538,193 +575,6 @@ fn create_context(
         recompile_timer: None,
     }
 }
-
-// fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli) -> Result<()> {
-//     let runtime =
-//         tokio::runtime::Builder::new_current_thread().enable_io().enable_time().build()?;
-
-//     runtime.block_on(async move {
-//         let mut rh = RequestHandler::default();
-//         register_request_handlers(&mut rh);
-
-//         let request_queue = OutgoingRequestQueue::default();
-//         #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
-//         let (preview_to_lsp_sender, preview_to_lsp_receiver) =
-//             crossbeam_channel::unbounded::<crate::common::PreviewToLspMessage>();
-
-//         let server_notifier =
-//             ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
-
-//         #[cfg(not(feature = "preview-engine"))]
-//         let to_preview = {
-//             Rc::new(preview::connector::SwitchableLspToPreview::with_one(common::DummyLspToPreview {}))
-//         };
-//         #[cfg(feature = "preview-engine")]
-//         let to_preview = {
-//             let sn = server_notifier.clone();
-
-//             let child_preview: Box<dyn common::LspToPreview> = Box::new(
-//                 preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()),
-//             );
-//             let embedded_preview: Box<dyn common::LspToPreview> =
-//                 Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
-//             #[cfg(feature = "preview-remote")]
-//             let remote_preview: Box<dyn common::LspToPreview> =
-//                 Box::new(preview::connector::RemoteLspToPreview::new(preview_to_lsp_sender, sn));
-//             Rc::new(
-//                 preview::connector::SwitchableLspToPreview::new(
-//                     HashMap::from([
-//                         (common::PreviewTarget::ChildProcess, child_preview),
-//                         (common::PreviewTarget::EmbeddedWasm, embedded_preview),
-//                         #[cfg(feature = "preview-remote")]
-//                         (common::PreviewTarget::Remote, remote_preview),
-//                     ]),
-//                     common::PreviewTarget::ChildProcess,
-//                 )
-//                 .unwrap(),
-//             )
-//         };
-
-//         let to_preview_clone = to_preview.clone();
-//         let compiler_config = CompilerConfiguration {
-//             style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
-//             include_paths: cli_args.include_paths,
-//             library_paths: cli_args
-//                 .library_paths
-//                 .iter()
-//                 .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-//                 .collect(),
-//             open_import_callback: Some(Rc::new(move |path| {
-//                 let to_preview = to_preview_clone.clone();
-//                 // let server_notifier = server_notifier_.clone();
-//                 Box::pin(async move {
-//                     tracing::trace!("Importing file: {}", path);
-//                     let contents = std::fs::read_to_string(&path);
-//                     if let Ok(url) = Url::from_file_path(&path) {
-//                         if let Ok(contents) = &contents {
-//                             to_preview.send(&common::LspToPreviewMessage::SetContents {
-//                                 url: common::VersionedUrl::new(url, None),
-//                                 contents: contents.clone().into(),
-//                             });
-//                         } else {
-//                             to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });
-//                         }
-//                     }
-//                     Some(contents.map(|c| (None, c)))
-//                 })
-//             })),
-//             format: if init_param
-//                 .capabilities
-//                 .general
-//                 .as_ref()
-//                 .and_then(|x| x.position_encodings.as_ref())
-//                 .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
-//             {
-//                 common::ByteFormat::Utf8
-//             } else {
-//                 common::ByteFormat::Utf16
-//             },
-//             resource_url_mapper: None,
-//             // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
-//             enable_experimental: false,
-//         };
-
-//         let ctx = Rc::new(Context {
-//             document_cache: crate::common::DocumentCache::new(compiler_config),
-//             preview_config: Default::default(),
-//             server_notifier,
-//             init_param,
-//             #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-//             to_show: Default::default(),
-//             open_urls: Default::default(),
-//             to_preview,
-//             pending_recompile: Default::default(),
-//         });
-
-//         let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
-//         let mut first_future = Box::pin(startup_lsp(&ctx));
-
-//         // We are waiting in this loop for two kind of futures:
-//         //  - The compiler future should always be ready immediately because we do not set a callback to load files
-//         //  - the future from `send_request` are blocked waiting for a response from the client.
-//         //    Responses are sent on the `connection.receiver` which will wake the loop, so there
-//         //    is no need to do anything in the waker.
-//         struct DummyWaker;
-//         impl std::task::Wake for DummyWaker {
-//             fn wake(self: Arc<Self>) {}
-//         }
-//         let waker = Arc::new(DummyWaker).into();
-//         match first_future.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
-//             Poll::Ready(x) => x?,
-//             Poll::Pending => futures.push(first_future),
-//         };
-
-//         loop {
-//             let recompile_timeout = if ctx.pending_recompile.borrow().is_empty() {
-//                 crossbeam_channel::never()
-//             } else {
-//                 crossbeam_channel::after(std::time::Duration::from_millis(50))
-//             };
-//             crossbeam_channel::select! {
-//                 recv(connection.receiver) -> msg => {
-//                     match msg? {
-//                         Message::Request(req) => {
-//                             // ignore errors when shutdown
-//                             if connection.handle_shutdown(&req).unwrap_or(false) {
-//                                 return Ok(());
-//                             }
-//                             futures.push(Box::pin(rh.handle_request(req, &ctx)));
-//                         }
-//                         Message::Response(resp) => {
-//                             if let Some(q) = request_queue.lock().unwrap().get_mut(&resp.id) {
-//                                 match q {
-//                                     OutgoingRequest::Done(_) => {
-//                                         return Err("Response to unknown request".into())
-//                                     }
-//                                     OutgoingRequest::Start => { /* nothing to do */ }
-//                                     OutgoingRequest::Pending(x) => x.wake_by_ref(),
-//                                 };
-//                                 *q = OutgoingRequest::Done(resp)
-//                             } else {
-//                                 return Err("Response to unknown request".into());
-//                             }
-//                         }
-//                         Message::Notification(notification) => {
-//                             futures.push(Box::pin(handle_notification(notification, &ctx)))
-//                         }
-//                     }
-//                  },
-//                  recv(preview_to_lsp_receiver) -> _msg => {
-//                     // Messages from the native preview come in here:
-//                     #[cfg(feature = "preview-engine")]
-//                     futures.push(Box::pin(handle_preview_to_lsp_message(_msg?, &ctx)))
-//                  },
-//                  recv(recompile_timeout) -> _ => {
-//                      let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
-
-//                      for url in pending_recompile {
-//                          futures.push(Box::pin(language::reload_document(&ctx, url)));
-//                      }
-//                  }
-//             };
-
-//             let mut result = Ok(());
-//             futures.retain_mut(|f| {
-//                 if result.is_err() {
-//                     return true;
-//                 }
-//                 match f.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
-//                     Poll::Ready(x) => {
-//                         result = x;
-//                         false
-//                     }
-//                     Poll::Pending => true,
-//                 }
-//             });
-//             result?;
-//         }
-//     })
-// }
 
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 struct ShowPreviewCommandNotification;
@@ -776,7 +626,7 @@ fn register_notifications(router: &mut Router<OnceLock<Context>>) {
     });
     router.notification::<DidChangeConfiguration>(|ctx, _params| {
         let ctx = ctx.get_mut().unwrap();
-        let client = ctx.server_notifier.client.clone();
+        let server_notifier = ctx.server_notifier.clone();
         let document_cache = ctx.document_cache.clone();
         if ctx
             .init_param
@@ -787,8 +637,12 @@ fn register_notifications(router: &mut Router<OnceLock<Context>>) {
             .unwrap_or(false)
         {
             tokio::task::spawn_local(async move {
-                if let Ok(Some(config)) = load_configuration(client.clone(), document_cache).await {
-                    client.emit(ConfigurePreviewEvent { config, doc_count: 0 }).ok();
+                if let Ok(Some(config)) =
+                    load_configuration(server_notifier.clone(), document_cache).await
+                {
+                    server_notifier
+                        .send_event(events::ConfigurePreviewEvent { config, doc_count: 0 })
+                        .ok();
                 }
             });
         }
@@ -944,4 +798,74 @@ pub(crate) fn spawn_local<R: 'static>(
     future: impl std::future::Future<Output = R> + 'static,
 ) -> JoinHandle<R> {
     tokio::task::spawn_local(future)
+}
+
+// A middleware that logs requests before forwarding them to another service
+pub struct LogService<S>(S);
+
+impl<S> Service<async_lsp::AnyRequest> for LogService<S>
+where
+    S: Service<async_lsp::AnyRequest>,
+    S::Response: serde::ser::Serialize,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = futures_util::future::Then<
+        S::Future,
+        std::future::Ready<std::result::Result<S::Response, S::Error>>,
+        fn(
+            std::result::Result<S::Response, S::Error>,
+        ) -> std::future::Ready<std::result::Result<S::Response, S::Error>>,
+    >;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context,
+    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
+        self.0.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: async_lsp::AnyRequest) -> Self::Future {
+        let json = serde_json::to_string(&request).unwrap();
+        // Log the request
+        tracing::debug!("request = {json}");
+
+        self.0.call(request).then(Self::log_response)
+    }
+}
+
+impl<S> LogService<S>
+where
+    S: Service<async_lsp::AnyRequest>,
+    S::Response: serde::ser::Serialize,
+{
+    fn log_response(
+        response: std::result::Result<S::Response, S::Error>,
+    ) -> std::future::Ready<std::result::Result<S::Response, S::Error>> {
+        if let Ok(response) = &response {
+            let json = serde_json::to_string(response).unwrap();
+            tracing::debug!("response = {json}");
+        }
+        std::future::ready(response)
+    }
+}
+
+impl<S> async_lsp::LspService for LogService<S>
+where
+    S: Service<async_lsp::AnyRequest>,
+    S::Response: serde::ser::Serialize,
+{
+    fn notify(
+        &mut self,
+        notif: async_lsp::AnyNotification,
+    ) -> std::ops::ControlFlow<async_lsp::Result<()>> {
+        let json = serde_json::to_string(&notif).unwrap();
+        tracing::debug!("Notify {json}");
+        std::ops::ControlFlow::Continue(())
+    }
+
+    fn emit(&mut self, event: async_lsp::AnyEvent) -> std::ops::ControlFlow<async_lsp::Result<()>> {
+        tracing::debug!("Emit {event:?}");
+        std::ops::ControlFlow::Continue(())
+    }
 }
