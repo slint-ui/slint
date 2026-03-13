@@ -169,6 +169,11 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
+        Expression::IncludeString(path) => {
+            let content = std::fs::read_to_string(path.as_str())
+                .unwrap_or_else(|e| panic!("Cannot read file '{}': {}", path, e));
+            Value::String(content.into())
+        }
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!(

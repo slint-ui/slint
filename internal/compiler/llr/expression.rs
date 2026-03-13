@@ -25,6 +25,8 @@ pub enum ArrayOutput {
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
+    /// Include a string from a file using Rust's `include_str!` macro. The path is relative to the .slint file.
+    IncludeString(SmolStr),
     /// Number
     NumberLiteral(f64),
     /// Bool
@@ -329,6 +331,7 @@ impl Expression {
     pub fn ty(&self, ctx: &dyn TypeResolutionContext) -> Type {
         match self {
             Self::StringLiteral(_) => Type::String,
+            Self::IncludeString(_) => Type::String,
             Self::NumberLiteral(_) => Type::Float32,
             Self::BoolLiteral(_) => Type::Bool,
             Self::PropertyReference(prop) => ctx.property_ty(prop).clone(),
@@ -394,6 +397,7 @@ macro_rules! visit_impl {
     ($self:ident, $visitor:ident, $as_ref:ident, $iter:ident, $values:ident) => {
         match $self {
             Expression::StringLiteral(_) => {}
+            Expression::IncludeString(_) => {}
             Expression::NumberLiteral(_) => {}
             Expression::BoolLiteral(_) => {}
             Expression::PropertyReference(_) => {}

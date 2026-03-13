@@ -366,6 +366,9 @@ impl Expression {
                 NodeOrToken::Node(node) => match node.kind() {
                     SyntaxKind::Expression => Some(Self::from_expression_node(node.into(), ctx)),
                     SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
+                    SyntaxKind::AtIncludeString => {
+                        Some(Self::from_at_include_string_node(node.into(), ctx))
+                    }
                     SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
@@ -519,6 +522,43 @@ impl Expression {
             source_location: Some(node.to_source_location()),
             nine_slice,
         }
+    }
+
+    fn from_at_include_string_node(
+        node: syntax_nodes::AtIncludeString,
+        ctx: &mut LookupCtx,
+    ) -> Self {
+        let s = match node
+            .child_text(SyntaxKind::StringLiteral)
+            .and_then(|x| crate::literals::unescape_string(&x))
+        {
+            Some(s) => s,
+            None => {
+                ctx.diag.push_error("Cannot parse string literal".into(), &node);
+                return Self::Invalid;
+            }
+        };
+
+        if s.is_empty() {
+            return Expression::StringLiteral(String::new().into());
+        }
+
+        let path = std::path::Path::new(&s);
+        if crate::pathutils::is_absolute(path) {
+            return Expression::IncludeString(s.into());
+        }
+
+        let resolved_path = ctx
+            .type_loader
+            .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
+            .map(|i| i.0.to_string_lossy().into())
+            .unwrap_or_else(|| {
+                crate::pathutils::join(&crate::pathutils::dirname(node.source_file.path()), path)
+                    .map(|p| p.to_string_lossy().into())
+                    .unwrap_or(s.clone())
+            });
+
+        Expression::IncludeString(resolved_path.into())
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {

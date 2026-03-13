@@ -243,6 +243,9 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "image-url" | "image_url" => {
             parse_image_url(p);
         }
+        "include-string" | "include_string" => {
+            parse_include_string(p);
+        }
         "linear-gradient" | "linear_gradient" => {
             parse_gradient(p);
         }
@@ -264,7 +267,7 @@ fn parse_at_keyword(p: &mut impl Parser) {
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'include-string', 'tr', 'keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }
@@ -760,4 +763,38 @@ fn parse_image_url(p: &mut impl Parser) {
     if !p.expect(SyntaxKind::RParent) {
         p.until(SyntaxKind::RParent);
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtIncludeString
+/// @include_string("foo.txt")
+/// @include_string("foo.txt",)
+/// ```
+fn parse_include_string(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtIncludeString);
+    p.consume(); // "@"
+    p.consume(); // "include-string"
+    if !(p.expect(SyntaxKind::LParent)) {
+        return;
+    }
+    let peek = p.peek();
+    if peek.kind() != SyntaxKind::StringLiteral {
+        p.error("@include_string must contain a plain path as a string literal");
+        p.until(SyntaxKind::RParent);
+        return;
+    }
+    if !peek.as_str().starts_with('"') || !peek.as_str().ends_with('"') {
+        p.error("@include_string must contain a plain path as a string literal, without any '\\{}' expressions");
+        p.until(SyntaxKind::RParent);
+        return;
+    }
+    p.expect(SyntaxKind::StringLiteral);
+    if !p.test(SyntaxKind::Comma) {
+        if !p.test(SyntaxKind::RParent) {
+            p.error("Expected ')' or ','");
+            p.until(SyntaxKind::RParent);
+        }
+        return;
+    }
+    p.expect(SyntaxKind::RParent);
 }

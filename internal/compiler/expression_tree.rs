@@ -632,6 +632,8 @@ pub enum Expression {
 
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
+    /// Include a string from a file using Rust's `include_str!` macro. The path is relative to the .slint file.
+    IncludeString(SmolStr),
     /// Number
     NumberLiteral(f64, Unit),
     /// Bool
@@ -860,6 +862,7 @@ impl Expression {
             Expression::Invalid => Type::Invalid,
             Expression::Uncompiled(_) => Type::Invalid,
             Expression::StringLiteral(_) => Type::String,
+            Expression::IncludeString(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
             Expression::PropertyReference(nr) => nr.ty(),
@@ -985,6 +988,7 @@ impl Expression {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
             Expression::StringLiteral(_) => {}
+            Expression::IncludeString(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
             Expression::PropertyReference { .. } => {}
@@ -1102,6 +1106,7 @@ impl Expression {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
             Expression::StringLiteral(_) => {}
+            Expression::IncludeString(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
             Expression::PropertyReference { .. } => {}
@@ -1234,6 +1239,7 @@ impl Expression {
             Expression::Invalid => true,
             Expression::Uncompiled(_) => false,
             Expression::StringLiteral(_) => true,
+            Expression::IncludeString(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
             Expression::PropertyReference(nr) => nr.is_constant(),
@@ -1837,6 +1843,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::Invalid => write!(f, "<invalid>"),
         Expression::Uncompiled(u) => write!(f, "{u:?}"),
         Expression::StringLiteral(s) => write!(f, "{s:?}"),
+        Expression::IncludeString(p) => write!(f, "@include_string({p:?})"),
         Expression::NumberLiteral(vl, unit) => write!(f, "{vl}{unit}"),
         Expression::BoolLiteral(b) => write!(f, "{b:?}"),
         Expression::PropertyReference(a) => write!(f, "{a:?}"),
