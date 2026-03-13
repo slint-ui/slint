@@ -2239,9 +2239,7 @@ impl WindowInner {
         let position = parent_item
             .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new_root(item_tree.clone())
-                .downcast::<crate::items::WindowItem>()
-                .is_some()
+            if ItemRc::new_root(item_tree.clone()).downcast::<crate::items::WindowItem>().is_some()
             {
                 return item_tree;
             }
@@ -2251,23 +2249,6 @@ impl WindowInner {
                 None => return item_tree,
                 Some(x) => item_tree = x.item_tree().clone(),
             }
-        };
-
-        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
-        let (parent_window_adapter, position) = if let Some(parent_popup) = self
-            .active_popups
-            .borrow()
-            .iter()
-            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
-        {
-            match &parent_popup.location {
-                PopupWindowLocation::TopLevel(wa) => (wa.clone(), position),
-                PopupWindowLocation::ChildWindow(offset) => {
-                    (self.window_adapter(), position + offset.to_vector())
-                }
-            }
-        } else {
-            (self.window_adapter(), position)
         };
 
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
@@ -2324,7 +2305,8 @@ impl WindowInner {
 
         // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
         // of the current window
-        let location = match parent_window_adapter
+        let location = match self
+            .window_adapter()
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
         {
