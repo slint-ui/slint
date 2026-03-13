@@ -34,6 +34,8 @@ pub enum Brush {
     /// The conical gradient variant of a brush describes a gradient that rotates around
     /// a center point, like the hands of a clock
     ConicGradient(ConicGradientBrush),
+    /// Uses a custom fragment shader for the fill.
+    FragmentShader(crate::SharedString),
 }
 
 /// Construct a brush with transparent color
@@ -58,6 +60,7 @@ impl Brush {
             Brush::ConicGradient(gradient) => {
                 gradient.stops().next().map(|stop| stop.color).unwrap_or_default()
             }
+            _ => Default::default(),
         }
     }
 
@@ -75,6 +78,7 @@ impl Brush {
             Brush::LinearGradient(_) => false,
             Brush::RadialGradient(_) => false,
             Brush::ConicGradient(_) => false,
+            _ => false,
         }
     }
 
@@ -92,6 +96,7 @@ impl Brush {
             Brush::LinearGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
             Brush::RadialGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
             Brush::ConicGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
+            _ => true,
         }
     }
 
@@ -122,6 +127,7 @@ impl Brush {
                 }
                 Brush::ConicGradient(new_grad)
             }
+            other => other.clone(),
         }
     }
 
@@ -149,6 +155,7 @@ impl Brush {
                 }
                 Brush::ConicGradient(new_grad)
             }
+            other => other.clone(),
         }
     }
 
@@ -181,6 +188,7 @@ impl Brush {
                 }
                 Brush::ConicGradient(new_grad)
             }
+            other => other.clone(),
         }
     }
 
@@ -210,6 +218,7 @@ impl Brush {
                 }
                 Brush::ConicGradient(new_grad)
             }
+            other => other.clone(),
         }
     }
 }
@@ -661,6 +670,7 @@ impl InterpolatedPropertyValue for Brush {
                     Self::interpolate(&Brush::SolidColor(color), b, (t - 0.5) * 2.)
                 }
             }
+            (a, b) => a.clone(),
         }
     }
 }
