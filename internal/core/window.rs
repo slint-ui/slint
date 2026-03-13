@@ -31,7 +31,6 @@ use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
-use std::println;
 use vtable::VRcMapped;
 
 pub mod popup;
@@ -2330,7 +2329,6 @@ impl WindowInner {
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
         {
             None => {
-                println!("Create popup: None");
                 let clip = LogicalRect::new(
                     LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
                     self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
@@ -2343,7 +2341,6 @@ impl WindowInner {
                 PopupWindowLocation::ChildWindow(rect.origin)
             }
             Some(window_adapter) => {
-                println!("Create popup: Some(windowAdapter");
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
                 PopupWindowLocation::TopLevel(window_adapter)
             }

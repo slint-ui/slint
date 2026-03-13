@@ -169,10 +169,6 @@ impl JavaHelper {
             let mut cursor_position = data.cursor_position;
             let mut anchor_position = data.anchor_position.unwrap_or(data.cursor_position);
 
-            println!("Cursor Position: {:?}", cursor_position);
-            println!("Anchor Position: {:?}", anchor_position);
-            println!("Anchor Point: {:?}", data.anchor_point);
-
             if !data.preedit_text.is_empty() {
                 text.insert_str(data.preedit_offset, data.preedit_text.as_str());
                 if cursor_position >= data.preedit_offset {
@@ -222,14 +218,6 @@ impl JavaHelper {
             let anchor_x = if anchor_visible { anchor_origin.x } else { -1 };
             let anchor_y = anchor_origin.y + 2 * cur_size.width as i32;
 
-            println!("Call method");
-            println!("Cursor Position: {:?}", cursor_position);
-            println!("Anchor Position: {:?}", anchor_position);
-            println!("Curr x: {:?}", cur_x);
-            println!("Curr y: {:?}", cur_y);
-            println!("anchor_x: {:?}", anchor_x);
-            println!("anchor_y: {:?}", anchor_y);
-
             env.call_method(
                 helper,
                 "set_imm_data",
@@ -249,8 +237,6 @@ impl JavaHelper {
                     JValue::from(show_cursor_handles as jboolean),
                 ],
             )?;
-
-            println!("############################################################################################");
 
             Ok(())
         })
@@ -359,11 +345,6 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
     let Ok(java_str) = jni_get_string(&text, &mut env) else { return };
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
-
-    println!(
-        "Java_SlintAndroidJavaHelper_updateText, preedit_start: {}, preedit_end: {}, cursor_position: {}, anchor_position: {}. Text: {}",
-        preedit_start, preedit_end, cursor_position, anchor_position, text
-    );
 
     let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
     let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
