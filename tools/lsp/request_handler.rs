@@ -26,20 +26,19 @@ impl RequestHandler {
         Fut: Future<Output = std::result::Result<R::Result, LspError>> + 'static,
     >(
         &mut self,
-        handler: impl Fn(&mut Context, R::Params) -> Fut,
+        handler: impl Fn(&mut Context, R::Params) -> Fut + 'static,
     ) where
         R::Params: 'static,
     {
         self.0.insert(
             R::METHOD,
             Box::new(move |ctx, value| {
-                Box::pin(async move {
-                    let params = serde_json::from_value(value).map_err(|e| LspError {
-                        code: LspErrorCode::InvalidParameter,
-                        message: format!("error when deserializing request: {e:?}"),
-                    })?;
-                    handler(params, ctx).await.map(|x| serde_json::to_value(x).unwrap())
-                })
+                let params = serde_json::from_value(value).map_err(|e| LspError {
+                    code: LspErrorCode::InvalidParameter,
+                    message: format!("error when deserializing request: {e:?}"),
+                });
+                let future = params.map(|params| handler(ctx, params));
+                Box::pin(async move { future?.await.map(|x| serde_json::to_value(x).unwrap()) })
             }),
         );
     }

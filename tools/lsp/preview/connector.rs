@@ -15,9 +15,9 @@ pub use native::*;
 
 // TODO: This can be implemented for wasm32, but it requires some changes
 // to the API, so we can do that when the rest works.
-#[cfg(all(feature = "preview-remote", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "preview-remote"))]
 pub mod remote;
-#[cfg(all(feature = "preview-remote", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "preview-remote"))]
 pub use remote::*;
 
 use crate::{common, preview};

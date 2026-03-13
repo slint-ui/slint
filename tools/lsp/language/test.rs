@@ -33,7 +33,7 @@ pub fn mock_context() -> Context {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: None,
         open_urls: HashSet::new(),
-        to_preview: LocalThreadWrapper::new_local(
+        to_preview: LocalThreadWrapper::new(|| {
             crate::preview::connector::SwitchableLspToPreview::new(
                 std::iter::once((
                     common::PreviewTarget::Dummy,
@@ -42,9 +42,10 @@ pub fn mock_context() -> Context {
                 .collect(),
                 common::PreviewTarget::Dummy,
             )
-            .unwrap(),
-        ),
+            .unwrap()
+        }),
         pending_recompile: Default::default(),
+        recompile_timer: None,
     }
 }
 
@@ -66,18 +67,22 @@ pub fn loaded_document_cache_with_file_name(
     content: String,
     file_name: &str,
 ) -> (LocalThreadWrapper<common::DocumentCache>, Url, HashMap<Url, Vec<Diagnostic>>) {
-    let mut dc = empty_document_cache();
-
-    // Pre-load std-widgets.slint:
-    spin_on::spin_on(dc.preload_builtins());
-
+    let url = Url::from_file_path(dummy_absolute_path).unwrap();
     let dummy_absolute_path = if cfg!(target_family = "windows") {
         format!("c://foo/{file_name}")
     } else {
         format!("/foo/{file_name}")
     };
-    let url = Url::from_file_path(dummy_absolute_path).unwrap();
-    let dc = LocalThreadWrapper::new_local(dc);
+
+    let dc = LocalThreadWrapper::new(|| {
+        let mut dc = empty_document_cache();
+
+        // Pre-load std-widgets.slint:
+        spin_on::spin_on(dc.preload_builtins());
+
+        dc
+    });
+
     let inner_dc = dc.clone();
     let inner_url = url.clone();
     let (extra_files, diag, format) = spin_on::spin_on(async move {
@@ -172,7 +177,7 @@ pub fn load(
 #[test]
 fn accurate_diagnostics_in_dependencies() {
     // Test for issue 5797
-    let dc = LocalThreadWrapper::new_local(empty_document_cache());
+    let dc = LocalThreadWrapper::new(|| empty_document_cache());
 
     let (bar_url, diag) = load(
         None,
@@ -225,13 +230,13 @@ fn accurate_diagnostics_in_dependencies() {
         ])
     );
 
-    let sym = spin_on::spin_on(dc.with(move |dc| {
+    let sym = dc.blocking_with(move |dc| {
         crate::language::get_document_symbols(
             dc,
             &lsp_types::TextDocumentIdentifier { uri: foo_url },
         )
         .expect("foo.slint should still be loaded")
-    }));
+    });
     assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if !result.is_empty()));
 
     let (foo_url, diag) = load(
@@ -310,18 +315,18 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
 #[test]
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn preview_file_recompiled_when_dependency_changes() {
-    let mut cache = empty_document_cache();
+    let mut cache = LocalThreadWrapper::new(empty_document_cache());
 
     let (dep_url, _diag) = load(
         None,
-        &mut cache,
+        cache,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { property <int> hi; } "#,
     );
 
     let (main_url, _diag) = load(
         None,
-        &mut cache,
+        cache,
         &std::env::current_dir().unwrap().join("xxx/main.slint"),
         r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
     );

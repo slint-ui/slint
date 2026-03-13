@@ -278,7 +278,7 @@ impl common::PreviewToLsp for WasmPreviewToLsp {
             let value = serde_wasm_bindgen::to_value(&message)?;
             notifier
                 .call1(&JsValue::UNDEFINED, &value)
-                .map_err(|_| "Failed to send message to LSP".to_string())?;
+                .map_err(|_| anyhow::anyhow!("Failed to send message to LSP"))?;
             Ok(())
         })
     }
