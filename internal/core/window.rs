@@ -2238,19 +2238,6 @@ impl WindowInner {
     ) -> NonZeroU32 {
         let position = parent_item
             .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
-        let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new_root(item_tree.clone()).downcast::<crate::items::WindowItem>().is_some()
-            {
-                return item_tree;
-            }
-            let mut r = crate::item_tree::ItemWeak::default();
-            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
-            match r.upgrade() {
-                None => return item_tree,
-                Some(x) => item_tree = x.item_tree().clone(),
-            }
-        };
-
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
