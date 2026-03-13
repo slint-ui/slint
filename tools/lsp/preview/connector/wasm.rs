@@ -261,8 +261,8 @@ impl common::LspToPreview for WasmLspToPreview {
         common::PreviewTarget::EmbeddedWasm
     }
 
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -278,7 +278,7 @@ impl common::PreviewToLsp for WasmPreviewToLsp {
             let value = serde_wasm_bindgen::to_value(&message)?;
             notifier
                 .call1(&JsValue::UNDEFINED, &value)
-                .map_err(|_| "Failed to send message to LSP".to_string())?;
+                .map_err(|_| anyhow::anyhow!("Failed to send message to LSP"))?;
             Ok(())
         })
     }

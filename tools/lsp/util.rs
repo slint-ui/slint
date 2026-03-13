@@ -13,8 +13,11 @@ use smol_str::SmolStr;
 
 use crate::common;
 
+mod local_thread_wrapper;
+pub use local_thread_wrapper::LocalThreadWrapper;
+
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::UrlWasm;
+use lsp_protocol::wasm_prelude::UrlWasm;
 
 /// Get the `TextRange` of a `node`, excluding any trailing whitespace tokens.
 pub fn node_range_without_trailing_ws(node: &SyntaxNode) -> TextRange {

@@ -10,9 +10,10 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::common;
+use crate::common::{self, document_cache};
 use crate::language::convert_diagnostics;
 use crate::language::load_document_impl;
+use crate::util::LocalThreadWrapper;
 
 use super::Context;
 
@@ -25,15 +26,26 @@ use super::Context;
 /// ```
 pub fn mock_context() -> Context {
     crate::language::Context {
-        document_cache: empty_document_cache().into(),
+        document_cache: LocalThreadWrapper::new(|| empty_document_cache()),
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: RefCell::new(None),
-        open_urls: RefCell::new(HashSet::new()),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        to_show: None,
+        open_urls: HashSet::new(),
+        to_preview: LocalThreadWrapper::new(|| {
+            crate::preview::connector::SwitchableLspToPreview::new(
+                std::iter::once((
+                    common::PreviewTarget::Dummy,
+                    Box::new(common::DummyLspToPreview {}) as Box<dyn common::LspToPreview>,
+                ))
+                .collect(),
+                common::PreviewTarget::Dummy,
+            )
+            .unwrap()
+        }),
         pending_recompile: Default::default(),
+        recompile_timer: None,
     }
 }
 
@@ -55,21 +67,29 @@ pub fn loaded_document_cache_with_file_name(
     content: String,
     file_name: &str,
 ) -> (common::DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    let mut dc = empty_document_cache();
-
-    // Pre-load std-widgets.slint:
-    spin_on::spin_on(dc.preload_builtins());
-
     let dummy_absolute_path = if cfg!(target_family = "windows") {
         format!("c://foo/{file_name}")
     } else {
         format!("/foo/{file_name}")
     };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
-    let (extra_files, diag) =
-        spin_on::spin_on(load_document_impl(None, content, url.clone(), Some(42), &mut dc));
 
-    let diag = convert_diagnostics(&extra_files, diag, dc.format);
+    let mut dc = empty_document_cache();
+
+    // Pre-load std-widgets.slint:
+    let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+    let local_set = tokio::task::LocalSet::new();
+
+    local_set.block_on(&rt, dc.preload_builtins());
+
+    let inner_url = url.clone();
+    let (extra_files, diag, format) = spin_on::spin_on(async {
+        let (extra_files, diag) =
+            load_document_impl(None, None, content, inner_url, Some(42), &mut dc).await;
+        (extra_files, diag, dc.format)
+    });
+
+    let diag = convert_diagnostics(&extra_files, diag, format);
     (dc, url, diag)
 }
 
@@ -132,21 +152,25 @@ component MainWindow inherits Window {
             "#.to_string())
 }
 
-pub fn load(
-    ctx: Option<&Rc<Context>>,
+pub async fn load(
+    to_preview: Option<LocalThreadWrapper<crate::preview::connector::SwitchableLspToPreview>>,
+    open_urls: Option<HashSet<Url>>,
     document_cache: &mut common::DocumentCache,
     path: &Path,
     content: &str,
 ) -> (Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
     let url = Url::from_file_path(path).unwrap();
 
-    let (main_file, diag) = spin_on::spin_on(load_document_impl(
-        ctx,
+    let inner_url = url.clone();
+    let (main_file, diag) = load_document_impl(
+        to_preview,
+        open_urls,
         content.into(),
-        url.clone(),
+        inner_url,
         Some(1),
         document_cache,
-    ));
+    )
+    .await;
 
     (url, convert_diagnostics(&main_file, diag, document_cache.format))
 }
@@ -156,127 +180,148 @@ fn accurate_diagnostics_in_dependencies() {
     // Test for issue 5797
     let mut dc = empty_document_cache();
 
-    let (bar_url, diag) = load(
-        None,
-        &mut dc,
-        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
-        r#" export component Bar { property <int> hi; } "#,
-    );
-    assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
+    let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+    let local_set = tokio::task::LocalSet::new();
 
-    let (reexport_url, diag) = load(
-        None,
-        &mut dc,
-        &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
-        r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; }"#,
-    );
-    assert_eq!(diag, HashMap::from_iter([(reexport_url.clone(), Vec::new())]));
+    local_set.block_on(&rt, async {
+        let (bar_url, diag) = load(
+            None,
+            None,
+            &mut dc,
+            &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+            r#" export component Bar { property <int> hi; } "#,
+        )
+        .await;
+        assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
 
-    let (foo_url, diag) = load(
-        None,
-        &mut dc,
-        &std::env::current_dir().unwrap().join("xxx/foo.slint"),
-        r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; } }"#,
-    );
+        let (reexport_url, diag) = load(
+            None,
+            None,
+            &mut dc,
+            &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
+            r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; }"#,
+        ).await;
+        assert_eq!(diag, HashMap::from_iter([(reexport_url.clone(), Vec::new())]));
 
-    assert!(diag[&foo_url][0].message.contains("hello"));
-    assert_eq!(diag.len(), 1);
+        let (foo_url, diag) = load(
+            None, None,
+            &mut dc,
+            &std::env::current_dir().unwrap().join("xxx/foo.slint"),
+            r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; } }"#,
+        ).await;
 
-    let ctx = Some(Rc::new(Context {
-        open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
-        ..mock_context()
-    }));
+        assert!(diag[&foo_url][0].message.contains("hello"));
+        assert_eq!(diag.len(), 1);
 
-    let (bar_url, diag) = load(
-        ctx.as_ref(),
-        &mut dc,
-        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
-        r#" export component Bar { in property <int> hello; } "#,
-    );
-    assert_eq!(diag.len(), 3);
-    assert_eq!(
-        diag,
-        HashMap::from_iter([
-            (reexport_url.clone(), Vec::new()),
-            (bar_url.clone(), Vec::new()),
-            (foo_url.clone(), Vec::new())
-        ])
-    );
+        let to_preview = mock_context().to_preview;
+        let open_urls = HashSet::from_iter([foo_url.clone(), bar_url.clone()]);
 
-    let sym = crate::language::get_document_symbols(
-        &mut dc,
-        &lsp_types::TextDocumentIdentifier { uri: foo_url.clone() },
-    )
-    .expect("foo.slint should still be loaded");
-    assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if !result.is_empty()));
+        let (bar_url, diag) = load(
+            Some(to_preview.clone()),
+            Some(open_urls.clone()),
+            &mut dc,
+            &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+            r#" export component Bar { in property <int> hello; } "#,
+        )
+        .await;
+        assert_eq!(diag.len(), 3);
+        assert_eq!(
+            diag,
+            HashMap::from_iter([
+                (reexport_url.clone(), Vec::new()),
+                (bar_url.clone(), Vec::new()),
+                (foo_url.clone(), Vec::new())
+            ])
+        );
 
-    let (foo_url, diag) = load(
-        ctx.as_ref(),
-        &mut dc,
-        &std::env::current_dir().unwrap().join("xxx/foo.slint"),
-        r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hi: 45; } }"#,
-    );
-    assert!(diag[&foo_url][0].message.contains("hi"));
+        let sym = crate::language::get_document_symbols(
+            &mut dc,
+            &lsp_types::TextDocumentIdentifier { uri: foo_url },
+        )
+        .expect("foo.slint should still be loaded");
+        assert!(
+            matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if !result.is_empty())
+        );
 
-    let (foo_url, diag) = load(
-        ctx.as_ref(),
-        &mut dc,
-        &std::env::current_dir().unwrap().join("xxx/foo.slint"),
-        r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 12; } }"#,
-    );
-    assert_eq!(diag[&foo_url], Vec::new());
+        let (foo_url, diag) = load(
+            Some(to_preview.clone()),
+            Some(open_urls.clone()),
+            &mut dc,
+            &std::env::current_dir().unwrap().join("xxx/foo.slint"),
+            r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hi: 45; } }"#,
+        ).await;
+        assert!(diag[&foo_url][0].message.contains("hi"));
+
+        let (foo_url, diag) = load(
+            Some(to_preview),
+            Some(open_urls),
+            &mut dc,
+            &std::env::current_dir().unwrap().join("xxx/foo.slint"),
+            r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 12; } }"#,
+        ).await;
+        assert_eq!(diag[&foo_url], Vec::new());
+    });
 }
 
 #[test]
 fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     // Test for issue 8064
-    let ctx = Rc::new(mock_context());
+    let mut ctx = mock_context();
 
-    let (bar_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
-        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
-        r#" export component Bar { in property <int> hello; } "#,
-    );
-    assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
+    let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+    let local_set = tokio::task::LocalSet::new();
 
-    ctx.open_urls.borrow_mut().insert(bar_url.clone());
+    local_set.block_on(&rt, ctx.document_cache.with_async(async move |dc| {
+        let (bar_url, diag) = load(
+            Some(ctx.to_preview.clone()),
+            Some(ctx.open_urls.clone()),
+            dc,
+            &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+            r#" export component Bar { in property <int> hello; } "#,
+        ).await;
+        assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
 
-    let (reexport_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
-        &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
-        r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; if true error }"#,
-    );
-    assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
-    assert_eq!(diag.len(), 1);
+        ctx.open_urls.insert(bar_url.clone());
 
-    ctx.open_urls.borrow_mut().insert(reexport_url.clone());
+        let (reexport_url, diag) = load(
+            Some(ctx.to_preview.clone()),
+            Some(ctx.open_urls.clone()),
+            dc,
+            &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
+            r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; if true error }"#,
+        ).await;
+        assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
+        assert_eq!(diag.len(), 1);
 
-    let (foo_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
-        &std::env::current_dir().unwrap().join("xxx/foo.slint"),
-        r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; world: 12; } }"#,
-    );
-    assert!(diag[&foo_url][0].message.contains("world"));
-    assert_eq!(diag[&foo_url].len(), 1);
-    // Don't clear further error (so the client still has the parse error in reexport_url)
-    assert_eq!(diag.len(), 1);
+        ctx.open_urls.insert(reexport_url.clone());
 
-    ctx.open_urls.borrow_mut().insert(foo_url.clone());
+        let (foo_url, diag) = load(
+            Some(ctx.to_preview.clone()),
+            Some(ctx.open_urls.clone()),
+            dc,
+            &std::env::current_dir().unwrap().join("xxx/foo.slint"),
+            r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; world: 12; } }"#,
+        ).await;
+        assert!(diag[&foo_url][0].message.contains("world"));
+        assert_eq!(diag[&foo_url].len(), 1);
+        // Don't clear further error (so the client still has the parse error in reexport_url)
+        assert_eq!(diag.len(), 1);
 
-    let (bar_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
-        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
-        r#" export component Bar { private property <int> hello; in property <int> world; } "#,
-    );
+        ctx.open_urls.insert(foo_url.clone());
 
-    // bar still don't have error
-    assert_eq!(diag[&bar_url], Vec::new());
-    // But reexport_url still have the same syntax error as before
-    assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
+        let (bar_url, diag) = load(
+            Some(ctx.to_preview.clone()),
+            Some(ctx.open_urls.clone()),
+            dc,
+            &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+            r#" export component Bar { private property <int> hello; in property <int> world; } "#,
+        ).await;
+
+        // bar still don't have error
+        assert_eq!(diag[&bar_url], Vec::new());
+        // But reexport_url still have the same syntax error as before
+        assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
+    }));
 }
 
 /// Test for issue #10521: Preview file should be recompiled when dependency changes,
@@ -285,44 +330,47 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn preview_file_recompiled_when_dependency_changes() {
     let mut cache = empty_document_cache();
+    let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+    let local_set = tokio::task::LocalSet::new();
 
-    let (dep_url, _diag) = load(
-        None,
-        &mut cache,
-        &std::env::current_dir().unwrap().join("xxx/bar.slint"),
-        r#" export component Bar { property <int> hi; } "#,
-    );
+    local_set.block_on(&rt, async move {
+        let (dep_url, _diag) = load(
+            None,
+            None,
+            &mut cache,
+            &std::env::current_dir().unwrap().join("xxx/bar.slint"),
+            r#" export component Bar { property <int> hi; } "#,
+        )
+        .await;
 
-    let (main_url, _diag) = load(
-        None,
-        &mut cache,
-        &std::env::current_dir().unwrap().join("xxx/main.slint"),
-        r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
-    );
+        let (main_url, _diag) = load(
+            None,
+            None,
+            &mut cache,
+            &std::env::current_dir().unwrap().join("xxx/main.slint"),
+            r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
+        )
+        .await;
 
-    // Create context with:
-    // - main.slint set as the preview file (to_show)
-    // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    let ctx = Rc::new(Context {
-        document_cache: cache.into(),
-        to_show: RefCell::new(Some(common::PreviewComponent {
-            url: main_url.clone(),
-            component: None,
-        })),
-        ..mock_context()
+        // Create context with:
+        // - main.slint set as the preview file (to_show)
+        // - main.slint NOT in open_urls (simulating it was closed in the editor)
+        let mut ctx =
+            Context { document_cache: LocalThreadWrapper::new_local(cache), ..mock_context() };
+
+        crate::language::trigger_file_watcher(
+            &mut ctx,
+            dep_url.clone(),
+            lsp_types::FileChangeType::CHANGED,
+        )
+        .await
+        .unwrap();
+
+        // The preview file (main.slint) should be scheduled for recompilation
+        // even though it's not in open_urls
+        assert!(
+            ctx.pending_recompile.contains(&main_url),
+            "Preview file should be in pending_recompile when its dependency changes"
+        );
     });
-
-    spin_on::spin_on(crate::language::trigger_file_watcher(
-        &ctx,
-        dep_url.clone(),
-        lsp_types::FileChangeType::CHANGED,
-    ))
-    .unwrap();
-
-    // The preview file (main.slint) should be scheduled for recompilation
-    // even though it's not in open_urls
-    assert!(
-        ctx.pending_recompile.borrow().contains(&main_url),
-        "Preview file should be in pending_recompile when its dependency changes"
-    );
 }

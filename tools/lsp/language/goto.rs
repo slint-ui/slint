@@ -10,7 +10,7 @@ use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use lsp_protocol::wasm_prelude::*;
 
 pub fn goto_definition(
     document_cache: &mut common::DocumentCache,
@@ -193,6 +193,7 @@ fn test_goto_definition_multi_files() {
         url1 = url1.to_file_path().unwrap().display()
     );
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
+        None,
         None,
         source2.clone(),
         url2.clone(),
