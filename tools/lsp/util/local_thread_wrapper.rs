@@ -9,7 +9,7 @@ pub struct LocalThreadWrapper<T> {
         >,
     >,
     #[cfg(not(target_arch = "wasm32"))]
-    join_handle: Arc<std::thread::JoinHandle<()>>,
+    join_handle: Option<std::sync::Arc<std::thread::JoinHandle<()>>>,
 }
 
 impl<T: 'static> LocalThreadWrapper<T> {
@@ -18,11 +18,11 @@ impl<T: 'static> LocalThreadWrapper<T> {
             Box<dyn Send + for<'a> FnOnce(&'a mut T) -> Pin<Box<dyn Future<Output = ()> + 'a>>>,
         >(4);
         #[cfg(not(target_arch = "wasm32"))]
-        let join_handle = std::thread::spawn(async move {
+        let join_handle = std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
             let local = tokio::task::LocalSet::new();
             local.block_on(&rt, async move {
-                let inner = generator();
+                let mut inner = generator();
                 while let Some(task) = receiver.recv().await {
                     task(&mut inner).await;
                 }
@@ -38,8 +38,22 @@ impl<T: 'static> LocalThreadWrapper<T> {
         Self {
             sender: Some(sender),
             #[cfg(not(target_arch = "wasm32"))]
-            join_handle: Arc::new(join_handle),
+            join_handle: Some(std::sync::Arc::new(join_handle)),
         }
+    }
+
+    #[cfg(all(test, not(target_arch = "wasm32")))]
+    pub fn new_local(mut inner: T) -> Self {
+        let (sender, mut receiver) = mpsc::channel::<
+            Box<dyn Send + for<'a> FnOnce(&'a mut T) -> Pin<Box<dyn Future<Output = ()> + 'a>>>,
+        >(4);
+        tokio::task::spawn_local(async move {
+            while let Some(task) = receiver.recv().await {
+                task(&mut inner).await;
+            }
+        });
+
+        Self { sender: Some(sender), join_handle: None }
     }
 
     pub async fn exec<R: Send + 'static>(self, f: impl FnOnce(&mut T) -> R + Send + 'static) -> R {
@@ -109,7 +123,10 @@ impl<T: 'static> LocalThreadWrapper<T> {
     }
 
     #[cfg(test)]
-    pub fn blocking_with<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+    pub fn blocking_with<R: Send + 'static>(
+        &self,
+        f: impl FnOnce(&mut T) -> R + Send + 'static,
+    ) -> R {
         tokio::runtime::Handle::current().block_on(async move {
             let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
             self.sender
@@ -161,7 +178,9 @@ impl<T> Clone for LocalThreadWrapper<T> {
 impl<T> Drop for LocalThreadWrapper<T> {
     fn drop(&mut self) {
         self.sender = None;
-        if let Ok(join_handle) = self.join_handle.try_unwrap() {
+        if let Some(join_handle) =
+            self.join_handle.take().and_then(|j| std::sync::Arc::try_unwrap(j).ok())
+        {
             join_handle.join().ok();
         }
     }

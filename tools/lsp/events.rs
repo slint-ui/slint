@@ -2,9 +2,7 @@ use std::{collections::HashSet, path::PathBuf};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use lsp_protocol::PreviewConfig;
-use lsp_types::{InitializeParams, Url};
-
-pub struct SetContextEvent(pub InitializeParams, pub Option<PreviewConfig>);
+use lsp_types::Url;
 
 pub struct SendDiagnosticsEvent {
     pub extra_files: HashSet<PathBuf>,

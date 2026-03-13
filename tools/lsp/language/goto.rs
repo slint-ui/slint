@@ -86,81 +86,79 @@ export component Test {
 }"#;
 
     let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
-    dc.blocking_with(move |dc| {
-        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
 
-        // Jump to the definition of Abc
-        let offset: TextSize = (source.find("abc := Abc").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(8)).unwrap();
-        assert_eq!(token.text(), "Abc");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, uri);
-        assert_eq!(link.target_range.start.line, 2);
+    // Jump to the definition of Abc
+    let offset: TextSize = (source.find("abc := Abc").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(8)).unwrap();
+    assert_eq!(token.text(), "Abc");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri);
+    assert_eq!(link.target_range.start.line, 2);
 
-        // Jump to the definition of abc
-        let offset: TextSize = (source.find("text: abc.hello").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(7)).unwrap();
-        assert_eq!(token.text(), "abc");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, uri);
-        assert_eq!(link.target_range.start.line, 6);
+    // Jump to the definition of abc
+    let offset: TextSize = (source.find("text: abc.hello").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(7)).unwrap();
+    assert_eq!(token.text(), "abc");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri);
+    assert_eq!(link.target_range.start.line, 6);
 
-        // Jump to the definition of hello
-        let offset: TextSize = (source.find("text: abc.hello").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(12)).unwrap();
-        assert_eq!(token.text(), "hello");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, uri);
-        assert_eq!(link.target_range.start.line, 3);
+    // Jump to the definition of hello
+    let offset: TextSize = (source.find("text: abc.hello").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(12)).unwrap();
+    assert_eq!(token.text(), "hello");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri);
+    assert_eq!(link.target_range.start.line, 3);
 
-        // Also jump to the definition of hello
-        let offset = (source.find("hello: \"foo\"").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset).unwrap();
-        assert_eq!(token.text(), "hello");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, uri);
-        assert_eq!(link.target_range.start.line, 3);
+    // Also jump to the definition of hello
+    let offset = (source.find("hello: \"foo\"").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset).unwrap();
+    assert_eq!(token.text(), "hello");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri);
+    assert_eq!(link.target_range.start.line, 3);
 
-        // Rectangle is builtin and not accessible
-        let offset: TextSize = (source.find("rec := ").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(8)).unwrap();
-        assert_eq!(token.text(), "Rectangle");
-        assert!(goto_definition(dc, token).is_none());
+    // Rectangle is builtin and not accessible
+    let offset: TextSize = (source.find("rec := ").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(8)).unwrap();
+    assert_eq!(token.text(), "Rectangle");
+    assert!(goto_definition(&mut dc, token).is_none());
 
-        // Button is builtin and not accessible
-        let offset: TextSize = (source.find("btn := ").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(9)).unwrap();
-        assert_eq!(token.text(), "Button");
-        assert!(goto_definition(dc, token).is_none());
-        let offset = (source.find("text: abc.hello").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset).unwrap();
-        assert_eq!(token.text(), "text");
-        assert!(goto_definition(dc, token).is_none());
+    // Button is builtin and not accessible
+    let offset: TextSize = (source.find("btn := ").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(9)).unwrap();
+    assert_eq!(token.text(), "Button");
+    assert!(goto_definition(&mut dc, token).is_none());
+    let offset = (source.find("text: abc.hello").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset).unwrap();
+    assert_eq!(token.text(), "text");
+    assert!(goto_definition(&mut dc, token).is_none());
 
-        // Jump from a changed callback
-        let offset: TextSize = (source.find("changed hello").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(12)).unwrap();
-        assert_eq!(token.text(), "hello");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, uri);
-        assert_eq!(link.target_range.start.line, 3);
+    // Jump from a changed callback
+    let offset: TextSize = (source.find("changed hello").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(12)).unwrap();
+    assert_eq!(token.text(), "hello");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri);
+    assert_eq!(link.target_range.start.line, 3);
 
-        // Jump to test.png image url
-        let offset: TextSize = (source.find("\"test.png\"").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc, offset + TextSize::new(1)).unwrap();
+    // Jump to test.png image url
+    let offset: TextSize = (source.find("\"test.png\"").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc, offset + TextSize::new(1)).unwrap();
 
-        assert_eq!(token.text(), "\"test.png\"");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, uri.join("test.png").unwrap());
-        assert_eq!(link.target_range.start.line, 0);
-        assert_eq!(link.target_range.start.character, 0);
-    });
+    assert_eq!(token.text(), "\"test.png\"");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, uri.join("test.png").unwrap());
+    assert_eq!(link.target_range.start.line, 0);
+    assert_eq!(link.target_range.start.character, 0);
 }
 
 #[test]
@@ -181,7 +179,7 @@ fn test_goto_definition_multi_files() {
         callback xx;
     }
     "#;
-    let (dc, url1, diags) = crate::language::test::loaded_document_cache(source1.into());
+    let (mut dc, url1, diags) = crate::language::test::loaded_document_cache(source1.into());
     for (u, ds) in diags {
         assert_eq!(ds, Vec::new(), "errors in {u}");
     }
@@ -196,65 +194,64 @@ fn test_goto_definition_multi_files() {
     );
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
         None,
+        None,
         source2.clone(),
         url2.clone(),
         Some(43),
-        dc.clone(),
+        &mut dc,
     ));
     let diag = crate::language::convert_diagnostics(&extra_files, diag, common::ByteFormat::Utf8);
     for (u, ds) in diag {
         assert_eq!(ds, Vec::new(), "errors in {u}");
     }
 
-    dc.blocking_with(move |dc| {
-        let doc2 = dc.get_document(&url2).unwrap().node.clone().unwrap();
+    let doc2 = dc.get_document(&url2).unwrap().node.clone().unwrap();
 
-        let offset: TextSize = (source2.find("h := Hello").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(8)).unwrap();
-        assert_eq!(token.text(), "Hello");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, url1);
-        assert_eq!(link.target_range.start.line, 1);
+    let offset: TextSize = (source2.find("h := Hello").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(8)).unwrap();
+    assert_eq!(token.text(), "Hello");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, url1);
+    assert_eq!(link.target_range.start.line, 1);
 
-        let offset = (source2.find("the_prop: 42").unwrap() as u32).into();
-        let token = crate::language::token_at_offset(&doc2, offset).unwrap();
-        assert_eq!(token.text(), "the_prop");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, url1);
-        assert_eq!(link.target_range.start.line, 2);
+    let offset = (source2.find("the_prop: 42").unwrap() as u32).into();
+    let token = crate::language::token_at_offset(&doc2, offset).unwrap();
+    assert_eq!(token.text(), "the_prop");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, url1);
+    assert_eq!(link.target_range.start.line, 2);
 
-        let offset = (source2.find("Hello } from ").unwrap() as u32).into();
-        // check the string literal
-        let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(20)).unwrap();
-        assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, url1);
-        assert_eq!(link.target_range.start.line, 0);
-        // check the identifier
-        let token = crate::language::token_at_offset(&doc2, offset).unwrap();
-        assert_eq!(token.text(), "Hello");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, url1);
-        assert_eq!(link.target_range.start.line, 1);
+    let offset = (source2.find("Hello } from ").unwrap() as u32).into();
+    // check the string literal
+    let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(20)).unwrap();
+    assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, url1);
+    assert_eq!(link.target_range.start.line, 0);
+    // check the identifier
+    let token = crate::language::token_at_offset(&doc2, offset).unwrap();
+    assert_eq!(token.text(), "Hello");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, url1);
+    assert_eq!(link.target_range.start.line, 1);
 
-        let offset = (source2.find("Another as A } from ").unwrap() as u32).into();
-        // check the string literal
-        let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(25)).unwrap();
-        assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, url1);
-        assert_eq!(link.target_range.start.line, 0);
-        // check the identifier
-        let token = crate::language::token_at_offset(&doc2, offset).unwrap();
-        assert_eq!(token.text(), "Another");
-        let def = goto_definition(dc, token).unwrap();
-        let link = first_link(&def);
-        assert_eq!(link.target_uri, url1);
-        assert_eq!(link.target_range.start.line, 7);
-    });
+    let offset = (source2.find("Another as A } from ").unwrap() as u32).into();
+    // check the string literal
+    let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(25)).unwrap();
+    assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, url1);
+    assert_eq!(link.target_range.start.line, 0);
+    // check the identifier
+    let token = crate::language::token_at_offset(&doc2, offset).unwrap();
+    assert_eq!(token.text(), "Another");
+    let def = goto_definition(&mut dc, token).unwrap();
+    let link = first_link(&def);
+    assert_eq!(link.target_uri, url1);
+    assert_eq!(link.target_range.start.line, 7);
 }

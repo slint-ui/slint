@@ -972,12 +972,9 @@ pub mod tests {
         common::DocumentCache,
         lsp_types::Url,
     )> {
-        let (dc, url, _) = complex_document_cache();
-        if let Some((e, p)) = properties_at_position_in_cache(line, character, &dc, &url) {
-            Some((e, p, dc, url))
-        } else {
-            None
-        }
+        let (mut dc, url, _) = complex_document_cache();
+        let (e, p) = properties_at_position_in_cache(line, character, &mut dc, &url)?;
+        Some((e, p, dc, url))
     }
 
     #[test]

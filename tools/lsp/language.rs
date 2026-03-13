@@ -120,6 +120,11 @@ async fn register_file_watcher(
 ) -> common::Result<()> {
     use lsp_types::notification::Notification;
 
+    tracing::debug!(
+        "Client Capabilities: {}",
+        serde_json::to_string_pretty(&init_params.capabilities).unwrap()
+    );
+
     if init_params
         .capabilities
         .workspace
@@ -134,15 +139,25 @@ async fn register_file_watcher(
                 kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
             }],
         };
-        server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(lsp_types::RegistrationParams {
-                registrations: vec![lsp_types::Registration {
-                    id: "slint.file_watcher.registration".to_string(),
-                    method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                    register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                }],
-            })
-            .await?;
+        let server_notifier = server_notifier.clone();
+        tokio::task::spawn_local(async move {
+            if let Err(err) = server_notifier
+                .send_request::<lsp_types::request::RegisterCapability>(
+                    lsp_types::RegistrationParams {
+                        registrations: vec![lsp_types::Registration {
+                            id: "slint.file_watcher.registration".to_string(),
+                            method: lsp_types::notification::DidChangeWatchedFiles::METHOD
+                                .to_string(),
+                            register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
+                        }],
+                    },
+                )
+                .await
+                .inspect_err(|err| tracing::error!("RegisterCapability response: {err}"))
+            {
+                server_notifier.send_event(err).unwrap();
+            }
+        });
     }
 
     Ok(())
@@ -829,13 +844,14 @@ pub fn populate_command(
     })
 }
 
-pub(crate) fn load_document_impl(
-    ctx: Option<&mut Context>,
+pub(crate) async fn load_document_impl(
+    to_preview: Option<LocalThreadWrapper<SwitchableLspToPreview>>,
+    open_urls: Option<HashSet<Url>>,
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
-    document_cache: LocalThreadWrapper<common::DocumentCache>,
-) -> impl Future<Output = (HashSet<PathBuf>, BuildDiagnostics)> + Send + 'static {
+    document_cache: &mut common::DocumentCache,
+) -> (HashSet<PathBuf>, BuildDiagnostics) {
     enum FileAction {
         ProcessContent(String),
         IgnoreFile,
@@ -844,74 +860,67 @@ pub(crate) fn load_document_impl(
 
     tracing::trace!("Loading document: {url} (version: {version:?})");
 
-    let to_preview = ctx.as_ref().map(|ctx| ctx.to_preview.clone());
-    let open_urls = ctx.map(|ctx| ctx.open_urls.clone());
-    document_cache.exec_async(async move |document_cache| {
-        let Some(path) = common::uri_to_file(&url) else { return Default::default() };
-        // Normalize the URL
-        let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
+    let Some(path) = common::uri_to_file(&url) else { return Default::default() };
+    // Normalize the URL
+    let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
 
-        let action = if path.extension().is_some_and(|e| e == "rs") {
-            match i_slint_compiler::lexer::extract_rust_macro(content) {
-                Some(content) => FileAction::ProcessContent(content),
-                // A rust file without a rust macro, just ignore it
-                None => {
-                    if document_cache.get_document(&url).is_some() {
-                        // This had contents before: Continue so we can invalidate it!
-                        FileAction::InvalidateFile
-                    } else {
-                        FileAction::IgnoreFile
-                    }
+    let action = if path.extension().is_some_and(|e| e == "rs") {
+        match i_slint_compiler::lexer::extract_rust_macro(content) {
+            Some(content) => FileAction::ProcessContent(content),
+            // A rust file without a rust macro, just ignore it
+            None => {
+                if document_cache.get_document(&url).is_some() {
+                    // This had contents before: Continue so we can invalidate it!
+                    FileAction::InvalidateFile
+                } else {
+                    FileAction::IgnoreFile
                 }
-            }
-        } else {
-            FileAction::ProcessContent(content)
-        };
-
-        let mut diag = BuildDiagnostics::default();
-
-        let dependencies = match action {
-            FileAction::ProcessContent(content) => {
-                if let Some(to_preview) = to_preview {
-                    let url = url.clone();
-                    let contents = content.as_bytes().to_owned();
-                    to_preview.oneway(move |to_preview| {
-                        to_preview.send(&common::LspToPreviewMessage::SetContents {
-                            url: common::VersionedUrl::new(url, version),
-                            contents,
-                        })
-                    });
-                }
-                let dependencies = document_cache.invalidate_url(&url);
-                let _ = document_cache.load_url(&url, version, content, &mut diag).await;
-                dependencies
-            }
-            FileAction::IgnoreFile => return Default::default(),
-            FileAction::InvalidateFile => {
-                if let Some(to_preview) = to_preview {
-                    let url = url.clone();
-                    to_preview.oneway(move |to_preview| {
-                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url })
-                    });
-                }
-                document_cache.invalidate_url(&url)
-            }
-        };
-
-        for dep in &dependencies {
-            if open_urls.as_ref().is_some_and(|open_urls| open_urls.contains(dep)) {
-                document_cache.reload_cached_file(dep, &mut diag).await;
             }
         }
+    } else {
+        FileAction::ProcessContent(content)
+    };
 
-        let extra_files = dependencies
-            .iter()
-            .filter_map(common::uri_to_file)
-            .chain(core::iter::once(path))
-            .collect();
+    let mut diag = BuildDiagnostics::default();
 
-        (extra_files, diag)
-    })
+    let dependencies = match action {
+        FileAction::ProcessContent(content) => {
+            if let Some(to_preview) = to_preview {
+                let url = url.clone();
+                let contents = content.as_bytes().to_owned();
+                to_preview.oneway(move |to_preview| {
+                    to_preview.send(&common::LspToPreviewMessage::SetContents {
+                        url: common::VersionedUrl::new(url, version),
+                        contents,
+                    })
+                });
+            }
+            let dependencies = document_cache.invalidate_url(&url);
+            let _ = document_cache.load_url(&url, version, content, &mut diag).await;
+            dependencies
+        }
+        FileAction::IgnoreFile => return Default::default(),
+        FileAction::InvalidateFile => {
+            if let Some(to_preview) = to_preview {
+                let url = url.clone();
+                to_preview.oneway(move |to_preview| {
+                    to_preview.send(&common::LspToPreviewMessage::ForgetFile { url })
+                });
+            }
+            document_cache.invalidate_url(&url)
+        }
+    };
+
+    for dep in &dependencies {
+        if open_urls.as_ref().is_some_and(|open_urls| open_urls.contains(dep)) {
+            document_cache.reload_cached_file(dep, &mut diag).await;
+        }
+    }
+
+    let extra_files =
+        dependencies.iter().filter_map(common::uri_to_file).chain(core::iter::once(path)).collect();
+
+    (extra_files, diag)
 }
 
 pub fn open_document(
@@ -943,7 +952,12 @@ pub fn load_document(
 ) -> impl Future<Output = common::Result<()>> + Send + 'static {
     let document_cache = ctx.document_cache.clone();
     let server_notifier = ctx.server_notifier.clone();
-    let future = load_document_impl(Some(ctx), content, url.clone(), version, document_cache);
+    let to_preview = ctx.to_preview.clone();
+    let open_urls = ctx.open_urls.clone();
+    let inner_url = url.clone();
+    let future = document_cache.exec_async(async move |dc| {
+        load_document_impl(Some(to_preview), Some(open_urls), content, inner_url, version, dc).await
+    });
 
     async move {
         let (extra_files, diag) = future.await;
@@ -1772,22 +1786,21 @@ pub mod tests {
 
     #[test]
     fn test_text_document_color_no_color_set() {
-        let (dc, uri, _) = loaded_document_cache(
+        let (mut dc, uri, _) = loaded_document_cache(
             r#"
             component Main inherits Rectangle { }
             "#
             .into(),
         );
 
-        let result = dc
-            .blocking_with(|dc| get_document_color(dc, &lsp_types::TextDocumentIdentifier { uri }))
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri })
             .expect("Color Vec was returned");
         assert!(result.is_empty());
     }
 
     #[test]
     fn test_text_document_color_rgba_color() {
-        let (dc, uri, _) = loaded_document_cache(
+        let (mut dc, uri, _) = loaded_document_cache(
             r#"
             component Main inherits Rectangle {
                 background: #1200FF80;
@@ -1796,8 +1809,7 @@ pub mod tests {
             .into(),
         );
 
-        let result = dc
-            .blocking_with(|dc| get_document_color(dc, &lsp_types::TextDocumentIdentifier { uri }))
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri })
             .expect("Color Vec was returned");
 
         assert_eq!(result.len(), 1);
@@ -1819,13 +1831,10 @@ pub mod tests {
 
     #[test]
     fn test_document_symbols() {
-        let (dc, uri, _) = complex_document_cache();
+        let (mut dc, uri, _) = complex_document_cache();
 
-        let result = dc
-            .blocking_with(|dc| {
-                get_document_symbols(dc, &lsp_types::TextDocumentIdentifier { uri })
-            })
-            .unwrap();
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
 
         if let DocumentSymbolResponse::Nested(result) = result {
             assert_eq!(result.len(), 1);
@@ -1839,7 +1848,7 @@ pub mod tests {
 
     #[test]
     fn test_document_symbols_hello_world() {
-        let (dc, uri, _) = loaded_document_cache(
+        let (mut dc, uri, _) = loaded_document_cache(
             r#"import { Button, VerticalBox } from "std-widgets.slint";
 component Demo {
     VerticalBox {
@@ -1859,11 +1868,8 @@ component Demo {
             "#
             .into(),
         );
-        let result = dc
-            .blocking_with(|dc| {
-                get_document_symbols(dc, &lsp_types::TextDocumentIdentifier { uri })
-            })
-            .unwrap();
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
 
         if let DocumentSymbolResponse::Nested(result) = result {
             assert_eq!(result.len(), 1);
@@ -1878,7 +1884,7 @@ component Demo {
     #[test]
     fn test_document_symbols_no_empty_names() {
         // issue #3979
-        let (dc, uri, _) = loaded_document_cache(
+        let (mut dc, uri, _) = loaded_document_cache(
             r#"import { Button, VerticalBox } from "std-widgets.slint";
 struct Foo {}
 enum Bar {}
@@ -1889,11 +1895,8 @@ enum {}
             "#
             .into(),
         );
-        let result = dc
-            .blocking_with(|dc| {
-                get_document_symbols(dc, &lsp_types::TextDocumentIdentifier { uri })
-            })
-            .unwrap();
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
 
         if let DocumentSymbolResponse::Nested(result) = result {
             assert_eq!(result.len(), 3);
@@ -1936,21 +1939,16 @@ enum {}
         }/*TestWindow*/
         "#;
 
-        let (dc, uri, _) = test::loaded_document_cache(source.into());
+        let (mut dc, uri, _) = test::loaded_document_cache(source.into());
 
         let inner_uri = uri.clone();
-        let inner_dc = dc.clone();
-        let result = inner_dc
-            .blocking_with(move |dc| {
-                get_document_symbols(dc, &lsp_types::TextDocumentIdentifier { uri: inner_uri })
-            })
-            .unwrap();
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri: inner_uri })
+                .unwrap();
 
         let check_start_with = |pos, str: &str| {
             let uri = uri.clone();
-            let offset = dc
-                .blocking_with(move |dc| dc.get_document_and_offset(&uri, &pos).map(|ret| ret.1))
-                .unwrap();
+            let offset = dc.get_document_and_offset(&uri, &pos).map(|ret| ret.1).unwrap();
             assert_eq!(&source[usize::from(offset)..][..str.len()], str);
         };
 
@@ -2004,13 +2002,10 @@ enum {}
 
     #[test]
     fn test_document_symbols_syntax_error() {
-        let (dc, uri, _) =
+        let (mut dc, uri, _) =
             loaded_document_cache(r#"component foo { xxx := {} /*--*/ yyy := }"#.into());
-        let result = dc
-            .blocking_with(move |dc| {
-                get_document_symbols(dc, &lsp_types::TextDocumentIdentifier { uri })
-            })
-            .unwrap();
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
         let mk_range = |r: std::ops::Range<u32>| {
             lsp_types::Range::new(Position::new(0, r.start), Position::new(0, r.end))
         };
@@ -2073,158 +2068,57 @@ export global NoPreviewForGlobal {}
         let mut capabilities = ClientCapabilities::default();
 
         let text_literal = lsp_types::Range::new(Position::new(7, 18), Position::new(7, 32));
-        dc.blocking_with(move |dc| {
-            assert_eq!(
-                token_descr(dc, &url, &text_literal.start).and_then(|(token, _)| get_code_actions(
-                    dc,
-                    token,
-                    &capabilities
-                )),
-                Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Wrap in `@tr()`".into(),
-                    edit: Some(WorkspaceEdit {
-                        document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                            lsp_types::TextDocumentEdit {
-                                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                    version: Some(42),
-                                    uri: url.clone(),
-                                },
-                                edits: vec![
-                                    lsp_types::OneOf::Left(TextEdit::new(
-                                        lsp_types::Range::new(
-                                            text_literal.start,
-                                            text_literal.start
-                                        ),
-                                        "@tr(".into()
-                                    )),
-                                    lsp_types::OneOf::Left(TextEdit::new(
-                                        lsp_types::Range::new(text_literal.end, text_literal.end),
-                                        ")".into()
-                                    )),
-                                ],
-                            }
-                        ])),
-                        ..Default::default()
-                    }),
+        assert_eq!(
+            token_descr(&mut dc, &url, &text_literal.start)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Wrap in `@tr()`".into(),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![
+                                lsp_types::OneOf::Left(TextEdit::new(
+                                    lsp_types::Range::new(text_literal.start, text_literal.start),
+                                    "@tr(".into()
+                                )),
+                                lsp_types::OneOf::Left(TextEdit::new(
+                                    lsp_types::Range::new(text_literal.end, text_literal.end),
+                                    ")".into()
+                                )),
+                            ],
+                        }
+                    ])),
                     ..Default::default()
-                })]),
-            );
+                }),
+                ..Default::default()
+            })]),
+        );
 
-            let text_element = lsp_types::Range::new(Position::new(6, 8), Position::new(9, 9));
-            for offset in 0..=4 {
-                let pos =
-                    Position::new(text_element.start.line, text_element.start.character + offset);
-
-                capabilities.experimental = None;
-                assert_eq!(
-                    token_descr(dc, &url, &pos).and_then(|(token, _)| get_code_actions(
-                        dc,
-                        token,
-                        &capabilities
-                    )),
-                    None
-                );
-
-                capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
-                assert_eq!(
-                    token_descr(dc, &url, &pos).and_then(|(token, _)| get_code_actions(
-                        dc,
-                        token,
-                        &capabilities
-                    )),
-                    Some(vec![
-                        CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                            title: "Wrap in element".into(),
-                            kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                            edit: Some(WorkspaceEdit {
-                                document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                    lsp_types::TextDocumentEdit {
-                                        text_document:
-                                            lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                                version: Some(42),
-                                                uri: url.clone(),
-                                            },
-                                        edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                            text_element,
-                                            r#"${0:element} {
-            Text {
-                text: "Hello World!";
-                font-size: 20px;
-            }
-}"#
-                                            .into()
-                                        ))],
-                                    },
-                                ])),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        }),
-                        CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                            title: "Repeat element".into(),
-                            kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                            edit: Some(WorkspaceEdit {
-                                document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                    lsp_types::TextDocumentEdit {
-                                        text_document:
-                                            lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                                version: Some(42),
-                                                uri: url.clone(),
-                                            },
-                                        edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                            lsp_types::Range::new(
-                                                text_element.start,
-                                                text_element.start
-                                            ),
-                                            r#"for ${1:name}[index] in ${0:model} : "#.into()
-                                        ))],
-                                    }
-                                ])),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        }),
-                        CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                            title: "Make conditional".into(),
-                            kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                            edit: Some(WorkspaceEdit {
-                                document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                    lsp_types::TextDocumentEdit {
-                                        text_document:
-                                            lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                                version: Some(42),
-                                                uri: url.clone(),
-                                            },
-                                        edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                            lsp_types::Range::new(
-                                                text_element.start,
-                                                text_element.start
-                                            ),
-                                            r#"if ${0:condition} : "#.into()
-                                        ))],
-                                    }
-                                ])),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        }),
-                    ])
-                );
-            }
-
-            let horizontal_box = lsp_types::Range::new(Position::new(15, 19), Position::new(24, 9));
+        let text_element = lsp_types::Range::new(Position::new(6, 8), Position::new(9, 9));
+        for offset in 0..=4 {
+            let pos = Position::new(text_element.start.line, text_element.start.character + offset);
 
             capabilities.experimental = None;
             assert_eq!(
-                token_descr(dc, &url, &horizontal_box.start)
-                    .and_then(|(token, _)| get_code_actions(dc, token, &capabilities)),
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
                 None
             );
 
             capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
             assert_eq!(
-                token_descr(dc, &url, &horizontal_box.start)
-                    .and_then(|(token, _)| get_code_actions(dc, token, &capabilities)),
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
                 Some(vec![
                     CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: "Wrap in element".into(),
@@ -2238,8 +2132,100 @@ export global NoPreviewForGlobal {}
                                             uri: url.clone(),
                                         },
                                     edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                        horizontal_box,
+                                        text_element,
                                         r#"${0:element} {
+            Text {
+                text: "Hello World!";
+                font-size: 20px;
+            }
+}"#
+                                        .into()
+                                    ))],
+                                },
+                            ])),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                        title: "Repeat element".into(),
+                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                        edit: Some(WorkspaceEdit {
+                            document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                                lsp_types::TextDocumentEdit {
+                                    text_document:
+                                        lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                            version: Some(42),
+                                            uri: url.clone(),
+                                        },
+                                    edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                        lsp_types::Range::new(
+                                            text_element.start,
+                                            text_element.start
+                                        ),
+                                        r#"for ${1:name}[index] in ${0:model} : "#.into()
+                                    ))],
+                                }
+                            ])),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                        title: "Make conditional".into(),
+                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                        edit: Some(WorkspaceEdit {
+                            document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                                lsp_types::TextDocumentEdit {
+                                    text_document:
+                                        lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                            version: Some(42),
+                                            uri: url.clone(),
+                                        },
+                                    edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                        lsp_types::Range::new(
+                                            text_element.start,
+                                            text_element.start
+                                        ),
+                                        r#"if ${0:condition} : "#.into()
+                                    ))],
+                                }
+                            ])),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                ])
+            );
+        }
+
+        let horizontal_box = lsp_types::Range::new(Position::new(15, 19), Position::new(24, 9));
+
+        capabilities.experimental = None;
+        assert_eq!(
+            token_descr(&mut dc, &url, &horizontal_box.start)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            None
+        );
+
+        capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
+        assert_eq!(
+            token_descr(&mut dc, &url, &horizontal_box.start)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            Some(vec![
+                CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: "Wrap in element".into(),
+                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                    edit: Some(WorkspaceEdit {
+                        document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                            lsp_types::TextDocumentEdit {
+                                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                    version: Some(42),
+                                    uri: url.clone(),
+                                },
+                                edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                    horizontal_box,
+                                    r#"${0:element} {
             HorizontalBox {
                 alignment: end;
 
@@ -2251,56 +2237,17 @@ export global NoPreviewForGlobal {}
                 }
             }
 }"#
-                                        .into()
-                                    ))]
-                                }
-                            ])),
-                            ..Default::default()
-                        }),
+                                    .into()
+                                ))]
+                            }
+                        ])),
                         ..Default::default()
                     }),
-                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: "Remove element".into(),
-                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                        edit: Some(WorkspaceEdit {
-                            document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                lsp_types::TextDocumentEdit {
-                                    text_document:
-                                        lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                            version: Some(42),
-                                            uri: url.clone(),
-                                        },
-                                    edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                        horizontal_box,
-                                        r#"Button { text: "Cancel"; }
-
-        Button {
-            text: "OK";
-            primary: true;
-        }"#
-                                        .into()
-                                    ))]
-                                }
-                            ])),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    }),
-                ])
-            );
-
-            let line_edit = Position::new(11, 20);
-            let import_pos = lsp_types::Position::new(0, 43);
-            capabilities.experimental = None;
-            assert_eq!(
-                token_descr(dc, &url, &line_edit).and_then(|(token, _)| get_code_actions(
-                    dc,
-                    token,
-                    &capabilities
-                )),
-                Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Add import from \"std-widgets.slint\"".into(),
-                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                    ..Default::default()
+                }),
+                CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: "Remove element".into(),
+                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
                     edit: Some(WorkspaceEdit {
                         document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
                             lsp_types::TextDocumentEdit {
@@ -2309,48 +2256,85 @@ export global NoPreviewForGlobal {}
                                     uri: url.clone(),
                                 },
                                 edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                    lsp_types::Range::new(import_pos, import_pos),
-                                    ", LineEdit".into()
+                                    horizontal_box,
+                                    r#"Button { text: "Cancel"; }
+
+        Button {
+            text: "OK";
+            primary: true;
+        }"#
+                                    .into()
                                 ))]
                             }
                         ])),
                         ..Default::default()
                     }),
                     ..Default::default()
-                }),])
+                }),
+            ])
+        );
+
+        let line_edit = Position::new(11, 20);
+        let import_pos = lsp_types::Position::new(0, 43);
+        capabilities.experimental = None;
+        assert_eq!(
+            token_descr(&mut dc, &url, &line_edit).and_then(|(token, _)| get_code_actions(
+                &mut dc,
+                token,
+                &capabilities
+            )),
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add import from \"std-widgets.slint\"".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(import_pos, import_pos),
+                                ", LineEdit".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),])
+        );
+
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+        for col in [
+            0,  // "export"
+            8,  // "component"
+            22, // "TestWindow"
+            42, // "Window"
+        ] {
+            let pos = Position::new(2, col);
+            assert_eq!(
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
+                Some(vec![CodeActionOrCommand::Command(Command::new(
+                    "Show Preview".into(),
+                    SHOW_PREVIEW_COMMAND.into(),
+                    Some(vec![url.as_str().into(), "TestWindow".into()]),
+                ))]),
+                "show preview missing {pos:?}"
             );
+        }
 
-            #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-            for col in [
-                0,  // "export"
-                8,  // "component"
-                22, // "TestWindow"
-                42, // "Window"
-            ] {
-                let pos = Position::new(2, col);
-                assert_eq!(
-                    token_descr(dc, &url, &pos).and_then(|(token, _)| get_code_actions(
-                        dc,
-                        token,
-                        &capabilities
-                    )),
-                    Some(vec![CodeActionOrCommand::Command(Command::new(
-                        "Show Preview".into(),
-                        SHOW_PREVIEW_COMMAND.into(),
-                        Some(vec![url.as_str().into(), "TestWindow".into()]),
-                    ))]),
-                    "show preview missing {pos:?}"
-                );
-            }
-
-            // Test that we don't get a show preview action for struct and globals
-            for line in [27, 28] {
-                let pos = Position::new(line, 15);
-                let token = token_descr(dc, &url, &pos).unwrap().0;
-                assert!(token.text().starts_with("NoPreviewFor"));
-                assert_eq!(get_code_actions(dc, token, &capabilities), None);
-            }
-        });
+        // Test that we don't get a show preview action for struct and globals
+        for line in [27, 28] {
+            let pos = Position::new(line, 15);
+            let token = token_descr(&mut dc, &url, &pos).unwrap().0;
+            assert!(token.text().starts_with("NoPreviewFor"));
+            assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
+        }
     }
 
     #[test]
@@ -2365,26 +2349,23 @@ export global NoPreviewForGlobal {}
             .into(),
         );
 
-        dc.blocking_with(move |dc| {
-            assert_eq!(
-                get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
-                Some(vec![lsp_types::CodeLens {
-                    range: lsp_types::Range::new(
-                        lsp_types::Position::new(0, 0),
-                        lsp_types::Position::new(4, 0)
-                    ),
-                    command: Some(lsp_types::Command {
-                        title: "Start with Hello World!".to_string(),
-                        command: POPULATE_COMMAND.to_string(),
-                        arguments: Some(vec![
-                            serde_json::to_value(
-                                lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                    uri: url,
-                                    version: Some(42)
-                                }
-                            )
-                            .unwrap(),
-                            r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
+        assert_eq!(
+            get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
+            Some(vec![lsp_types::CodeLens {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(0, 0),
+                    lsp_types::Position::new(4, 0)
+                ),
+                command: Some(lsp_types::Command {
+                    title: "Start with Hello World!".to_string(),
+                    command: POPULATE_COMMAND.to_string(),
+                    arguments: Some(vec![
+                        serde_json::to_value(lsp_types::OptionalVersionedTextDocumentIdentifier {
+                            uri: url,
+                            version: Some(42)
+                        })
+                        .unwrap(),
+                        r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     VerticalBox {
@@ -2397,13 +2378,12 @@ export component MainWindow inherits Window {
     }
 }
 "#
-                            .into()
-                        ]),
-                    }),
-                    data: None,
-                }])
-            );
-        });
+                        .into()
+                    ]),
+                }),
+                data: None,
+            }])
+        );
     }
 
     #[test]
@@ -2427,26 +2407,23 @@ fn main() {{
             "bar.rs",
         );
 
-        dc.blocking_with(move |dc| {
-            assert_eq!(
-                get_code_lenses(dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
-                Some(vec![lsp_types::CodeLens {
-                    range: lsp_types::Range::new(
-                        lsp_types::Position::new(3, 7),
-                        lsp_types::Position::new(7, 0)
-                    ),
-                    command: Some(lsp_types::Command {
-                        title: "Start with Hello World!".to_string(),
-                        command: POPULATE_COMMAND.to_string(),
-                        arguments: Some(vec![
-                            serde_json::to_value(
-                                lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                    uri: url,
-                                    version: Some(42)
-                                }
-                            )
-                            .unwrap(),
-                            r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
+        assert_eq!(
+            get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
+            Some(vec![lsp_types::CodeLens {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(3, 7),
+                    lsp_types::Position::new(7, 0)
+                ),
+                command: Some(lsp_types::Command {
+                    title: "Start with Hello World!".to_string(),
+                    command: POPULATE_COMMAND.to_string(),
+                    arguments: Some(vec![
+                        serde_json::to_value(lsp_types::OptionalVersionedTextDocumentIdentifier {
+                            uri: url,
+                            version: Some(42)
+                        })
+                        .unwrap(),
+                        r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     VerticalBox {
@@ -2459,13 +2436,12 @@ export component MainWindow inherits Window {
     }
 }
 "#
-                            .into()
-                        ]),
-                    }),
-                    data: None,
-                }])
-            );
-        });
+                        .into()
+                    ]),
+                }),
+                data: None,
+            }])
+        );
     }
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -2486,42 +2462,40 @@ export { Global }
             .into(),
         );
 
-        dc.blocking_with(move |dc| {
-            assert_eq!(
-                get_code_lenses(dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
-                Some(vec![
-                    lsp_types::CodeLens {
-                        range: lsp_types::Range::new(
-                            lsp_types::Position::new(1, 0),
-                            lsp_types::Position::new(1, 22)
-                        ),
-                        command: Some(lsp_types::Command {
-                            title: "▶ Show Preview".to_string(),
-                            command: SHOW_PREVIEW_COMMAND.to_string(),
-                            arguments: Some(vec![
-                                serde_json::to_value(url.clone()).unwrap(),
-                                "Internal".into()
-                            ]),
-                        }),
-                        data: None,
-                    },
-                    lsp_types::CodeLens {
-                        range: lsp_types::Range::new(
-                            lsp_types::Position::new(3, 0),
-                            lsp_types::Position::new(5, 1)
-                        ),
-                        command: Some(lsp_types::Command {
-                            title: "▶ Show Preview".to_string(),
-                            command: SHOW_PREVIEW_COMMAND.to_string(),
-                            arguments: Some(vec![
-                                serde_json::to_value(url.clone()).unwrap(),
-                                "Test".into()
-                            ])
-                        }),
-                        data: None,
-                    }
-                ])
-            );
-        });
+        assert_eq!(
+            get_code_lenses(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() }),
+            Some(vec![
+                lsp_types::CodeLens {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(1, 0),
+                        lsp_types::Position::new(1, 22)
+                    ),
+                    command: Some(lsp_types::Command {
+                        title: "▶ Show Preview".to_string(),
+                        command: SHOW_PREVIEW_COMMAND.to_string(),
+                        arguments: Some(vec![
+                            serde_json::to_value(url.clone()).unwrap(),
+                            "Internal".into()
+                        ]),
+                    }),
+                    data: None,
+                },
+                lsp_types::CodeLens {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(3, 0),
+                        lsp_types::Position::new(5, 1)
+                    ),
+                    command: Some(lsp_types::Command {
+                        title: "▶ Show Preview".to_string(),
+                        command: SHOW_PREVIEW_COMMAND.to_string(),
+                        arguments: Some(vec![
+                            serde_json::to_value(url.clone()).unwrap(),
+                            "Test".into()
+                        ])
+                    }),
+                    data: None,
+                }
+            ])
+        );
     }
 }

@@ -26,23 +26,19 @@ use async_lsp::router::Router;
 use async_lsp::server::LifecycleLayer;
 use async_lsp::tracing::TracingLayer;
 use common::Result;
-use i_slint_compiler::diagnostics::BuildDiagnostics;
 use language::*;
 
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
     DidOpenTextDocument, Notification,
 };
-use lsp_types::request::Initialize;
-use lsp_types::{InitializeParams, InitializeResult, Url};
+use lsp_types::{InitializeParams, InitializeResult, Url, request::Initialize};
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Write as _;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tower::ServiceBuilder;
 
@@ -191,8 +187,7 @@ impl ServerNotifier {
 // }
 // }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_ansi(false)
@@ -258,9 +253,18 @@ async fn main() {
                 }
             },
         }
-    } else if let Err(error) = run_lsp_server(args).await {
-        tracing::error!("Error running LSP server: {error}");
-        std::process::exit(3);
+    } else {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
+        let local_set = tokio::task::LocalSet::new();
+
+        if let Err(error) = local_set.block_on(&rt, run_lsp_server(args)) {
+            tracing::error!("Error running LSP server: {error}");
+            std::process::exit(3);
+        }
     }
 }
 
@@ -268,35 +272,49 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
     let (server, _) = async_lsp::MainLoop::new_server(move |client| {
         let mut router = Router::new(OnceLock::<Context>::new());
         register_notifications(&mut router);
-        let server_notifier = ServerNotifier { client };
+        let server_notifier = ServerNotifier { client: client.clone() };
 
-        router.request::<Initialize, _>(move |ctx, params| {
-            let ctx = ctx.get().unwrap();
-            let document_cache = ctx.document_cache.clone();
-            let server_notifier = ctx.server_notifier.clone();
-            async move {
-                let preview_config =
-                    startup_lsp(&params, server_notifier, document_cache).await.map_err(|err| {
-                        async_lsp::ResponseError::new(async_lsp::ErrorCode::INTERNAL_ERROR, err)
-                    })?;
-                client.emit(SetContextEvent(params, preview_config)).ok();
-                Ok(InitializeResult::default())
-            }
-        });
-        router.event::<events::SetContextEvent>(move |ctx, params| {
-            let new_ctx = create_context(server_notifier, params.0, args.clone(), params.1);
-            if ctx.set(new_ctx).is_err() {
-                std::ops::ControlFlow::Break(Err(async_lsp::Error::Response(
-                    async_lsp::ResponseError::new(
-                        async_lsp::ErrorCode::INTERNAL_ERROR,
-                        "Received SetContextEvent twice",
-                    ),
-                )))
-            } else {
-                std::ops::ControlFlow::Continue(())
-            }
-        });
         let inner_sn = server_notifier.clone();
+        router.request::<Initialize, _>(move |ctx, params| {
+            let document_cache = if ctx
+                .set(create_context(inner_sn.clone(), params.clone(), args.clone(), None))
+                .is_err()
+            {
+                Err(async_lsp::ResponseError::new(
+                    async_lsp::ErrorCode::INTERNAL_ERROR,
+                    "Received Initialize request twice",
+                ))
+            } else {
+                Ok(ctx.get().unwrap().document_cache.clone())
+            };
+            let server_notifier = inner_sn.clone();
+            async move {
+                let document_cache = document_cache?;
+                let result = server_initialize_result(&params.capabilities);
+                // Delay startup until the response to the Initialize request has been sent.
+                tokio::task::spawn_local(async move {
+                    match startup_lsp(&params, &server_notifier, document_cache).await {
+                        Err(err) => {
+                            server_notifier
+                                .send_event(async_lsp::Error::Response(
+                                    async_lsp::ResponseError::new(
+                                        async_lsp::ErrorCode::INTERNAL_ERROR,
+                                        err,
+                                    ),
+                                ))
+                                .ok();
+                        }
+                        Ok(None) => {}
+                        Ok(Some(config)) => {
+                            server_notifier
+                                .send_event(events::ConfigurePreviewEvent { config, doc_count: 0 })
+                                .ok();
+                        }
+                    }
+                });
+                Ok(result)
+            }
+        });
         router.event::<events::SendDiagnosticsEvent>(move |ctx, params| {
             let ctx = ctx.get().unwrap();
             let server_notifier = ctx.server_notifier.clone();
@@ -307,7 +325,8 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
         });
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         router.event::<events::ConfigurePreviewEvent>(move |ctx, params| {
-            let ctx = ctx.get().unwrap();
+            let ctx = ctx.get_mut().unwrap();
+            ctx.preview_config = params.config.clone();
             ctx.to_preview.oneway(move |to_preview| {
                 to_preview
                     .send(&common::LspToPreviewMessage::SetConfiguration { config: params.config });
@@ -358,7 +377,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             if let Some(old_timer) =
                 ctx.recompile_timer.replace(tokio::task::spawn_local(async move {
                     tokio::time::sleep(RECOMPILE_TIMEOUT).await;
-                    server_notifier.send_event(RecompileTimerEvent).ok();
+                    server_notifier.send_event(events::RecompileTimerEvent).ok();
                 }))
             {
                 old_timer.abort();
@@ -376,7 +395,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
                 std::ops::ControlFlow::Continue(())
             }
         });
-        router.event::<RecompileTimerEvent>(move |ctx, _| {
+        router.event::<events::RecompileTimerEvent>(move |ctx, _| {
             let ctx = ctx.get_mut().unwrap();
             let server_notifier = ctx.server_notifier.clone();
             let mut futures = Vec::with_capacity(ctx.pending_recompile.len());
@@ -395,7 +414,6 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
         router.event::<async_lsp::Error>(|_ctx, error| std::ops::ControlFlow::Break(Err(error)));
         let mut rh = RequestHandler(router);
         register_request_handlers(&mut rh);
-        // TODO: register notification handlers
 
         ServiceBuilder::new()
             .layer(TracingLayer::default())
@@ -452,10 +470,9 @@ fn create_context(
 
         let sn = server_notifier.clone();
 
-        LocalThreadWrapper::new(|| {
-            let child_preview: Box<dyn common::LspToPreview> = Box::new(
-                preview::connector::ChildProcessLspToPreview::new(server_notifier.clone()),
-            );
+        LocalThreadWrapper::new(move || {
+            let child_preview: Box<dyn common::LspToPreview> =
+                Box::new(preview::connector::ChildProcessLspToPreview::new(sn.clone()));
             let embedded_preview: Box<dyn common::LspToPreview> =
                 Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
             #[cfg(feature = "preview-remote")]
@@ -475,56 +492,64 @@ fn create_context(
     };
 
     let to_preview_clone = to_preview.clone();
-    let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
-        include_paths: cli_args.include_paths,
-        library_paths: cli_args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-        open_import_callback: Some(Rc::new(move |path| {
-            let to_preview = to_preview_clone.clone();
-            // let server_notifier = server_notifier_.clone();
-            Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read_to_string(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
-                    if let Ok(contents) = &contents {
-                        let contents = contents.clone().into();
-                        to_preview.oneway(move |to_preview| {
-                            to_preview.send(&common::LspToPreviewMessage::SetContents {
-                                url: common::VersionedUrl::new(url, None),
-                                contents,
-                            });
-                        });
-                    } else {
-                        to_preview.oneway(move |to_preview| {
-                            to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });
-                        });
-                    }
-                }
-                Some(contents.map(|c| (None, c)))
-            })
-        })),
-        format: if init_param
-            .capabilities
-            .general
-            .as_ref()
-            .and_then(|x| x.position_encodings.as_ref())
-            .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
-        {
-            common::ByteFormat::Utf8
-        } else {
-            common::ByteFormat::Utf16
-        },
-        resource_url_mapper: None,
-        // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
-        enable_experimental: false,
-    };
+
+    let inner_init_param = init_param.clone();
 
     Context {
-        document_cache: util::LocalThreadWrapper::new(|| {
+        document_cache: util::LocalThreadWrapper::new(move || {
+            let compiler_config = CompilerConfiguration {
+                style: Some(if cli_args.style.is_empty() {
+                    "native".into()
+                } else {
+                    cli_args.style
+                }),
+                include_paths: cli_args.include_paths,
+                library_paths: cli_args
+                    .library_paths
+                    .iter()
+                    .filter_map(|entry| {
+                        entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                    })
+                    .collect(),
+                open_import_callback: Some(Arc::new(move |path| {
+                    let to_preview = to_preview_clone.clone();
+                    Box::pin(async move {
+                        tracing::trace!("Importing file: {}", path);
+                        let contents = std::fs::read_to_string(&path);
+                        if let Ok(url) = Url::from_file_path(&path) {
+                            if let Ok(contents) = &contents {
+                                let contents = contents.clone().into();
+                                to_preview.oneway(move |to_preview| {
+                                    to_preview.send(&common::LspToPreviewMessage::SetContents {
+                                        url: common::VersionedUrl::new(url, None),
+                                        contents,
+                                    });
+                                });
+                            } else {
+                                to_preview.oneway(move |to_preview| {
+                                    to_preview
+                                        .send(&common::LspToPreviewMessage::ForgetFile { url });
+                                });
+                            }
+                        }
+                        Some(contents.map(|c| (None, c)))
+                    })
+                })),
+                format: if inner_init_param
+                    .capabilities
+                    .general
+                    .as_ref()
+                    .and_then(|x| x.position_encodings.as_ref())
+                    .is_some_and(|x| x.iter().any(|x| x == &lsp_types::PositionEncodingKind::UTF8))
+                {
+                    common::ByteFormat::Utf8
+                } else {
+                    common::ByteFormat::Utf16
+                },
+                resource_url_mapper: None,
+                // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
+                enable_experimental: false,
+            };
             crate::common::DocumentCache::new(compiler_config)
         }),
         preview_config: preview_config.unwrap_or_default(),
@@ -776,7 +801,7 @@ fn register_notifications(router: &mut Router<OnceLock<Context>>) {
     });
     router.notification::<DidChangeConfiguration>(|ctx, _params| {
         let ctx = ctx.get_mut().unwrap();
-        let client = ctx.server_notifier.client.clone();
+        let server_notifier = ctx.server_notifier.clone();
         let document_cache = ctx.document_cache.clone();
         if ctx
             .init_param
@@ -787,8 +812,12 @@ fn register_notifications(router: &mut Router<OnceLock<Context>>) {
             .unwrap_or(false)
         {
             tokio::task::spawn_local(async move {
-                if let Ok(Some(config)) = load_configuration(client.clone(), document_cache).await {
-                    client.emit(ConfigurePreviewEvent { config, doc_count: 0 }).ok();
+                if let Ok(Some(config)) =
+                    load_configuration(server_notifier.clone(), document_cache).await
+                {
+                    server_notifier
+                        .send_event(events::ConfigurePreviewEvent { config, doc_count: 0 })
+                        .ok();
                 }
             });
         }
