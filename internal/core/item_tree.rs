@@ -18,6 +18,7 @@ use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
+use std::println;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -262,6 +263,7 @@ fn step_into_node(
     }
 }
 
+#[derive(Debug)]
 pub enum ParentItemTraversalMode {
     FindAllParents,
     StopAtPopups,
@@ -344,11 +346,13 @@ impl ItemRc {
         if let Some(ItemTreeNode::DynamicTree { parent_index, .. }) =
             item_tree_array.get(parent.index())
         {
+            println!("parent_item(). Item is a Dynamic Tree object");
             // parent_node returns the repeater node, go up one more level!
             Some(ItemRc::new(parent.item_tree.clone(), *parent_index))
         } else {
             // the Item was most likely a PopupWindow and we don't want to return the item for the purpose of this call
             // (eg, focus/geometry/...)
+            println!("parent_item(). Item is a Popup object. Findmode: {:?}", find_mode);
             match find_mode {
                 ParentItemTraversalMode::FindAllParents => Some(parent),
                 ParentItemTraversalMode::StopAtPopups => None,
@@ -533,6 +537,7 @@ impl ItemRc {
     /// Returns an absolute position of `p` in the parent item coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
+        println!("map_to_window");
         self.map_to_item_tree_impl(p, |_| false)
     }
 
@@ -562,6 +567,7 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
+        println!("map_to_item_tree_impl. Self: {:?}", self);
         let mut current = self.clone();
         let mut result = p;
         if stop_condition(&current) {
@@ -570,7 +576,9 @@ impl ItemRc {
         let supports_transformations = self
             .window_adapter()
             .is_none_or(|adapter| adapter.renderer().supports_transformations());
+        println!("map_to_item_tree_impl. Search parent of: {:?}", current);
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            println!("map_to_item_tree_impl. Parent: {:?}", parent);
             if stop_condition(&parent) {
                 break;
             }
@@ -579,8 +587,10 @@ impl ItemRc {
                 result = transform.transform_point(result.cast()).cast();
             }
             result += geometry.origin.to_vector();
+            println!("Geometry Origin: {:?}, Result: {:?}", geometry.origin, result);
             current = parent;
         }
+        println!("map_to_item_tree_impl. FINISHED");
         result
     }
 
@@ -589,6 +599,8 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
+
+        println!("map_from_item_tree_impl. Self: {:?}", self);
         let mut current = self.clone();
         let mut result = p;
         if stop_condition(&current) {

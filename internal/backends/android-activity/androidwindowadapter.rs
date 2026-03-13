@@ -87,6 +87,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn input_method_request(&self, request: InputMethodRequest) {
         match request {
             InputMethodRequest::Enable(props) => {
+                println!("input_method_request: InputMethodRequest::Enable");
                 self.java_helper
                     .set_imm_data(
                         &props,
@@ -112,6 +113,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 }
             }
             InputMethodRequest::Update(props) => {
+                println!("input_method_request: InputMethodRequest::Update");
                 self.java_helper
                     .set_imm_data(
                         &props,

@@ -37,6 +37,7 @@ use core::pin::Pin;
 use euclid::num::Ceil;
 use i_slint_core_macros::*;
 use unicode_segmentation::UnicodeSegmentation;
+use std::println;
 
 /// The implementation of the `Text` element
 #[repr(C)]
@@ -827,6 +828,8 @@ impl Item for TextInput {
 
         *cursor = super::MouseCursor::Text;
 
+        println!("Text: input_event: {:?}, cursor: {:?}", event, cursor);
+
         match event {
             MouseEvent::Pressed {
                 position, button: PointerEventButton::Left, click_count, ..
@@ -930,15 +933,19 @@ impl Item for TextInput {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
+
+        println!("Text: keyevent: {:?}", event);
         match event.event_type {
             KeyEventType::KeyPressed => {
                 // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
                 if Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
                     == EventResult::Accept
                 {
+                    println!("Text: Key Press accepted by key_pressed() callback");
                     return KeyEventResult::EventAccepted;
                 }
 
+                println!("Text: Key Press ignored by key_pressed() callback");
                 match event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
@@ -1066,17 +1073,20 @@ impl Item for TextInput {
                     let text = self.text();
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
+                println!("Text: key_event: Before insertion: Cursor: {}, Anchor: {}", real_cursor, real_anchor);
 
                 if !self.accept_text_input(event.text.as_str()) {
                     return KeyEventResult::EventIgnored;
                 }
 
+                println!("Text: key_event: Delete selection");
                 self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
 
                 let mut text: String = self.text().into();
 
                 // FIXME: respect grapheme boundaries
                 let insert_pos = self.selection_anchor_and_cursor().1;
+                println!("Text: key_event: insert_pos: {}", insert_pos);
                 text.insert_str(insert_pos, &event.text);
 
                 self.add_undo_item(UndoItem {
@@ -1090,6 +1100,7 @@ impl Item for TextInput {
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
+                println!("Text: key_event: new_cursor_pos: {}", new_cursor_pos);
                 self.set_cursor_position(
                     new_cursor_pos,
                     true,
@@ -1283,6 +1294,7 @@ impl RenderString for TextInput {
     }
 }
 
+#[derive(Debug)]
 pub enum TextCursorDirection {
     Forward,
     Backward,
@@ -1324,7 +1336,7 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum AnchorMode {
     KeepAnchor,
     MoveAnchor,
@@ -1456,6 +1468,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> bool {
+        println!("Text: move_cursor: Direction: {:?}, Anchor Mode: {:?}", direction, anchor_mode);
         let text = self.text();
         if text.is_empty() {
             return false;
@@ -1607,6 +1620,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
+        println!("Text: set_cursor_position: {}", new_position);
         self.cursor_position_byte_offset.set(new_position);
         if new_position >= 0 {
             let pos = self
@@ -1629,6 +1643,7 @@ impl TextInput {
         if self.read_only() || !self.has_focus() {
             return;
         }
+        println!("Text: update_ime");
         if let Some(w) = window_adapter.internal(crate::InternalToken) {
             w.input_method_request(InputMethodRequest::Update(
                 self.ime_properties(window_adapter, self_rc),
