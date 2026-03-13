@@ -10,6 +10,7 @@ compile_error!(
 );
 
 mod common;
+mod events;
 mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
@@ -263,26 +264,6 @@ async fn main() {
     }
 }
 
-#[derive(Clone, Debug)]
-struct SetContextEvent(InitializeParams, Option<lsp_protocol::PreviewConfig>);
-struct SendDiagnosticsEvent {
-    extra_files: HashSet<PathBuf>,
-    diag: BuildDiagnostics,
-}
-
-struct ConfigurePreviewEvent {
-    config: lsp_protocol::PreviewConfig,
-    doc_count: usize,
-}
-
-struct LoadDocumentEvent {
-    content: String,
-    url: lsp_types::Url,
-    version: Option<i32>,
-}
-
-struct RecompileTimerEvent;
-
 async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
     let (server, _) = async_lsp::MainLoop::new_server(move |client| {
         let mut router = Router::new(OnceLock::<Context>::new());
@@ -302,7 +283,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
                 Ok(InitializeResult::default())
             }
         });
-        router.event::<SetContextEvent>(move |ctx, params| {
+        router.event::<events::SetContextEvent>(move |ctx, params| {
             let new_ctx = create_context(server_notifier, params.0, args.clone(), params.1);
             if ctx.set(new_ctx).is_err() {
                 std::ops::ControlFlow::Break(Err(async_lsp::Error::Response(
@@ -316,7 +297,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             }
         });
         let inner_sn = server_notifier.clone();
-        router.event::<SendDiagnosticsEvent>(move |ctx, params| {
+        router.event::<events::SendDiagnosticsEvent>(move |ctx, params| {
             let ctx = ctx.get().unwrap();
             let server_notifier = ctx.server_notifier.clone();
             tokio::task::spawn_local(ctx.document_cache.clone().exec(move |document_cache| {
@@ -325,7 +306,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             std::ops::ControlFlow::Continue(())
         });
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        router.event::<ConfigurePreviewEvent>(move |ctx, params| {
+        router.event::<events::ConfigurePreviewEvent>(move |ctx, params| {
             let ctx = ctx.get().unwrap();
             ctx.to_preview.oneway(move |to_preview| {
                 to_preview
@@ -349,7 +330,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
 
             std::ops::ControlFlow::Continue(())
         });
-        router.event::<LoadDocumentEvent>(move |ctx, params| {
+        router.event::<events::LoadDocumentEvent>(move |ctx, params| {
             tokio::task::spawn_local(language::load_document(
                 ctx.get_mut().unwrap(),
                 params.content,
@@ -358,7 +339,7 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
             ));
             std::ops::ControlFlow::Continue(())
         });
-        router.event::<language::AddRecompile>(move |ctx, params| {
+        router.event::<events::AddRecompile>(move |ctx, params| {
             let ctx = ctx.get_mut().unwrap();
             let open_dependencies = ctx.open_urls.intersection(&params.0).cloned();
             ctx.pending_recompile.extend(open_dependencies);
@@ -461,9 +442,9 @@ fn create_context(
 ) -> Context {
     #[cfg(not(feature = "preview-engine"))]
     let to_preview = {
-        LocalThreadWrapper::new_local(preview::connector::SwitchableLspToPreview::with_one(
-            common::DummyLspToPreview {},
-        ))
+        LocalThreadWrapper::new(|| {
+            preview::connector::SwitchableLspToPreview::with_one(common::DummyLspToPreview {})
+        })
     };
     #[cfg(feature = "preview-engine")]
     let to_preview = {
@@ -471,14 +452,15 @@ fn create_context(
 
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::ChildProcessLspToPreview::new(server_notifier.clone()));
-        let embedded_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
-        #[cfg(feature = "preview-remote")]
-        let remote_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::RemoteLspToPreview::new(sn));
-        LocalThreadWrapper::new_local(
+        LocalThreadWrapper::new(|| {
+            let child_preview: Box<dyn common::LspToPreview> = Box::new(
+                preview::connector::ChildProcessLspToPreview::new(server_notifier.clone()),
+            );
+            let embedded_preview: Box<dyn common::LspToPreview> =
+                Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+            #[cfg(feature = "preview-remote")]
+            let remote_preview: Box<dyn common::LspToPreview> =
+                Box::new(preview::connector::RemoteLspToPreview::new(sn));
             preview::connector::SwitchableLspToPreview::new(
                 HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
@@ -488,8 +470,8 @@ fn create_context(
                 ]),
                 common::PreviewTarget::ChildProcess,
             )
-            .unwrap(),
-        )
+            .unwrap()
+        })
     };
 
     let to_preview_clone = to_preview.clone();
@@ -542,9 +524,9 @@ fn create_context(
     };
 
     Context {
-        document_cache: util::LocalThreadWrapper::new_local(crate::common::DocumentCache::new(
-            compiler_config,
-        )),
+        document_cache: util::LocalThreadWrapper::new(|| {
+            crate::common::DocumentCache::new(compiler_config)
+        }),
         preview_config: preview_config.unwrap_or_default(),
         server_notifier,
         init_param,
