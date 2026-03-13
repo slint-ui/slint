@@ -128,12 +128,6 @@ interface Social {
     href?: string;
 }
 
-export interface Stat {
-    amount?: number | string;
-    title?: string;
-    icon?: string;
-}
-
 export interface Item {
     title?: string;
     description?: string;
@@ -227,10 +221,6 @@ export interface Team extends Omit<Headline, "classes">, Widget {
     team?: Array<TeamMember>;
 }
 
-export interface Stats extends Omit<Headline, "classes">, Widget {
-    stats?: Array<Stat>;
-}
-
 export interface Pricing extends Omit<Headline, "classes">, Widget {
     prices?: Array<Price>;
 }
@@ -238,11 +228,6 @@ export interface Pricing extends Omit<Headline, "classes">, Widget {
 export interface Testimonials extends Omit<Headline, "classes">, Widget {
     testimonials?: Array<Testimonial>;
     callToAction?: CallToAction;
-}
-
-export interface Brands extends Omit<Headline, "classes">, Widget {
-    icons?: Array<string>;
-    images?: Array<Image>;
 }
 
 export interface Features extends Omit<Headline, "classes">, Widget {
@@ -263,13 +248,6 @@ export interface Faqs extends Omit<Headline, "classes">, Widget {
     iconDown?: string;
     items?: Array<Item>;
     columns?: number;
-}
-
-export interface Steps extends Omit<Headline, "classes">, Widget {
-    items?: Array<Item>;
-    callToAction?: string | CallToAction;
-    image?: string | Image;
-    isReversed?: boolean;
 }
 
 export interface Content extends Omit<Headline, "classes">, Widget {
