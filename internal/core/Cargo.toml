@@ -48,7 +48,7 @@ std = [
 # from a single core, and not in a interrupt or signal handler.
 unsafe-single-threaded = []
 
-unicode = ["unicode-script", "unicode-linebreak"]
+unicode = ["unicode-script", "unicode-linebreak", "unicode-normalization"]
 
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
@@ -106,6 +106,7 @@ slab = { version = "0.4.3", default-features = false }
 static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
 unicode-segmentation = { workspace = true }
+unicode-normalization = { workspace = true, optional = true }
 unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }

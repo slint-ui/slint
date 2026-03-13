@@ -26,5 +26,9 @@ export component SuperSimple {
         @keys(Alt? + "{"),
         @keys(Alt? + Shift + Control + Meta + Escape),
         @keys(Control + Alt? + A),
+
+        // Unicode characters (single grapheme clusters are valid)
+        @keys("é"),
+        @keys(Control + "ñ"),
     ];
 }
