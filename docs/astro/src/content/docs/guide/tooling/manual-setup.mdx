@@ -75,6 +75,46 @@ All other files are left untouched.
 
 If you have `slint-lsp` configured in your editor, you should be able to format .slint files via your editor as well.
 
+### Using `slint-lsp` with pre-commit
+
+You can run Slint formatting automatically on `git commit` with [pre-commit](https://pre-commit.com/).
+
+#### Option 1: Use the shared hook repo
+
+Use [KDABLabs/slint-pre-commit-hooks](https://github.com/KDABLabs/slint-pre-commit-hooks) to get a version-pinned, isolated hook setup:
+
+```yaml
+repos:
+  - repo: https://github.com/KDABLabs/slint-pre-commit-hooks
+    rev: v1.15.0
+    hooks:
+      - id: slint-format
+```
+
+Then install and run it:
+
+```sh
+pre-commit install
+pre-commit run slint-format --all-files
+```
+
+#### Option 2: Local / system hook
+
+If `slint-lsp` is already installed in your `$PATH` (for example with `cargo install slint-lsp`), you can use a local hook:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: slint-format
+        name: Slint Format
+        entry: slint-lsp format --inline
+        language: system
+        files: '\\.(slint|60)$'
+```
+
+This is simpler, but you manage the `slint-lsp` version yourself.
+
 ## Slint Live Preview (`slint-viewer`)
 
 Slint's live preview feature lets you see your code changes in real-time.
