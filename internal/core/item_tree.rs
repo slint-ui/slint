@@ -22,7 +22,6 @@ use vtable::*;
 
 pub const ROOT_ITEM_INDEX: u32 = 0;
 
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 /// A range of indices
