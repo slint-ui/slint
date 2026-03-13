@@ -2240,7 +2240,7 @@ impl WindowInner {
         let position = parent_item
             .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
+            if ItemRc::new(item_tree.clone(), crate::item_tree::ROOT_ITEM_INDEX).downcast::<crate::items::WindowItem>().is_some() {
                 return item_tree;
             }
             let mut r = crate::item_tree::ItemWeak::default();
