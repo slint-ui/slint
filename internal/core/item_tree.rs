@@ -599,6 +599,7 @@ impl ItemRc {
             current = parent;
         }
 
+        // If the component is in a popup of type ChildWindow we have to consider the location of that as well
         if let Some(window_adapter) = self.window_adapter() {
             let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
             let active_popups = window_inner.active_popups();
