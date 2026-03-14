@@ -8,125 +8,310 @@ use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;
-use jni::JNIEnv;
-use jni::objects::{JClass, JObject, JString, JValue};
-use jni::sys::{jboolean, jint};
+use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
+use jni::sys::jint;
+use jni::{Env, JavaVM, bind_java_type};
+use std::sync::OnceLock;
 use std::time::Duration;
 
-#[track_caller]
-pub fn print_jni_error(app: &AndroidApp, e: jni::errors::Error) -> ! {
-    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }.unwrap();
-    let env = vm.attach_current_thread().unwrap();
-    let _ = env.exception_describe();
-    panic!("JNI error: {e:?}")
+const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
+
+bind_java_type! {
+    SlintAndroidJavaHelper => ".SlintAndroidJavaHelper",
+    type_map = {
+        AndroidActivity => "android.app.Activity",
+        AndroidRect => "android.graphics.Rect",
+    },
+    constructors {
+        fn new(activity: AndroidActivity),
+    },
+    methods {
+        fn color_scheme {
+            name = "color_scheme",
+            sig = () -> jint,
+        },
+        fn get_clipboard {
+            name = "get_clipboard",
+            sig = () -> JString,
+        },
+        fn get_safe_area {
+            name = "get_safe_area",
+            sig = () -> AndroidRect,
+        },
+        fn get_view_rect {
+            name = "get_view_rect",
+            sig = () -> AndroidRect,
+        },
+        fn hide_keyboard {
+            name = "hide_keyboard",
+            sig = (),
+        },
+        fn set_clipboard {
+            name = "set_clipboard",
+            sig = (text: JString),
+        },
+        fn set_handle_color {
+            name = "set_handle_color",
+            sig = (color: jint),
+        },
+        fn set_imm_data {
+            name = "set_imm_data",
+            sig = (
+                text: JString,
+                cursor_position: jint,
+                anchor_position: jint,
+                preedit_start: jint,
+                preedit_end: jint,
+                cur_x: jint,
+                cur_y: jint,
+                anchor_x: jint,
+                anchor_y: jint,
+                cursor_height: jint,
+                input_type: jint,
+                show_cursor_handles: jboolean
+            ),
+        },
+        fn show_action_menu {
+            name = "show_action_menu",
+            sig = (),
+        },
+        fn show_keyboard {
+            name = "show_keyboard",
+            sig = (),
+        },
+    },
+    native_methods_export = false,
+    native_methods {
+        pub static fn move_cursor_handle {
+            sig = (id: jint, pos_x: jint, pos_y: jint) -> (),
+            fn = callback_move_cursor_handle,
+        },
+        pub static fn popup_menu_action {
+            sig = (id: jint) -> (),
+            fn = callback_popup_menu_action,
+        },
+        pub static fn set_insets {
+            sig = (
+                window_top: jint,
+                window_left: jint,
+                window_bottom: jint,
+                window_right: jint,
+                safe_area_top: jint,
+                safe_area_left: jint,
+                safe_area_bottom: jint,
+                safe_area_right: jint,
+                keyboard_top: jint,
+                keyboard_left: jint,
+                keyboard_bottom: jint,
+                keyboard_right: jint
+            ) -> (),
+            fn = callback_set_insets,
+        },
+        pub static fn set_night_mode {
+            sig = (night_mode: jint) -> (),
+            fn = callback_set_night_mode,
+        },
+        pub static fn update_text {
+            sig = (
+                    text: JString,
+                    cursor_position: jint,
+                    anchor_position: jint,
+                    preedit_start: jint,
+                    preedit_offset: jint
+            ) -> (),
+            fn = callback_update_text,
+        },
+    },
 }
 
-pub struct JavaHelper(jni::objects::GlobalRef, AndroidApp);
+bind_java_type! {
+    AndroidActivity => "android.app.Activity",
+    type_map = {
+        AndroidContext => "android.content.Context",
+    },
+    is_instance_of = {
+        AndroidContext,
+    }
+}
 
-fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::errors::Error> {
-    // Safety: as documented in android-activity to obtain a jni::JavaVM
-    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
-    let native_activity = unsafe { JObject::from_raw(app.activity_as_ptr() as *mut _) };
+bind_java_type! {
+    AndroidContext => "android.content.Context",
+    type_map = {
+        JFile => "java.io.File",
+    },
+    methods {
+        fn get_files_dir() -> JFile,
+        fn get_cache_dir() -> JFile,
+        fn get_code_cache_dir() -> JFile, // requires API level >= 21
+        fn get_class_loader() -> JClassLoader,
+        fn get_package_name() -> JString,
+    }
+}
 
-    let mut env = vm.attach_current_thread()?;
-
-    let dex_data = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
-
-    // Safety: dex_data is 'static and the InMemoryDexClassLoader will not mutate it it
-    let dex_buffer =
-        unsafe { env.new_direct_byte_buffer(dex_data.as_ptr() as *mut _, dex_data.len()).unwrap() };
-
-    let parent_class_loader = env
-        .call_method(&native_activity, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])?
-        .l()?;
-
-    let os_build_class = env.find_class("android/os/Build$VERSION")?;
-    let sdk_ver = env.get_static_field(os_build_class, "SDK_INT", "I")?.i()?;
-
-    let dex_loader = if sdk_ver >= 26 {
-        env.new_object(
-            "dalvik/system/InMemoryDexClassLoader",
-            "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V",
-            &[JValue::Object(&dex_buffer), JValue::Object(&parent_class_loader)],
-        )?
-    } else {
-        let code_cache_path = {
-            let dir = env
-                .call_method(&native_activity, "getCodeCacheDir", "()Ljava/io/File;", &[])?
-                .l()?;
-            let path =
-                env.call_method(&dir, "getAbsolutePath", "()Ljava/lang/String;", &[])?.l()?;
-            jni_get_string(&path, &mut env)
-                .map(|s| s.to_string_lossy().into_owned())
-                .map(std::path::PathBuf::from)?
-        };
-        let dex_name = env!("CARGO_CRATE_NAME").to_string() + ".dex";
-        let dex_file_path = code_cache_path.join(dex_name);
-        std::fs::write(&dex_file_path, dex_data).unwrap(); // Note: this panics on failure
-        let dex_file_path = env.new_string(&dex_file_path.as_os_str().to_string_lossy())?;
-
-        let oats_dir_path = code_cache_path.join("oats");
-        let _ = std::fs::create_dir(&oats_dir_path);
-        let oats_dir_path = env.new_string(&oats_dir_path.as_os_str().to_string_lossy())?;
-
-        env.new_object(
-            "dalvik/system/DexClassLoader",
-            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V",
-            &[
-                (&dex_file_path).into(),
-                (&oats_dir_path).into(),
-                (&JObject::null()).into(),
-                (&parent_class_loader).into(),
-            ],
-        )?
-    };
-
-    let class_name = env.new_string("SlintAndroidJavaHelper")?;
-    let helper_class = env
-        .call_method(
-            dex_loader,
-            "findClass",
-            "(Ljava/lang/String;)Ljava/lang/Class;",
-            &[JValue::Object(&class_name)],
-        )?
-        .l()?;
-    let helper_class: JClass = helper_class.into();
-
-    let methods = [
-        jni::NativeMethod {
-            name: "updateText".into(),
-            sig: "(Ljava/lang/String;IIII)V".into(),
-            fn_ptr: Java_SlintAndroidJavaHelper_updateText as *mut _,
+bind_java_type! {
+    AndroidBuildVersion => "android.os.Build$VERSION",
+    fields {
+        #[allow(non_snake_case)]
+        static SDK_INT {
+            sig = jint,
+            get = SDK_INT,
         },
-        jni::NativeMethod {
-            name: "setNightMode".into(),
-            sig: "(I)V".into(),
-            fn_ptr: Java_SlintAndroidJavaHelper_setNightMode as *mut _,
-        },
-        jni::NativeMethod {
-            name: "moveCursorHandle".into(),
-            sig: "(III)V".into(),
-            fn_ptr: Java_SlintAndroidJavaHelper_moveCursorHandle as *mut _,
-        },
-        jni::NativeMethod {
-            name: "popupMenuAction".into(),
-            sig: "(I)V".into(),
-            fn_ptr: Java_SlintAndroidJavaHelper_popupMenuAction as *mut _,
-        },
-        jni::NativeMethod {
-            name: "setInsets".into(),
-            sig: "(IIIIIIIIIIII)V".into(),
-            fn_ptr: Java_SlintAndroidJavaHelper_setInsets as *mut _,
-        },
-    ];
-    env.register_native_methods(&helper_class, &methods)?;
+    },
+}
 
-    let helper_instance = env.new_object(
-        helper_class,
-        "(Landroid/app/Activity;)V",
-        &[JValue::Object(&native_activity)],
-    )?;
-    Ok(env.new_global_ref(&helper_instance)?)
+bind_java_type! {
+    AndroidRect => "android.graphics.Rect",
+    fields {
+        bottom: jint,
+        left: jint,
+        right: jint,
+        top: jint,
+    },
+}
+
+bind_java_type! {
+    AndroidInputType => "android.text.InputType",
+    fields {
+        #[allow(non_snake_case)]
+        static TYPE_CLASS_NUMBER {
+            sig = jint,
+            get = TYPE_CLASS_NUMBER,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_CLASS_TEXT {
+            sig = jint,
+            get = TYPE_CLASS_TEXT,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_VARIATION_PASSWORD {
+            sig = jint,
+            get = TYPE_TEXT_VARIATION_PASSWORD,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_NUMBER_FLAG_DECIMAL {
+            sig = jint,
+            get = TYPE_NUMBER_FLAG_DECIMAL,
+        },
+    }
+}
+
+bind_java_type! {
+    AndroidViewConfiguration => "android.view.ViewConfiguration",
+    methods {
+        static fn get_long_press_timeout() -> jint,
+    }
+}
+
+bind_java_type! {
+    JFile => "java.io.File",
+    methods {
+        fn get_absolute_path() -> JString,
+    }
+}
+
+bind_java_type! {
+    InMemoryDexClassLoader => "dalvik.system.InMemoryDexClassLoader",
+    constructors {
+        fn new(dex_buffer: JByteBuffer, parent: JClassLoader),
+    },
+    is_instance_of = {
+        JClassLoader,
+    }
+}
+
+bind_java_type! {
+    DexFileClassLoader => "dalvik.system.DexClassLoader",
+    constructors {
+        fn new(dex_path: JString, optimized_directory: JString, library_search_path: JString, parent: JClassLoader),
+    },
+    is_instance_of = {
+        JClassLoader,
+    }
+}
+
+// See `AttachmentExceptionPolicy::PreReThrowPostCatch` in `jni` crate.
+#[track_caller]
+pub fn print_jni_error(_app: &AndroidApp, e: jni::errors::Error) -> ! {
+    panic!("JNI error: {e:#?}")
+}
+
+#[allow(dead_code)]
+pub struct JavaHelper(jni::refs::Global<SlintAndroidJavaHelper<'static>>, AndroidApp);
+
+fn get_helper_class_loader(
+    env: &mut Env,
+    native_activity: &AndroidActivity<'_>,
+) -> Result<&'static JClassLoader<'static>, jni::errors::Error> {
+    static DEX_CLASS_LOADER: OnceLock<jni::refs::Global<JClassLoader<'static>>> = OnceLock::new();
+
+    fn build_dex_class_loader<'local>(
+        env: &mut Env<'local>,
+        native_activity: &AndroidActivity<'_>,
+    ) -> Result<JClassLoader<'local>, jni::errors::Error> {
+        let native_activity = env.new_local_ref(native_activity)?;
+        let app_context = AndroidContext::cast_local(env, native_activity)?;
+        let context_class_loader = app_context.get_class_loader(env)?;
+
+        if AndroidBuildVersion::SDK_INT(env)? >= 26 {
+            // Safety: DEX_DATA is 'static and the `InMemoryDexClassLoader`` will not mutate it
+            let dex_buffer =
+                unsafe { env.new_direct_byte_buffer(DEX_DATA.as_ptr() as *mut _, DEX_DATA.len()) }?;
+            let dex_loader = InMemoryDexClassLoader::new(env, &dex_buffer, &context_class_loader)?;
+            JClassLoader::cast_local(env, dex_loader)
+        } else {
+            // The dex data must be written in a file; this determines the output
+            // directory path inside the application code cache directory.
+            let code_cache_path = app_context
+                .get_code_cache_dir(env)?
+                .get_absolute_path(env)
+                .map(|p| std::path::PathBuf::from(p.to_string()))?;
+
+            let dex_name = env!("CARGO_CRATE_NAME").to_string() + ".dex";
+            let dex_file_path = code_cache_path.join(dex_name);
+            std::fs::write(&dex_file_path, DEX_DATA).unwrap(); // Note: this panics on failure
+            let dex_file_path = JString::new(env, dex_file_path.to_string_lossy())?;
+
+            // creates the oats directory
+            let oats_dir_path = code_cache_path.join("oats");
+            let _ = std::fs::create_dir(&oats_dir_path);
+            let oats_dir_path = JString::new(env, oats_dir_path.to_string_lossy())?;
+
+            // loads the dex file
+            let dex_loader = DexFileClassLoader::new(
+                env,
+                &dex_file_path,
+                &oats_dir_path,
+                JString::null(),
+                &context_class_loader,
+            )?;
+            JClassLoader::cast_local(env, dex_loader)
+        }
+    }
+
+    if DEX_CLASS_LOADER.get().is_none() {
+        let loader = build_dex_class_loader(env, native_activity)?;
+        let loader = env.new_global_ref(loader)?;
+        let _ = DEX_CLASS_LOADER.set(loader);
+    }
+    Ok(DEX_CLASS_LOADER.get().unwrap())
+}
+
+fn load_java_helper(
+    app: &AndroidApp,
+) -> Result<jni::refs::Global<SlintAndroidJavaHelper<'static>>, jni::errors::Error> {
+    let jvm = JavaVM::singleton().unwrap_or_else(|_| unsafe {
+        // Safety: as documented in android-activity to obtain a jni::JavaVM
+        JavaVM::from_raw(app.vm_as_ptr() as *mut _) // this initializes the `JavaVM::singleton()`
+    });
+    jvm.attach_current_thread(|env| {
+        let native_activity_ptr = app.activity_as_ptr().cast();
+        let native_activity =
+            unsafe { env.as_cast_raw::<jni::refs::Global<AndroidActivity>>(&native_activity_ptr)? };
+        let loader = LoaderContext::Loader(get_helper_class_loader(env, native_activity.as_ref())?);
+        let _ = SlintAndroidJavaHelperAPI::get(env, &loader)?;
+        let helper_instance = SlintAndroidJavaHelper::new(env, native_activity)?;
+        env.new_global_ref(&helper_instance)
+    })
 }
 
 impl JavaHelper {
@@ -136,26 +321,22 @@ impl JavaHelper {
 
     fn with_jni_env<R>(
         &self,
-        f: impl FnOnce(&mut JNIEnv, &JObject<'static>) -> Result<R, jni::errors::Error>,
+        f: impl FnOnce(&mut Env, &SlintAndroidJavaHelper<'static>) -> Result<R, jni::errors::Error>,
     ) -> Result<R, jni::errors::Error> {
-        // Safety: as documented in android-activity to obtain a jni::JavaVM
-        let vm = unsafe { jni::JavaVM::from_raw(self.1.vm_as_ptr() as *mut _) }?;
-        let mut env = vm.attach_current_thread()?;
-        let helper = self.0.as_obj();
-        f(&mut env, helper)
+        JavaVM::singleton()?.attach_current_thread(|env| {
+            let helper = self.0.as_ref();
+            f(env, helper)
+        })
     }
 
     /// Unfortunately, the way that the android-activity crate uses to show or hide the virtual keyboard doesn't
     /// work with native-activity. So do it manually with JNI
     pub fn show_or_hide_soft_input(&self, show: bool) -> Result<(), jni::errors::Error> {
-        self.with_jni_env(|env, helper| {
-            if show {
-                env.call_method(helper, "show_keyboard", "()V", &[])?;
-            } else {
-                env.call_method(helper, "hide_keyboard", "()V", &[])?;
-            };
-            Ok(())
-        })
+        self.with_jni_env(
+            |env, helper| {
+                if show { helper.show_keyboard(env) } else { helper.hide_keyboard(env) }
+            },
+        )
     }
 
     pub fn set_imm_data(
@@ -179,26 +360,22 @@ impl JavaHelper {
                 }
             }
 
-            let to_utf16 = |x| convert_utf8_index_to_utf16(&text, x as usize);
-            let text = &env.auto_local(env.new_string(text.as_str())?);
+            let to_utf16 = |x| convert_utf8_index_to_utf16(&text, x);
+            let text = JString::new(env, text.as_str())?;
 
-            let class_it = env.find_class("android/text/InputType")?;
             let input_type = match data.input_type {
-                InputType::Text => env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()?,
+                InputType::Text => AndroidInputType::TYPE_CLASS_TEXT(env)?,
                 InputType::Password => {
-                    env.get_static_field(&class_it, "TYPE_TEXT_VARIATION_PASSWORD", "I")?.i()?
-                        | env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()?
+                    AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
+                        | AndroidInputType::TYPE_CLASS_TEXT(env)?
                 }
-                InputType::Number => {
-                    env.get_static_field(&class_it, "TYPE_CLASS_NUMBER", "I")?.i()?
-                }
+                InputType::Number => AndroidInputType::TYPE_CLASS_NUMBER(env)?,
                 InputType::Decimal => {
-                    env.get_static_field(&class_it, "TYPE_CLASS_NUMBER", "I")?.i()?
-                        | env.get_static_field(&class_it, "TYPE_NUMBER_FLAG_DECIMAL", "I")?.i()?
+                    AndroidInputType::TYPE_CLASS_NUMBER(env)?
+                        | AndroidInputType::TYPE_NUMBER_FLAG_DECIMAL(env)?
                 }
                 _ => 0 as jint,
             };
-            env.delete_local_ref(class_it)?;
 
             let cur_origin = data.cursor_rect_origin.to_physical(scale_factor); // i32
             let anchor_origin = data.anchor_point.to_physical(scale_factor);
@@ -218,24 +395,20 @@ impl JavaHelper {
             let anchor_x = if anchor_visible { anchor_origin.x } else { -1 };
             let anchor_y = anchor_origin.y + 2 * cur_size.width as i32;
 
-            env.call_method(
-                helper,
-                "set_imm_data",
-                "(Ljava/lang/String;IIIIIIIIIIZ)V",
-                &[
-                    JValue::Object(&text),
-                    JValue::from(to_utf16(cursor_position) as jint),
-                    JValue::from(to_utf16(anchor_position) as jint),
-                    JValue::from(to_utf16(data.preedit_offset) as jint),
-                    JValue::from(to_utf16(data.preedit_offset + data.preedit_text.len()) as jint),
-                    JValue::from(cur_x as jint),
-                    JValue::from(cur_y as jint),
-                    JValue::from(anchor_x as jint),
-                    JValue::from(anchor_y as jint),
-                    JValue::from(cursor_height as jint),
-                    JValue::from(input_type),
-                    JValue::from(show_cursor_handles as jboolean),
-                ],
+            helper.set_imm_data(
+                env,
+                &text,
+                to_utf16(cursor_position) as i32,
+                to_utf16(anchor_position) as i32,
+                to_utf16(data.preedit_offset) as i32,
+                to_utf16(data.preedit_offset + data.preedit_text.len()) as i32,
+                cur_x,
+                cur_y,
+                anchor_x,
+                anchor_y,
+                cursor_height,
+                input_type,
+                show_cursor_handles,
             )?;
 
             Ok(())
@@ -243,106 +416,70 @@ impl JavaHelper {
     }
 
     pub fn color_scheme(&self) -> Result<i32, jni::errors::Error> {
-        self.with_jni_env(|env, helper| {
-            Ok(env.call_method(helper, "color_scheme", "()I", &[])?.i()?)
-        })
+        self.with_jni_env(|env, helper| helper.color_scheme(env))
     }
 
     pub fn get_view_rect(&self) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            let rect =
-                env.call_method(helper, "get_view_rect", "()Landroid/graphics/Rect;", &[])?.l()?;
-            let rect = env.auto_local(rect);
-            let x = env.get_field(&rect, "left", "I")?.i()?;
-            let y = env.get_field(&rect, "top", "I")?.i()?;
-            let width = env.get_field(&rect, "right", "I")?.i()? - x;
-            let height = env.get_field(&rect, "bottom", "I")?.i()? - y;
+            let rect = helper.get_view_rect(env)?;
+            let x = rect.left(env)?;
+            let y = rect.top(env)?;
+            let width = rect.right(env)? - x;
+            let height = rect.bottom(env)? - y;
             Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
         })
     }
 
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            let rect =
-                env.call_method(helper, "get_safe_area", "()Landroid/graphics/Rect;", &[])?.l()?;
-            let rect = env.auto_local(rect);
-            let left = env.get_field(&rect, "left", "I")?.i()?;
-            let top = env.get_field(&rect, "top", "I")?.i()?;
-            let right = env.get_field(&rect, "right", "I")?.i()?;
-            let bottom = env.get_field(&rect, "bottom", "I")?.i()?;
+            let rect = helper.get_safe_area(env)?;
+            let left = rect.left(env)?;
+            let top = rect.top(env)?;
+            let right = rect.right(env)?;
+            let bottom = rect.bottom(env)?;
             Ok(PhysicalEdges::new(top, bottom, left, right))
         })
     }
 
     pub fn set_handle_color(&self, color: Color) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            env.call_method(
-                helper,
-                "set_handle_color",
-                "(I)V",
-                &[JValue::from(color.as_argb_encoded() as jint)],
-            )?;
-            Ok(())
+            helper.set_handle_color(env, color.as_argb_encoded() as i32)
         })
     }
 
     pub fn long_press_timeout(&self) -> Result<Duration, jni::errors::Error> {
         self.with_jni_env(|env, _helper| {
-            let long_press_timeout = env
-                .call_static_method(
-                    "android/view/ViewConfiguration",
-                    "getLongPressTimeout",
-                    "()I",
-                    &[],
-                )?
-                .i()?;
+            let long_press_timeout = AndroidViewConfiguration::get_long_press_timeout(env)?;
             Ok(Duration::from_millis(long_press_timeout as _))
         })
     }
 
     pub fn show_action_menu(&self) -> Result<(), jni::errors::Error> {
-        self.with_jni_env(|env, helper| {
-            env.call_method(helper, "show_action_menu", "()V", &[])?;
-            Ok(())
-        })
+        self.with_jni_env(|env, helper| helper.show_action_menu(env))
     }
 
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            let text = env.auto_local(env.new_string(text)?);
-            env.call_method(
-                helper,
-                "set_clipboard",
-                "(Ljava/lang/String;)V",
-                &[JValue::Object(&text)],
-            )?;
-            Ok(())
+            let text = JString::new(env, text)?;
+            helper.set_clipboard(env, &text)
         })
     }
 
     pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
-        self.with_jni_env(|env, helper| {
-            let j_string = env
-                .call_method(helper, "get_clipboard", "()Ljava/lang/String;", &[])?
-                .l()
-                .map(|l| env.auto_local(l))?;
-            let string = jni_get_string(j_string.as_ref(), env)?.into();
-            Ok(string)
-        })
+        self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
     }
 }
 
-#[unsafe(no_mangle)]
-extern "system" fn Java_SlintAndroidJavaHelper_updateText(
-    mut env: JNIEnv,
-    _class: JClass,
-    text: JString,
+fn callback_update_text<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    text: JString<'local>,
     cursor_position: jint,
     anchor_position: jint,
     preedit_start: jint,
     preedit_end: jint,
-) {
-    let Ok(java_str) = jni_get_string(&text, &mut env) else { return };
+) -> Result<(), jni::errors::Error> {
+    let java_str = text.to_string();
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
 
@@ -392,7 +529,8 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
             runtime_window.process_key_input(event);
         }
     })
-    .unwrap()
+    .unwrap();
+    Ok(())
 }
 
 fn convert_utf16_index_to_utf8(in_str: &str, utf16_index: usize) -> usize {
@@ -411,12 +549,11 @@ fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
     in_str[..utf8_index].encode_utf16().count()
 }
 
-#[unsafe(no_mangle)]
-extern "system" fn Java_SlintAndroidJavaHelper_setNightMode(
-    _env: JNIEnv,
-    _class: JClass,
+fn callback_set_night_mode<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
     night_mode: jint,
-) {
+) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             w.color_scheme.as_ref().set(match night_mode {
@@ -427,17 +564,17 @@ extern "system" fn Java_SlintAndroidJavaHelper_setNightMode(
             });
         }
     })
-    .unwrap()
+    .unwrap();
+    Ok(())
 }
 
-#[unsafe(no_mangle)]
-extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
-    _env: JNIEnv,
-    _class: JClass,
+fn callback_move_cursor_handle<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
     id: jint,
     pos_x: jint,
     pos_y: jint,
-) {
+) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
@@ -498,15 +635,15 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
             }
         }
     })
-    .unwrap()
+    .unwrap();
+    Ok(())
 }
 
-#[unsafe(no_mangle)]
-extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
-    _env: JNIEnv,
-    _class: JClass,
+fn callback_popup_menu_action<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
     id: jint,
-) {
+) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
@@ -528,13 +665,13 @@ extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
             }
         }
     })
-    .unwrap()
+    .unwrap();
+    Ok(())
 }
 
-#[unsafe(no_mangle)]
-extern "system" fn Java_SlintAndroidJavaHelper_setInsets(
-    _env: JNIEnv,
-    _class: JClass,
+fn callback_set_insets<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
     window_top: jint,
     window_left: jint,
     window_bottom: jint,
@@ -547,7 +684,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_setInsets(
     keyboard_left: jint,
     keyboard_bottom: jint,
     keyboard_right: jint,
-) {
+) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             w.update_window_insets(
@@ -571,25 +708,6 @@ extern "system" fn Java_SlintAndroidJavaHelper_setInsets(
             );
         }
     })
-    .unwrap()
-}
-
-/// Workaround before <https://github.com/jni-rs/jni-rs/pull/557> is merged.
-fn jni_get_string<'e, 'a>(
-    obj: &'a JObject<'a>,
-    env: &mut JNIEnv<'e>,
-) -> Result<jni::strings::JavaStr<'e, 'a, 'a>, jni::errors::Error> {
-    use jni::errors::{Error::*, JniError};
-
-    let string_class = env.find_class("java/lang/String")?;
-    let string_class = env.auto_local(string_class);
-    let obj_class = env.get_object_class(obj)?;
-    let obj_class = env.auto_local(obj_class);
-    if !env.is_assignable_from(string_class, obj_class)? {
-        return Err(JniCall(JniError::InvalidArguments));
-    }
-
-    let j_string: &jni::objects::JString<'_> = obj.into();
-    // SAFETY: We check that the passed in Object is actually a java.lang.String
-    unsafe { env.get_string_unchecked(j_string) }
+    .unwrap();
+    Ok(())
 }
