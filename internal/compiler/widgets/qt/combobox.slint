@@ -53,6 +53,7 @@ export component ComboBox {
         width: root.width;
         // Try to hardcode about the size of 6 items
         height: 6 * 2rem;
+        close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
         NativeComboBoxPopup {
@@ -81,6 +82,7 @@ export component ComboBox {
                         ta2 := TouchArea {
                             clicked => {
                                 base.select(index);
+                                big-popup.close();
                             }
                         }
                     }
@@ -93,6 +95,7 @@ export component ComboBox {
         x: 0;
         y: root.height;
         width: root.width;
+        close-policy: close-on-click-outside;
         NativeComboBoxPopup {
             width: 100%;
             height: 100%;
@@ -121,6 +124,7 @@ export component ComboBox {
                     ta := TouchArea {
                         clicked => {
                             base.select(index);
+                            small-popup.close();
                         }
                     }
                 }
