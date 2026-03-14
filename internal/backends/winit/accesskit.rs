@@ -516,6 +516,7 @@ impl NodeCollection {
                             } else {
                                 match text_input.input_type.get_internal() {
                                     i_slint_core::items::InputType::Decimal
+                                    | i_slint_core::items::InputType::DecimalLocalized
                                     | i_slint_core::items::InputType::Number => Role::NumberInput,
                                     i_slint_core::items::InputType::Password => Role::PasswordInput,
                                     i_slint_core::items::InputType::Text | _ => Role::TextInput,

@@ -192,7 +192,7 @@ impl JavaHelper {
                 InputType::Number => {
                     env.get_static_field(&class_it, "TYPE_CLASS_NUMBER", "I")?.i()?
                 }
-                InputType::Decimal => {
+                InputType::Decimal | InputType::DecimalLocalized => {
                     env.get_static_field(&class_it, "TYPE_CLASS_NUMBER", "I")?.i()?
                         | env.get_static_field(&class_it, "TYPE_NUMBER_FLAG_DECIMAL", "I")?.i()?
                 }

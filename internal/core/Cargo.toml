@@ -38,6 +38,9 @@ std = [
   "chrono/wasmbind",
   "chrono/clock",
   "dep:sys-locale",
+  "dep:icu_decimal",
+  "dep:icu_locale_core",
+  "dep:icu_provider",
   "shared-fontique",
   "i-slint-common/color-parsing",
   "i-slint-common/markdown",
@@ -109,6 +112,9 @@ unicode-segmentation = { workspace = true }
 unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
+icu_decimal = { version = "2", optional = true, features = ["compiled_data"] }
+icu_locale_core = { version = "2", optional = true }
+icu_provider = { version = "2", optional = true }
 parley = { version = "0.7.0", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
