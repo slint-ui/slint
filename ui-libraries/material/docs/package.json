@@ -31,7 +31,6 @@
         "@astrolib/analytics": "0.6.1",
         "@astrolib/seo": "1.0.0-beta.8",
         "@fontsource-variable/inter": "5.2.8",
-        "astro-icon": "1.1.5",
         "limax": "4.2.2",
         "lodash.merge": "4.6.2",
         "unpic": "4.2.2"
@@ -45,8 +44,6 @@
         "@astrojs/mdx": "4.3.13",
         "@astrojs/partytown": "2.1.4",
         "@astrojs/tailwind": "6.0.2",
-        "@iconify-json/flat-color-icons": "1.2.3",
-        "@iconify-json/tabler": "1.2.28",
         "@tailwindcss/typography": "0.5.19",
         "@types/js-yaml": "4.0.9",
         "@types/lodash.merge": "4.6.9",
