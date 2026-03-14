@@ -755,9 +755,6 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        if !ctx.diag.enable_experimental {
-            ctx.diag.push_error("The @markdown() function is experimental".into(), &node);
-        }
         let Some(string) = node
             .child_text(SyntaxKind::StringLiteral)
             .and_then(|s| crate::literals::unescape_string(&s))

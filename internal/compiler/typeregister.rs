@@ -581,9 +581,6 @@ impl TypeRegister {
         register.elements.remove("DropArea").unwrap();
         register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
 
-        register.elements.remove("StyledText").unwrap();
-        register.types.remove("styled-text").unwrap();
-
         match register.elements.get_mut("Window").unwrap() {
             ElementType::Builtin(b) => {
                 Rc::get_mut(b)
