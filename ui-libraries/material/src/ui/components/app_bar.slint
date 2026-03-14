@@ -9,7 +9,7 @@ import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 import { IconButtonItem } from "./bottom_app_bar.slint";
 
 component BaseAppBar {
-    in property <string> title;
+    in property <string?> title;
     in property <IconButtonItem> leading_button;
     in property <bool> show_background;
     in property <[IconButtonItem]> trailing_buttons;
@@ -43,11 +43,11 @@ component BaseAppBar {
                 padding_right: root.appbar_padding_right;
                 spacing: MaterialStyleMetrics.spacing_6;
 
-                if root.leading_button.icon.width > 0 && root.leading_button.icon.height > 0 : VerticalLayout {
+                if root.leading_button.icon.has-value() : VerticalLayout {
                     alignment: center;
 
                     IconButton {
-                        icon: root.leading_button.icon;
+                        icon: root.leading_button.icon.value-or-default();
                         enabled: root.leading_button.enabled;
                         tooltip: root.leading_button.tooltip;
 
@@ -59,7 +59,7 @@ component BaseAppBar {
 
                 if !root.two_rows : MaterialText {
                     horizontal_stretch: 1;
-                    text: root.title;
+                    text: root.title.value-or-default();
                     vertical_alignment: center;
                     horizontal_alignment: root.horizontal_alignment;
                     color: MaterialPalette.on_surface;
@@ -79,7 +79,7 @@ component BaseAppBar {
                         spacing: top_layout.spacing;
 
                         for item[index] in root.trailing_buttons : IconButton {
-                            icon: item.icon;
+                            icon: item.icon.value-or-default();
                             enabled: item.enabled;
                             tooltip: item.tooltip;
 
@@ -91,12 +91,12 @@ component BaseAppBar {
                 }
             }
 
-            if root.two_rows && root.title != "" : HorizontalLayout {
+            if root.two_rows && root.title.has-value() : HorizontalLayout {
                 padding_left: root.text_padding;
                 padding_right: self.padding_left;
 
                  MaterialText {
-                    text: root.title;
+                    text: root.title.value-or-default();
                     horizontal_alignment: root.horizontal_alignment;
                     color: MaterialPalette.on_surface;
                     overflow: elide;
@@ -108,7 +108,7 @@ component BaseAppBar {
 }
 
 export component AppBar {
-    in property <string> title;
+    in property <string?> title;
     in property <IconButtonItem> leading_button;
     in property <IconButtonItem> trailing_button;
     in property <bool> show_background;

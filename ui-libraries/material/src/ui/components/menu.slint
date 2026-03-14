@@ -12,15 +12,15 @@ import { MaterialText } from "./material_text.slint";
 import { Icons } from "../icons/icons.slint";
 
 component MenuItemTemplate {
-    in property <image> icon;
+    in property <image?> icon;
     in property <string> text;
-    in property <string> trailing_text;
+    in property <string?> trailing_text;
     in property <bool> enabled <=> state_area.enabled;
     in property <bool> selected;
 
     callback clicked();
 
-    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
+    property <bool> has_icon: root.icon.has-value();
     property <color> color: MaterialPalette.on_surface;
     property <color> color_variant: MaterialPalette.on_surface_variant;
 
@@ -41,7 +41,7 @@ component MenuItemTemplate {
                     alignment: center;
 
                     Icon {
-                        source: root.icon;
+                        source: root.icon.value-or-default();
                         colorize: root.color;
                     }
                 }
@@ -54,8 +54,8 @@ component MenuItemTemplate {
                     vertical_alignment: center;
                 }
 
-                if root.trailing_text != "" : MaterialText {
-                    text: root.trailing_text;
+                if root.trailing_text.has-value() : MaterialText {
+                    text: root.trailing_text.value-or-default();
                     style: MaterialTypography.body_large;
                     color: root.color_variant;
                     vertical_alignment: center;

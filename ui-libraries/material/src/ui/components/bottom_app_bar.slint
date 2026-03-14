@@ -7,14 +7,14 @@ import { MaterialPalette } from "../styling/material_palette.slint";
 import { MaterialStyleMetrics } from "../styling/material_style_metrics.slint";
 
 export struct IconButtonItem {
-    icon: image,
-    tooltip: string,
+    icon: image?,
+    tooltip: string?,
     enabled: bool
 }
 
 export component BottomAppBar {
     in property <[IconButtonItem]> icon_buttons;
-    in property <image> fab_icon;
+    in property <image?> fab_icon;
 
     callback fab_clicked();
     callback icon_button_clicked(index: int);
@@ -33,9 +33,9 @@ export component BottomAppBar {
 
                 HorizontalLayout {
                     for button[index] in root.icon_buttons : IconButton {
-                        icon: button.icon;
+                        icon: button.icon.value-or-default();
                         enabled: button.enabled;
-                        tooltip: button.tooltip;
+                        tooltip: button.tooltip.value-or-default();
 
                         clicked => {
                             root.icon_button_clicked(index);
@@ -47,11 +47,11 @@ export component BottomAppBar {
             // spacer
             Rectangle {}
 
-            if root.fab_icon.width > 0 && root.fab_icon.height > 0 : VerticalLayout {
+            if root.fab_icon.has-value() : VerticalLayout {
                 alignment: center;
 
                 FloatingActionButton {
-                    icon: root.fab_icon;
+                    icon: root.fab_icon.value-or-default();
                     style: FABStyle.standard;
 
                     clicked => {

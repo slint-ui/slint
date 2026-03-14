@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test type narrowing for optional types in if conditions
+
+TestCase := Rectangle {
+    property <int?> opt_number: 42;
+    property <int?> opt_none: none;
+    property <string?> opt_text: "hello";
+
+    // Results from narrowing tests
+    property <int> result_neq_none: 0;
+    property <int> result_has_value: 0;
+    property <int> result_none_neq: 0;
+    property <int> result_eq_none_else: 0;
+    property <string> result_text_narrow: "";
+    property <int> result_local_var: 0;
+    property <bool> result_no_narrow_wrong_branch: false;
+    property <bool> result_no_narrow_outside: false;
+
+    callback run_tests();
+    run_tests => {
+        // 1. Basic narrowing with != none
+        if (self.opt-number != none) {
+            self.result-neq-none = self.opt-number;
+        }
+
+        // 2. Narrowing with .has-value()
+        if (self.opt-number.has-value()) {
+            self.result-has-value = self.opt-number;
+        }
+
+        // 3. Reversed: none != expr
+        if (none != self.opt-number) {
+            self.result-none-neq = self.opt-number;
+        }
+
+        // 4. Narrowing in else branch with == none
+        if (self.opt-number == none) {
+            // opt-number is still optional here, so we don't use it
+        } else {
+            self.result-eq-none-else = self.opt-number;
+        }
+
+        // 5. Different optional inner type
+        if (self.opt-text != none) {
+            self.result-text-narrow = self.opt-text;
+        }
+
+        // 6. Local variable narrowing
+        let val = self.opt-number;
+        if (val != none) {
+            self.result-local-var = val;
+        }
+
+        // 7. No narrowing in wrong branch (== none true branch)
+        if (self.opt-none == none) {
+            // opt-none is still optional here, cannot assign to int
+            self.result-no-narrow-wrong-branch = true;
+        }
+
+        // 8. No narrowing outside if
+        self.result-no-narrow-outside = true;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_run_tests();
+
+// Basic != none narrowing
+assert_eq!(instance.get_result_neq_none(), 42);
+
+// .has-value() narrowing
+assert_eq!(instance.get_result_has_value(), 42);
+
+// Reversed none != expr
+assert_eq!(instance.get_result_none_neq(), 42);
+
+// == none else branch narrowing
+assert_eq!(instance.get_result_eq_none_else(), 42);
+
+// Different type narrowing
+assert_eq!(instance.get_result_text_narrow(), slint::SharedString::from("hello"));
+
+// Local variable narrowing
+assert_eq!(instance.get_result_local_var(), 42);
+
+// No narrowing in wrong branch
+assert_eq!(instance.get_result_no_narrow_wrong_branch(), true);
+
+// No narrowing outside if
+assert_eq!(instance.get_result_no_narrow_outside(), true);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.invoke_run_tests();
+
+// Basic != none narrowing
+assert(instance.get_result_neq_none() == 42);
+
+// .has-value() narrowing
+assert(instance.get_result_has_value() == 42);
+
+// Reversed none != expr
+assert(instance.get_result_none_neq() == 42);
+
+// == none else branch narrowing
+assert(instance.get_result_eq_none_else() == 42);
+
+// Different type narrowing
+assert(instance.get_result_text_narrow() == "hello");
+
+// Local variable narrowing
+assert(instance.get_result_local_var() == 42);
+
+// No narrowing in wrong branch
+assert(instance.get_result_no_narrow_wrong_branch() == true);
+
+// No narrowing outside if
+assert(instance.get_result_no_narrow_outside() == true);
+```
+*/

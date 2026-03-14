@@ -47,6 +47,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::NumberLiteral(_, _) => true,
         Expression::StringLiteral(_) => true,
         Expression::BoolLiteral(_) => true,
+        Expression::NoneValue => true,
         Expression::KeyboardShortcut(_) => true,
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),
         Expression::FunctionParameterReference { .. } => true,
@@ -78,6 +79,11 @@ fn without_side_effects(expression: &Expression) -> bool {
             without_side_effects(lhs) && without_side_effects(rhs)
         }
         Expression::UnaryOp { sub, op: _ } => without_side_effects(sub),
+        Expression::HasValue { base } => without_side_effects(base),
+        Expression::Unwrap { base } => without_side_effects(base),
+        Expression::NullCoalesce { base, fallback } => {
+            without_side_effects(base) && without_side_effects(fallback)
+        }
         Expression::ImageReference { .. } => true,
         Expression::Array { element_ty: _, values } => values.iter().all(without_side_effects),
         Expression::Struct { ty: _, values } => values.values().all(without_side_effects),

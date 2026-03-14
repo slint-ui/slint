@@ -3,7 +3,7 @@
 
 //! Helper to do lookup in expressions
 
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
@@ -11,13 +11,32 @@ use crate::expression_tree::{
 };
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{ElementRc, PropertyVisibility};
+use crate::object_tree::{Element, ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 
 pub use i_slint_common::color_parsing::named_colors;
+
+/// Identifies which expression is being narrowed by control flow analysis.
+#[derive(Clone, Debug)]
+pub enum NarrowingKey {
+    /// A property on an element: (element weak ref, property name)
+    Property(Weak<RefCell<Element>>, SmolStr),
+    /// A local variable by its internal name (with "local_" prefix)
+    LocalVariable(SmolStr),
+    /// A function parameter by index
+    FunctionParameter(usize),
+}
+
+/// A single type narrowing: within the current scope, the expression identified
+/// by `key` should be treated as `narrowed_type` instead of its declared optional type.
+#[derive(Clone, Debug)]
+pub struct TypeNarrowing {
+    pub key: NarrowingKey,
+    pub narrowed_type: Type,
+}
 
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
@@ -49,6 +68,11 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
+
+    /// Type narrowings active in the current scope.
+    /// When an `if` condition checks `expr != none`, lookups for that expression
+    /// within the true branch use the unwrapped type instead of the optional type.
+    pub type_narrowings: Vec<TypeNarrowing>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -64,6 +88,7 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
+            type_narrowings: Default::default(),
         }
     }
 
@@ -85,6 +110,36 @@ impl<'a> LookupCtx<'a> {
             self.component_scope.first().and_then(|x| x.borrow().enclosing_component.upgrade()),
         )
         .is_none_or(|(x, y)| Rc::ptr_eq(&x, &y))
+    }
+
+    /// If a type narrowing is active for the given expression, wrap it with `Unwrap`
+    /// so that the optional type is treated as the inner type.
+    pub fn maybe_narrow_expression(&self, expr: Expression) -> Expression {
+        if !matches!(expr.ty(), Type::Optional(_)) {
+            return expr;
+        }
+
+        let has_matching_narrowing =
+            self.type_narrowings.iter().rev().any(|n| match (&n.key, &expr) {
+                (
+                    NarrowingKey::Property(weak_elem, prop_name),
+                    Expression::PropertyReference(nr),
+                ) => weak_elem
+                    .upgrade()
+                    .zip(Some(nr.element()))
+                    .is_some_and(|(a, b)| Rc::ptr_eq(&a, &b) && prop_name == nr.name()),
+                (
+                    NarrowingKey::LocalVariable(narrowed_name),
+                    Expression::ReadLocalVariable { name, .. },
+                ) => narrowed_name == name,
+                (
+                    NarrowingKey::FunctionParameter(narrowed_idx),
+                    Expression::FunctionParameterReference { index, .. },
+                ) => narrowed_idx == index,
+                _ => false,
+            });
+
+        if has_matching_narrowing { Expression::Unwrap { base: Box::new(expr) } } else { expr }
     }
 }
 
@@ -234,10 +289,13 @@ impl LookupObject for LocalVariableLookup {
     ) -> Option<R> {
         for scope in ctx.local_variables.iter() {
             for (name, ty) in scope {
+                let expr = Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() };
+                let expr = ctx.maybe_narrow_expression(expr);
+
                 if let Some(r) = f(
                     // we need to strip the "local_" prefix because a lookup call will not include it
                     &name.strip_prefix("local_").unwrap_or(name).into(),
-                    Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into(),
+                    expr.into(),
                 ) {
                     return Some(r);
                 }
@@ -259,9 +317,10 @@ impl LookupObject for ArgumentsLookup {
             _ => return None,
         };
         for (index, (name, ty)) in ctx.arguments.iter().zip(args.iter()).enumerate() {
-            if let Some(r) =
-                f(name, Expression::FunctionParameterReference { index, ty: ty.clone() }.into())
-            {
+            let expr = Expression::FunctionParameterReference { index, ty: ty.clone() };
+            let expr = ctx.maybe_narrow_expression(expr);
+
+            if let Some(r) = f(name, expr.into()) {
                 return Some(r);
             }
         }
@@ -292,6 +351,16 @@ impl LookupObject for SpecialIdLookup {
             })
             .or_else(|| f("true", Expression::BoolLiteral(true)))
             .or_else(|| f("false", Expression::BoolLiteral(false)))
+            .or_else(|| {
+                // When the target type is a non-optional enum with a "none" variant,
+                // don't return NoneValue here — let it fall through to enum value lookup
+                if let Type::Enumeration(e) = ctx.return_type() {
+                    if e.values.iter().any(|v| v == "none") {
+                        return None;
+                    }
+                }
+                f("none", Expression::NoneValue)
+            })
         // "root" is just a normal id
     }
 }
@@ -403,6 +472,8 @@ impl LookupObject for InScopeLookup {
                         &prop.property_type,
                         None,
                     );
+                    let e = maybe_narrow_lookup_result(ctx, e);
+
                     if let Some(r) = f.borrow_mut()(name, e) {
                         return Some(r);
                     }
@@ -422,11 +493,13 @@ impl LookupObject for InScopeLookup {
             |elem| elem.lookup(ctx, name),
             |elem| {
                 elem.borrow().property_declarations.get(name).map(|prop| {
-                    expression_from_reference(
+                    let r = expression_from_reference(
                         NamedReference::new(elem, name.clone()),
                         &prop.property_type,
                         None,
-                    )
+                    );
+
+                    maybe_narrow_lookup_result(ctx, r)
                 })
             },
         )
@@ -445,6 +518,8 @@ impl LookupObject for ElementRc {
                 &prop.property_type,
                 check_extra_deprecated(self, ctx, name),
             );
+            let r = maybe_narrow_lookup_result(ctx, r);
+
             if let Some(r) = f(name, r) {
                 return Some(r);
             }
@@ -452,6 +527,8 @@ impl LookupObject for ElementRc {
         let list = self.borrow().base_type.property_list();
         for (name, ty) in list {
             let e = expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);
+            let e = maybe_narrow_lookup_result(ctx, e);
+
             if let Some(r) = f(&name, e) {
                 return Some(r);
             }
@@ -461,6 +538,8 @@ impl LookupObject for ElementRc {
                 let name = SmolStr::new_static(name);
                 let e =
                     expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);
+                let e = maybe_narrow_lookup_result(ctx, e);
+
                 if let Some(r) = f(&name, e) {
                     return Some(r);
                 }
@@ -478,11 +557,13 @@ impl LookupObject for ElementRc {
             let deprecated = (lookup_result.resolved_name != name.as_str())
                 .then(|| lookup_result.resolved_name.to_string())
                 .or_else(|| check_extra_deprecated(self, ctx, name));
-            Some(expression_from_reference(
+            let result = expression_from_reference(
                 NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
                 &lookup_result.property_type,
                 deprecated,
-            ))
+            );
+
+            Some(maybe_narrow_lookup_result(ctx, result))
         } else {
             None
         }
@@ -539,6 +620,18 @@ fn expression_from_reference(
     }
 }
 
+/// If a type narrowing is active for the expression inside a `LookupResult`, apply it.
+fn maybe_narrow_lookup_result(ctx: &LookupCtx, result: LookupResult) -> LookupResult {
+    match result {
+        LookupResult::Expression { expression, deprecated } => {
+            let expression = ctx.maybe_narrow_expression(expression);
+
+            LookupResult::Expression { expression, deprecated }
+        }
+        other => other,
+    }
+}
+
 /// Lookup for Globals and Enum.
 struct LookupType;
 impl LookupObject for LookupType {
@@ -569,6 +662,8 @@ impl LookupType {
     fn from_type(ty: Type) -> Option<LookupResult> {
         match ty {
             Type::Enumeration(e) => Some(LookupResult::Enumeration(e)),
+            // Allow enum lookup for optional enum types
+            Type::Optional(inner) => Self::from_type((*inner).clone()),
             _ => None,
         }
     }
@@ -606,6 +701,14 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Brush => ColorSpecific.for_each_entry(ctx, f),
             Type::Easing => EasingSpecific.for_each_entry(ctx, f),
             Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
+            // For optional enums, look up values from the inner enumeration
+            Type::Optional(inner) => match inner.as_ref() {
+                Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
+                Type::Color => ColorSpecific.for_each_entry(ctx, f),
+                Type::Brush => ColorSpecific.for_each_entry(ctx, f),
+                Type::Easing => EasingSpecific.for_each_entry(ctx, f),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -616,6 +719,14 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Brush => ColorSpecific.lookup(ctx, name),
             Type::Easing => EasingSpecific.lookup(ctx, name),
             Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
+            // For optional enums, look up values from the inner enumeration
+            Type::Optional(inner) => match inner.as_ref() {
+                Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
+                Type::Color => ColorSpecific.lookup(ctx, name),
+                Type::Brush => ColorSpecific.lookup(ctx, name),
+                Type::Easing => EasingSpecific.lookup(ctx, name),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -927,6 +1038,7 @@ impl LookupObject for Expression {
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
+                Type::Optional(_) => OptionalExpression(self).for_each_entry(ctx, f),
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).for_each_entry(ctx, f)
                 }
@@ -955,6 +1067,7 @@ impl LookupObject for Expression {
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
+                Type::Optional(_) => OptionalExpression(self).lookup(ctx, name),
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).lookup(ctx, name)
                 }
@@ -1169,6 +1282,34 @@ impl LookupObject for NumberWithUnitExpression<'_> {
                     .or_else(|| f("cos", member_function(BuiltinFunction::Cos)))
                     .or_else(|| f("tan", member_function(BuiltinFunction::Tan)))
             })
+    }
+}
+
+struct OptionalExpression<'a>(&'a Expression);
+
+impl LookupObject for OptionalExpression<'_> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
+
+        None.or_else(|| {
+            f(
+                &SmolStr::new_static("has-value"),
+                member_macro(BuiltinMacroFunction::OptionalHasValue),
+            )
+        })
+        .or_else(|| {
+            f(&SmolStr::new_static("value-or"), member_macro(BuiltinMacroFunction::OptionalValueOr))
+        })
+        .or_else(|| {
+            f(
+                &SmolStr::new_static("value-or-default"),
+                member_macro(BuiltinMacroFunction::OptionalValueOrDefault),
+            )
+        })
     }
 }
 

@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test basic optional type support
+
+TestCase := Rectangle {
+    // Optional property declarations
+    property <string?> optional_text: none;
+    property <int?> optional_number: none;
+    property <bool?> optional_flag: none;
+
+    // Optional with value
+    property <string?> text_with_value: "hello";
+    property <int?> number_with_value: 42;
+
+    // Implicit wrapping: T -> T?
+    property <string?> implicit_wrap: "world";
+
+    // Test none literal
+    property <string?> explicitly_none: none;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+// Test that optional properties exist
+assert(instance.get_optional_text() == std::nullopt);
+assert(instance.get_text_with_value() == "hello");
+assert(instance.get_number_with_value() == 42);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+// Test that optional properties exist
+assert_eq!(instance.get_optional_text(), None);
+assert_eq!(instance.get_text_with_value(), Some("hello".into()));
+assert_eq!(instance.get_number_with_value(), Some(42));
+```
+
+```js
+var instance = new slint.TestCase({});
+// Test that optional properties exist
+assert.equal(instance.optional_text, null);
+assert.equal(instance.text_with_value, "hello");
+assert.equal(instance.number_with_value, 42);
+```
+*/

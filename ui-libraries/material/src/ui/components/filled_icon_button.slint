@@ -12,14 +12,14 @@ export component FilledIconButton {
     in property <image> checked_icon: root.icon;
     in property <bool> checkable;
     in_out property <bool> checked;
-    in property <string> tooltip <=> base.tooltip;
+    in property <string?> tooltip <=> base.tooltip;
     in property <bool> enabled <=> base.enabled;
 
     callback clicked();
 
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.tooltip;
+    accessible-label: root.tooltip.value-or-default();
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }

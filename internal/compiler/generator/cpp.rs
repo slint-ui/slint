@@ -567,6 +567,7 @@ impl CppType for Type {
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::private_api::StyledText".into()),
+            Type::Optional(inner) => Some(format_smolstr!("std::optional<{}>", inner.cpp_type()?)),
             _ => None,
         }
     }
@@ -2421,7 +2422,12 @@ fn generate_sub_component(
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_cases.push(format!("    case {index}: return {e};"));
+            let role_expr = if matches!(expr.borrow().ty(&ctx), Type::Optional(_)) {
+                format!("{e}.value_or(slint::cbindgen_private::AccessibleRole{{}})")
+            } else {
+                e.clone()
+            };
+            accessible_role_cases.push(format!("    case {index}: return {role_expr};"));
         } else if let Some(what) = what.strip_prefix("Action") {
             let has_args = matches!(&*expr.borrow(), llr::Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
 
@@ -3335,6 +3341,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
+        Expression::NoneValue => "std::nullopt".to_string(),
         Expression::KeyboardShortcutLiteral(ks) => {
             format!(
                 "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
@@ -3647,6 +3654,19 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
+        }
+        Expression::HasValue { base } => {
+            format!("({}).has_value()", compile_expression(base, ctx))
+        }
+        Expression::Unwrap { base } => {
+            format!("({}).value()", compile_expression(base, ctx))
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            format!(
+                "({}).value_or({})",
+                compile_expression(base, ctx),
+                compile_expression(fallback, ctx)
+            )
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {

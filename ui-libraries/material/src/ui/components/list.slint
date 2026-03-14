@@ -9,7 +9,7 @@ import { MaterialText } from "./material_text.slint";
 import { Icon } from "./icon.slint";
 
 export component Avatar {
-    in property <image> image;
+    in property <image?> image;
     in property <color> background: MaterialPalette.primary;
 
     width: MaterialStyleMetrics.size_32;
@@ -23,16 +23,16 @@ export component Avatar {
         clip: true;
 
         Image {
-            source: root.image;
+            source: root.image.value-or-default();
         }
     }
 }
 
 export component ListTile {
     in property <string> text;
-    in property <string> supporting_text;
-    in property <image> avatar_icon;
-    in property <string> avatar_text;
+    in property <string?> supporting_text;
+    in property <image?> avatar_icon;
+    in property <string?> avatar_text;
     in property <color> avatar_background;
     in property <color> avatar_foreground;
     in property <bool> enabled <=> state_layer.enabled;
@@ -53,23 +53,23 @@ export component ListTile {
             padding_bottom: self.padding_top;
             spacing: MaterialStyleMetrics.spacing_16;
 
-            if root.avatar_background != #00000000 ||  root.avatar_text != "" || (root.avatar_icon.width > 0 && root.avatar_icon.height > 0) : Rectangle {
+            if root.avatar_background != #00000000 || root.avatar_text.has-value() || root.avatar_icon.has-value() : Rectangle {
                 width: self.height;
                 border_radius: self.height / 2;
                 background: root.avatar_background;
                 clip: true;
 
-                if root.avatar_text != "" : MaterialText {
-                    text: root.avatar_text;
+                if root.avatar_text.has-value() : MaterialText {
+                    text: root.avatar_text.value-or-default();
                     vertical_alignment: center;
                     horizontal_alignment: center;
                     color: root.avatar_foreground;
                     style: MaterialTypography.title_medium;
                 }
 
-                if root.avatar_icon.width > 0 && root.avatar_icon.height > 0 : Icon {
+                if root.avatar_icon.has-value() : Icon {
                     width: parent.width;
-                    source: root.avatar_icon;
+                    source: root.avatar_icon.value-or-default();
                     colorize: root.avatar_foreground;
                 }
             }
@@ -85,8 +85,8 @@ export component ListTile {
                     style: MaterialTypography.body_large;
                 }
 
-                if root.supporting_text != "" : MaterialText {
-                    text: root.supporting_text;
+                if root.supporting_text.has-value() : MaterialText {
+                    text: root.supporting_text.value-or-default();
                     color: root.color;
                     overflow: elide;
                     style: MaterialTypography.body_medium;

@@ -14,16 +14,16 @@ export enum FABStyle {
 }
 
 export component FloatingActionButton {
-    in property <image> icon <=> base.icon;
-    in property <string> text <=> base.text;
-    in property <string> tooltip <=> base.tooltip;
+    in property <image?> icon <=> base.icon;
+    in property <string?> text <=> base.text;
+    in property <string?> tooltip <=> base.tooltip;
     in property <FABStyle> style;
 
     callback clicked <=> base.clicked;
 
     accessible-role: button;
     accessible-enabled: true;
-    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-action-default => { base.clicked(); }
 
     elevation := Elevation {

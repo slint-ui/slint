@@ -14,8 +14,8 @@ import { MaterialAnimations } from "../styling/material_animations.slint";
 import { BaseNavigationItemTemplate } from "./base_navigation.slint";
 
 component NavigationItemTemplate inherits BaseNavigationItemTemplate {
-    property <bool> has_icon: root.icon.width > 0 && root.icon.height > 0;
-    property <bool> has_selected_icon: root.selected_icon.width > 0 || root.selected_icon.height > 0;
+    property <bool> has_icon: root.icon.has-value();
+    property <bool> has_selected_icon: root.selected_icon.has-value();
     property <color> color: MaterialPalette.on_surface_variant;
 
     min_height: max(MaterialStyleMetrics.size_56, layout.min_height);
@@ -50,12 +50,12 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                     }
 
                     if root.has_icon || root.has_selected_icon : Icon {
-                        source: root.icon;
+                        source: root.icon.value-or-default();
                         colorize: root.color;
 
                         states [
                             selected when root.selected && root.has_selected_icon : {
-                                source: root.selected_icon;
+                                source: root.selected_icon.value-or-default();
                             }
                         ]
                     }
@@ -69,8 +69,8 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                     vertical_alignment: center;
                 }
 
-                if root.badge != "" : MaterialText {
-                    text: root.badge;
+                if root.badge.has-value() : MaterialText {
+                    text: root.badge.value-or-default();
                     style: MaterialTypography.label_large;
                     color: root.color;
                     vertical_alignment: center;
@@ -103,7 +103,7 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
 }
 
 component NavigationGroupTemplate {
-    in property <string> title;
+    in property <string?> title;
     in property <[NavigationItem]> items;
     in property <int> current_index: -1;
     in property <bool> has_divider;
@@ -114,8 +114,8 @@ component NavigationGroupTemplate {
     VerticalLayout {
         alignment: start;
 
-        if root.title != 0 :  DrawerHeader {
-            title: root.title;
+        if root.title.has-value() :  DrawerHeader {
+            title: root.title.value-or-default();
         }
 
         for item[index] in root.items : NavigationItemTemplate {

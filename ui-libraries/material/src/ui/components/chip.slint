@@ -10,11 +10,11 @@ import { MaterialAnimations } from "../styling/material_animations.slint";
 import { IconButton } from "icon_button.slint";
 
 export component ActionChip {
-    in property <image> icon <=> base.icon;
-    in property <string> text <=> base.text;
+    in property <image?> icon <=> base.icon;
+    in property <string?> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
-    in property <string> tooltip <=> base.tooltip;
-    in property <image> avatar_icon <=> base.avatar-icon;
+    in property <string?> tooltip <=> base.tooltip;
+    in property <image?> avatar_icon <=> base.avatar-icon;
     in property <color> avatar_background <=> base.avatar_background;
 
     callback clicked <=> base.clicked;
@@ -22,7 +22,7 @@ export component ActionChip {
     forward-focus: base;
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-action-default => { base.clicked(); }
 
 
@@ -53,16 +53,16 @@ export component ActionChip {
 }
 
 export component FilterChip {
-    in property <image> icon <=> base.icon;
-    in property <string> text <=> base.text;
+    in property <image?> icon <=> base.icon;
+    in property <string?> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
-    in property <string> tooltip <=> base.tooltip;
+    in property <string?> tooltip <=> base.tooltip;
     in_out property <bool> checked;
 
     forward-focus: base;
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-checkable: true;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }
@@ -115,17 +115,17 @@ export component FilterChip {
 }
 
 export component InputChip {
-    in property <image> leading_icon <=> base.icon;
-    in property <image> trailing_icon;
-    in property <image> avatar <=> base.avatar-icon;
+    in property <image?> leading_icon <=> base.icon;
+    in property <image?> trailing_icon;
+    in property <image?> avatar <=> base.avatar-icon;
     in property <color> avatar_background <=> base.avatar_background;
-    in property <string> text <=> base.text;
+    in property <string?> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
-    in property <string> tooltip <=> base.tooltip;
+    in property <string?> tooltip <=> base.tooltip;
     in property <bool> checkable;
     in_out property <bool> checked;
 
-    property <bool> has_avatar: root.avatar.width > 0 && root.avatar.height > 0;
+    property <bool> has_avatar: root.avatar.has-value();
 
     callback clicked();
     callback trailing_icon_clicked();
@@ -133,7 +133,7 @@ export component InputChip {
     forward-focus: base;
     accessible-role: button;
     accessible-enabled: root.enabled;
-    accessible-label: root.text == "" ? root.tooltip : root.text;
+    accessible-label: root.text.value-or(root.tooltip.value-or-default());
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-action-default => { base.clicked(); }
@@ -151,15 +151,15 @@ export component InputChip {
             icon_color: MaterialPalette.primary;
             spacing: MaterialStyleMetrics.spacing_8;
             button_padding_left: root.has_avatar ? MaterialStyleMetrics.padding_4 : self.has_icon ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
-            button_padding_right: root.trailing_icon.width > 0 && root.trailing_icon.height > 0 ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
+            button_padding_right: root.trailing_icon.has-value() ? MaterialStyleMetrics.padding_8 : MaterialStyleMetrics.padding_12;
             button_vertical_padding: MaterialStyleMetrics.padding_6;
             avatar_size: MaterialStyleMetrics.size_18;
 
-            if root.trailing_icon.width > 0 && root.trailing_icon.height > 0 : VerticalLayout {
+            if root.trailing_icon.has-value() : VerticalLayout {
                 alignment: center;
 
                 IconButton {
-                    icon: root.trailing_icon;
+                    icon: root.trailing_icon.value-or-default();
                     inline: true;
                     enabled: root.enabled;
 

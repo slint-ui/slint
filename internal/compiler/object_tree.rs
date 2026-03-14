@@ -2117,6 +2117,8 @@ pub fn type_from_node(
         type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
+    } else if let Some(optional_node) = node.OptionalType() {
+        Type::Optional(Box::new(type_from_node(optional_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_errors());
         Type::Invalid

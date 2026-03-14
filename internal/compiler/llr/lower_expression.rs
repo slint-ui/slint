@@ -80,6 +80,7 @@ pub fn lower_expression(
             llr_Expression::NumberLiteral(unit.normalize(*n))
         }
         tree_Expression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
+        tree_Expression::NoneValue => llr_Expression::NoneValue,
         tree_Expression::PropertyReference(nr) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }
@@ -191,6 +192,16 @@ pub fn lower_expression(
         tree_Expression::UnaryOp { sub, op } => {
             llr_Expression::UnaryOp { sub: Box::new(lower_expression(sub, ctx)), op: *op }
         }
+        tree_Expression::HasValue { base } => {
+            llr_Expression::HasValue { base: Box::new(lower_expression(base, ctx)) }
+        }
+        tree_Expression::Unwrap { base } => {
+            llr_Expression::Unwrap { base: Box::new(lower_expression(base, ctx)) }
+        }
+        tree_Expression::NullCoalesce { base, fallback } => llr_Expression::NullCoalesce {
+            base: Box::new(lower_expression(base, ctx)),
+            fallback: Box::new(lower_expression(fallback, ctx)),
+        },
         tree_Expression::ImageReference { resource_ref, nine_slice, .. } => {
             llr_Expression::ImageReference {
                 resource_ref: resource_ref.clone(),
@@ -199,21 +210,56 @@ pub fn lower_expression(
         }
         tree_Expression::Condition { condition, true_expr, false_expr } => {
             let (true_ty, false_ty) = (true_expr.ty(), false_expr.ty());
-            llr_Expression::Condition {
-                condition: Box::new(lower_expression(condition, ctx)),
-                true_expr: Box::new(lower_expression(true_expr, ctx)),
-                false_expr: if false_ty == Type::Invalid
-                    || false_ty == Type::Void
-                    || true_ty == false_ty
-                {
-                    Box::new(lower_expression(false_expr, ctx))
-                } else {
-                    // Because the type of the Condition is based on the false expression, we need to insert a cast
-                    Box::new(llr_Expression::Cast {
-                        from: Box::new(lower_expression(false_expr, ctx)),
-                        to: Type::Void,
-                    })
-                },
+            let lowered_true = lower_expression(true_expr, ctx);
+            let lowered_false = lower_expression(false_expr, ctx);
+
+            if matches!(&false_ty, Type::Optional(inner) if **inner == Type::Invalid)
+                && !matches!(&true_ty, Type::Optional(_))
+            {
+                // NoneValue (Optional(Invalid)) as false branch with non-optional true
+                // branch: wrap true in Optional and cast false to match
+                let opt_ty = Type::Optional(Box::new(true_ty));
+                llr_Expression::Condition {
+                    condition: Box::new(lower_expression(condition, ctx)),
+                    true_expr: Box::new(llr_Expression::Cast {
+                        from: Box::new(lowered_true),
+                        to: opt_ty.clone(),
+                    }),
+                    false_expr: Box::new(llr_Expression::Cast {
+                        from: Box::new(lowered_false),
+                        to: opt_ty,
+                    }),
+                }
+            } else if matches!(&false_ty, Type::Optional(inner) if **inner == Type::Invalid)
+                && matches!(&true_ty, Type::Optional(_))
+            {
+                // NoneValue (Optional(Invalid)) as false branch with optional true
+                // branch: cast false to match true's type
+                llr_Expression::Condition {
+                    condition: Box::new(lower_expression(condition, ctx)),
+                    true_expr: Box::new(lowered_true),
+                    false_expr: Box::new(llr_Expression::Cast {
+                        from: Box::new(lowered_false),
+                        to: true_ty,
+                    }),
+                }
+            } else {
+                llr_Expression::Condition {
+                    condition: Box::new(lower_expression(condition, ctx)),
+                    true_expr: Box::new(lowered_true),
+                    false_expr: if false_ty == Type::Invalid
+                        || false_ty == Type::Void
+                        || true_ty == false_ty
+                    {
+                        Box::new(lowered_false)
+                    } else {
+                        // Because the type of the Condition is based on the false expression, we need to insert a cast
+                        Box::new(llr_Expression::Cast {
+                            from: Box::new(lowered_false),
+                            to: Type::Void,
+                        })
+                    },
+                }
             }
         }
         tree_Expression::Array { element_ty, values } => llr_Expression::Array {

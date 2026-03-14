@@ -120,6 +120,10 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
                 u16,
             >
         )),
+        Type::Optional(inner) => {
+            let inner_ty = rust_primitive_type(inner)?;
+            Some(quote!(Option<#inner_ty>))
+        }
         _ => None,
     }
 }
@@ -636,12 +640,27 @@ fn handle_property_init(
         let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
 
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            let t = rust_property_type(prop_type).unwrap_or(quote!(_));
-            quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            if let Type::Optional(inner) = prop_type {
+                let expr_ty = binding_expression.expression.borrow().ty(ctx);
+                if matches!(expr_ty, Type::Optional(_)) {
+                    // Expression is already optional, set directly
+                    quote! { #rust_property.set(#tokens_for_expression); }
+                } else if let Some(inner_ty) = rust_primitive_type(inner) {
+                    // Non-optional expression into optional property: wrap in Some with cast
+                    quote! { #rust_property.set(Some((#tokens_for_expression) as #inner_ty)); }
+                } else {
+                    quote! { #rust_property.set(Some(#tokens_for_expression)); }
+                }
+            } else {
+                let t = rust_property_type(prop_type).unwrap_or(quote!(_));
+                quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            }
         } else {
             let maybe_cast_to_property_type = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
                 // Don't cast if the Rust code is the never type, as with return statements inside a block, the
                 // type of the return expression is `()` instead of `!`.
+                None
+            } else if matches!(prop_type, Type::Optional(_)) {
                 None
             } else {
                 Some(quote!(as _))
@@ -1013,7 +1032,12 @@ fn generate_sub_component(
     for ((index, what), expr) in &component.accessible_prop {
         let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_branch.push(quote!(#index => #e,));
+            let role_expr = if matches!(expr.borrow().ty(&ctx), Type::Optional(_)) {
+                quote!(#e.unwrap_or_default())
+            } else {
+                e.clone()
+            };
+            accessible_role_branch.push(quote!(#index => #role_expr,));
         } else if let Some(what) = what.strip_prefix("Action") {
             let what = ident(what);
             let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
@@ -2417,6 +2441,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
         Expression::BoolLiteral(b) => quote!(#b),
+        Expression::NoneValue => quote!(None),
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
@@ -2518,6 +2543,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
                 (Type::KeyboardShortcutType, Type::String) => {
                     quote!(sp::ToSharedString::to_shared_string(&#f))
+                }
+                (from_ty, Type::Optional(inner))
+                    if !matches!(from_ty, Type::Optional(_) | Type::Void) =>
+                {
+                    if let Some(inner_ty) = rust_primitive_type(inner) {
+                        quote!(Some(#f as #inner_ty))
+                    } else {
+                        quote!(Some(#f))
+                    }
                 }
                 (_, Type::Void) => {
                     quote!({#f;})
@@ -2696,6 +2730,28 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( (#op #sub) )
         }
+        Expression::HasValue { base } => {
+            if matches!(base.as_ref(), Expression::NoneValue) {
+                quote!(false)
+            } else {
+                let base = compile_expression(base, ctx);
+                quote!( (#base).is_some() )
+            }
+        }
+        Expression::Unwrap { base } => {
+            let base = compile_expression(base, ctx);
+            quote!( (#base).unwrap() )
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            let base_code = compile_expression(base, ctx);
+            let fallback_code = compile_expression(fallback, ctx);
+            if let Type::Optional(inner) = base.ty(ctx) {
+                if let Some(inner_ty) = rust_primitive_type(&inner) {
+                    return quote!( (#base_code).unwrap_or_else(|| #fallback_code as #inner_ty) );
+                }
+            }
+            quote!( (#base_code).unwrap_or_else(|| #fallback_code) )
+        }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => {
@@ -2728,7 +2784,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let condition_code = compile_expression_no_parenthesis(condition, ctx);
             let true_code = compile_expression(true_expr, ctx);
             let false_code = compile_expression_no_parenthesis(false_expr, ctx);
-            let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
+            let false_ty = false_expr.ty(ctx);
+            let semi = if false_ty == Type::Void {
+                quote!(;)
+            } else if matches!(false_ty, Type::Optional(_)) {
+                quote!()
+            } else {
+                quote!(as _)
+            };
             quote!(
                 if #condition_code {
                     (#true_code) #semi

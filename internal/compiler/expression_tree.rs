@@ -147,6 +147,12 @@ pub enum BuiltinMacroFunction {
     Oklch,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
+    /// Transform `opt.value-or(fallback)` into `NullCoalesce { base: opt, fallback }`
+    OptionalValueOr,
+    /// Transform `opt.value-or-default()` into `NullCoalesce { base: opt, fallback: default }`
+    OptionalValueOrDefault,
+    /// Transform `opt.has-value()` into `HasValue { base: opt }`
+    OptionalHasValue,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -636,6 +642,8 @@ pub enum Expression {
     NumberLiteral(f64, Unit),
     /// Bool
     BoolLiteral(bool),
+    /// The `none` literal, representing an absent optional value
+    NoneValue,
 
     /// Reference to the property
     PropertyReference(NamedReference),
@@ -729,6 +737,25 @@ pub enum Expression {
         sub: Box<Expression>,
         /// '+', '-', '!'
         op: char,
+    },
+
+    /// Check if an optional has a value
+    /// Syntax: expr.has-value()
+    HasValue {
+        base: Box<Expression>,
+    },
+
+    /// Unwrap an optional value (panic if none)
+    /// Syntax: expr!
+    Unwrap {
+        base: Box<Expression>,
+    },
+
+    /// Null-coalescing: use fallback if base is none
+    /// Syntax: expr ?? fallback
+    NullCoalesce {
+        base: Box<Expression>,
+        fallback: Box<Expression>,
     },
 
     ImageReference {
@@ -862,6 +889,8 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
+            // NoneValue has type Optional(Invalid) - the inner type is inferred from context
+            Expression::NoneValue => Type::Optional(Box::new(Type::Invalid)),
             Expression::PropertyReference(nr) => nr.ty(),
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
@@ -898,6 +927,12 @@ impl Expression {
                     false_type
                 } else if false_type == Type::Invalid {
                     true_type
+                } else if matches!(&false_type, Type::Optional(inner) if **inner == true_type || **inner == Type::Invalid)
+                {
+                    Type::Optional(Box::new(true_type))
+                } else if matches!(&true_type, Type::Optional(inner) if **inner == false_type || **inner == Type::Invalid)
+                {
+                    Type::Optional(Box::new(false_type))
                 } else {
                     Type::Void
                 }
@@ -951,6 +986,12 @@ impl Expression {
                 }
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
+            Expression::HasValue { .. } => Type::Bool,
+            Expression::Unwrap { base } => match base.ty() {
+                Type::Optional(inner) => (*inner).clone(),
+                _ => Type::Invalid,
+            },
+            Expression::NullCoalesce { fallback, .. } => fallback.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
             Expression::Struct { ty, .. } => ty.clone().into(),
             Expression::PathData { .. } => Type::PathData,
@@ -987,6 +1028,7 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
+            Expression::NoneValue => {}
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::ElementReference(_) => {}
@@ -1019,6 +1061,12 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => visitor(sub),
+            Expression::HasValue { base } => visitor(base),
+            Expression::Unwrap { base } => visitor(base),
+            Expression::NullCoalesce { base, fallback } => {
+                visitor(base);
+                visitor(fallback);
+            }
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -1104,6 +1152,7 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
+            Expression::NoneValue => {}
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::ElementReference(_) => {}
@@ -1136,6 +1185,12 @@ impl Expression {
                 visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => visitor(sub),
+            Expression::HasValue { base } => visitor(base),
+            Expression::Unwrap { base } => visitor(base),
+            Expression::NullCoalesce { base, fallback } => {
+                visitor(base);
+                visitor(fallback);
+            }
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -1236,6 +1291,7 @@ impl Expression {
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
+            Expression::NoneValue => true,
             Expression::PropertyReference(nr) => nr.is_constant(),
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
@@ -1267,6 +1323,11 @@ impl Expression {
                 lhs.is_constant(ga) && rhs.is_constant(ga)
             }
             Expression::UnaryOp { sub, .. } => sub.is_constant(ga),
+            Expression::HasValue { base } => base.is_constant(ga),
+            Expression::Unwrap { base } => base.is_constant(ga),
+            Expression::NullCoalesce { base, fallback } => {
+                base.is_constant(ga) && fallback.is_constant(ga)
+            }
             // Array will turn into model, and they can't be considered as constant if the model
             // is used and the model is changed. CF issue #5249
             //Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
@@ -1554,6 +1615,7 @@ impl Expression {
             Type::KeyboardShortcutType => Expression::KeyboardShortcut(KeyboardShortcut::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::Invalid,
+            Type::Optional(_) => Expression::NoneValue,
         }
     }
 
@@ -1839,6 +1901,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::StringLiteral(s) => write!(f, "{s:?}"),
         Expression::NumberLiteral(vl, unit) => write!(f, "{vl}{unit}"),
         Expression::BoolLiteral(b) => write!(f, "{b:?}"),
+        Expression::NoneValue => write!(f, "none"),
         Expression::PropertyReference(a) => write!(f, "{a:?}"),
         Expression::ElementReference(a) => write!(f, "{a:?}"),
         Expression::RepeaterIndexReference { element } => {
@@ -1907,6 +1970,21 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::UnaryOp { sub, op } => {
             write!(f, "{op}")?;
             pretty_print(f, sub)
+        }
+        Expression::HasValue { base } => {
+            pretty_print(f, base)?;
+            write!(f, ".has-value()")
+        }
+        Expression::Unwrap { base } => {
+            pretty_print(f, base)?;
+            write!(f, "!")
+        }
+        Expression::NullCoalesce { base, fallback } => {
+            write!(f, "(")?;
+            pretty_print(f, base)?;
+            write!(f, " ?? ")?;
+            pretty_print(f, fallback)?;
+            write!(f, ")")
         }
         Expression::ImageReference { resource_ref, .. } => write!(f, "{resource_ref:?}"),
         Expression::Condition { condition, true_expr, false_expr } => {

@@ -16,12 +16,12 @@ import { ListView } from "./list_view.slint";
 import { MaterialAnimations } from "../styling/material_animations.slint";
 
 component SearchTile inherits ListTile {
-    in property <image> action_button_icon;
+    in property <image?> action_button_icon;
 
     callback action_button_clicked();
 
-    if root.action_button_icon.width > 0 && root.action_button_icon.height > 0 : IconButton {
-        icon: root.action_button_icon;
+    if root.action_button_icon.has-value() : IconButton {
+        icon: root.action_button_icon.value-or-default();
 
         clicked => {
             root.action_button_clicked();
@@ -30,7 +30,7 @@ component SearchTile inherits ListTile {
 }
 
 component SearchIcon {
-    in property <image> icon;
+    in property <image?> icon;
     in property <color> color;
 
     VerticalLayout {
@@ -39,7 +39,7 @@ component SearchIcon {
         padding_right: self.padding_left;
 
         Icon {
-            source: root.icon;
+            source: root.icon.value-or-default();
             colorize: root.color;
         }
     }
@@ -47,7 +47,7 @@ component SearchIcon {
 
 component SearchTextInput  {
     in_out property <string> text <=> text_input.text;
-    in property <string> placeholder_text;
+    in property <string?> placeholder_text;
     property <length> computed_x;
 
     callback accepted(text: string);
@@ -105,10 +105,10 @@ component SearchTextInput  {
                 }
             }
         }
-        if root.text == "" && root.placeholder_text != "" : MaterialText {
+        if root.text == "" && root.placeholder_text.has-value() : MaterialText {
             width: 100%;
             height: 100%;
-            text: root.placeholder_text;
+            text: root.placeholder_text.value-or-default();
             color: MaterialPalette.on_surface_variant;
             vertical_alignment: center;
             style: MaterialTypography.body_large;
@@ -117,12 +117,12 @@ component SearchTextInput  {
 }
 
 export component SearchBar {
-    in property <image> leading_icon: Icons.menu;
-    in property <image> trailing_icon;
-    in property <image> avatar_icon;
+    in property <image?> leading_icon: Icons.menu;
+    in property <image?> trailing_icon;
+    in property <image?> avatar_icon;
     in property <color> avatar_background: #00000000;
-    in property <string> placeholder_text;
-    in property <string> empty_text;
+    in property <string?> placeholder_text;
+    in property <string?> empty_text;
     in_out property <string> text;
     in_out property <int> current_index;
     in property <[ListItem]> items;
@@ -157,7 +157,7 @@ export component SearchBar {
                 spacing: MaterialStyleMetrics.spacing_4;
 
                 SearchIcon {
-                    icon: root.leading_icon;
+                    icon: root.leading_icon.value-or-default();
                     color: root.color;
                 }
 
@@ -170,22 +170,22 @@ export component SearchBar {
 
                     states [
                         placeholder when root.text == "" : {
-                            text: root.placeholder_text;
+                            text: root.placeholder_text.value-or-default();
                             color: MaterialPalette.on_surface;
                         }
                     ]
                 }
 
                 SearchIcon {
-                    icon: root.trailing_icon;
+                    icon: root.trailing_icon.value-or-default();
                     color: root.color;
                 }
 
-                if (root.avatar_icon.width > 0 && root.avatar_icon.height > 0) || root.avatar_background != #00000000 : VerticalLayout {
+                if root.avatar_icon.has-value() || root.avatar_background != #00000000 : VerticalLayout {
                     alignment: center;
 
                     Avatar  {
-                        image: root.avatar_icon;
+                        image: root.avatar_icon.value-or-default();
                         background: root.avatar_background;
                     }
                 }
@@ -272,7 +272,7 @@ export component SearchBar {
                 HorizontalDivider {}
 
                 if root.items.length == 0 : MaterialText {
-                    text: root.empty_text;
+                    text: root.empty_text.value-or-default();
                     color: root.color;
                     horizontal_alignment: center;
                     style: MaterialTypography.label_small;

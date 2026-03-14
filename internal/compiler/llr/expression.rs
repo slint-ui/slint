@@ -29,6 +29,8 @@ pub enum Expression {
     NumberLiteral(f64),
     /// Bool
     BoolLiteral(bool),
+    /// The `none` literal, representing an absent optional value
+    NoneValue,
 
     // KeyboardShortcut
     KeyboardShortcutLiteral(KeyboardShortcut),
@@ -140,6 +142,25 @@ pub enum Expression {
         sub: Box<Expression>,
         /// '+', '-', '!'
         op: char,
+    },
+
+    /// Check if an optional has a value
+    /// Syntax: expr.has-value()
+    HasValue {
+        base: Box<Expression>,
+    },
+
+    /// Unwrap an optional value (panic if none)
+    /// Syntax: expr!
+    Unwrap {
+        base: Box<Expression>,
+    },
+
+    /// Null-coalescing: use fallback if base is none
+    /// Syntax: expr ?? fallback
+    NullCoalesce {
+        base: Box<Expression>,
+        fallback: Box<Expression>,
     },
 
     ImageReference {
@@ -323,6 +344,7 @@ impl Expression {
             }
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => return None,
+            Type::Optional(_) => Expression::NoneValue,
         })
     }
 
@@ -331,6 +353,7 @@ impl Expression {
             Self::StringLiteral(_) => Type::String,
             Self::NumberLiteral(_) => Type::Float32,
             Self::BoolLiteral(_) => Type::Bool,
+            Self::NoneValue => Type::Optional(Box::new(Type::Invalid)),
             Self::PropertyReference(prop) => ctx.property_ty(prop).clone(),
             Self::FunctionParameterReference { index } => ctx.arg_type(*index).clone(),
             Self::StoreLocalVariable { .. } => Type::Void,
@@ -368,6 +391,12 @@ impl Expression {
                 }
             }
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
+            Self::HasValue { .. } => Type::Bool,
+            Self::Unwrap { base } => match base.ty(ctx) {
+                Type::Optional(inner) => (*inner).clone(),
+                _ => Type::Invalid,
+            },
+            Self::NullCoalesce { fallback, .. } => fallback.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
             Self::Condition { false_expr, .. } => false_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
@@ -396,6 +425,7 @@ macro_rules! visit_impl {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_) => {}
             Expression::BoolLiteral(_) => {}
+            Expression::NoneValue => {}
             Expression::PropertyReference(_) => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::StoreLocalVariable { value, .. } => $visitor(value),
@@ -430,6 +460,16 @@ macro_rules! visit_impl {
             }
             Expression::UnaryOp { sub, .. } => {
                 $visitor(sub);
+            }
+            Expression::HasValue { base } => {
+                $visitor(base);
+            }
+            Expression::Unwrap { base } => {
+                $visitor(base);
+            }
+            Expression::NullCoalesce { base, fallback } => {
+                $visitor(base);
+                $visitor(fallback);
             }
             Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {

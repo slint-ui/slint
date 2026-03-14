@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 export struct NavigationItem {
-    icon: image,
-    selected_icon: image,
+    icon: image?,
+    selected_icon: image?,
     text: string,
     show_badge: bool,
-    badge: string
+    badge: string?
 }
 
 export struct NavigationGroup {
-    title: string,
+    title: string?,
     items: [NavigationItem]
 }

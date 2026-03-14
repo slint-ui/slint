@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test optional comparison with none
+
+TestCase := Rectangle {
+    property <string?> optional_text: none;
+    property <string?> text_with_value: "hello";
+
+    // Test comparison with none
+    property <bool> is_none: optional_text == none;
+    property <bool> is_not_none: text_with_value != none;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_is_none(), true);
+assert_eq!(instance.get_is_not_none(), true);
+```
+*/

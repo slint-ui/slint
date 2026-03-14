@@ -6,7 +6,7 @@ import { MaterialPalette } from "../styling/material_palette.slint";
 import { ToolTip } from "tooltip.slint";
 
 export component ExtendedTouchArea inherits TouchArea {
-    in property <string> tooltip;
+    in property <string?> tooltip;
     in property <length> tooltip_offset;
     out property <bool> has_focus <=> focus_scope.has_focus;
     out property <bool> enter_pressed;
@@ -50,8 +50,8 @@ export component ExtendedTouchArea inherits TouchArea {
 
     @children
 
-    if root.tooltip != "" && root.has-hover && !root.pressed : ToolTip {
+    if root.tooltip.has-value() && root.has-hover && !root.pressed : ToolTip {
         y: root.tooltip_offset;
-        text: root.tooltip;
+        text: root.tooltip.value-or-default();
     }
 }

@@ -547,7 +547,6 @@ fn convert_to_proto_accessible_role(
     role: i_slint_core::items::AccessibleRole,
 ) -> Option<proto::AccessibleRole> {
     Some(match role {
-        i_slint_core::items::AccessibleRole::None => proto::AccessibleRole::Unknown,
         i_slint_core::items::AccessibleRole::Button => proto::AccessibleRole::Button,
         i_slint_core::items::AccessibleRole::Checkbox => proto::AccessibleRole::Checkbox,
         i_slint_core::items::AccessibleRole::Combobox => proto::AccessibleRole::Combobox,
@@ -577,7 +576,11 @@ fn convert_from_proto_accessible_role(
     role: proto::AccessibleRole,
 ) -> Option<i_slint_core::items::AccessibleRole> {
     Some(match role {
-        proto::AccessibleRole::Unknown => i_slint_core::items::AccessibleRole::None,
+        proto::AccessibleRole::Unknown => {
+            // Note: AccessibleRole::None was removed. Unknown role should map to none (optional)
+            // but we return Button as a fallback since this is reverse mapping
+            return None;
+        }
         proto::AccessibleRole::Button => i_slint_core::items::AccessibleRole::Button,
         proto::AccessibleRole::Checkbox => i_slint_core::items::AccessibleRole::Checkbox,
         proto::AccessibleRole::Combobox => i_slint_core::items::AccessibleRole::Combobox,

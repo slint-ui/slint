@@ -13,7 +13,7 @@ import { ScrollView } from "./scroll_view.slint";
 export component DropDownMenu {
     in property <string> label <=> text_field.label;
     in property <bool> enabled <=> text_field.enabled;
-    in property <image> leading_icon <=> text_field.leading_icon;
+    in property <image?> leading_icon <=> text_field.leading_icon;
     in property <[MenuItem]> items;
     in_out property <int> current_index: -1;
 

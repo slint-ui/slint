@@ -1285,6 +1285,10 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Array(_) => property_info::<Value>(),
             Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
             Type::Percent => animated_property_info::<f32>(),
+            Type::Optional(_) => {
+                // For optionals, use Value type which can represent both Some and None
+                property_info::<Value>()
+            }
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
                     ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
