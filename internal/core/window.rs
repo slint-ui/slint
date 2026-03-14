@@ -1703,7 +1703,7 @@ impl WindowInner {
             }
 
             let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new(item_tree.clone(), 0)),
+                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
                 Some(menubar_item) => {
                     event.translate(
                         menubar_item
@@ -2145,6 +2145,9 @@ impl WindowInner {
                     let mut item_trees = Vec::with_capacity(borrow.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
                     for popup in borrow.iter() {
+                        // If the popup is not a real window and does not have its own coordinate system.
+                        // We have to draw the popup and consider the location for subelements because everything must
+                        // be rendered relative to the main window position
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
@@ -2235,35 +2238,6 @@ impl WindowInner {
     ) -> NonZeroU32 {
         let position = parent_item
             .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
-        let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
-                return item_tree;
-            }
-            let mut r = crate::item_tree::ItemWeak::default();
-            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
-            match r.upgrade() {
-                None => return item_tree,
-                Some(x) => item_tree = x.item_tree().clone(),
-            }
-        };
-
-        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
-        let (parent_window_adapter, position) = if let Some(parent_popup) = self
-            .active_popups
-            .borrow()
-            .iter()
-            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
-        {
-            match &parent_popup.location {
-                PopupWindowLocation::TopLevel(wa) => (wa.clone(), position),
-                PopupWindowLocation::ChildWindow(offset) => {
-                    (self.window_adapter(), position + offset.to_vector())
-                }
-            }
-        } else {
-            (self.window_adapter(), position)
-        };
-
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -2316,7 +2290,10 @@ impl WindowInner {
             self.close_popup(sibling);
         }
 
-        let location = match parent_window_adapter
+        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
+        // of the current window
+        let location = match self
+            .window_adapter()
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
         {
@@ -2477,7 +2454,7 @@ impl WindowInner {
     /// is returned, it's guaranteed to be safe to downcast to `WindowItem`.
     pub fn window_item_rc(&self) -> Option<ItemRc> {
         self.try_component().and_then(|component_rc| {
-            let item_rc = ItemRc::new(component_rc, 0);
+            let item_rc = ItemRc::new_root(component_rc);
             if item_rc.downcast::<crate::items::WindowItem>().is_some() {
                 Some(item_rc)
             } else {
@@ -2489,7 +2466,7 @@ impl WindowInner {
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
-            ItemRc::new(component_rc, 0).downcast::<crate::items::WindowItem>()
+            ItemRc::new_root(component_rc).downcast::<crate::items::WindowItem>()
         })
     }
 

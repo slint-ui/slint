@@ -1687,7 +1687,7 @@ fn generate_item_tree(
             if let Some(parent_rc) = self.parent.clone().upgrade() {
                 let parent_origin = sp::VRcMapped::origin(&parent_rc);
                 // TODO: store popup index in ctx and set it here instead of 0?
-                *_result = sp::ItemRc::new(parent_origin, 0).downgrade();
+                *_result = sp::ItemRc::new_root(parent_origin).downgrade();
             }
         }
     }, |idx| {
