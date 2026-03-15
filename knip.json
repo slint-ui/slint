@@ -32,6 +32,21 @@
       "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "shared/**/*.ts", "tests/**/*.ts", "vite.config.ts", "vite.config.code.ts", "figma.config.ts"],
       "ignoreBinaries": ["biome", "cspell"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types", "@vitejs/plugin-react", "vite-plugin-singlefile"]
+    },
+    "docs/astro": {
+      "entry": ["ec.config.mjs", "astro.config.mjs", "src/utils/versions.ts"],
+      "ignoreFiles": [
+        "src/components/editor/codemirror.js",
+        "src/components/editor/language-facets.js",
+        "src/components/editor/rollup.config.js",
+        "src/content/code/main_game_logic.js",
+        "src/content/code/main_initial.js",
+        "src/content/code/main_tiles_from_js.js",
+        "src/utils/versions.ts"
+      ],
+      "ignoreUnresolved": ["^/src/content/", "\\?raw$"],
+      "ignoreBinaries": ["biome"],
+      "ignoreDependencies": ["sharp", "@expressive-code/core"]
     }
   },
   "ignoreIssues": {
