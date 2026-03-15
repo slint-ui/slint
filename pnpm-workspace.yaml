@@ -18,7 +18,7 @@ packages:
 
 catalog:
   '@astrojs/check': 0.9.6
-  '@astrojs/starlight': 0.37.6
+  '@astrojs/starlight': 0.38.1
   '@biomejs/biome': 2.4.4
   '@expressive-code/plugin-line-numbers': 0.41.7
   '@playwright/test': 1.58.2
@@ -29,7 +29,7 @@ catalog:
   playwright-ctrf-json-reporter: 0.0.27
   rehype-external-links: 3.0.0
   sharp: 0.34.5
-  starlight-links-validator: 0.19.2
+  starlight-links-validator: 0.20.1
   typescript: 5.9.3
   vite: 7.3.1
-  vitest: 4.0.18
+  vitest: 4.1.0
