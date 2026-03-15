@@ -322,6 +322,9 @@ importers:
       '@codingame/monaco-vscode-editor-api':
         specifier: ~8.0.4
         version: 8.0.4
+      '@codingame/monaco-vscode-editor-service-override':
+        specifier: ~8.0.4
+        version: 8.0.4
       '@codingame/monaco-vscode-files-service-override':
         specifier: ~8.0.4
         version: 8.0.4
@@ -337,9 +340,15 @@ importers:
       '@codingame/monaco-vscode-storage-service-override':
         specifier: ~8.0.4
         version: 8.0.4
+      '@lumino/commands':
+        specifier: 2.3.3
+        version: 2.3.3
       '@lumino/default-theme':
         specifier: 2.1.14
         version: 2.1.14
+      '@lumino/messaging':
+        specifier: 2.0.4
+        version: 2.0.4
       '@lumino/widgets':
         specifier: 2.7.5
         version: 2.7.5
@@ -385,6 +394,12 @@ importers:
       vscode-languageserver:
         specifier: 9.0.1
         version: 9.0.1
+      vscode-languageserver-protocol:
+        specifier: 3.17.5
+        version: 3.17.5
+      vscode-languageserver-types:
+        specifier: 3.17.5
+        version: 3.17.5
       vscode-uri:
         specifier: 3.1.0
         version: 3.1.0

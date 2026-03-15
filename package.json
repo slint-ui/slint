@@ -9,6 +9,7 @@
   "scripts": {
     "knip:api": "knip --workspace api/node",
     "knip:vscode": "knip --workspace editors/vscode",
+    "knip:slintpad": "knip --workspace tools/slintpad",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",
