@@ -12,6 +12,7 @@
     "knip:slintpad": "knip --workspace tools/slintpad",
     "knip:figma": "knip --workspace tools/figma-inspector",
     "knip:docs": "knip --workspace docs/astro",
+    "knip:material-docs": "knip --workspace ui-libraries/material/docs",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",
