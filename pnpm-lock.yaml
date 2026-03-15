@@ -415,9 +415,6 @@ importers:
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.37.6(astro@5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))
-      '@astrolib/analytics':
-        specifier: 0.6.1
-        version: 0.6.1(astro@5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))
       '@astrolib/seo':
         specifier: 1.0.0-beta.8
         version: 1.0.0-beta.8(astro@5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))
@@ -433,9 +430,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2)
-      astro-embed:
-        specifier: 'catalog:'
-        version: 0.12.0(astro@5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))
       limax:
         specifier: 4.2.2
         version: 4.2.2
@@ -497,9 +491,6 @@ importers:
       cspell:
         specifier: 'catalog:'
         version: 9.7.0
-      globals:
-        specifier: 17.3.0
-        version: 17.3.0
       js-yaml:
         specifier: 4.1.1
         version: 4.1.1
@@ -626,11 +617,6 @@ packages:
 
   '@astrojs/yaml2ts@0.2.2':
     resolution: {integrity: sha512-GOfvSr5Nqy2z5XiwqTouBBpy5FyI6DEe+/g/Mk5am9SjILN1S5fOEvYK0GuWHg98yS/dobP4m8qyqw/URW35fQ==}
-
-  '@astrolib/analytics@0.6.1':
-    resolution: {integrity: sha512-BrOGe88JuprEXhvLg1eJxaGcR9ZzuYPZE00QwcvQ1EBAucODxbg4FJG57G5yoAYjyXjr7GsPy4+46X2jB+64hg==}
-    peerDependencies:
-      astro: ^1.2.1 || ^2.0.0 || ^3.0.0-beta.0 || ^3.0.0 || ^4.0.0 || ^5.0.0-beta.0 || ^5.0.0
 
   '@astrolib/seo@1.0.0-beta.8':
     resolution: {integrity: sha512-SpNycspjcjnz6um4Vph0k+SAKgUib7/8qJRCaaahJD1UfLuXKK7E+bmKbnv8QPBTRPZkQW6zFVaZRl5VvnyDfg==}
@@ -4004,10 +3990,6 @@ packages:
     resolution: {integrity: sha512-5lsx1NUDHtSjfg0eHlmYvZKv8/nVqX4ckFbM+FrGcQ+04KWcWFo9P5MxPZYSzUvyzmdTbI7Eix8Q4IbELDqzKg==}
     engines: {node: '>=0.10.0'}
 
-  globals@17.3.0:
-    resolution: {integrity: sha512-yMqGUQVVCkD4tqjOJf3TnrvaaHDMYp4VlUSObbkIiuCPe/ofdMBFIAcBbCSRFWOnos6qRiTVStDwqPLUclaxIw==}
-    engines: {node: '>=18'}
-
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
@@ -6505,10 +6487,6 @@ snapshots:
   '@astrojs/yaml2ts@0.2.2':
     dependencies:
       yaml: 2.8.2
-
-  '@astrolib/analytics@0.6.1(astro@5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))':
-    dependencies:
-      astro: 5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2)
 
   '@astrolib/seo@1.0.0-beta.8(astro@5.18.1(@types/node@20.16.10)(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.59.0)(terser@5.44.1)(typescript@5.9.3)(yaml@2.8.2))':
     dependencies:
@@ -10160,8 +10138,6 @@ snapshots:
       ini: 1.3.8
       is-windows: 1.0.2
       which: 1.3.1
-
-  globals@17.3.0: {}
 
   graceful-fs@4.2.11: {}
 

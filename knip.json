@@ -34,27 +34,74 @@
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types", "@vitejs/plugin-react", "vite-plugin-singlefile"]
     },
     "docs/astro": {
-      "entry": ["ec.config.mjs", "astro.config.mjs", "src/utils/versions.ts"],
+      "entry": ["ec.config.mjs", "astro.config.mjs"],
       "ignoreFiles": [
         "src/components/editor/codemirror.js",
         "src/components/editor/language-facets.js",
         "src/components/editor/rollup.config.js",
         "src/content/code/main_game_logic.js",
         "src/content/code/main_initial.js",
-        "src/content/code/main_tiles_from_js.js",
-        "src/utils/versions.ts"
+        "src/content/code/main_tiles_from_js.js"
       ],
       "ignoreUnresolved": ["^/src/content/", "\\?raw$"],
       "ignoreBinaries": ["biome"],
       "ignoreDependencies": ["sharp", "@expressive-code/core"]
+    },
+    "ui-libraries/material/docs": {
+      "entry": ["astro.config.ts", "ec.config.mjs", "src/content.config.ts"],
+      "ignoreFiles": [
+        "src/assets/styles/custom.css",
+        "src/assets/styles/theme.css",
+        "src/components/common/SplitbeeAnalytics.astro",
+        "src/components/editor/codemirror.js",
+        "src/components/editor/language-facets.js",
+        "src/components/editor/rollup.config.js",
+        "src/components/FourCardGrid.astro",
+        "src/components/IconLinkCard.astro",
+        "src/components/LangRefLink.astro",
+        "src/components/ReleaseLink.astro",
+        "src/components/ThreeCardGrid.astro",
+        "src/components/Type.astro",
+        "src/components/ui/DListItem.astro",
+        "src/components/ui/Form.astro",
+        "src/components/VersionSelector.astro",
+        "src/components/widgets/Contact.astro",
+        "src/components/widgets/Content.astro",
+        "src/components/widgets/FAQs.astro",
+        "src/components/widgets/Features3.astro",
+        "src/components/widgets/HeroText.astro",
+        "src/layouts/MarkdownLayout.astro"
+      ],
+      "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
+      "ignoreBinaries": ["biome", "cspell"],
+      "ignoreDependencies": [
+        "sharp",
+        "@types/mdx",
+        "astrowind"
+      ]
     }
   },
   "ignoreIssues": {
     "tools/slintpad/src/editor_widget.ts": ["exports"],
     "tools/slintpad/src/lsp.ts": ["exports", "types"],
-    "tools/figma-inspector/backend/utils/code-utils.ts": ["exports"],
     "tools/figma-inspector/backend/utils/property-parsing.ts": ["exports"],
     "tools/figma-inspector/src/utils/bolt-utils.ts": ["exports"],
-    "tools/figma-inspector/figma.config.ts": ["exports"]
+    "tools/figma-inspector/figma.config.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/site-config.ts": ["exports"],
+    "ui-libraries/material/docs/src/components/common/Metadata.astro": ["types"],
+    "ui-libraries/material/docs/src/components/common/ToggleMenu.astro": ["types"],
+    "ui-libraries/material/docs/src/components/common/ToggleTheme.astro": ["types"],
+    "ui-libraries/material/docs/src/components/ui/Background.astro": ["types"],
+    "ui-libraries/material/docs/src/components/ui/WidgetWrapper.astro": ["types"],
+    "ui-libraries/material/docs/src/components/widgets/Footer.astro": ["types"],
+    "ui-libraries/material/docs/src/components/widgets/Header.astro": ["types"],
+    "ui-libraries/material/docs/src/layouts/LandingLayout.astro": ["types"],
+    "ui-libraries/material/docs/src/layouts/Layout.astro": ["types"],
+    "ui-libraries/material/docs/src/layouts/PageLayout.astro": ["types"],
+    "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
+    "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"]
   }
 }
