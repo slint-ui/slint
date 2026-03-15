@@ -56,5 +56,8 @@ css-color-parser2 = { workspace = true }
 pyo3-stub-gen = { version = "0.18.0", default-features = false }
 smol = { version = "2.0.0" }
 
+[build-dependencies]
+i-slint-common = { workspace = true }
+
 [package.metadata.maturin]
 python-source = "slint"
