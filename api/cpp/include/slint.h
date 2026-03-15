@@ -365,6 +365,36 @@ inline float get_resolved_default_font_size(const Component &component)
 
 } // namespace private_api
 
+#ifdef SLINT_FEATURE_TR
+/// Register a custom translator
+///
+/// The callback will be called whenever Slint needs to translate a string.
+/// The function is only available when Slint is compiled with `SLINT_FEATURE_TR`.
+///
+/// Returns true on success, false if no platform is available.
+///
+/// Example
+/// ```cpp
+/// void my_translator(slint::private_api::Slice<uint8_t> context,
+///                    slint::private_api::Slice<uint8_t> singular,
+///                    slint::private_api::Slice<uint8_t> plural,
+///                    const uint64_t* n,
+///                    slint::SharedString* out) noexcept {
+///   if (n) {
+///     *out = "translated plural string";
+///   } else {
+///     *out = "translated singular string";
+///   }
+/// }
+///
+/// slint::set_translator(&my_translator);
+/// ```
+inline bool set_translator(cbindgen_private::TranslatorCallback callback)
+{
+    return cbindgen_private::slint_translate_set_translator(callback);
+}
+#endif
+
 #ifdef SLINT_FEATURE_GETTEXT
 /// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
 /// This is useful if the language is changed at runtime.

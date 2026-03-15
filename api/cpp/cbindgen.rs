@@ -1036,6 +1036,7 @@ declare_features! {
     renderer_skia_opengl
     renderer_skia_vulkan
     renderer_software
+    tr
     gettext
     accessibility
     system_testing

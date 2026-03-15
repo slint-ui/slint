@@ -43,6 +43,7 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "render
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 software-renderer-path = ["i-slint-renderer-software/path"]
+tr = ["i-slint-core/tr"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
