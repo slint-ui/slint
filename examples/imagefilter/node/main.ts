@@ -72,12 +72,7 @@ const mainWindow = new demo.MainWindow();
 
 const imagePath = new URL("../assets/cat.jpg", import.meta.url).pathname;
 const image = await read(imagePath);
-const rgbaImage =
-    image.colorModel === ImageColorModel.RGBA
-        ? image
-        : image.convertColor(ImageColorModel.RGBA);
-const raw = rgbaImage.getRawImage();
-mainWindow.original_image = raw as slint.ImageData;
+mainWindow.original_image = toBitmap(image.convertColor(ImageColorModel.RGBA));
 
 const filters = new Filters([
     new Filter("Blur", (bitmap) => {
