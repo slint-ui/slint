@@ -79,6 +79,27 @@
         "@types/mdx",
         "astrowind"
       ]
+    },
+    "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
+    "demos/home-automation/node": { "ignoreBinaries": ["compile"] },
+    "examples/imagefilter/node": { "entry": ["main.ts"], "ignoreBinaries": ["compile"] },
+    "examples/carousel/node": { "ignoreBinaries": ["compile"] },
+    "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/memory": { "ignoreBinaries": ["compile"] },
+    "docs/common": {
+      "entry": ["src/utils/site-config.ts", "src/utils/utils.ts"],
+      "ignoreFiles": [
+        "src/components/Banner.astro",
+        "src/components/Footer.astro",
+        "src/components/Header.astro",
+        "src/components/ThemeSelect.astro",
+        "src/components/ThreeCardGrid.astro",
+        "src/components/VersionBanner.astro",
+        "src/components/VersionSelector.astro"
+      ],
+      "ignoreUnresolved": ["@astrojs/starlight", "astro", "astro/types"],
+      "ignoreBinaries": ["biome"],
+      "ignoreDependencies": ["@astrojs/starlight", "astro"]
     }
   },
   "ignoreIssues": {
@@ -102,6 +123,8 @@
     "ui-libraries/material/docs/src/layouts/Layout.astro": ["types"],
     "ui-libraries/material/docs/src/layouts/PageLayout.astro": ["types"],
     "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
-    "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"]
+    "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"],
+    "docs/common/src/utils/site-config.ts": ["exports"],
+    "docs/common/src/utils/utils.ts": ["exports", "types"]
   }
 }
