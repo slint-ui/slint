@@ -56,10 +56,7 @@
       "entry": [],
       "ignoreFiles": [
         "src/assets/styles/custom.css",
-        "src/assets/styles/theme.css",
-        "src/components/editor/codemirror.js",
-        "src/components/editor/language-facets.js",
-        "src/components/editor/rollup.config.js"
+        "src/assets/styles/theme.css"
       ],
       "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
       "ignoreDependencies": [
