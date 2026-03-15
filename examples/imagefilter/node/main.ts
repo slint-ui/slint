@@ -21,14 +21,9 @@ function toBitmap(image: Image): slint.ImageData {
     };
 }
 
-/** Apply Rust image crate contrast formula: ((v/255 - 0.5) * percent + 0.5) * 255. */
-function applyContrast(image: Image, contrast: number): Image {
-    const p = Math.pow((100 + contrast) / 100, 2);
-    const clone = image.clone();
-    clone.changeEach((v) =>
-        Math.round(Math.min(255, Math.max(0, ((v / 255 - 0.5) * p + 0.5) * 255))),
-    );
-    return clone;
+/** Constant (r,g,b,0) image for add/subtract so only RGB change (alpha unchanged, like Rust brighten). */
+function constantRgb(w: number, h: number, r: number, g: number, b: number): Image {
+    return new Image(w, h, { colorModel: ImageColorModel.RGBA }).fill([r, g, b, 0]);
 }
 
 class Filter {
@@ -91,23 +86,19 @@ const filters = new Filters([
         );
     }),
     new Filter("Brighten", (bitmap) => {
-        const img = fromBitmap(bitmap).clone();
-        img.changeEach((v) => Math.min(255, v + 30));
-        return toBitmap(img);
+        const img = fromBitmap(bitmap);
+        return toBitmap(img.add(constantRgb(img.width, img.height, 30, 30, 30)));
     }),
     new Filter("Darken", (bitmap) => {
-        const img = fromBitmap(bitmap).clone();
-        img.changeEach((v) => Math.max(0, v - 30));
-        return toBitmap(img);
+        const img = fromBitmap(bitmap);
+        return toBitmap(img.subtract(constantRgb(img.width, img.height, 30, 30, 30)));
     }),
     new Filter("Increase Contrast", (bitmap) => {
-        return toBitmap(
-            applyContrast(fromBitmap(bitmap), 30),
-        );
+        return toBitmap(fromBitmap(bitmap).increaseContrast());
     }),
     new Filter("Decrease Contrast", (bitmap) => {
         return toBitmap(
-            applyContrast(fromBitmap(bitmap), -30),
+            fromBitmap(bitmap).level({ outputMin: 32, outputMax: 224 }),
         );
     }),
     new Filter("Invert", (bitmap) => {
