@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "api/node": {
+      "entry": ["typescript/index.ts"],
+      "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}", "vitest.config.ts"]
+    },
+    "editors/vscode": {
+      "entry": ["src/extension.ts", "src/browser.ts", "src/browser-lsp-worker.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}
