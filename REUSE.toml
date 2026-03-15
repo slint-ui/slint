@@ -53,6 +53,7 @@ path = [
   "examples/servo/Cargo.lock",
   "REUSE.toml",
   "biome.json",
+  "knip.json",
   "cspell.json",
   "docs/search/scraper-config.json",
   "internal/core-macros/link-data.json",
