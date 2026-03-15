@@ -94,9 +94,6 @@ importers:
       jimp:
         specifier: 1.6.0
         version: 1.6.0
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
       typedoc:
         specifier: 0.28.17
         version: 0.28.17(typescript@5.9.3)
@@ -115,20 +112,12 @@ importers:
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/node
-    devDependencies:
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@25.0.3)(typescript@5.9.3)
 
   demos/printerdemo/node:
     dependencies:
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/node
-    devDependencies:
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@25.0.3)(typescript@5.9.3)
 
   docs/astro:
     dependencies:
@@ -178,18 +167,12 @@ importers:
       cspell:
         specifier: 'catalog:'
         version: 9.7.0
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
 
   docs/common:
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.4
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@25.0.3)(typescript@5.9.3)
 
   editors/vscode:
     dependencies:
@@ -224,9 +207,6 @@ importers:
       esbuild:
         specifier: 0.27.3
         version: 0.27.3
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
       shx:
         specifier: 0.4.0
         version: 0.4.0
@@ -242,10 +222,6 @@ importers:
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/node
-    devDependencies:
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@25.0.3)(typescript@5.9.3)
 
   examples/imagefilter/node:
     dependencies:
@@ -259,9 +235,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.16.10
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -271,20 +244,12 @@ importers:
       slint-ui:
         specifier: workspace:*
         version: link:../../api/node
-    devDependencies:
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@25.0.3)(typescript@5.9.3)
 
   examples/todo/node:
     dependencies:
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/node
-    devDependencies:
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@25.0.3)(typescript@5.9.3)
 
   tools/figma-inspector:
     dependencies:
@@ -331,9 +296,6 @@ importers:
       jszip:
         specifier: 3.10.1
         version: 3.10.1
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
       shiki:
         specifier: 3.22.0
         version: 3.22.0
@@ -406,9 +368,6 @@ importers:
       '@types/vscode':
         specifier: 1.92.0
         version: 1.92.0
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
       monaco-editor:
         specifier: npm:@codingame/monaco-vscode-editor-api@8.0.4
         version: '@codingame/monaco-vscode-editor-api@8.0.4'
@@ -542,9 +501,6 @@ importers:
       js-yaml:
         specifier: 4.1.1
         version: 4.1.1
-      knip:
-        specifier: 'catalog:'
-        version: 5.86.0(@types/node@20.16.10)(typescript@5.9.3)
       mdast-util-to-string:
         specifier: 4.0.0
         version: 4.0.0
@@ -10620,24 +10576,6 @@ snapshots:
   kleur@4.1.5: {}
 
   klona@2.0.6: {}
-
-  knip@5.86.0(@types/node@20.16.10)(typescript@5.9.3):
-    dependencies:
-      '@nodelib/fs.walk': 1.2.8
-      '@types/node': 20.16.10
-      fast-glob: 3.3.3
-      formatly: 0.3.0
-      jiti: 2.6.1
-      minimist: 1.2.8
-      oxc-resolver: 11.19.1
-      picocolors: 1.1.1
-      picomatch: 4.0.3
-      smol-toml: 1.6.0
-      strip-json-comments: 5.0.3
-      typescript: 5.9.3
-      unbash: 2.2.0
-      yaml: 2.8.2
-      zod: 4.3.6
 
   knip@5.86.0(@types/node@25.0.3)(typescript@5.9.3):
     dependencies:
