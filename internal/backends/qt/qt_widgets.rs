@@ -147,6 +147,7 @@ impl QImageWrapArray {
 }
 
 cpp! {{
+    // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtWidgets/QApplication>
     #include <QtWidgets/QStyle>
     #include <QtWidgets/QStyleOption>
