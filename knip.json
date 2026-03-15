@@ -8,6 +8,27 @@
     "editors/vscode": {
       "entry": ["src/extension.ts", "src/browser.ts", "src/browser-lsp-worker.ts"],
       "project": ["src/**/*.ts"]
+    },
+    "tools/slintpad": {
+      "entry": ["src/index.ts", "src/preview.ts", "src/worker/lsp_worker.ts"],
+      "project": ["src/**/*.ts", "styles/**/*.css", "tests/**/*.ts", "playwright.config.ts"],
+      "ignoreFiles": ["src/types.ts", "src/worker/types.ts"],
+      "ignoreUnresolved": ["@lsp/slint_lsp_wasm.js", "@interpreter/slint_wasm_interpreter.js"],
+      "ignoreBinaries": ["wasm-pack"],
+      "ignoreDependencies": [
+        "@codingame/monaco-vscode-api",
+        "@codingame/monaco-vscode-editor-api",
+        "@lumino/default-theme",
+        "monaco-editor-wrapper",
+        "path-browserify",
+        "vscode-uri",
+        "@lsp/slint_lsp_wasm.js",
+        "@interpreter/slint_wasm_interpreter.js"
+      ]
     }
+  },
+  "ignoreIssues": {
+    "tools/slintpad/src/editor_widget.ts": ["exports"],
+    "tools/slintpad/src/lsp.ts": ["exports", "types"]
   }
 }
