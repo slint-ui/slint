@@ -4,7 +4,7 @@
 import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Jimp } from "jimp";
+import { read, ImageColorModel } from "image-js";
 import { captureAsyncStderr } from "./helpers/utils.js";
 import {
     private_api,
@@ -232,7 +232,12 @@ test("get/set image properties", async () => {
         );
         expect((slintImage as ImageData).path.endsWith("rgb.png")).toBe(true);
 
-        const image = await Jimp.read(path.join(dirname, "resources/rgb.png"));
+        const image = await read(path.join(dirname, "resources/rgb.png"));
+        const rgbaImage =
+            image.colorModel === ImageColorModel.RGBA
+                ? image
+                : image.convertColor(ImageColorModel.RGBA);
+        const raw = rgbaImage.getRawImage();
 
         // Sanity check: setProperty fails when passed definitely a non-image
         {
@@ -288,17 +293,19 @@ test("get/set image properties", async () => {
             );
         }
 
-        expect(image.bitmap.width).toBe(64);
-        expect(image.bitmap.height).toBe(64);
-        // Duck typing: The `image.bitmap` object that Jump returns, has the shape of the official ImageData, so
+        expect(raw.width).toBe(64);
+        expect(raw.height).toBe(64);
+        // Duck typing: object with width, height, data has the shape of ImageData, so
         // it should be possible to use it with Slint:
-        instance!.setProperty("external-image", image.bitmap);
+        instance!.setProperty("external-image", raw);
         expect(instance!.getProperty("external-image-ok")).toBe(true);
 
-        expect(image.bitmap.data.length).toBe(
+        expect(raw.data.length).toBe(
             (slintImage as ImageData).data.length,
         );
-        expect(image.bitmap.data).toStrictEqual((slintImage as ImageData).data);
+        expect(Buffer.from(new Uint8Array(raw.data))).toStrictEqual(
+            (slintImage as ImageData).data,
+        );
 
         expect(
             (instance!.getProperty("external-image") as ImageData).path,
