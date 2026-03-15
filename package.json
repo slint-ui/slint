@@ -3,7 +3,12 @@
   "version": "1.16.0",
   "description": "",
   "main": "index.js",
+  "devDependencies": {
+    "knip": "5.86.0"
+  },
   "scripts": {
+    "knip:api": "knip --workspace api/node",
+    "knip:vscode": "knip --workspace editors/vscode",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",
