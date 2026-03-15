@@ -57,25 +57,9 @@
       "ignoreFiles": [
         "src/assets/styles/custom.css",
         "src/assets/styles/theme.css",
-        "src/components/common/SplitbeeAnalytics.astro",
         "src/components/editor/codemirror.js",
         "src/components/editor/language-facets.js",
-        "src/components/editor/rollup.config.js",
-        "src/components/FourCardGrid.astro",
-        "src/components/IconLinkCard.astro",
-        "src/components/LangRefLink.astro",
-        "src/components/ReleaseLink.astro",
-        "src/components/ThreeCardGrid.astro",
-        "src/components/Type.astro",
-        "src/components/ui/DListItem.astro",
-        "src/components/ui/Form.astro",
-        "src/components/VersionSelector.astro",
-        "src/components/widgets/Contact.astro",
-        "src/components/widgets/Content.astro",
-        "src/components/widgets/FAQs.astro",
-        "src/components/widgets/Features3.astro",
-        "src/components/widgets/HeroText.astro",
-        "src/layouts/MarkdownLayout.astro"
+        "src/components/editor/rollup.config.js"
       ],
       "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
       "ignoreDependencies": [
