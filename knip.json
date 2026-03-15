@@ -1,19 +1,22 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
+    ".": {
+      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "pkg", "biome"],
+      "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
+    },
     "api/node": {
       "entry": ["typescript/index.ts"],
-      "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}", "vitest.config.ts"]
+      "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
     },
     "editors/vscode": {
       "entry": ["src/extension.ts", "src/browser.ts", "src/browser-lsp-worker.ts"],
       "project": ["src/**/*.ts"]
     },
     "tools/slintpad": {
-      "entry": ["src/index.ts", "src/preview.ts", "src/worker/lsp_worker.ts"],
-      "project": ["src/**/*.ts", "styles/**/*.css", "tests/**/*.ts", "playwright.config.ts"],
-      "ignoreFiles": ["src/types.ts", "src/worker/types.ts"],
-      "ignoreUnresolved": ["@lsp/slint_lsp_wasm.js", "@interpreter/slint_wasm_interpreter.js"],
+      "entry": ["src/preview.ts", "src/worker/lsp_worker.ts"],
+      "project": ["src/**/*.ts", "styles/**/*.css", "tests/**/*.ts"],
+      "ignoreFiles": ["src/types.ts", "src/worker/types.ts", "styles/colors.css", "styles/content.css", "styles/index.css"],
       "ignoreBinaries": ["wasm-pack"],
       "ignoreDependencies": [
         "@codingame/monaco-vscode-api",
@@ -29,13 +32,15 @@
     "tools/figma-inspector": {
       "vite": false,
       "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
-      "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "shared/**/*.ts", "tests/**/*.ts", "vite.config.ts", "vite.config.code.ts", "figma.config.ts"],
+      "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
       "ignoreBinaries": ["biome", "cspell"],
-      "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types", "@vitejs/plugin-react", "vite-plugin-singlefile"]
+      "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
     "docs/astro": {
-      "entry": ["ec.config.mjs", "astro.config.mjs"],
+      "entry": [],
       "ignoreFiles": [
+        "src/styles/custom.css",
+        "src/styles/theme.css",
         "src/components/editor/codemirror.js",
         "src/components/editor/language-facets.js",
         "src/components/editor/rollup.config.js",
@@ -43,12 +48,12 @@
         "src/content/code/main_initial.js",
         "src/content/code/main_tiles_from_js.js"
       ],
-      "ignoreUnresolved": ["^/src/content/", "\\?raw$"],
+      "ignoreUnresolved": ["^/src/content/"],
       "ignoreBinaries": ["biome"],
       "ignoreDependencies": ["sharp", "@expressive-code/core"]
     },
     "ui-libraries/material/docs": {
-      "entry": ["astro.config.ts", "ec.config.mjs", "src/content.config.ts"],
+      "entry": [],
       "ignoreFiles": [
         "src/assets/styles/custom.css",
         "src/assets/styles/theme.css",
@@ -73,7 +78,6 @@
         "src/layouts/MarkdownLayout.astro"
       ],
       "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
-      "ignoreBinaries": ["biome", "cspell"],
       "ignoreDependencies": [
         "sharp",
         "@types/mdx",
@@ -88,8 +92,6 @@
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
-        "src/utils/site-config.ts",
-        "src/utils/utils.ts",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
@@ -98,9 +100,7 @@
         "src/components/VersionBanner.astro",
         "src/components/VersionSelector.astro"
       ],
-      "ignoreUnresolved": ["@astrojs/starlight", "astro", "astro/types"],
-      "ignoreBinaries": ["biome", "knip"],
-      "ignoreDependencies": ["@astrojs/starlight", "astro", "@biomejs/biome"]
+      "ignoreDependencies": ["@astrojs/starlight", "astro"]
     }
   },
   "ignoreIssues": {

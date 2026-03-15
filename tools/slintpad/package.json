@@ -3,7 +3,6 @@
     "name": "slintpad",
     "version": "1.16.0",
     "description": "",
-    "main": "index.js",
     "scripts": {
         "build": "pnpm clean && vite build",
         "build:wasm_experimental_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview,experimental",
