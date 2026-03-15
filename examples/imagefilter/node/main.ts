@@ -5,14 +5,14 @@
 import * as slint from "slint-ui";
 import { read, Image, ImageColorModel } from "image-js";
 
-function fromBitmap(bitmap: slint.ImageData): Image {
+function fromImageData(bitmap: slint.ImageData): Image {
     return new Image(bitmap.width, bitmap.height, {
         data: bitmap.data,
         colorModel: ImageColorModel.RGBA,
     });
 }
 
-function toBitmap(image: Image): slint.ImageData {
+function toImageData(image: Image): slint.ImageData {
     const raw = image.getRawImage();
     return {
         width: raw.width,
@@ -72,33 +72,33 @@ const mainWindow = new demo.MainWindow();
 
 const imagePath = new URL("../assets/cat.jpg", import.meta.url).pathname;
 const image = await read(imagePath);
-mainWindow.original_image = toBitmap(image.convertColor(ImageColorModel.RGBA));
+mainWindow.original_image = toImageData(image.convertColor(ImageColorModel.RGBA));
 
 const filters = new Filters([
     new Filter("Blur", (bitmap) => {
-        return toBitmap(
-            fromBitmap(bitmap).gaussianBlur({ sigma: 4 }),
+        return toImageData(
+            fromImageData(bitmap).gaussianBlur({ sigma: 4 }),
         );
     }),
     new Filter("Brighten", (bitmap) => {
-        const img = fromBitmap(bitmap);
-        return toBitmap(img.add(constantRgb(img.width, img.height, 30, 30, 30)));
+        const img = fromImageData(bitmap);
+        return toImageData(img.add(constantRgb(img.width, img.height, 30, 30, 30)));
     }),
     new Filter("Darken", (bitmap) => {
-        const img = fromBitmap(bitmap);
-        return toBitmap(img.subtract(constantRgb(img.width, img.height, 30, 30, 30)));
+        const img = fromImageData(bitmap);
+        return toImageData(img.subtract(constantRgb(img.width, img.height, 30, 30, 30)));
     }),
     new Filter("Increase Contrast", (bitmap) => {
-        return toBitmap(fromBitmap(bitmap).increaseContrast());
+        return toImageData(fromImageData(bitmap).increaseContrast());
     }),
     new Filter("Decrease Contrast", (bitmap) => {
-        return toBitmap(
-            fromBitmap(bitmap).level({ outputMin: 32, outputMax: 224 }),
+        return toImageData(
+            fromImageData(bitmap).level({ outputMin: 32, outputMax: 224 }),
         );
     }),
     new Filter("Invert", (bitmap) => {
-        return toBitmap(
-            fromBitmap(bitmap).invert(),
+        return toImageData(
+            fromImageData(bitmap).invert(),
         );
     }),
 ]);
