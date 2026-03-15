@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     euclid,
 };
-use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
+use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
@@ -65,6 +65,7 @@ cpp! {{
     #include <QtCore/QEvent>
     #include <QtCore/QFileInfo>
 
+    #include <iostream>
     #include <memory>
 
     void ensure_initialized(bool from_qt_backend);
@@ -207,14 +208,26 @@ cpp! {{
         void wheelEvent(QWheelEvent *event) override {
             if (!rust_window)
                 return;
+            int phase = event->phase();
             QPointF pos = event->position();
             QPoint delta = event->pixelDelta();
             if (delta.isNull()) {
                 delta = event->angleDelta();
             }
-            rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
+            rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint", phase: usize as "int"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::Wheel{position, delta_x: delta.x as _, delta_y: delta.y as _})
+                let phase = match phase as _ {
+                    key_generated::Qt_ScrollPhase_NoScrollPhase => TouchPhase::Cancelled,
+                    key_generated::Qt_ScrollPhase_ScrollBegin => TouchPhase::Started,
+                    key_generated::Qt_ScrollPhase_ScrollUpdate => TouchPhase::Moved,
+                    key_generated::Qt_ScrollPhase_ScrollEnd => TouchPhase::Ended,
+                    key_generated::Qt_ScrollPhase_ScrollMomentum => return,
+                    _ => {
+                        println!("Unhandled phase: {}", phase);
+                        TouchPhase::Cancelled
+                    },
+                };
+                rust_window.mouse_event(MouseEvent::Wheel{position, delta_x: delta.x as _, delta_y: delta.y as _, phase})
             });
         }
         void leaveEvent(QEvent *) override {
