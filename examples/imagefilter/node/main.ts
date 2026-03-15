@@ -3,7 +3,33 @@
 // SPDX-License-Identifier: MIT
 
 import * as slint from "slint-ui";
-import { Jimp } from "jimp";
+import { read, Image, ImageColorModel } from "image-js";
+
+function fromBitmap(bitmap: slint.ImageData): Image {
+    return new Image(bitmap.width, bitmap.height, {
+        data: bitmap.data,
+        colorModel: ImageColorModel.RGBA,
+    });
+}
+
+function toBitmap(image: Image): slint.ImageData {
+    const raw = image.getRawImage();
+    return {
+        width: raw.width,
+        height: raw.height,
+        data: raw.data as Uint8Array,
+    };
+}
+
+/** Apply Rust image crate contrast formula: ((v/255 - 0.5) * percent + 0.5) * 255. */
+function applyContrast(image: Image, contrast: number): Image {
+    const p = Math.pow((100 + contrast) / 100, 2);
+    const clone = image.clone();
+    clone.changeEach((v) =>
+        Math.round(Math.min(255, Math.max(0, ((v / 255 - 0.5) * p + 0.5) * 255))),
+    );
+    return clone;
+}
 
 class Filter {
     name: string;
@@ -49,30 +75,45 @@ const demo = slint.loadFile(
 ) as any;
 const mainWindow = new demo.MainWindow();
 
-const sourceImage = await Jimp.read(
-    new URL("../assets/cat.jpg", import.meta.url).pathname,
-);
-
-mainWindow.original_image = sourceImage.bitmap;
+const imagePath = new URL("../assets/cat.jpg", import.meta.url).pathname;
+const image = await read(imagePath);
+const rgbaImage =
+    image.colorModel === ImageColorModel.RGBA
+        ? image
+        : image.convertColor(ImageColorModel.RGBA);
+const raw = rgbaImage.getRawImage();
+mainWindow.original_image = raw as slint.ImageData;
 
 const filters = new Filters([
-    new Filter("Blur", (image) => {
-        return Jimp.fromBitmap(image).blur(4).bitmap;
+    new Filter("Blur", (bitmap) => {
+        return toBitmap(
+            fromBitmap(bitmap).gaussianBlur({ sigma: 4 }),
+        );
     }),
-    new Filter("Brighten", (image) => {
-        return Jimp.fromBitmap(image).brightness(1.3).bitmap;
+    new Filter("Brighten", (bitmap) => {
+        const img = fromBitmap(bitmap).clone();
+        img.changeEach((v) => Math.min(255, v + 30));
+        return toBitmap(img);
     }),
-    new Filter("Darken", (image) => {
-        return Jimp.fromBitmap(image).brightness(0.3).bitmap;
+    new Filter("Darken", (bitmap) => {
+        const img = fromBitmap(bitmap).clone();
+        img.changeEach((v) => Math.max(0, v - 30));
+        return toBitmap(img);
     }),
-    new Filter("Increase Contrast", (image) => {
-        return Jimp.fromBitmap(image).contrast(0.3).bitmap;
+    new Filter("Increase Contrast", (bitmap) => {
+        return toBitmap(
+            applyContrast(fromBitmap(bitmap), 30),
+        );
     }),
-    new Filter("Decrease Contrast", (image) => {
-        return Jimp.fromBitmap(image).contrast(-0.3).bitmap;
+    new Filter("Decrease Contrast", (bitmap) => {
+        return toBitmap(
+            applyContrast(fromBitmap(bitmap), -30),
+        );
     }),
-    new Filter("Invert", (image) => {
-        return Jimp.fromBitmap(image).invert().bitmap;
+    new Filter("Invert", (bitmap) => {
+        return toBitmap(
+            fromBitmap(bitmap).invert(),
+        );
     }),
 ]);
 
