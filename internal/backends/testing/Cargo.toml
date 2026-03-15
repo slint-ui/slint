@@ -22,6 +22,7 @@ internal = ["include_dir"]
 # ffi for C++ bindings
 ffi = []
 system-testing = ["quick-protobuf", "pb-rs", "generational-arena", "async-net", "futures-lite", "byteorder", "image"]
+mcp = ["generational-arena", "async-net", "futures-lite", "image", "serde", "serde_json", "base64", "httparse"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
@@ -33,6 +34,10 @@ async-net = { version = "2.0.0", optional = true }
 futures-lite = { version = "2.3.0", optional = true }
 byteorder = { version = "1.5.0", optional = true }
 image = { workspace = true, optional = true, features = ["png"] }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+base64 = { version = "0.22", optional = true }
+httparse = { version = "1", optional = true }
 include_dir = { version = "0.7", optional = true }
 
 [build-dependencies]

@@ -4930,9 +4930,11 @@ name = "i-slint-backend-testing"
 version = "1.16.0"
 dependencies = [
  "async-net",
+ "base64 0.22.1",
  "byteorder",
  "futures-lite",
  "generational-arena",
+ "httparse",
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
@@ -4940,6 +4942,8 @@ dependencies = [
  "include_dir",
  "pb-rs",
  "quick-protobuf",
+ "serde",
+ "serde_json",
  "slint",
  "vtable",
 ]

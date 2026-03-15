@@ -281,6 +281,13 @@ pub struct ElementHandle {
 }
 
 impl ElementHandle {
+    /// Create an invalid ElementHandle for unit testing arena bookkeeping.
+    #[cfg(test)]
+    #[allow(dead_code)]
+    pub(crate) fn new_test_dummy() -> Self {
+        Self { item: ItemWeak::default(), element_index: 0 }
+    }
+
     fn collect_elements(item: ItemRc) -> impl Iterator<Item = ElementHandle> {
         (0..item.element_count().unwrap_or_else(|| {
             warn_missing_debug_info();

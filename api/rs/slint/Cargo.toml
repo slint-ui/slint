@@ -75,6 +75,16 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
+## Enable the embedded MCP (Model Context Protocol) server for runtime UI introspection.
+##
+## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set at runtime,
+## the application starts an HTTP server that exposes the UI element tree, properties, and
+## interaction capabilities via the MCP protocol. This allows MCP clients (e.g. coding assistants)
+## to inspect and interact with the running application.
+##
+## Requires `SLINT_EMIT_DEBUG_INFO=1` at build time for full element information.
+mcp = ["i-slint-backend-selector/mcp"]
+
 ## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
 ## [`Window::window_handle()`] function that returns a struct that implements
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
