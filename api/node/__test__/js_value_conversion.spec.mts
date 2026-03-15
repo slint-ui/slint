@@ -300,9 +300,7 @@ test("get/set image properties", async () => {
         instance!.setProperty("external-image", raw);
         expect(instance!.getProperty("external-image-ok")).toBe(true);
 
-        expect(raw.data.length).toBe(
-            (slintImage as ImageData).data.length,
-        );
+        expect(raw.data.length).toBe((slintImage as ImageData).data.length);
         expect(Buffer.from(new Uint8Array(raw.data))).toStrictEqual(
             (slintImage as ImageData).data,
         );
