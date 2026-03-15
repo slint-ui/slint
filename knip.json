@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
       "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "pkg", "biome"],
@@ -90,7 +91,6 @@
     "tools/figma-inspector/backend/utils/property-parsing.ts": ["exports"],
     "tools/figma-inspector/src/utils/bolt-utils.ts": ["exports"],
     "tools/figma-inspector/figma.config.ts": ["exports"],
-    "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/site-config.ts": ["exports"],
