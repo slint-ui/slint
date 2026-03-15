@@ -4,22 +4,10 @@
   "description": "",
   "main": "index.js",
   "devDependencies": {
-    "knip": "5.86.0"
+    "knip": "catalog:"
   },
   "scripts": {
-    "knip:api": "knip --workspace api/node",
-    "knip:vscode": "knip --workspace editors/vscode",
-    "knip:slintpad": "knip --workspace tools/slintpad",
-    "knip:figma": "knip --workspace tools/figma-inspector",
-    "knip:docs": "knip --workspace docs/astro",
-    "knip:material-docs": "knip --workspace ui-libraries/material/docs",
-    "knip:printerdemo": "knip --workspace demos/printerdemo/node",
-    "knip:home-automation": "knip --workspace demos/home-automation/node",
-    "knip:imagefilter": "knip --workspace examples/imagefilter/node",
-    "knip:carousel": "knip --workspace examples/carousel/node",
-    "knip:todo": "knip --workspace examples/todo/node",
-    "knip:memory": "knip --workspace examples/memory",
-    "knip:common": "knip --workspace docs/common",
+    "knip": "knip",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",

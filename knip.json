@@ -87,8 +87,9 @@
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "docs/common": {
-      "entry": ["src/utils/site-config.ts", "src/utils/utils.ts"],
       "ignoreFiles": [
+        "src/utils/site-config.ts",
+        "src/utils/utils.ts",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
@@ -98,8 +99,8 @@
         "src/components/VersionSelector.astro"
       ],
       "ignoreUnresolved": ["@astrojs/starlight", "astro", "astro/types"],
-      "ignoreBinaries": ["biome"],
-      "ignoreDependencies": ["@astrojs/starlight", "astro"]
+      "ignoreBinaries": ["biome", "knip"],
+      "ignoreDependencies": ["@astrojs/starlight", "astro", "@biomejs/biome"]
     }
   },
   "ignoreIssues": {
