@@ -304,9 +304,9 @@ test("get/set image properties", async () => {
             (slintImage as ImageData).data,
         );
 
-        expect((instance.getProperty("external-image") as ImageData).path).toStrictEqual(
-            undefined,
-        );
+        expect(
+            (instance.getProperty("external-image") as ImageData).path,
+        ).toStrictEqual(undefined);
     }
 });
 
@@ -903,13 +903,7 @@ test("invoke callback", () => {
         },
     );
 
-    instance.invoke("great", [
-        "simon",
-        "olivier",
-        "auri",
-        "tobias",
-        "florian",
-    ]);
+    instance.invoke("great", ["simon", "olivier", "auri", "tobias", "florian"]);
     expect(speakTest).toStrictEqual(
         "hello simon, olivier, auri, tobias and florian",
     );
