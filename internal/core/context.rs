@@ -3,9 +3,11 @@
 
 use crate::Property;
 use crate::api::PlatformError;
+use crate::input::InternalKeyboardModifierState;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use core::cell::Cell;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
@@ -31,6 +33,7 @@ pub(crate) struct SlintContextInner {
     pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
+    pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -65,6 +68,7 @@ impl SlintContext {
             },
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
+            modifiers: Cell::new(Default::default()),
         }))
     }
 

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     ti := FocusScope {
@@ -21,11 +21,11 @@ TestCase := Window {
         }
     }
 
-    property <bool> input_focused: ti.has_focus;
-    property <bool> shift_modifier;
-    property <bool> alt_modifier;
-    property <bool> control_modifier;
-    property <bool> meta_modifier;
+    in-out property <bool> input_focused: ti.has_focus;
+    in-out property <bool> shift_modifier;
+    in-out property <bool> alt_modifier;
+    in-out property <bool> control_modifier;
+    in-out property <bool> meta_modifier;
 }
 
 /*
@@ -198,7 +198,10 @@ slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
 assert_eq!(instance.get_alt_modifier(), false);
-assert_eq!(instance.get_control_modifier(), false);
+assert_eq!(instance.get_control_modifier(), true); // We didn't release the Control key yet
 assert_eq!(instance.get_meta_modifier(), false);
+
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false); // Releasing the control key
+assert_eq!(instance.get_control_modifier(), false);
 ```
 */

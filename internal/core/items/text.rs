@@ -835,7 +835,7 @@ impl Item for TextInput {
                     self.byte_offset_for_position(*position, window_adapter, self_rc) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
-                if !window_adapter.window().0.modifiers.get().shift() {
+                if !window_adapter.window().0.context().0.modifiers.get().shift() {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 

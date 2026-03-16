@@ -82,7 +82,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
-                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     is_touch: false,
                 },));
             }
@@ -128,7 +128,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Down,
-                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     is_touch: *is_touch,
                 },));
 
@@ -140,7 +140,7 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
-                        modifiers: window_adapter.window().0.modifiers.get().into(),
+                        modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                         is_touch: false,
                     },));
                 }
@@ -167,7 +167,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Up,
-                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     is_touch: *is_touch,
                 },));
 
@@ -177,7 +177,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
-                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     is_touch: *is_touch,
                 },));
                 if self.grabbed.get() {
@@ -188,7 +188,7 @@ impl Item for TouchArea {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let modifiers = window_adapter.window().0.modifiers.get().into();
+                let modifiers = window_adapter.window().0.context().0.modifiers.get().into();
                 let r =
                     Self::FIELD_OFFSETS.scroll_event.apply_pin(self).call(&(PointerScrollEvent {
                         delta_x: *delta_x,
