@@ -397,8 +397,7 @@ fn create_text_paragraphs(
                 ));
             }
         }
-        PlainOrStyledText::Styled(rich_text) =>
-        {
+        PlainOrStyledText::Styled(rich_text) => {
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
                     font_context,
