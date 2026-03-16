@@ -1075,6 +1075,7 @@ pub fn draw_text(
     guard.paragraphs = Some(layout.paragraphs);
 }
 
+#[cfg(feature = "std")]
 pub fn link_under_cursor(
     font_context: &mut parley::FontContext,
     scale_factor: ScaleFactor,

@@ -280,6 +280,7 @@ impl Item for StyledTextItem {
         InputEventFilterResult::ForwardEvent
     }
 
+    #[cfg_attr(not(feature = "std"), allow(unused))]
     fn input_event(
         self: Pin<&Self>,
         event: &MouseEvent,
@@ -288,6 +289,7 @@ impl Item for StyledTextItem {
         _: &mut super::MouseCursor,
     ) -> InputEventResult {
         match event {
+            #[cfg(feature = "std")]
             MouseEvent::Pressed {
                 position,
                 button: PointerEventButton::Left,
