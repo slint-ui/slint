@@ -51,7 +51,7 @@ jobs:
         bevy_examples : ${{ steps.filter.outputs.bevy_examples }}
       steps:
         - uses: actions/checkout@v6
-        - uses: dorny/paths-filter@v3
+        - uses: dorny/paths-filter@v4
           id: filter
           with:
             token: ${{ github.token }}
@@ -275,7 +275,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -606,7 +606,7 @@ jobs:
                 node-version: 20
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - name: Run pnpm install
