@@ -70,9 +70,9 @@ export default defineConfig({
                 "./src/assets/styles/theme.css",
             ],
             components: {
-                Footer: "./src/components/Footer.astro",
+                Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "./src/components/Header.astro",
-                Banner: "./src/components/Banner.astro",
+                Banner: "@slint/common-files/src/components/Banner.astro",
             },
             sidebar: [
                 { label: "Getting Started", link: "getting-started" },

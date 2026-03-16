@@ -50,7 +50,7 @@ cargo run -p slint-docsnapper -- -Lmaterial=$PWD/ui-libraries/material/src/mater
 Build the docs:
 
 ```bash
-cd ui-libraries/material
+cd ui-libraries/material/docs
 pnpm i
 pnpm run build
 ```
