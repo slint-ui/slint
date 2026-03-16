@@ -2403,6 +2403,41 @@ export struct ParsedMarkdown {
 }
 "#,
         );
+
+        assert_formatting(
+            r#"
+struct ParsedMarkdown {  string :string , span:{start: int, end:int} , x: int }
+"#,
+            r#"
+struct ParsedMarkdown { string: string, span: { start: int, end: int}, x: int}
+"#,
+        );
+
+        // issue 10647
+        assert_formatting(
+            r#"
+struct PrinterQueueItem {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string}
+
+            "#,
+            r#"
+struct PrinterQueueItem {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string
+}
+"#,
+        );
     }
 
     #[test]
