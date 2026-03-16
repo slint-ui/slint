@@ -237,7 +237,7 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - name: Install GNU Sed
@@ -325,7 +325,7 @@ jobs:
                 node-version: 20
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -370,7 +370,7 @@ jobs:
 
             - name: Generate a token
               id: app-token-website
-              uses: actions/create-github-app-token@v2
+              uses: actions/create-github-app-token@v3
               with:
                 app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -424,7 +424,7 @@ jobs:
 
             - name: Generate a token
               id: app-token
-              uses: actions/create-github-app-token@v2
+              uses: actions/create-github-app-token@v3
               with:
                 app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
