@@ -23,7 +23,7 @@ catalog:
   '@biomejs/biome': 2.4.4
   '@expressive-code/plugin-line-numbers': 0.41.7
   '@playwright/test': 1.58.2
-  '@types/node': 20.16.10
+  '@types/node': 24.12.0
   astro: 5.18.1
   astro-embed: 0.12.0
   cspell: 9.7.0
