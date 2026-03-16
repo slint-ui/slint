@@ -97,6 +97,7 @@ export component ComboBox {
         y: root.height;
         width: root.width;
         height: root.visible-items * MaterialSizeSettings.item-height;
+        close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
         popup-container := Rectangle {
@@ -129,6 +130,7 @@ export component ComboBox {
                         touch-area := StateLayer {
                             clicked => {
                                 base.select(index);
+                                popup.close();
                             }
                         }
                     }
