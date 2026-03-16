@@ -280,7 +280,7 @@ impl Item for StyledTextItem {
         InputEventFilterResult::ForwardEvent
     }
 
-    #[cfg(feature = "experimental-rich-text")]
+    #[cfg_attr(not(feature = "std"), allow(unused))]
     fn input_event(
         self: Pin<&Self>,
         event: &MouseEvent,
@@ -289,6 +289,7 @@ impl Item for StyledTextItem {
         _: &mut super::MouseCursor,
     ) -> InputEventResult {
         match event {
+            #[cfg(feature = "std")]
             MouseEvent::Pressed {
                 position,
                 button: PointerEventButton::Left,
@@ -313,17 +314,6 @@ impl Item for StyledTextItem {
             }
             _ => InputEventResult::EventIgnored,
         }
-    }
-
-    #[cfg(not(feature = "experimental-rich-text"))]
-    fn input_event(
-        self: Pin<&Self>,
-        _: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
-    ) -> InputEventResult {
-        InputEventResult::EventIgnored
     }
 
     fn capture_key_event(
