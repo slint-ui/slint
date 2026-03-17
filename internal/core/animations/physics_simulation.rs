@@ -36,18 +36,21 @@ pub trait Parameter {
 }
 
 /// Input parameters for the `ConstantDeceleration` simulation
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationParameters {
     pub initial_velocity: f32,
     pub deceleration: f32,
 }
 
+#[cfg(test)]
 impl ConstantDecelerationParameters {
     pub fn new(initial_velocity: f32, deceleration: f32) -> Self {
         Self { initial_velocity, deceleration }
     }
 }
 
+#[cfg(test)]
 impl Parameter for ConstantDecelerationParameters {
     type Output = ConstantDeceleration;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
@@ -57,6 +60,7 @@ impl Parameter for ConstantDecelerationParameters {
 
 /// This simulation simulates a constant deceleration of a point starting at position `start_value` with
 /// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` it stops there
+#[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDeceleration {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -69,6 +73,7 @@ pub struct ConstantDeceleration {
     start_time: Instant,
 }
 
+#[cfg(test)]
 impl ConstantDeceleration {
     /// Create a new ConstantDeceleration simulation
     ///
@@ -155,6 +160,7 @@ impl ConstantDeceleration {
     }
 }
 
+#[cfg(test)]
 impl Simulation for ConstantDeceleration {
     fn curr_value(&self) -> f32 {
         self.curr_val
@@ -332,7 +338,6 @@ mod tests {
 
 /// Input parameters for the `ConstantDecelerationSpringDamper` simulation
 /// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
-#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationSpringDamperParameters {
     pub initial_velocity: f32,
@@ -342,7 +347,6 @@ pub struct ConstantDecelerationSpringDamperParameters {
     pub damping_coefficient: f32, // [1] parameter c
 }
 
-#[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
     /// Creates a new `ConstantDecelerationSpringDamperParameters` parameter object
     /// It is more comfortable to use than specifiying the parameters manually because here the parameter calculation
@@ -369,7 +373,6 @@ impl ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[cfg(test)]
 impl Parameter for ConstantDecelerationSpringDamperParameters {
     type Output = ConstantDecelerationSpringDamper;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
@@ -377,7 +380,6 @@ impl Parameter for ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[cfg(test)]
 #[derive(Debug, PartialEq)]
 enum State {
     Deceleration,
@@ -389,7 +391,6 @@ enum State {
 /// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` before
 /// the velocity reaches zero, the system simulates a spring damper system to go shortly beyond the limit
 /// value and returning then back
-#[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDecelerationSpringDamper {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -411,7 +412,6 @@ pub struct ConstantDecelerationSpringDamper {
     constant_phi: f32,
 }
 
-#[cfg(test)]
 impl ConstantDecelerationSpringDamper {
     pub fn new(
         start_value: f32,
@@ -592,7 +592,6 @@ impl ConstantDecelerationSpringDamper {
     }
 }
 
-#[cfg(test)]
 impl Simulation for ConstantDecelerationSpringDamper {
     fn curr_value(&self) -> f32 {
         self.curr_val + self.curr_val_zeroed

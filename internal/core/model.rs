@@ -1150,7 +1150,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             // we scrolled down, try to find out the new offset.
             let mut it_y = first_item_y + vp_y;
             let mut new_offset = inner.offset;
-            // debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
+            if !viewport_y.has_binding() {
+                debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
+            }
             for (i, c) in inner.instances.iter_mut().enumerate() {
                 if c.0 == RepeatedInstanceState::Dirty {
                     if c.1.is_none() {
