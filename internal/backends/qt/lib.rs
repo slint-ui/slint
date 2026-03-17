@@ -213,11 +213,13 @@ impl i_slint_core::platform::Platform for Backend {
             fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
                 use cpp::cpp;
                 cpp! {unsafe [] {
-                    // Use a quit event to avoid qApp->quit() calling
-                    // [NSApp terminate:nil] and us never returning from the
-                    // event loop - slint-viewer relies on the ability to
-                    // return from run().
-                    QCoreApplication::postEvent(qApp, new QEvent(QEvent::Quit));
+                    // Note: Use exit instead of qApp->quit().
+                    //
+                    // As per commit 0c02f133f3daee146b805149e69bba8cee6727b2 in qtbase (qt6),
+                    // quit() on QCoreApplication on macOS calls [NSApp terminate], which will
+                    // not return to main. The latter however is documented behavior, and
+                    // slint-viewer for example relies on the ability to return from run().
+                    QCoreApplication::exit(0);
                 } }
                 Ok(())
             }
