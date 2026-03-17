@@ -257,13 +257,14 @@ jobs:
 
                 echo "Failed to launch after $MAX_ATTEMPTS attempts"
                 exit 1
-            - name: "Screenshot"
-              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
-            - name: Upload Screenshot Artifact
-              uses: actions/upload-artifact@v7
-              with:
-                name: ${{matrix.scheme}}-screenshot
-                path: ${{ matrix.scheme }}.png
+# This isn't working reliably.
+#            - name: "Screenshot"
+#              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
+#            - name: Upload Screenshot Artifact
+#              uses: actions/upload-artifact@v7
+#              with:
+#                name: ${{matrix.scheme}}-screenshot
+#                path: ${{ matrix.scheme }}.png
             - name: "Cleanup - Shutdown Simulator"
               if: always()
               run: |
