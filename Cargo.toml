@@ -78,6 +78,7 @@ members = [
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
   'xtask',
+  'internal/backends/tests',
 ]
 
 default-members = [
