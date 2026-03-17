@@ -38,3 +38,27 @@ fn test_serialize_deserialize_struct() {
     let deserialized: TestStruct = serde_json::from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
 }
+
+#[test]
+fn test_multiple_rust_attrs() {
+    i_slint_backend_testing::init_no_event_loop();
+    slint! {
+        @rust-attr(derive(serde::Serialize, serde::Deserialize))
+        @rust-attr(serde(rename_all = "camelCase"))
+        export struct MultiAttr {
+            field-foo: int,
+            field-bar: float,
+        }
+
+        export component TestAttrs inherits Window { }
+    }
+    let data = MultiAttr { field_foo: 1, field_bar: 1.0 };
+    let value = serde_json::to_value(&data).unwrap();
+    assert_eq!(
+        value,
+        serde_json::json!({
+            "fieldFoo": 1,
+            "fieldBar": 1.0
+        })
+    );
+}

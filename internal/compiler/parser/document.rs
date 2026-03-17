@@ -14,7 +14,8 @@ use super::r#type::{parse_enum_declaration, parse_rustattr, parse_struct_declara
 /// import { Base } from "somewhere"; Type := Base {}
 /// struct Foo { foo: foo }
 /// enum Foo { hello }
-/// @rust-attr(...) struct X {}
+/// @rust-attr(...)... struct X {}
+/// @rust-attr(...)... enum X {}
 /// /* empty */
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
