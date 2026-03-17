@@ -12,7 +12,10 @@
 extern crate alloc;
 
 use i_slint_core::platform::PlatformError;
-use std::rc::Rc;
+use std::{
+    rc::Rc,
+    sync::{Arc, atomic::AtomicUsize},
+};
 
 #[cfg(not(no_qt))]
 mod qt_accessible;
@@ -129,7 +132,9 @@ pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
-pub struct Backend;
+pub struct Backend {
+    event_loop_generation: Arc<AtomicUsize>,
+}
 
 impl Default for Backend {
     fn default() -> Self {
@@ -148,7 +153,7 @@ impl Backend {
                 ensure_initialized(true);
             }}
         }
-        Self {}
+        Self { event_loop_generation: Default::default() }
     }
 }
 
@@ -170,6 +175,8 @@ impl i_slint_core::platform::Platform for Backend {
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
             use cpp::cpp;
+            // Note: fetch_add wraps on overflow, which is what we want here.
+            self.event_loop_generation.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             cpp! {unsafe [] {
                 ensure_initialized(true);
                 qApp->exec();
@@ -208,20 +215,27 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(no_qt))]
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
-        struct Proxy;
+        struct Proxy(Arc<AtomicUsize>);
         impl i_slint_core::platform::EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
-                use cpp::cpp;
-                cpp! {unsafe [] {
-                    // Note: Use exit instead of qApp->quit().
-                    //
-                    // As per commit 0c02f133f3daee146b805149e69bba8cee6727b2 in qtbase (qt6),
-                    // quit() on QCoreApplication on macOS calls [NSApp terminate], which will
-                    // not return to main. The latter however is documented behavior, and
-                    // slint-viewer for example relies on the ability to return from run().
-                    QCoreApplication::exit(0);
-                } }
-                Ok(())
+                let generation_now = self.0.load(std::sync::atomic::Ordering::Relaxed);
+                let generation = Arc::clone(&self.0);
+                // Note: Invoke QCoreApplication::exit(0) from the event loop as its thread-safety
+                // is unspecified.
+                self.invoke_from_event_loop(Box::new(move || {
+                    if generation.load(std::sync::atomic::Ordering::Relaxed) == generation_now {
+                        use cpp::cpp;
+                        cpp! {unsafe [] {
+                            // Note: Use exit instead of qApp->quit().
+                            //
+                            // As per commit 0c02f133f3daee146b805149e69bba8cee6727b2 in qtbase (qt6),
+                            // quit() on QCoreApplication on macOS calls [NSApp terminate], which will
+                            // not return to main. The latter however is documented behavior, and
+                            // slint-viewer for example relies on the ability to return from run().
+                            QCoreApplication::exit(0);
+                        } }
+                    }
+                }))
             }
 
             fn invoke_from_event_loop(
@@ -268,7 +282,7 @@ impl i_slint_core::platform::Platform for Backend {
                 Ok(())
             }
         }
-        Some(Box::new(Proxy))
+        Some(Box::new(Proxy(Arc::clone(&self.event_loop_generation))))
     }
 
     #[cfg(not(no_qt))]
