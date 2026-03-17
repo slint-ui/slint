@@ -5,8 +5,7 @@ use std::{cell::RefCell, collections::HashMap, ptr::NonNull, rc::Weak};
 
 use block2::RcBlock;
 use objc2_foundation::{
-    NSContainsRect, NSIntersectsRect, NSNotification, NSNotificationCenter, NSNumber,
-    NSOperationQueue, NSRect, NSValue,
+    NSNotification, NSNotificationCenter, NSNumber, NSOperationQueue, NSRect, NSValue,
 };
 use objc2_ui_kit::{UICoordinateSpace, UIScreen, UIViewAnimationCurve};
 use raw_window_handle::HasWindowHandle;
@@ -58,6 +57,13 @@ pub(crate) fn register_keyboard_notifications(
             )
         })
     })
+}
+
+fn rect_intersects(r1: NSRect, r2: NSRect) -> bool {
+    r1.origin.x < r2.origin.x + r2.size.width
+        && r1.origin.x + r1.size.width > r2.origin.x
+        && r1.origin.y < r2.origin.y + r2.size.height
+        && r1.origin.y + r1.size.height > r2.origin.y
 }
 
 fn handle_keyboard_notification<'a>(
@@ -119,8 +125,8 @@ fn handle_keyboard_notification<'a>(
             // Assumes that the keyboard animation doesn't pass over the window without
             // starting or ending while intersecting.
             // Although, in this strange edge case we should probably ignore the keyboard anyways.
-            if NSIntersectsRect(view.bounds(), frame_begin)
-                || NSIntersectsRect(view.bounds(), frame_end)
+            if rect_intersects(view.bounds(), frame_begin)
+                || rect_intersects(view.bounds(), frame_end)
             {
                 adapter.with_keyboard_curve_sampler(|kcs| {
                     kcs.start(animation_duration, curve, frame_begin, frame_end);
