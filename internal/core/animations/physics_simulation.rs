@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-use crate::animations::{self, Instant};
-use core::{f32::consts::PI, time::Duration};
+use crate::animations::Instant;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -368,7 +367,7 @@ impl ConstantDecelerationSpringDamperParameters {
         // [1] eq 13
         const MASS: f32 = 1.;
         const DAMPING_COEFFICIENT: f32 = 1.;
-        let w_d = 2. * PI * 1. / (2. * half_period_time);
+        let w_d = 2. * core::f32::consts::PI * 1. / (2. * half_period_time);
         let spring_constant = w_d.powi(2) + DAMPING_COEFFICIENT.powi(2) / (4. * MASS.powi(2));
 
         (MASS, spring_constant, DAMPING_COEFFICIENT)
@@ -552,7 +551,9 @@ impl ConstantDecelerationSpringDamper {
                 self.constant_phi =
                     f32::atan(self.w_d * X0 / (self.velocity + self.damping_ratio * self.w_n * X0));
                 return self.state_spring_damper(
-                    new_tick + (duration_unlimited - Duration::from_millis((dt * 1000.) as u64)),
+                    new_tick
+                        + (duration_unlimited
+                            - core::time::Duration::from_millis((dt * 1000.) as u64)),
                 );
             }
             S::VelocityZero => {
@@ -578,7 +579,7 @@ impl ConstantDecelerationSpringDamper {
             * f32::sin(self.w_d * t + self.constant_phi);
         self.curr_val_zeroed = new_val; // relative value
 
-        let max_time = 2. * PI / self.w_d;
+        let max_time = 2. * core::f32::consts::PI / self.w_d;
         let current_val = self.curr_value();
         let finished = match self.direction {
             Direction::Increasing => {
