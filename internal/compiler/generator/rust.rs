@@ -568,8 +568,8 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
         });
 
     quote! {
-        #[derive(Default, PartialEq, Debug, Clone)]
         #attributes
+        #[derive(Default, PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }
@@ -599,9 +599,9 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
         quote! { #(#attrs)* }
     });
     quote! {
+        #attributes
         #[allow(dead_code)]
         #[derive(Default, Copy, Clone, PartialEq, Debug)]
-        #attributes
         pub enum #enum_name {
             #(#enum_values,)*
         }
