@@ -45,7 +45,8 @@ pub enum CustomEvent {
     WakeEventLoopWorkaround,
     /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
-    Exit,
+    /// Emitted from quit_event_loop with the current event loop generation
+    Exit(usize),
     #[cfg(enable_accesskit)]
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
@@ -58,7 +59,7 @@ impl std::fmt::Debug for CustomEvent {
             #[cfg(target_arch = "wasm32")]
             Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UserEvent(_) => write!(f, "UserEvent"),
-            Self::Exit => write!(f, "Exit"),
+            Self::Exit(_) => write!(f, "Exit"),
             #[cfg(enable_accesskit)]
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
             #[cfg(muda)]
@@ -472,9 +473,17 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
             CustomEvent::UserEvent(user_callback) => user_callback(),
-            CustomEvent::Exit => {
-                self.suspend_all_hidden_windows();
-                event_loop.exit()
+            CustomEvent::Exit(generation) => {
+                if self
+                    .shared_backend_data
+                    .event_loop_generation
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    == generation
+                {
+                    self.suspend_all_hidden_windows();
+                    event_loop.exit()
+                }
+                // else ignore the event, since it's from a previous run of the event loop
             }
             #[cfg(enable_accesskit)]
             CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
