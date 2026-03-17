@@ -76,7 +76,7 @@ impl Item for Flickable {
 
                 let zero = LogicalLength::zero();
                 let vpx = flick.viewport_x();
-                let vpy = flick.viewport_y(); // Read before returning!
+                let vpy = flick.viewport_y();
                 let x_out_of_bounds =
                     vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero);
                 let y_out_of_bounds =
