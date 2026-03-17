@@ -7,7 +7,7 @@ use crate::{
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
-use core::marker::PhantomData;
+use euclid::Length;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -23,26 +23,21 @@ enum AnimationState {
     },
 }
 
-pub(super) struct PropertyPhysicsAnimationData<S, Unit> {
+pub(super) struct PropertyPhysicsAnimationData<S> {
     simulation: S,
     state: AnimationState,
-    _unit: PhantomData<Unit>,
 }
 
-impl<S, Unit> PropertyPhysicsAnimationData<S, Unit>
+impl<S> PropertyPhysicsAnimationData<S>
 where
-    S: physics_simulation::Simulation<Unit>,
+    S: physics_simulation::Simulation,
 {
-    pub fn new(simulation: S) -> PropertyPhysicsAnimationData<S, Unit> {
-        PropertyPhysicsAnimationData {
-            simulation,
-            state: AnimationState::Delaying,
-            _unit: PhantomData,
-        }
+    pub fn new(simulation: S) -> PropertyPhysicsAnimationData<S> {
+        PropertyPhysicsAnimationData { simulation, state: AnimationState::Delaying }
     }
 
     /// Single iteration of the animation
-    pub fn compute_interpolated_value(&mut self) -> (euclid::Length<crate::Coord, Unit>, bool) {
+    pub fn compute_interpolated_value(&mut self) -> (crate::Coord, bool) {
         match self.state {
             AnimationState::Delaying => {
                 // Decide on next state:
@@ -375,25 +370,25 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     }
 }
 
-impl<Unit: 'static> Property<euclid::Length<crate::Coord, Unit>> {
+impl<T> Property<Length<crate::Coord, T>> {
     /// Change the value by using a physics animation
     pub fn set_physic_animation_value<
-        T: physics_simulation::Simulation<Unit> + 'static,
-        AD: physics_simulation::Parameter<Unit, Output = T>,
+        S: physics_simulation::Simulation + 'static,
+        AD: physics_simulation::Parameter<Output = S>,
     >(
         &self,
-        value: euclid::Length<crate::Coord, Unit>,
+        value: Length<crate::Coord, T>,
         simulation_data: AD,
     ) {
         let d = RefCell::new(PropertyPhysicsAnimationData::new(
-            simulation_data.simulation(self.get_internal(), value),
+            simulation_data.simulation(self.get_internal().0, value.0),
         ));
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding(
-                move |val: &mut euclid::Length<_, Unit>| {
+                move |val: &mut Length<crate::Coord, T>| {
                     let (value, finished) = d.borrow_mut().compute_interpolated_value();
-                    *val = value;
+                    *val = Length::new(value);
                     if finished {
                         BindingResult::RemoveBinding
                     } else {
