@@ -25,7 +25,7 @@ pub enum ArrayOutput {
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
-    /// Include a string from a file using Rust's `include_str!` macro. The path is relative to the .slint file.
+    /// Include a string from a file. The path is relative to the .slint file.
     IncludeString(SmolStr),
     /// Number
     NumberLiteral(f64),
