@@ -676,18 +676,22 @@ impl FlickableData {
                 let limit =
                     ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
                 {
-                    let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.x / (millis as f32 / 1000.),
-                        DECELERATION,
-                    );
+                    let simulation =
+                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                            dist.x / (millis as f32 / 1000.),
+                            DECELERATION,
+                            200e-3,
+                        );
                     viewport_x.set_physic_animation_value(limit.x_length(), simulation);
                 }
 
                 {
-                    let animation_y = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.y / (millis as f32 / 1000.),
-                        DECELERATION,
-                    );
+                    let animation_y =
+                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                            dist.y / (millis as f32 / 1000.),
+                            DECELERATION,
+                            200e-3,
+                        );
                     viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
                 }
 
