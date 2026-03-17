@@ -179,7 +179,7 @@ mod tests {
             time.clone(),
         );
 
-        let res = simulation.step_internal(time + Duration::from_hours(10));
+        let res = simulation.step(time + Duration::from_hours(10));
         assert_eq!(res.1, true);
         assert_eq!(res.0, START_VALUE);
     }
@@ -210,7 +210,7 @@ mod tests {
         let mut duration = Duration::from_secs(1);
         assert!(DECELERATION * duration.as_secs_f32() < INITIAL_VELOCITY);
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(
             res,
@@ -222,7 +222,7 @@ mod tests {
         duration = Duration::from_hours(10);
         assert!(Duration::from_secs((INITIAL_VELOCITY / DECELERATION) as u64) < duration);
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(
             res,
@@ -257,7 +257,7 @@ mod tests {
         let duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) < f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(res, LIMIT_VALUE); // Limit reached
     }
@@ -288,7 +288,7 @@ mod tests {
         let mut duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) < f32::abs(INITIAL_VELOCITY));
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(
             res,
@@ -299,7 +299,7 @@ mod tests {
         duration = Duration::from_hours(10);
         assert!(Duration::from_secs((INITIAL_VELOCITY / DECELERATION) as u64) < duration);
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(
             res,
@@ -338,7 +338,7 @@ mod tests {
         let duration = Duration::from_secs(3);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) > f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(res, LIMIT_VALUE); // Limit reached
     }
@@ -655,7 +655,7 @@ mod tests_spring_damper {
             parameters,
             time.clone(),
         );
-        let res = simulation.step_internal(time);
+        let res = simulation.step(time);
         assert_eq!(res.0, START_VALUE);
         assert_eq!(res.1, true);
         assert_eq!(simulation.state, State::Done);
@@ -687,7 +687,7 @@ mod tests_spring_damper {
         let mut duration = Duration::from_secs(1);
         assert!(DECELERATION * duration.as_secs_f32() < INITIAL_VELOCITY);
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(
             res,
@@ -699,7 +699,7 @@ mod tests_spring_damper {
         duration = Duration::from_hours(10);
         assert!(Duration::from_secs((INITIAL_VELOCITY / DECELERATION) as u64) < duration);
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(
             res,
@@ -738,7 +738,7 @@ mod tests_spring_damper {
         let mut duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) < f32::abs(INITIAL_VELOCITY));
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(
             res,
@@ -749,7 +749,7 @@ mod tests_spring_damper {
         duration = Duration::from_hours(10);
         assert!(Duration::from_secs((INITIAL_VELOCITY / DECELERATION) as u64) < duration);
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(
             res,
@@ -790,19 +790,19 @@ mod tests_spring_damper {
         let duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION) * duration.as_secs_f32() < f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::Deceleration);
         assert!(res < LIMIT_VALUE); // We are still in the constant deceleration state
 
         time += Duration::from_secs((HALF_PERIOD_TIME / 2.) as u64);
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::SpringDamper);
         assert!(res > LIMIT_VALUE);
 
         time += Duration::from_hours(10);
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(simulation.state, State::Done);
         assert_eq!(res, LIMIT_VALUE);
@@ -835,19 +835,19 @@ mod tests_spring_damper {
         let duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION) * duration.as_secs_f32() < f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
         time += duration;
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::Deceleration);
         assert!(res > LIMIT_VALUE); // We are still in the constant deceleration state
 
         time += Duration::from_secs((HALF_PERIOD_TIME / 2.) as u64);
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::SpringDamper);
         assert!(res < LIMIT_VALUE);
 
         time += Duration::from_hours(10);
-        let (res, finished) = simulation.step_internal(time);
+        let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
         assert_eq!(simulation.state, State::Done);
         assert_eq!(res, LIMIT_VALUE);
