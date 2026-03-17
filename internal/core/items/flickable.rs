@@ -653,7 +653,7 @@ impl FlickableData {
         inner: &mut FlickableDataInner,
         flick: Pin<&Flickable>,
         event: &MouseEvent,
-        _flick_rc: &ItemRc,
+        flick_rc: &ItemRc,
     ) {
         if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {
             let dist = (pos - inner.pressed_pos).cast::<f32>();
@@ -663,28 +663,29 @@ impl FlickableData {
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 0
             {
+                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                let limit_x = if dist.x < 0. { -vw } else { euclid::Length::new(Coord::default()) };
+                let limit_y = if dist.y < 0. { -vh } else { euclid::Length::new(Coord::default()) };
+
+                let limit =
+                    ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
                 {
-                    let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                     let simulation = physics_simulation::ConstantDecelerationParameters::new(
                         dist.x / (millis as f32 / 1000.),
                         DECELERATION,
                     );
-                    let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                    let limit =
-                        if dist.x < 0. { euclid::Length::new(Coord::default()) } else { vw };
-                    viewport_x.set_physic_animation_value(limit, simulation);
+                    viewport_x.set_physic_animation_value(limit.x_length(), simulation);
                 }
 
                 {
-                    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                     let animation_y = physics_simulation::ConstantDecelerationParameters::new(
                         dist.y / (millis as f32 / 1000.),
                         DECELERATION,
                     );
-                    let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                    let limit =
-                        if dist.y < 0. { -vh } else { euclid::Length::new(Coord::default()) };
-                    viewport_y.set_physic_animation_value(limit, animation_y);
+                    viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
                 }
 
                 if dist.x != 0. || dist.y != 0. {
