@@ -663,11 +663,10 @@ impl FlickableData {
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 0
             {
-                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                 {
+                    let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                     let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.x as Coord / (millis as Coord / 1000.),
+                        dist.x / (millis as f32 / 1000.),
                         DECELERATION,
                     );
                     let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
@@ -677,8 +676,9 @@ impl FlickableData {
                 }
 
                 {
+                    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                     let animation_y = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.y as Coord / (millis as Coord / 1000.),
+                        dist.y / (millis as f32 / 1000.),
                         DECELERATION,
                     );
                     let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
