@@ -3321,7 +3321,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::IncludeString(path) => {
             let content = std::fs::read_to_string(path.as_str())
                 .unwrap_or_else(|e| panic!("Cannot read file '{}': {}", path, e));
-            shared_string_literal(content)
+            shared_string_literal(&content)
         }
         Expression::NumberLiteral(num) => {
             if !num.is_finite() {
