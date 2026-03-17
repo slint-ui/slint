@@ -167,7 +167,6 @@ impl Simulation for ConstantDeceleration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lengths::LogicalPx;
     use core::time::Duration;
 
     #[test]
@@ -176,7 +175,7 @@ mod tests {
         const LIMIT_VALUE: Coord = 10.;
         const INITIAL_VELOCITY: Coord = 50.;
         const DECELERATION: Coord = 20.;
-        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+        let parameters = ConstantDecelerationParameters {
             initial_velocity: INITIAL_VELOCITY,
             deceleration: DECELERATION,
         };
@@ -203,7 +202,7 @@ mod tests {
         const LIMIT_VALUE: Coord = 2000.;
         const INITIAL_VELOCITY: Coord = 50.;
         const DECELERATION: Coord = 20.;
-        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+        let parameters = ConstantDecelerationParameters {
             initial_velocity: INITIAL_VELOCITY,
             deceleration: DECELERATION,
         };
@@ -224,7 +223,7 @@ mod tests {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(
-            res.0,
+            res,
             START_VALUE + INITIAL_VELOCITY * duration.as_secs_f32()
                 - 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
         );
@@ -236,12 +235,12 @@ mod tests {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
         assert_eq!(
-            res.0,
+            res,
             START_VALUE + INITIAL_VELOCITY * INITIAL_VELOCITY / DECELERATION
                 - 0.5 * DECELERATION * (INITIAL_VELOCITY / DECELERATION).powi(2)
         );
 
-        assert!(res.0 < LIMIT_VALUE); // We reached velocity zero before we reached the position limit
+        assert!(res < LIMIT_VALUE); // We reached velocity zero before we reached the position limit
     }
 
     /// We reach the position limit before the velocity got zero
@@ -251,7 +250,7 @@ mod tests {
         const LIMIT_VALUE: Coord = 20.;
         const INITIAL_VELOCITY: Coord = 50.;
         const DECELERATION: Coord = 20.;
-        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+        let parameters = ConstantDecelerationParameters {
             initial_velocity: INITIAL_VELOCITY,
             deceleration: DECELERATION,
         };
@@ -270,7 +269,7 @@ mod tests {
         time += duration;
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
-        assert_eq!(res.0, LIMIT_VALUE); // Limit reached
+        assert_eq!(res, LIMIT_VALUE); // Limit reached
     }
 
     /// We don't reach the position limit. Before the velocity gets zero
@@ -282,7 +281,7 @@ mod tests {
         const INITIAL_VELOCITY: Coord = -50.;
         const DECELERATION: Coord = 20.;
 
-        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+        let parameters = ConstantDecelerationParameters {
             initial_velocity: INITIAL_VELOCITY,
             deceleration: DECELERATION,
         };
@@ -302,7 +301,7 @@ mod tests {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(
-            res.0,
+            res,
             START_VALUE + INITIAL_VELOCITY * duration.as_secs_f32()
                 - INITIAL_VELOCITY.signum() * 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
         );
@@ -313,7 +312,7 @@ mod tests {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
         assert_eq!(
-            res.0,
+            res,
             START_VALUE + INITIAL_VELOCITY * Coord::abs(INITIAL_VELOCITY / DECELERATION)
                 - 0.5
                     * INITIAL_VELOCITY.signum()
@@ -321,7 +320,7 @@ mod tests {
                     * (INITIAL_VELOCITY / DECELERATION).powi(2)
         );
 
-        assert!(res.0 > LIMIT_VALUE); // We reached velocity zero before we reached the position limit
+        assert!(res > LIMIT_VALUE); // We reached velocity zero before we reached the position limit
     }
 
     /// We reach the position limit before the velocity got zero
@@ -332,7 +331,7 @@ mod tests {
         const LIMIT_VALUE: Coord = 10.;
         const INITIAL_VELOCITY: Coord = -50.;
         const DECELERATION: Coord = 20.;
-        let parameters = ConstantDecelerationParameters::<LogicalPx> {
+        let parameters = ConstantDecelerationParameters {
             initial_velocity: INITIAL_VELOCITY,
             deceleration: DECELERATION,
         };
@@ -351,7 +350,7 @@ mod tests {
         time += duration;
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
-        assert_eq!(res.0, LIMIT_VALUE); // Limit reached
+        assert_eq!(res, LIMIT_VALUE); // Limit reached
     }
 }
 
@@ -654,7 +653,7 @@ mod tests_spring_damper {
         const INITIAL_VELOCITY: Coord = 50.;
         const DECELERATION: Coord = 20.;
         const HALF_PERIOD_TIME: Coord = 100e-3;
-        let parameters = ConstantDecelerationSpringDamperParameters::<LogicalPx>::new(
+        let parameters = ConstantDecelerationSpringDamperParameters::new(
             INITIAL_VELOCITY,
             DECELERATION,
             HALF_PERIOD_TIME,
@@ -682,7 +681,7 @@ mod tests_spring_damper {
         const INITIAL_VELOCITY: Coord = 50.;
         const DECELERATION: Coord = 20.;
         const HALF_PERIOD_TIME: Coord = 100e-3;
-        let parameters = ConstantDecelerationSpringDamperParameters::<LogicalPx>::new(
+        let parameters = ConstantDecelerationSpringDamperParameters::new(
             INITIAL_VELOCITY,
             DECELERATION,
             HALF_PERIOD_TIME,
@@ -704,7 +703,7 @@ mod tests_spring_damper {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(
-            res.0,
+            res,
             10. + 50. * duration.as_secs_f32()
                 - 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
         );
@@ -716,12 +715,12 @@ mod tests_spring_damper {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
         assert_eq!(
-            res.0,
+            res,
             10. + 50. * INITIAL_VELOCITY / DECELERATION
                 - 0.5 * DECELERATION * (INITIAL_VELOCITY / DECELERATION).powi(2)
         );
 
-        assert!(res.0 < 2000.); // We reached velocity zero before we reached the position limit
+        assert!(res < 2000.); // We reached velocity zero before we reached the position limit
     }
 
     /// We don't reach the position limit. Before the velocity gets zero
@@ -734,7 +733,7 @@ mod tests_spring_damper {
         const DECELERATION: Coord = 20.;
         const HALF_PERIOD_TIME: Coord = 100e-3;
 
-        let parameters = ConstantDecelerationSpringDamperParameters::<LogicalPx>::new(
+        let parameters = ConstantDecelerationSpringDamperParameters::new(
             INITIAL_VELOCITY,
             DECELERATION,
             HALF_PERIOD_TIME,
@@ -755,7 +754,7 @@ mod tests_spring_damper {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(
-            res.0,
+            res,
             START_VALUE + INITIAL_VELOCITY * duration.as_secs_f32()
                 - INITIAL_VELOCITY.signum() * 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
         );
@@ -766,7 +765,7 @@ mod tests_spring_damper {
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
         assert_eq!(
-            res.0,
+            res,
             START_VALUE + INITIAL_VELOCITY * Coord::abs(INITIAL_VELOCITY / DECELERATION)
                 - 0.5
                     * INITIAL_VELOCITY.signum()
@@ -774,7 +773,7 @@ mod tests_spring_damper {
                     * (INITIAL_VELOCITY / DECELERATION).powi(2)
         );
 
-        assert!(res.0 > LIMIT_VALUE); // We reached velocity zero before we reached the position limit
+        assert!(res > LIMIT_VALUE); // We reached velocity zero before we reached the position limit
     }
 
     /// We reach the position limit before the velocity got zero and so we run into the spring damper system
@@ -786,7 +785,7 @@ mod tests_spring_damper {
         const HALF_PERIOD_TIME: Coord = 10.;
         const START_VALUE: Coord = 10.;
         const LIMIT_VALUE: Coord = 70.;
-        let parameters = super::ConstantDecelerationSpringDamperParameters::<LogicalPx>::new(
+        let parameters = super::ConstantDecelerationSpringDamperParameters::new(
             INITIAL_VELOCITY,
             DECELERATION,
             HALF_PERIOD_TIME,
@@ -802,26 +801,24 @@ mod tests_spring_damper {
         );
 
         let duration = Duration::from_secs(1);
-        assert!(
-            Coord::abs(DECELERATION.0) * duration.as_secs_f32() < Coord::abs(INITIAL_VELOCITY.0)
-        ); // We don't reach the limit where the velocity gets zero
+        assert!(Coord::abs(DECELERATION) * duration.as_secs_f32() < Coord::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
         time += duration;
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::Deceleration);
-        assert!(res.0 < LIMIT_VALUE); // We are still in the constant deceleration state
+        assert!(res < LIMIT_VALUE); // We are still in the constant deceleration state
 
         time += Duration::from_secs((HALF_PERIOD_TIME / 2.) as u64);
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::SpringDamper);
-        assert!(res.0 > LIMIT_VALUE);
+        assert!(res > LIMIT_VALUE);
 
         time += Duration::from_hours(10);
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
         assert_eq!(simulation.state, State::Done);
-        assert_eq!(res.0, LIMIT_VALUE);
+        assert_eq!(res, LIMIT_VALUE);
     }
 
     /// We reach the position limit before the velocity got zero and so we run into the spring damper system
@@ -833,7 +830,7 @@ mod tests_spring_damper {
         const HALF_PERIOD_TIME: Coord = 10.;
         const START_VALUE: Coord = 70.;
         const LIMIT_VALUE: Coord = 10.;
-        let parameters = super::ConstantDecelerationSpringDamperParameters::<LogicalPx>::new(
+        let parameters = super::ConstantDecelerationSpringDamperParameters::new(
             INITIAL_VELOCITY,
             DECELERATION,
             HALF_PERIOD_TIME,
@@ -849,25 +846,23 @@ mod tests_spring_damper {
         );
 
         let duration = Duration::from_secs(1);
-        assert!(
-            Coord::abs(DECELERATION.0) * duration.as_secs_f32() < Coord::abs(INITIAL_VELOCITY.0)
-        ); // We don't reach the limit where the velocity gets zero
+        assert!(Coord::abs(DECELERATION) * duration.as_secs_f32() < Coord::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
         time += duration;
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::Deceleration);
-        assert!(res.0 > LIMIT_VALUE); // We are still in the constant deceleration state
+        assert!(res > LIMIT_VALUE); // We are still in the constant deceleration state
 
         time += Duration::from_secs((HALF_PERIOD_TIME / 2.) as u64);
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, false);
         assert_eq!(simulation.state, State::SpringDamper);
-        assert!(res.0 < LIMIT_VALUE);
+        assert!(res < LIMIT_VALUE);
 
         time += Duration::from_hours(10);
         let (res, finished) = simulation.step_internal(time);
         assert_eq!(finished, true);
         assert_eq!(simulation.state, State::Done);
-        assert_eq!(res.0, LIMIT_VALUE);
+        assert_eq!(res, LIMIT_VALUE);
     }
 }
