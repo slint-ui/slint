@@ -59,10 +59,6 @@ where
             }
         }
     }
-
-    // fn reset(&mut self) {
-    //     self.state = AnimationState::Delaying;
-    // }
 }
 
 pub(super) struct PropertyValueAnimationData<T> {
