@@ -15,7 +15,6 @@ use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
-use core::borrow::Borrow;
 use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
@@ -351,7 +350,6 @@ impl ItemRc {
             return Some(ItemRc::new(self.item_tree.clone(), parent_index));
         }
 
-        // It is a root item so check if it is a dynamic tree object like a repeater or if a window/popup
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_node(&mut r);
         let parent = r.upgrade()?;
@@ -596,21 +594,6 @@ impl ItemRc {
             }
             result += geometry.origin.to_vector();
             current = parent;
-        }
-
-        if let Some(window_adapter) = self.window_adapter() {
-            let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
-            let active_popups = window_inner.active_popups();
-            let borrow = active_popups.borrow();
-            for popup in borrow.iter() {
-                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
-                    // Check if component is in a popup
-                    if ItemRc::new_root(popup.component.clone()).is_root_item_of(&self.item_tree())
-                    {
-                        result += location.to_vector();
-                    }
-                }
-            }
         }
         result
     }
