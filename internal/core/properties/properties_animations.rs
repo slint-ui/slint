@@ -51,11 +51,11 @@ where
                     self.state = AnimationState::Done { iteration_count: 0 };
                     self.compute_interpolated_value()
                 } else {
-                    (val, false)
+                    (val as crate::Coord, false)
                 }
             }
             AnimationState::Done { iteration_count: _ } => {
-                (self.simulation.curr_value().clone(), true)
+                (self.simulation.curr_value().clone() as crate::Coord, true)
             }
         }
     }
@@ -381,7 +381,7 @@ impl<T> Property<Length<crate::Coord, T>> {
         simulation_data: AD,
     ) {
         let d = RefCell::new(PropertyPhysicsAnimationData::new(
-            simulation_data.simulation(self.get_internal().0, value.0),
+            simulation_data.simulation(self.get_internal().0 as f32, value.0 as f32),
         ));
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
