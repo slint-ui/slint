@@ -69,62 +69,16 @@ impl WasmInputHelper {
         let is_apple = i_slint_core::is_apple_platform();
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
-        #[cfg(web_sys_unstable_apis)]
-        {
-            let win = window_adapter.clone();
-            h.add_event_listener("paste", move |e: web_sys::ClipboardEvent| {
-                if let Some(window_adapter) = win.upgrade() {
-                    let Some(text) = e.clipboard_data().and_then(|data| data.get_data("text").ok())
-                    else {
-                        return;
-                    };
-                    e.prevent_default();
-                    let synthetic_clipboard_data = RefCell::new(text);
-                    CURRENT_WASM_CLIPBOARD_DATA.set(&synthetic_clipboard_data, || {
-                        if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
-                            .focus_item
-                            .borrow()
-                            .upgrade()
-                        {
-                            if let Some(text_input) =
-                                focus_item.downcast::<i_slint_core::items::TextInput>()
-                            {
-                                text_input.as_pin_ref().paste(&window_adapter, &focus_item);
-                            }
-                        }
-                    })
-                }
-            });
-            let win = window_adapter.clone();
-            h.add_event_listener("copy", move |e: web_sys::ClipboardEvent| {
-                if let Some(window_adapter) = win.upgrade() {
-                    e.prevent_default();
-
-                    let synthetic_clipboard_data = RefCell::new(String::default());
-                    CURRENT_WASM_CLIPBOARD_DATA.set(&synthetic_clipboard_data, || {
-                        if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
-                            .focus_item
-                            .borrow()
-                            .upgrade()
-                        {
-                            if let Some(text_input) =
-                                focus_item.downcast::<i_slint_core::items::TextInput>()
-                            {
-                                let text =
-                                    text_input.as_pin_ref().copy(&window_adapter, &focus_item);
-                            }
-                        }
-                    });
-                    if let Some(data) = e.clipboard_data() {
-                        data.set_data("text", &synthetic_clipboard_data.into_inner()).ok();
-                    }
-                }
-            });
-
-            let win = window_adapter.clone();
-            h.add_event_listener("cut", move |e: web_sys::ClipboardEvent| {
-                if let Some(window_adapter) = win.upgrade() {
-                    e.prevent_default();
+        let win = window_adapter.clone();
+        h.add_event_listener("paste", move |e: web_sys::ClipboardEvent| {
+            if let Some(window_adapter) = win.upgrade() {
+                let Some(text) = e.clipboard_data().and_then(|data| data.get_data("text").ok())
+                else {
+                    return;
+                };
+                e.prevent_default();
+                let synthetic_clipboard_data = RefCell::new(text);
+                CURRENT_WASM_CLIPBOARD_DATA.set(&synthetic_clipboard_data, || {
                     if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
                         .focus_item
                         .borrow()
@@ -133,25 +87,65 @@ impl WasmInputHelper {
                         if let Some(text_input) =
                             focus_item.downcast::<i_slint_core::items::TextInput>()
                         {
-                            let (anchor, cursor) =
-                                text_input.as_pin_ref().selection_anchor_and_cursor();
-                            if anchor == cursor {
-                                return;
-                            }
-                            let text = text_input.as_pin_ref().text();
-                            if let Some(data) = e.clipboard_data() {
-                                data.set_data("text", &text[anchor..cursor]).ok();
-                            }
-                            text_input.as_pin_ref().delete_selection(
-                                &window_adapter,
-                                &focus_item,
-                                i_slint_core::items::TextChangeNotify::TriggerCallbacks,
-                            );
+                            text_input.as_pin_ref().paste(&window_adapter, &focus_item);
                         }
                     }
+                })
+            }
+        });
+        let win = window_adapter.clone();
+        h.add_event_listener("copy", move |e: web_sys::ClipboardEvent| {
+            if let Some(window_adapter) = win.upgrade() {
+                e.prevent_default();
+
+                let synthetic_clipboard_data = RefCell::new(String::default());
+                CURRENT_WASM_CLIPBOARD_DATA.set(&synthetic_clipboard_data, || {
+                    if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
+                        .focus_item
+                        .borrow()
+                        .upgrade()
+                    {
+                        if let Some(text_input) =
+                            focus_item.downcast::<i_slint_core::items::TextInput>()
+                        {
+                            let text = text_input.as_pin_ref().copy(&window_adapter, &focus_item);
+                        }
+                    }
+                });
+                if let Some(data) = e.clipboard_data() {
+                    data.set_data("text", &synthetic_clipboard_data.into_inner()).ok();
                 }
-            });
-        }
+            }
+        });
+
+        let win = window_adapter.clone();
+        h.add_event_listener("cut", move |e: web_sys::ClipboardEvent| {
+            if let Some(window_adapter) = win.upgrade() {
+                e.prevent_default();
+                if let Some(focus_item) =
+                    WindowInner::from_pub(&window_adapter.window()).focus_item.borrow().upgrade()
+                {
+                    if let Some(text_input) =
+                        focus_item.downcast::<i_slint_core::items::TextInput>()
+                    {
+                        let (anchor, cursor) =
+                            text_input.as_pin_ref().selection_anchor_and_cursor();
+                        if anchor == cursor {
+                            return;
+                        }
+                        let text = text_input.as_pin_ref().text();
+                        if let Some(data) = e.clipboard_data() {
+                            data.set_data("text", &text[anchor..cursor]).ok();
+                        }
+                        text_input.as_pin_ref().delete_selection(
+                            &window_adapter,
+                            &focus_item,
+                            i_slint_core::items::TextChangeNotify::TriggerCallbacks,
+                        );
+                    }
+                }
+            }
+        });
 
         let win = window_adapter.clone();
         h.add_event_listener("blur", move |_: web_sys::Event| {
