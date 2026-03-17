@@ -45,8 +45,7 @@ where
                 self.compute_interpolated_value()
             }
             AnimationState::Animating { current_iteration: _ } => {
-                //self.state = AnimationState::Animating { current_iteration };
-                let (val, finished) = self.simulation.step();
+                let (val, finished) = self.simulation.step(crate::animations::current_tick());
                 if finished {
                     self.state = AnimationState::Done { iteration_count: 0 };
                     self.compute_interpolated_value()

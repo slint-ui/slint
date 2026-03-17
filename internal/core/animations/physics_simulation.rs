@@ -12,7 +12,7 @@ enum Direction {
 }
 
 pub trait Simulation {
-    fn step(&mut self) -> (f32, bool);
+    fn step(&mut self, new_tick: Instant) -> (f32, bool);
     fn curr_value(&self) -> f32;
 }
 
@@ -149,8 +149,7 @@ impl Simulation for ConstantDeceleration {
         self.curr_val
     }
 
-    fn step(&mut self) -> (f32, bool) {
-        let new_tick = animations::current_tick();
+    fn step(&mut self, new_tick: Instant) -> (f32, bool) {
         self.step_internal(new_tick)
     }
 }
@@ -607,8 +606,7 @@ impl Simulation for ConstantDecelerationSpringDamper {
         self.curr_val + self.curr_val_zeroed
     }
 
-    fn step(&mut self) -> (f32, bool) {
-        let new_tick = animations::current_tick();
+    fn step(&mut self, new_tick: Instant) -> (f32, bool) {
         self.step_internal(new_tick)
     }
 }
