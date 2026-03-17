@@ -21,21 +21,18 @@ pub trait Parameter {
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output;
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationParameters {
     pub initial_velocity: f32,
     pub deceleration: f32,
 }
 
-#[allow(dead_code)]
 impl ConstantDecelerationParameters {
     pub fn new(initial_velocity: f32, deceleration: f32) -> Self {
         Self { initial_velocity, deceleration }
     }
 }
 
-#[allow(dead_code)]
 impl Parameter for ConstantDecelerationParameters {
     type Output = ConstantDeceleration;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
@@ -44,7 +41,6 @@ impl Parameter for ConstantDecelerationParameters {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ConstantDeceleration {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -57,7 +53,6 @@ pub struct ConstantDeceleration {
     start_time: Instant,
 }
 
-#[allow(dead_code)]
 impl ConstantDeceleration {
     pub fn new(
         start_value: f32,
@@ -149,7 +144,6 @@ impl ConstantDeceleration {
     }
 }
 
-#[allow(dead_code)]
 impl Simulation for ConstantDeceleration {
     fn curr_value(&self) -> f32 {
         self.curr_val
@@ -352,7 +346,7 @@ mod tests {
 }
 
 /// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
-#[allow(dead_code)]
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationSpringDamperParameters {
     pub initial_velocity: f32,
@@ -362,7 +356,7 @@ pub struct ConstantDecelerationSpringDamperParameters {
     pub damping_coefficient: f32, // [1] parameter c
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
     pub fn new(initial_velocity: f32, deceleration: f32, half_period_time: f32) -> Self {
         let (mass, spring_constant, damping_coefficient) =
@@ -382,7 +376,7 @@ impl ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl Parameter for ConstantDecelerationSpringDamperParameters {
     type Output = ConstantDecelerationSpringDamper;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
@@ -391,7 +385,7 @@ impl Parameter for ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 #[derive(Debug, PartialEq)]
 enum State {
     Deceleration,
@@ -399,7 +393,7 @@ enum State {
     Done,
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDecelerationSpringDamper {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -421,7 +415,7 @@ pub struct ConstantDecelerationSpringDamper {
     constant_phi: f32,
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl ConstantDecelerationSpringDamper {
     pub fn new(
         start_value: f32,
@@ -607,7 +601,7 @@ impl ConstantDecelerationSpringDamper {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl Simulation for ConstantDecelerationSpringDamper {
     fn curr_value(&self) -> f32 {
         self.curr_val + self.curr_val_zeroed
