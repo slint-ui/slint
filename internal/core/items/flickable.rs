@@ -96,11 +96,14 @@ impl Item for Flickable {
                 let vpy = flick.viewport_y();
                 let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
 
-                if *x_out_of_bounds {
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                if *x_out_of_bounds && !x.has_binding() {
+                    x.set(p.x_length());
                 }
-                if *y_out_of_bounds {
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                if *y_out_of_bounds && !y.has_binding() {
+                    y.set(p.y_length());
                 }
             },
         );

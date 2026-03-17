@@ -1019,6 +1019,11 @@ impl<T: Clone> Property<T> {
         );
     }
 
+    /// Returns true if the property has currently a binding (like an animation, ...), otherwise false
+    pub fn has_binding(&self) -> bool {
+        PropertyHandle::pointer_to_binding(self.handle.handle.get()).is_some()
+    }
+
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is potentially dirty.
     pub fn is_dirty(&self) -> bool {
