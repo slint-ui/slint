@@ -8,8 +8,8 @@ use i_slint_core::{
     graphics::{Image, SharedImageBuffer, SharedPixelBuffer},
 };
 use napi::{
-    Env, JsUnknown,
-    bindgen_prelude::{Buffer, External},
+    Env,
+    bindgen_prelude::{Buffer, External, ToNapiValue, Unknown},
 };
 
 // This is needed for typedoc check JsImageData::image
@@ -75,11 +75,11 @@ impl SlintImageData {
     }
 
     #[napi(getter)]
-    pub fn path(&self, env: Env) -> napi::Result<JsUnknown> {
-        self.inner.path().map_or_else(
-            || env.get_undefined().map(|v| v.into_unknown()),
-            |p| env.create_string(p.to_string_lossy().as_ref()).map(|v| v.into_unknown()),
-        )
+    pub fn path<'a>(&self, env: &'a Env) -> napi::Result<Unknown<'a>> {
+        match self.inner.path() {
+            None => ().into_unknown(env),
+            Some(p) => env.create_string(p.to_string_lossy().as_ref())?.into_unknown(env),
+        }
     }
 
     /// @hidden

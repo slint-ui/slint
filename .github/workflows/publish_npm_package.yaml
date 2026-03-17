@@ -133,7 +133,7 @@ jobs:
               shell: bash
               working-directory: api/node
               run: |
-                  npx napi create-npm-dir -t . -c ./binaries.json
+                  npx napi create-npm-dirs --npm-dir . -c ./binaries.json
                   mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
                   cd npm/${{ matrix.napi-rs-target }}/
                   pnpm pkg set repository.type=git
@@ -189,7 +189,7 @@ jobs:
             - name: Prepare binary packages
               working-directory: api/node
               run: |
-                  npx napi create-npm-dir -t . -c ./binaries.json
+                  npx napi create-npm-dirs --npm-dir . -c ./binaries.json
             - name: Download artifacts
               uses: actions/download-artifact@v8
               with:

@@ -51,8 +51,8 @@ test("get/set string properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Number");
+        expect(thrownError.code).toBe("StringExpected");
+        expect(thrownError.message).toContain("String");
     }
 
     {
@@ -63,8 +63,8 @@ test("get/set string properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Object");
+        expect(thrownError.code).toBe("StringExpected");
+        expect(thrownError.message).toContain("String");
     }
 });
 
@@ -92,8 +92,8 @@ test("get/set number properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Number, got: String");
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toContain("Number");
     }
 
     {
@@ -104,8 +104,8 @@ test("get/set number properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Number, got: Object");
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toContain("Number");
     }
 });
 
@@ -130,8 +130,8 @@ test("get/set bool properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Boolean, got: String");
+        expect(thrownError.code).toBe("BooleanExpected");
+        expect(thrownError.message).toContain("Boolean");
     }
 
     {
@@ -142,8 +142,8 @@ test("get/set bool properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Boolean, got: Object");
+        expect(thrownError.code).toBe("BooleanExpected");
+        expect(thrownError.message).toContain("Boolean");
     }
 });
 
@@ -578,8 +578,8 @@ test("get/set enum properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Number");
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("42 is not a value of enum Direction");
     }
 
     {
@@ -590,8 +590,10 @@ test("get/set enum properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Object");
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe(
+            "[object Object] is not a value of enum Direction",
+        );
     }
 
     {

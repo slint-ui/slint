@@ -1,12 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use napi::{
-    JsUnknown, Result,
-    bindgen_prelude::{FromNapiValue, Object},
-};
+use napi::JsValue;
+use napi::bindgen_prelude::{FromNapiValue, Object, Unknown};
 
-/// SlintPoint implements {@link Size}.
+/// SlintSize implements {@link Size}.
 #[napi]
 pub struct SlintSize {
     pub width: f64,
@@ -17,7 +15,7 @@ pub struct SlintSize {
 impl SlintSize {
     /// Constructs a size from the given width and height.
     #[napi(constructor)]
-    pub fn new(width: f64, height: f64) -> Result<Self> {
+    pub fn new(width: f64, height: f64) -> napi::Result<Self> {
         if width < 0. {
             return Err(napi::Error::from_reason("width cannot be negative".to_string()));
         }
@@ -37,21 +35,19 @@ impl FromNapiValue for SlintSize {
     ) -> napi::Result<Self> {
         let obj = unsafe { Object::from_napi_value(env, napi_val)? };
         let width: f64 = obj
-            .get::<_, JsUnknown>("width")
+            .get::<Unknown>("width")
             .ok()
             .flatten()
-            .and_then(|p| p.coerce_to_number().ok())
-            .and_then(|f64_num| f64_num.try_into().ok())
+            .and_then(|p| p.coerce_to_number().ok().and_then(|n| n.get_double().ok()))
             .ok_or_else(
                 || napi::Error::from_reason(
                     "Cannot convert object to Size, because the provided object does not have an f64 width property".to_string()
             ))?;
         let height:  f64 = obj
-            .get::<_, JsUnknown>("height")
+            .get::<Unknown>("height")
             .ok()
             .flatten()
-            .and_then(|p| p.coerce_to_number().ok())
-            .and_then(|f64_num| f64_num.try_into().ok())
+            .and_then(|p| p.coerce_to_number().ok().and_then(|n| n.get_double().ok()))
             .ok_or_else(
                 || napi::Error::from_reason(
                     "Cannot convert object to Size, because the provided object does not have an f64 height property".to_string()
