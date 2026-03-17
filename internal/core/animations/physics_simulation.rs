@@ -622,7 +622,6 @@ impl Simulation for ConstantDecelerationSpringDamper {
 #[cfg(test)]
 mod tests_spring_damper {
     use super::*;
-    use crate::lengths::LogicalPx;
     use core::{f32::consts::PI, time::Duration};
 
     #[test]
