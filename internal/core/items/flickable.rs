@@ -461,23 +461,23 @@ impl FlickableDataInner {
                 if let Some((time, _, last_delta)) = self.last_scroll_event {
                     let millis = (crate::animations::current_tick() - time).as_millis();
                     {
-                        let simulation = physics_simulation::ConstantDecelerationParameters {
-                            initial_velocity: euclid::Length::new(
+                        let simulation =
+                            physics_simulation::ConstantDecelerationSpringDamperParameters::new(
                                 last_delta.x as f32 / (millis as f32 / 1000.),
-                            ),
-                            deceleration: euclid::Scale::new(500.),
-                        };
+                                500.,
+                                200e-3,
+                            );
                         let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
                         let limit = if last_delta.x < 0. { vw } else { euclid::Length::new(0.) };
                         viewport_x.set_physic_animation_value(limit, simulation);
                     }
                     {
-                        let animation_y = physics_simulation::ConstantDecelerationParameters {
-                            initial_velocity: euclid::Length::new(
+                        let animation_y =
+                            physics_simulation::ConstantDecelerationSpringDamperParameters::new(
                                 last_delta.y as f32 / (millis as f32 / 1000.),
-                            ),
-                            deceleration: euclid::Scale::new(500.),
-                        };
+                                500.,
+                                200e-3,
+                            );
                         let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
                         let limit = if last_delta.y < 0. { -vh } else { euclid::Length::new(0.) };
                         viewport_y.set_physic_animation_value(limit, animation_y);
