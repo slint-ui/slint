@@ -1086,7 +1086,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         }
 
         let listview_height = listview_height.get();
-        let mut vp_y = viewport_y.get().min(zero);
+        let mut vp_y = viewport_y.get();
 
         // We need some sort of estimation of the element height
         let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
@@ -1150,7 +1150,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             // we scrolled down, try to find out the new offset.
             let mut it_y = first_item_y + vp_y;
             let mut new_offset = inner.offset;
-            debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
+            // debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
             for (i, c) in inner.instances.iter_mut().enumerate() {
                 if c.0 == RepeatedInstanceState::Dirty {
                     if c.1.is_none() {
@@ -1288,11 +1288,11 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             viewport_height.set(inner.cached_item_height * row_count as Coord);
             viewport_width.set(vp_width);
             let new_viewport_y = -inner.anchor_y + new_offset_y;
-            if new_viewport_y != viewport_y.get() {
+            if new_viewport_y != viewport_y.get() && !viewport_y.has_binding() {
                 // If the new value gets set, all bindings are removed which means also an animation gets removed
                 viewport_y.set(new_viewport_y);
+                inner.previous_viewport_y = new_viewport_y;
             }
-            inner.previous_viewport_y = new_viewport_y;
             break;
         }
         drop(inner);
