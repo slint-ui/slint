@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-backend-tests"
+description = "Tests that are shared between the different backends"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# This disables the default feature selection so that each test binary is forced to set up
+# the right backend and doesn't accidentally just use the default backend!
+slint = { workspace = true, no-default-features = true, features = ["std", "compat-1-2", "renderer-software"] }
+i-slint-backend-winit = { workspace = true, features = ["x11", "wayland", "renderer-software"] }
+i-slint-backend-qt = { workspace = true, features = ["default"] }
+
+# TODO: Add additional test for LinuxKMS, but that requires root permissions.
+# TODO: Add additional test for Android Activity, but that requires an Android device and the Android SDK setup.
