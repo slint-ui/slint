@@ -39,6 +39,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, atomic};
 use std::task::{Poll, Waker};
+use std::time::Duration;
 
 use crate::common::document_cache::CompilerConfiguration;
 
@@ -58,6 +59,8 @@ use tikv_jemallocator::Jemalloc;
 )))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+const RECOMPILE_TIMEOUT: Duration = Duration::from_millis(50);
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -281,7 +284,9 @@ fn main() {
             },
         }
     } else {
-        match run_lsp_server(args) {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+        let local_set = tokio::task::LocalSet::new();
+        match local_set.block_on(&rt, run_lsp_server(args)) {
             Ok(threads) => threads.join().unwrap(),
             Err(error) => {
                 eprintln!("Error running LSP server: {error}");
@@ -291,7 +296,7 @@ fn main() {
     }
 }
 
-fn run_lsp_server(args: Cli) -> Result<IoThreads> {
+async fn run_lsp_server(args: Cli) -> Result<IoThreads> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
@@ -300,19 +305,23 @@ fn run_lsp_server(args: Cli) -> Result<IoThreads> {
         serde_json::to_value(language::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
-    main_loop(connection, init_param, args)?;
+    main_loop(connection, init_param, args).await?;
 
     Ok(io_threads)
 }
 
-fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli) -> Result<()> {
+async fn main_loop(
+    connection: Connection,
+    init_param: InitializeParams,
+    cli_args: Cli,
+) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
 
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
-    let (preview_to_lsp_sender, preview_to_lsp_receiver) =
-        crossbeam_channel::unbounded::<crate::common::PreviewToLspMessage>();
+    let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
+        tokio::sync::mpsc::unbounded_channel::<crate::common::PreviewToLspMessage>();
 
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
@@ -383,6 +392,8 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         enable_experimental: false,
     };
 
+    let (recompile_sender, mut recompile_receiver) = tokio::sync::mpsc::unbounded_channel::<()>();
+
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
         preview_config: RefCell::new(Default::default()),
@@ -393,35 +404,35 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
+        recompile_timer: Default::default(),
+        recompile_sender,
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
-    let mut first_future = Box::pin(startup_lsp(&ctx));
+    startup_lsp(&ctx).await?;
 
-    // We are waiting in this loop for two kind of futures:
-    //  - The compiler future should always be ready immediately because we do not set a callback to load files
-    //  - the future from `send_request` are blocked waiting for a response from the client.
-    //    Responses are sent on the `connection.receiver` which will wake the loop, so there
-    //    is no need to do anything in the waker.
-    struct DummyWaker;
-    impl std::task::Wake for DummyWaker {
-        fn wake(self: Arc<Self>) {}
-    }
-    let waker = Arc::new(DummyWaker).into();
-    match first_future.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
-        Poll::Ready(x) => x?,
-        Poll::Pending => futures.push(first_future),
-    };
+    let connection = Arc::new(connection);
+    let (from_lsp_sender, mut from_lsp_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let inner_connection = connection.clone();
+    std::thread::spawn(move || {
+        loop {
+            crossbeam_channel::select! {
+                recv(inner_connection.receiver) -> msg => {
+                    let Ok(msg) = msg else {
+                        return;
+                    };
+                    if from_lsp_sender.send(msg.clone()).is_err() {
+                        return;
+                    }
+                }
+            }
+        }
+    });
 
     loop {
-        let recompile_timeout = if ctx.pending_recompile.borrow().is_empty() {
-            crossbeam_channel::never()
-        } else {
-            crossbeam_channel::after(std::time::Duration::from_millis(50))
-        };
-        crossbeam_channel::select! {
-            recv(connection.receiver) -> msg => {
-                match msg? {
+        tokio::select! {
+            msg = from_lsp_receiver.recv() => {
+                match msg.ok_or_else(|| "LSP connection closed".to_owned())? {
                     Message::Request(req) => {
                         // ignore errors when shutdown
                         if connection.handle_shutdown(&req).unwrap_or(false) {
@@ -447,35 +458,33 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                         futures.push(Box::pin(handle_notification(notification, &ctx)))
                     }
                 }
-             },
-             recv(preview_to_lsp_receiver) -> _msg => {
+            }
+            _msg = preview_to_lsp_receiver.recv() => {
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
-                futures.push(Box::pin(handle_preview_to_lsp_message(_msg?, &ctx)))
-             },
-             recv(recompile_timeout) -> _ => {
+                {
+                    let ctx = ctx.clone();
+                    let msg = _msg.ok_or_else(|| "Preview to LSP connection closed".to_owned())?;
+                    tokio::task::spawn_local(async move {
+                        if let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
+                            tracing::error!("handle_preview_to_lsp_message: {err}");
+                        }
+                    });
+                }
+            }
+            _ = recompile_receiver.recv() => {
                  let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
 
                  for url in pending_recompile {
-                     futures.push(Box::pin(language::reload_document(&ctx, url)));
+                    let ctx = ctx.clone();
+                    tokio::task::spawn_local(async move {
+                        if let Err(err) = language::reload_document(&ctx, url).await {
+                            tracing::error!("Failed document reload: {err}");
+                        }
+                    });
                  }
-             }
-        };
-
-        let mut result = Ok(());
-        futures.retain_mut(|f| {
-            if result.is_err() {
-                return true;
             }
-            match f.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
-                Poll::Ready(x) => {
-                    result = x;
-                    false
-                }
-                Poll::Pending => true,
-            }
-        });
-        result?;
+        }
     }
 }
 

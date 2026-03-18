@@ -18,12 +18,12 @@ struct ChildProcessLspToPreviewInner {
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
-    preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
+    preview_to_lsp_channel: tokio::sync::mpsc::UnboundedSender<common::PreviewToLspMessage>,
 }
 
 impl ChildProcessLspToPreview {
     pub fn new(
-        preview_to_lsp_channel: crossbeam_channel::Sender<common::PreviewToLspMessage>,
+        preview_to_lsp_channel: tokio::sync::mpsc::UnboundedSender<common::PreviewToLspMessage>,
     ) -> Self {
         Self { inner: RefCell::new(None), preview_to_lsp_channel }
     }
