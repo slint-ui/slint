@@ -54,7 +54,7 @@ where
                 }
             }
             AnimationState::Done { iteration_count: _ } => {
-                (self.simulation.curr_value().clone() as crate::Coord, true)
+                (self.simulation.curr_value() as crate::Coord, true)
             }
         }
     }
