@@ -5201,7 +5201,7 @@ dependencies = [
  "android-build",
  "i-slint-core",
  "i-slint-renderer-skia",
- "jni 0.22.3",
+ "jni 0.22.4",
  "raw-window-handle",
 ]
 
@@ -5321,6 +5321,7 @@ dependencies = [
  "by_address",
  "derive_more",
  "i-slint-common",
+ "icu_normalizer",
  "itertools 0.14.0",
  "linked_hash_set",
  "lyon_extra",
@@ -5332,6 +5333,7 @@ dependencies = [
  "smol_str 0.3.6",
  "strum",
  "typed-index-collections",
+ "unicode-segmentation",
  "url",
 ]
 
@@ -5349,6 +5351,7 @@ dependencies = [
  "euclid",
  "i-slint-common",
  "i-slint-core-macros",
+ "icu_normalizer",
  "image",
  "lyon_algorithms",
  "lyon_extra",
@@ -5536,6 +5539,9 @@ dependencies = [
  "icu_properties",
  "icu_provider",
  "smallvec",
+ "utf16_iter",
+ "utf8_iter",
+ "write16",
  "zerovec",
 ]
 
@@ -5788,9 +5794,9 @@ dependencies = [
 
 [[package]]
 name = "jni"
-version = "0.22.3"
+version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "295dc9997acda1562fdf8d299f56063c936443b60f078e63a5d8d3c34ef2642b"
+checksum = "5efd9a482cf3a427f00d6b35f14332adc7902ce91efb778580e180ff90fa3498"
 dependencies = [
  "cfg-if",
  "combine",
@@ -5805,9 +5811,9 @@ dependencies = [
 
 [[package]]
 name = "jni-macros"
-version = "0.22.2"
+version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c3d1da60c95c98847b26b9d45f4360fee718b31de746df016d9cd6de916a7ef"
+checksum = "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7288,7 +7294,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit 0.25.4+spec-1.1.0",
+ "toml_edit 0.25.5+spec-1.1.0",
 ]
 
 [[package]]
@@ -8715,7 +8721,7 @@ dependencies = [
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "toml_writer",
- "winnow",
+ "winnow 0.7.15",
 ]
 
 [[package]]
@@ -8729,9 +8735,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "1.0.0+spec-1.1.0"
+version = "1.0.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32c2555c699578a4f59f0cc68e5116c8d7cabbd45e1409b989d4be085b53f13e"
+checksum = "9b320e741db58cac564e26c607d3cc1fdc4a88fd36c879568c07856ed83ff3e9"
 dependencies = [
  "serde_core",
 ]
@@ -8745,7 +8751,7 @@ dependencies = [
  "indexmap",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
- "winnow",
+ "winnow 0.7.15",
 ]
 
 [[package]]
@@ -8757,35 +8763,35 @@ dependencies = [
  "indexmap",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
- "winnow",
+ "winnow 0.7.15",
 ]
 
 [[package]]
 name = "toml_edit"
-version = "0.25.4+spec-1.1.0"
+version = "0.25.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7193cbd0ce53dc966037f54351dbbcf0d5a642c7f0038c382ef9e677ce8c13f2"
+checksum = "8ca1a40644a28bce036923f6a431df0b34236949d111cc07cb6dca830c9ef2e1"
 dependencies = [
  "indexmap",
- "toml_datetime 1.0.0+spec-1.1.0",
+ "toml_datetime 1.0.1+spec-1.1.0",
  "toml_parser",
- "winnow",
+ "winnow 1.0.0",
 ]
 
 [[package]]
 name = "toml_parser"
-version = "1.0.9+spec-1.1.0"
+version = "1.0.10+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702d4415e08923e7e1ef96cd5727c0dfed80b4d2fa25db9647fe5eb6f7c5a4c4"
+checksum = "7df25b4befd31c4816df190124375d5a20c6b6921e2cad937316de3fccd63420"
 dependencies = [
- "winnow",
+ "winnow 1.0.0",
 ]
 
 [[package]]
 name = "toml_writer"
-version = "1.0.6+spec-1.1.0"
+version = "1.0.7+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab16f14aed21ee8bfd8ec22513f7287cd4a91aa92e44edfe2c17ddd004e92607"
+checksum = "f17aaa1c6e3dc22b1da4b6bba97d066e354c7945cac2f7852d4e4e7ca7a6b56d"
 
 [[package]]
 name = "tower"
@@ -9105,6 +9111,12 @@ dependencies = [
  "unicode-vo",
  "xmlwriter",
 ]
+
+[[package]]
+name = "utf16_iter"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8232dd3cdaed5356e0f716d285e4b40b932ac434100fe9b7e0e8e935b9e6246"
 
 [[package]]
 name = "utf8_iter"
@@ -10492,6 +10504,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "winnow"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a90e88e4667264a994d34e6d1ab2d26d398dcdca8b7f52bec8668957517fc7d8"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "wit-bindgen"
 version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10591,6 +10612,12 @@ dependencies = [
  "log",
  "read-fonts 0.35.0",
 ]
+
+[[package]]
+name = "write16"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1890f4022759daae28ed4fe62859b1236caebfc61ede2f63ed4e695f3f6d936"
 
 [[package]]
 name = "writeable"
@@ -10767,7 +10794,7 @@ dependencies = [
  "uds_windows",
  "uuid",
  "windows-sys 0.61.2",
- "winnow",
+ "winnow 0.7.15",
  "zbus_macros",
  "zbus_names",
  "zvariant",
@@ -10819,7 +10846,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffd8af6d5b78619bab301ff3c560a5bd22426150253db278f164d6cf3b72c50f"
 dependencies = [
  "serde",
- "winnow",
+ "winnow 0.7.15",
  "zvariant",
 ]
 
@@ -10952,7 +10979,7 @@ dependencies = [
  "endi",
  "enumflags2",
  "serde",
- "winnow",
+ "winnow 0.7.15",
  "zvariant_derive",
  "zvariant_utils",
 ]
@@ -10980,5 +11007,5 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "winnow",
+ "winnow 0.7.15",
 ]
