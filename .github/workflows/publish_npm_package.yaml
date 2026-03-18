@@ -134,7 +134,7 @@ jobs:
               working-directory: api/node
               run: |
                   npx napi create-npm-dirs --npm-dir . -c ./binaries.json
-                  mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
+                  mv slint-ui.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
                   cd npm/${{ matrix.napi-rs-target }}/
                   pnpm pkg set repository.type=git
                   pnpm pkg set repository.url=https://github.com/slint-ui/slint
