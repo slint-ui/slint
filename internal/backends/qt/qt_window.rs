@@ -56,6 +56,7 @@ cpp! {{
     #include <QtCore/QTimer>
     #include <QtGui/QAccessible>
     #include <QtGui/QCursor>
+    #include <QtGui/QDesktopServices>
     #include <QtGui/QIconEngine>
     #include <QtGui/QImageReader>
     #include <QtGui/QPaintEngine>
