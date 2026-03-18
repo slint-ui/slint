@@ -72,7 +72,7 @@ println!("Old viewport y: {:?}", old_viewport_y);
 send_mouse_press_and_release(&instance, 5., 0., 5., 75.);
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
-assert!(instance.get_viewport_y() == 0., "Received: {}, Desired: {}", instance.get_viewport_y(), 0.);
+assert_eq!(instance.get_viewport_y(), 0.);
 ```
 
 */

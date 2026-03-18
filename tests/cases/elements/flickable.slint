@@ -78,7 +78,7 @@ assert!(instance.get_offset_y() > 60., "Expected > 60, Received: {}", instance.g
 assert!(instance.get_offset_x() < 400., "Expected < 400, Received: {}", instance.get_offset_x());
 assert!(instance.get_offset_y() < 150., "Expected <= 150, Received: {}", instance.get_offset_y());
 
-slint_testing::mock_elapsed_time(2000); // Let it run until the simulation is finshed
+slint_testing::mock_elapsed_time(2000); // Let it run until the animation is finshed
 // end of the animation
 let end_x = instance.get_offset_x();
 let end_y = instance.get_offset_y();
