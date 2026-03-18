@@ -11,12 +11,12 @@ use i_slint_compiler::typeregister::TypeRegister;
 use lsp_protocol::SourceFileVersion;
 use lsp_types::Url;
 
-use std::rc::Rc;
 use std::{
     collections::HashMap,
     future::Future,
     path::{Path, PathBuf},
     pin::Pin,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 
