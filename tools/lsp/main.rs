@@ -450,18 +450,6 @@ async fn run_lsp_server(args: Cli) -> async_lsp::Result<()> {
     );
 
     server.run_buffered(stdin, stdout).await
-
-    // let (connection, io_threads) = Connection::stdio();
-    // let (id, params) = connection.initialize_start()?;
-
-    // let init_param: InitializeParams = serde_json::from_value(params).unwrap();
-    // let initialize_result =
-    //     serde_json::to_value(language::server_initialize_result(&init_param.capabilities))?;
-    // connection.initialize_finish(id, initialize_result)?;
-
-    // main_loop(connection, init_param, args)?;
-
-    // Ok(io_threads)
 }
 
 fn create_context(
