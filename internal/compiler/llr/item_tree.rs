@@ -26,6 +26,8 @@ pub struct SubComponentInstanceIdx(usize);
 pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct GridLayoutChildIdx(usize);
 
 /// Describes one child in a repeated Row template.
 /// Used by code generators to handle any number of interleaved static children and
@@ -33,7 +35,7 @@ pub struct RepeatedElementIdx(usize);
 #[derive(Debug, Clone)]
 pub enum RowChildTemplateInfo {
     /// A static child. `child_index` is an index into `SubComponent::grid_layout_children`.
-    Static { child_index: usize },
+    Static { child_index: GridLayoutChildIdx },
     /// An inner repeated child.
     Repeated { repeater_index: RepeatedElementIdx },
 }
@@ -414,7 +416,7 @@ pub struct SubComponent {
     pub is_repeated_row: bool,
     /// The list of direct grid layout children for a repeated Row.
     /// Used to generate `layout_item_info` which returns layout info for a specific child.
-    pub grid_layout_children: Vec<GridLayoutChildLayoutInfo>,
+    pub grid_layout_children: TiVec<GridLayoutChildIdx, GridLayoutChildLayoutInfo>,
     /// For repeated Rows with children: template of children in declaration order
     /// (statics and inner repeaters). Used by code generators to produce
     /// `grid_layout_input_data` and `layout_item_info`.
