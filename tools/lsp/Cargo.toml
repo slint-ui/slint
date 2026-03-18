@@ -120,7 +120,7 @@ tikv-jemallocator = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
-crossbeam-channel = "0.5" # must match the version used by lsp-server
+crossbeam-channel = "0.5"                                                                              # must match the version used by lsp-server
 tokio = { version = "1.49.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "fs"] }
 tokio-util = { version = "0.7.18", features = ["compat"] }
 tower = { version = "0.5.3" }
