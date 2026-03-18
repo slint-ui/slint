@@ -609,8 +609,7 @@ impl ItemRc {
             for popup in borrow.iter() {
                 if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
                     // Check if component is in a popup
-                    if ItemRc::new_root(popup.component.clone()).is_root_item_of(&self.item_tree())
-                    {
+                    if ItemRc::new_root(popup.component.clone()).is_root_item_of(self.item_tree()) {
                         result += location.to_vector();
                     }
                 }
@@ -1459,7 +1458,6 @@ mod tests {
     use crate::Property;
     use crate::api::LogicalPosition;
     use crate::api::Window;
-    use crate::items::Item;
     use crate::items::WindowItem;
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
