@@ -2310,6 +2310,7 @@ impl WindowInner {
             .iter()
             .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
         {
+            // Popup in a popup
             match &parent_popup.location {
                 PopupWindowLocation::TopLevel(wa) => wa.clone(),
                 PopupWindowLocation::ChildWindow(_) => self.window_adapter(),

@@ -1460,6 +1460,7 @@ mod tests {
     use crate::api::LogicalPosition;
     use crate::api::Window;
     use crate::items::Item;
+    use crate::items::WindowItem;
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
@@ -1529,7 +1530,7 @@ mod tests {
         ) -> core::pin::Pin<vtable::VRef<'_, super::ItemVTable>> {
             if index == 0 {
                 return Pin::new(VRef::new(
-                    self.window_item.as_ref().expect("Not needed for this test"),
+                    self.get_ref().window_item.as_ref().expect("Not needed for this test"),
                 ));
             }
             unimplemented!("Not needed for this test")
@@ -1554,7 +1555,31 @@ mod tests {
             false
         }
 
-        fn layout_info(self: core::pin::Pin<&Self>, _1: Orientation) -> LayoutInfo {
+        fn layout_info(self: core::pin::Pin<&Self>, o: Orientation) -> LayoutInfo {
+            if let Some(wi) = &self.window_item {
+                match o {
+                    Orientation::Horizontal => {
+                        return LayoutInfo {
+                            max: wi.width.get_internal().0,
+                            max_percent: 100.,
+                            min: wi.width.get_internal().0,
+                            min_percent: 100.,
+                            preferred: wi.width.get_internal().0,
+                            stretch: 1.,
+                        };
+                    }
+                    Orientation::Vertical => {
+                        return LayoutInfo {
+                            max: wi.height.get_internal().0,
+                            max_percent: 100.,
+                            min: wi.height.get_internal().0,
+                            min_percent: 100.,
+                            preferred: wi.height.get_internal().0,
+                            stretch: 1.,
+                        };
+                    }
+                }
+            }
             unimplemented!("Not needed for this test")
         }
 
@@ -2428,6 +2453,9 @@ mod tests {
     fn create_subsubtree_items() -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
         let window_adapter = WindowAdapter::new();
         let weak = Rc::downgrade(&window_adapter);
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
         (
             weak,
             VRc::into_dyn(VRc::new(TestItemTree {
@@ -2461,7 +2489,7 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: usize::MAX,
                 window_adapter,
-                window_item: None,
+                window_item: Some(window_item),
             })),
         )
     }
@@ -2510,13 +2538,32 @@ mod tests {
 
     #[test]
     fn test_map_to_window_popup() {
+        const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter_weak, item_tree) = create_subsubtree_items();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            LogicalPosition::new(20., 20.),
+            POPUP_LOCATION,
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
+        );
+
+        let root = ItemRc::new_root(item_tree);
+        let first_child = root.first_child().unwrap();
+        let first_child_of_first_child = first_child.first_child().unwrap();
+
+        // The popup is not a real window and therefore it does not have it's own coordinate system
+        // So map_to_window is really absolute to the window not to the popup window
+        let point = first_child_of_first_child.map_to_window(Point2D::new(3., -82.));
+        assert_eq!(
+            point.x,
+            // Popup         +        Root.x       +     first_child.x   + first_child_of_first_child.x + 3
+            POPUP_LOCATION.x + GEOMETRY_POSITION_X + GEOMETRY_POSITION_X + GEOMETRY_POSITION_X + 3.
+        );
+        assert_eq!(
+            point.y,
+            POPUP_LOCATION.y + GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y
+                - 82.
         );
     }
 
