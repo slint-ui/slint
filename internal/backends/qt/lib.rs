@@ -330,6 +330,16 @@ impl i_slint_core::platform::Platform for Backend {
             core::time::Duration::ZERO
         }
     }
+
+    #[cfg(not(no_qt))]
+    fn open_url(&self, url: &str) {
+        let url: qttypes::QString = url.into();
+        unsafe {
+            cpp::cpp! { [url as "QString"] {
+                QDesktopServices::openUrl(url);
+            }}
+        }
+    }
 }
 
 /// This helper trait can be used to obtain access to a pointer to a QtWidget for a given
