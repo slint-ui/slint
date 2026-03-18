@@ -238,9 +238,9 @@ jobs:
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-linux-x64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-linux-arm64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-darwin-arm64-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-win32-x64-msvc-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-win32-arm64-msvc-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
+                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-arm64-msvc-$PKG_VERSION.tgz
                   pnpm publish --no-git-checks $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz

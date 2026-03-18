@@ -1,6 +1,6 @@
 {
   "binaryName": "slint-ui",
-  "package": "@slint-ui/slint-ui-binary",
+  "packageName": "@slint-ui/slint-ui-binary",
   "targets": [
     "x86_64-unknown-linux-gnu",
     "aarch64-unknown-linux-gnu",
