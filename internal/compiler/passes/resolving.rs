@@ -545,6 +545,7 @@ impl Expression {
 
         let path = std::path::Path::new(&s);
         if crate::pathutils::is_absolute(path) {
+            ctx.diag.all_loaded_files.insert(path.to_owned());
             return Expression::IncludeString(s.into());
         }
 
@@ -558,6 +559,8 @@ impl Expression {
                     .unwrap_or(s.clone())
             });
 
+        let path = std::path::Path::new(&resolved_path);
+        ctx.diag.all_loaded_files.insert(path.to_owned());
         Expression::IncludeString(resolved_path.into())
     }
 
