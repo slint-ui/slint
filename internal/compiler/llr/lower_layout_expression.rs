@@ -338,6 +338,11 @@ pub(super) fn solve_flexbox_layout(
                     .with(|e| Type::Enumeration(e.enums.FlexAlignItems.clone())),
                 fld.align_items,
             ),
+            (
+                "flex_wrap",
+                crate::typeregister::BUILTIN.with(|e| Type::Enumeration(e.enums.FlexWrap.clone())),
+                fld.flex_wrap,
+            ),
             ("cells_h", fld.cells_h.ty(ctx), fld.cells_h),
             ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
         ],
@@ -496,6 +501,7 @@ fn compute_flexbox_layout_info_for_direction(
             orientation_expr,
             fld.direction,
             constraint_size,
+            fld.flex_wrap,
         ];
 
         match fld.compute_cells {
@@ -533,6 +539,7 @@ fn compute_flexbox_layout_info_for_direction(
             }),
             fld.direction,
             llr_Expression::NumberLiteral(f32::MAX.into()),
+            fld.flex_wrap,
         ];
 
         match fld.compute_cells {
@@ -564,6 +571,7 @@ struct FlexBoxLayoutDataResult {
     direction: llr_Expression,
     align_content: llr_Expression,
     align_items: llr_Expression,
+    flex_wrap: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
     /// When there are repeaters involved, we need to do a WithFlexBoxLayoutItemInfo with the
@@ -619,6 +627,16 @@ fn flexbox_layout_data(
         })
     };
 
+    let flex_wrap = if let Some(expr) = &layout.flex_wrap {
+        llr_Expression::PropertyReference(ctx.map_property_reference(expr))
+    } else {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexWrap.clone());
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: e.default_value,
+            enumeration: e,
+        })
+    };
+
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
@@ -656,6 +674,7 @@ fn flexbox_layout_data(
             direction,
             align_content,
             align_items,
+            flex_wrap,
             cells_h,
             cells_v,
             compute_cells: None,
@@ -698,6 +717,7 @@ fn flexbox_layout_data(
             direction,
             align_content,
             align_items,
+            flex_wrap,
             cells_h,
             cells_v,
             compute_cells: Some(("cells_h".into(), "cells_v".into(), elements)),

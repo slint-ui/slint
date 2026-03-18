@@ -395,6 +395,17 @@ macro_rules! for_each_enums {
                 Center,
             }
 
+            /// Controls whether flex items wrap onto multiple lines.
+            #[non_exhaustive]
+            enum FlexWrap {
+                /// Flex items wrap onto multiple lines, from top to bottom (for row direction) or left to right (for column direction).
+                Wrap,
+                /// All flex items are laid out on a single line (default for CSS, but Slint defaults to `wrap`).
+                NoWrap,
+                /// Flex items wrap onto multiple lines in the reverse direction.
+                WrapReverse,
+            }
+
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is
             /// generated at compile time from a higher-level description, such as SVG commands.
             #[non_exhaustive]

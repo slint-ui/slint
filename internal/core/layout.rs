@@ -6,7 +6,7 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexDirection, LayoutAlignment,
+    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexDirection, FlexWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1126,7 +1126,7 @@ pub struct BoxLayoutData<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-/// The FlexBoxLayoutData is used for a flex layout with wrapping.
+/// The FlexBoxLayoutData is used for a flex layout.
 pub struct FlexBoxLayoutData<'a> {
     pub width: Coord,
     pub height: Coord,
@@ -1138,6 +1138,7 @@ pub struct FlexBoxLayoutData<'a> {
     pub direction: FlexDirection,
     pub align_content: FlexAlignContent,
     pub align_items: FlexAlignItems,
+    pub flex_wrap: FlexWrap,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, LayoutItemInfo>,
     /// Vertical constraints (height) for each cell
@@ -1285,7 +1286,8 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, LayoutAlignment, LayoutItemInfo, Padding, Slice,
+        Coord, FlexAlignContent, FlexAlignItems, FlexWrap as SlintFlexWrap, LayoutAlignment,
+        LayoutItemInfo, Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1305,6 +1307,7 @@ mod flexbox_taffy {
         pub alignment: LayoutAlignment,
         pub align_content: FlexAlignContent,
         pub align_items: FlexAlignItems,
+        pub flex_wrap: SlintFlexWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
@@ -1409,7 +1412,11 @@ mod flexbox_taffy {
                     Style {
                         display: Display::Flex,
                         flex_direction: params.flex_direction,
-                        flex_wrap: FlexWrap::Wrap,
+                        flex_wrap: match params.flex_wrap {
+                            SlintFlexWrap::Wrap => FlexWrap::Wrap,
+                            SlintFlexWrap::NoWrap => FlexWrap::NoWrap,
+                            SlintFlexWrap::WrapReverse => FlexWrap::WrapReverse,
+                        },
                         justify_content: Some(match params.alignment {
                             // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
                             // AlignContent::Start/End would ignore direction and always use writing mode
@@ -1607,6 +1614,7 @@ pub fn solve_flexbox_layout(
         alignment: data.alignment,
         align_content: data.align_content,
         align_items: data.align_items,
+        flex_wrap: data.flex_wrap,
         flex_direction: taffy_direction,
         container_width,
         container_height,
@@ -1646,6 +1654,7 @@ pub fn flexbox_layout_info(
     orientation: Orientation,
     direction: FlexDirection,
     constraint_size: Coord,
+    flex_wrap: FlexWrap,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
@@ -1657,14 +1666,11 @@ pub fn flexbox_layout_info(
         return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
     }
 
-    // Min size is the maximum of any single item (since they can wrap) plus padding.
     let (cells, padding, spacing) = match orientation {
         Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
         Orientation::Vertical => (&cells_v, padding_v, spacing_v),
     };
     let extra_pad = padding.begin + padding.end;
-    let min =
-        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
 
     // Determine if we're asking for main-axis or cross-axis
     let is_main_axis = matches!(
@@ -1673,20 +1679,35 @@ pub fn flexbox_layout_info(
             | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
     );
 
-    // The main-axis constraint determines how items wrap.
-    // For main-axis queries, use sqrt of total item area as an approximation.
-    // For cross-axis queries, use the provided constraint_size.
-    let main_axis_constraint = if is_main_axis {
-        // constraint_size is not used for the main axis
-        let total_area = cells_h
-            .iter()
-            .map(|c| c.constraint.preferred_bounded())
-            .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
-            .map(|(h, v)| h * v)
-            .sum::<Coord>();
-        let count = cells.len();
-        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    let min = if matches!(flex_wrap, FlexWrap::NoWrap) && is_main_axis {
+        // No wrapping: items must all fit in one line, min = sum of minimums + spacing
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>()
+            + spacing * (cells.len().saturating_sub(1)) as Coord
+            + extra_pad
     } else {
+        // Wrapping (or cross-axis): the widest/tallest single item must fit
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+    };
+
+    // The main-axis constraint determines how items wrap.
+    let main_axis_constraint = if is_main_axis {
+        // Note that constraint_size is not used for the main axis
+        if matches!(flex_wrap, FlexWrap::NoWrap) {
+            // No wrapping: items won't wrap regardless of size, use max content
+            Coord::MAX
+        } else {
+            // Use sqrt of total item area as an approximation.
+            let total_area = cells_h
+                .iter()
+                .map(|c| c.constraint.preferred_bounded())
+                .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
+                .map(|(h, v)| h * v)
+                .sum::<Coord>();
+            let count = cells.len();
+            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+        }
+    } else {
+        // For cross-axis queries, use the provided constraint_size.
         constraint_size
     };
 
@@ -1712,6 +1733,7 @@ pub fn flexbox_layout_info(
         alignment: LayoutAlignment::Start,
         align_content: FlexAlignContent::Stretch,
         align_items: FlexAlignItems::Stretch,
+        flex_wrap,
         flex_direction: taffy_direction,
         container_width,
         container_height,
@@ -1877,6 +1899,7 @@ pub(crate) mod ffi {
         orientation: Orientation,
         direction: FlexDirection,
         constraint_size: Coord,
+        flex_wrap: FlexWrap,
     ) -> LayoutInfo {
         super::flexbox_layout_info(
             cells_h,
@@ -1888,6 +1911,7 @@ pub(crate) mod ffi {
             orientation,
             direction,
             constraint_size,
+            flex_wrap,
         )
     }
 }
