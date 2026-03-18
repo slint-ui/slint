@@ -1,0 +1,112 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
+  "workspaces": {
+    ".": {
+      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "pkg", "biome"],
+      "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
+    },
+    "api/node": {
+      "entry": ["typescript/index.ts"],
+      "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
+    },
+    "editors/vscode": {
+      "entry": ["src/extension.ts", "src/browser.ts", "src/browser-lsp-worker.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "tools/slintpad": {
+      "entry": ["src/preview.ts", "src/worker/lsp_worker.ts"],
+      "project": ["src/**/*.ts", "styles/**/*.css", "tests/**/*.ts"],
+      "ignoreFiles": ["src/types.ts", "src/worker/types.ts", "styles/colors.css", "styles/content.css", "styles/index.css"],
+      "ignoreBinaries": ["wasm-pack"],
+      "ignoreDependencies": [
+        "@codingame/monaco-vscode-api",
+        "@codingame/monaco-vscode-editor-api",
+        "@lumino/default-theme",
+        "monaco-editor-wrapper",
+        "path-browserify",
+        "vscode-uri",
+        "@lsp/slint_lsp_wasm.js",
+        "@interpreter/slint_wasm_interpreter.js"
+      ]
+    },
+    "tools/figma-inspector": {
+      "vite": false,
+      "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
+      "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
+      "ignoreBinaries": ["biome", "cspell"],
+      "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
+    },
+    "docs/astro": {
+      "entry": [],
+      "ignoreFiles": [
+        "src/styles/custom.css",
+        "src/styles/theme.css",
+        "src/components/editor/codemirror.js",
+        "src/components/editor/language-facets.js",
+        "src/components/editor/rollup.config.js",
+        "src/content/code/main_game_logic.js",
+        "src/content/code/main_initial.js",
+        "src/content/code/main_tiles_from_js.js"
+      ],
+      "ignoreUnresolved": ["^/src/content/"],
+      "ignoreBinaries": ["biome"],
+      "ignoreDependencies": ["sharp", "@expressive-code/core"]
+    },
+    "ui-libraries/material/docs": {
+      "entry": [],
+      "ignoreFiles": [
+        "src/assets/styles/custom.css",
+        "src/assets/styles/theme.css"
+      ],
+      "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
+      "ignoreDependencies": [
+        "sharp",
+        "@types/mdx",
+        "astrowind"
+      ]
+    },
+    "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
+    "demos/home-automation/node": { "ignoreBinaries": ["compile"] },
+    "examples/imagefilter/node": { "entry": ["main.ts"], "ignoreBinaries": ["compile"] },
+    "examples/carousel/node": { "ignoreBinaries": ["compile"] },
+    "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/memory": { "ignoreBinaries": ["compile"] },
+    "docs/common": {
+      "ignoreFiles": [
+        "src/components/Banner.astro",
+        "src/components/Footer.astro",
+        "src/components/Header.astro",
+        "src/components/ThemeSelect.astro",
+        "src/components/ThreeCardGrid.astro",
+        "src/components/VersionBanner.astro",
+        "src/components/VersionSelector.astro"
+      ],
+      "ignoreDependencies": ["@astrojs/starlight", "astro"]
+    }
+  },
+  "ignoreIssues": {
+    "tools/slintpad/src/editor_widget.ts": ["exports"],
+    "tools/slintpad/src/lsp.ts": ["exports", "types"],
+    "tools/figma-inspector/backend/utils/property-parsing.ts": ["exports"],
+    "tools/figma-inspector/src/utils/bolt-utils.ts": ["exports"],
+    "tools/figma-inspector/figma.config.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
+    "ui-libraries/material/docs/src/utils/site-config.ts": ["exports"],
+    "ui-libraries/material/docs/src/components/common/Metadata.astro": ["types"],
+    "ui-libraries/material/docs/src/components/common/ToggleMenu.astro": ["types"],
+    "ui-libraries/material/docs/src/components/common/ToggleTheme.astro": ["types"],
+    "ui-libraries/material/docs/src/components/ui/Background.astro": ["types"],
+    "ui-libraries/material/docs/src/components/ui/WidgetWrapper.astro": ["types"],
+    "ui-libraries/material/docs/src/components/widgets/Footer.astro": ["types"],
+    "ui-libraries/material/docs/src/components/widgets/Header.astro": ["types"],
+    "ui-libraries/material/docs/src/layouts/LandingLayout.astro": ["types"],
+    "ui-libraries/material/docs/src/layouts/Layout.astro": ["types"],
+    "ui-libraries/material/docs/src/layouts/PageLayout.astro": ["types"],
+    "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
+    "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"],
+    "docs/common/src/utils/site-config.ts": ["exports"],
+    "docs/common/src/utils/utils.ts": ["exports", "types"]
+  }
+}

@@ -1,7 +1,8 @@
 ---
 // Copyright © onWidget <https://github.com/onwidget>
 // SPDX-License-Identifier: MIT
-import { Icon } from "astro-icon/components";
+import { Icon } from "@astrojs/starlight/components";
+import { toStarlightIconName } from "~/utils/iconNames";
 
 import { UI } from "astrowind:config";
 
@@ -17,14 +18,14 @@ const {
     class:
         className = "text-muted dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg text-sm p-2.5 inline-flex items-center",
     iconClass = "w-6 h-6",
-    iconName = "tabler:sun",
+    iconName = "sun",
 } = Astro.props;
 ---
 
 {
   !(UI.theme && UI.theme.endsWith(':only')) && (
     <button type="button" class={className} aria-label={label} data-aw-toggle-color-scheme>
-      <Icon name={iconName} class={iconClass} />
+      <Icon name={toStarlightIconName(iconName) as any} class={iconClass} />
     </button>
   )
 }

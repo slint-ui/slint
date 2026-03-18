@@ -324,7 +324,7 @@ impl Snapshotter {
     ) -> Rc<object_tree::Component> {
         let input_address = by_address::ByAddress(component.clone());
 
-        let parent_element = if let Some(pe) = component.parent_element.upgrade() {
+        let parent_element = if let Some(pe) = component.parent_element() {
             Rc::downgrade(&self.use_element(&pe))
         } else {
             Weak::default()
@@ -379,7 +379,7 @@ impl Snapshotter {
                 init_code: RefCell::new(component.init_code.borrow().clone()),
                 inherits_popup_window: std::cell::Cell::new(component.inherits_popup_window.get()),
                 optimized_elements,
-                parent_element,
+                parent_element: RefCell::new(parent_element),
                 popup_windows,
                 timers,
                 menu_item_tree,

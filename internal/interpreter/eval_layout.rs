@@ -60,6 +60,7 @@ pub(crate) fn compute_grid_layout_info(
     .into()
 }
 
+/// Determine layout info of a box layout
 pub(crate) fn compute_box_layout_info(
     box_layout: &BoxLayout,
     orientation: Orientation,
@@ -394,6 +395,7 @@ fn flexbox_layout_data(
     (cells_h, cells_v, repeated_indices)
 }
 
+/// Determine the evaluated padding and spacing values from the layout geometry
 fn padding_and_spacing(
     layout_geometry: &LayoutGeometry,
     orientation: Orientation,
@@ -614,6 +616,7 @@ fn grid_layout_constraints(
     constraints
 }
 
+/// Collect all elements in this layout and store the LayoutItemInfo of it for further calculation
 fn box_layout_data(
     box_layout: &i_slint_compiler::layout::BoxLayout,
     orientation: Orientation,
@@ -625,6 +628,7 @@ fn box_layout_data(
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
+            // Collect all repeated elements
             let component_vec = repeater_instances(component, &cell.element);
             if let Some(ri) = repeater_indices.as_mut() {
                 ri.push(cells.len() as _);
@@ -636,6 +640,7 @@ fn box_layout_data(
                     .map(|x| x.as_pin_ref().layout_item_info(to_runtime(orientation), None)),
             );
         } else {
+            // Collect non repeated elements
             let mut layout_info =
                 get_layout_info(&cell.element, component, &window_adapter, orientation);
             fill_layout_info_constraints(

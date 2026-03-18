@@ -240,11 +240,11 @@
     "fs-extra": "11.3.3",
     "simple-git": "3.32.3",
     "vscode-languageclient": "9.0.1",
-    "vscode-languageserver": "9.0.1"
+    "vscode-languageserver": "9.0.1",
+    "vscode-languageserver-types": "3.17.5"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@rauschma/env-var": "1.0.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "catalog:",
     "@types/vscode": "1.82.0",

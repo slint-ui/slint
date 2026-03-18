@@ -94,12 +94,12 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: 24
                 package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
@@ -185,12 +185,12 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: 24
                 package-manager-cache: false
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust

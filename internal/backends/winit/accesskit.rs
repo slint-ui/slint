@@ -311,11 +311,7 @@ impl NodeCollection {
                             })
                             .unwrap_or(parent)
                     })
-                    .or_else(|| {
-                        window_inner
-                            .try_component()
-                            .map(|component_rc| ItemRc::new_root(component_rc))
-                    })
+                    .or_else(|| window_inner.try_component().map(ItemRc::new_root))
                     .map(|focus_item| self.find_node_id_by_item_rc(focus_item))
             })
             .unwrap_or(self.root_node_id)

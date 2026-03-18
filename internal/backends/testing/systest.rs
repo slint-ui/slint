@@ -380,11 +380,11 @@ impl TestingClient {
             accessible_enabled: element.accessible_enabled().unwrap_or_default(),
             accessible_read_only: element.accessible_read_only().unwrap_or_default(),
             layout_kind: match element.layout_kind() {
-                Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout.into(),
-                Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout.into(),
-                Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout.into(),
-                Some(LayoutKind::FlexBox) => proto::LayoutKind::FlexBox.into(),
-                None => proto::LayoutKind::NotALayout.into(),
+                Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout,
+                Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout,
+                Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout,
+                Some(LayoutKind::FlexBox) => proto::LayoutKind::FlexBox,
+                None => proto::LayoutKind::NotALayout,
             },
         })
     }

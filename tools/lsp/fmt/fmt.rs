@@ -156,6 +156,15 @@ fn format_node(
         SyntaxKind::ObjectLiteral => {
             return format_object_literal(node, writer, state);
         }
+        SyntaxKind::StructDeclaration => {
+            return format_struct_declaration(node, writer, state);
+        }
+        SyntaxKind::ObjectType => {
+            return format_object_type(node, writer, state);
+        }
+        SyntaxKind::ObjectTypeMember => {
+            return format_object_type_member(node, writer, state);
+        }
         SyntaxKind::PropertyChangedCallback => {
             return format_property_changed_callback(node, writer, state);
         }
@@ -1301,6 +1310,124 @@ fn format_object_literal(
     Ok(())
 }
 
+fn format_struct_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::ObjectType, writer, state, " ")?;
+    finish_node(sub, writer, state)?;
+    state.new_line();
+    Ok(())
+}
+
+fn format_object_type(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // Mirror object literal formatting, but for type definitions
+    let has_trailing_comma = node
+        .last_token()
+        .and_then(|last| last.prev_token())
+        .map(|second_last| {
+            if second_last.kind() == SyntaxKind::Whitespace {
+                second_last.prev_token().map(|n| n.kind() == SyntaxKind::Comma).unwrap_or(false)
+            } else {
+                second_last.kind() == SyntaxKind::Comma
+            }
+        })
+        .unwrap_or(false);
+    let len = node.children().fold(0, |acc, e| {
+        let mut len = 0;
+        e.text().for_each_chunk(|s| len += s.trim().len());
+        acc + len
+    });
+    let is_large_object = len >= 80;
+    let member_count = node.children().filter(|n| n.kind() == SyntaxKind::ObjectTypeMember).count();
+
+    let mut sub = node.children_with_tokens().peekable();
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?;
+    // Trailing commas or long content keep braces on separate lines
+    let indent_with_new_line = is_large_object || has_trailing_comma;
+
+    if indent_with_new_line {
+        state.indentation_level += 1;
+        state.new_line();
+    } else if member_count > 1 {
+        // Multi-field inline structs keep a space after `{`.
+        state.insert_whitespace(" ");
+    }
+
+    loop {
+        let el = whitespace_to_one_of(
+            &mut sub,
+            &[SyntaxKind::ObjectTypeMember, SyntaxKind::RBrace],
+            writer,
+            state,
+            "",
+        )?;
+
+        if let SyntaxMatch::Found(SyntaxKind::ObjectTypeMember) = el {
+            let at_end = sub
+                .peek()
+                .map(|next| {
+                    if next.kind() == SyntaxKind::Whitespace {
+                        next.as_token()
+                            .and_then(|ws| ws.next_token())
+                            .map(|n| n.kind() == SyntaxKind::RBrace)
+                            .unwrap_or(false)
+                    } else {
+                        next.kind() == SyntaxKind::RBrace
+                    }
+                })
+                .unwrap_or(false);
+
+            if indent_with_new_line {
+                state.new_line();
+            } else if !at_end {
+                state.insert_whitespace(" ");
+            }
+
+            if at_end && indent_with_new_line {
+                state.indentation_level -= 1;
+                state.whitespace_to_add = None;
+                state.new_line();
+            }
+
+            continue;
+        } else if let SyntaxMatch::Found(SyntaxKind::RBrace) = el {
+            break;
+        } else {
+            eprintln!("Inconsistency: unexpected syntax in object type.");
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn format_object_type_member(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // Format a single struct field: `name: Type` (comma handled if present).
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::Type, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Comma).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Comma, writer, state, "")?;
+    }
+    // Strip any trailing whitespace inside the member, so `}` can close tightly.
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
+    Ok(())
+}
+
 fn format_property_changed_callback(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -2255,6 +2382,59 @@ export component MainWindow inherits Window {
         },
         { image: @image-url("icons/balance-scale.png") },
     ];
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn struct_declaration() {
+        assert_formatting(
+            r#"
+export struct ParsedMarkdown {  string :string , span:{start:int,end:int,}, }
+"#,
+            r#"
+export struct ParsedMarkdown {
+    string: string,
+    span: {
+        start: int,
+        end: int,
+    },
+}
+"#,
+        );
+
+        assert_formatting(
+            r#"
+struct ParsedMarkdown {  string :string , span:{start: int, end:int} , x: int }
+"#,
+            r#"
+struct ParsedMarkdown { string: string, span: { start: int, end: int}, x: int}
+"#,
+        );
+
+        // issue 10647
+        assert_formatting(
+            r#"
+struct PrinterQueueItem {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string}
+
+            "#,
+            r#"
+struct PrinterQueueItem {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string
 }
 "#,
         );

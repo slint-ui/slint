@@ -2934,8 +2934,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
         } => generate_with_grid_input_data(
             cells_variable,
-            &repeater_indices_var_name,
-            &repeater_steps_var_name,
+            repeater_indices_var_name,
+            repeater_steps_var_name,
             elements.as_ref(),
             sub_expression,
             ctx,

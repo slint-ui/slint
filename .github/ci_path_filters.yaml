@@ -4,6 +4,9 @@
 ci_config: &ci_config
  - '.github/**'
  - '.mise/**'
+ # We count changes to Cargo.lock as a "CI config" level change, as we need to ensure that all CI jobs will work correctly with the updated lock file.
+ # Otherwise, later job runs may run into issues that have nothing to do with their changes.
+ - 'Cargo.lock'
 
 files_in_root: &files_in_root
  - '*!(/)' # changes in the root, such as cspell.json or pnpm-lock.yaml
@@ -118,4 +121,10 @@ servo_example:
 
 bevy_examples:
  - 'examples/bevy/**'
+ - *ci_config
+
+rust_files:
+ - '**/*.rs'
+ - '**/Cargo.toml'
+ - 'Cargo.lock'
  - *ci_config

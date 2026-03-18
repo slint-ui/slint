@@ -62,6 +62,6 @@ export const footerData = {
         },
     ],
     footNote: `
-    Copyright © 2025 SixtyFPS GmbH
+    Copyright © 2026 SixtyFPS GmbH
   `,
 };

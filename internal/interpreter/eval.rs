@@ -846,14 +846,10 @@ fn call_builtin_function(
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let parent_component = pop_comp
-                    .parent_element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .enclosing_component
-                    .upgrade()
-                    .unwrap();
+                let parent_component = {
+                    let parent_elem = pop_comp.parent_element().unwrap();
+                    parent_elem.borrow().enclosing_component.upgrade().unwrap()
+                };
                 let popup_list = parent_component.popup_windows.borrow();
                 let popup =
                     popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
@@ -907,14 +903,10 @@ fn call_builtin_function(
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let parent_component = pop_comp
-                    .parent_element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .enclosing_component
-                    .upgrade()
-                    .unwrap();
+                let parent_component = {
+                    let parent_elem = pop_comp.parent_element().unwrap();
+                    parent_elem.borrow().enclosing_component.upgrade().unwrap()
+                };
                 let popup_list = parent_component.popup_windows.borrow();
                 let popup =
                     popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();

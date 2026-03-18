@@ -263,6 +263,7 @@ impl SlintAccessibleItemData {
 }
 
 cpp! {{
+    // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtGui/QAccessible>
     #include <QtWidgets/QWidget>
 

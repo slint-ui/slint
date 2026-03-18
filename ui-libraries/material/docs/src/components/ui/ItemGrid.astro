@@ -4,7 +4,8 @@
 import type { ItemGrid as Props } from "~/types";
 import { twMerge } from "tailwind-merge";
 import Button from "./Button.astro";
-import { Icon } from "astro-icon/components";
+import { Icon } from "@astrojs/starlight/components";
+import { toStarlightIconName } from "~/utils/iconNames";
 
 const { items = [], columns, defaultIcon = "", classes = {} } = Astro.props;
 
@@ -40,7 +41,7 @@ const {
             <div class="flex justify-center">
               {(icon || defaultIcon) && (
                 <Icon
-                  name={icon || defaultIcon}
+                  name={toStarlightIconName(icon || defaultIcon) as any}
                   class={twMerge('w-7 h-7 mr-2 rtl:mr-0 rtl:ml-2', defaultIconClass, itemClasses?.icon)}
                 />
               )}
