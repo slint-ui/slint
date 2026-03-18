@@ -213,6 +213,10 @@ pub(crate) fn solve_flexbox_layout(
         .map_or(i_slint_core::items::FlexAlignItems::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
+    let flex_wrap =
+        flexbox_layout.flex_wrap.as_ref().map_or(i_slint_core::items::FlexWrap::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
 
     let (padding_h, spacing_h) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
@@ -231,6 +235,7 @@ pub(crate) fn solve_flexbox_layout(
             direction,
             align_content,
             align_items,
+            flex_wrap,
             cells_h: Slice::from(cells_h.as_slice()),
             cells_v: Slice::from(cells_v.as_slice()),
         },
@@ -293,6 +298,11 @@ pub(crate) fn compute_flexbox_layout_info(
     let (padding_v, spacing_v) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
 
+    let flex_wrap =
+        flexbox_layout.flex_wrap.as_ref().map_or(i_slint_core::items::FlexWrap::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
+
     if is_main_axis {
         // Main axis: use simple layout info (no constraint needed)
         // This avoids reading the perpendicular dimension and prevents circular dependencies
@@ -306,6 +316,7 @@ pub(crate) fn compute_flexbox_layout_info(
             to_runtime(orientation),
             direction,
             Coord::MAX,
+            flex_wrap,
         )
         .into()
     } else {
@@ -334,6 +345,7 @@ pub(crate) fn compute_flexbox_layout_info(
             to_runtime(orientation),
             direction,
             constraint_size,
+            flex_wrap,
         )
         .into()
     }
