@@ -2552,6 +2552,13 @@ mod tests {
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
 
+        // Check that we have a ChildWindow popup
+        let window_adapter = window_adapter_weak.upgrade().unwrap();
+        let active_popups = window_adapter.window.0.active_popups();
+        assert_eq!(active_popups.borrow().len(), 1);
+        let borrow = active_popups.borrow().first().unwrap();
+        assert!(matches!(borrow.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
+
         // The popup is not a real window and therefore it does not have it's own coordinate system
         // So map_to_window is really absolute to the window not to the popup window
         let point = first_child_of_first_child.map_to_window(Point2D::new(3., -82.));
