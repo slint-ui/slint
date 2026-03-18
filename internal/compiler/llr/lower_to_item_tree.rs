@@ -616,11 +616,12 @@ fn lower_sub_component(
                             &layout_item.constraints,
                             crate::layout::Orientation::Vertical,
                         );
-                        let child_index = sub_component.grid_layout_children.len();
-                        sub_component.grid_layout_children.push(super::GridLayoutChildLayoutInfo {
-                            layout_info_h: layout_info_h.into(),
-                            layout_info_v: layout_info_v.into(),
-                        });
+                        let child_index = sub_component.grid_layout_children.push_and_get_key(
+                            super::GridLayoutChildLayoutInfo {
+                                layout_info_h: layout_info_h.into(),
+                                layout_info_v: layout_info_v.into(),
+                            },
+                        );
                         row_child_templates
                             .push(super::RowChildTemplateInfo::Static { child_index });
                     }
