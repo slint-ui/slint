@@ -1,25 +1,41 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//! This module contains varios physics simulations which can be used as animation (internally only yet).
+//! Currently it is used in the flickable to animate the viewport position
+//!
+//! Currently it contains two simulations:
+//! - `ConstantDeceleration`
+//! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
+
 use crate::animations::Instant;
 #[cfg(all(not(feature = "std"), test))]
 use num_traits::Float;
 
+/// The direction the simulation is running
 #[derive(Debug)]
 enum Direction {
+    /// The start value is smaller than the limit value
     Increasing,
+    /// The start value is larger than the limit value
     Decreasing,
 }
 
+/// Common simulation trait
+/// All simulations must implement this trait
 pub trait Simulation {
     fn step(&mut self, new_tick: Instant) -> (f32, bool);
     fn curr_value(&self) -> f32;
 }
 
+/// Trait to convert parameter objects into a simulation
+/// All parameter objects must implement this trait!
 pub trait Parameter {
     type Output;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output;
 }
 
+/// Input parameters for the `ConstantDeceleration` simulation
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationParameters {
     pub initial_velocity: f32,
@@ -35,11 +51,12 @@ impl ConstantDecelerationParameters {
 impl Parameter for ConstantDecelerationParameters {
     type Output = ConstantDeceleration;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
-        let initial_velocity = self.initial_velocity.clone();
-        ConstantDeceleration::new(start_value, limit_value, initial_velocity, self)
+        ConstantDeceleration::new(start_value, limit_value, self)
     }
 }
 
+/// This simulation simulates a constant deceleration of a point starting at position `start_value` with
+/// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` it stops there
 #[derive(Debug)]
 pub struct ConstantDeceleration {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -53,28 +70,23 @@ pub struct ConstantDeceleration {
 }
 
 impl ConstantDeceleration {
-    pub fn new(
-        start_value: f32,
-        limit_value: f32,
-        initial_velocity: f32,
-        data: ConstantDecelerationParameters,
-    ) -> Self {
-        Self::new_internal(
-            start_value,
-            limit_value,
-            initial_velocity,
-            data,
-            crate::animations::current_tick(),
-        )
+    /// Create a new ConstantDeceleration simulation
+    ///
+    /// * `start_value` - start position
+    /// * `limit_value` - value at which the simulation ends if the velocity did not get zero before
+    /// * `initial_velocity` - the initial velocity of the point
+    /// * `data` - the properties of this simulation
+    pub fn new(start_value: f32, limit_value: f32, data: ConstantDecelerationParameters) -> Self {
+        Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
     }
 
     fn new_internal(
         start_value: f32,
         limit_value: f32,
-        mut initial_velocity: f32,
         mut data: ConstantDecelerationParameters,
         start_time: Instant,
     ) -> Self {
+        let mut initial_velocity = data.initial_velocity;
         let direction = if start_value == limit_value {
             if initial_velocity >= 0. {
                 data.deceleration = f32::abs(data.deceleration);
@@ -170,13 +182,8 @@ mod tests {
         };
 
         let time = Instant::now();
-        let mut simulation = ConstantDeceleration::new_internal(
-            START_VALUE,
-            LIMIT_VALUE,
-            parameters.initial_velocity,
-            parameters,
-            time.clone(),
-        );
+        let mut simulation =
+            ConstantDeceleration::new_internal(START_VALUE, LIMIT_VALUE, parameters, time.clone());
 
         let res = simulation.step(time + Duration::from_hours(10));
         assert_eq!(res.1, true);
@@ -197,13 +204,8 @@ mod tests {
         };
 
         let mut time = Instant::now();
-        let mut simulation = ConstantDeceleration::new_internal(
-            START_VALUE,
-            LIMIT_VALUE,
-            parameters.initial_velocity,
-            parameters,
-            time.clone(),
-        );
+        let mut simulation =
+            ConstantDeceleration::new_internal(START_VALUE, LIMIT_VALUE, parameters, time.clone());
 
         // Velocity does not become zero
         let mut duration = Duration::from_secs(1);
@@ -245,13 +247,8 @@ mod tests {
         };
 
         let mut time = Instant::now();
-        let mut simulation = ConstantDeceleration::new_internal(
-            START_VALUE,
-            LIMIT_VALUE,
-            parameters.initial_velocity,
-            parameters,
-            time.clone(),
-        );
+        let mut simulation =
+            ConstantDeceleration::new_internal(START_VALUE, LIMIT_VALUE, parameters, time.clone());
 
         let duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) < f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
@@ -276,13 +273,8 @@ mod tests {
         };
 
         let mut time = Instant::now();
-        let mut simulation = ConstantDeceleration::new_internal(
-            START_VALUE,
-            LIMIT_VALUE,
-            parameters.initial_velocity,
-            parameters,
-            time.clone(),
-        );
+        let mut simulation =
+            ConstantDeceleration::new_internal(START_VALUE, LIMIT_VALUE, parameters, time.clone());
 
         let mut duration = Duration::from_secs(1);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) < f32::abs(INITIAL_VELOCITY));
@@ -326,13 +318,8 @@ mod tests {
         };
 
         let mut time = Instant::now();
-        let mut simulation = ConstantDeceleration::new_internal(
-            START_VALUE,
-            LIMIT_VALUE,
-            parameters.initial_velocity,
-            parameters,
-            time.clone(),
-        );
+        let mut simulation =
+            ConstantDeceleration::new_internal(START_VALUE, LIMIT_VALUE, parameters, time.clone());
 
         let duration = Duration::from_secs(3);
         assert!(f32::abs(DECELERATION * duration.as_secs_f32()) > f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
@@ -343,6 +330,7 @@ mod tests {
     }
 }
 
+/// Input parameters for the `ConstantDecelerationSpringDamper` simulation
 /// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
 #[cfg(test)]
 #[derive(Debug, Clone)]
@@ -356,6 +344,13 @@ pub struct ConstantDecelerationSpringDamperParameters {
 
 #[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
+    /// Creates a new `ConstantDecelerationSpringDamperParameters` parameter object
+    /// It is more comfortable to use than specifiying the parameters manually because here the parameter calculation
+    /// is done based on the `half_period_time` parameter
+    ///
+    /// * `initial_velocity` - the initial velocity of the point
+    /// * `deceleration` - the constant deceleration of the point
+    /// * `half_period_time` - the time of the simulation when the limit value got exceeded to return back to it
     pub fn new(initial_velocity: f32, deceleration: f32, half_period_time: f32) -> Self {
         let (mass, spring_constant, damping_coefficient) =
             Self::calculate_parameters(half_period_time);
@@ -378,8 +373,7 @@ impl ConstantDecelerationSpringDamperParameters {
 impl Parameter for ConstantDecelerationSpringDamperParameters {
     type Output = ConstantDecelerationSpringDamper;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
-        let initial_velocity = self.initial_velocity.clone();
-        ConstantDecelerationSpringDamper::new(start_value, limit_value, initial_velocity, self)
+        ConstantDecelerationSpringDamper::new(start_value, limit_value, self)
     }
 }
 
@@ -391,6 +385,10 @@ enum State {
     Done,
 }
 
+/// This simulation simulates a constant deceleration of a point starting at position `start_value` with
+/// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` before
+/// the velocity reaches zero, the system simulates a spring damper system to go shortly beyond the limit
+/// value and returning then back
 #[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDecelerationSpringDamper {
@@ -418,25 +416,18 @@ impl ConstantDecelerationSpringDamper {
     pub fn new(
         start_value: f32,
         limit_value: f32,
-        initial_velocity: f32,
         data: ConstantDecelerationSpringDamperParameters,
     ) -> Self {
-        Self::new_internal(
-            start_value,
-            limit_value,
-            initial_velocity,
-            data,
-            crate::animations::current_tick(),
-        )
+        Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
     }
 
     fn new_internal(
         start_value: f32,
         limit_value: f32,
-        mut initial_velocity: f32,
         mut data: ConstantDecelerationSpringDamperParameters,
         start_time: Instant,
     ) -> Self {
+        let mut initial_velocity = data.initial_velocity;
         let mut state = State::Deceleration;
         let direction = if start_value == limit_value {
             state = State::Done;
@@ -652,7 +643,6 @@ mod tests_spring_damper {
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             LIMIT_VALUE,
-            parameters.initial_velocity,
             parameters,
             time.clone(),
         );
@@ -676,13 +666,8 @@ mod tests_spring_damper {
         );
 
         let mut time = Instant::now();
-        let mut simulation = ConstantDecelerationSpringDamper::new_internal(
-            10.,
-            2000.,
-            parameters.initial_velocity,
-            parameters,
-            time.clone(),
-        );
+        let mut simulation =
+            ConstantDecelerationSpringDamper::new_internal(10., 2000., parameters, time.clone());
 
         // Velocity does not become zero
         let mut duration = Duration::from_secs(1);
@@ -731,7 +716,6 @@ mod tests_spring_damper {
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             LIMIT_VALUE,
-            parameters.initial_velocity,
             parameters,
             time.clone(),
         );
@@ -783,7 +767,6 @@ mod tests_spring_damper {
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             LIMIT_VALUE,
-            parameters.initial_velocity,
             parameters,
             time.clone(),
         );
@@ -828,7 +811,6 @@ mod tests_spring_damper {
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
             LIMIT_VALUE,
-            parameters.initial_velocity,
             parameters,
             time.clone(),
         );
