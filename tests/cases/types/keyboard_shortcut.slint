@@ -7,6 +7,7 @@ export component TestCase inherits Window {
         @keys(Control + Shift + Escape),
         @keys(Control + Shift + A),
         @keys(Control + Plus),
+        @keys("é"),
     ];
 
     // For access from NodeJS
@@ -48,6 +49,7 @@ export component TestCase inherits Window {
             if log_matches(root.shortcuts[0], event) { matches += 1; }
             if log_matches(root.shortcuts[1], event) { matches += 1; }
             if log_matches(root.shortcuts[2], event) { matches += 1; }
+            if log_matches(root.shortcuts[3], event) { matches += 1; }
 
             if old-matches != root.matches {
                 debug("MATCHES");
@@ -104,6 +106,14 @@ send_keyboard_shortcut(&instance, { control, alt, "+" });
 send_keyboard_shortcut(&instance, { control, "A" });
 send_keyboard_shortcut(&instance, { control, "a" });
 assert_eq(instance.get_matches(), 5);
+
+// Unicode normalization: send NFC é (U+00E9) - should match directly
+send_keyboard_shortcut(&instance, { "\xc3\xa9" });
+assert_eq(instance.get_matches(), 6);
+
+// Unicode normalization: send NFD é (e + combining acute U+0301) - should match after normalization
+send_keyboard_shortcut(&instance, { "e\xcc\x81" });
+assert_eq(instance.get_matches(), 7);
 ```
 
 ```rust
@@ -115,6 +125,7 @@ let expected = [
     "Control+Shift+\"\\u{1b}\"",
     "Control+Shift+\"a\"",
     "Control+Shift?+\"+\"",
+    "\"é\"",
 ];
 for (shortcut, expected) in shortcuts.iter().zip(expected) {
     assert_eq!(format!("{:?}", shortcut), expected);
@@ -143,6 +154,14 @@ slint_testing::send_keyboard_shortcut(&instance, [Key::Control, Key::Alt, Key::P
 slint_testing::send_keyboard_shortcut(&instance, [char::from(Key::Control), 'A']);
 slint_testing::send_keyboard_shortcut(&instance, [char::from(Key::Control), 'a']);
 assert_eq!(instance.get_matches(), 5);
+
+// Unicode normalization: send NFC é (U+00E9) - should match directly
+slint_testing::send_keyboard_shortcut(&instance, ['\u{00e9}']);
+assert_eq!(instance.get_matches(), 6);
+
+// Unicode normalization: send NFD é (e + combining acute U+0301) - should match after NFC normalization
+slint_testing::send_keyboard_shortcut_with_text(&instance, &["e\u{0301}".into()]);
+assert_eq!(instance.get_matches(), 7);
 
 // Test platform string conversion - explicit comparison with expected values
 let shortcut_string = instance.get_shortcut_as_string();

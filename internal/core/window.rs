@@ -1788,6 +1788,21 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
+        // NFC-normalize the event text so that shortcut matching works consistently
+        // regardless of the composed/decomposed form the backend provides
+        // (e.g. é as U+00E9 vs e + U+0301).
+        // Note: icu_normalizer is currently only enabled if parley is enabled
+        #[cfg(feature = "shared-parley")]
+        {
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let normalized = normalizer.normalize(&event.text);
+            // Only replace the event text if normalization actually changed it,
+            // to avoid unnecessary allocations.
+            if let alloc::borrow::Cow::Owned(normalized) = normalized {
+                event.text = normalized.into();
+            }
+        }
+
         if let Some(updated_modifier) = self
             .modifiers
             .get()

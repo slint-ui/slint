@@ -72,7 +72,7 @@ tr = ["dep:tr"]
 32-bit-color = []
 default = ["std", "unicode", "shared-parley"]
 
-shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]
+shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
 
 shared-swash = ["dep:swash"]
 
@@ -105,9 +105,14 @@ scopeguard = { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }
 static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
+
+# Note: We're migrating our unicode handling over to the icu family of crates.
+# Prefer using icu crates over adding more unicode-* dependencies
+# parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { workspace = true }
 unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
+icu_normalizer = { workspace = true, optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
 parley = { version = "0.7.0", optional = true }
 
