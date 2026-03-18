@@ -37,6 +37,9 @@ use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
 
+/// Deceleration during the animation. It slows down the initial velocity of the simulation
+/// so that the simulation stops at some point if it didn't reach the limit
+/// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
 
 /// The implementation of the `Flickable` element
