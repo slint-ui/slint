@@ -833,6 +833,7 @@ where
 impl<S> async_lsp::LspService for LogService<S>
 where
     S: Service<async_lsp::AnyRequest>,
+    S: async_lsp::LspService,
     S::Response: serde::ser::Serialize,
 {
     fn notify(
@@ -841,11 +842,11 @@ where
     ) -> std::ops::ControlFlow<async_lsp::Result<()>> {
         let json = serde_json::to_string(&notif).unwrap();
         tracing::debug!("Notify {json}");
-        std::ops::ControlFlow::Continue(())
+        self.0.notify(notif)
     }
 
     fn emit(&mut self, event: async_lsp::AnyEvent) -> std::ops::ControlFlow<async_lsp::Result<()>> {
         tracing::debug!("Emit {event:?}");
-        std::ops::ControlFlow::Continue(())
+        self.0.emit(event)
     }
 }
