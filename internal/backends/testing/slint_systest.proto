@@ -110,6 +110,7 @@ enum AccessibleRole {
     Groupbox = 17;
     Image = 18;
     RadioButton = 19;
+    RadioGroup = 20;
 }
 
 message ElementQueryInstruction {

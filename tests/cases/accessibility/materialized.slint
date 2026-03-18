@@ -33,6 +33,11 @@ component ComboBox inherits Rectangle {
     }
 }
 
+component RadioGroup inherits Rectangle {
+    accessible-role: radio-group;
+    accessible-label: "myradiogroup";
+}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
@@ -54,6 +59,8 @@ TestCase := Rectangle {
         cb := Cb { text: "hello"; }
 
         ComboBox {}
+
+        rg := RadioGroup {}
     }
 
     for t in ["abc"] : Text { text: t; accessible-description: t;  }
@@ -64,11 +71,14 @@ TestCase := Rectangle {
     property<AccessibleRole> materialized_vl_role: vl.accessible-role;
     property<AccessibleRole> materialized_txt_role: txt.accessible-role;
     property<string> materialized_txt_label: txt.accessible-label;
+    property<AccessibleRole> materialized_rg_role: rg.accessible-role;
+    property<string> materialized_rg_label: rg.accessible-label;
 
     property <bool> test:
         materialized_b1_role == AccessibleRole.button && materialized_b2_label == "minus"
         && materialized_vl_label == "" && materialized_vl_role == AccessibleRole.none
         && materialized_txt_label == "automatic text value" && materialized_txt_role == AccessibleRole.text
+        && materialized_rg_role == AccessibleRole.radio-group && materialized_rg_label == "myradiogroup"
         && cb.accessible-checked && !b1.accessible-checked;
 }
 
@@ -88,6 +98,7 @@ assert!(instance.get_test());
 
 assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "mycombo").collect::<Vec<_>>().len(), 1);
 assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "innerlabel").collect::<Vec<_>>().len(), 1);
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "myradiogroup").collect::<Vec<_>>().len(), 1);
 ```
 
 ```js

@@ -569,6 +569,7 @@ fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::TabPanel => proto::AccessibleRole::TabPanel,
         i_slint_core::items::AccessibleRole::Image => proto::AccessibleRole::Image,
         i_slint_core::items::AccessibleRole::RadioButton => proto::AccessibleRole::RadioButton,
+        i_slint_core::items::AccessibleRole::RadioGroup => proto::AccessibleRole::RadioGroup,
         _ => return None,
     })
 }
@@ -599,6 +600,7 @@ fn convert_from_proto_accessible_role(
         proto::AccessibleRole::TabPanel => i_slint_core::items::AccessibleRole::TabPanel,
         proto::AccessibleRole::Image => i_slint_core::items::AccessibleRole::Image,
         proto::AccessibleRole::RadioButton => i_slint_core::items::AccessibleRole::RadioButton,
+        proto::AccessibleRole::RadioGroup => i_slint_core::items::AccessibleRole::RadioGroup,
     })
 }
 
