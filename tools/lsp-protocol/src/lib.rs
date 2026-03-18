@@ -73,7 +73,7 @@ pub struct PreviewComponent {
 pub enum LspToPreviewMessage {
     InvalidateContents { url: Url },
     ForgetFile { url: Url },
-    SetContents { url: VersionedUrl, contents: Vec<u8> },
+    SetContents { url: VersionedUrl, contents: String },
     SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),
     HighlightFromEditor { url: Option<Url>, offset: u32 },
@@ -117,8 +117,6 @@ pub enum PreviewToLspMessage {
     SendShowMessage { message: lsp_types::ShowMessageParams },
     /// Send a telemetry event
     TelemetryEvent(serde_json::Map<String, serde_json::Value>),
-    /// Request a file from the LSP server
-    RequestFile { file: Url },
 }
 
 impl lsp_types::notification::Notification for PreviewToLspMessage {

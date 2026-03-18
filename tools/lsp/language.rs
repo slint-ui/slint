@@ -428,10 +428,6 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
         }
         POPULATE_COMMAND => Box::pin(populate_command(&params.arguments, ctx)),
-        #[cfg(feature = "preview-remote")]
-        CONNECT_REMOTE_PREVIEW_COMMAND => {
-            Box::pin(connect_remote_preview_command(&params.arguments, ctx))
-        }
         _ => {
             tracing::error!("Received unknown command {}", params.command.as_str());
             Box::pin(std::future::ready(Ok(None)))
@@ -672,46 +668,6 @@ pub fn show_preview_command(
     Ok(())
 }
 
-#[cfg(feature = "preview-remote")]
-pub fn connect_remote_preview_command(
-    params: &[serde_json::Value],
-    ctx: &Context,
-) -> impl std::future::Future<Output = Result<Option<serde_json::Value>, LspError>> + Send + 'static
-{
-    let addresses = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
-        addresses.iter().filter_map(serde_json::Value::as_str).map(String::from).collect::<Vec<_>>()
-    });
-    let port = params.get(1).and_then(serde_json::Value::as_u64);
-
-    ctx.to_preview.clone().exec_async(async move |to_preview| {
-        if let Some(addresses) = addresses {
-            if let Some(port) = port {
-                let _ = to_preview.set_preview_target(common::PreviewTarget::Remote);
-                to_preview.with_preview_target_async::<crate::preview::connector::remote::RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
-                    async |remote| {
-                        remote.connect(addresses.iter().map(String::as_str), port as u16).await.map_err(|err| {
-                            LspError {
-                                code: LspErrorCode::RequestFailed,
-                                message: format!("Failed to connect to remote preview: {err}"),
-                            }
-                        })?;
-                        Ok(None)
-                    }).await.unwrap()
-            } else {
-                Err(LspError {
-                    code: LspErrorCode::InvalidParameter,
-                    message: "Need number as the second parameter".to_owned(),
-                })
-            }
-        } else {
-            Err(LspError {
-                code: LspErrorCode::InvalidParameter,
-                message: "Need array of string as the first parameter".to_owned(),
-            })
-        }
-    })
-}
-
 fn populate_command_range(
     node: &SyntaxNode,
     format: common::ByteFormat,
@@ -881,10 +837,10 @@ pub(crate) async fn load_document_impl(
     let mut diag = BuildDiagnostics::default();
 
     let dependencies = match action {
-        FileAction::ProcessContent(content) => {
+        FileAction::ProcessContent(contents) => {
             if let Some(to_preview) = to_preview {
                 let url = url.clone();
-                let contents = content.as_bytes().to_owned();
+                let contents = contents.clone();
                 to_preview.oneway(move |to_preview| {
                     to_preview.send(&common::LspToPreviewMessage::SetContents {
                         url: common::VersionedUrl::new(url, version),
@@ -893,7 +849,7 @@ pub(crate) async fn load_document_impl(
                 });
             }
             let dependencies = document_cache.invalidate_url(&url);
-            let _ = document_cache.load_url(&url, version, content, &mut diag).await;
+            let _ = document_cache.load_url(&url, version, contents, &mut diag).await;
             dependencies
         }
         FileAction::IgnoreFile => return Default::default(),

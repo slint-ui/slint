@@ -487,9 +487,6 @@ fn create_context(
                 Box::new(preview::connector::ChildProcessLspToPreview::new(sn.clone()));
             let embedded_preview: Box<dyn common::LspToPreview> =
                 Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
-            #[cfg(feature = "preview-remote")]
-            let remote_preview: Box<dyn common::LspToPreview> =
-                Box::new(preview::connector::RemoteLspToPreview::new(sn));
             preview::connector::SwitchableLspToPreview::new(
                 HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
