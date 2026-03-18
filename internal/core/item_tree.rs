@@ -552,6 +552,7 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
+    /// Maps a position in window coordinates to the item coordinates
     pub(crate) fn map_from_window(&self, p: LogicalPoint) -> LogicalPoint {
         self.map_from_item_tree_impl(p, |_| false)
     }
@@ -1454,21 +1455,169 @@ pub(crate) mod ffi {
 
 #[cfg(test)]
 mod tests {
-    use euclid::Point2D;
-
     use super::*;
-    use std::vec;
+    use crate::api::Window;
+    use crate::lengths::LogicalLength;
+    use crate::lengths::LogicalSize;
+    use euclid::Point2D;
+    use std::{rc::Rc, vec};
 
     const GEOMETRY_POSITION_X: f32 = 6.;
     const GEOMETRY_POSITION_Y: f32 = 27.;
     const GEOMETRY_WIDTH: f32 = 33.;
     const GEOMETRY_HEIGHT: f32 = 42.;
 
+    #[derive(Default)]
     struct Renderer {}
 
-    impl crate::renderer::Renderer for Renderer {}
+    impl crate::renderer::RendererSealed for Renderer {
+        fn char_size(
+            &self,
+            _text_item: Pin<&dyn crate::item_rendering::HasFont>,
+            _item_rc: &crate::item_tree::ItemRc,
+            _ch: char,
+        ) -> LogicalSize {
+            LogicalSize::new(5., 10.)
+        }
 
-    struct WindowAdapter {}
+        fn default_font_size(&self) -> LogicalLength {
+            LogicalLength::new(10.)
+        }
+
+        fn font_metrics(
+            &self,
+            _font_request: crate::graphics::FontRequest,
+        ) -> crate::items::FontMetrics {
+            crate::items::FontMetrics { ..Default::default() }
+        }
+
+        fn free_graphics_resources(
+            &self,
+            _component: ItemTreeRef,
+            _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
+        ) -> Result<(), crate::platform::PlatformError> {
+            Ok(())
+        }
+
+        fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
+            unimplemented!("Not required in this test");
+        }
+
+        fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
+            unimplemented!("Not required in this test");
+        }
+
+        fn register_font_from_memory(
+            &self,
+            _data: &'static [u8],
+        ) -> Result<(), std::prelude::v1::Box<dyn std::error::Error>> {
+            unimplemented!("Not required in this test");
+        }
+
+        fn register_font_from_path(
+            &self,
+            _path: &std::path::Path,
+        ) -> Result<(), std::prelude::v1::Box<dyn std::error::Error>> {
+            unimplemented!("Not required in this test");
+        }
+
+        fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), crate::api::PlatformError> {
+            Ok(())
+        }
+
+        fn scale_factor(&self) -> Option<crate::lengths::ScaleFactor> {
+            None
+        }
+
+        fn set_rendering_notifier(
+            &self,
+            _callback: std::prelude::v1::Box<dyn crate::api::RenderingNotifier>,
+        ) -> Result<(), crate::api::SetRenderingNotifierError> {
+            Ok(())
+        }
+
+        fn set_window_adapter(
+            &self,
+            _window_adapter: &std::rc::Rc<dyn crate::window::WindowAdapter>,
+        ) {
+            unimplemented!("Not required in this test");
+        }
+
+        fn slint_context(&self) -> Option<crate::SlintContext> {
+            None
+        }
+
+        fn supports_transformations(&self) -> bool {
+            false
+        }
+
+        fn take_snapshot(
+            &self,
+        ) -> Result<crate::api::SharedPixelBuffer<crate::api::Rgba8Pixel>, crate::api::PlatformError>
+        {
+            unimplemented!("Not required in this test");
+        }
+
+        fn text_input_byte_offset_for_position(
+            &self,
+            _text_input: Pin<&crate::items::TextInput>,
+            _item_rc: &ItemRc,
+            _pos: LogicalPoint,
+        ) -> usize {
+            unimplemented!("Not required in this test");
+        }
+
+        fn text_input_cursor_rect_for_byte_offset(
+            &self,
+            _text_input: Pin<&crate::items::TextInput>,
+            _item_rc: &ItemRc,
+            _byte_offset: usize,
+        ) -> LogicalRect {
+            unimplemented!("Not required in this test");
+        }
+
+        fn text_size(
+            &self,
+            _text_item: Pin<&dyn crate::item_rendering::RenderString>,
+            _item_rc: &crate::item_tree::ItemRc,
+            _max_width: Option<crate::lengths::LogicalLength>,
+            _text_wrap: crate::items::TextWrap,
+        ) -> crate::lengths::LogicalSize {
+            unimplemented!("Not required in this test");
+        }
+
+        fn window_adapter(&self) -> Option<std::rc::Rc<dyn crate::window::WindowAdapter>> {
+            unimplemented!("Not required in this test");
+        }
+    }
+
+    struct WindowAdapter {
+        renderer: Renderer,
+        window: Window,
+    }
+
+    impl WindowAdapter {
+        fn new() -> Rc<Self> {
+            Rc::<Self>::new_cyclic(|w| Self {
+                window: Window::new(w.clone()),
+                renderer: Default::default(),
+            })
+        }
+    }
+
+    impl crate::window::WindowAdapter for WindowAdapter {
+        fn window(&self) -> &crate::api::Window {
+            &self.window
+        }
+
+        fn size(&self) -> crate::api::PhysicalSize {
+            crate::api::PhysicalSize::new(100, 100)
+        }
+
+        fn renderer(&self) -> &dyn crate::platform::Renderer {
+            &self.renderer
+        }
+    }
 
     struct TestItemTree {
         parent_component: Option<ItemTreeRc>,
@@ -1477,6 +1626,8 @@ mod tests {
         /// Contains the trees of the dynamic components
         subtrees: std::cell::RefCell<Vec<Vec<vtable::VRc<ItemTreeVTable, TestItemTree>>>>,
         subtree_index: usize,
+
+        window_adapter: WindowAdapterRc,
     }
 
     impl ItemTree for TestItemTree {
@@ -1560,7 +1711,7 @@ mod tests {
             _do_create: bool,
             result: &mut Option<WindowAdapterRc>,
         ) {
-            *result = None;
+            *result = Some(self.window_adapter.clone())
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
@@ -1596,6 +1747,8 @@ mod tests {
             }],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter: WindowAdapter::new(),
         });
         VRc::into_dyn(component)
     }
@@ -1671,6 +1824,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter: WindowAdapter::new(),
         });
         VRc::into_dyn(component)
     }
@@ -1781,6 +1936,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(vec![Vec::new()]),
             subtree_index: usize::MAX,
+
+            window_adapter: WindowAdapter::new(),
         });
         vtable::VRc::into_dyn(component)
     }
@@ -1822,6 +1979,7 @@ mod tests {
     }
 
     fn create_item_subtree_item() -> VRc<ItemTreeVTable, vtable::Dyn> {
+        let window_adapter = WindowAdapter::new();
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
@@ -1852,6 +2010,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter: window_adapter.clone(),
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
@@ -1865,6 +2025,8 @@ mod tests {
             }],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
+
+            window_adapter,
         })]]);
 
         VRc::into_dyn(component)
@@ -1953,6 +2115,8 @@ mod tests {
         // sub_component2 as subtree of sub_component1
         // sub_component1 as subtree of the main component
 
+        let window_adapter = WindowAdapter::new();
+
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
@@ -1986,6 +2150,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter: window_adapter.clone(),
         });
 
         let sub_component1 = VRc::new(TestItemTree {
@@ -2005,6 +2171,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter: window_adapter.clone(),
         });
         let sub_component2 = VRc::new(TestItemTree {
             parent_component: Some(VRc::into_dyn(sub_component1.clone())),
@@ -2026,6 +2194,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter,
         });
 
         sub_component1.as_pin_ref().subtrees.replace(vec![vec![sub_component2]]);
@@ -2145,6 +2315,8 @@ mod tests {
     }
 
     fn create_subtrees_item() -> VRc<ItemTreeVTable, vtable::Dyn> {
+        let window_adapter = WindowAdapter::new();
+
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
@@ -2166,6 +2338,8 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
+
+            window_adapter: window_adapter.clone(),
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![
@@ -2180,6 +2354,8 @@ mod tests {
                 }],
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 0,
+
+                window_adapter: window_adapter.clone(),
             }),
             VRc::new(TestItemTree {
                 parent_component: Some(VRc::into_dyn(component.clone())),
@@ -2192,6 +2368,8 @@ mod tests {
                 }],
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 1,
+
+                window_adapter: window_adapter.clone(),
             }),
             VRc::new(TestItemTree {
                 parent_component: Some(VRc::into_dyn(component.clone())),
@@ -2204,6 +2382,8 @@ mod tests {
                 }],
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 2,
+
+                window_adapter,
             }),
         ]]);
 
@@ -2345,9 +2525,8 @@ mod tests {
         assert_eq!(tree.parent(3), Some(0));
     }
 
-    #[test]
-    fn test_map_to_anchestor() {
-        let item_tree = VRc::into_dyn(VRc::new(TestItemTree {
+    fn create_subsubtree_items() -> VRc<ItemTreeVTable> {
+        VRc::into_dyn(VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
                 // Root
@@ -2377,7 +2556,13 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
-        }));
+            window_adapter: WindowAdapter::new(),
+        }))
+    }
+
+    #[test]
+    fn test_map_to_anchestor() {
+        let item_tree = create_subsubtree_items();
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2396,9 +2581,37 @@ mod tests {
         }
 
         {
+            // Position of the parent must be added
             let point = first_child_of_first_child.map_to_ancestor(Point2D::new(27., -10.), &root);
+            // Position of first child
             assert_eq!(point.x, GEOMETRY_POSITION_X + 27.);
             assert_eq!(point.y, GEOMETRY_POSITION_Y - 10.);
         }
+    }
+
+    #[test]
+    fn test_map_to_window() {
+        let item_tree = create_subsubtree_items();
+        let root = ItemRc::new_root(item_tree);
+        let first_child = root.first_child().unwrap();
+        let first_child_of_first_child = first_child.first_child().unwrap();
+
+        let point = first_child_of_first_child.map_to_window(Point2D::new(-5., 7.));
+        // Position of        position of root  +   first_child
+        assert_eq!(point.x, GEOMETRY_POSITION_X + GEOMETRY_POSITION_X - 5.);
+        assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y + 7.);
+    }
+
+    #[test]
+    fn test_map_from_window() {
+        let item_tree = create_subsubtree_items();
+        let root = ItemRc::new_root(item_tree);
+        let first_child = root.first_child().unwrap();
+        let first_child_of_first_child = first_child.first_child().unwrap();
+
+        let point = first_child_of_first_child.map_to_window(Point2D::new(-5., 7.));
+
+        assert_eq!(point.x, -5. - (GEOMETRY_POSITION_X + GEOMETRY_POSITION_X));
+        assert_eq!(point.y, 7. - (GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y));
     }
 }
