@@ -138,9 +138,6 @@ jobs:
                   cd ${{ matrix.napi-rs-target }}/
                   pnpm pkg set repository.type=git
                   pnpm pkg set repository.url=https://github.com/slint-ui/slint
-                  if [ "$RELEASE_INPUT" != "true" ]; then
-                    pnpm version $PKG_VERSION
-                  fi
                   pnpm pack
             - name: Upload artifact
               uses: actions/upload-artifact@v7
