@@ -6,8 +6,8 @@ export component TestCase {
     width: 500phx;
     height: 500phx;
 
-    property <bool> correct_x: false;
-    property <bool> correct_y: false;
+    in-out property <bool> correct_x: false;
+    in-out property <bool> correct_y: false;
 
     Button {
         text: "Show popup";
