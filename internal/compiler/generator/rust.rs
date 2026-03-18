@@ -550,19 +550,21 @@ fn generate_struct(name: &StructName, fields: &BTreeMap<SmolStr, Type>) -> Token
 
     let StructName::User { name, node } = name else { unreachable!("generating non-user struct") };
 
-    let attributes = node
-        .parent()
-        .and_then(crate::parser::syntax_nodes::StructDeclaration::new)
-        .and_then(|d| d.AtRustAttr())
-        .map(|n| match TokenStream::from_str(&n.text().to_string()) {
-            Ok(t) => quote!(#[#t]),
-            Err(_) => {
-                let source_location = crate::diagnostics::Spanned::to_source_location(&n);
-                let error = format!(
-                    "Error parsing @rust-attr for struct '{name}' declared at {source_location}"
-                );
-                quote!(compile_error!(#error);)
-            }
+    let attributes =
+        node.parent().and_then(crate::parser::syntax_nodes::StructDeclaration::new).map(|node| {
+            let attrs = node.AtRustAttr().map(|attr| {
+                match TokenStream::from_str(&attr.text().to_string()) {
+                    Ok(t) => quote!(#[#t]),
+                    Err(_) => {
+                        let source_location = crate::diagnostics::Spanned::to_source_location(&attr);
+                        let error = format!(
+                            "Error parsing @rust-attr for struct '{name}' declared at {source_location}"
+                        );
+                        quote!(compile_error!(#error);)
+                    }
+                }
+            });
+            quote! { #(#attrs)* }
         });
 
     quote! {
@@ -581,18 +583,25 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
         let i = ident(&EnumerationValue { value, enumeration: en.clone() }.to_pascal_case());
         if value == en.default_value { quote!(#[default] #i) } else { quote!(#i) }
     });
-    let rust_attr = en.node.as_ref().and_then(|node| {
-        node.AtRustAttr().map(|attr| {
-            match TokenStream::from_str(format!(r#"#[{}]"#, attr.text()).as_str()) {
-                Ok(eval) => eval,
-                Err(_) => quote! {},
-            }
-        })
+    let attributes = en.node.as_ref().map(|node| {
+        let attrs =
+            node.AtRustAttr().map(|attr| match TokenStream::from_str(&attr.text().to_string()) {
+                Ok(t) => quote!(#[#t]),
+                Err(_) => {
+                    let name = &en.name;
+                    let source_location = crate::diagnostics::Spanned::to_source_location(&attr);
+                    let error = format!(
+                        "Error parsing @rust-attr for enum '{name}' declared at {source_location}"
+                    );
+                    quote!(compile_error!(#error);)
+                }
+            });
+        quote! { #(#attrs)* }
     });
     quote! {
+        #attributes
         #[allow(dead_code)]
         #[derive(Default, Copy, Clone, PartialEq, Debug)]
-        #rust_attr
         pub enum #enum_name {
             #(#enum_values,)*
         }
