@@ -41,6 +41,7 @@ use num_traits::Float;
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
+const SPRING_DAMPER_RETURN_TIME: f32 = 200e-3;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -683,7 +684,7 @@ impl FlickableData {
                         physics_simulation::ConstantDecelerationSpringDamperParameters::new(
                             dist.x / (millis as f32 / 1000.),
                             DECELERATION,
-                            200e-3,
+                            SPRING_DAMPER_RETURN_TIME,
                         );
                     viewport_x.set_physic_animation_value(limit.x_length(), simulation);
                 }
@@ -693,7 +694,7 @@ impl FlickableData {
                         physics_simulation::ConstantDecelerationSpringDamperParameters::new(
                             dist.y / (millis as f32 / 1000.),
                             DECELERATION,
-                            200e-3,
+                            SPRING_DAMPER_RETURN_TIME,
                         );
                     viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
                 }
