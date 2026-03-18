@@ -25,6 +25,7 @@ pub struct LiveReloadingComponent {
     component_name: String,
     properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
+    watcher: Arc<Mutex<Watcher>>,
 }
 
 impl LiveReloadingComponent {
@@ -51,6 +52,7 @@ impl LiveReloadingComponent {
                 component_name,
                 properties: Default::default(),
                 callbacks: Default::default(),
+                watcher,
             })
         });
 
@@ -74,6 +76,11 @@ impl LiveReloadingComponent {
             self_mut.file_name.display(),
             result.diagnostics
         );
+
+        for path in &result.all_loaded_files {
+            Watcher::watch(&self_mut.watcher, path);
+        }
+
         let definition = result.component(&self_mut.component_name).expect("Cannot open component");
         let instance = definition.create()?;
         eprintln!(
@@ -104,6 +111,10 @@ impl LiveReloadingComponent {
         result.print_diagnostics();
         if result.has_errors() {
             return false;
+        }
+
+        for path in &result.all_loaded_files {
+            Watcher::watch(&self.watcher, path);
         }
 
         if let Some(definition) = result.component(&self.component_name) {
