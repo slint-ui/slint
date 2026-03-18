@@ -15,7 +15,6 @@ use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
-use core::borrow::Borrow;
 use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
