@@ -1470,127 +1470,6 @@ mod tests {
     #[derive(Default)]
     struct Renderer {}
 
-    impl crate::renderer::RendererSealed for Renderer {
-        fn char_size(
-            &self,
-            _text_item: Pin<&dyn crate::item_rendering::HasFont>,
-            _item_rc: &crate::item_tree::ItemRc,
-            _ch: char,
-        ) -> LogicalSize {
-            LogicalSize::new(5., 10.)
-        }
-
-        fn default_font_size(&self) -> LogicalLength {
-            LogicalLength::new(10.)
-        }
-
-        fn font_metrics(
-            &self,
-            _font_request: crate::graphics::FontRequest,
-        ) -> crate::items::FontMetrics {
-            crate::items::FontMetrics { ..Default::default() }
-        }
-
-        fn free_graphics_resources(
-            &self,
-            _component: ItemTreeRef,
-            _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-        ) -> Result<(), crate::platform::PlatformError> {
-            Ok(())
-        }
-
-        fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
-            unimplemented!("Not required in this test");
-        }
-
-        fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
-            unimplemented!("Not required in this test");
-        }
-
-        fn register_font_from_memory(
-            &self,
-            _data: &'static [u8],
-        ) -> Result<(), std::prelude::v1::Box<dyn std::error::Error>> {
-            unimplemented!("Not required in this test");
-        }
-
-        fn register_font_from_path(
-            &self,
-            _path: &std::path::Path,
-        ) -> Result<(), std::prelude::v1::Box<dyn std::error::Error>> {
-            unimplemented!("Not required in this test");
-        }
-
-        fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), crate::api::PlatformError> {
-            Ok(())
-        }
-
-        fn scale_factor(&self) -> Option<crate::lengths::ScaleFactor> {
-            None
-        }
-
-        fn set_rendering_notifier(
-            &self,
-            _callback: std::prelude::v1::Box<dyn crate::api::RenderingNotifier>,
-        ) -> Result<(), crate::api::SetRenderingNotifierError> {
-            Ok(())
-        }
-
-        fn set_window_adapter(
-            &self,
-            _window_adapter: &std::rc::Rc<dyn crate::window::WindowAdapter>,
-        ) {
-            unimplemented!("Not required in this test");
-        }
-
-        fn slint_context(&self) -> Option<crate::SlintContext> {
-            None
-        }
-
-        fn supports_transformations(&self) -> bool {
-            false
-        }
-
-        fn take_snapshot(
-            &self,
-        ) -> Result<crate::api::SharedPixelBuffer<crate::api::Rgba8Pixel>, crate::api::PlatformError>
-        {
-            unimplemented!("Not required in this test");
-        }
-
-        fn text_input_byte_offset_for_position(
-            &self,
-            _text_input: Pin<&crate::items::TextInput>,
-            _item_rc: &ItemRc,
-            _pos: LogicalPoint,
-        ) -> usize {
-            unimplemented!("Not required in this test");
-        }
-
-        fn text_input_cursor_rect_for_byte_offset(
-            &self,
-            _text_input: Pin<&crate::items::TextInput>,
-            _item_rc: &ItemRc,
-            _byte_offset: usize,
-        ) -> LogicalRect {
-            unimplemented!("Not required in this test");
-        }
-
-        fn text_size(
-            &self,
-            _text_item: Pin<&dyn crate::item_rendering::RenderString>,
-            _item_rc: &crate::item_tree::ItemRc,
-            _max_width: Option<crate::lengths::LogicalLength>,
-            _text_wrap: crate::items::TextWrap,
-        ) -> crate::lengths::LogicalSize {
-            unimplemented!("Not required in this test");
-        }
-
-        fn window_adapter(&self) -> Option<std::rc::Rc<dyn crate::window::WindowAdapter>> {
-            unimplemented!("Not required in this test");
-        }
-    }
-
     struct WindowAdapter {
         renderer: Renderer,
         window: Window,
@@ -2583,7 +2462,7 @@ mod tests {
         {
             // Position of the parent must be added
             let point = first_child_of_first_child.map_to_ancestor(Point2D::new(27., -10.), &root);
-            // Position of first child
+            // Position of          first child
             assert_eq!(point.x, GEOMETRY_POSITION_X + 27.);
             assert_eq!(point.y, GEOMETRY_POSITION_Y - 10.);
         }
@@ -2597,7 +2476,7 @@ mod tests {
         let first_child_of_first_child = first_child.first_child().unwrap();
 
         let point = first_child_of_first_child.map_to_window(Point2D::new(-5., 7.));
-        // Position of        position of root  +   first_child
+        // Position of position of first_child  + first_child_of_first_child
         assert_eq!(point.x, GEOMETRY_POSITION_X + GEOMETRY_POSITION_X - 5.);
         assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y + 7.);
     }
@@ -2609,9 +2488,130 @@ mod tests {
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
 
-        let point = first_child_of_first_child.map_to_window(Point2D::new(-5., 7.));
+        let point = first_child_of_first_child.map_from_window(Point2D::new(-5., 7.));
 
         assert_eq!(point.x, -5. - (GEOMETRY_POSITION_X + GEOMETRY_POSITION_X));
         assert_eq!(point.y, 7. - (GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y));
+    }
+
+    impl crate::renderer::RendererSealed for Renderer {
+        fn char_size(
+            &self,
+            _text_item: Pin<&dyn crate::item_rendering::HasFont>,
+            _item_rc: &crate::item_tree::ItemRc,
+            _ch: char,
+        ) -> LogicalSize {
+            LogicalSize::new(5., 10.)
+        }
+
+        fn default_font_size(&self) -> LogicalLength {
+            LogicalLength::new(10.)
+        }
+
+        fn font_metrics(
+            &self,
+            _font_request: crate::graphics::FontRequest,
+        ) -> crate::items::FontMetrics {
+            crate::items::FontMetrics { ..Default::default() }
+        }
+
+        fn free_graphics_resources(
+            &self,
+            _component: ItemTreeRef,
+            _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
+        ) -> Result<(), crate::platform::PlatformError> {
+            Ok(())
+        }
+
+        fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
+            unimplemented!("Not required in this test");
+        }
+
+        fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
+            unimplemented!("Not required in this test");
+        }
+
+        fn register_font_from_memory(
+            &self,
+            _data: &'static [u8],
+        ) -> Result<(), std::prelude::v1::Box<dyn std::error::Error>> {
+            unimplemented!("Not required in this test");
+        }
+
+        fn register_font_from_path(
+            &self,
+            _path: &std::path::Path,
+        ) -> Result<(), std::prelude::v1::Box<dyn std::error::Error>> {
+            unimplemented!("Not required in this test");
+        }
+
+        fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), crate::api::PlatformError> {
+            Ok(())
+        }
+
+        fn scale_factor(&self) -> Option<crate::lengths::ScaleFactor> {
+            None
+        }
+
+        fn set_rendering_notifier(
+            &self,
+            _callback: std::prelude::v1::Box<dyn crate::api::RenderingNotifier>,
+        ) -> Result<(), crate::api::SetRenderingNotifierError> {
+            Ok(())
+        }
+
+        fn set_window_adapter(
+            &self,
+            _window_adapter: &std::rc::Rc<dyn crate::window::WindowAdapter>,
+        ) {
+            unimplemented!("Not required in this test");
+        }
+
+        fn slint_context(&self) -> Option<crate::SlintContext> {
+            None
+        }
+
+        fn supports_transformations(&self) -> bool {
+            false
+        }
+
+        fn take_snapshot(
+            &self,
+        ) -> Result<crate::api::SharedPixelBuffer<crate::api::Rgba8Pixel>, crate::api::PlatformError>
+        {
+            unimplemented!("Not required in this test");
+        }
+
+        fn text_input_byte_offset_for_position(
+            &self,
+            _text_input: Pin<&crate::items::TextInput>,
+            _item_rc: &ItemRc,
+            _pos: LogicalPoint,
+        ) -> usize {
+            unimplemented!("Not required in this test");
+        }
+
+        fn text_input_cursor_rect_for_byte_offset(
+            &self,
+            _text_input: Pin<&crate::items::TextInput>,
+            _item_rc: &ItemRc,
+            _byte_offset: usize,
+        ) -> LogicalRect {
+            unimplemented!("Not required in this test");
+        }
+
+        fn text_size(
+            &self,
+            _text_item: Pin<&dyn crate::item_rendering::RenderString>,
+            _item_rc: &crate::item_tree::ItemRc,
+            _max_width: Option<crate::lengths::LogicalLength>,
+            _text_wrap: crate::items::TextWrap,
+        ) -> crate::lengths::LogicalSize {
+            unimplemented!("Not required in this test");
+        }
+
+        fn window_adapter(&self) -> Option<std::rc::Rc<dyn crate::window::WindowAdapter>> {
+            unimplemented!("Not required in this test");
+        }
     }
 }
