@@ -161,37 +161,6 @@ impl ServerNotifier {
     }
 }
 
-// impl request_handler::RequestHandler {
-// async fn handle_request(&self, request: lsp_server::Request, ctx: &Rc<Context>) -> Result<()> {
-//     if let Some(x) = self.0.get(&request.method.as_str()) {
-//         match x(request.params, ctx.clone()).await {
-//             Ok(r) => ctx
-//                 .server_notifier
-//                 .sender
-//                 .send(Message::Response(Response::new_ok(request.id, r)))?,
-//             Err(e) => ctx.server_notifier.sender.send(Message::Response(Response::new_err(
-//                 request.id,
-//                 match e.code {
-//                     LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
-//                     LspErrorCode::InternalError => ErrorCode::InternalError as i32,
-//                     LspErrorCode::RequestFailed => ErrorCode::RequestFailed as i32,
-//                     LspErrorCode::ContentModified => ErrorCode::ContentModified as i32,
-//                 },
-//                 e.message,
-//             )))?,
-//         };
-//     } else {
-//         tracing::error!("Unable to handle request {}", request.method);
-//         ctx.server_notifier.sender.send(Message::Response(Response::new_err(
-//             request.id,
-//             ErrorCode::MethodNotFound as i32,
-//             "Cannot handle request".into(),
-//         )))?;
-//     }
-//     Ok(())
-// }
-// }
-
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
