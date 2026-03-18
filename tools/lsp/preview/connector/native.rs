@@ -151,43 +151,6 @@ impl common::LspToPreview for EmbeddedLspToPreview {
     }
 }
 
-pub struct SwitchableLspToPreview {
-    lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-    current_target: RefCell<common::PreviewTarget>,
-}
-
-impl SwitchableLspToPreview {
-    pub fn new(
-        lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-        current_target: common::PreviewTarget,
-    ) -> common::Result<Self> {
-        if lsp_to_previews.contains_key(&current_target) {
-            Ok(Self { lsp_to_previews, current_target: RefCell::new(current_target) })
-        } else {
-            anyhow::bail!("No such target")
-        }
-    }
-}
-
-impl SwitchableLspToPreview {
-    pub fn send(&self, message: &common::LspToPreviewMessage) {
-        self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
-    }
-
-    pub fn preview_target(&self) -> common::PreviewTarget {
-        self.current_target.borrow().clone()
-    }
-
-    pub fn set_preview_target(&self, target: common::PreviewTarget) -> common::Result<()> {
-        if self.lsp_to_previews.contains_key(&target) {
-            *self.current_target.borrow_mut() = target;
-            Ok(())
-        } else {
-            anyhow::bail!("Target not found")
-        }
-    }
-}
-
 pub struct RemoteControlledPreviewToLsp {}
 
 impl Default for RemoteControlledPreviewToLsp {
