@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
+import { RadioButtonBase } from "../common/radiobutton-base.slint";
+import { FocusBorder } from "components.slint";
+
+export struct RadioOption {
+    label: string,
+    value: string,
+    enabled: bool,
+}
+
+export component RadioButton {
+    in property <string> label <=> base.label;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> checked <=> base.checked;
+    out property <bool> has-focus <=> base.has-focus;
+
+    callback selected <=> base.selected;
+
+    private property <brush> dot-color: root.checked ? CupertinoPalette.accent-background : transparent;
+
+    base := RadioButtonBase { }
+
+    states [
+        disabled when !root.enabled : {
+            opacity: 0.5;
+        }
+        pressed when base.pressed : {
+            root.dot-color: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.hover;
+        }
+    ]
+
+    animate dot-color { duration: 150ms; }
+
+    layout := HorizontalLayout {
+        spacing: 8px;
+
+        Rectangle {
+            width: 16px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            border-radius: self.width / 2;
+            border-width: 1px;
+            border-color: CupertinoPalette.border;
+            background: CupertinoPalette.control-background;
+
+            Rectangle {
+                width: 8px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: root.dot-color;
+            }
+        }
+
+        if root.label != "" : Text {
+            text: root.label;
+            color: CupertinoPalette.foreground;
+            font-size: CupertinoFontSettings.body.font-size;
+            font-weight: CupertinoFontSettings.body.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    if root.has-focus && root.enabled : FocusBorder {
+        border-radius: 7px;
+    }
+}
+
+export component RadioGroup {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <bool> vertical: true;
+
+    in property <[RadioOption]> options: [];
+    in-out property <string> value;
+
+    out property <bool> has-focus: root.focused-index >= 0;
+
+    callback changed(string);
+
+    private property <int> focused-index: -1;
+
+    accessible-role: radio-group;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        if root.title != "" : Text {
+            vertical-stretch: 0;
+            color: root.enabled ? CupertinoPalette.foreground : CupertinoPalette.foreground-secondary;
+            font-size: CupertinoFontSettings.body-strong.font-size;
+            font-weight: CupertinoFontSettings.body-strong.font-weight;
+            text: root.title;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            if root.vertical : VerticalLayout {
+                spacing: 8px;
+                for option[index] in root.options : RadioButton {
+                    label: option.label;
+                    enabled: root.enabled && option.enabled;
+                    checked: root.value == option.value;
+                    height: 28px;
+
+                    selected => {
+                        root.value = option.value;
+                        root.changed(option.value);
+                    }
+                }
+            }
+
+            if !root.vertical : HorizontalLayout {
+                spacing: 8px;
+                for option[index] in root.options : RadioButton {
+                    label: option.label;
+                    enabled: root.enabled && option.enabled;
+                    checked: root.value == option.value;
+                    height: 28px;
+
+                    selected => {
+                        root.value = option.value;
+                        root.changed(option.value);
+                    }
+                }
+            }
+        }
+    }
+}

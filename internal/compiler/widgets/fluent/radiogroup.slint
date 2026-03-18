@@ -1,0 +1,155 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
+import { RadioButtonBase } from "../common/radiobutton-base.slint";
+import { FocusBorder } from "components.slint";
+
+
+export struct RadioOption {
+    label: string,
+    value: string,
+    enabled: bool,
+}
+
+export component RadioButton {
+    in property <string> label <=> base.label;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> checked <=> base.checked;
+    out property <bool> has-focus <=> base.has-focus;
+
+    callback selected <=> base.selected;
+
+    private property <color> text-color: FluentPalette.foreground;
+
+    min-height: max(18px, layout.min-height);
+
+    base := RadioButtonBase { }
+
+    states [
+        disabled when !root.enabled : {
+            outer.border-color: root.checked ? transparent : FluentPalette.control-strong-stroke-disabled;
+            outer.background: FluentPalette.control-alt-disabled;
+            inner.border-color: root.checked ? FluentPalette.accent-disabled : transparent;
+            root.text-color: FluentPalette.text-disabled;
+        }
+        pressed when base.pressed : {
+            outer.background: transparent;
+            inner.border-color: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quartiary;
+            outer.border-color: root.checked ? transparent : FluentPalette.control-strong-stroke-disabled;
+            inner.border-width: root.checked ? 7px : 5px;
+        }
+        hover when base.has-hover : {
+            outer.background: root.checked ? transparent : FluentPalette.control-alt-tertiary;
+            inner.border-width: root.checked ? 5px : 0px;
+        }
+    ]
+
+    animate text-color { duration: 200ms; }
+
+    layout := HorizontalLayout {
+        padding: 6px;
+        spacing: 8px;
+
+        outer := Rectangle {
+            width: 20px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            background: root.checked ? transparent : FluentPalette.control-alt-secondary;
+            border-radius: self.width / 2;
+            border-width: 1px;
+            border-color: FluentPalette.control-strong-stroke;
+
+            animate background, border-color { duration: 150ms; }
+
+            inner := Rectangle {
+                width: parent.width;
+                height: self.width;
+                border-radius: self.width / 2;
+                background: root.checked ? FluentPalette.state-secondary : transparent;
+                border-width: 6px;
+                border-color: root.checked ? FluentPalette.accent-background : transparent;
+
+                animate border-width { duration: 150ms; }
+            }
+        }
+
+        if root.label != "" : Text {
+            text: root.label;
+            color: root.text-color;
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    if root.has-focus && root.enabled : FocusBorder {
+        border-radius: 7px;
+    }
+}
+
+export component RadioGroup {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <bool> vertical: true;
+
+    in property <[RadioOption]> options: [];
+    in-out property <string> value;
+
+    out property <bool> has-focus: root.focused-index >= 0;
+
+    callback changed(string);
+
+    private property <int> focused-index: -1;
+
+    accessible-role: radio-group;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        if root.title != "" : Text {
+            vertical-stretch: 0;
+            color: !root.enabled ? FluentPalette.text-disabled : FluentPalette.control-foreground;
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
+            text: root.title;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            if root.vertical : VerticalLayout{
+                spacing: 8px;
+                for option[index] in root.options : RadioButton {
+                    label: option.label;
+                    enabled: root.enabled && option.enabled;
+                    checked: root.value == option.value;
+                    height: 32px;
+
+                    selected => {
+                        root.value = option.value;
+                        root.changed(option.value);
+                    }
+                }
+            }
+
+            if !root.vertical : HorizontalLayout{
+                spacing: 8px;
+                for option[index] in root.options : RadioButton {
+                    label: option.label;
+                    enabled: root.enabled && option.enabled;
+                    checked: root.value == option.value;
+                    height: 32px;
+
+                    selected => {
+                        root.value = option.value;
+                        root.changed(option.value);
+                    }
+                }
+            }
+        }
+    }
+}

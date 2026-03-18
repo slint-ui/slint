@@ -1,0 +1,145 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialFontSettings, MaterialPalette } from "styling.slint";
+import { RadioButtonBase } from "../common/radiobutton-base.slint";
+
+export component RadioButton {
+    in property <string> label <=> base.label;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> checked <=> base.checked;
+    out property <bool> has-focus <=> base.has-focus;
+
+    callback selected <=> base.selected;
+
+    private property <color> text-color: MaterialPalette.foreground;
+
+    base := RadioButtonBase { }
+
+    states [
+        disabled when !root.enabled : {
+            outer.border-color: root.checked ? transparent : MaterialPalette.border-variant;
+            outer.background: MaterialPalette.surface-container;
+            inner.border-color: root.checked ? MaterialPalette.control-foreground-variant : transparent;
+            root.text-color: MaterialPalette.control-foreground-variant;
+        }
+        pressed when base.pressed : {
+            outer.background: transparent;
+            inner.border-color: root.checked ? MaterialPalette.accent-background : MaterialPalette.border;
+            outer.border-color: root.checked ? transparent : MaterialPalette.border;
+            inner.border-width: root.checked ? 7px : 5px;
+        }
+        hover when base.has-hover : {
+            outer.background: root.checked ? transparent : MaterialPalette.surface-container;
+            inner.border-width: root.checked ? 5px : 0px;
+        }
+    ]
+
+    animate text-color { duration: 200ms; }
+
+    layout := HorizontalLayout {
+        padding: 6px;
+        spacing: 8px;
+
+        outer := Rectangle {
+            width: 20px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            background: root.checked ? transparent : MaterialPalette.surface-container;
+            border-radius: self.width / 2;
+            border-width: 2px;
+            border-color: MaterialPalette.border;
+
+            animate background, border-color { duration: 150ms; }
+
+            inner := Rectangle {
+                width: 10px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: root.checked ? MaterialPalette.accent-background : transparent;
+            }
+        }
+
+        if root.label != "" : Text {
+            text: root.label;
+            color: root.text-color;
+            font-size: MaterialFontSettings.body-large.font-size;
+            font-weight: MaterialFontSettings.body-large.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+}
+
+export struct RadioOption {
+    label: string,
+    value: string,
+    enabled: bool,
+}
+
+export component RadioGroup {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <bool> vertical: true;
+
+    in property <[RadioOption]> options: [];
+    in-out property <string> value;
+
+    out property <bool> has-focus: root.focused-index >= 0;
+
+    callback changed(string);
+
+    private property <int> focused-index: -1;
+
+    accessible-role: radio-group;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        if root.title != "" : Text {
+            vertical-stretch: 0;
+            color: !root.enabled ? MaterialPalette.control-foreground-variant : MaterialPalette.foreground;
+            font-size: MaterialFontSettings.body-large.font-size;
+            font-weight: MaterialFontSettings.body-large.font-weight;
+            text: root.title;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            if root.vertical : VerticalLayout{
+                spacing: 8px;
+                for option[index] in root.options : RadioButton {
+                    label: option.label;
+                    enabled: root.enabled && option.enabled;
+                    checked: root.value == option.value;
+                    height: 32px;
+
+                    selected => {
+                        root.value = option.value;
+                        root.changed(option.value);
+                    }
+                }
+            }
+
+            if !root.vertical : HorizontalLayout{
+                spacing: 8px;
+                for option[index] in root.options : RadioButton {
+                    label: option.label;
+                    enabled: root.enabled && option.enabled;
+                    checked: root.value == option.value;
+                    height: 32px;
+
+                    selected => {
+                        root.value = option.value;
+                        root.changed(option.value);
+                    }
+                }
+            }
+        }
+    }
+}

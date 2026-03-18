@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component RadioButtonBase {
+    in property <string> label;
+    in property <bool> enabled <=> touch-area.enabled;
+    in property <bool> checked: false;
+
+    out property <bool> has-focus: focus-scope.has-focus;
+    out property <bool> pressed: touch-area.pressed;
+    out property <bool> has-hover: touch-area.has-hover;
+    callback selected;
+
+    accessible-checkable: true;
+    accessible-enabled: root.enabled;
+    accessible-label: root.label;
+    accessible-checked <=> root.checked;
+    accessible-role: radio-button;
+    width: 100%;
+    height: 100%;
+
+    accessible-action-default => {
+        if (root.enabled) {
+            root.selected();
+        }
+    }
+
+    forward-focus: focus-scope;
+
+    touch-area := TouchArea {
+        clicked => {
+            if (root.enabled) {
+                root.selected();
+            }
+        }
+    }
+
+    focus-scope := FocusScope {
+        x: 0;
+        width: 0;
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                touch-area.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
