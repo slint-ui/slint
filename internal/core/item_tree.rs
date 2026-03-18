@@ -15,6 +15,7 @@ use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
+use core::borrow::Borrow;
 use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
@@ -587,7 +588,9 @@ impl ItemRc {
             .is_none_or(|adapter| adapter.renderer().supports_transformations());
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if stop_condition(&parent) {
-                break;
+                // We don't wanna add the origin of this element nor from the popup
+                // So we return here
+                return result;
             }
             let geometry = parent.geometry();
             if supports_transformations && let Some(transform) = parent.children_transform() {
@@ -666,6 +669,7 @@ impl ItemRc {
         &self.item_tree
     }
 
+    /// Returns a child based on the logic of `child_access`, `child_step` and `subtree_child`
     fn find_child(
         &self,
         child_access: &dyn Fn(&crate::item_tree::ItemTreeNodeArray, u32) -> Option<u32>,
@@ -1133,7 +1137,7 @@ pub enum ItemTreeNode {
         item_array_index: u32,
     },
     /// A placeholder for many instance of item in their own ItemTree which
-    /// are instantiated according to a model.
+    /// are instantiated according to a model like repeaters
     DynamicTree {
         /// the index which is passed in the visit_dynamic callback.
         index: u32,
@@ -1450,12 +1454,27 @@ pub(crate) mod ffi {
 
 #[cfg(test)]
 mod tests {
+    use euclid::Point2D;
+
     use super::*;
     use std::vec;
 
+    const GEOMETRY_POSITION_X: f32 = 6.;
+    const GEOMETRY_POSITION_Y: f32 = 27.;
+    const GEOMETRY_WIDTH: f32 = 33.;
+    const GEOMETRY_HEIGHT: f32 = 42.;
+
+    struct Renderer {}
+
+    impl crate::renderer::Renderer for Renderer {}
+
+    struct WindowAdapter {}
+
     struct TestItemTree {
         parent_component: Option<ItemTreeRc>,
+        /// First item is always the root, the next ones are the childrens and subchildren and so on
         item_tree: Vec<ItemTreeNode>,
+        /// Contains the trees of the dynamic components
         subtrees: std::cell::RefCell<Vec<Vec<vtable::VRc<ItemTreeVTable, TestItemTree>>>>,
         subtree_index: usize,
     }
@@ -1539,13 +1558,16 @@ mod tests {
         fn window_adapter(
             self: Pin<&Self>,
             _do_create: bool,
-            _result: &mut Option<WindowAdapterRc>,
+            result: &mut Option<WindowAdapterRc>,
         ) {
-            unimplemented!("Not needed for this test")
+            *result = None;
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
-            unimplemented!("Not needed for this test")
+            LogicalRect::new(
+                euclid::Point2D::new(GEOMETRY_POSITION_X, GEOMETRY_POSITION_Y),
+                euclid::Size2D::new(GEOMETRY_WIDTH, GEOMETRY_HEIGHT),
+            )
         }
 
         fn accessibility_action(self: core::pin::Pin<&Self>, _: u32, _: &AccessibilityAction) {
@@ -1614,32 +1636,36 @@ mod tests {
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
+                // Root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 3,
                     children_index: 1,
                     parent_index: 0,
-                    item_array_index: 0,
+                    item_array_index: 0, // Index in this array
                 },
+                // First child of the root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
-                    children_index: 4,
-                    parent_index: 0,
-                    item_array_index: 1,
+                    children_index: 4, // Does not matter because children_count is zero
+                    parent_index: 0,   // Root as parent
+                    item_array_index: 1, // Index in this array
                 },
+                // Second child of the root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
-                    children_index: 4,
-                    parent_index: 0,
+                    children_index: 4, // Does not matter because children_count is zero
+                    parent_index: 0,   // Root as parent
                     item_array_index: 2,
                 },
+                // Third child of the root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
-                    children_index: 4,
-                    parent_index: 0,
+                    children_index: 4, // Does not matter because children_count is zero
+                    parent_index: 0,   // Root as parent
                     item_array_index: 3,
                 },
             ],
@@ -1651,7 +1677,7 @@ mod tests {
 
     #[test]
     fn test_tree_traversal_children_nodes_structure() {
-        let component = create_children_nodes();
+        let component: VRc<ItemTreeVTable> = create_children_nodes();
 
         // Examine root node:
         let item = ItemRc::new_root(component.clone());
@@ -1799,6 +1825,7 @@ mod tests {
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
+                // Root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 3,
@@ -1806,11 +1833,12 @@ mod tests {
                     parent_index: 0,
                     item_array_index: 0,
                 },
+                // First child
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
-                    children_index: 4,
-                    parent_index: 0,
+                    children_index: 4, // Does not matter because children_count is zero
+                    parent_index: 0,   // Root as parent
                     item_array_index: 0,
                 },
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
@@ -1818,7 +1846,7 @@ mod tests {
                     is_accessible: false,
                     children_count: 0,
                     children_index: 4,
-                    parent_index: 0,
+                    parent_index: 0, // Root as parent
                     item_array_index: 0,
                 },
             ],
@@ -1921,9 +1949,14 @@ mod tests {
     }
 
     fn create_nested_subtrees() -> VRc<ItemTreeVTable, vtable::Dyn> {
+        // Nesting the subtrees
+        // sub_component2 as subtree of sub_component1
+        // sub_component1 as subtree of the main component
+
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
+                // Root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 3,
@@ -1931,6 +1964,7 @@ mod tests {
                     parent_index: 0,
                     item_array_index: 0,
                 },
+                // First child
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -1938,7 +1972,10 @@ mod tests {
                     parent_index: 0,
                     item_array_index: 0,
                 },
+                // Second child
+                // Relates to the first subtree in this component (sub_component1, added below)
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+                // Third child
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -1954,6 +1991,7 @@ mod tests {
         let sub_component1 = VRc::new(TestItemTree {
             parent_component: Some(VRc::into_dyn(component.clone())),
             item_tree: vec![
+                // Root
                 ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 1,
@@ -1961,6 +1999,8 @@ mod tests {
                     parent_index: 2,
                     item_array_index: 0,
                 },
+                // First child
+                // Relates to the first subtree in this component (sub_compnent2, added below)
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
@@ -2303,5 +2343,62 @@ mod tests {
         assert_eq!(tree.previous_sibling(3), Some(2));
         assert_eq!(tree.next_sibling(3), None);
         assert_eq!(tree.parent(3), Some(0));
+    }
+
+    #[test]
+    fn test_map_to_anchestor() {
+        let item_tree = VRc::into_dyn(VRc::new(TestItemTree {
+            parent_component: None,
+            item_tree: vec![
+                // Root
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                // First child
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 2, // Monotonic increasing
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+                // First child of the first child of the root
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 0,
+                    children_index: 3, // Not relevant because it has no children
+                    parent_index: 1,
+                    item_array_index: 2,
+                },
+            ],
+            subtrees: std::cell::RefCell::new(Vec::new()),
+            subtree_index: usize::MAX,
+        }));
+        let root = ItemRc::new_root(item_tree);
+        let first_child = root.first_child().unwrap();
+        let first_child_of_first_child = first_child.first_child().unwrap();
+
+        {
+            let point = first_child.map_to_ancestor(Point2D::new(6., 19.), &root);
+            assert_eq!(point.x, 6.);
+            assert_eq!(point.y, 19.);
+        }
+
+        {
+            let point =
+                first_child_of_first_child.map_to_ancestor(Point2D::new(27., -10.), &first_child);
+            assert_eq!(point.x, 27.);
+            assert_eq!(point.y, -10.);
+        }
+
+        {
+            let point = first_child_of_first_child.map_to_ancestor(Point2D::new(27., -10.), &root);
+            assert_eq!(point.x, GEOMETRY_POSITION_X + 27.);
+            assert_eq!(point.y, GEOMETRY_POSITION_Y - 10.);
+        }
     }
 }
