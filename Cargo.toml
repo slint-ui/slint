@@ -180,7 +180,7 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 # Prefer using icu crates over adding more unicode-* dependencies
 # parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { version = "1.12.0" }
-icu_normalizer = { version = "2", no-default-features=true, features = ["compiled_data"] }
+icu_normalizer = { version = "2", no-default-features = true, features = ["compiled_data"] }
 
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
