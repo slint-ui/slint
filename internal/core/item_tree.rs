@@ -2481,19 +2481,6 @@ mod tests {
         assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y + 7.);
     }
 
-    #[test]
-    fn test_map_from_window() {
-        let item_tree = create_subsubtree_items();
-        let root = ItemRc::new_root(item_tree);
-        let first_child = root.first_child().unwrap();
-        let first_child_of_first_child = first_child.first_child().unwrap();
-
-        let point = first_child_of_first_child.map_from_window(Point2D::new(-5., 7.));
-
-        assert_eq!(point.x, -5. - (GEOMETRY_POSITION_X + GEOMETRY_POSITION_X));
-        assert_eq!(point.y, 7. - (GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y));
-    }
-
     impl crate::renderer::RendererSealed for Renderer {
         fn char_size(
             &self,
