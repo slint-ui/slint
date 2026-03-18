@@ -1657,13 +1657,10 @@ pub fn flexbox_layout_info(
         return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
     }
 
-    // Min size is the maximum of any single item (since they can wrap) plus padding
-    let (cells, padding, spacing) = match (direction, orientation) {
-        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
-        | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical) => {
-            (&cells_h, padding_h, spacing_h)
-        }
-        _ => (&cells_v, padding_v, spacing_v),
+    // Min size is the maximum of any single item (since they can wrap) plus padding.
+    let (cells, padding, spacing) = match orientation {
+        Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
+        Orientation::Vertical => (&cells_v, padding_v, spacing_v),
     };
     let extra_pad = padding.begin + padding.end;
     let min =
