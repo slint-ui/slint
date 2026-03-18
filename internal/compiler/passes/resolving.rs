@@ -21,7 +21,6 @@ use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
-use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
@@ -1074,7 +1073,8 @@ impl Expression {
             && let Some(key) = crate::literals::unescape_string(token.text())
         {
             // NFC-normalize the key string for consistent matching
-            let key: SmolStr = key.nfc().collect::<String>().into();
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let key: SmolStr = normalizer.normalize(&key).into();
 
             // Validate that the string literal contains exactly one grapheme cluster
             let grapheme_count = key.graphemes(true).count();

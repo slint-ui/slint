@@ -45,7 +45,7 @@ default = []
 i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
 
 num_enum = "0.7"
-unicode-normalization = { workspace = true }
+icu_normalizer = { workspace = true }
 unicode-segmentation = { workspace = true }
 strum = { workspace = true }
 rowan = { version = "0.16.1" }

@@ -1791,13 +1791,15 @@ impl WindowInner {
         // NFC-normalize the event text so that shortcut matching works consistently
         // regardless of the composed/decomposed form the backend provides
         // (e.g. é as U+00E9 vs e + U+0301).
-        #[cfg(feature = "unicode-normalization")]
+        // Note: icu_normalizer is currently only enabled if parley is enabled
+        #[cfg(feature = "shared-parley")]
         {
-            use unicode_normalization::{IsNormalized, UnicodeNormalization, is_nfc_quick};
-            // Do a quick normalization check, and only normalize if that check fails.
-            // This avoids allocation in the common case where the key is already normalized.
-            if is_nfc_quick(event.text.chars()) != IsNormalized::Yes {
-                event.text = SharedString::from_iter(event.text.nfc());
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let normalized = normalizer.normalize(&event.text);
+            // Only replace the event text if normalization actually changed it,
+            // to avoid unnecessary allocations.
+            if let alloc::borrow::Cow::Owned(normalized) = normalized {
+                event.text = normalized.into();
             }
         }
 

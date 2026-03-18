@@ -175,8 +175,13 @@ web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
 rayon = { version = "1.10.0", default-features = false }
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
-unicode-normalization = { version = "0.1" }
+
+# Note: We're migrating our unicode handling over to the icu family of crates.
+# Prefer using icu crates over adding more unicode-* dependencies
+# parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { version = "1.12.0" }
+icu_normalizer = { version = "2", no-default-features=true, features = ["compiled_data"] }
+
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
 wgpu-27 = { package = "wgpu", version = "27", default-features = false }
