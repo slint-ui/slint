@@ -8,6 +8,9 @@ Foo := Rectangle {
     preferred-width: 50%;
 //                   >  <error{preferred-width must either be a length, or the literal '100%'}
 
+    property <percent> percent_property: 5;
+//                                       > <error{Cannot convert float to percent}
+
 
     Rectangle {
         height: 111%;
