@@ -1166,8 +1166,8 @@ impl Item for TextInput {
                         ));
                     }
 
-                    #[cfg(not(target_vendor = "apple"))]
-                    if *_reason == FocusReason::TabNavigation {
+                    if cfg!(not(target_vendor = "apple")) && *_reason == FocusReason::TabNavigation
+                    {
                         self.select_all(window_adapter, self_rc);
                     }
                 }
