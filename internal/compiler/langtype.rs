@@ -54,7 +54,7 @@ pub enum Type {
     Array(Rc<Type>),
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
-    KeyboardShortcutType,
+    Keys,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -106,7 +106,7 @@ impl core::cmp::PartialEq for Type {
                 matches!(other, Type::Struct(rhs) if lhs.fields == rhs.fields && lhs.name == rhs.name)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
-            Type::KeyboardShortcutType => matches!(other, Type::KeyboardShortcutType),
+            Type::Keys => matches!(other, Type::Keys),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
@@ -168,7 +168,7 @@ impl Display for Type {
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
-            Type::KeyboardShortcutType => write!(f, "keyboard-shortcut"),
+            Type::Keys => write!(f, "keys"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -219,7 +219,7 @@ impl Type {
                 | Self::Bool
                 | Self::Easing
                 | Self::Enumeration(_)
-                | Self::KeyboardShortcutType
+                | Self::Keys
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -280,7 +280,7 @@ impl Type {
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush)
-            | (Type::KeyboardShortcutType, Type::String) => true,
+            | (Type::Keys, Type::String) => true,
             (Type::Array(a), Type::Model) if a.is_property_type() => true,
             (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
             (Type::UnitProduct(u), o) => match o.as_unit_product() {
@@ -325,7 +325,7 @@ impl Type {
             Type::Array(_) => None,
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
-            Type::KeyboardShortcutType => None,
+            Type::Keys => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -713,7 +713,7 @@ pub enum BuiltinPublicStruct {
     LogicalPosition,
     LogicalSize,
     StandardListViewItem,
-    KeyboardShortcut,
+    Keys,
     KeyboardModifiers,
 }
 
@@ -724,7 +724,7 @@ impl BuiltinPublicStruct {
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
-            Self::KeyboardShortcut => Some(SmolStr::new_static("KeyboardShortcut")),
+            Self::Keys => Some(SmolStr::new_static("Keys")),
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
         }
     }
@@ -1027,14 +1027,14 @@ pub struct KeyboardModifiers {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
-pub struct KeyboardShortcut {
+pub struct Keys {
     pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
     pub ignore_shift: bool,
     pub ignore_alt: bool,
 }
 
-impl std::fmt::Display for KeyboardShortcut {
+impl std::fmt::Display for Keys {
     // Make sure to keep this in sync with the implemenation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {

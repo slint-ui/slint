@@ -535,8 +535,8 @@ impl CppType for Type {
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
             Type::String => Some("slint::SharedString".into()),
-            Type::KeyboardShortcutType => {
-                Some("slint::cbindgen_private::types::KeyboardShortcut".into())
+            Type::Keys => {
+                Some("slint::cbindgen_private::types::Keys".into())
             }
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
@@ -3457,11 +3457,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::BoolLiteral(b) => b.to_string(),
-        Expression::KeyboardShortcutLiteral(ks) => {
+        Expression::KeysLiteral(ks) => {
             format!(
                 "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
-                    slint::cbindgen_private::types::KeyboardShortcut out;
-                    slint::cbindgen_private::slint_keyboard_shortcut(&key, alt, control, shift, meta, ignoreShift, ignoreAlt, &out);
+                    slint::cbindgen_private::types::Keys out;
+                    slint::cbindgen_private::slint_keys(&key, alt, control, shift, meta, ignoreShift, ignoreAlt, &out);
                     return out;
                 }}({}, {}, {}, {}, {}, {}, {})",
                 shared_string_literal(&ks.key),
@@ -3676,8 +3676,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         cases.join(" ")
                     )
                 }
-                (Type::KeyboardShortcutType, Type::String) => {
-                    format!("slint::private_api::keyboard_shortcut_to_string({f})")
+                (Type::Keys, Type::String) => {
+                    format!("slint::private_api::keys_to_string({f})")
                 }
                 _ => f,
             }

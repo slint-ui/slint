@@ -31,7 +31,7 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                 })
                 .filter_map(|shortcut| {
                     let keys_expr = shortcut.bindings.get("keys")?.borrow();
-                    if let Expression::KeyboardShortcut(ref keys) = keys_expr.expression {
+                    if let Expression::Keys(ref keys) = keys_expr.expression {
                         Some((keys.clone(), keys_expr.clone()))
                     } else {
                         None

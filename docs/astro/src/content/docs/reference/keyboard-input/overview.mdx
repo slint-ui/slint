@@ -13,7 +13,7 @@ The primary field of this data structure is the `text` property, which holds all
 encoded in a string.
 Use the [`Key` namespace](#key-namespace) to identify known named keys.
 
-To handle keyboard shortcuts, Slint uses a built-in <Link type="keyboard-shortcut" label="keyboard-shortcut" /> type, which is constructed from the `@keys` macro.
+To handle keyboard shortcuts, Slint uses a built-in <Link type="keys" label="keys" /> type, which is constructed from the `@keys` macro.
 See [Keyboard Shortcuts](#keyboard-shortcuts).
 
 ## KeyEvent
@@ -27,11 +27,11 @@ See [Keyboard Shortcuts](#keyboard-shortcuts).
 ## Keyboard Shortcuts
 
 Use the <Link type="Shortcut" label="Shortcut element"/> inside a `FocusScope` to declare Keyboard shortcuts.
-The Shortcut's `keys` property takes a `keyboard-shortcut` and invokes the `activated` callback when the shortcut is detected.
+The Shortcut's `keys` property takes a `keys` and invokes the `activated` callback when the shortcut is detected.
 Note that only one shortcut can be activated by a given key event.
 If two shortcuts share the same key event, it is undefined which one is activated.
 
-The `keyboard-shortcut` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
+The `keys` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
 
 Keyboard shortcuts in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
 This means, for example, that `@keys(Control + Z)` activates when the user presses the key that produces `z` on their layout, regardless of where that key sits on the keyboard.
@@ -89,7 +89,7 @@ To prevent issues with characters that entirely change their keycode when `Shift
 - `Shift?`
 - `Alt?`
 
-When a modifier is marked as optional, the `keyboard-shortcut` will ignore the state of the corresponding modifier when matching.
+When a modifier is marked as optional, the `keys` will ignore the state of the corresponding modifier when matching.
 
 For example, to support keyboard shortcuts that produce a Euro-Sign (€), add both `Shift?` and `Alt?`: `@keys(Control + Shift? + Alt? + "€")`.
 This will allow your users to reach the shortcut on almost all keyboard layouts that have a key with this label.

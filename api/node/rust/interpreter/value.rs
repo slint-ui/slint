@@ -112,9 +112,9 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             }
             o.into_unknown(env)
         }
-        Value::KeyboardShortcut(shortcut) => {
+        Value::Keys(keys) => {
             // TODO: Make this an actual JS object
-            format!("{shortcut:?}").as_str().into_unknown(env)
+            format!("{keys:?}").as_str().into_unknown(env)
         }
         Value::Brush(brush) => {
             SlintBrush::from(brush.clone()).into_instance(env)?.as_object(env).into_unknown(env)
@@ -328,7 +328,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
-        | Type::KeyboardShortcutType
+        | Type::Keys
         | Type::ElementReference
         | Type::StyledText => Err(napi::Error::from_reason("reason")),
     }

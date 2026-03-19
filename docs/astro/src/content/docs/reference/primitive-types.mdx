@@ -165,13 +165,13 @@ RGB color with an alpha channel, with 8 bit precision for each channel. CSS colo
 
 ## Keyboard input
 
-### keyboard-shortcut
-<SlintProperty propName="keyboard-shortcut" typeName="keyboard-shortcut" defaultValue='empty shortcut'>
-A keyboard-shortcut represents a key combined with a list of modifiers.
+### keys
+<SlintProperty propName="keys" typeName="keys" defaultValue='empty keys'>
+A keys represents a key combined with a list of modifiers.
 This is the primitive type used to detect if a KeyEvent should trigger a given shortcut.
 
 Keyboard shortcuts in Slint are based on **logical keys** — the character a key produces on the current keyboard layout — not the physical position of a key on the keyboard.
-See <Link type="KeyboardShortcuts" label="Keyboard Shortcuts" /> for details.
+See <Link type="Keys" label="Keyboard Shortcuts" /> for details.
 </SlintProperty>
 
 ## Images
@@ -341,7 +341,7 @@ The following conversions are possible:
     but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
     these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
 -   The literal `0` can be converted to any of these types that have associated unit.
--   A `keyboard-shortcut` can be converted to `string`, which will return a platform-native description of the shortcut.
+-   A `keys` can be converted to `string`, which will return a platform-native description of the shortcut.
 -   Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.

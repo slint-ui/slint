@@ -16,7 +16,7 @@ use i_slint_core::accessibility::{
 };
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
-use i_slint_core::input::KeyboardShortcut;
+use i_slint_core::input::Keys;
 use i_slint_core::item_tree::{
     IndexRange, ItemRc, ItemTree, ItemTreeNode, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable,
     ItemTreeWeak, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
@@ -1302,7 +1302,7 @@ pub(crate) fn generate_item_tree<'id>(
                     i_slint_common::for_each_enums!(match_enum_type)
                 }
             }
-            Type::KeyboardShortcutType => property_info::<KeyboardShortcut>(),
+            Type::Keys => property_info::<Keys>(),
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::ArrayOfU16 => property_info::<SharedVector<u16>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,

@@ -305,8 +305,8 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::StringLiteral(x) => write!(f, "{x:?}"),
             Expression::NumberLiteral(x) => write!(f, "{x:?}"),
             Expression::BoolLiteral(x) => write!(f, "{x:?}"),
-            Expression::KeyboardShortcutLiteral(shortcut) => {
-                write!(f, "@keys({shortcut})",)
+            Expression::KeysLiteral(keys) => {
+                write!(f, "@keys({keys})",)
             }
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
             Expression::FunctionParameterReference { index } => write!(f, "arg_{index}"),

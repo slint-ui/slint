@@ -352,10 +352,10 @@ translate_from_bundle_with_plural(std::span<const char8_t *const> strs,
     return result;
 }
 
-inline SharedString keyboard_shortcut_to_string(const cbindgen_private::KeyboardShortcut &shortcut)
+inline SharedString keys_to_string(const cbindgen_private::Keys &keys)
 {
     SharedString result;
-    cbindgen_private::slint_keyboard_shortcut_to_string(&shortcut, &result);
+    cbindgen_private::slint_keys_to_string(&keys, &result);
     return result;
 }
 

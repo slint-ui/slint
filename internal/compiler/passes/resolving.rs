@@ -967,7 +967,7 @@ impl Expression {
     }
 
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
-        let mut shortcut = langtype::KeyboardShortcut::default();
+        let mut shortcut = langtype::Keys::default();
 
         let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
 
@@ -1105,7 +1105,7 @@ impl Expression {
             }
         }
 
-        Expression::KeyboardShortcut(shortcut)
+        Expression::Keys(shortcut)
     }
 
     /// Perform the lookup
