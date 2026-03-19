@@ -49,6 +49,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@napi-rs/cli": "3"
+    "@napi-rs/cli": "^3.5.1"
   }
 }
