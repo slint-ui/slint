@@ -306,6 +306,7 @@ impl ItemRc {
         self.index == Self::root_index()
     }
 
+    /// Root within the item tree `item_tree` and not considering dynamic items
     pub fn is_root_item_of(&self, item_tree: &VRc<ItemTreeVTable>) -> bool {
         self.is_root() && VRc::ptr_eq(&self.item_tree, item_tree)
     }
@@ -549,14 +550,30 @@ impl ItemRc {
     /// Similar to `map_to_window` but considers also the popup location if the popup
     /// is not a dedicated window but of type ChildWindow
     /// Use this function if you wanna have the real absolute position
-    pub fn map_to_screen(&self, p: LogicalPoint) -> LogicalPoint {
-        self.map_to_item_tree_impl(p, |_| false, true)
+    pub fn map_to_native_window(&self, p: LogicalPoint) -> LogicalPoint {
+        let mut pos = self.map_to_item_tree_impl(p, |_| false);
+        // If the component is in a popup of type ChildWindow we have to consider the location of that as well
+        if let Some(window_adapter) = self.window_adapter() {
+            let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+            let active_popups = window_inner.active_popups();
+            let borrow = active_popups.borrow();
+            for popup in borrow.iter() {
+                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
+                    // Check if component is in a popup
+                    // TODO:is_root_item_of() searches only in the own item tree! Not possible to use for dynamic objects
+                    if ItemRc::new_root(popup.component.clone()).is_root_item_of(self.item_tree()) {
+                        pos += location.to_vector();
+                    }
+                }
+            }
+        }
+        pos
     }
 
     /// Returns an absolute position of `p` in the parent item coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
-        self.map_to_item_tree_impl(p, |_| false, false)
+        self.map_to_item_tree_impl(p, |_| false)
     }
 
     /// Maps a position in window coordinates to the item coordinates
@@ -571,21 +588,20 @@ impl ItemRc {
         p: LogicalPoint,
         item_tree: &vtable::VRc<ItemTreeVTable>,
     ) -> LogicalPoint {
-        self.map_to_item_tree_impl(p, |current| current.is_root_item_of(item_tree), false)
+        self.map_to_item_tree_impl(p, |current| current.is_root_item_of(item_tree))
     }
 
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
     /// (does not add this item's x and y)
     /// Don't rely on any specific behavior if `self` isn't a descendant of `ancestor`.
     fn map_to_ancestor(&self, p: LogicalPoint, ancestor: &Self) -> LogicalPoint {
-        self.map_to_item_tree_impl(p, |parent| parent == ancestor, false)
+        self.map_to_item_tree_impl(p, |parent| parent == ancestor)
     }
 
     fn map_to_item_tree_impl(
         &self,
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
-        consider_popup: bool,
     ) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
@@ -597,9 +613,7 @@ impl ItemRc {
             .is_none_or(|adapter| adapter.renderer().supports_transformations());
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if stop_condition(&parent) {
-                // We don't wanna add the origin of this element nor from the popup
-                // So we return here
-                return result;
+                break;
             }
             let geometry = parent.geometry();
             if supports_transformations && let Some(transform) = parent.children_transform() {
@@ -607,21 +621,6 @@ impl ItemRc {
             }
             result += geometry.origin.to_vector();
             current = parent;
-        }
-
-        // If the component is in a popup of type ChildWindow we have to consider the location of that as well
-        if consider_popup && let Some(window_adapter) = self.window_adapter() {
-            let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
-            let active_popups = window_inner.active_popups();
-            let borrow = active_popups.borrow();
-            for popup in borrow.iter() {
-                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
-                    // Check if component is in a popup
-                    if ItemRc::new_root(popup.component.clone()).is_root_item_of(self.item_tree()) {
-                        result += location.to_vector();
-                    }
-                }
-            }
         }
         result
     }
@@ -1220,7 +1219,7 @@ impl<'a> ItemTreeNodeArray<'a> {
         }
     }
 
-    /// Returns the first child or `None` if this are no children or the `index`
+    /// Returns the first child or `None` if there are no children or the `index`
     /// points to a `DynamicTree`.
     pub fn first_child(&self, index: u32) -> Option<u32> {
         match self.node_array.get(index as usize)? {
@@ -2544,7 +2543,7 @@ mod tests {
     }
 
     #[test]
-    fn test_map_to_screen_popup() {
+    fn test_map_to_native_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter_weak, item_tree) = create_subsubtree_items();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
@@ -2568,7 +2567,7 @@ mod tests {
 
         // The popup is not a real window and therefore it does not have it's own coordinate system
         // So map_to_window is really absolute to the window not to the popup window
-        let point = first_child_of_first_child.map_to_screen(Point2D::new(3., -82.));
+        let point = first_child_of_first_child.map_to_native_window(Point2D::new(3., -82.));
         assert_eq!(
             point.x,
             // ------------- Popup --------------- +     root.x          + first_child.x       + 3
@@ -2662,7 +2661,7 @@ mod tests {
     }
 
     #[test]
-    fn test_map_to_screen_popup_dynamic_element() {
+    fn test_map_to_native_window_popup_dynamic_element() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter_weak, item_tree) = create_subsubtree_items_dynamic_elements();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
@@ -2686,7 +2685,7 @@ mod tests {
 
         // The popup is not a real window and therefore it does not have it's own coordinate system
         // So map_to_window is really absolute to the window not to the popup window
-        let point = first_child_of_first_child.map_to_screen(Point2D::new(3., -82.));
+        let point = first_child_of_first_child.map_to_native_window(Point2D::new(3., -82.));
         assert_eq!(
             point.x,
             // ------------- Popup --------------- +     root.x          + first_child.x       + 3
