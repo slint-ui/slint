@@ -2575,9 +2575,9 @@ mod tests {
         // Check that we have a ChildWindow popup
         let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
-        assert_eq!(active_popups.borrow().len(), 1);
-        let borrow = active_popups.borrow().first().unwrap();
-        assert!(matches!(borrow.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
+        assert_eq!(active_popups.len(), 1);
+        let popup = active_popups.first().unwrap();
+        assert!(matches!(popup.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
 
         // The popup is not a real window and therefore it does not have it's own coordinate system
         // So map_to_window is really absolute to the window not to the popup window
@@ -2613,9 +2613,9 @@ mod tests {
         // Check that we have a ChildWindow popup
         let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
-        assert_eq!(active_popups.borrow().len(), 1);
-        let borrow = active_popups.borrow().first().unwrap();
-        assert!(matches!(borrow.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
+        assert_eq!(active_popups.len(), 1);
+        let popup = active_popups.first().unwrap();
+        assert!(matches!(popup.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
 
         // The popup is not a real window and therefore it does not have it's own coordinate system
         // So map_to_window is really absolute to the window not to the popup window
@@ -2702,9 +2702,9 @@ mod tests {
         // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system
         let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
-        assert_eq!(active_popups.borrow().len(), 1);
-        let borrow = active_popups.borrow().first().unwrap();
-        assert!(matches!(borrow.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
+        assert_eq!(active_popups.len(), 1);
+        let popup = active_popups.first().unwrap();
+        assert!(matches!(popup.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
 
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
