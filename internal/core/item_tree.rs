@@ -2456,6 +2456,7 @@ mod tests {
         assert_eq!(tree.parent(3), Some(0));
     }
 
+    // It does not contain any dynamic elements
     fn create_subsubtree_items() -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
         let window_adapter = WindowAdapter::new();
         let weak = Rc::downgrade(&window_adapter);
@@ -2610,6 +2611,92 @@ mod tests {
         //                         Root.x       +     first_child.x   + 3
         assert_eq!(point.x, GEOMETRY_POSITION_X + GEOMETRY_POSITION_X + 3.);
         assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y - 82.);
+    }
+
+    // Includes also dynamic elements
+    fn create_subsubtree_items_dynamic_elements()
+    -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
+        let window_adapter = WindowAdapter::new();
+        let weak = Rc::downgrade(&window_adapter);
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+
+        let item_tree = VRc::new(TestItemTree {
+            parent_component: None,
+            item_tree: vec![
+                // Root
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                // First child
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+            ],
+            subtrees: std::cell::RefCell::new(Vec::new()),
+            subtree_index: usize::MAX,
+            window_adapter: window_adapter.clone(),
+            window_item: Some(window_item),
+        });
+
+        item_tree.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
+            parent_component: Some(VRc::into_dyn(item_tree.clone())),
+            item_tree: vec![ItemTreeNode::Item {
+                is_accessible: false,
+                children_count: 0,
+                children_index: 1,
+                parent_index: 1,
+                item_array_index: 0,
+            }],
+            subtrees: std::cell::RefCell::new(Vec::new()),
+            subtree_index: 0,
+
+            window_adapter,
+            window_item: None,
+        })]]);
+
+        (weak, VRc::into_dyn(item_tree))
+    }
+
+    #[test]
+    fn test_map_to_screen_popup_dynamic_element() {
+        const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
+        let (window_adapter_weak, item_tree) = create_subsubtree_items_dynamic_elements();
+        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+            &item_tree,
+            POPUP_LOCATION,
+            crate::items::PopupClosePolicy::NoAutoClose,
+            &ItemRc::new_root(item_tree.clone()),
+            false,
+        );
+
+        let root = ItemRc::new_root(item_tree);
+        let first_child = root.first_child().unwrap();
+        let first_child_of_first_child = first_child.first_child().unwrap();
+
+        // Check that we have a ChildWindow popup
+        let window_adapter = window_adapter_weak.upgrade().unwrap();
+        let active_popups = window_adapter.window.0.active_popups();
+        assert_eq!(active_popups.borrow().len(), 1);
+        let borrow = active_popups.borrow().first().unwrap();
+        assert!(matches!(borrow.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
+
+        // The popup is not a real window and therefore it does not have it's own coordinate system
+        // So map_to_window is really absolute to the window not to the popup window
+        let point = first_child_of_first_child.map_to_screen(Point2D::new(3., -82.));
+        assert_eq!(
+            point.x,
+            // ------------- Popup --------------- +     root.x          + first_child.x       + 3
+            POPUP_LOCATION.x + GEOMETRY_POSITION_X + GEOMETRY_POSITION_X + GEOMETRY_POSITION_X + 3.
+        );
+        assert_eq!(
+            point.y,
+            POPUP_LOCATION.y + GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y
+                - 82.
+        );
     }
 
     impl crate::renderer::RendererSealed for Renderer {
