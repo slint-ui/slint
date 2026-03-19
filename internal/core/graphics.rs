@@ -58,7 +58,7 @@ pub use border_radius::*;
 
 #[cfg(feature = "unstable-wgpu-27")]
 pub mod wgpu_27;
-#[cfg(feature = "unstable-wgpu-28")]
+#[cfg(feature = "wgpu-28")]
 pub mod wgpu_28;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with

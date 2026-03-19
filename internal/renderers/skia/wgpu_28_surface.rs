@@ -33,17 +33,15 @@ pub struct WGPUSurface {
     backend: Backend,
 }
 
-impl super::Surface for WGPUSurface {
-    fn new(
-        _shared_context: &SkiaSharedContext,
-        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
-        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
+impl WGPUSurface {
+    pub fn new_with_surface(
+        surface_target: impl Into<i_slint_core::graphics::wgpu_28::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_28::init_instance_adapter_device_queue_surface(
-                Box::new(WindowAndDisplayHandle(window_handle, display_handle)),
+                surface_target,
                 requested_graphics_api,
                 wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
                     .union(if cfg!(target_os = "windows") {
@@ -86,6 +84,23 @@ impl super::Surface for WGPUSurface {
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
         })
+    }
+}
+
+impl super::Surface for WGPUSurface {
+    fn new(
+        _shared_context: &SkiaSharedContext,
+        window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
+        display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
+        size: PhysicalWindowSize,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
+    ) -> Result<Self, PlatformError> {
+        Self::new_with_surface(
+            Box::new(WindowAndDisplayHandle(window_handle, display_handle))
+                as Box<dyn wgpu::WindowHandle + 'static>,
+            size,
+            requested_graphics_api,
+        )
     }
 
     fn name(&self) -> &'static str {
@@ -185,6 +200,7 @@ impl super::Surface for WGPUSurface {
         })
     }
 
+    #[cfg(feature = "unstable-wgpu-28")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
         let api = i_slint_core::graphics::create_graphics_api_wgpu_28(
             self.instance.clone(),
@@ -194,6 +210,7 @@ impl super::Surface for WGPUSurface {
         callback(api)
     }
 
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,

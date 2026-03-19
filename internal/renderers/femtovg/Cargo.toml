@@ -18,6 +18,8 @@ path = "lib.rs"
 [features]
 default = []
 opengl = []
+# wgpu-28 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
+# unstable-wgpu-28 additionally exposes public API integration (GraphicsAPI, texture import).
 wgpu = ["wgpu-28"]
 wgpu-28 = ["dep:wgpu-28", "femtovg/wgpu", "i-slint-core/unstable-wgpu-28"]
 unstable-wgpu-27 = []
