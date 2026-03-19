@@ -416,17 +416,16 @@ async fn main_loop(
     let inner_connection = connection.clone();
     std::thread::spawn(move || {
         loop {
-            crossbeam_channel::select! {
-                recv(inner_connection.receiver) -> msg => {
-                    let Ok(msg) = msg else {
-                        return;
-                    };
+        match inner_connection.receiver.recv() {
+                Ok(msg) => {
                     if from_lsp_sender.send(msg.clone()).is_err() {
                         return;
                     }
-                }
+                };
+                Err(_) => return,
             }
         }
+    }
     });
 
     loop {
