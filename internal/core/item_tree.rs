@@ -697,7 +697,7 @@ impl ItemRc {
         child_step: &dyn Fn(&crate::item_tree::ItemTreeNodeArray, u32) -> Option<u32>,
         subtree_child: &dyn Fn(usize, usize) -> usize,
     ) -> Option<Self> {
-        let comp_ref_pin: Pin<VRef<'_, ItemTreeVTable>> = vtable::VRc::borrow_pin(&self.item_tree);
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
 
         let mut current_child_index = child_access(&item_tree, self.index())?;
