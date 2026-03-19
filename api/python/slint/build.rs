@@ -98,7 +98,10 @@ macro_rules! generate_builtin_structs_pyi {
 i_slint_common::for_each_builtin_structs!(generate_builtin_structs_pyi);
 
 fn main() {
-    let pyi_path = "slint/language.pyi";
+    let pyi_path = std::path::Path::new("slint/language.pyi");
+    if let Some(parent) = pyi_path.parent() {
+        std::fs::create_dir_all(parent).expect("Failed to create slint/ directory");
+    }
     let file = File::create(pyi_path).expect("Failed to create language.pyi");
     let mut writer = BufWriter::new(file);
     generate_pyi(&mut writer);
