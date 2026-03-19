@@ -469,8 +469,8 @@ inline bool set_translator(std::unique_ptr<Translator> obj)
 #endif
 
 /// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
-/// This is useful if the language is changed at runtime, if either gettext
-/// or a custom translator is used. For bundled translations, there is no need
+/// Call this function after changing the language at run-time and when translating
+/// with either gettext or a custom translator. For bundled translations, there is no need
 /// to call this function.
 ///
 /// Example (assuming usage of gettext):
