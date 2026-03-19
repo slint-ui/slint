@@ -867,13 +867,119 @@ pub trait Global<'a, Component> {
     fn as_weak(&self) -> Weak<Self::StaticSelf>;
 }
 
-/// This trait is a marker trait that is automatically implemented on all strongly referenced
-/// Slint components. All of these types can be used in a [`Weak`] reference.
+/// This trait marks types that hold a strong reference to a Slint component.
 ///
-/// This includes all types that implement the [`ComponentHandle`] trait, as well as all types
-/// implementing the [`Global`] trait.
+/// The Slint compiler automatically implements this trait for [generated components](index.html#generated-components) and the `'static` variant of [generated Globals](index.html#exported-global-singletons).
+/// Do not try to implement it manually.
 ///
-/// **Note**: The Slint compiler implements this trait automatically, do not try to implement it manually.
+/// All types that implement this trait can be used in a [`Weak`] reference.
+///
+/// > ⚠️ Strong references should not be captured by a lambda given to a callback,
+/// > as this would produce a reference loop and leak the component.
+/// > Instead, the callback function should capture a [`Weak`] reference.
+///
+/// **Example:**
+/// ```
+/// # i_slint_backend_testing::init_no_event_loop();
+/// slint::slint!{
+///     export component App inherits Window {
+///         in-out property <int> counter: 0;
+///         callback do_something;
+///     }
+/// }
+///
+/// let app = App::new().unwrap();
+/// // ⚠️ Incorrect: This will capture a strong reference to the app in the closure,
+/// // which will never be released and leak the app!
+/// app.on_do_something({
+///     let app = app.clone_strong();
+///     move || {
+///         app.set_counter(app.get_counter() + 1);
+///     }
+/// });
+///
+/// // Correct: Use a weak reference to the app, which will be released
+/// // when the app is dropped.
+/// app.on_do_something({
+///     let app = app.as_weak();
+///     move || {
+///         let Some(app) = app.upgrade() else {
+///             return;
+///         };
+///         app.set_counter(app.get_counter() + 1);
+///     }
+/// });
+/// ```
+///
+/// # Common issues
+///
+/// To use a global with a [`Weak`] reference, you need to use the `'static` variant of the Global.
+///
+/// **Example:**
+/// ```
+/// # i_slint_backend_testing::init_no_event_loop();
+/// slint::slint!{
+///    export global MyGlobal {}
+///
+///    export component App inherits Window {}
+/// }
+/// struct MyStruct {
+///    // Use the 'static variant of MyGlobal, which implements
+///    // StrongHandle and can be used in a Weak reference.
+///    global: slint::Weak<MyGlobal<'static>>,
+/// }
+///
+/// let app = App::new().unwrap();
+/// let my_global: MyGlobal = app.global();
+///
+/// let my_struct = MyStruct {
+///     // Calling as_weak() on the global automatically converts it to 'static
+///     global: my_global.as_weak()
+/// };
+/// ```
+///
+/// Otherwise you may encounter issues like this:
+///
+/// ```text
+/// error[E0106]: missing lifetime specifier
+///   --> /path/to/file.rs:10:19
+///    |
+/// 10 |         global: Weak<MyGlobal>,
+///    |                      ^^^^^^^^ expected named lifetime parameter
+///    |
+/// help: consider introducing a named lifetime parameter
+///    |
+///  9 ~     struct MyStruct<'a> {
+/// 10 ~         global: Weak<MyGlobal<'a>>,
+/// ```
+///
+/// The compiler suggests to introduce a lifetime parameter for the struct,
+/// This is not correct - use a `'static` lifetime instead!
+///
+/// Otherwise you will run into the following error:
+///
+/// ```text
+/// error: incompatible lifetime on type
+///   --> /path/to/file.rs:9:10
+///    |
+///  9 |     global: slint::Weak<MyGlobal<'a>>,
+///    |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+///    |
+///note: because this has an unmet lifetime requirement
+///   --> slint/internal/core/api.rs:954:24
+///    |
+///954 |     pub struct Weak<T: StrongHandle> {
+///    |                        ^^^^^^^^^^^^ introduces a `'static` lifetime requirement
+///note: the lifetime `'a` as defined here...
+///   --> /path/to/file.rs:8:17
+///    |
+///  8 | struct MyStruct<'a> {
+///    |                 ^^
+///note: ...does not necessarily outlive the static lifetime introduced by the compatible `impl`
+///   --> /path/to/file.rs:246:6
+///    |
+///246 |      impl slint :: StrongHandle for r#MyGlobal < 'static > {
+/// ```
 pub trait StrongHandle {
     /// The internal Inner type for `Weak<Self>::inner`.
     #[doc(hidden)]
@@ -887,7 +993,7 @@ pub trait StrongHandle {
 }
 
 /// This trait describes the common public API of a strongly referenced Slint component.
-/// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
+/// It allows creating strongly-referenced clones, a conversion into a weak pointer as well
 /// as other convenience functions.
 ///
 /// This trait is implemented by the [generated component](index.html#generated-components)
@@ -935,9 +1041,10 @@ mod weak_handle {
 
     use super::*;
 
-    /// Struct that's used to hold weak references of a [Slint component](index.html#generated-components)
+    /// Struct that's used to hold weak references of a [Slint component or global](index.html#generated-components)
     ///
-    /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
+    /// In order to create a Weak, you should use [`ComponentHandle::as_weak`] or
+    /// [`Global::as_weak`].
     ///
     /// Strong references should not be captured by the functions given to a lambda,
     /// as this would produce a reference loop and leak the component.
