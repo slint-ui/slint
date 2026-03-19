@@ -1727,7 +1727,7 @@ impl TextInput {
             self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups);
         let clip_rect = maybe_parent.map(|parent| {
             let geom = parent.geometry();
-            LogicalRect::new(parent.map_to_window(geom.origin), geom.size)
+            LogicalRect::new(parent.map_to_screen(geom.origin), geom.size)
         });
 
         InputMethodProperties {
