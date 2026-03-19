@@ -9,7 +9,7 @@
 //! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
 
 use crate::animations::Instant;
-#[cfg(all(not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 /// The direction the simulation is running
@@ -529,7 +529,7 @@ impl ConstantDecelerationSpringDamper {
                     (self.velocity + root) / self.data.deceleration,
                 );
 
-                self.velocity = self.velocity - dt * self.data.deceleration; // Velocity at limit value point. Solved `new_val` equation for new_velocity
+                self.velocity -= dt * self.data.deceleration; // Velocity at limit value point. Solved `new_val` equation for new_velocity
                 self.curr_val_zeroed = 0.;
                 self.curr_val = self.limit_value;
 
@@ -542,16 +542,16 @@ impl ConstantDecelerationSpringDamper {
                     );
                 self.constant_phi =
                     f32::atan(self.w_d * X0 / (self.velocity + self.damping_ratio * self.w_n * X0));
-                return self.state_spring_damper(
+                self.state_spring_damper(
                     new_tick
                         + (duration_unlimited
                             - core::time::Duration::from_millis((dt * 1000.) as u64)),
-                );
+                )
             }
             S::VelocityZero => {
                 self.velocity = 0.;
                 self.curr_val = new_val;
-                return (self.curr_val, true);
+                (self.curr_val, true)
             }
             S::None => {
                 self.velocity = new_velocity;
@@ -576,11 +576,11 @@ impl ConstantDecelerationSpringDamper {
         let finished = match self.direction {
             Direction::Increasing => {
                 // We are comming back from a value higher than the limit
-                if current_val < self.limit_value || t > max_time { true } else { false }
+                current_val < self.limit_value || t > max_time
             }
             Direction::Decreasing => {
                 // We are comming back from a value lower than the limit
-                if current_val > self.limit_value || t > max_time { true } else { false }
+                current_val > self.limit_value || t > max_time
             }
         };
         if finished {
