@@ -8,7 +8,7 @@ import { NarrowPrinterQueueList } from "./printer_queue.slint";
 component ActionButton inherits Image {
     in property <string> text <=> label.text;
 
-    callback clicked;
+    callback clicked <=> ta.clicked;
     width: 104px;
 
     label := Text {
@@ -19,11 +19,11 @@ component ActionButton inherits Image {
     }
 
     ta := TouchArea {
-        pointer-event(event) => {
-            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                root.clicked();
-            }
-        }
+        // pointer-event(event) => {
+        //     if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+        //         root.clicked();
+        //     }
+        // }
     }
 }
 

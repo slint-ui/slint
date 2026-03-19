@@ -311,11 +311,7 @@ impl NodeCollection {
                             })
                             .unwrap_or(parent)
                     })
-                    .or_else(|| {
-                        window_inner
-                            .try_component()
-                            .map(|component_rc| ItemRc::new(component_rc, 0))
-                    })
+                    .or_else(|| window_inner.try_component().map(ItemRc::new_root))
                     .map(|focus_item| self.find_node_id_by_item_rc(focus_item))
             })
             .unwrap_or(self.root_node_id)
@@ -382,7 +378,7 @@ impl NodeCollection {
                     return None;
                 }
 
-                let popup_item = ItemRc::new(popup.component.clone(), 0);
+                let popup_item = ItemRc::new_root(popup.component.clone());
                 Some(self.build_node_for_item_recursively(
                     popup_item,
                     nodes,
@@ -437,7 +433,7 @@ impl NodeCollection {
         let window = window_adapter.window();
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
 
-        let root_item = ItemRc::new(window_inner.component(), 0);
+        let root_item = ItemRc::new_root(window_inner.component());
 
         let popups = window_inner
             .active_popups()

@@ -118,6 +118,7 @@ Invoked when the `FocusScope` loses focus. The argument is a a <Link type="Focus
 ## `Shortcut`
 
 Place `Shortcut` elements inside a `FocusScope` to declare keyboard shortcuts.
+Shortcuts use **logical keys**, based on the character a key produces, not physical key positions.
 
 See <Link type="KeyboardShortcuts" label="Keyboard Shortcuts"/> for details.
 
@@ -127,6 +128,11 @@ See <Link type="KeyboardShortcuts" label="Keyboard Shortcuts"/> for details.
 
 <SlintProperty propName="keys" typeName="keyboard-shortcut">
 The <Link type="keyboard-shortcut" label="keyboard-shortcut" /> to match against incoming key events.
+</SlintProperty>
+
+#### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether this Shortcut is currently enabled. Disabled Shortcut elements don't consume key events and never invoke their `activated()` callback.
 </SlintProperty>
 
 ### Callbacks of `Shortcut`

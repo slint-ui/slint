@@ -193,82 +193,83 @@ jobs:
                 echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
               working-directory: ${{ matrix.demo }}
-            - name: "Boot Simulator"
-              timeout-minutes: 5
-              run: |
-                echo "=== Booting simulator by UDID ==="
-                echo "Device: ${{ matrix.device }}"
-                echo "UDID: ${{ env.SIMULATOR_UDID }}"
-                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
-
-                set -x  # Enable command echoing
-                xcrun simctl boot "${{ env.SIMULATOR_UDID }}"
-                BOOT_RESULT=$?
-                set +x  # Disable command echoing
-
-                echo "Boot command completed with exit code: $BOOT_RESULT"
-                echo ""
-
-                echo "=== Simulator state after boot command ==="
-                SIMULATOR_STATUS=$(xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}")
-                echo "$SIMULATOR_STATUS"
-
-                if echo "$SIMULATOR_STATUS" | grep -q "(Booted)"; then
-                  echo "Simulator is booted successfully at: $(date '+%Y-%m-%d %H:%M:%S')"
-                else
-                  echo "ERROR: Simulator failed to boot properly"
-                  echo "Current status: $SIMULATOR_STATUS"
-                  exit 1
-                fi
-            - name: "Install"
-              run: |
-                APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
-                echo "Found app bundle at $APP_PATH"
-                xcrun simctl install booted "$APP_PATH"
-                echo "Verifying installation..."
-                xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
-            - name: "Launch"
-              timeout-minutes: 5
-              run: |
-                echo "Attempting to launch ${{ matrix.bundle_id }}..."
-                # Retry loop to wait for FrontBoard to register the app
-                MAX_ATTEMPTS=10
-                ATTEMPT=1
-                while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-                  echo "Launch attempt $ATTEMPT of $MAX_ATTEMPTS..."
-                  if xcrun simctl launch booted "${{ matrix.bundle_id }}" 2>&1 | tee launch_output.txt; then
-                    echo "App launched successfully on attempt $ATTEMPT"
-                    sleep 5
-                    exit 0
-                  fi
-
-                  if grep -q "unknown to FrontBoard" launch_output.txt; then
-                    echo "FrontBoard hasn't registered app yet, waiting 2 seconds..."
-                    sleep 2
-                    ATTEMPT=$((ATTEMPT + 1))
-                  else
-                    echo "Launch failed with a different error:"
-                    cat launch_output.txt
-                    echo "Checking simulator logs..."
-                    xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"' || true
-                    exit 1
-                  fi
-                done
-
-                echo "Failed to launch after $MAX_ATTEMPTS attempts"
-                exit 1
-            - name: "Screenshot"
-              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
-            - name: Upload Screenshot Artifact
-              uses: actions/upload-artifact@v7
-              with:
-                name: ${{matrix.scheme}}-screenshot
-                path: ${{ matrix.scheme }}.png
-            - name: "Cleanup - Shutdown Simulator"
-              if: always()
-              run: |
-                echo "Shutting down simulator to avoid orphan processes..."
-                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
+# This isn't working reliably. Sometimes the simulator doesn't boot, somethings launching fails, and sometimes screenshotting fails.
+#            - name: "Boot Simulator"
+#              timeout-minutes: 5
+#              run: |
+#                echo "=== Booting simulator by UDID ==="
+#                echo "Device: ${{ matrix.device }}"
+#                echo "UDID: ${{ env.SIMULATOR_UDID }}"
+#                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+#
+#                set -x  # Enable command echoing
+#                xcrun simctl boot "${{ env.SIMULATOR_UDID }}"
+#                BOOT_RESULT=$?
+#                set +x  # Disable command echoing
+#
+#                echo "Boot command completed with exit code: $BOOT_RESULT"
+#                echo ""
+#
+#                echo "=== Simulator state after boot command ==="
+#                SIMULATOR_STATUS=$(xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}")
+#                echo "$SIMULATOR_STATUS"
+#
+#                if echo "$SIMULATOR_STATUS" | grep -q "(Booted)"; then
+#                  echo "Simulator is booted successfully at: $(date '+%Y-%m-%d %H:%M:%S')"
+#                else
+#                  echo "ERROR: Simulator failed to boot properly"
+#                  echo "Current status: $SIMULATOR_STATUS"
+#                  exit 1
+#                fi
+#            - name: "Install"
+#              run: |
+#                APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
+#                echo "Found app bundle at $APP_PATH"
+#                xcrun simctl install booted "$APP_PATH"
+#                echo "Verifying installation..."
+#                xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
+#            - name: "Launch"
+#              timeout-minutes: 5
+#              run: |
+#                echo "Attempting to launch ${{ matrix.bundle_id }}..."
+#                # Retry loop to wait for FrontBoard to register the app
+#                MAX_ATTEMPTS=10
+#                ATTEMPT=1
+#                while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+#                  echo "Launch attempt $ATTEMPT of $MAX_ATTEMPTS..."
+#                  if xcrun simctl launch booted "${{ matrix.bundle_id }}" 2>&1 | tee launch_output.txt; then
+#                    echo "App launched successfully on attempt $ATTEMPT"
+#                    sleep 5
+#                    exit 0
+#                  fi
+#
+#                  if grep -q "unknown to FrontBoard" launch_output.txt; then
+#                    echo "FrontBoard hasn't registered app yet, waiting 2 seconds..."
+#                    sleep 2
+#                    ATTEMPT=$((ATTEMPT + 1))
+#                  else
+#                    echo "Launch failed with a different error:"
+#                    cat launch_output.txt
+#                    echo "Checking simulator logs..."
+#                    xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"' || true
+#                    exit 1
+#                  fi
+#                done
+#
+#                echo "Failed to launch after $MAX_ATTEMPTS attempts"
+#                exit 1
+#            - name: "Screenshot"
+#              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
+#            - name: Upload Screenshot Artifact
+#              uses: actions/upload-artifact@v7
+#              with:
+#                name: ${{matrix.scheme}}-screenshot
+#                path: ${{ matrix.scheme }}.png
+#            - name: "Cleanup - Shutdown Simulator"
+#              if: always()
+#              run: |
+#                echo "Shutting down simulator to avoid orphan processes..."
+#                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
 
 
     bevy_examples:

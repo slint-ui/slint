@@ -60,7 +60,7 @@ fn register_named_tuple(
     let language_mod = match m.getattr("language") {
         Ok(existing) => existing.cast_into::<PyModule>()?,
         Err(_) => {
-            let sub = PyModule::new(py, "language")?;
+            let sub = PyModule::new(py, "slint.language")?;
             m.add("language", &sub)?;
             // Register in sys.modules so "from slint.language import ..." works
             let sys = py.import("sys")?;

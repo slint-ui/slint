@@ -23,8 +23,9 @@ depends = ["fix:rust:lockfile"]
 
 ["fix:python:format"]
 description = "Run ruff format"
-run = "ruff format"
-tools = { "ruff" = "0.11.8" }
+# Run via uv as the ruff installation via mise is unreliable in the CI.
+# It keeps failing to find ruff, despite saying that it was installed.
+run = "uv tool run ruff@0.11.8 format"
 
 ["fix:rust:format"]
 description = "Run cargo fmt --all"

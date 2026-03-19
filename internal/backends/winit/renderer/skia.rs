@@ -140,13 +140,9 @@ impl WinitSkiaRenderer {
                         );
                     }
                     #[cfg(feature = "unstable-wgpu-27")]
-                    RequestedGraphicsAPI::WGPU27(..) => {
-                        return Ok(Self::new_wgpu_27_suspended);
-                    }
+                    RequestedGraphicsAPI::WGPU27(..) => Ok(Self::new_wgpu_27_suspended),
                     #[cfg(feature = "unstable-wgpu-28")]
-                    RequestedGraphicsAPI::WGPU28(..) => {
-                        return Ok(Self::new_wgpu_28_suspended);
-                    }
+                    RequestedGraphicsAPI::WGPU28(..) => Ok(Self::new_wgpu_28_suspended),
                 }
             }
             None => Ok(Self::new_suspended),

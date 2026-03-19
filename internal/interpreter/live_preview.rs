@@ -272,7 +272,7 @@ impl Watcher {
         }));
 
         // no event loop, no need to start a watcher
-        if !result.is_ok() {
+        if result.is_err() {
             return arc;
         }
 

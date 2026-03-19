@@ -669,7 +669,6 @@ pub enum BuiltinPrivateStruct {
     LayoutInfo,
     FontMetrics,
     PathElement,
-    KeyboardModifiers,
     PointerEvent,
     PointerScrollEvent,
     KeyEvent,
@@ -697,7 +696,6 @@ impl BuiltinPrivateStruct {
             | Self::TableColumn
             | Self::MenuEntry
             | Self::KeyEvent
-            | Self::KeyboardModifiers
             | Self::PointerEvent
             | Self::PointerScrollEvent
             | Self::Edges => {
@@ -716,6 +714,7 @@ pub enum BuiltinPublicStruct {
     LogicalSize,
     StandardListViewItem,
     KeyboardShortcut,
+    KeyboardModifiers,
 }
 
 impl BuiltinPublicStruct {
@@ -726,6 +725,7 @@ impl BuiltinPublicStruct {
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
             Self::KeyboardShortcut => Some(SmolStr::new_static("KeyboardShortcut")),
+            Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
         }
     }
 }
@@ -1042,14 +1042,14 @@ impl std::fmt::Display for KeyboardShortcut {
         } else {
             let alt = self
                 .ignore_alt
-                .then_some("IgnoreAlt+")
+                .then_some("Alt?+")
                 .or(self.modifiers.alt.then_some("Alt+"))
                 .unwrap_or_default();
             let ctrl = if self.modifiers.control { "Control+" } else { "" };
             let meta = if self.modifiers.meta { "Meta+" } else { "" };
             let shift = self
                 .ignore_shift
-                .then_some("IgnoreShift+")
+                .then_some("Shift?+")
                 .or(self.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
             let keycode: String = self

@@ -60,16 +60,13 @@ export component LineEdit {
     states [
         disabled when !root.enabled : {
             background.background: FluentPalette.control-disabled;
-            background.border-color: FluentPalette.border;
             base.text-color: FluentPalette.text-disabled;
             base.selection-foreground-color: FluentPalette.text-accent-foreground-disabled;
             base.placeholder-color: FluentPalette.text-disabled;
         }
         focused when root.has-focus : {
             background.background: FluentPalette.control-input-active;
-            background.border-color: FluentPalette.border;
             focus-border.background: FluentPalette.accent-background;
-            base.placeholder-color: FluentPalette.text-tertiary;
         }
     ]
 
@@ -125,6 +122,7 @@ export component LineEdit {
             y: parent.height - self.height;
             width: parent.width - 2 * parent.border-radius;
             height: 2px;
+            border-radius: 1px;
         }
     }
 }

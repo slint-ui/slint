@@ -45,26 +45,39 @@ use i_slint_core::renderer::Renderer;
 use std::cell::OnceCell;
 
 cpp! {{
-    #include <QtWidgets/QtWidgets>
-    #include <QtWidgets/QGraphicsScene>
-    #include <QtWidgets/QGraphicsBlurEffect>
-    #include <QtWidgets/QGraphicsPixmapItem>
-    #include <QtGui/QAccessible>
-    #include <QtGui/QPainter>
-    #include <QtGui/QPaintEngine>
-    #include <QtGui/QPainterPath>
-    #include <QtGui/QWindow>
-    #include <QtGui/QResizeEvent>
-    #include <QtGui/QTextLayout>
-    #include <QtGui/QImageReader>
-    #include <QtGui/QCursor>
+    // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtCore/QBasicTimer>
-    #include <QtCore/QTimer>
-    #include <QtCore/QPointer>
     #include <QtCore/QBuffer>
     #include <QtCore/QEvent>
     #include <QtCore/QFileInfo>
+    #include <QtCore/QMutex>
+    #include <QtCore/QPointer>
+    #include <QtCore/QThread>
+    #include <QtCore/QTimer>
+    #include <QtGui/QAccessible>
+    #include <QtGui/QCursor>
+    #include <QtGui/QDesktopServices>
+    #include <QtGui/QIconEngine>
+    #include <QtGui/QImageReader>
+    #include <QtGui/QPaintEngine>
+    #include <QtGui/QPainter>
+    #include <QtGui/QPainterPath>
+    #include <QtGui/QResizeEvent>
+    #include <QtGui/QTextLayout>
+    #include <QtGui/QWindow>
+    #include <QtWidgets/QCheckBox>
+    #include <QtWidgets/QComboBox>
+    #include <QtWidgets/QGraphicsBlurEffect>
+    #include <QtWidgets/QGraphicsPixmapItem>
+    #include <QtWidgets/QGraphicsScene>
+    #include <QtWidgets/QGroupBox>
+    #include <QtWidgets/QLineEdit>
+    #include <QtWidgets/QProgressBar>
+    #include <QtWidgets/QPushButton>
+    #include <QtWidgets/QSpinBox>
 
+
+    #include <cmath>
     #include <memory>
 
     void ensure_initialized(bool from_qt_backend);

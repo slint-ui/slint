@@ -446,9 +446,9 @@ declare_syntax! {
         /// `[ type ]`
         ArrayType -> [ Type ],
         /// `struct Foo { ... }`
-        StructDeclaration -> [DeclaredIdentifier, ObjectType, ?AtRustAttr],
+        StructDeclaration -> [DeclaredIdentifier, ObjectType, *AtRustAttr],
         /// `enum Foo { bli, bla, blu }`
-        EnumDeclaration -> [DeclaredIdentifier, *EnumValue, ?AtRustAttr],
+        EnumDeclaration -> [DeclaredIdentifier, *EnumValue, *AtRustAttr],
         /// The value is a Identifier
         EnumValue -> [],
         /// `@rust-attr(...)`

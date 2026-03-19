@@ -14,13 +14,19 @@ export component SuperSimple {
         @keys(Shift+Asterisk),
 //                  >      <error{Shortcuts involving Asterisk ignore Shift to support different keyboard layouts↵Remove Shift and consider using e.g. Digit8 (for U.S. Keyboard layout)}
 
-        // IgnoreShift
-        @keys(IgnoreShift + Asterisk),
-//                          >      <warning{Asterisk already implies IgnoreShift (remove IgnoreShift)}
+        // Shift?
+        @keys(Shift? + Asterisk),
+//                     >      <warning{Asterisk already implies Shift? (remove Shift?)}
 
         @keys("A"),
 //            > <error{Keyboard shortcut literals must currently be lowercase, use "a" instead}
         @keys(Alt + Control + Shift + Meta + "Ä"),
 //                                           >  <error{Keyboard shortcut literals must currently be lowercase, use "ä" instead}
+
+        // Multi-grapheme cluster
+        @keys("ab"),
+//            >  <error{Keyboard shortcut string literal must contain exactly one grapheme cluster, found 2}
+        @keys(Control + "xy"),
+//                      >  <error{Keyboard shortcut string literal must contain exactly one grapheme cluster, found 2}
     ];
 }

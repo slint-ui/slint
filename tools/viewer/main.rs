@@ -131,7 +131,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "gettext")]
     if let Some(dirname) = args.translation_dir.clone() {
         i_slint_core::translations::gettext_bindtextdomain(
-            args.translation_domain.as_ref().map(String::as_str).unwrap_or_default(),
+            args.translation_domain.as_deref().unwrap_or_default(),
             dirname,
         )?;
     };

@@ -324,7 +324,7 @@ impl Snapshotter {
     ) -> Rc<object_tree::Component> {
         let input_address = by_address::ByAddress(component.clone());
 
-        let parent_element = if let Some(pe) = component.parent_element.upgrade() {
+        let parent_element = if let Some(pe) = component.parent_element() {
             Rc::downgrade(&self.use_element(&pe))
         } else {
             Weak::default()
@@ -379,7 +379,7 @@ impl Snapshotter {
                 init_code: RefCell::new(component.init_code.borrow().clone()),
                 inherits_popup_window: std::cell::Cell::new(component.inherits_popup_window.get()),
                 optimized_elements,
-                parent_element,
+                parent_element: RefCell::new(parent_element),
                 popup_windows,
                 timers,
                 menu_item_tree,
@@ -1046,45 +1046,45 @@ impl TypeLoader {
                 #[cfg(feature = "experimental-library-module")]
                 let import_file = import.file.clone();
                 #[cfg(feature = "experimental-library-module")]
-                if let Some(maybe_library_import) = import_file.strip_prefix('@') {
-                    if let Some(library_name) = std::env::var(format!(
+                if let Some(maybe_library_import) = import_file.strip_prefix('@')
+                    && let Ok(library_name) = std::env::var(format!(
                         "DEP_{}_SLINT_LIBRARY_NAME",
                         maybe_library_import.to_uppercase()
                     ))
-                    .ok()
-                    {
-                        if library_name == maybe_library_import {
+                    && library_name == maybe_library_import
+                {
+                    let library_slint_source = std::env::var(format!(
+                        "DEP_{}_SLINT_LIBRARY_SOURCE",
+                        maybe_library_import.to_uppercase()
+                    ))
+                    .unwrap_or_default();
 
-                            let library_slint_source = std::env::var(format!(
-                                "DEP_{}_SLINT_LIBRARY_SOURCE",
+                    import.file = library_slint_source;
+
+                    if let Ok(library_package) = std::env::var(format!(
+                        "DEP_{}_SLINT_LIBRARY_PACKAGE",
+                        maybe_library_import.to_uppercase()
+                    )) {
+                        import.library_info = Some(LibraryInfo {
+                            name: library_name,
+                            package: library_package,
+                            module: std::env::var(format!(
+                                "DEP_{}_SLINT_LIBRARY_MODULE",
                                 maybe_library_import.to_uppercase()
                             ))
-                            .ok()
-                            .unwrap_or_default();
-
-                            import.file = library_slint_source;
-
-                            if let Some(library_package) = std::env::var(format!(
-                                "DEP_{}_SLINT_LIBRARY_PACKAGE",
+                            .ok(),
+                            exports: Vec::new(),
+                        });
+                    } else {
+                        // This should never happen
+                        let mut state = state.borrow_mut();
+                        state.diag.push_error(
+                            format!(
+                                "DEP_{}_SLINT_LIBRARY_PACKAGE is missing for external library import",
                                 maybe_library_import.to_uppercase()
-                            ))
-                            .ok()
-                            {
-                                import.library_info = Some(LibraryInfo {
-                                    name: library_name,
-                                    package: library_package,
-                                    module:  std::env::var(format!("DEP_{}_SLINT_LIBRARY_MODULE",
-                                        maybe_library_import.to_uppercase()
-                                    )).ok(),
-                                    exports: Vec::new(),
-                                });
-                            } else {
-                                // This should never happen
-                                let mut state = state.borrow_mut();
-                                let state: &mut BorrowedTypeLoader<'a> = &mut *state;
-                                state.diag.push_error(format!("DEP_{}_SLINT_LIBRARY_PACKAGE is missing for external library import", maybe_library_import.to_uppercase()).into(), &import.import_uri_token.parent());
-                            }
-                        }
+                            ),
+                            &import.import_uri_token.parent(),
+                        );
                     }
                 }
 
@@ -1117,10 +1117,11 @@ impl TypeLoader {
                             Self::register_imported_types(doc, &import, imported_types, registry_to_populate, state.diag);
 
                             #[cfg(feature = "experimental-library-module")]
-                            if import.library_info.is_some() {
-                                import.library_info.as_mut().unwrap().exports = doc.exports.iter().map(|(exported_name, _compo_or_type)| {
-                                    exported_name.clone()
-                                }).collect();
+                            if let Some(library_info) = import.library_info.as_mut() {
+                                library_info.exports =
+                                    doc.exports.iter().map(|(exported_name, _compo_or_type)| {
+                                        exported_name.clone()
+                                    }).collect();
                             }
                         } else {
                             state.diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token.parent());

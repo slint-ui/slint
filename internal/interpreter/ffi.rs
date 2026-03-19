@@ -278,6 +278,7 @@ const _: [(); std::mem::align_of::<StructIteratorOpaque>()] =
 pub unsafe extern "C" fn slint_interpreter_struct_iterator_destructor(
     val: *mut StructIteratorOpaque,
 ) {
+    #[allow(clippy::drop_non_drop)] // the drop is a no-op but we still want to be explicit
     drop(unsafe { std::ptr::read(val as *mut StructIterator) })
 }
 
@@ -513,10 +514,8 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
                     .property_type,
                 i_slint_compiler::langtype::Type::Function { .. }
             ) {
-                g.as_ref().eval_function(
-                    &normalize_identifier(callable_name),
-                    args.as_slice().iter().cloned().collect(),
-                )
+                g.as_ref()
+                    .eval_function(&normalize_identifier(callable_name), args.as_slice().to_vec())
             } else {
                 g.as_ref().invoke_callback(&normalize_identifier(callable_name), args.as_slice())
             }

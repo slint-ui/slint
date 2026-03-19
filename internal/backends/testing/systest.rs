@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::{Rc, Weak};
 
-use crate::{ElementHandle, ElementRoot};
+use crate::{ElementHandle, ElementRoot, LayoutKind};
 
 struct RootWrapper<'a>(&'a ItemTreeRc);
 
@@ -299,7 +299,7 @@ impl TestingClient {
                     query = query.match_type_name(type_name)
                 }
                 proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name_or_base(type_name_or_base) => {
-                    query = query.match_type_name(type_name_or_base)
+                    query = query.match_inherits(type_name_or_base)
                 }
                 proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_accessible_role(role) => {
                     query = query.match_accessible_role(convert_from_proto_accessible_role(role).ok_or_else(|| "Unknown accessibility role used in element query".to_string())?)
@@ -379,6 +379,13 @@ impl TestingClient {
                 .to_string(),
             accessible_enabled: element.accessible_enabled().unwrap_or_default(),
             accessible_read_only: element.accessible_read_only().unwrap_or_default(),
+            layout_kind: match element.layout_kind() {
+                Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout,
+                Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout,
+                Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout,
+                Some(LayoutKind::FlexBox) => proto::LayoutKind::FlexBox,
+                None => proto::LayoutKind::NotALayout,
+            },
         })
     }
 

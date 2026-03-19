@@ -1703,7 +1703,7 @@ impl WindowInner {
             }
 
             let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new(item_tree.clone(), 0)),
+                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
                 Some(menubar_item) => {
                     event.translate(
                         menubar_item
@@ -1788,6 +1788,21 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
+        // NFC-normalize the event text so that shortcut matching works consistently
+        // regardless of the composed/decomposed form the backend provides
+        // (e.g. é as U+00E9 vs e + U+0301).
+        // Note: icu_normalizer is currently only enabled if parley is enabled
+        #[cfg(feature = "shared-parley")]
+        {
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let normalized = normalizer.normalize(&event.text);
+            // Only replace the event text if normalization actually changed it,
+            // to avoid unnecessary allocations.
+            if let alloc::borrow::Cow::Owned(normalized) = normalized {
+                event.text = normalized.into();
+            }
+        }
+
         if let Some(updated_modifier) = self
             .modifiers
             .get()
@@ -2236,7 +2251,8 @@ impl WindowInner {
         let position = parent_item
             .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
+            if ItemRc::new_root(item_tree.clone()).downcast::<crate::items::WindowItem>().is_some()
+            {
                 return item_tree;
             }
             let mut r = crate::item_tree::ItemWeak::default();
@@ -2477,7 +2493,7 @@ impl WindowInner {
     /// is returned, it's guaranteed to be safe to downcast to `WindowItem`.
     pub fn window_item_rc(&self) -> Option<ItemRc> {
         self.try_component().and_then(|component_rc| {
-            let item_rc = ItemRc::new(component_rc, 0);
+            let item_rc = ItemRc::new_root(component_rc);
             if item_rc.downcast::<crate::items::WindowItem>().is_some() {
                 Some(item_rc)
             } else {
@@ -2489,7 +2505,7 @@ impl WindowInner {
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
-            ItemRc::new(component_rc, 0).downcast::<crate::items::WindowItem>()
+            ItemRc::new_root(component_rc).downcast::<crate::items::WindowItem>()
         })
     }
 

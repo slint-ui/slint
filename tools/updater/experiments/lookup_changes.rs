@@ -281,8 +281,8 @@ pub(crate) fn collect_movable_properties(state: &mut crate::State) {
             vec.extend(
                 c.borrow()
                     .property_declarations
-                    .iter()
-                    .map(|(name, _)| NamedReference::new(c, name.clone())),
+                    .keys()
+                    .map(|name| NamedReference::new(c, name.clone())),
             );
             collect_movable_properties_recursive(vec, c);
         }

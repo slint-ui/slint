@@ -393,7 +393,7 @@ pub struct Component {
     pub root_element: ElementRc,
 
     /// The parent element within the parent component if this component represents a repeated element
-    pub parent_element: Weak<RefCell<Element>>,
+    pub parent_element: RefCell<ElementWeak>,
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
@@ -515,6 +515,15 @@ impl Component {
             }
         });
         count
+    }
+
+    /// Convenience accessor to get the parent element if this component is a repeated component, or None otherwise.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the Self::parent_element member is currently mutably borrowed
+    pub fn parent_element(&self) -> Option<ElementRc> {
+        self.parent_element.borrow().upgrade()
     }
 }
 
@@ -731,13 +740,26 @@ pub struct ElementDebugInfo {
 }
 
 impl ElementDebugInfo {
-    // Returns a comma separate string that encodes the element type name (`Rectangle`, `MyButton`, etc.)
-    // and the qualified id (`SurroundingComponent::my-id`).
+    // Returns a comma separate string that encodes the element type name (`Rectangle`, `MyButton`, etc.),
+    // the qualified id (`SurroundingComponent::my-id`), and optionally the layout kind
+    // (`h-box`, `v-box`, `grid`, `flex-box`).
     fn encoded_element_info(&self) -> String {
         let mut info = self.type_name.clone();
         info.push(',');
         if let Some(id) = self.qualified_id.as_ref() {
             info.push_str(id);
+        }
+        info.push(',');
+        if let Some(layout) = &self.layout {
+            use crate::layout::{Layout, Orientation};
+            match layout {
+                Layout::BoxLayout(b) => match b.orientation {
+                    Orientation::Horizontal => info.push_str("h-box"),
+                    Orientation::Vertical => info.push_str("v-box"),
+                },
+                Layout::GridLayout(_) => info.push_str("grid"),
+                Layout::FlexBoxLayout(_) => info.push_str("flex-box"),
+            }
         }
         info
     }
@@ -855,7 +877,7 @@ pub fn pretty_print(
         write!(f, ":")?;
         if let ElementType::Component(base) = &e.base_type {
             write!(f, "(base) ")?;
-            if base.parent_element.upgrade().is_some() {
+            if base.parent_element().is_some() {
                 pretty_print(f, &base.root_element.borrow(), indentation)?;
                 return Ok(());
             }
@@ -2306,7 +2328,7 @@ pub fn recurse_elem_including_sub_components<State>(
         ));
         if elem.borrow().repeated.is_some()
             && let ElementType::Component(base) = &elem.borrow().base_type
-            && base.parent_element.upgrade().is_some()
+            && base.parent_element().is_some()
         {
             recurse_elem_including_sub_components(base, state, vis);
         }
@@ -2346,7 +2368,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
         let base = if elem.borrow().repeated.is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
+                if base.parent_element().is_some() {
                     Some(base.clone())
                 } else {
                     // The process_repeater_components pass was not run yet

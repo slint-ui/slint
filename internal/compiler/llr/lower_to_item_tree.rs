@@ -193,7 +193,7 @@ pub struct LoweredSubComponent {
 pub struct LoweringState {
     global_properties: HashMap<NamedReference, MemberReference>,
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
-    pub sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
+    sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
 }
@@ -213,8 +213,32 @@ impl LoweringState {
         &self.sub_components[self.sub_component_idx(component)]
     }
 
+    /// Returns the `row_child_templates` from an already-lowered sub-component.
+    /// Used by the parent's layout expression lowering to read template info
+    /// from a repeated Row that was lowered earlier.
+    pub fn row_child_templates(
+        &self,
+        component: &Rc<Component>,
+    ) -> Option<Vec<super::RowChildTemplateInfo>> {
+        self.sub_components[self.sub_component_idx(component)]
+            .sub_component
+            .row_child_templates
+            .clone()
+    }
+
     fn sub_component_idx(&self, component: &Rc<Component>) -> SubComponentIdx {
-        self.sub_component_mapping[&ByAddress(component.clone())]
+        *self.sub_component_mapping.get(&ByAddress(component.clone())).unwrap_or_else(|| {
+            debug_assert!(
+                false,
+                "no entry found for key: component id='{}', available keys: {:?}",
+                component.id,
+                self.sub_component_mapping.keys().map(|k| k.0.id.clone()).collect::<Vec<_>>()
+            );
+            unreachable!(
+                "component must be registered before querying sub_component_idx: '{}'",
+                component.id
+            )
+        })
     }
 
     fn push_sub_component(&mut self, sc: LoweredSubComponent) -> SubComponentIdx {
@@ -271,6 +295,7 @@ fn lower_sub_component(
             .as_ref()
             .is_some_and(|c| c.borrow().child_items.is_some()),
         grid_layout_children: Default::default(),
+        row_child_templates: None,
         accessible_prop: Default::default(),
         element_infos: Default::default(),
         prop_analysis: Default::default(),
@@ -280,13 +305,13 @@ fn lower_sub_component(
     let mut accessible_prop = Vec::new();
     let mut change_callbacks = Vec::new();
 
-    if let Some(parent) = component.parent_element.upgrade() {
+    if let Some(parent) = component.parent_element() {
         // Add properties for the model data and index
         if parent.borrow().repeated.as_ref().is_some_and(|x| !x.is_conditional_element) {
             sub_component.properties.push(Property {
                 name: "model_data".into(),
                 ty: crate::expression_tree::Expression::RepeaterModelReference {
-                    element: component.parent_element.clone(),
+                    element: component.parent_element.borrow().clone(),
                 }
                 .ty(),
                 ..Property::default()
@@ -416,6 +441,19 @@ fn lower_sub_component(
     let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: parent_context, component };
     let mut ctx = ExpressionLoweringCtx { inner, state };
 
+    // Lower repeated components first, so their sub-components (e.g. Row) are available
+    // when lowering layout expressions that need to read row_child_templates.
+    sub_component.repeated = repeated
+        .into_iter()
+        .map(|(elem, parent)| {
+            lower_repeated_component(&elem, parent, &sub_component, &mut ctx, compiler_config)
+        })
+        .collect();
+    for s in &mut sub_component.sub_components {
+        s.repeater_offset +=
+            (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
+    }
+
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
         let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
@@ -496,16 +534,6 @@ fn lower_sub_component(
             }
         }
     });
-    sub_component.repeated = repeated
-        .into_iter()
-        .map(|(elem, parent)| {
-            lower_repeated_component(&elem, parent, &sub_component, &mut ctx, compiler_config)
-        })
-        .collect();
-    for s in &mut sub_component.sub_components {
-        s.repeater_offset +=
-            (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
-    }
 
     sub_component.popup_windows = component
         .popup_windows
@@ -572,24 +600,48 @@ fn lower_sub_component(
 
         // Store constraints for children of the Row
         if let Some(children_constraints) = grid_cell_ref.child_items.as_ref() {
-            for layout_item in children_constraints.iter() {
-                let layout_info_h = super::lower_layout_expression::get_layout_info(
-                    &layout_item.element,
-                    &mut ctx,
-                    &layout_item.constraints,
-                    crate::layout::Orientation::Horizontal,
-                );
-                let layout_info_v = super::lower_layout_expression::get_layout_info(
-                    &layout_item.element,
-                    &mut ctx,
-                    &layout_item.constraints,
-                    crate::layout::Orientation::Vertical,
-                );
-                sub_component.grid_layout_children.push(super::GridLayoutChildLayoutInfo {
-                    layout_info_h: layout_info_h.into(),
-                    layout_info_v: layout_info_v.into(),
-                });
+            let mut row_child_templates = Vec::new();
+            for child_template in children_constraints.iter() {
+                match child_template {
+                    crate::layout::RowChildTemplate::Static(layout_item) => {
+                        let layout_info_h = super::lower_layout_expression::get_layout_info(
+                            &layout_item.element,
+                            &mut ctx,
+                            &layout_item.constraints,
+                            crate::layout::Orientation::Horizontal,
+                        );
+                        let layout_info_v = super::lower_layout_expression::get_layout_info(
+                            &layout_item.element,
+                            &mut ctx,
+                            &layout_item.constraints,
+                            crate::layout::Orientation::Vertical,
+                        );
+                        let child_index = sub_component.grid_layout_children.push_and_get_key(
+                            super::GridLayoutChildLayoutInfo {
+                                layout_info_h: layout_info_h.into(),
+                                layout_info_v: layout_info_v.into(),
+                            },
+                        );
+                        row_child_templates
+                            .push(super::RowChildTemplateInfo::Static { child_index });
+                    }
+                    crate::layout::RowChildTemplate::Repeated { repeated_element, .. } => {
+                        // Inner repeater: layout_info is computed at runtime per instance.
+                        if let Some(super::lower_to_item_tree::LoweredElement::Repeated {
+                            repeated_index,
+                        }) = mapping.element_mapping.get(&repeated_element.clone().into())
+                        {
+                            row_child_templates.push(super::RowChildTemplateInfo::Repeated {
+                                repeater_index: *repeated_index,
+                            });
+                        }
+                    }
+                }
             }
+            // Always set row_child_templates (even if empty) to mark this as a Row sub-component.
+            // An empty row_child_templates (Some([])) means 0 cells per sub-component — correct for empty Rows.
+            // Leaving it as None would incorrectly treat it as a column-repeater (1 cell per sub-component).
+            sub_component.row_child_templates = Some(row_child_templates);
         }
     }
 
@@ -727,12 +779,14 @@ fn lower_repeated_component(
     let container_item_index =
         parent_index.and_then(|pii| sub_component.items.position(|i| i.index_in_tree == pii));
 
+    let tree = make_tree(ctx.state, &component.root_element, &sc, &[]);
+    let root = ctx.state.push_sub_component(sc);
+    // Register the repeated component in the mapping so it can be looked up
+    ctx.state.sub_component_mapping.insert(ByAddress(component.clone()), root);
+
     RepeatedElement {
         model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
-        sub_tree: ItemTree {
-            tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
-            root: ctx.state.push_sub_component(sc),
-        },
+        sub_tree: ItemTree { tree, root },
         index_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_INDEX),
         data_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_DATA),
         index_in_tree: *e.item_index.get().unwrap(),

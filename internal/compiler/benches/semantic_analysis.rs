@@ -159,7 +159,7 @@ fn generate_many_exports(count: usize) -> String {
     let mut s = String::new();
     // Generate components in non-alphabetical order to stress sorting
     let mut indices: Vec<usize> = (0..count).collect();
-    indices.sort_by(|a, b| ((b * 17) % count).cmp(&((a * 17) % count)));
+    indices.sort_by_key(|a| std::cmp::Reverse((a * 17) % count));
 
     for i in indices {
         s.push_str(&format!(

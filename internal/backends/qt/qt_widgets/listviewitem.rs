@@ -9,7 +9,7 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeStandardListViewItem {
-    pub item: Property<i_slint_core::model::StandardListViewItem>,
+    pub item: Property<i_slint_core::items::StandardListViewItem>,
     pub index: Property<i32>,
     pub is_selected: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,

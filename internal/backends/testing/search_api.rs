@@ -24,6 +24,33 @@ mod internal {
     pub trait Sealed {}
 }
 
+/// Describes the kind of layout an element represents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+#[non_exhaustive]
+pub enum LayoutKind {
+    /// A `HorizontalLayout`.
+    HorizontalLayout,
+    /// A `VerticalLayout`.
+    VerticalLayout,
+    /// A `GridLayout`.
+    GridLayout,
+    /// A flex box layout.
+    FlexBox,
+}
+
+impl LayoutKind {
+    fn from_encoded(s: &str) -> Option<Self> {
+        match s {
+            "h-box" => Some(Self::HorizontalLayout),
+            "v-box" => Some(Self::VerticalLayout),
+            "grid" => Some(Self::GridLayout),
+            "flex-box" => Some(Self::FlexBox),
+            _ => None,
+        }
+    }
+}
+
 pub(crate) use internal::Sealed;
 
 /// Trait for type that can be searched for element. This is implemented for everything that implements [`ComponentHandle`]
@@ -32,7 +59,7 @@ pub trait ElementRoot: Sealed {
     fn item_tree(&self) -> ItemTreeRc;
     /// Returns the root of the element tree.
     fn root_element(&self) -> ElementHandle {
-        let item_rc = ItemRc::new(self.item_tree(), 0);
+        let item_rc = ItemRc::new_root(self.item_tree());
         ElementHandle { item: item_rc.downgrade(), element_index: 0 }
     }
 }
@@ -285,7 +312,7 @@ impl ElementHandle {
                 for (popup_elem, popup_item_tree) in active_popups {
                     if popup_elem == item_rc
                         && let Some(result) = (ElementHandle {
-                            item: ItemRc::new(popup_item_tree.clone(), 0).downgrade(),
+                            item: ItemRc::new_root(popup_item_tree.clone()).downgrade(),
                             element_index: 0,
                         })
                         .visit_descendants_impl(visitor, active_popups)
@@ -496,6 +523,15 @@ impl ElementHandle {
                         if !type_name.is_empty() { Some(type_name) } else { None }
                     },
                 )
+        })
+    }
+
+    /// Returns the layout kind if this element is a layout container;
+    /// None if the element is not a layout or is not valid anymore.
+    pub fn layout_kind(&self) -> Option<LayoutKind> {
+        self.item.upgrade().and_then(|item| {
+            item.element_layout_kind(self.element_index)
+                .and_then(|s| LayoutKind::from_encoded(s.as_str()))
         })
     }
 

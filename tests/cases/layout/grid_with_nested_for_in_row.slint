@@ -1,0 +1,140 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test nested `for` inside a repeated Row in a GridLayout.
+// The outer model defines rows, each with a static label and a dynamic set of value columns.
+
+export component TestCase inherits Window {
+    default-font-size: 20px;
+    width: 600phx;
+    height: 400phx;
+
+    // Each row has a static label and a dynamic list of values
+    in-out property <[{ label: string, values: [string]}]> row_model: [
+        { label: "Row A", values: ["A1", "A2", "A3"] },
+        { label: "Row B", values: ["B1", "B2", "B3"] },
+    ];
+
+    GridLayout {
+        // Header row with static content
+        header := Row {
+            Text {
+                text: "Label";
+                min-height: 50phx;
+            }
+
+            for c in 3: Text {
+                text: "Col " + c;
+            }
+        }
+
+        // Repeated rows with nested for: static only on the left
+        for row_data in row_model: Row {
+            // Static child: label
+            label_text := Text {
+                text: row_data.label;
+                min-height: 100phx;
+            }
+            // Nested for: dynamic value columns
+            for val in row_data.values: val_text := Text {
+                text: val;
+            }
+        }
+
+        // Same rows, but with static children on BOTH sides of the nested for
+        for row_data in row_model: Row {
+            Text {
+                text: "PRE";
+                min-height: 100phx;
+            }
+
+            for val in row_data.values: Text {
+                text: "+" + val;
+            }
+            Text {
+                text: "POST";
+            }
+        }
+
+        // Optional extra row, toggled via extra_row, to test grow/shrink of the layout cache
+        if extra_row: Row {
+            Text {
+                text: "Extra";
+            }
+
+            for _ in 2: Text {
+                text: "dyn";
+            }
+        }
+
+        // End marker to verify layout
+        end := Text {
+            text: "end";
+        }
+    }
+
+    // Toggle an optional extra row (1 static + 2 dynamic children) to test cache grow/shrink
+    in property <bool> extra_row: false;
+
+    // The header is row 0 (4 columns: 1 static + 3 dynamic)
+    // Row A is row 1, Row B is row 2 (1 static + 3 dynamic = 4 columns)
+    // Both-sides Row A is row 3, Row B is row 4 (PRE + 3 dynamic + POST = 5 columns)
+    // End marker is row 5, col 0 (when extra_row is false)
+    out property <int> end_row: end.row;
+    out property <int> end_col: end.col;
+    out property <bool> test: end.row == 5 && end.col == 0;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_end_row(), 5);
+assert_eq(instance.get_end_col(), 0);
+assert(instance.get_test());
+
+// Toggle extra_row to test cache grow/shrink with nested repeater
+instance.set_extra_row(true);
+assert_eq(instance.get_end_row(), 6);
+instance.set_extra_row(false);
+assert_eq(instance.get_end_row(), 5);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_end_row(), 5);
+assert_eq!(instance.get_end_col(), 0);
+assert!(instance.get_test());
+
+// Toggle extra_row to test cache grow/shrink with nested repeater
+instance.set_extra_row(true);
+assert_eq!(instance.get_end_row(), 6);
+instance.set_extra_row(false);
+assert_eq!(instance.get_end_row(), 5);
+
+// Additional test: mutate outer model
+// 1. shrink (tests max_total reduction)
+instance.set_row_model(slint::ModelRc::new(slint::VecModel::from(vec![
+    (slint::SharedString::from("One"),
+     slint::ModelRc::new(slint::VecModel::<slint::SharedString>::from(
+         vec![slint::SharedString::from("x")]))),
+])));
+assert_eq!(instance.get_end_row(), 3);
+
+// 2. grow — add a third row to verify cache expands
+instance.set_row_model(slint::ModelRc::new(slint::VecModel::from(vec![
+    (slint::SharedString::from("Row A"),
+     slint::ModelRc::new(slint::VecModel::<slint::SharedString>::from(
+         vec![slint::SharedString::from("A1"), slint::SharedString::from("A2")]))),
+    (slint::SharedString::from("Row B"),
+     slint::ModelRc::new(slint::VecModel::<slint::SharedString>::from(
+         vec![slint::SharedString::from("B1"), slint::SharedString::from("B2")]))),
+    (slint::SharedString::from("Row C"),
+     slint::ModelRc::new(slint::VecModel::<slint::SharedString>::from(
+         vec![slint::SharedString::from("C1"), slint::SharedString::from("C2")]))),
+])));
+assert_eq!(instance.get_end_row(), 7);
+```
+
+*/

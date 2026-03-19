@@ -140,6 +140,9 @@ pub trait Platform {
         crate::tests::default_debug_log(_arguments);
     }
 
+    /// Opens the given URL in an external browser.
+    fn open_url(&self, _url: &str) {}
+
     #[cfg(target_os = "android")]
     #[doc(hidden)]
     /// The long press interval before showing a context menu

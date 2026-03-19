@@ -52,12 +52,9 @@ jobs:
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
         with:
-            rustflags: "--cfg=web_sys_unstable_apis"
             build_artifacts: true
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
-        with:
-            rustflags: "--cfg=web_sys_unstable_apis"
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
         with:
@@ -237,14 +234,14 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v6
               with:
-                  node-version: 20
+                  node-version: 24
                   package-manager-cache: false
             - uses: actions/download-artifact@v8
               with:
@@ -322,10 +319,10 @@ jobs:
             - uses: actions/checkout@v6
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v4.4.0
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -370,7 +367,7 @@ jobs:
 
             - name: Generate a token
               id: app-token-website
-              uses: actions/create-github-app-token@v2
+              uses: actions/create-github-app-token@v3
               with:
                 app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -424,7 +421,7 @@ jobs:
 
             - name: Generate a token
               id: app-token
-              uses: actions/create-github-app-token@v2
+              uses: actions/create-github-app-token@v3
               with:
                 app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}

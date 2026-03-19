@@ -8,6 +8,8 @@ r"""
 import os
 import sys
 from . import slint as native
+from . import language
+
 import types
 import logging
 import copy
@@ -23,6 +25,7 @@ import asyncio
 import gettext
 import gzip
 import base64
+
 
 Struct = native.PyStruct
 
@@ -634,4 +637,5 @@ __all__ = [
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
+    "language",
 ]

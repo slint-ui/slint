@@ -480,8 +480,10 @@ impl BackendBuilder {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {
                         renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                    } else {
+                    } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
                         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                    } else {
+                        return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                     }
                 }
             }
@@ -873,6 +875,13 @@ impl i_slint_core::platform::Platform for Backend {
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn open_url(&self, url: &str) {
+        if let Err(e) = webbrowser::open(url) {
+            eprintln!("Failed to open URL: {}", e);
+        }
     }
 }
 

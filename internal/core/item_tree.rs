@@ -257,7 +257,7 @@ fn step_into_node(
             comp_ref_pin.as_ref().get_subtree(*index, component_index, &mut child_instance);
             child_instance
                 .upgrade()
-                .map(|child_instance| wrap_around(ItemRc::new(child_instance, 0)))
+                .map(|child_instance| wrap_around(ItemRc::new_root(child_instance)))
         }
     }
 }
@@ -291,8 +291,22 @@ impl ItemRc {
         Self { item_tree, index }
     }
 
+    pub fn new_root(item_tree: vtable::VRc<ItemTreeVTable>) -> Self {
+        Self { item_tree, index: Self::root_index() }
+    }
+
+    #[inline(always)]
+    pub const fn root_index() -> u32 {
+        0
+    }
+
+    #[inline(always)]
+    pub fn is_root(&self) -> bool {
+        self.index == Self::root_index()
+    }
+
     pub fn is_root_item_of(&self, item_tree: &VRc<ItemTreeVTable>) -> bool {
-        self.index == 0 && VRc::ptr_eq(&self.item_tree, item_tree)
+        self.is_root() && VRc::ptr_eq(&self.item_tree, item_tree)
     }
 
     /// Return a `Pin<ItemRef<'a>>`
@@ -327,7 +341,7 @@ impl ItemRc {
 
     /// Return the parent Item in the item tree.
     ///
-    /// If the item is a the root on its Window or PopupWindow, then the parent is None.
+    /// If the item is the root on its Window or PopupWindow, then the parent is None.
     pub fn parent_item(&self, find_mode: ParentItemTraversalMode) -> Option<ItemRc> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
@@ -472,23 +486,23 @@ impl ItemRc {
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
     }
 
-    pub fn element_count(&self) -> Option<usize> {
+    /// Returns the raw element-info string for this item, if debug info is available.
+    fn raw_element_infos(&self) -> Option<SharedString> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
-        comp_ref_pin
-            .as_ref()
-            .item_element_infos(self.index, &mut result)
-            .then(|| result.as_str().split("/").count())
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then_some(result)
+    }
+
+    pub fn element_count(&self) -> Option<usize> {
+        self.raw_element_infos().map(|s| s.as_str().split("/").count())
     }
 
     pub fn element_type_names_and_ids(
         &self,
         element_index: usize,
     ) -> Option<Vec<(SharedString, SharedString)>> {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
-        let mut result = SharedString::new();
-        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then(|| {
-            result
+        self.raw_element_infos().map(|infos| {
+            infos
                 .as_str()
                 .split("/")
                 .nth(element_index)
@@ -501,6 +515,17 @@ impl ItemRc {
                     (type_name, id)
                 })
                 .collect()
+        })
+    }
+
+    pub fn element_layout_kind(&self, element_index: usize) -> Option<SharedString> {
+        self.raw_element_infos().and_then(|infos| {
+            let first_debug_entry =
+                infos.as_str().split("/").nth(element_index)?.split(';').next()?;
+            let mut decoder = first_debug_entry.split(',');
+            let _type_name = decoder.next();
+            let _id = decoder.next();
+            decoder.next().filter(|s| !s.is_empty()).map(SharedString::from)
         })
     }
 
@@ -674,7 +699,7 @@ impl ItemRc {
         subtree_child: &dyn Fn(usize, usize) -> usize,
     ) -> Option<Self> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
-        if self.index == 0 {
+        if self.is_root() {
             let mut parent_item = Default::default();
             comp_ref_pin.as_ref().parent_node(&mut parent_item);
             let current_component_subtree_index = comp_ref_pin.as_ref().subtree_index();
@@ -702,7 +727,7 @@ impl ItemRc {
                     &mut next_subtree_instance,
                 );
                 if let Some(next_subtree_instance) = next_subtree_instance.upgrade() {
-                    return Some(ItemRc::new(next_subtree_instance, 0));
+                    return Some(ItemRc::new_root(next_subtree_instance));
                 }
 
                 // We need to leave the repeater:
@@ -775,7 +800,7 @@ impl ItemRc {
                 // Loop: We stepped into an empty repeater!
             } else {
                 // Step out of this component:
-                let mut root = ItemRc::new(component, 0);
+                let mut root = ItemRc::new_root(component);
                 if let Some(item) = subtree_step(root.clone()) {
                     // Next component inside same repeater
                     return step_in(item);
@@ -818,7 +843,7 @@ impl ItemRc {
                         }
                     }
 
-                    root = ItemRc::new(component.clone(), 0);
+                    root = ItemRc::new_root(component.clone());
                     if let Some(item) = subtree_step(root.clone()) {
                         return step_in(item);
                     }
@@ -1130,7 +1155,8 @@ impl<'a> ItemTreeNodeArray<'a> {
     /// Get the parent of a node, returns `None` if this is the root node of this item tree.
     pub fn parent(&self, index: u32) -> Option<u32> {
         let index = index as usize;
-        (index < self.node_array.len() && index != 0).then(|| self.node_array[index].parent_index())
+        (index < self.node_array.len() && index != ItemRc::root_index() as usize)
+            .then(|| self.node_array[index].parent_index())
     }
 
     /// Returns the next sibling or `None` if this is the last sibling.
@@ -1539,7 +1565,7 @@ mod tests {
     fn test_tree_traversal_one_node_structure() {
         let component = create_one_node_component();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
 
         assert!(item.first_child().is_none());
         assert!(item.last_child().is_none());
@@ -1551,7 +1577,7 @@ mod tests {
     fn test_tree_traversal_one_node_forward_focus() {
         let component = create_one_node_component();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
 
         // Wrap the focus around:
         assert_eq!(item.next_focus_item(), item);
@@ -1561,7 +1587,7 @@ mod tests {
     fn test_tree_traversal_one_node_backward_focus() {
         let component = create_one_node_component();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
 
         // Wrap the focus around:
         assert_eq!(item.previous_focus_item(), item);
@@ -1611,7 +1637,7 @@ mod tests {
         let component = create_children_nodes();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
 
@@ -1653,7 +1679,7 @@ mod tests {
     fn test_tree_traversal_children_nodes_forward_focus() {
         let component = create_children_nodes();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         let fc = item.first_child().unwrap();
         let fcn = fc.next_sibling().unwrap();
         let lc = item.last_child().unwrap();
@@ -1677,7 +1703,7 @@ mod tests {
     fn test_tree_traversal_children_nodes_backward_focus() {
         let component = create_children_nodes();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         let fc = item.first_child().unwrap();
         let fcn = fc.next_sibling().unwrap();
         let lc = item.last_child().unwrap();
@@ -1721,7 +1747,7 @@ mod tests {
         let component = create_empty_subtree();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
         assert!(item.first_child().is_none());
@@ -1737,7 +1763,7 @@ mod tests {
         let component = create_empty_subtree();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
 
         assert!(item.next_focus_item() == item);
     }
@@ -1747,7 +1773,7 @@ mod tests {
         let component = create_empty_subtree();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
 
         assert!(item.previous_focus_item() == item);
     }
@@ -1804,7 +1830,7 @@ mod tests {
         let component = create_item_subtree_item();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
 
@@ -1833,7 +1859,7 @@ mod tests {
     fn test_tree_traversal_item_subtree_item_forward_focus() {
         let component = create_item_subtree_item();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         let fc = item.first_child().unwrap();
         let lc = item.last_child().unwrap();
         let fcn = fc.next_sibling().unwrap();
@@ -1857,7 +1883,7 @@ mod tests {
     fn test_tree_traversal_item_subtree_item_backward_focus() {
         let component = create_item_subtree_item();
 
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         let fc = item.first_child().unwrap();
         let lc = item.last_child().unwrap();
         let fcn = fc.next_sibling().unwrap();
@@ -1956,7 +1982,7 @@ mod tests {
         let component = create_nested_subtrees();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
 
@@ -1998,7 +2024,7 @@ mod tests {
         let component = create_nested_subtrees();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         let fc = item.first_child().unwrap();
         let fcn = fc.next_sibling().unwrap();
         let lc = item.last_child().unwrap();
@@ -2032,7 +2058,7 @@ mod tests {
         let component = create_nested_subtrees();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         let fc = item.first_child().unwrap();
         let fcn = fc.next_sibling().unwrap();
         let lc = item.last_child().unwrap();
@@ -2132,7 +2158,7 @@ mod tests {
         let component = create_subtrees_item();
 
         // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
+        let item = ItemRc::new_root(component.clone());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
 

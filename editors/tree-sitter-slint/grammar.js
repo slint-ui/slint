@@ -379,7 +379,7 @@ module.exports = grammar({
       ),
 
     // @keys(...)
-    _keys_entry: ($) => choice($.simple_identifier, $.string_value),
+    _keys_entry: ($) => choice(seq($.simple_identifier, optional("?")), $.string_value),
     keys: ($) =>
       seq(
         "@keys",
@@ -521,7 +521,7 @@ module.exports = grammar({
       seq(
         field("name", choice($.function_call, $.simple_identifier)),
         "=>",
-        field("action", $.imperative_block),
+        field("action", $._binding),
       ),
 
     changed_callback: ($) =>
@@ -529,7 +529,7 @@ module.exports = grammar({
         "changed",
         field("name", $.simple_identifier),
         "=>",
-        field("action", $.imperative_block),
+        field("action", $._binding),
       ),
 
     function_call: ($) =>

@@ -100,7 +100,7 @@ picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerde
 
 ### On the Waveshare Pico2 Touch LCD 2.8
 
-The [Waveshare Pico2 Touch LCD 2.8](https://www.waveshare.com/pico2-touch-lcd-2.8.htm) is a Raspberry Pi Pico2 development board with an integrated 2.8" capacitive touch display (320x240, ST7789 controller, CST328 touch controller).
+The [Waveshare Pico2 Touch LCD 2.8](https://www.waveshare.com/product/rp2350-touch-lcd-2.8.htm) is a Raspberry Pi Pico2 development board with an integrated 2.8" capacitive touch display (320x240, ST7789 controller, CST328 touch controller).
 
 Build the demo with:
 

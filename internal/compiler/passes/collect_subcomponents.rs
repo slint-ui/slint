@@ -39,7 +39,7 @@ fn collect_subcomponents_recursive(
             _ => return,
         };
         collect_subcomponents_recursive(&base_comp, result, hash);
-        if base_comp.parent_element.upgrade().is_some() {
+        if base_comp.parent_element().is_some() {
             // This is not a sub-component, but is a repeated component
             return;
         }
