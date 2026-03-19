@@ -183,10 +183,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 10.;
         const INITIAL_VELOCITY: f32 = 50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let time = Instant::now();
         let mut simulation =
@@ -205,10 +202,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 2000.;
         const INITIAL_VELOCITY: f32 = 50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -248,10 +242,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 20.;
         const INITIAL_VELOCITY: f32 = 50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -274,10 +265,7 @@ mod tests {
         const INITIAL_VELOCITY: f32 = -50.;
         const DECELERATION: f32 = 20.;
 
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -319,10 +307,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 10.;
         const INITIAL_VELOCITY: f32 = -50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
