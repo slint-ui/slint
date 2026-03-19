@@ -368,9 +368,10 @@ inline float get_resolved_default_font_size(const Component &component)
 } // namespace private_api
 
 // Translator API is currently considered experimental due to discussions
-// about the returned string type (SharedString vs. Cow<str> etc.), see
-// https://github.com/slint-ui/slint/pull/10979.
-#ifdef SLINT_FEATURE_EXPERIMENTAL
+// about the returned string type (SharedString vs. Cow<str> etc.). Also it
+// is not available with no_std due to the tr crate.
+// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+#if defined(SLINT_FEATURE_EXPERIMENTAL) && !defined(SLINT_FEATURE_FREESTANDING)
 /// Interface for an external translator.
 struct Translator
 {
@@ -430,8 +431,10 @@ private:
 ///   which the Slint event loop is running.
 ///
 /// The function is only available when Slint is compiled with
-/// `SLINT_FEATURE_EXPERIMENTAL`. In addition, this function has no effect
-/// if the `.slint` file was compiled with bundled translations.
+/// `SLINT_FEATURE_EXPERIMENTAL` and without `SLINT_FEATURE_FREESTANDING`.
+///
+/// Note that this function has no effect if the `.slint` file was compiled
+/// with bundled translations.
 ///
 /// Example:
 /// \code
