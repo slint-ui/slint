@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [package]
-name = "i-slint-backend-tests"
+name = "test-backends"
 description = "Tests that are shared between the different backends"
 authors.workspace = true
 edition.workspace = true

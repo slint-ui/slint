@@ -4999,15 +4999,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "i-slint-backend-tests"
-version = "1.16.0"
-dependencies = [
- "i-slint-backend-qt",
- "i-slint-backend-winit",
- "slint",
-]
-
-[[package]]
 name = "i-slint-backend-winit"
 version = "1.16.0"
 dependencies = [
@@ -10563,6 +10554,15 @@ checksum = "60b8cb979cb11c32ce1603f8137b22262a9d131aaa5c37b5678025f22b8becd0"
 dependencies = [
  "rustix 1.1.4",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "test-backends"
+version = "1.16.0"
+dependencies = [
+ "i-slint-backend-qt",
+ "i-slint-backend-winit",
+ "slint",
 ]
 
 [[package]]
