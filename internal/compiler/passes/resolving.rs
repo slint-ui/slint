@@ -967,7 +967,7 @@ impl Expression {
     }
 
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
-        let mut shortcut = langtype::Keys::default();
+        let mut keys = langtype::Keys::default();
 
         let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
 
@@ -994,18 +994,18 @@ impl Expression {
             match identifier.as_token().unwrap().text() {
                 "Alt" => {
                     if is_question() {
-                        shortcut.ignore_alt = true;
+                        keys.ignore_alt = true;
                     } else {
-                        shortcut.modifiers.alt = true;
+                        keys.modifiers.alt = true;
                     }
                 }
-                "Control" => shortcut.modifiers.control = true,
-                "Meta" => shortcut.modifiers.meta = true,
+                "Control" => keys.modifiers.control = true,
+                "Meta" => keys.modifiers.meta = true,
                 "Shift" => {
                     if is_question() {
-                        shortcut.ignore_shift = true;
+                        keys.ignore_shift = true;
                     } else {
-                        shortcut.modifiers.shift = true;
+                        keys.modifiers.shift = true;
                     }
                 }
                 key_name => {
@@ -1028,7 +1028,7 @@ impl Expression {
                             format!("{key_name} not defined in the Keys namespace\n({hint})"),
                             identifier,
                         );
-                        shortcut.modifiers = KeyboardModifiers::default();
+                        keys.modifiers = KeyboardModifiers::default();
                         break;
                     }
                 }
@@ -1040,7 +1040,7 @@ impl Expression {
         if let Some((key_code, shift_behavior, node)) = key_code {
             match shift_behavior {
                 ShiftBehavior::LocalizedShiftable { shifted_hint } => {
-                    if shortcut.ignore_shift {
+                    if keys.ignore_shift {
                         ctx.diag.push_warning(
                             format!(
                                 "{name} already implies Shift? (remove Shift?)",
@@ -1049,11 +1049,11 @@ impl Expression {
                             &node,
                         );
                     }
-                    shortcut.ignore_shift = true;
-                    if shortcut.modifiers.shift {
+                    keys.ignore_shift = true;
+                    if keys.modifiers.shift {
                         ctx.diag.push_error(
                                         format!(
-                                            "Shortcuts involving {name} ignore Shift to support different keyboard layouts\n\
+                                            "Key bindings involving {name} ignore Shift to support different keyboard layouts\n\
                                             Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
                                             name = node.as_token().unwrap().text()
                                         ),
@@ -1065,7 +1065,7 @@ impl Expression {
                 // No special action needed
                 ShiftBehavior::Unshiftable => {}
             }
-            shortcut.key = key_code;
+            keys.key = key_code;
         }
 
         // If there is a string literal, use it as the key
@@ -1079,33 +1079,30 @@ impl Expression {
             // Validate that the string literal contains exactly one grapheme cluster
             let grapheme_count = key.graphemes(true).count();
             if grapheme_count == 0 {
-                ctx.diag.push_error(
-                    "Keyboard shortcut string literal must not be empty".to_string(),
-                    &token,
-                );
+                ctx.diag.push_error("Key string literal must not be empty".to_string(), &token);
             } else if grapheme_count > 1 {
                 ctx.diag.push_error(
                     format!(
-                        "Keyboard shortcut string literal must contain exactly one grapheme cluster, found {grapheme_count}",
+                        "Key string literal must contain exactly one grapheme cluster, found {grapheme_count}",
                     ),
                     &token,
                 );
             }
 
-            shortcut.key = key;
+            keys.key = key;
 
-            let lowercase: SmolStr = shortcut.key.to_lowercase().into();
-            if lowercase != shortcut.key {
+            let lowercase: SmolStr = keys.key.to_lowercase().into();
+            if lowercase != keys.key {
                 ctx.diag.push_error(
                     format!(
-                        "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
+                        "Key string literals must currently be lowercase, use \"{lowercase}\" instead",
                     ),
                     &token,
                 );
             }
         }
 
-        Expression::Keys(shortcut)
+        Expression::Keys(keys)
     }
 
     /// Perform the lookup

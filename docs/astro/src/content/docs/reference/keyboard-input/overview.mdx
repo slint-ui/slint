@@ -13,8 +13,8 @@ The primary field of this data structure is the `text` property, which holds all
 encoded in a string.
 Use the [`Key` namespace](#key-namespace) to identify known named keys.
 
-To handle keyboard shortcuts, Slint uses a built-in <Link type="keys" label="keys" /> type, which is constructed from the `@keys` macro.
-See [Keyboard Shortcuts](#keyboard-shortcuts).
+To handle key bindings, Slint uses a built-in <Link type="keys" label="keys" /> type, which is constructed from the `@keys` macro.
+See [Keyboard Bindings](#key-bindings).
 
 ## KeyEvent
 
@@ -24,16 +24,16 @@ See [Keyboard Shortcuts](#keyboard-shortcuts).
 - **`modifiers`** (_KeyboardModifiers_):  The keyboard modifiers active at the time of the key press event.
 - **`repeat`** (_bool_):  This field is set to true for key press events that are repeated, i.e. the key is held down. It's always false for key release events.
 
-## Keyboard Shortcuts
+## Key Bindings
 
-Use the <Link type="Shortcut" label="Shortcut element"/> inside a `FocusScope` to declare Keyboard shortcuts.
-The Shortcut's `keys` property takes a `keys` and invokes the `activated` callback when the shortcut is detected.
-Note that only one shortcut can be activated by a given key event.
-If two shortcuts share the same key event, it is undefined which one is activated.
+Use the <Link type="KeyBinding" label="KeyBinding element"/> inside a `FocusScope` to declare key bindings (or keyboard shortcuts).
+The `KeyBinding`'s `keys` property takes an instance of the <Link label="keys type" type="keys"/> and invokes the `activated` callback when the key combination is detected.
+Note that only one binding can be activated by a given key event.
+If two bindings share the same key event, it is undefined which one is activated.
 
 The `keys` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
 
-Keyboard shortcuts in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
+Key bindings in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
 This means, for example, that `@keys(Control + Z)` activates when the user presses the key that produces `z` on their layout, regardless of where that key sits on the keyboard.
 As a consequence, numpad digit keys are not distinguished from the main row digit keys, and `AltGr` isn't available as a modifier (it is consumed by the OS to produce characters).
 
@@ -49,18 +49,18 @@ export component Example inherits Window {
     forward-focus: scope;
 
     scope := FocusScope {
-        Shortcut {
+        KeyBinding {
             keys: @keys(Control + Q);
             activated => { debug("Quit shortcut activated"); }
         }
 
-        Shortcut {
+        KeyBinding {
             keys: @keys(Control + S);
             activated => { debug("Save shortcut activated"); }
         }
 
         Text {
-            text: "Press Control + Q or Control + S";
+            text: scope.has-focus ? "Press Control + Q or Control + S" : "Click to focus";
         }
     }
 }
@@ -73,12 +73,12 @@ For example, `@keys(Control + Plus)` fires whenever the user presses the key tha
 
 Named keys inside `@keys(..)` are logical: `A` represents the character `a`, not a specific physical key location. This means `@keys(Control + A)` will activate on whichever key produces `a` on the user's layout, regardless of where that key sits on the keyboard.
 
-If you need to define a keyboard shortcut that involves a key outside of the [`Key` namespace](#key-namespace), continue reading the next section which covers advanced keyboard shortcuts.
+If you need to define a key binding that involves a key outside of the [`Key` namespace](#key-namespace), continue reading the next section which covers advanced key definitions.
 
-### Advanced Keyboard Shortcuts
+### Advanced Key Bindings
 
 If possible, prefer to use a key from the [`Key` namespace](#key-namespace) inside `@keys(..)`.
-If you absolutely need to define a shortcut to a different key, you can use a string literal inside the `@keys(..)` macro.
+If you absolutely need to define a binding to a different key, you can use a string literal inside the `@keys(..)` macro.
 For example: `@keys(Control + "ä")`.
 
 Note though that the `@keys(..)` macro no longer automatically handles different keyboard layouts and Shift behavior in this case.
@@ -91,8 +91,8 @@ To prevent issues with characters that entirely change their keycode when `Shift
 
 When a modifier is marked as optional, the `keys` will ignore the state of the corresponding modifier when matching.
 
-For example, to support keyboard shortcuts that produce a Euro-Sign (€), add both `Shift?` and `Alt?`: `@keys(Control + Shift? + Alt? + "€")`.
-This will allow your users to reach the shortcut on almost all keyboard layouts that have a key with this label.
+For example, to support key bindings that produce a Euro-Sign (€), add both `Shift?` and `Alt?`: `@keys(Control + Shift? + Alt? + "€")`.
+This will allow your users to reach the binding on almost all keyboard layouts that have a key with this label.
 
 As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + Shift? + "+")`.
 

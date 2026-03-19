@@ -39,7 +39,7 @@ export component TestCase inherits Window {
             debug("Pressed: ", event);
             EventResult.reject
         }
-        for keys in root.shortcuts: Shortcut {
+        for keys in root.shortcuts: KeyBinding {
             keys: keys;
             activated => {
                 root.matches += 1;

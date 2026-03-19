@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Test inherits FocusScope {
+    KeyBinding {
+        keys: @keys(Control + Plus);
+//            >                    <note{First duplicate KeyBinding defined here}
+//            >                    <^note{First duplicate KeyBinding defined here}
+    }
+
+    KeyBinding {
+        keys: @keys(Control + Plus);
+//            >                    <warning{This KeyBinding element has the same keys as an existing KeyBinding - it is undefined which binding activates}
+    }
+
+    // We may want to warn here in the future, but this requires smarter analysis
+    // to detect that the two shortcuts are actually enabled at the same time.
+    property <bool> condition: true;
+    if condition: KeyBinding {
+        keys: @keys(A);
+    }
+
+    property <[int]> list: [1, 2, 3];
+    for i in list: KeyBinding {
+        keys: @keys(A);
+    }
+}
+
+export component Outer inherits Window {
+    Test {
+        KeyBinding {
+            keys: @keys(Control + Shift? + "+");
+//                >                            <warning{This KeyBinding element has the same keys as an existing KeyBinding - it is undefined which binding activates}
+        }
+    }
+}

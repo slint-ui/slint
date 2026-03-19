@@ -302,7 +302,7 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "FocusScope",
-        "Shortcut",
+        "KeyBinding",
         "SwipeGestureHandler",
         "PinchGestureHandler",
         "Flickable",
@@ -733,7 +733,7 @@ fn gen_corelib(
         .export
         .body
         .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
-    config.export.pre_body.insert("MaybeShortcutList".to_owned(), "struct ShortcutList;".into());
+    config.export.pre_body.insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
     config
         .export
         .body

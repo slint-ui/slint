@@ -168,10 +168,10 @@ RGB color with an alpha channel, with 8 bit precision for each channel. CSS colo
 ### keys
 <SlintProperty propName="keys" typeName="keys" defaultValue='empty keys'>
 A keys represents a key combined with a list of modifiers.
-This is the primitive type used to detect if a KeyEvent should trigger a given shortcut.
+This is the primitive type used to detect if a KeyEvent should trigger a given key binding.
 
-Keyboard shortcuts in Slint are based on **logical keys** — the character a key produces on the current keyboard layout — not the physical position of a key on the keyboard.
-See <Link type="Keys" label="Keyboard Shortcuts" /> for details.
+Key bindings in Slint are based on **logical keys** — the character a key produces on the current keyboard layout — not the physical position of a key on the keyboard.
+See <Link type="KeyBindingOverview" label="Key Bindings" /> for details.
 
 Use the `to-string` function to convert a `keys` instance to `string`.
 It returns a platform-native description of the key combination.

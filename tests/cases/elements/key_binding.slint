@@ -17,7 +17,7 @@ export component TestCase inherits Window {
         background: scope.has-focus ? blue : red;
 
         scope := FocusScope {
-            Shortcut {
+            KeyBinding {
                 enabled: root.enable-ctrl-a;
                 keys: @keys(Control + A);
                 activated => {
@@ -25,14 +25,14 @@ export component TestCase inherits Window {
                 }
             }
 
-            if condition: Shortcut {
+            if condition: KeyBinding {
                 keys: @keys(Control + B);
                 activated => {
                     matches += 1;
                 }
             }
 
-            for shortcut in shortcuts: Shortcut {
+            for shortcut in shortcuts: KeyBinding {
                 keys: shortcut;
                 activated => {
                     matches += 1;
