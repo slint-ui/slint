@@ -468,12 +468,12 @@ inline bool set_translator(std::unique_ptr<Translator> obj)
 }
 #endif
 
-#ifdef SLINT_FEATURE_GETTEXT
 /// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
-/// This is useful if the language is changed at runtime.
-/// The function is only available when Slint is compiled with `SLINT_FEATURE_GETTEXT`.
+/// This is useful if the language is changed at runtime, if either gettext
+/// or a custom translator is used. For bundled translations, there is no need
+/// to call this function.
 ///
-/// Example
+/// Example (assuming usage of gettext):
 /// ```cpp
 ///     my_ui->global<LanguageSettings>().on_french_selected([] {
 ///        setenv("LANGUAGE", langs[l], true);
@@ -484,7 +484,6 @@ inline void update_all_translations()
 {
     cbindgen_private::slint_translations_mark_dirty();
 }
-#endif
 
 /// Select the current translation language when using bundled translations.
 /// This function requires that the application's `.slint` file was compiled with bundled
