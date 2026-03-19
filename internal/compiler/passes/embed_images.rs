@@ -156,33 +156,38 @@ fn embed_image(
                 // Really do nothing with the image!
                 e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::ListOnly });
                 return ImageReference::None;
-            } else if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
-                #[allow(unused_mut)]
-                let mut kind = EmbeddedResourcesKind::FileData;
-                #[cfg(feature = "software-renderer")]
-                if embed_files == EmbedResourcesKind::EmbedTextures {
-                    match load_image(_file, _scale_factor) {
-                        Ok((img, source_format, original_size)) => {
-                            kind = EmbeddedResourcesKind::TextureData(generate_texture(
+            }
+
+            let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) else {
+                diag.push_error(format!("Cannot find image file {path}"), source_location);
+                return ImageReference::None;
+            };
+
+            #[cfg(feature = "software-renderer")]
+            if embed_files == EmbedResourcesKind::EmbedTextures {
+                match load_image(_file, _scale_factor) {
+                    Ok((img, source_format, original_size)) => {
+                        e.insert(EmbeddedResources {
+                            id: maybe_id,
+                            kind: EmbeddedResourcesKind::TextureData(generate_texture(
                                 img,
                                 source_format,
                                 original_size,
-                            ))
-                        }
-                        Err(err) => {
-                            diag.push_error(
-                                format!("Cannot load image file {path}: {err}"),
-                                source_location,
-                            );
-                            return ImageReference::None;
-                        }
+                            )),
+                        });
+                        return ImageReference::EmbeddedTexture { resource_id: maybe_id };
+                    }
+                    Err(err) => {
+                        diag.push_error(
+                            format!("Cannot load image file {path}: {err}"),
+                            source_location,
+                        );
+                        return ImageReference::None;
                     }
                 }
-                e.insert(EmbeddedResources { id: maybe_id, kind })
-            } else {
-                diag.push_error(format!("Cannot find image file {path}"), source_location);
-                return ImageReference::None;
             }
+
+            e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::FileData })
         }
     };
 
@@ -468,9 +473,6 @@ fn embed_data_uri(
 
     let unique_key: SmolStr = format!("data:{}:{}", resource_id, extension).into();
 
-    #[allow(unused_mut)]
-    let mut kind = EmbeddedResourcesKind::DecodedData(decoded_data.clone(), extension.clone());
-
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
         let data_buffer = decoded_data.clone();
@@ -485,11 +487,18 @@ fn embed_data_uri(
             ))
         }) {
             Ok((img, source_format, original_size)) => {
-                kind = EmbeddedResourcesKind::TextureData(generate_texture(
-                    img,
-                    source_format,
-                    original_size,
-                ));
+                resources.insert(
+                    unique_key,
+                    EmbeddedResources {
+                        id: resource_id,
+                        kind: EmbeddedResourcesKind::TextureData(generate_texture(
+                            img,
+                            source_format,
+                            original_size,
+                        )),
+                    },
+                );
+                return ImageReference::EmbeddedTexture { resource_id };
             }
             Err(err) => {
                 diag.push_error(format!("Cannot load data URI image: {err}"), source_location);
@@ -498,12 +507,13 @@ fn embed_data_uri(
         }
     }
 
-    resources.insert(unique_key, EmbeddedResources { id: resource_id, kind });
-
-    #[cfg(feature = "software-renderer")]
-    if _embed_files == EmbedResourcesKind::EmbedTextures {
-        return ImageReference::EmbeddedTexture { resource_id };
-    }
+    resources.insert(
+        unique_key,
+        EmbeddedResources {
+            id: resource_id,
+            kind: EmbeddedResourcesKind::DecodedData(decoded_data, extension.clone()),
+        },
+    );
 
     ImageReference::EmbeddedData { resource_id, extension }
 }
