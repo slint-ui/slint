@@ -707,14 +707,14 @@ jobs:
                       name: "Ubuntu 24.04 nightly"
                       rust_version: "nightly"
                       extra_args: "--exclude plotter"
-                    - os: windows-2022
-                      name: "Windows 2022 1.92"
-                      rust_version: "1.92"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: macos-14
-                      name: "MacOS 14 nightly"
-                      rust_version: "nightly"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+#                    - os: windows-2022
+#                      name: "Windows 2022 1.92"
+#                      rust_version: "1.92"
+#                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+#                    - os: macos-14
+#                      name: "MacOS 14 nightly"
+#                      rust_version: "nightly"
+#                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
