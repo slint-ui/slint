@@ -136,6 +136,7 @@ impl TranslationsBuilder {
                                         entry
                                             .msgstr_plural
                                             .iter()
+                                            .filter(|s| !s.is_empty())
                                             .map(|s| s.to_smolstr())
                                             .collect(),
                                     )
@@ -148,7 +149,9 @@ impl TranslationsBuilder {
                 } else {
                     let messages = std::iter::once(Some(original.clone()))
                         .chain(messages.map(|opt_entry| {
-                            opt_entry.and_then(|entry| entry.msgstr.map(|s| s.to_smolstr()))
+                            opt_entry.and_then(|entry| {
+                                entry.msgstr.filter(|s| !s.is_empty()).map(|s| s.to_smolstr())
+                            })
                         }))
                         .collect::<Vec<_>>();
                     self.result.strings.push(messages);
