@@ -47,40 +47,51 @@ macro_rules! declare_generate_function {
             writeln!(writer, "import typing").unwrap();
 
             $(
-                if stringify!($NameTy) == "BuiltinPublicStruct" {
-                    writeln!(writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
-                    let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
-                    if !struct_doc.is_empty() {
-                        writeln!(writer, "    \"\"\"").unwrap();
-                        for line in struct_doc.lines() {
-                            if line.is_empty() {
-                                writeln!(writer).unwrap();
-                            } else {
-                                writeln!(writer, "    {}", line).unwrap();
-                            }
-                        }
-                        writeln!(writer, "    \"\"\"").unwrap();
-                    }
-                    writeln!(writer, "").unwrap();
-                    $(
-                        writeln!(writer, "    {}: {} = {}", stringify!($pub_field), map_type(stringify!($pub_type)), map_default(stringify!($pub_type))).unwrap();
-                        let field_doc = vec![$($pub_doc),*].join("\n").trim().to_string();
-                        if !field_doc.is_empty() {
-                            writeln!(writer, "    \"\"\"").unwrap();
-                            for line in field_doc.lines() {
-                                if line.is_empty() {
-                                    writeln!(writer).unwrap();
-                                } else {
-                                    writeln!(writer, "    {}", line).unwrap();
-                                }
-                            }
-                            writeln!(writer, "    \"\"\"").unwrap();
-                        }
-                    )*
-                }
+                declare_generate_function!(@check writer, $NameTy, $Name,
+                    [$($struct_doc),*],
+                    [$([$($pub_doc),*] $pub_field : $pub_type),*]
+                );
             )*
         }
     };
+    (@check $writer:expr, BuiltinPublicStruct, $Name:ident,
+        [$($struct_doc:literal),*],
+        [$([$($pub_doc:literal),*] $pub_field:ident : $pub_type:ident),*]
+    ) => {
+        writeln!($writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
+        let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
+        if !struct_doc.is_empty() {
+            writeln!($writer, "    \"\"\"").unwrap();
+            for line in struct_doc.lines() {
+                if line.is_empty() {
+                    writeln!($writer).unwrap();
+                } else {
+                    writeln!($writer, "    {}", line).unwrap();
+                }
+            }
+            writeln!($writer, "    \"\"\"").unwrap();
+        }
+        writeln!($writer, "").unwrap();
+        $(
+            writeln!($writer, "    {}: {} = {}", stringify!($pub_field), map_type(stringify!($pub_type)), map_default(stringify!($pub_type))).unwrap();
+            let field_doc = vec![$($pub_doc),*].join("\n").trim().to_string();
+            if !field_doc.is_empty() {
+                writeln!($writer, "    \"\"\"").unwrap();
+                for line in field_doc.lines() {
+                    if line.is_empty() {
+                        writeln!($writer).unwrap();
+                    } else {
+                        writeln!($writer, "    {}", line).unwrap();
+                    }
+                }
+                writeln!($writer, "    \"\"\"").unwrap();
+            }
+        )*
+    };
+    (@check $writer:expr, BuiltinPrivateStruct, $Name:ident,
+        [$($struct_doc:literal),*],
+        [$([$($pub_doc:literal),*] $pub_field:ident : $pub_type:ident),*]
+    ) => {};
 }
 
 i_slint_common::for_each_builtin_structs!(declare_generate_function);
