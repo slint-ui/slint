@@ -923,7 +923,6 @@ pub async fn load(
     if diag.has_errors() {
         return CompilationResult {
             components: HashMap::new(),
-            all_loaded_files: std::mem::take(&mut diag.all_loaded_files),
             diagnostics: diag.into_iter().collect(),
             #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
@@ -1008,7 +1007,6 @@ pub async fn load(
         .collect::<Vec<_>>();
 
     CompilationResult {
-        all_loaded_files: std::mem::take(&mut diag.all_loaded_files),
         diagnostics: diag.into_iter().collect(),
         components,
         #[cfg(feature = "internal")]

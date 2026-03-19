@@ -977,7 +977,6 @@ impl Compiler {
                 let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
                 diagnostics.push_compiler_error(d);
                 return CompilationResult {
-                    all_loaded_files: std::mem::take(&mut diagnostics.all_loaded_files),
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
@@ -1018,8 +1017,6 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    #[cfg_attr(not(feature = "internal-live-preview"), allow(unused))]
-    pub(crate) all_loaded_files: std::collections::BTreeSet<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
