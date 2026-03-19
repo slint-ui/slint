@@ -16,6 +16,9 @@ pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
     presenter: Arc<dyn crate::display::Presenter>,
     size: PhysicalWindowSize,
+    /// Keep the DRM output alive for the Vulkan renderer. The fd passed to
+    /// vkAcquireDrmDisplayEXT must remain open for display ownership.
+    _drm_output: Option<DrmOutput>,
 }
 
 const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
@@ -60,29 +63,48 @@ const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
 impl SkiaRendererAdapter {
     #[cfg(feature = "renderer-skia-vulkan")]
     pub fn new_vulkan(
-        _device_opener: &crate::DeviceOpener,
+        device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        // TODO: figure out how to associate vulkan with an existing drm fd.
-        let display = crate::display::vulkandisplay::create_vulkan_display()?;
+        use i_slint_core::graphics::wgpu_28::wgpu;
+        use std::os::fd::{AsFd, AsRawFd};
 
-        let skia_vk_surface = i_slint_renderer_skia::vulkan_surface::VulkanSurface::from_surface(
-            display.physical_device,
-            display.queue_family_index,
-            display.surface,
-            display.size,
-        )?;
+        let drm_output = DrmOutput::new(device_opener)?;
+
+        let plane = drm_output.find_compatible_plane()?;
+        let (width, height) = drm_output.size();
+        let refresh_rate_mhz = drm_output.refresh_rate_millihertz();
+
+        let surface_target =
+            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd: drm_output.drm_device.as_fd().as_raw_fd(),
+                plane: plane.handle().into(),
+                connector_id: drm_output.connector.handle().into(),
+                width,
+                height,
+                refresh_rate: refresh_rate_mhz,
+            });
+
+        let size = PhysicalWindowSize::new(width, height);
+
+        let skia_wgpu_surface =
+            i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
+                surface_target,
+                size,
+                None,
+            )?;
 
         let renderer = Box::new(Self {
             renderer: SkiaRenderer::new_with_surface(
                 &SkiaSharedContext::default(),
-                Box::new(skia_vk_surface),
+                Box::new(skia_wgpu_surface),
             ),
             // TODO: For vulkan we don't have a page flip event handling mechanism yet, so drive it with a timer.
-            presenter: display.presenter,
-            size: display.size,
+            presenter: crate::display::noop_presenter::NoopPresenter::new(),
+            size,
+            _drm_output: Some(drm_output),
         });
 
-        eprintln!("Using Skia Vulkan renderer");
+        eprintln!("Using Skia Vulkan renderer with wgpu");
 
         Ok(renderer)
     }
@@ -115,6 +137,7 @@ impl SkiaRendererAdapter {
             ),
             presenter: display.clone(),
             size,
+            _drm_output: None,
         });
 
         renderer.renderer.set_pre_present_callback(Some(Box::new({
@@ -149,6 +172,7 @@ impl SkiaRendererAdapter {
             ),
             presenter: display.as_presenter(),
             size,
+            _drm_output: None,
         });
 
         eprintln!("Using Skia Software renderer");

@@ -37,7 +37,7 @@ enum PageFlipState {
 
 pub struct DrmOutput {
     pub drm_device: SharedFd,
-    connector: drm::control::connector::Info,
+    pub connector: drm::control::connector::Info,
     mode: drm::control::Mode,
     crtc: drm::control::crtc::Handle,
     last_buffer: Cell<Option<Box<dyn Buffer>>>,
@@ -292,5 +292,49 @@ impl DrmOutput {
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)
+    }
+
+    /// Returns the refresh rate in millihertz, computed from the mode's pixel clock
+    /// and timing parameters. This matches the precision used by Vulkan's
+    /// VkDisplayModeParametersKHR::refreshRate.
+    pub fn refresh_rate_millihertz(&self) -> u32 {
+        let clock = self.mode.clock() as u64; // in kHz
+        let (_, _, htotal) = self.mode.hsync();
+        let (_, _, vtotal) = self.mode.vsync();
+        let htotal = htotal as u64;
+        let vtotal = vtotal as u64;
+        if htotal == 0 || vtotal == 0 {
+            // Fallback to rounded vrefresh * 1000
+            return self.mode.vrefresh() * 1000;
+        }
+        // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
+        ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
+    }
+
+    // Iterate through all planes and collect formats from compatible ones
+    pub fn find_compatible_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
+        let plane_handles = self
+            .drm_device
+            .plane_handles()
+            .map_err(|e| format!("Error obtaining drm plane handles: {e}"))?
+            .into_iter()
+            .filter(|plane_handle| {
+                let Ok(plane_info) = self.drm_device.get_plane(*plane_handle) else {
+                    return false;
+                };
+                self.drm_device
+                    .resource_handles()
+                    .unwrap()
+                    .filter_crtcs(plane_info.possible_crtcs())
+                    .contains(&self.crtc)
+            });
+
+        for plane_handle in plane_handles {
+            if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
+                return Ok(plane);
+            }
+        }
+
+        Err(PlatformError::Other("Could not find plane matching crtc".into()))
     }
 }

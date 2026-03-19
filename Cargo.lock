@@ -4961,7 +4961,6 @@ dependencies = [
  "memmap2",
  "nix",
  "raw-window-handle",
- "vulkano",
  "xkbcommon",
 ]
 

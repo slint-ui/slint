@@ -57,10 +57,10 @@ pub mod vulkan_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
-#[cfg(feature = "unstable-wgpu-27")]
-mod wgpu_27_surface;
-#[cfg(feature = "unstable-wgpu-28")]
-mod wgpu_28_surface;
+#[cfg(feature = "wgpu-27")]
+pub mod wgpu_27_surface;
+#[cfg(feature = "wgpu-28")]
+pub mod wgpu_28_surface;
 
 use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;

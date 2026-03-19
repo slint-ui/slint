@@ -9,7 +9,7 @@ Instead it uses the following libraries and interface to render directly to the 
 and keyboard input.
 
  - OpenGL via KMS/DRI.
- - Vulkan via the Vulkan KHR Display Extension.
+ - Vulkan via wgpu and the Vulkan KHR Display Extension.
  - DRM dumb buffers for software rendering, as well as legacy LinuxFB rendering.
  - libinput/libudev for input event handling from mice, touch screens, or keyboards.
  - libseat for GPU and input device access without requiring root access. (optional)
@@ -37,11 +37,12 @@ files; typically that's the root user.
 The LinuxKMS backend supports different renderers. They can be explicitly selected for use through the
 `SLINT_BACKEND` environment variable.
 
-| Renderer name | Required Graphics APIs | `SLINT_BACKEND` value to select renderer                                    |
-|---------------|------------------------|-----------------------------------------------------------------------------|
-| FemtoVG       | OpenGL ES 2.0          | `linuxkms-femtovg`                                                          |
-| Skia          | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
-| Software      | None                   | `linuxkms-software`                                                         |
+| Renderer name  | Required Graphics APIs | `SLINT_BACKEND` value to select renderer                                    |
+|----------------|------------------------|-----------------------------------------------------------------------------|
+| FemtoVG        | OpenGL ES 2.0          | `linuxkms-femtovg`                                                          |
+| FemtoVG (wgpu) | Vulkan                 | `linuxkms-femtovg-wgpu`                                                     |
+| Skia           | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
+| Software       | None                   | `linuxkms-software`                                                         |
 
 :::note{Note}
 This backend is still experimental. The backend has not undergone a great variety of testing on different devices
@@ -53,10 +54,9 @@ A mouse is supported as input device, but rendering of the mouse cursor only wor
 not with the Slint software renderer.
 :::
 
-## Display Selection with OpenGL or Skia Software
+## Display Selection
 
-FemtoVG uses OpenGL, and Skia - unless Vulkan is enabled - uses OpenGL, too. Linux's direct rendering manager
-(DRM) subsystem is used to configure display outputs. Slint defaults to selecting the first connected
+All renderers use Linux's direct rendering manager (DRM) subsystem to configure display outputs. Slint defaults to selecting the first connected
 display and configures it at either its preferred resolution (if available) or its highest. Set the `SLINT_DRM_OUTPUT`
 environment variable to select a specific display. To get a list of available outputs, set `SLINT_DRM_OUTPUT`
 to `list`, run your program, and observe the output.
@@ -90,41 +90,6 @@ Index: 5 Width: 1680 Height: 1050 Refresh Rate: 59
 ```
 
 Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
-
-## Display Selection with Vulkan
-
-When Skia's Vulkan feature is enabled, Skia will attempt use Vulkan's KHR Display extension to render
-directly to a connected screen. Slint defaults to selecting the first connected display and configures it at
-its highest available resolution and refresh rate. Set the `SLINT_VULKAN_DISPLAY` environment variable
-to select a specific display. To get a list of available outputs, set `SLINT_VULKAN_DISPLAY` to `list`,
-run your program, and observe the output.
-
-For example, the output may look like this on a laptop with a built-in screen (index 0) and an externally
-connected monitor (index 1):
-
-```
-Vulkan Display List Requested:
-Index: 0 Name: monitor
-Index: 1 Name: monitor
-```
-
-Setting `SLINT_VULKAN_DISPLAY` to `1` will render on the second monitor.
-
-To select a specific resolution and refresh rate (mode), set the `SLINT_VULKAN_MODE` variable. Set it
-to `list` and run your program to get a list of available modes. For example the program output could look like this:
-
-```
-Vulkan Mode List Requested:
-Index: 0 Width: 3840 Height: 2160 Refresh Rate: 60
-Index: 1 Width: 3840 Height: 2160 Refresh Rate: 50
-Index: 2 Width: 3840 Height: 2160 Refresh Rate: 30
-Index: 3 Width: 2560 Height: 1440 Refresh Rate: 59
-Index: 4 Width: 1920 Height: 1080 Refresh Rate: 60
-Index: 5 Width: 1680 Height: 1050 Refresh Rate: 59
-...
-```
-
-Set `SLINT_VULKAN_MODE` to `4` to select 1920x1080@60.
 
 ## Configuring the Keyboard
 
