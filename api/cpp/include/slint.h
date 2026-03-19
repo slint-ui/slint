@@ -18,6 +18,8 @@
 #ifndef SLINT_FEATURE_FREESTANDING
 #    include <mutex>
 #    include <condition_variable>
+#    include <cstdint>
+#    include <memory>
 #endif
 
 /// \rst
@@ -365,6 +367,106 @@ inline float get_resolved_default_font_size(const Component &component)
 }
 
 } // namespace private_api
+
+// Translator API is currently considered experimental due to discussions
+// about the returned string type (SharedString vs. Cow<str> etc.). Also it
+// is not available with no_std due to the tr crate.
+// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+#if defined(SLINT_FEATURE_EXPERIMENTAL) && !defined(SLINT_FEATURE_FREESTANDING)
+/// Interface for an external translator.
+struct Translator
+{
+    /// Destroys the translator.
+    virtual ~Translator() { }
+    /// Translate a singular string. Arguments are passed as UTF-8 strings.
+    /// Slint will call this method from the thread which runs the event loop.
+    virtual SharedString translate(std::string_view string, std::string_view context) const = 0;
+    /// Translate a plural string. Arguments are passed as UTF-8 strings.
+    /// Slint will call this method from the thread which runs the event loop.
+    virtual SharedString ntranslate(uint64_t n, std::string_view singular, std::string_view plural,
+                                    std::string_view context) const = 0;
+};
+
+namespace private_api {
+
+/// Helper to dispatch calls from the Rust translator to the C++ translator.
+struct TranslatorDispatcher
+{
+    static void drop(const void *obj) { delete cast(obj); }
+
+    static void translate(const void *obj, private_api::Slice<uint8_t> string,
+                          private_api::Slice<uint8_t> context, slint::SharedString *out)
+    {
+        *out = cast(obj)->translate(private_api::slice_to_string_view(string),
+                                    private_api::slice_to_string_view(context));
+    }
+
+    static void ntranslate(const void *obj, uint64_t n, private_api::Slice<uint8_t> singular,
+                           private_api::Slice<uint8_t> plural, private_api::Slice<uint8_t> context,
+                           slint::SharedString *out)
+    {
+        *out = cast(obj)->ntranslate(n, private_api::slice_to_string_view(singular),
+                                     private_api::slice_to_string_view(plural),
+                                     private_api::slice_to_string_view(context));
+    }
+
+private:
+    static const Translator *cast(const void *obj) { return static_cast<const Translator *>(obj); }
+};
+
+} // namespace private_api
+
+/// Register a custom translator.
+///
+/// Allows using a custom translation framework by implementing the
+/// `slint::Translator` interface. Passing `nullptr` will unregister any
+/// previously registered translator.
+///
+/// Returns `true` on success, `false` if no platform is available.
+///
+/// Safety & Ownership:
+/// * The ownership of the translator object is passed to Slint. It will be
+///   destroyed automatically when the program quits or when
+///   `set_external_translator()` is called the next time.
+/// * The methods on the translator object will be called from the thread
+///   which the Slint event loop is running.
+///
+/// The function is only available when Slint is compiled with
+/// `SLINT_FEATURE_EXPERIMENTAL` and without `SLINT_FEATURE_FREESTANDING`.
+///
+/// Note that this function has no effect if the `.slint` file was compiled
+/// with bundled translations.
+///
+/// Example:
+/// \code
+///     struct MyTranslator : public slint::Translator {
+///       slint::SharedString translate(std::string_view string,
+///                                     std::string_view context) const override {
+///         return slint::SharedString("Singular String");
+///       }
+///
+///       slint::SharedString ntranslate(uint64_t n,
+///                                      std::string_view singular,
+///                                      std::string_view plural,
+///                                      std::string_view context) const override {
+///         return slint::SharedString("Plural String");
+///       }
+///     };
+///
+///     slint::set_external_translator(std::make_unique<MyTranslator>());
+/// \endcode
+inline bool set_translator(std::unique_ptr<Translator> obj)
+{
+    const bool success = cbindgen_private::slint_translate_set_translator(
+            obj.get(), &private_api::TranslatorDispatcher::drop,
+            &private_api::TranslatorDispatcher::translate,
+            &private_api::TranslatorDispatcher::ntranslate);
+    if (success) {
+        obj.release(); // Ownership is moved to Rust.
+    }
+    return success;
+}
+#endif
 
 #ifdef SLINT_FEATURE_GETTEXT
 /// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.

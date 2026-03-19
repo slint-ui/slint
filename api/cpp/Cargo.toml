@@ -55,6 +55,7 @@ std = [
   "i-slint-renderer-software?/std",
   "i-slint-core/raw-window-handle-06",
   "i-slint-backend-selector/raw-window-handle-06",
+  "i-slint-core/tr",
 ]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 experimental = ["i-slint-renderer-software?/experimental"]
