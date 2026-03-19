@@ -104,7 +104,6 @@ pub enum BuiltinFunction {
     ParseDate,
     TextInputFocused,
     SetTextInputFocused,
-    KeyboardShortcutMatches,
     ImplicitLayoutInfo(Orientation),
     ItemAbsolutePosition,
     RegisterCustomFontByPath,
@@ -271,7 +270,6 @@ declare_builtin_function_types!(
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
     TextInputFocused: () -> Type::Bool,
-    KeyboardShortcutMatches: (Type::KeyboardShortcutType, typeregister::builtin_structs::KeyEvent().into()) -> Type::Bool,
     DateNow: () -> Type::Array(Rc::new(Type::Int32)),
     ValidDate: (Type::String, Type::String) -> Type::Bool,
     ParseDate: (Type::String, Type::String) -> Type::Array(Rc::new(Type::Int32)),
@@ -383,7 +381,6 @@ impl BuiltinFunction {
             BuiltinFunction::Oklch => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => false,
-            BuiltinFunction::KeyboardShortcutMatches => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::RegisterCustomFontByPath
@@ -467,7 +464,6 @@ impl BuiltinFunction {
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => true,
-            BuiltinFunction::KeyboardShortcutMatches => true,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,

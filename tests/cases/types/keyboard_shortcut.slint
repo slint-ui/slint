@@ -26,35 +26,27 @@ export component TestCase inherits Window {
 
     init => { input.focus() }
 
-    input := TextInput {
+    input := FocusScope {
         min-width: 100px;
         min-height: 50px;
+        Text {
+            text: input.has-focus ? "focused" : "click to focus";
+        }
+
         key-pressed(event) => {
             debug("Pressed: ", event);
             EventResult.reject
         }
-        function log_matches(shortcut: keyboard-shortcut, event: KeyEvent) -> bool {
-            if shortcut.matches(event) {
-                debug("MATCH: ", shortcut);
-                true
-            } else {
-                false
+        for keys in root.shortcuts: Shortcut {
+            keys: keys;
+            activated => {
+                root.matches += 1;
+                debug("MATCHES {keys}");
             }
         }
 
         key-released(event) => {
             debug("Released: ", event);
-            let old-matches = root.matches;
-
-            if log_matches(root.shortcuts[0], event) { matches += 1; }
-            if log_matches(root.shortcuts[1], event) { matches += 1; }
-            if log_matches(root.shortcuts[2], event) { matches += 1; }
-            if log_matches(root.shortcuts[3], event) { matches += 1; }
-
-            if old-matches != root.matches {
-                debug("MATCHES");
-                return EventResult.accept;
-            }
             EventResult.reject
         }
     }

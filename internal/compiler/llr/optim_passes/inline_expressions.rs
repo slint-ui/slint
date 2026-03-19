@@ -154,7 +154,6 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ParseDate => isize::MAX,
         BuiltinFunction::SetTextInputFocused => PROPERTY_ACCESS_COST,
         BuiltinFunction::TextInputFocused => PROPERTY_ACCESS_COST,
-        BuiltinFunction::KeyboardShortcutMatches => isize::MAX,
         BuiltinFunction::Translate => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
         BuiltinFunction::Use24HourFormat => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
         BuiltinFunction::UpdateTimers => 10,
