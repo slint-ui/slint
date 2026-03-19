@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
+use rspolib::TranslatedEntry;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -123,7 +124,9 @@ impl TranslationsBuilder {
             },
             Entry::Vacant(entry) => {
                 let messages = self.catalogs.iter().map(|catalog| {
-                    catalog.find_by_msgid_msgctxt(original.as_str(), contextid.as_str())
+                    catalog
+                        .find_by_msgid_msgctxt(original.as_str(), contextid.as_str())
+                        .filter(|entry| entry.translated())
                 });
                 let idx = if is_plural {
                     let messages = std::iter::once(Some(vec![original.clone(), plural.clone()]))
