@@ -23,7 +23,6 @@ use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
 use i_slint_core::api::ToSharedString;
-use i_slint_core::items::KeyEvent;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -818,25 +817,6 @@ fn call_builtin_function(
             } else {
                 panic!("internal error: argument to ClearFocusItem must be an element")
             }
-        }
-        BuiltinFunction::KeyboardShortcutMatches => {
-            let [shortcut, event] = arguments else {
-                panic!(
-                    "internal error: Incorrect number of arguments to KeyboardShortcut::matches"
-                );
-            };
-            let Value::KeyboardShortcut(shortcut) = eval_expression(shortcut, local_context) else {
-                panic!(
-                    "internal error: first argument to KeyboardShortcut::matches is not a keyboard shortcut"
-                );
-            };
-            let Ok(key_event) = KeyEvent::try_from(eval_expression(event, local_context)) else {
-                panic!(
-                    "internal error: second argument to KeyboardShortcut::matches is not a KeyEvent"
-                );
-            };
-
-            Value::from(shortcut.matches(&key_event))
         }
         BuiltinFunction::ShowPopupWindow => {
             if arguments.len() != 1 {

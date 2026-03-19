@@ -349,9 +349,7 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 }
 
 /// A `KeyboardShortcut` is created by the `@keys(...)` macro and
-/// defines which key events match the given shortcuts.
-///
-/// See [`Self::matches()`] for details
+/// defines which key event(s) activate a KeyBinding.
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
 pub struct KeyboardShortcut {
@@ -430,7 +428,7 @@ pub(crate) mod ffi {
 
 impl KeyboardShortcut {
     /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
-    pub fn matches(&self, key_event: &KeyEvent) -> bool {
+    pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
         // An empty KeyboardShortcut is never triggered, even if the modifiers match.
         if self.key.is_empty() {
             return false;

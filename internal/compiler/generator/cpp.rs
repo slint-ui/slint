@@ -4093,15 +4093,6 @@ fn compile_builtin_function_call(
         BuiltinFunction::GetWindowScaleFactor => {
             format!("{}.scale_factor()", access_window_field(ctx))
         }
-        BuiltinFunction::KeyboardShortcutMatches => {
-            let [shortcut, key_event] = arguments else {
-                panic!("internal error: incorrect number of arguments to KeyboardShortcut::matches");
-            };
-            let shortcut = compile_expression(shortcut, ctx);
-            let key_event = compile_expression(key_event, ctx);
-
-            format!("[&]() -> bool {{ auto shortcut = {shortcut}; auto keyEvent = {key_event}; return slint_keyboard_shortcut_matches(&shortcut, &keyEvent); }}()")
-        },
         BuiltinFunction::GetWindowDefaultFontSize => {
             "slint::private_api::get_resolved_default_font_size(*this)".to_string()
         }

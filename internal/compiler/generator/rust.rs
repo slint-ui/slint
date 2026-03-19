@@ -3154,15 +3154,6 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
         }
-        BuiltinFunction::KeyboardShortcutMatches => {
-            if let [shortcut, event] = arguments {
-                let shortcut = compile_expression(shortcut, ctx);
-                let event = compile_expression(event, ctx);
-                quote!(#shortcut.matches(&#event))
-            } else {
-                panic!("internal error: invalid args to KeyboardShortcut::matches {arguments:?}")
-            }
-        }
         BuiltinFunction::ClearFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);

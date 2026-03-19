@@ -66,32 +66,6 @@ export component Example inherits Window {
 }
 ```
 
-Use the `matches(..)` function on a `keyboard-shortcut` to check whether a given [`KeyEvent`](#keyevent) matches the shortcut.
-Note that `keyboard-shortcut` does not deal with event propagation and capture on its own.
-For ease-of-use prefer using a <Link type="Shortcut" label="Shortcut element"/> instead of manually matching against key events.
-
-```slint
-// Example component with custom event handling
-export component MyComponent inherits Window {
-  in property <keyboard-shortcut> copy-shortcut: @keys(Control + C);
-  callback copy();
-
-  Text { text: "Press Ctrl+C to copy"; }
-
-  FocusScope {
-    key-pressed(event) => {
-      if root.copy-shortcut.matches(event) {
-        debug("Copy shortcut pressed");
-        root.copy();
-        EventResult.accept
-      } else {
-        EventResult.reject
-      }
-    }
-  }
-}
-```
-
 ### Different Keyboard Layouts
 
 Different keyboard layouts are handled automatically by the `@keys(..)` macro for keys from the [`Key` namespace](#key-namespace).
