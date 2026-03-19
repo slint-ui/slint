@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button } from "std-widgets.slint";
+// import { Button } from "std-widgets.slint";
 export component TestCase {
     width: 500phx;
     height: 500phx;
@@ -9,11 +9,14 @@ export component TestCase {
     in-out property <bool> correct_x: false;
     in-out property <bool> correct_y: false;
 
-    Button {
-        text: "Show popup";
-        clicked => {
-            popup.show();
-        }
+    // Button {
+    //     text: "Show popup";
+    //     clicked => {
+    //         popup.show();
+    //     }
+    // }
+    init => {
+        popup.show();
     }
     popup := PopupWindow {
         x: 8phx;
@@ -26,13 +29,6 @@ export component TestCase {
             y: 9px;
             width: parent.width;
             height: parent.height;
-            // TouchArea {
-            //     clicked => {
-            //         //root.correct = parent.absolute-position.x == 5px + 8px;
-            //         root.correct = self.absolute-position.x == 8px + 5px;
-            //         debug("Correct: ", root.correct, ",", self.absolute-position.x);
-            //     }
-            // }
             Rectangle {
                 background: green;
                 init => {
