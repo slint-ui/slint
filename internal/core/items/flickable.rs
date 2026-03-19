@@ -43,6 +43,8 @@ use data_ringbuffer::MoveDataRingbuffer;
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
+/// Time of the animation until it returned back to the limit when it went beyond the limit
+/// The unit is seconds
 const SPRING_DAMPER_RETURN_TIME: f32 = 200e-3;
 
 /// The implementation of the `Flickable` element
