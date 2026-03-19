@@ -162,7 +162,8 @@ pub mod generated_code {
     /// }
     /// ```
     ///
-    /// **Note**: Globals are only accessible in Rust if they are exported from the root file!
+    /// **Note**: Globals are only accessible in Rust if they are exported from the root file or
+    /// the [`slint!`](crate::slint) macro!
     pub struct SampleGlobal<'a> {
         _marker: core::marker::PhantomData<&'a mut ()>,
     }
