@@ -250,11 +250,10 @@ fn compiled(
     ty: Type,
 ) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let e = Expression::from_binding_expression_node(
-        node.clone().into(),
-        &mut crate::lookup::LookupCtx::empty_context(type_register, &mut diag),
-    )
-    .maybe_convert_to(ty, &node, &mut diag);
+    let mut ctx = crate::lookup::LookupCtx::empty_context(type_register, &mut diag);
+    ctx.property_type = ty.clone();
+    let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
+        .maybe_convert_to(ty, &node, &mut diag);
     if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
