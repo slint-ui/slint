@@ -36,6 +36,8 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
+mod data_ringbuffer;
+use data_ringbuffer::MoveDataRingbuffer;
 
 /// Deceleration during the animation. It slows down the initial velocity of the simulation
 /// so that the simulation stops at some point if it didn't reach the limit
@@ -378,6 +380,8 @@ struct FlickableDataInner {
     /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
+
+    move_data: MoveDataRingbuffer<5>,
 }
 
 impl FlickableDataInner {
@@ -474,6 +478,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                inner.move_data = MoveDataRingbuffer::default();
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
@@ -602,6 +607,8 @@ impl FlickableData {
                         inner.pressed_pos = *position;
                     };
 
+                    inner.move_data.push(crate::animations::current_tick(), *position);
+
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
 
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
@@ -659,13 +666,13 @@ impl FlickableData {
     fn mouse_released(
         inner: &mut FlickableDataInner,
         flick: Pin<&Flickable>,
-        event: &MouseEvent,
+        _event: &MouseEvent,
         flick_rc: &ItemRc,
     ) {
-        if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {
-            let dist = (pos - inner.pressed_pos).cast::<f32>();
-
-            let millis = (crate::animations::current_tick() - pressed_time).as_millis();
+        if !inner.move_data.empty() {
+            let (time, dist) = inner.move_data.diff();
+            // let dist = (pos - inner.pressed_pos).cast::<f32>();
+            let millis = time.as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 0
