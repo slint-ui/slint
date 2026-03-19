@@ -69,6 +69,7 @@ members = [
   'tests/manual/module-builds/blogica',
   'tests/manual/module-builds/blogicb',
   'tests/manual/module-builds/app',
+  'tests/backends/',
   'tools/compiler',
   'tools/docsnapper',
   'tools/figma_import',
@@ -78,7 +79,6 @@ members = [
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
   'xtask',
-  'internal/backends/tests',
 ]
 
 default-members = [
