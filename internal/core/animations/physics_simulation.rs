@@ -81,6 +81,7 @@ impl ConstantDeceleration {
     /// * `limit_value` - value at which the simulation ends if the velocity did not get zero before
     /// * `initial_velocity` - the initial velocity of the point
     /// * `data` - the properties of this simulation
+    #[allow(dead_code)]
     pub fn new(start_value: f32, limit_value: f32, data: ConstantDecelerationParameters) -> Self {
         Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
     }
