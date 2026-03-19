@@ -107,6 +107,7 @@ jobs:
                   key: x-v3
                   save_if: ${{ inputs.save_if }}
                   cache: ${{ inputs.cache }}
+                  components: llvm-tools-preview
             - name: Cargo update
               if: inputs.update
               # Ignore rust_version for stable/nightly to test with latest dependencies
