@@ -414,7 +414,7 @@ async fn main_loop(
     let connection = Arc::new(connection);
     let (from_lsp_sender, mut from_lsp_receiver) = tokio::sync::mpsc::unbounded_channel();
     let inner_connection = connection.clone();
-    std::thread::spawn(move || {
+    let receiver_task = std::thread::spawn(move || {
         loop {
             match inner_connection.receiver.recv() {
                 Ok(msg) => {
@@ -430,30 +430,41 @@ async fn main_loop(
     loop {
         tokio::select! {
             msg = from_lsp_receiver.recv() => {
-                match msg.ok_or_else(|| "LSP connection closed".to_owned())? {
-                    Message::Request(req) => {
+                match msg {
+                    Some(Message::Request(req)) => {
                         // ignore errors when shutdown
                         if connection.handle_shutdown(&req).unwrap_or(false) {
+                            from_lsp_receiver.close();
+                            let _ = receiver_task.join();
                             return Ok(());
                         }
                         futures.push(Box::pin(rh.handle_request(req, &ctx)));
                     }
-                    Message::Response(resp) => {
-                        if let Some(q) = request_queue.lock().unwrap().get_mut(&resp.id) {
-                            match q {
-                                OutgoingRequest::Done(_) => {
-                                    return Err("Response to unknown request".into())
-                                }
-                                OutgoingRequest::Start => { /* nothing to do */ }
-                                OutgoingRequest::Pending(x) => x.wake_by_ref(),
-                            };
-                            *q = OutgoingRequest::Done(resp)
-                        } else {
+                    Some(Message::Response(resp)) => {
+                        let mut request_queue = request_queue.lock().unwrap();
+                        let Some(q) = request_queue.get_mut(&resp.id) else {
+                            from_lsp_receiver.close();
+                            let _ = receiver_task.join();
                             return Err("Response to unknown request".into());
-                        }
+                        };
+                        match q {
+                            OutgoingRequest::Done(_) => {
+                                from_lsp_receiver.close();
+                                let _ = receiver_task.join();
+                                return Err("Response to unknown request".into())
+                            }
+                            OutgoingRequest::Start => { /* nothing to do */ }
+                            OutgoingRequest::Pending(x) => x.wake_by_ref(),
+                        };
+                        *q = OutgoingRequest::Done(resp)
                     }
-                    Message::Notification(notification) => {
+                    Some(Message::Notification(notification)) => {
                         futures.push(Box::pin(handle_notification(notification, &ctx)))
+                    }
+                    None => {
+                        from_lsp_receiver.close();
+                        let _ = receiver_task.join();
+                        return Err("LSP connection closed".into());
                     }
                 }
             }
@@ -462,7 +473,11 @@ async fn main_loop(
                 #[cfg(feature = "preview-engine")]
                 {
                     let ctx = ctx.clone();
-                    let msg = _msg.ok_or_else(|| "Preview to LSP connection closed".to_owned())?;
+                    let Some(msg) = _msg else {
+                        from_lsp_receiver.close();
+                        let _ = receiver_task.join();
+                        return Err("Preview to LSP connection closed".into());
+                    };
                     tokio::task::spawn_local(async move {
                         if let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
                             tracing::error!("handle_preview_to_lsp_message: {err}");
