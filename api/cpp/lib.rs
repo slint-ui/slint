@@ -257,9 +257,10 @@ pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut Styl
 }
 
 // Translator API is currently considered experimental due to discussions
-// about the returned C++ string type (SharedString vs. Cow<str> etc.), see
-// https://github.com/slint-ui/slint/pull/10979.
-#[cfg(feature = "experimental")]
+// about the returned string type (SharedString vs. Cow<str> etc.). Also it
+// is not available with no_std due to the tr crate.
+// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+#[cfg(all(feature = "experimental", feature = "std"))]
 mod translator {
     use crate::SharedString;
     use crate::Slice;
