@@ -21,6 +21,7 @@ mod deprecated_rotation_origin;
 #[cfg(feature = "software-renderer")]
 mod embed_glyphs;
 mod embed_images;
+mod embed_include_strings;
 mod flickable;
 mod focus_handling;
 pub mod generate_item_indices;
@@ -249,6 +250,8 @@ pub async fn run_passes(
         diag,
     )
     .await;
+
+    embed_include_strings::embed_include_strings(doc);
 
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = &type_loader.compiler_config.translation_path_bundle {
