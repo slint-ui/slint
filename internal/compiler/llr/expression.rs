@@ -318,9 +318,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::Keys => {
-                Expression::KeysLiteral(Keys::default())
-            }
+            Type::Keys => Expression::KeysLiteral(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => return None,
         })
