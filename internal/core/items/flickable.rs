@@ -9,12 +9,12 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
     VoidArg,
 };
-use crate::animations::{EasingCurve, Instant};
+use crate::animations::Instant;
+use crate::animations::physics_simulation;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::PropertyAnimation;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -36,6 +36,11 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
+
+/// Deceleration during the animation. It slows down the initial velocity of the simulation
+/// so that the simulation stops at some point if it didn't reach the limit
+/// The unit is: LogicalPixel/s^2
+const DECELERATION: f32 = 2000.;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -63,32 +68,38 @@ impl Item for Flickable {
             self_rc.downgrade(),
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {
-                let Some(flick_rc) = self_weak.upgrade() else { return false };
-                let Some(flick) = flick_rc.downcast::<Flickable>() else { return false };
+                let Some(flick_rc) = self_weak.upgrade() else {
+                    return (false, false);
+                };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else {
+                    return (false, false);
+                };
                 let flick = flick.as_pin_ref();
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
 
                 let zero = LogicalLength::zero();
                 let vpx = flick.viewport_x();
-                if vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero) {
-                    return true;
-                }
                 let vpy = flick.viewport_y();
-                if vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero) {
-                    return true;
-                }
-                false
+                let x_out_of_bounds =
+                    vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero);
+                let y_out_of_bounds =
+                    vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero);
+
+                (x_out_of_bounds, y_out_of_bounds)
             },
             // Change event handler that puts the Flickable in bounds if it's not already
-            |self_weak, out_of_bound| {
+            |self_weak, (x_out_of_bounds, y_out_of_bounds)| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
                 let flick = flick.as_pin_ref();
-                if *out_of_bound {
-                    let vpx = flick.viewport_x();
-                    let vpy = flick.viewport_y();
-                    let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
+                let vpx = flick.viewport_x();
+                let vpy = flick.viewport_y();
+                let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
+
+                if *x_out_of_bounds {
                     (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                }
+                if *y_out_of_bounds {
                     (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
                 }
             },
@@ -469,6 +480,11 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
                     (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
                 );
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                x.set(x.get()); // Stop animation by removing the binding
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                y.set(y.get()); // Stop animation by removing the binding
+
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
@@ -648,28 +664,34 @@ impl FlickableData {
             let millis = (crate::animations::current_tick() - pressed_time).as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
-                && millis > 1
+                && millis > 0
             {
-                let speed = dist / (millis as f32);
-
-                let duration = 250;
-                let final_pos = ensure_in_bound(
-                    flick,
-                    (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
-                    flick_rc,
-                );
-                let anim = PropertyAnimation {
-                    duration,
-                    easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
-                    ..PropertyAnimation::default()
-                };
-
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let old_pos = (viewport_x.get(), viewport_y.get());
-                viewport_x.set_animated_value(final_pos.x_length(), anim.clone());
-                viewport_y.set_animated_value(final_pos.y_length(), anim);
-                if old_pos.0 != final_pos.x_length() || old_pos.1 != final_pos.y_length() {
+                let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                let limit_x = if dist.x < 0. { -vw } else { euclid::Length::new(Coord::default()) };
+                let limit_y = if dist.y < 0. { -vh } else { euclid::Length::new(Coord::default()) };
+
+                let limit =
+                    ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
+                {
+                    let simulation = physics_simulation::ConstantDecelerationParameters::new(
+                        dist.x / (millis as f32 / 1000.),
+                        DECELERATION,
+                    );
+                    viewport_x.set_physic_animation_value(limit.x_length(), simulation);
+                }
+
+                {
+                    let animation_y = physics_simulation::ConstantDecelerationParameters::new(
+                        dist.y / (millis as f32 / 1000.),
+                        DECELERATION,
+                    );
+                    viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
+                }
+
+                if dist.x != 0. || dist.y != 0. {
                     (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                 }
             }

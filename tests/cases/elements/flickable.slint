@@ -61,30 +61,32 @@ assert_eq!(instance.get_offset_y(), 0.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
-slint_testing::mock_elapsed_time(200);
+slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
-instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 10.0), button: PointerEventButton::Left });
 // Start of the animation, the position is still unchanged
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
 slint_testing::mock_elapsed_time(50);
 // middle of the animation
 assert!(instance.get_offset_x() > 210.);
-assert!(instance.get_offset_y() > 60.);
-assert!(instance.get_offset_x() < 290.);
-assert!(instance.get_offset_y() < 70.);
+assert!(instance.get_offset_y() > 60., "Expected > 60, Received: {}", instance.get_offset_y());
+assert!(instance.get_offset_x() < 400., "Expected < 400, Received: {}", instance.get_offset_x());
+assert!(instance.get_offset_y() < 150., "Expected <= 150, Received: {}", instance.get_offset_y());
 
-slint_testing::mock_elapsed_time(200);
+slint_testing::mock_elapsed_time(2000); // Let it run until the animation is finshed
 // end of the animation
-assert_eq!(instance.get_offset_x(), 450.);
-assert_eq!(instance.get_offset_y(), 112.5);
-slint_testing::mock_elapsed_time(50);
-assert_eq!(instance.get_offset_x(), 450.);
-assert_eq!(instance.get_offset_y(), 112.5);
+let end_x = instance.get_offset_x();
+let end_y = instance.get_offset_y();
+assert!(end_x > 450.);
+assert!(end_y > 150., "Expected: > 150., Received: {}", end_y);
+slint_testing::mock_elapsed_time(500000); // Already finished so it will not change anymore
+assert_eq!(instance.get_offset_x(), end_x);
+assert_eq!(instance.get_offset_y(), end_y);
 
 assert!(!instance.get_inner_ta_pressed());
 assert!(!instance.get_inner_ta_has_hover());
