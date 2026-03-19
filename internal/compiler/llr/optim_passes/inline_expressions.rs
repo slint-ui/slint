@@ -125,6 +125,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringCharacterCount => 50,
         BuiltinFunction::StringToLowercase => ALLOC_COST,
         BuiltinFunction::StringToUppercase => ALLOC_COST,
+        BuiltinFunction::KeysToString => ALLOC_COST,
         BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorHsvaStruct => 50,
         BuiltinFunction::ColorOklchStruct => 50,

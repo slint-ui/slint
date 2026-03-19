@@ -2655,9 +2655,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     });
                     quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
                 }
-                (Type::Keys, Type::String) => {
-                    quote!(sp::ToSharedString::to_shared_string(&#f))
-                }
                 (_, Type::Void) => {
                     quote!({#f;})
                 }
@@ -3546,6 +3543,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
+        BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorOklchStruct => quote!( #(#a)*.to_oklch()),

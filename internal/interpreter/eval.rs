@@ -229,9 +229,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
                 (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (Value::Keys(shortcut), Type::String) => {
-                    Value::String(shortcut.to_shared_string())
-                }
                 (v, _) => v,
             }
         }
@@ -447,19 +444,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
-        Expression::Keys(ks) => {
-            Value::Keys(i_slint_core::input::make_keys(
-                SharedString::from(&*ks.key),
-                i_slint_core::input::KeyboardModifiers {
-                    alt: ks.modifiers.alt,
-                    control: ks.modifiers.control,
-                    shift: ks.modifiers.shift,
-                    meta: ks.modifiers.meta,
-                },
-                ks.ignore_shift,
-                ks.ignore_alt,
-            ))
-        }
+        Expression::Keys(ks) => Value::Keys(i_slint_core::input::make_keys(
+            SharedString::from(&*ks.key),
+            i_slint_core::input::KeyboardModifiers {
+                alt: ks.modifiers.alt,
+                control: ks.modifiers.control,
+                shift: ks.modifiers.shift,
+                meta: ks.modifiers.meta,
+            },
+            ks.ignore_shift,
+            ks.ignore_alt,
+        )),
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -1182,6 +1177,15 @@ fn call_builtin_function(
             } else {
                 panic!("Argument not a string");
             }
+        }
+        BuiltinFunction::KeysToString => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to KeysToString")
+            }
+            let Value::Keys(keys) = eval_expression(&arguments[0], local_context) else {
+                panic!("Argument is not of type keys");
+            };
+            Value::String(ToSharedString::to_shared_string(&keys))
         }
         BuiltinFunction::ColorRgbaStruct => {
             if arguments.len() != 1 {
