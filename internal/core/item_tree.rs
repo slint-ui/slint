@@ -569,7 +569,7 @@ impl ItemRc {
                         while let Some(parent) =
                             current.parent_item(ParentItemTraversalMode::StopAtPopups)
                         {
-                            if popup_item.is_root_item_of(&parent.item_tree()) {
+                            if popup_item.is_root_item_of(parent.item_tree()) {
                                 pos += location.to_vector();
                                 break;
                             }
