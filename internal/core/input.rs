@@ -7,7 +7,7 @@
 
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
-use crate::items::{DropEvent, ItemRef, MouseCursor, TextCursorDirection};
+use crate::items::{DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
@@ -476,7 +476,7 @@ impl Display for Keys {
     /// For example, the shortcut created with @keys(Meta + Control + A)
     /// will be converted like this:
     /// - **macOS**: `⌃⌘A`
-    /// - **Windows**: `Super+Ctrl+A`
+    /// - **Windows**: `Win+Ctrl+A`
     /// - **Linux**: `Super+Ctrl+A`
     ///
     /// Note that this functions output is best-effort and may be adjusted/improved at any time,
@@ -491,7 +491,7 @@ impl Display for Keys {
             return Ok(());
         }
 
-        if cfg!(target_os = "macos") {
+        if crate::is_apple_platform() {
             // Slint remaps modifiers on macOS: control → Command, meta → Control
             // From Apple's documentation:
             //
@@ -515,11 +515,12 @@ impl Display for Keys {
 
             // TODO: These should probably be translated, but better to have at least
             // platform-local names than nothing.
-            let (ctrl_str, alt_str, shift_str, meta_str) = if cfg!(target_os = "windows") {
-                ("Ctrl", "Alt", "Shift", "Win")
-            } else {
-                ("Ctrl", "Alt", "Shift", "Super")
-            };
+            let (ctrl_str, alt_str, shift_str, meta_str) =
+                if crate::detect_operating_system() == OperatingSystemType::Windows {
+                    ("Ctrl", "Alt", "Shift", "Win")
+                } else {
+                    ("Ctrl", "Alt", "Shift", "Super")
+                };
 
             if self.modifiers.meta {
                 f.write_str(meta_str)?;
