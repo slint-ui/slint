@@ -15,7 +15,6 @@ use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
-use core::borrow::Borrow;
 use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
@@ -556,8 +555,7 @@ impl ItemRc {
         if let Some(window_adapter) = self.window_adapter() {
             let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
             let active_popups = window_inner.active_popups();
-            let borrow = active_popups.borrow();
-            for popup in borrow.iter() {
+            for popup in active_popups.iter() {
                 if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
                     let popup_item = ItemRc::new_root(popup.component.clone());
 
