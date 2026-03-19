@@ -133,6 +133,9 @@ pub type NativeGlobals = ();
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
 pub struct Backend {
+    #[cfg(not(no_qt))]
+    /// The generation is used to determine if a quit_event_loop call is meant for the current
+    /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
 }
 
@@ -153,7 +156,10 @@ impl Backend {
                 ensure_initialized(true);
             }}
         }
-        Self { event_loop_generation: Default::default() }
+        Self {
+            #[cfg(not(no_qt))]
+            event_loop_generation: Default::default(),
+        }
     }
 }
 
