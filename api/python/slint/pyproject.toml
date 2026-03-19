@@ -52,3 +52,5 @@ cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**
 
 [tool.maturin]
 editable-profile = "dev"
+# added so it includes in wheel build to overrite the default behavior of not including untracked files
+include = ["slint/language.pyi"]
