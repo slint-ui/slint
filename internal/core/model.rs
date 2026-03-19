@@ -738,7 +738,7 @@ use serde::ser::SerializeSeq;
 #[cfg(feature = "serde")]
 impl<T> serde::Serialize for ModelRc<T>
 where
-    T: serde::Serialize
+    T: serde::Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
