@@ -1,3 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//! This module contains a simple ringbuffer to store time and location data. It is used in the flickable to
+//! determine the initial velocity of the animation
+
 use crate::Coord;
 use crate::animations::Instant;
 use crate::lengths::LogicalPoint;
