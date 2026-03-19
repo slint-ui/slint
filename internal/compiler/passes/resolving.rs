@@ -546,7 +546,7 @@ impl Expression {
         let path = std::path::Path::new(&s);
         if crate::pathutils::is_absolute(path) {
             ctx.diag.all_loaded_files.insert(path.to_owned());
-            return Expression::IncludeString(s.into());
+            return Expression::IncludeString(s);
         }
 
         let resolved_path = ctx
@@ -561,7 +561,7 @@ impl Expression {
 
         let path = std::path::Path::new(&resolved_path);
         ctx.diag.all_loaded_files.insert(path.to_owned());
-        Expression::IncludeString(resolved_path.into())
+        Expression::IncludeString(resolved_path)
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
