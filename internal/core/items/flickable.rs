@@ -673,7 +673,6 @@ impl FlickableData {
     ) {
         if !inner.move_data.empty() {
             let (time, dist) = inner.move_data.diff();
-            // let dist = (pos - inner.pressed_pos).cast::<f32>();
             let millis = time.as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
