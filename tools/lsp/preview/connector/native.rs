@@ -5,15 +5,16 @@ use crate::{common, preview};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::{BufRead as _, Write as _};
+
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
 pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
     None
 }
 
 struct ChildProcessLspToPreviewInner {
-    communication_handle: std::thread::JoinHandle<std::result::Result<(), String>>,
-    to_child: std::process::ChildStdin,
+    communication_handle: tokio::task::JoinHandle<std::result::Result<(), String>>,
+    to_child_sender: tokio::sync::mpsc::UnboundedSender<Box<[u8]>>,
 }
 
 pub struct ChildProcessLspToPreview {
@@ -34,10 +35,10 @@ impl ChildProcessLspToPreview {
 
     fn start_preview(&self) -> common::Result<()> {
         if let Some(inner) = self.inner.borrow_mut().take() {
-            let _ = inner.communication_handle.join();
+            inner.communication_handle.abort();
         }
 
-        let mut child = std::process::Command::new(
+        let mut child = tokio::process::Command::new(
             std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
         )
         .args(["live-preview", "--remote-controlled"])
@@ -48,28 +49,28 @@ impl ChildProcessLspToPreview {
         tracing::debug!("Preview process spawned (PID {:?})", child.id());
 
         let from_child = child.stdout.take().expect("Child has no stdout");
-        let to_child = child.stdin.take().expect("Child has no stdin");
+        let mut to_child = child.stdin.take().expect("Child has no stdin");
 
         let channel = self.preview_to_lsp_channel.clone();
 
         let preview_to_lsp_channel = self.preview_to_lsp_channel.clone();
 
-        let communication_handle = std::thread::spawn(move || -> Result<(), String> {
-            let reader = std::io::BufReader::new(from_child);
-            for line in reader.lines() {
-                let line = line.map_err(|e| e.to_string())?;
+        let communication_handle = tokio::spawn(async move {
+            let reader = tokio::io::BufReader::new(from_child);
+            let mut lines = reader.lines();
+            while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
                 if let Ok(message) = serde_json::from_str(&line) {
                     channel.send(message).map_err(|e| e.to_string())?;
                 }
             }
 
-            let exit_status = child.wait().map_err(|e| e.to_string())?;
+            let exit_status = child.wait().await.map_err(|e| e.to_string());
 
-            if !exit_status.success() {
+            if exit_status.map(|exit_status| !exit_status.success()).unwrap_or(true) {
                 let message =
                     "The Slint live preview crashed! Please open a bug on the [Slint bug tracker](https://github.com/slint-ui/slint/issues)."
                         .to_string();
-                eprintln!("{message}");
+                tracing::error!("{message}");
 
                 let _ = preview_to_lsp_channel.send(common::PreviewToLspMessage::SendShowMessage {
                     message: lsp_types::ShowMessageParams {
@@ -81,8 +82,19 @@ impl ChildProcessLspToPreview {
             Ok(())
         });
 
+        let (to_child_sender, mut to_child_receiver) =
+            tokio::sync::mpsc::unbounded_channel::<Box<[u8]>>();
+        tokio::spawn(async move {
+            while let Some(msg) = to_child_receiver.recv().await {
+                if let Err(err) = to_child.write_all(&*msg).await {
+                    tracing::error!("Failed writing to preview child process: {err}");
+                    break;
+                }
+            }
+        });
+
         *self.inner.borrow_mut() =
-            Some(ChildProcessLspToPreviewInner { communication_handle, to_child });
+            Some(ChildProcessLspToPreviewInner { communication_handle, to_child_sender });
 
         Ok(())
     }
@@ -90,10 +102,10 @@ impl ChildProcessLspToPreview {
 
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
-        if let Some(mut inner) = self.inner.borrow_mut().take() {
+        if let Some(inner) = self.inner.borrow_mut().take() {
             let message = serde_json::to_string(&common::LspToPreviewMessage::Quit).unwrap();
-            let _ = writeln!(inner.to_child, "{message}");
-            let _ = inner.communication_handle.join();
+            let _ = inner.to_child_sender.send(message.as_bytes().into());
+            let _ = inner.to_child_sender.send(Box::new([0x0a]));
         }
     }
 }
@@ -107,7 +119,7 @@ impl common::LspToPreview for ChildProcessLspToPreview {
                 tracing::debug!("Failed to serialize message to preview");
                 return;
             };
-            let _ = writeln!(inner.to_child, "{message}");
+            let _ = inner.to_child_sender.send(message.as_bytes().into());
         } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
@@ -211,7 +223,7 @@ impl RemoteControlledPreviewToLsp {
         Self {}
     }
 
-    fn process_input() -> std::thread::JoinHandle<std::result::Result<(), String>> {
+    fn process_input() -> tokio::task::JoinHandle<std::result::Result<(), String>> {
         // Ensure the backend is set up before the reader thread starts. This fixes
         // bug #10274 on macOS where a race condition was causing the reader thread to already
         // process messages before the event loop was running.
@@ -219,28 +231,35 @@ impl RemoteControlledPreviewToLsp {
         // Use .ok() to ignore any errors, as the backend might already be set by the user and that's fine.
         slint::BackendSelector::new().select().ok();
 
-        std::thread::spawn(move || -> Result<(), String> {
-            let reader = std::io::BufReader::new(std::io::stdin().lock());
-            for line in reader.lines() {
-                let Ok(line) = line else {
-                    tracing::debug!("Preview: stdin closed, quitting");
-                    let _ = slint::quit_event_loop();
-                    return Ok(());
+        tokio::spawn(async move {
+            let reader = tokio::io::BufReader::new(tokio::io::stdin());
+            let mut lines = reader.lines();
+            loop {
+                match lines.next_line().await {
+                    Ok(Some(line)) => {
+                        if let Ok(message) = serde_json::from_str(&line)
+                            && let Err(err) = slint::invoke_from_event_loop(move || {
+                                preview::connector::lsp_to_preview(message);
+                            })
+                        {
+                            tracing::error!(
+                                "Failed to queue message onto event loop - reader thread will exit: {err}"
+                            );
+                            return Err(err.to_string());
+                        }
+                    }
+                    Ok(None) => {
+                        tracing::debug!("Preview: stdin EOF, quitting");
+                        let _ = slint::quit_event_loop();
+                        return Ok(());
+                    }
+                    Err(err) => {
+                        tracing::debug!("Preview: stdin error {err}, quitting");
+                        let _ = slint::quit_event_loop();
+                        return Ok(());
+                    }
                 };
-                if let Ok(message) = serde_json::from_str(&line) {
-                    slint::invoke_from_event_loop(move || {
-                        preview::connector::lsp_to_preview(message);
-                    })
-                    .map_err(|err| {
-                        let err = err.to_string();
-                        tracing::error!("Failed to queue message onto event loop - reader thread will exit: {err}");
-                        err
-                    })?;
-                }
             }
-            tracing::debug!("Preview: stdin EOF, quitting");
-            let _ = slint::quit_event_loop();
-            Ok(())
         })
     }
 }

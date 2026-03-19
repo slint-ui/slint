@@ -416,16 +416,15 @@ async fn main_loop(
     let inner_connection = connection.clone();
     std::thread::spawn(move || {
         loop {
-        match inner_connection.receiver.recv() {
+            match inner_connection.receiver.recv() {
                 Ok(msg) => {
                     if from_lsp_sender.send(msg.clone()).is_err() {
                         return;
                     }
-                };
+                }
                 Err(_) => return,
             }
         }
-    }
     });
 
     loop {
