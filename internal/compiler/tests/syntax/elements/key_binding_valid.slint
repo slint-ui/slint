@@ -4,15 +4,17 @@
 export component TestValid inherits FocusScope {
     Rectangle {
         FocusScope {
-            Shortcut {
+            KeyBinding {
                 keys: @keys(Control + S);
-                activated => {}
+                activated => {
+                }
             }
         }
     }
 
-    Shortcut {
+    KeyBinding {
         keys: @keys(Control + S);
-        activated => {}
+        activated => {
+        }
     }
 }

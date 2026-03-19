@@ -683,7 +683,7 @@ declare_item_vtable! {
 }
 
 crate::declare_item_vtable! {
-    fn slint_get_ShortcutVTable() -> ShortcutVTable for Shortcut
+    fn slint_get_KeyBindingVTable() -> KeyBindingVTable for KeyBinding
 }
 
 declare_item_vtable! {

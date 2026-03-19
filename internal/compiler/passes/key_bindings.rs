@@ -23,7 +23,7 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                 .iter()
                 .filter_map(|child| {
                     let child = child.borrow();
-                    if child.builtin_type().map(|b| b.name == "Shortcut").unwrap_or_default() {
+                    if child.builtin_type().map(|b| b.name == "KeyBinding").unwrap_or_default() {
                         Some(child)
                     } else {
                         None
@@ -46,11 +46,11 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                     }
                     Entry::Occupied(first) => {
                         diagnostics.push_warning(
-                            "This `Shortcut` element has the same keys as an existing shortcut - it is undefined which shortcut activates".into(),
+                            "This KeyBinding element has the same keys as an existing KeyBinding - it is undefined which binding activates".into(),
                             &span,
                         );
                         diagnostics
-                            .push_note("First duplicate Shorcut defined here".into(), first.get());
+                            .push_note("First duplicate KeyBinding defined here".into(), first.get());
                     }
                 }
             }
