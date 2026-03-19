@@ -3,10 +3,9 @@
 
 mod cases;
 
-/// Make sure to call this at the start of each test case
 fn init() {
     slint::platform::set_platform(
         Box::new(i_slint_backend_winit::Backend::new().unwrap()) as Box<_>
     )
-    .ok(); // Already set
+    .expect("Failed to set platform!");
 }

@@ -4999,6 +4999,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-backend-tests"
+version = "1.16.0"
+dependencies = [
+ "i-slint-backend-qt",
+ "i-slint-backend-winit",
+ "slint",
+]
+
+[[package]]
 name = "i-slint-backend-winit"
 version = "1.16.0"
 dependencies = [
