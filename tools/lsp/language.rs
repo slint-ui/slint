@@ -164,8 +164,6 @@ pub struct Context {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: RefCell<HashSet<lsp_types::Url>>,
-    pub recompile_timer: RefCell<Option<tokio::task::JoinHandle<()>>>,
-    pub recompile_sender: tokio::sync::mpsc::UnboundedSender<()>,
 }
 
 /// An error from a LSP request
@@ -930,19 +928,6 @@ fn drop_document_impl(ctx: &Rc<Context>, url: lsp_types::Url) -> common::Result<
         // not in the open_urls.
         if preview_url == url || dependencies.contains(&preview_url) {
             ctx.pending_recompile.borrow_mut().insert(preview_url);
-        }
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    if !ctx.pending_recompile.borrow().is_empty() {
-        let recompile_sender = ctx.recompile_sender.clone();
-        if let Some(old_timer) =
-            ctx.recompile_timer.borrow_mut().replace(tokio::task::spawn_local(async move {
-                tokio::time::sleep(crate::RECOMPILE_TIMEOUT).await;
-                let _ = recompile_sender.send(());
-            }))
-        {
-            old_timer.abort();
         }
     }
 

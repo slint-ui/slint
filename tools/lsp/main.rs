@@ -60,7 +60,7 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-const RECOMPILE_TIMEOUT: Duration = Duration::from_millis(50);
+const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -392,8 +392,6 @@ async fn main_loop(
         enable_experimental: false,
     };
 
-    let (recompile_sender, mut recompile_receiver) = tokio::sync::mpsc::unbounded_channel::<()>();
-
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
         preview_config: RefCell::new(Default::default()),
@@ -404,8 +402,6 @@ async fn main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-        recompile_timer: Default::default(),
-        recompile_sender,
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
@@ -428,6 +424,11 @@ async fn main_loop(
     });
 
     loop {
+        let recompile_idle_timeout = if ctx.pending_recompile.borrow().is_empty() {
+            Duration::MAX
+        } else {
+            RECOMPILE_IDLE_TIMEOUT
+        };
         tokio::select! {
             msg = from_lsp_receiver.recv() => {
                 match msg {
@@ -485,17 +486,17 @@ async fn main_loop(
                     });
                 }
             }
-            _ = recompile_receiver.recv() => {
-                 let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
+            _ = tokio::time::sleep(recompile_idle_timeout) => {
+                let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
 
-                 for url in pending_recompile {
+                for url in pending_recompile {
                     let ctx = ctx.clone();
                     tokio::task::spawn_local(async move {
                         if let Err(err) = language::reload_document(&ctx, url).await {
                             tracing::error!("Failed document reload: {err}");
                         }
                     });
-                 }
+                }
             }
         }
     }
