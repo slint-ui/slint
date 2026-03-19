@@ -1713,7 +1713,7 @@ impl TextInput {
         let cursor_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter, self_rc);
         let geometry = self_rc.geometry();
-        let origin = self_rc.map_to_window(geometry.origin);
+        let origin = self_rc.map_to_native_window(geometry.origin);
         let origin_vector = origin.to_vector();
         let cursor_rect_origin =
             crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin_vector);
