@@ -2237,7 +2237,7 @@ impl WindowInner {
         is_menu: bool,
     ) -> NonZeroU32 {
         let position = parent_item
-            .map_to_screen(parent_item.geometry().origin + position.to_euclid().to_vector());
+            .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -2373,8 +2373,9 @@ impl WindowInner {
         parent_item: &ItemRc,
     ) -> bool {
         if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
-            let position = parent_item
-                .map_to_screen(parent_item.geometry().origin + position.to_euclid().to_vector());
+            let position = parent_item.map_to_native_window(
+                parent_item.geometry().origin + position.to_euclid().to_vector(),
+            );
             let position = crate::lengths::logical_position_to_api(position);
             x.show_native_popup_menu(context_menu_item, position)
         } else {

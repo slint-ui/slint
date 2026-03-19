@@ -306,7 +306,7 @@ impl ItemRc {
         self.index == Self::root_index()
     }
 
-    /// Root within the item tree `item_tree` and not considering dynamic items
+    /// Root within the self item tree and not considering dynamic items
     pub fn is_root_item_of(&self, item_tree: &VRc<ItemTreeVTable>) -> bool {
         self.is_root() && VRc::ptr_eq(&self.item_tree, item_tree)
     }
@@ -559,10 +559,26 @@ impl ItemRc {
             let borrow = active_popups.borrow();
             for popup in borrow.iter() {
                 if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
+                    let popup_item = ItemRc::new_root(popup.component.clone());
+
                     // Check if component is in a popup
-                    // TODO:is_root_item_of() searches only in the own item tree! Not possible to use for dynamic objects
-                    if ItemRc::new_root(popup.component.clone()).is_root_item_of(self.item_tree()) {
+                    // We have to search through all trees recursively up and not only the current item tree
+                    if popup_item.is_root_item_of(self.item_tree()) {
                         pos += location.to_vector();
+                    } else {
+                        let mut current = ItemRc::new_root(self.item_tree.clone());
+                        // is_root_item_of does not check the complete tree
+                        while let Some(parent) =
+                            current.parent_item(ParentItemTraversalMode::StopAtPopups)
+                        {
+                            if popup_item.is_root_item_of(&parent.item_tree()) {
+                                pos += location.to_vector();
+                                break;
+                            }
+
+                            // We go to the root of the parent again to skip iterating over the complete item tree
+                            current = ItemRc::new_root(parent.item_tree);
+                        }
                     }
                 }
             }
@@ -683,7 +699,7 @@ impl ItemRc {
         child_step: &dyn Fn(&crate::item_tree::ItemTreeNodeArray, u32) -> Option<u32>,
         subtree_child: &dyn Fn(usize, usize) -> usize,
     ) -> Option<Self> {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let comp_ref_pin: Pin<VRef<'_, ItemTreeVTable>> = vtable::VRc::borrow_pin(&self.item_tree);
         let item_tree = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
 
         let mut current_child_index = child_access(&item_tree, self.index())?;
@@ -702,7 +718,7 @@ impl ItemRc {
         }
     }
 
-    /// The first child Item of this Item
+    /// The first child Item of this Item in this item tree
     pub fn first_child(&self) -> Option<Self> {
         self.find_child(
             &|item_tree, index| item_tree.first_child(index),
@@ -2643,13 +2659,24 @@ mod tests {
 
         item_tree.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
             parent_component: Some(VRc::into_dyn(item_tree.clone())),
-            item_tree: vec![ItemTreeNode::Item {
-                is_accessible: false,
-                children_count: 0,
-                children_index: 1,
-                parent_index: 1,
-                item_array_index: 0,
-            }],
+            item_tree: vec![
+                // Root
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 1, // The index in the parent item tree
+                    item_array_index: 0,
+                },
+                // First child
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 0,
+                    children_index: 0,
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+            ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
 
@@ -2660,6 +2687,8 @@ mod tests {
         (weak, VRc::into_dyn(item_tree))
     }
 
+    // This time the element is a child of a dynamic element with a different item tree
+    // Therefore we have to make sure we go up recursively
     #[test]
     fn test_map_to_native_window_popup_dynamic_element() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
@@ -2672,16 +2701,24 @@ mod tests {
             false,
         );
 
-        let root = ItemRc::new_root(item_tree);
-        let first_child = root.first_child().unwrap();
-        let first_child_of_first_child = first_child.first_child().unwrap();
-
-        // Check that we have a ChildWindow popup
+        // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system
         let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.borrow().len(), 1);
         let borrow = active_popups.borrow().first().unwrap();
         assert!(matches!(borrow.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
+
+        let root = ItemRc::new_root(item_tree);
+        let first_child = root.first_child().unwrap();
+        // Check if the first item is a dynamic tree!
+        let comp_ref_pin = vtable::VRc::borrow_pin(&root.item_tree);
+        let item_tree_array = crate::item_tree::ItemTreeNodeArray::new(&comp_ref_pin);
+        assert!(matches!(
+            item_tree_array.get(1).expect("Must be one element"),
+            ItemTreeNode::DynamicTree { .. }
+        ));
+        // Because of the dynamic tree, the item tree is not the same as for the root
+        let first_child_of_first_child = first_child.first_child().expect("We have one child");
 
         // The popup is not a real window and therefore it does not have it's own coordinate system
         // So map_to_window is really absolute to the window not to the popup window
