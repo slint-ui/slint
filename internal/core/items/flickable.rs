@@ -682,15 +682,17 @@ impl FlickableData {
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                 let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
                 let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                let limit_x = if dist.x < 0. { -vw } else { euclid::Length::new(Coord::default()) };
-                let limit_y = if dist.y < 0. { -vh } else { euclid::Length::new(Coord::default()) };
+                let limit_x =
+                    if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
+                let limit_y =
+                    if dist.y < 0 as Coord { -vh } else { euclid::Length::new(Coord::default()) };
 
                 let limit =
                     ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
                 {
                     let simulation =
                         physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                            dist.x / (millis as f32 / 1000.),
+                            dist.x as f32 / (millis as f32 / 1000.),
                             DECELERATION,
                             SPRING_DAMPER_RETURN_TIME,
                         );
@@ -700,14 +702,14 @@ impl FlickableData {
                 {
                     let animation_y =
                         physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                            dist.y / (millis as f32 / 1000.),
+                            dist.y as f32 / (millis as f32 / 1000.),
                             DECELERATION,
                             SPRING_DAMPER_RETURN_TIME,
                         );
                     viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
                 }
 
-                if dist.x != 0. || dist.y != 0. {
+                if dist.x != 0 as Coord || dist.y != 0 as Coord {
                     (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                 }
             }
