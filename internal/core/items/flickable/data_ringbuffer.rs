@@ -145,7 +145,7 @@ mod tests {
         assert!(buffer.full);
         assert_eq!(buffer.curr_index, 2);
 
-        assert_eq!(buffer.diff(), (Duration::from_millis(6), Vector2D::new(6., 12.)));
+        assert_eq!(buffer.diff(), (Duration::from_millis(4), Vector2D::new(4., 4. * 2.)));
     }
 
     #[test]

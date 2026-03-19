@@ -1087,6 +1087,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 
         let listview_height = listview_height.get();
         let mut vp_y = viewport_y.get();
+        if !viewport_y.has_binding() {
+            vp_y = vp_y.min(zero);
+        }
 
         // We need some sort of estimation of the element height
         let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
