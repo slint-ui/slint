@@ -108,7 +108,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             let i = ident(&e.name);
             if e.node.is_some() { Some(quote!(#i)) } else { Some(quote!(sp::#i)) }
         }
-        Type::KeyboardShortcutType => Some(quote!(sp::KeyboardShortcut)),
+        Type::Keys => Some(quote!(sp::Keys)),
         Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(
             sp::SharedVector<
@@ -2532,17 +2532,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeyboardShortcutLiteral(shortcut) => {
-                let key = &*shortcut.key;
-                let alt = shortcut.modifiers.alt;
-                let control = shortcut.modifiers.control;
-                let shift = shortcut.modifiers.shift;
-                let meta = shortcut.modifiers.meta;
-                let ignore_shift = shortcut.ignore_shift;
-                let ignore_alt = shortcut.ignore_alt;
+        Expression::KeysLiteral(keys) => {
+                let key = &*keys.key;
+                let alt = keys.modifiers.alt;
+                let control = keys.modifiers.control;
+                let shift = keys.modifiers.shift;
+                let meta = keys.modifiers.meta;
+                let ignore_shift = keys.ignore_shift;
+                let ignore_alt = keys.ignore_alt;
 
                 quote!(
-                    sp::make_keyboard_shortcut(
+                    sp::make_keys(
                         #key.into(),
                         sp::KeyboardModifiers {
                             alt: #alt,
@@ -2655,7 +2655,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     });
                     quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
                 }
-                (Type::KeyboardShortcutType, Type::String) => {
+                (Type::Keys, Type::String) => {
                     quote!(sp::ToSharedString::to_shared_string(&#f))
                 }
                 (_, Type::Void) => {

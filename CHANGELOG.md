@@ -11,7 +11,7 @@ All notable changes to this project are documented in this file.
 ### Slint
 
  - Fixed empty GridLayout not taking padding into account
- - Added `keyboard-shortcut` type and `@keys(...)` macro
+ - Added `keys` type and `@keys(...)` macro
  - Added printer charachter in the `Key` namespace
 
 ### Widgets

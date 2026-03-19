@@ -348,11 +348,11 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
-/// A `KeyboardShortcut` is created by the `@keys(...)` macro and
+/// A `Keys` is created by the `@keys(...)` macro and
 /// defines which key event(s) activate a KeyBinding.
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
-pub struct KeyboardShortcut {
+pub struct Keys {
     /// The `key` used to trigger the shortcut
     ///
     /// Note: This is currently converted to lowercase when the shortcut is created!
@@ -365,14 +365,14 @@ pub struct KeyboardShortcut {
     ignore_alt: bool,
 }
 
-/// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
-pub fn make_keyboard_shortcut(
+/// Re-exported in private_unstable_api to create a Keys struct.
+pub fn make_keys(
     key: SharedString,
     modifiers: KeyboardModifiers,
     ignore_shift: bool,
     ignore_alt: bool,
-) -> KeyboardShortcut {
-    KeyboardShortcut { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
+) -> Keys {
+    Keys { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
 }
 
 #[cfg(feature = "ffi")]
@@ -383,7 +383,7 @@ pub(crate) mod ffi {
     use super::*;
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut(
+    pub unsafe extern "C" fn slint_keys(
         key: &SharedString,
         alt: bool,
         control: bool,
@@ -391,9 +391,9 @@ pub(crate) mod ffi {
         meta: bool,
         ignore_shift: bool,
         ignore_alt: bool,
-        out: &mut KeyboardShortcut,
+        out: &mut Keys,
     ) {
-        *out = make_keyboard_shortcut(
+        *out = make_keys(
             key.clone(),
             KeyboardModifiers { alt, control, shift, meta },
             ignore_shift,
@@ -402,34 +402,20 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_debug_string(
-        shortcut: &KeyboardShortcut,
-        out: &mut SharedString,
-    ) {
+    pub unsafe extern "C" fn slint_keys_debug_string(shortcut: &Keys, out: &mut SharedString) {
         *out = crate::format!("{shortcut:?}");
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_to_string(
-        shortcut: &KeyboardShortcut,
-        out: &mut SharedString,
-    ) {
+    pub unsafe extern "C" fn slint_keys_to_string(shortcut: &Keys, out: &mut SharedString) {
         *out = shortcut.to_shared_string();
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_matches(
-        shortcut: &KeyboardShortcut,
-        key_event: &KeyEvent,
-    ) -> bool {
-        shortcut.matches(key_event)
     }
 }
 
-impl KeyboardShortcut {
-    /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
+impl Keys {
+    /// Check whether a `Keys` can be triggered by the given `KeyEvent`
     pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
-        // An empty KeyboardShortcut is never triggered, even if the modifiers match.
+        // An empty Keys is never triggered, even if the modifiers match.
         if self.key.is_empty() {
             return false;
         }
@@ -484,7 +470,7 @@ impl KeyboardShortcut {
     }
 }
 
-impl Display for KeyboardShortcut {
+impl Display for Keys {
     /// Converts the keyboard shortcut to a string that looks native on the current platform.
     ///
     /// For example, the shortcut created with @keys(Meta + Control + A)
@@ -556,7 +542,7 @@ impl Display for KeyboardShortcut {
     }
 }
 
-impl core::fmt::Debug for KeyboardShortcut {
+impl core::fmt::Debug for Keys {
     /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
@@ -1433,7 +1419,7 @@ mod tests {
             _expected_linux,
         ) in test_cases
         {
-            let shortcut = make_keyboard_shortcut(key.into(), modifiers, ignore_shift, ignore_alt);
+            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt);
 
             use crate::alloc::string::ToString;
             let result = shortcut.to_string();

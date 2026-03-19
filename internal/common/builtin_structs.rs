@@ -211,7 +211,7 @@ macro_rules! for_each_builtin_structs {
                     icon: Image,
                     /// an opaque id that can be used to identify the menu entry
                     id: SharedString,
-                    // keyboard_shortcut: KeySequence,
+                    // keys: KeySequence,
                     /// whether the menu entry is enabled
                     enabled: bool,
                     /// whether the menu entry is checkable

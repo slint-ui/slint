@@ -30,7 +30,7 @@ pub fn send_mouse_click<
 }
 
 /// Simulate entering a keyboard shortcut or other "nested" character sequence
-pub fn send_keyboard_shortcut<
+pub fn send_key_combo<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
@@ -38,14 +38,14 @@ pub fn send_keyboard_shortcut<
     keys: impl IntoIterator<Item = impl Into<char>>,
 ) {
     let keys: Vec<SharedString> = keys.into_iter().map(|k| k.into().into()).collect();
-    send_keyboard_shortcut_with_text(component, &keys);
+    send_key_combo_with_text(component, &keys);
 }
 
 /// Simulate entering a keyboard shortcut where each key is a text string.
 ///
-/// Unlike [`send_keyboard_shortcut`], each key can be an arbitrary string,
+/// Unlike [`send_key_combo`], each key can be an arbitrary string,
 /// which supports multi-codepoint grapheme clusters (e.g. NFD-encoded Unicode).
-pub fn send_keyboard_shortcut_with_text<
+pub fn send_key_combo_with_text<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(

@@ -32,7 +32,7 @@ export component Example inherits Window {
 }
 ```
 
-The `FocusScope` can react to <Link type="KeyboardShortcuts" label="keyboard shortcuts"/> using the <Link type="Shortcut" label="Shortcut element"/>, and exposes callbacks to handle key events manually.
+The `FocusScope` can react to <Link type="Keys" label="keyboard shortcuts"/> using the <Link type="Shortcut" label="Shortcut element"/>, and exposes callbacks to handle key events manually.
 Note that `FocusScope` will only handle key events when it either `has-focus`, or when it surrounds another FocusScope that `has-focus` (see [Key Event Delivery](#key-event-delivery))
 
 The <Link type="KeyEvent" /> has a text property, which is a character of the key entered.
@@ -120,14 +120,14 @@ Invoked when the `FocusScope` loses focus. The argument is a a <Link type="Focus
 Place `Shortcut` elements inside a `FocusScope` to declare keyboard shortcuts.
 Shortcuts use **logical keys**, based on the character a key produces, not physical key positions.
 
-See <Link type="KeyboardShortcuts" label="Keyboard Shortcuts"/> for details.
+See <Link type="Keys" label="Keyboard Shortcuts"/> for details.
 
 ### Properties of `Shortcut`
 
 #### keys
 
-<SlintProperty propName="keys" typeName="keyboard-shortcut">
-The <Link type="keyboard-shortcut" label="keyboard-shortcut" /> to match against incoming key events.
+<SlintProperty propName="keys" typeName="keys">
+The <Link type="keys" label="keys" /> to match against incoming key events.
 </SlintProperty>
 
 #### enabled

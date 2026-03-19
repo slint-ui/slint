@@ -9,7 +9,7 @@ use super::{
 use crate::api::LogicalPosition;
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardShortcut, MouseEvent,
+    KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::items::ItemTreeVTable;
@@ -286,7 +286,7 @@ impl ItemConsts for Shortcut {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Shortcut {
-    pub keys: Property<KeyboardShortcut>,
+    pub keys: Property<Keys>,
     pub enabled: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
