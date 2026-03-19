@@ -172,6 +172,27 @@ This is the primitive type used to detect if a KeyEvent should trigger a given s
 
 Keyboard shortcuts in Slint are based on **logical keys** — the character a key produces on the current keyboard layout — not the physical position of a key on the keyboard.
 See <Link type="Keys" label="Keyboard Shortcuts" /> for details.
+
+Use the `to-string` function to convert a `keys` instance to `string`.
+It returns a platform-native description of the key combination.
+
+```slint
+export component KeysToString inherits FocusScope {
+    undo := Shortcut {
+        keys: @keys(Control + Z);
+        activated => { debug("UNDO") }
+    }
+
+    Text {
+        text: "Press \{undo.keys.to-string()} to undo!";
+        // Results in "Press ⌘Z to undo!" on macOS
+        // Results in "Press Ctrl+Z to undo!" on other platforms
+    }
+}
+
+```
+
+
 </SlintProperty>
 
 ## Images
@@ -341,7 +362,6 @@ The following conversions are possible:
     but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
     these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
 -   The literal `0` can be converted to any of these types that have associated unit.
--   A `keys` can be converted to `string`, which will return a platform-native description of the shortcut.
 -   Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
 -   Arrays generally don't convert between each other. Array literals can be converted if the element types are convertible.

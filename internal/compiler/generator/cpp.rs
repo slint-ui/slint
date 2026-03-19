@@ -535,9 +535,7 @@ impl CppType for Type {
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
             Type::String => Some("slint::SharedString".into()),
-            Type::Keys => {
-                Some("slint::cbindgen_private::types::Keys".into())
-            }
+            Type::Keys => Some("slint::cbindgen_private::types::Keys".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -3676,9 +3674,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         cases.join(" ")
                     )
                 }
-                (Type::Keys, Type::String) => {
-                    format!("slint::private_api::keys_to_string({f})")
-                }
                 _ => f,
             }
         }
@@ -4226,6 +4221,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToUppercase => {
             format!("{}.to_uppercase()", a.next().unwrap())
+        }
+        BuiltinFunction::KeysToString => {
+            format!("slint::private_api::keys_to_string({})", a.next().unwrap())
         }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())

@@ -14,9 +14,9 @@ export component TestCase inherits Window {
     out property <keys> first_shortcut: shortcuts[0];
 
     // Test conversion from keys to string
-    out property <string> shortcut_as_string: shortcuts[0];
-    out property <string> shortcut_a_as_string: shortcuts[1];
-    out property <string> shortcut_plus_as_string: shortcuts[2];
+    out property <string> shortcut_as_string: shortcuts[0].to-string();
+    out property <string> shortcut_a_as_string: shortcuts[1].to-string();
+    out property <string> shortcut_plus_as_string: shortcuts[2].to-string();
 
     out property <int> matches: 0;
 

@@ -73,6 +73,7 @@ pub enum BuiltinFunction {
     StringCharacterCount,
     StringToLowercase,
     StringToUppercase,
+    KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
     ColorOklchStruct,
@@ -212,6 +213,7 @@ declare_builtin_function_types!(
     StringCharacterCount: (Type::String) -> Type::Int32,
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
+    KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -358,7 +360,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase => true,
+            | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorOklchStruct
@@ -446,7 +449,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase => true,
+            | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorOklchStruct
