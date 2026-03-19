@@ -556,7 +556,8 @@ impl Item for FocusScope {
             }
             KeyEventType::KeyReleased => {
                 let shortcut = self.visit_enabled_shortcuts(self_rc, |shortcut| {
-                    let keys = KeyBinding::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
+                    let keys =
+                        KeyBinding::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
                     if keys.matches(event) { Some(VRcMapped::clone(shortcut)) } else { None }
                 });
 

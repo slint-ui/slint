@@ -733,7 +733,10 @@ fn gen_corelib(
         .export
         .body
         .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
-    config.export.pre_body.insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
+    config
+        .export
+        .pre_body
+        .insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
     config
         .export
         .body

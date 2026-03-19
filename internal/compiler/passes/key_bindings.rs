@@ -49,8 +49,10 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                             "This KeyBinding element has the same keys as an existing KeyBinding - it is undefined which binding activates".into(),
                             &span,
                         );
-                        diagnostics
-                            .push_note("First duplicate KeyBinding defined here".into(), first.get());
+                        diagnostics.push_note(
+                            "First duplicate KeyBinding defined here".into(),
+                            first.get(),
+                        );
                     }
                 }
             }
