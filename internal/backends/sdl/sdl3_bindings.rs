@@ -43,12 +43,12 @@ pub use sdl3_sys::keycode::{
 
 pub use sdl3_sys::mouse::{SDL_BUTTON_LEFT, SDL_BUTTON_MIDDLE, SDL_BUTTON_RIGHT};
 
-pub use sdl3_sys::pixels::{SDL_Color, SDL_PIXELFORMAT_RGBA32};
+pub use sdl3_sys::pixels::SDL_PIXELFORMAT_RGBA32;
 
 pub use sdl3_sys::rect::{SDL_FRect, SDL_Rect};
 
 pub use sdl3_sys::render::{
-    SDL_CreateRenderer, SDL_CreateTexture, SDL_CreateTextureFromSurface, SDL_DestroyRenderer,
+    SDL_CreateRenderer, SDL_CreateTexture, SDL_DestroyRenderer,
     SDL_DestroyTexture, SDL_RenderClear, SDL_RenderFillRect, SDL_RenderPresent,
     SDL_RenderTexture, SDL_Renderer, SDL_SetRenderClipRect, SDL_SetRenderDrawBlendMode,
     SDL_SetRenderDrawColor, SDL_SetTextureAlphaMod,
@@ -58,7 +58,6 @@ pub use sdl3_sys::render::{
 
 pub use sdl3_sys::stdinc::SDL_free;
 
-pub use sdl3_sys::surface::SDL_DestroySurface;
 
 pub use sdl3_sys::video::{
     SDL_CreateWindow, SDL_DestroyWindow, SDL_GetWindowDisplayScale,
@@ -71,18 +70,12 @@ pub use sdl3_sys::video::{
 // ---------------------------------------------------------------------------
 
 pub use sdl3_ttf_sys::ttf::{
-    TTF_CloseFont, TTF_Font, TTF_GetFontAscent, TTF_GetFontDescent,
-    TTF_GetFontHeight, TTF_GetFontLineSkip, TTF_GetStringSize, TTF_Init,
-    TTF_MeasureString, TTF_OpenFont, TTF_OpenFontIO, TTF_Quit, TTF_RenderText_Blended,
-    TTF_RenderText_Blended_Wrapped, TTF_SetFontStyle,
-    TTF_STYLE_BOLD, TTF_STYLE_ITALIC, TTF_STYLE_NORMAL,
+    TTF_CloseFont, TTF_CreateRendererTextEngine, TTF_CreateText,
+    TTF_DestroyRendererTextEngine, TTF_DestroyText, TTF_DrawRendererText, TTF_Font,
+    TTF_GetFontAscent, TTF_GetFontDescent, TTF_GetFontHeight,
+    TTF_GetFontLineSkip, TTF_GetStringSize, TTF_Init, TTF_MeasureString,
+    TTF_OpenFont, TTF_OpenFontIO, TTF_Quit, TTF_SetFontStyle, TTF_SetTextColor, TTF_SetTextWrapWidth, TTF_STYLE_BOLD, TTF_STYLE_ITALIC, TTF_STYLE_NORMAL,
 };
-
-// Note: The SDL_ttf 3.x renderer-based text engine API (TTF_CreateRendererTextEngine,
-// TTF_CreateText, TTF_DrawRendererText, etc.) is in sdl3_ttf_sys::textengine but is
-// currently private in the sys crate. We don't use it yet — text is rendered via
-// TTF_RenderText_Blended → SDL_CreateTextureFromSurface instead. When the sys crate
-// makes the textengine module public, we can switch to the more efficient direct API.
 
 // ---------------------------------------------------------------------------
 // Helper

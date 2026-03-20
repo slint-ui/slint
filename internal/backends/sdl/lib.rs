@@ -350,6 +350,7 @@ struct SdlWindowAdapter {
     window: i_slint_core::api::Window,
     sdl_window: *mut SDL_Window,
     sdl_renderer: *mut SDL_Renderer,
+    text_engine: *mut sdl3_ttf_sys::ttf::TTF_TextEngine,
     font_manager: FontManager,
     needs_redraw: Cell<bool>,
     visible: Cell<bool>,
@@ -384,12 +385,24 @@ impl SdlWindowAdapter {
             SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
         }
 
+        // Create the SDL_ttf renderer text engine for efficient text rendering.
+        // This caches glyph textures internally so repeated draws are fast.
+        let text_engine = unsafe { TTF_CreateRendererTextEngine(sdl_renderer) };
+        if text_engine.is_null() {
+            unsafe {
+                SDL_DestroyRenderer(sdl_renderer);
+                SDL_DestroyWindow(sdl_window);
+            }
+            return Err(format!("TTF_CreateRendererTextEngine failed: {}", sdl_error()).into());
+        }
+
         let font_manager = FontManager::new();
 
         let adapter = Rc::new_cyclic(|weak| Self {
             window: i_slint_core::api::Window::new(weak.clone() as Weak<dyn WindowAdapter>),
             sdl_window,
             sdl_renderer,
+            text_engine,
             font_manager,
             needs_redraw: Cell::new(true),
             visible: Cell::new(false),
@@ -442,6 +455,7 @@ impl SdlWindowAdapter {
 
         let mut item_renderer = SdlItemRenderer::new(
             self.sdl_renderer,
+            self.text_engine,
             &self.font_manager,
             sf,
             window_inner,
@@ -655,6 +669,10 @@ impl Drop for SdlWindowAdapter {
         // Clear texture cache before destroying renderer
         self.texture_cache.borrow_mut().clear();
 
+        // Destroy text engine before the renderer (it holds internal textures)
+        if !self.text_engine.is_null() {
+            unsafe { TTF_DestroyRendererTextEngine(self.text_engine) };
+        }
         if !self.sdl_renderer.is_null() {
             unsafe { SDL_DestroyRenderer(self.sdl_renderer) };
         }

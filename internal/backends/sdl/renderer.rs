@@ -70,6 +70,7 @@ struct RenderState {
 #[allow(dead_code)]
 pub(crate) struct SdlItemRenderer<'a> {
     renderer: *mut SDL_Renderer,
+    text_engine: *mut sdl3_ttf_sys::ttf::TTF_TextEngine,
     font_manager: &'a FontManager,
     scale_factor: f32,
     window_inner: &'a WindowInner,
@@ -98,6 +99,7 @@ impl Drop for CachedTexture {
 impl<'a> SdlItemRenderer<'a> {
     pub fn new(
         renderer: *mut SDL_Renderer,
+        text_engine: *mut sdl3_ttf_sys::ttf::TTF_TextEngine,
         font_manager: &'a FontManager,
         scale_factor: f32,
         window_inner: &'a WindowInner,
@@ -106,6 +108,7 @@ impl<'a> SdlItemRenderer<'a> {
     ) -> Self {
         Self {
             renderer,
+            text_engine,
             font_manager,
             scale_factor,
             window_inner,
@@ -177,7 +180,11 @@ impl<'a> SdlItemRenderer<'a> {
         }
     }
 
-    /// Render text using SDL_ttf: renders to a surface, creates a texture, and blits.
+    /// Render text using the SDL_ttf 3.x renderer text engine API.
+    ///
+    /// Uses `TTF_CreateText` / `TTF_DrawRendererText` which lets SDL_ttf cache
+    /// glyph textures internally, avoiding the per-frame surface→texture upload
+    /// that `TTF_RenderText_Blended` + `SDL_CreateTextureFromSurface` would need.
     fn render_text_to_renderer(
         &self,
         text: &str,
@@ -187,7 +194,7 @@ impl<'a> SdlItemRenderer<'a> {
         y: f32,
         max_width: Option<f32>,
     ) {
-        if font.is_null() || text.is_empty() {
+        if font.is_null() || text.is_empty() || self.text_engine.is_null() {
             return;
         }
 
@@ -196,84 +203,42 @@ impl<'a> SdlItemRenderer<'a> {
             return;
         }
 
-        let sdl_color = SDL_Color {
-            r: color.red(),
-            g: color.green(),
-            b: color.blue(),
-            a: 255, // alpha is applied via texture mod
-        };
-
         let sf = self.scale_factor;
 
-        // Render each line separately for multi-line text
-        let line_skip = unsafe { TTF_GetFontLineSkip(font) } as f32;
-        let mut cur_y = y;
+        let c_text = match CString::new(text) {
+            Ok(s) => s,
+            Err(_) => {
+                // Text contains interior NULs; render up to the first one.
+                let truncated = text.split('\0').next().unwrap_or("");
+                match CString::new(truncated) {
+                    Ok(s) => s,
+                    Err(_) => return,
+                }
+            }
+        };
 
-        for line in text.split('\n') {
-            if line.is_empty() {
-                cur_y += line_skip / sf;
-                continue;
+        let ttf_text = unsafe {
+            TTF_CreateText(self.text_engine, font, c_text.as_ptr(), text.len())
+        };
+        if ttf_text.is_null() {
+            return;
+        }
+
+        unsafe {
+            // Set color with opacity
+            TTF_SetTextColor(ttf_text, color.red(), color.green(), color.blue(), a);
+
+            // Set wrap width if wrapping is requested
+            if let Some(max_w) = max_width {
+                TTF_SetTextWrapWidth(ttf_text, (max_w * sf) as c_int);
             }
 
-            let c_line = match CString::new(line) {
-                Ok(s) => s,
-                Err(_) => {
-                    cur_y += line_skip / sf;
-                    continue;
-                }
-            };
+            // Draw at the translated position (in physical pixels)
+            let phys_x = (x + self.state.offset.x) * sf;
+            let phys_y = (y + self.state.offset.y) * sf;
+            TTF_DrawRendererText(ttf_text, phys_x, phys_y);
 
-            let surface = if let Some(max_w) = max_width {
-                unsafe {
-                    TTF_RenderText_Blended_Wrapped(
-                        font,
-                        c_line.as_ptr(),
-                        line.len(),
-                        sdl_color,
-                        (max_w * sf) as c_int,
-                    )
-                }
-            } else {
-                unsafe {
-                    TTF_RenderText_Blended(font, c_line.as_ptr(), line.len(), sdl_color)
-                }
-            };
-
-            if surface.is_null() {
-                cur_y += line_skip / sf;
-                continue;
-            }
-
-            let texture =
-                unsafe { SDL_CreateTextureFromSurface(self.renderer, surface) };
-
-            if !texture.is_null() {
-                let (sw, sh) = unsafe { ((*surface).w, (*surface).h) };
-                unsafe {
-                    SDL_SetTextureAlphaMod(texture, a);
-                    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-                }
-
-                let dst = SDL_FRect {
-                    x: (x + self.state.offset.x) * sf,
-                    y: (cur_y + self.state.offset.y) * sf,
-                    w: sw as f32,
-                    h: sh as f32,
-                };
-
-                unsafe {
-                    SDL_RenderTexture(self.renderer, texture, std::ptr::null(), &dst);
-                    SDL_DestroyTexture(texture);
-                }
-
-                cur_y += sh as f32 / sf;
-            } else {
-                cur_y += line_skip / sf;
-            }
-
-            unsafe {
-                SDL_DestroySurface(surface);
-            }
+            TTF_DestroyText(ttf_text);
         }
     }
 
