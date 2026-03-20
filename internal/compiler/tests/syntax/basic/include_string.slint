@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    property <string> empty: @include_string("");
+//                           >                 <error{File cannot be empty}
+    property <string> missing_file: @include_string("missing_file.txt");
+//                                  >                                 <error{File '📂/tests/syntax/basic/missing_file.txt' does not exist}
+    property <string> valid_file: @include_string("include_string_file.txt");
+}

@@ -541,11 +541,18 @@ impl Expression {
         };
 
         if s.is_empty() {
-            return Expression::StringLiteral(String::new().into());
+            ctx.diag.push_error("File cannot be empty".into(), &node);
+            return Self::Invalid;
         }
 
         let path = std::path::Path::new(&s);
+
         if crate::pathutils::is_absolute(path) {
+            if !path.exists() {
+                ctx.diag.push_error(format!("File '{}' does not exist", path.display()), &node);
+                return Self::Invalid;
+            }
+
             ctx.diag.all_loaded_files.insert(path.to_owned());
             return Expression::IncludeString(s);
         }
@@ -561,6 +568,12 @@ impl Expression {
             });
 
         let path = std::path::Path::new(&resolved_path);
+
+        if !path.exists() {
+            ctx.diag.push_error(format!("File '{}' does not exist", path.display()), &node);
+            return Self::Invalid;
+        }
+
         ctx.diag.all_loaded_files.insert(path.to_owned());
         Expression::IncludeString(resolved_path)
     }
