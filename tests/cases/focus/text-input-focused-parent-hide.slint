@@ -3,7 +3,7 @@
 
 import { LineEdit } from "std-widgets.slint";
 
-// If the lineedit gets hidden, the text-input-focused must be false
+// If the lineedit gets hidden indirectly because a parent gets hidden, the text-input-focused must be false
 // to hide also virtual keyboards and so on
 
 export component TestCase inherits Window {
@@ -17,7 +17,7 @@ export component TestCase inherits Window {
     }
     callback set_line_edit_visible_and_focused;
     set_line_edit_visible_and_focused => {
-        le.visible = true;
+        rect.visible = true;
         le.focus();
     }
 
@@ -26,12 +26,14 @@ export component TestCase inherits Window {
         interval: 100ms;
         triggered => {
             debug("Hide LineEdit");
-            le.visible = false;
+            rect.visible = false;
             self.running = false;
         }
     }
 
-    le := LineEdit {}
+    rect:= Rectangle {
+        le:= LineEdit {}
+    }
 
     out property<bool> focused: TextInputInterface.text-input-focused;
 }

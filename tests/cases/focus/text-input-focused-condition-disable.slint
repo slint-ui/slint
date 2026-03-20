@@ -3,19 +3,19 @@
 
 import { LineEdit } from "std-widgets.slint";
 
-// When the popup closes the `text-input-focused` must be false as well to close also the virtual keyboard
+// If the lineedit gets hidden indirectly because a condition gets disabled, the text-input-focused must be false
+// to hide also virtual keyboards and so on
 
 export component TestCase inherits Window {
-    init => {
-        popup.show();
+
+    property <bool> set_visible: true;
+
+    callback hide_rectangle();
+    hide_rectangle => {
+        set_visible = false;
     }
 
-    callback close_popup;
-    close_popup => {
-        popup.close();
-    }
-
-    popup:= PopupWindow {
+    if set_visible: Rectangle {
         Timer {
             running: true;
             interval: 200ms;
@@ -37,10 +37,10 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 assert!(!instance.get_focused());
 
-slint_testing::mock_elapsed_time(500);
+slint_testing::mock_elapsed_time(300); // in ms
 assert!(instance.get_focused());
 
-instance.invoke_close_popup();
+instance.invoke_hide_rectangle();
 assert!(!instance.get_focused());
 ```
 
@@ -49,24 +49,22 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(!instance.get_focused());
 
-slint_testing::mock_elapsed_time(500);
+slint_testing::mock_elapsed_time(300); // in ms
 assert(instance.get_focused());
 
-instance.invoke_close_popup();
+instance.invoke_hide_rectangle();
 assert(!instance.get_focused());
+
 ```
 
 ```js
 var instance = new slint.TestCase();
 assert(!instance.focused);
 
-slintlib.private_api.mock_elapsed_time(500);
+slintlib.private_api.mock_elapsed_time(3000);
 assert(instance.focused);
 
-instance.close_popup();
+instance.hide_rectangle();
 assert(!instance.focused);
-
-instance.line_edit_visible_and_focused();
-assert(instance.focused);
 ```
 */
