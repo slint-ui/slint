@@ -51,7 +51,7 @@ embedder_traits = { git = "https://github.com/servo/servo", tag = "v0.0.5", feat
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-28", "renderer-skia"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-28"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-28", "renderer-skia"] }
