@@ -7,7 +7,8 @@
     not(any(
         feature = "i-slint-backend-qt",
         feature = "i-slint-backend-winit",
-        feature = "i-slint-backend-linuxkms"
+        feature = "i-slint-backend-linuxkms",
+        feature = "i-slint-backend-sdl"
     )),
     no_std
 )]
@@ -35,6 +36,11 @@ fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformErro
     Ok(Box::new(i_slint_backend_linuxkms::BackendBuilder::default().build()?))
 }
 
+#[cfg(all(feature = "i-slint-backend-sdl", not(target_os = "android")))]
+fn create_sdl_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+    Ok(Box::new(i_slint_backend_sdl::Backend::new()?))
+}
+
 cfg_if::cfg_if! {
     if #[cfg(target_os = "android")] {
         const DEFAULT_BACKEND_NAME: &str = "";
@@ -47,6 +53,8 @@ cfg_if::cfg_if! {
     } else if #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))] {
         use i_slint_backend_linuxkms as default_backend;
         const DEFAULT_BACKEND_NAME: &str = "linuxkms";
+    } else if #[cfg(feature = "i-slint-backend-sdl")] {
+        const DEFAULT_BACKEND_NAME: &str = "sdl";
     } else {
         const DEFAULT_BACKEND_NAME: &str = "";
     }
@@ -56,7 +64,8 @@ cfg_if::cfg_if! {
     if #[cfg(all(not(target_os = "android"), any(
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit",
-            all(feature = "i-slint-backend-linuxkms", target_os = "linux")
+            all(feature = "i-slint-backend-linuxkms", target_os = "linux"),
+            feature = "i-slint-backend-sdl"
         )))] {
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             use alloc::borrow::Cow;
@@ -68,6 +77,8 @@ cfg_if::cfg_if! {
                 ("Winit", create_winit_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
                 ("LinuxKMS", create_linuxkms_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
+                #[cfg(feature = "i-slint-backend-sdl")]
+                ("SDL", create_sdl_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 ("", || Err(PlatformError::NoPlatform)),
             ];
 
@@ -108,6 +119,8 @@ cfg_if::cfg_if! {
                     }
                     return builder.build().map(|b| Box::new(b) as Box<dyn Platform + 'static>)
                 },
+                #[cfg(feature = "i-slint-backend-sdl")]
+                "sdl" => return create_sdl_backend(),
                 #[cfg(feature = "backend-testing")]
                 "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
                     i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true },
@@ -120,9 +133,22 @@ cfg_if::cfg_if! {
             }
             create_default_backend()
         }
-        pub use default_backend::{
-            native_widgets, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
-        };
+        cfg_if::cfg_if! {
+            if #[cfg(any(
+                all(feature = "i-slint-backend-qt", not(no_qt)),
+                feature = "i-slint-backend-winit",
+                all(feature = "i-slint-backend-linuxkms", target_os = "linux")
+            ))] {
+                pub use default_backend::{
+                    native_widgets, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
+                };
+            } else {
+                pub mod native_widgets {}
+                pub type NativeWidgets = ();
+                pub type NativeGlobals = ();
+                pub const HAS_NATIVE_STYLE: bool = false;
+            }
+        }
     } else {
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             Err(PlatformError::NoPlatform)
@@ -142,6 +168,7 @@ pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
         "skia" => ("winit", "skia"),
         "sw" | "software" => ("winit", "software"),
         "linuxkms" => ("linuxkms", ""),
+        "sdl" => ("sdl", ""),
         x => (x, ""),
     })
 }

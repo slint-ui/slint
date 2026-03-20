@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// A semi-transparent UI overlay for a game using SDL3.
+// The game draws its own content behind this UI using SDL_Renderer.
+
+import { VerticalBox, HorizontalBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
+
+export component App inherits Window {
+    in-out property <bool> animation-enabled: true;
+    in-out property <float> speed: 1.0;
+    callback quit();
+
+    preferred-width: 800px;
+    preferred-height: 600px;
+    title: "Slint SDL Underlay Example";
+
+    // Transparent background so the game content shows through
+    background: transparent;
+
+    // UI panel on the left side
+    Rectangle {
+        x: 16px;
+        y: 16px;
+        width: 260px;
+        height: 280px;
+        background: #1a1a2ecc;
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: #ffffff30;
+
+        VerticalBox {
+            padding: 20px;
+            spacing: 12px;
+            alignment: start;
+
+            Text {
+                text: "SDL Game Overlay";
+                font-size: 20px;
+                color: #e0e0ff;
+                font-weight: 700;
+            }
+
+            Text {
+                text: "This UI is rendered by Slint on top\nof SDL_Renderer game content.";
+                font-size: 12px;
+                color: #a0a0c0;
+                wrap: word-wrap;
+            }
+
+            CheckBox {
+                text: "Enable animation";
+                checked <=> root.animation-enabled;
+            }
+
+            Text {
+                text: "Speed: " + Math.round(root.speed * 100) + "%";
+                font-size: 12px;
+                color: #c0c0e0;
+            }
+
+            Slider {
+                minimum: 0.1;
+                maximum: 3.0;
+                value <=> root.speed;
+            }
+
+            Button {
+                text: "Quit";
+                clicked => { root.quit(); }
+            }
+        }
+    }
+
+    // FPS counter in the top-right corner
+    Rectangle {
+        x: parent.width - self.width - 16px;
+        y: 16px;
+        width: 120px;
+        height: 40px;
+        background: #00000080;
+        border-radius: 8px;
+
+        Text {
+            text: "SDL Backend";
+            font-size: 11px;
+            color: #80ff80;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

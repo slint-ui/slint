@@ -1,0 +1,18 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "sdl-underlay"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "sdl_underlay"
+path = "main.rs"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-sdl"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

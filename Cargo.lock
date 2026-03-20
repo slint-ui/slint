@@ -4961,6 +4961,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-backend-sdl"
+version = "1.16.0"
+dependencies = [
+ "euclid",
+ "i-slint-core",
+ "log",
+ "pkg-config",
+]
+
+[[package]]
 name = "i-slint-backend-selector"
 version = "1.16.0"
 dependencies = [
@@ -4968,6 +4978,7 @@ dependencies = [
  "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
  "i-slint-backend-qt",
+ "i-slint-backend-sdl",
  "i-slint-backend-testing",
  "i-slint-backend-winit",
  "i-slint-common",
@@ -9274,6 +9285,14 @@ name = "sdio-host"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93c025f9cfe4c388c328ece47d11a54a823da3b5ad0370b22d95ad47137f85a"
+
+[[package]]
+name = "sdl-underlay"
+version = "0.1.0"
+dependencies = [
+ "slint",
+ "slint-build",
+]
 
 [[package]]
 name = "sdl2"

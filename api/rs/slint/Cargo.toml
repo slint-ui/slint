@@ -182,6 +182,9 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 ## windowing system.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Use the SDL3 backend with SDL_Renderer. Requires SDL3 and SDL3_ttf.
+backend-sdl = ["i-slint-backend-selector/backend-sdl", "std"]
+
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
 backend-android-activity-06 = [
   "i-slint-backend-android-activity/native-activity",

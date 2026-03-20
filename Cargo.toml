@@ -18,6 +18,7 @@ members = [
   'examples/memory',
   'examples/native-gestures',
   'examples/opengl_underlay',
+  'examples/sdl_underlay',
   'examples/opengl_texture',
   'examples/wgpu_texture',
   'examples/ffmpeg',
@@ -48,6 +49,7 @@ members = [
   'internal/backends/selector',
   'internal/backends/testing',
   'internal/backends/linuxkms',
+  'internal/backends/sdl',
   'internal/renderers/software',
   'internal/renderers/skia',
   'internal/renderers/femtovg',
@@ -128,6 +130,7 @@ i-slint-backend-linuxkms = { version = "=1.16.0", path = "internal/backends/linu
 i-slint-backend-qt = { version = "=1.16.0", path = "internal/backends/qt", default-features = false }
 i-slint-backend-selector = { version = "=1.16.0", path = "internal/backends/selector", default-features = false }
 i-slint-backend-testing = { version = "=1.16.0", path = "internal/backends/testing", default-features = false }
+i-slint-backend-sdl = { version = "=1.16.0", path = "internal/backends/sdl", default-features = false }
 i-slint-backend-winit = { version = "=1.16.0", path = "internal/backends/winit", default-features = false }
 i-slint-common = { version = "=1.16.0", path = "internal/common", default-features = false }
 i-slint-compiler = { version = "=1.16.0", path = "internal/compiler", default-features = false }

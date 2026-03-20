@@ -22,6 +22,7 @@ backend-winit-x11 = ["i-slint-backend-winit/x11"]
 backend-winit-wayland = ["i-slint-backend-winit/wayland"]
 backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
 backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
+backend-sdl = ["i-slint-backend-sdl"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
@@ -82,6 +83,7 @@ i-slint-core-macros = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
+i-slint-backend-sdl = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
 i-slint-renderer-femtovg = { workspace = true, optional = true }
 

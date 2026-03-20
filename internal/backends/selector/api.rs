@@ -273,7 +273,8 @@ impl BackendSelector {
         #[cfg(any(
             feature = "i-slint-backend-qt",
             feature = "i-slint-backend-winit",
-            feature = "i-slint-backend-linuxkms"
+            feature = "i-slint-backend-linuxkms",
+            feature = "i-slint-backend-sdl"
         ))]
         if (self.backend.is_none() || self.renderer.is_none())
             && let Ok(backend_config) = std::env::var("SLINT_BACKEND")
@@ -374,6 +375,21 @@ impl BackendSelector {
                     );
                 }
                 Box::new(i_slint_backend_qt::Backend::new())
+            }
+            #[cfg(feature = "i-slint-backend-sdl")]
+            "sdl" => {
+                if self.requested_graphics_api.is_some() {
+                    return Err(
+                        "The SDL backend does not implement renderer selection by graphics API"
+                            .into(),
+                    );
+                }
+                if self.renderer.is_some() {
+                    return Err(
+                        "The SDL backend does not implement renderer selection by name".into()
+                    );
+                }
+                Box::new(i_slint_backend_sdl::Backend::new()?)
             }
             requested_backend => {
                 return Err(format!(
