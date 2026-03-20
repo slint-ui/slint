@@ -35,11 +35,13 @@ extern "C" {
  *
  * ISR-safe: no heap allocation, no blocking, no FPU usage.
  *
- * @param callback  Function to call on the Slint event loop thread.
- * @param user_data Opaque pointer passed through to callback. May be NULL.
+ * @param callback       Function to call on the Slint event loop thread.
+ * @param user_data      Opaque pointer passed through to callback. May be NULL.
+ * @param drop_user_data Called to free user_data. May be NULL.
  * @return 0 on success, -1 if the queue is full (callback dropped).
  */
-int slint_safeui_invoke_from_event_loop(void (*callback)(void *user_data), void *user_data);
+int slint_safeui_invoke_from_event_loop(void (*callback)(void *user_data), void *user_data,
+                                        void (*drop_user_data)(void *user_data));
 
 #ifdef __cplusplus
 }
