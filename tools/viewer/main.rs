@@ -184,6 +184,22 @@ fn main() -> Result<()> {
                 }
             }
         }
+        for global_name in c.globals() {
+            let mut g_obj = serde_json::Map::new();
+            for (name, _) in c.global_properties(&global_name).unwrap() {
+                match component.get_global_property(&global_name, &name).unwrap().to_json() {
+                    Ok(v) => {
+                        g_obj.insert(name, v);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to turn property {global_name}.{name} into JSON: {e}");
+                    }
+                }
+            }
+            if !g_obj.is_empty() {
+                obj.insert(global_name, serde_json::Value::Object(g_obj));
+            }
+        }
         if data_path == std::path::Path::new("-") {
             serde_json::to_writer_pretty(std::io::stdout(), &obj)?;
         } else {
