@@ -638,7 +638,10 @@ impl SkiaRenderer {
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             let skia_api = GraphicsAPI::Skia {
-                canvas: core::ptr::NonNull::new(skia_canvas as *const skia_safe::Canvas as *mut std::ffi::c_void).unwrap(),
+                canvas: core::ptr::NonNull::new(
+                    skia_canvas as *const skia_safe::Canvas as *mut std::ffi::c_void,
+                )
+                .unwrap(),
             };
             callback.notify(RenderingState::AfterRendering, &skia_api);
         }
@@ -771,7 +774,10 @@ impl SkiaRenderer {
                 }
 
                 let skia_api = GraphicsAPI::Skia {
-                    canvas: core::ptr::NonNull::new(skia_canvas as *const skia_safe::Canvas as *mut std::ffi::c_void).unwrap(),
+                    canvas: core::ptr::NonNull::new(
+                        skia_canvas as *const skia_safe::Canvas as *mut std::ffi::c_void,
+                    )
+                    .unwrap(),
                 };
                 callback.notify(RenderingState::BeforeRendering, &skia_api);
             }

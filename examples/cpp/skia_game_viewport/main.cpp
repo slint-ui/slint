@@ -17,7 +17,7 @@
 #include <cstdlib>
 
 #ifdef HAS_GAMEPAD
-#include <SDL.h>
+#    include <SDL.h>
 #endif
 
 #include "include/core/SkCanvas.h"
@@ -94,11 +94,11 @@ private:
     void create_gem_images()
     {
         const uint8_t gem_colors[][3] = {
-            { 255, 50, 50 },   // Ruby
-            { 50, 200, 50 },   // Emerald
-            { 50, 100, 255 },  // Sapphire
-            { 255, 200, 50 },  // Topaz
-            { 200, 50, 255 },  // Amethyst
+            { 255, 50, 50 }, // Ruby
+            { 50, 200, 50 }, // Emerald
+            { 50, 100, 255 }, // Sapphire
+            { 255, 200, 50 }, // Topaz
+            { 200, 50, 255 }, // Amethyst
         };
 
         for (auto &c : gem_colors) {
@@ -225,8 +225,8 @@ private:
             canvas->translate(x, y + bob);
             canvas->scale(scale, scale);
             canvas->rotate(std::sin(phase) * 15.0f);
-            canvas->drawImage(gem_images[i], -16, -16,
-                              SkSamplingOptions(SkFilterMode::kLinear), &paint);
+            canvas->drawImage(gem_images[i], -16, -16, SkSamplingOptions(SkFilterMode::kLinear),
+                              &paint);
             canvas->restore();
         }
 
