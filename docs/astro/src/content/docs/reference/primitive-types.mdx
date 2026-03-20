@@ -178,7 +178,7 @@ It returns a platform-native description of the key combination.
 
 ```slint
 export component KeysToString inherits FocusScope {
-    undo := Shortcut {
+    undo := KeyBinding {
         keys: @keys(Control + Z);
         activated => { debug("UNDO") }
     }
@@ -387,6 +387,5 @@ export component Example {
     property<float> xxx1: xxx.to-float(); // 42.1
     property<bool> xxx2: xxx.is-float(); // true
     property<int> xxx3: 45.8; // 45
-    property<string> xxx4: @keys(Control + A); // "⌘A" on macOS, "Ctrl+A" on other platforms, etc.
 }
 ```
