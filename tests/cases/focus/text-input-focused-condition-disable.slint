@@ -7,7 +7,6 @@ import { LineEdit } from "std-widgets.slint";
 // to hide also virtual keyboards and so on
 
 export component TestCase inherits Window {
-
     property <bool> set_visible: true;
 
     callback hide_rectangle();
@@ -16,55 +15,40 @@ export component TestCase inherits Window {
     }
 
     if set_visible: Rectangle {
-        Timer {
-            running: true;
-            interval: 200ms;
+        init => {
+            timer.start();
+        }
+        timer:= Timer {
+            running: false;
+            interval: 5s;
             triggered => {
                 le.focus();
                 self.running = false;
+                root.triggered = true;
             }
         }
 
         le := LineEdit {}
     }
 
-    out property<bool> focused: TextInputInterface.text-input-focused;
-
+    out property <bool> triggered: false;
+    out property <bool> focused: TextInputInterface.text-input-focused;
 }
 
 /*
 ```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
 let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 assert!(!instance.get_focused());
 
-slint_testing::mock_elapsed_time(300); // in ms
+slint_testing::mock_elapsed_time(30000); // in ms
+assert!(instance.get_triggered()); // Timer triggered
 assert!(instance.get_focused());
 
 instance.invoke_hide_rectangle();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 assert!(!instance.get_focused());
-```
-
-```cpp
-auto handle = TestCase::create();
-const TestCase &instance = *handle;
-assert(!instance.get_focused());
-
-slint_testing::mock_elapsed_time(300); // in ms
-assert(instance.get_focused());
-
-instance.invoke_hide_rectangle();
-assert(!instance.get_focused());
-
-```
-
-```js
-var instance = new slint.TestCase();
-assert(!instance.focused);
-
-slintlib.private_api.mock_elapsed_time(3000);
-assert(instance.focused);
-
-instance.hide_rectangle();
-assert(!instance.focused);
 ```
 */

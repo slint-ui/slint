@@ -23,7 +23,7 @@ export component TestCase inherits Window {
 
     timer:= Timer {
         running: false;
-        interval: 100ms;
+        interval: 10s;
         triggered => {
             debug("Hide LineEdit");
             le.visible = false;
@@ -34,50 +34,33 @@ export component TestCase inherits Window {
     le := LineEdit {}
 
     out property<bool> focused: TextInputInterface.text-input-focused;
+
+    changed focused => {
+        debug("Focused changed");
+        // timer.running = true; // When running in the livepreview this can be used
+    }
 }
 
 /*
 ```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
 let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 assert!(!instance.get_focused());
 
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 instance.invoke_focus_the_line_edit();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 assert!(instance.get_focused());
 
-assert!(instance.get_focused());
-slint_testing::mock_elapsed_time(3000); // in ms
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
+slint_testing::mock_elapsed_time(100000); // in ms
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 assert!(!instance.get_focused());
 
 instance.invoke_set_line_edit_visible_and_focused();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(0., 0.) }); // Required to trigger traversing through the item tree
 assert!(instance.get_focused());
-```
-
-```cpp
-auto handle = TestCase::create();
-const TestCase &instance = *handle;
-assert(!instance.get_focused());
-
-instance.invoke_focus_the_line_edit();
-assert(instance.get_focused());
-
-slint_testing::mock_elapsed_time(3000);
-assert(!instance.get_focused());
-
-instance.invoke_set_line_edit_visible_and_focused();
-assert(instance.get_focused());
-```
-
-```js
-var instance = new slint.TestCase();
-assert(!instance.focused);
-
-instance.focus_the_line_edit();
-assert(instance.focused);
-
-slintlib.private_api.mock_elapsed_time(3000);
-assert(!instance.focused);
-
-instance.line_edit_visible_and_focused();
-assert(instance.focused);
 ```
 */

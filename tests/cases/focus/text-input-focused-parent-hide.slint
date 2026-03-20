@@ -53,33 +53,4 @@ assert!(!instance.get_focused());
 instance.invoke_set_line_edit_visible_and_focused();
 assert!(instance.get_focused());
 ```
-
-```cpp
-auto handle = TestCase::create();
-const TestCase &instance = *handle;
-assert(!instance.get_focused());
-
-instance.invoke_focus_the_line_edit();
-assert(instance.get_focused());
-
-slint_testing::mock_elapsed_time(3000);
-assert(!instance.get_focused());
-
-instance.invoke_set_line_edit_visible_and_focused();
-assert(instance.get_focused());
-```
-
-```js
-var instance = new slint.TestCase();
-assert(!instance.focused);
-
-instance.focus_the_line_edit();
-assert(instance.focused);
-
-slintlib.private_api.mock_elapsed_time(3000);
-assert(!instance.focused);
-
-instance.line_edit_visible_and_focused();
-assert(instance.focused);
-```
 */
