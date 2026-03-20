@@ -308,6 +308,16 @@ pub enum GraphicsAPI<'a> {
         /// The WGPU queue for used for command submission.
         queue: wgpu_28::Queue,
     },
+    /// The rendering is done using Skia. The `canvas` pointer provides direct access
+    /// to the Skia C++ `SkCanvas*` object.
+    ///
+    /// This pointer is only valid for the duration of the rendering notifier callback.
+    /// The canvas can be used to draw arbitrary 2D content that will be composited with
+    /// the Slint scene.
+    Skia {
+        /// Raw pointer to the `SkCanvas` used for rendering.
+        canvas: core::ptr::NonNull<core::ffi::c_void>,
+    },
 }
 
 impl core::fmt::Debug for GraphicsAPI<'_> {
@@ -321,6 +331,7 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             GraphicsAPI::WGPU27 { .. } => write!(f, "GraphicsAPI::WGPU27"),
             #[cfg(feature = "unstable-wgpu-28")]
             GraphicsAPI::WGPU28 { .. } => write!(f, "GraphicsAPI::WGPU28"),
+            GraphicsAPI::Skia { .. } => write!(f, "GraphicsAPI::Skia"),
         }
     }
 }

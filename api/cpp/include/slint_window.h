@@ -44,6 +44,14 @@ class SoftwareRenderer;
 }
 #endif
 
+/// Returns the current Skia `SkCanvas*` pointer during a rendering notifier callback.
+/// Only valid when `GraphicsAPI::Skia` is the active graphics API.
+/// Returns null outside of a rendering notifier callback.
+inline void *skia_canvas()
+{
+    return cbindgen_private::slint_skia_canvas();
+}
+
 namespace private_api {
 using ItemTreeRc = vtable::VRc<cbindgen_private::ItemTreeVTable>;
 using slint::LogicalPosition;
@@ -363,6 +371,11 @@ public:
     ///
     /// The provided callback must be callable with a slint::RenderingState and the
     /// slint::GraphicsAPI argument.
+    ///
+    /// When using the Skia renderer, the GraphicsAPI value will be `GraphicsAPI::Skia`
+    /// during `BeforeRendering` and `AfterRendering` states. In this case, call
+    /// `slint::skia_canvas()` to retrieve the `SkCanvas*` pointer. It is only valid
+    /// for the duration of the callback.
     ///
     /// On success, the function returns a std::optional without value. On error, the function
     /// returns the error code as value in the std::optional.

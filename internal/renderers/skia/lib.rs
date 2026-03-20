@@ -636,11 +636,11 @@ impl SkiaRenderer {
             })
             .unwrap_or_default();
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
-            && let Some(surface) = surface
-        {
-            surface
-                .with_graphics_api(&mut |api| callback.notify(RenderingState::AfterRendering, &api))
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            let skia_api = GraphicsAPI::Skia {
+                canvas: core::ptr::NonNull::new(skia_canvas as *const skia_safe::Canvas as *mut std::ffi::c_void).unwrap(),
+            };
+            callback.notify(RenderingState::AfterRendering, &skia_api);
         }
 
         dirty_region
@@ -770,11 +770,10 @@ impl SkiaRenderer {
                     ctx.flush(None);
                 }
 
-                if let Some(surface) = surface {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::BeforeRendering, &api)
-                    })
-                }
+                let skia_api = GraphicsAPI::Skia {
+                    canvas: core::ptr::NonNull::new(skia_canvas as *const skia_safe::Canvas as *mut std::ffi::c_void).unwrap(),
+                };
+                callback.notify(RenderingState::BeforeRendering, &skia_api);
             }
 
             for (component, origin) in components {

@@ -2678,10 +2678,29 @@ pub mod ffi {
         NativeOpenGL,
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
+        /// The rendering is done using Skia. Call `slint_skia_canvas` to retrieve
+        /// the `SkCanvas*` pointer during the rendering notifier callback.
+        Skia,
     }
 
     #[allow(non_camel_case_types)]
     type c_void = ();
+
+    mod skia_tls {
+        use core::cell::Cell;
+
+        std::thread_local! {
+            pub static CANVAS: Cell<*mut ()> = const { Cell::new(core::ptr::null_mut()) };
+        }
+    }
+
+    /// Returns the current Skia `SkCanvas*` pointer.
+    /// Only valid during a rendering notifier callback when `GraphicsAPI::Skia` is active.
+    /// Returns null otherwise.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_skia_canvas() -> *mut c_void {
+        skia_tls::CANVAS.get()
+    }
 
     /// Same layout as WindowAdapterRc
     #[repr(C)]
@@ -2908,8 +2927,14 @@ pub mod ffi {
                         crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                         #[cfg(feature = "unstable-wgpu-28")]
                         crate::api::GraphicsAPI::WGPU28 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                        crate::api::GraphicsAPI::Skia { canvas, .. } => {
+                            skia_tls::CANVAS.set(canvas.as_ptr().cast());
+                            GraphicsAPI::Skia
+                        }
                     };
-                    (self.callback)(state, cpp_graphics_api, self.user_data)
+                    (self.callback)(state, cpp_graphics_api, self.user_data);
+                    // Clear the thread-local after the callback returns
+                    skia_tls::CANVAS.set(core::ptr::null_mut());
                 }
             }
 
