@@ -207,6 +207,12 @@ impl Platform for Backend {
             if adapter.needs_redraw.get() {
                 adapter.needs_redraw.set(false);
 
+                // Clear first, then let the game draw, then render Slint UI on top.
+                unsafe {
+                    SDL_SetRenderDrawColor(adapter.sdl_renderer, 0, 0, 0, 255);
+                    SDL_RenderClear(adapter.sdl_renderer);
+                }
+
                 // Call pre-render callback (for game rendering).
                 // Check both the Rust API callback and the C FFI callback.
                 if let Some(ref callback) = *self.pre_render_callback.borrow() {
@@ -436,15 +442,7 @@ impl SdlWindowAdapter {
 
     /// Render the Slint UI using the SDL_Renderer.
     fn render(&self) -> Result<(), PlatformError> {
-        log::debug!("[slint-sdl] Rendering frame");
         let window_inner = WindowInner::from_pub(&self.window);
-
-        // Clear the renderer (transparent so the game's content shows through if
-        // the pre-render callback was used)
-        unsafe {
-            SDL_SetRenderDrawColor(self.sdl_renderer, 0, 0, 0, 0);
-            SDL_RenderClear(self.sdl_renderer);
-        }
 
         let component_rc = window_inner.component();
         let window_adapter_rc =
