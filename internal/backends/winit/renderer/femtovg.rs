@@ -220,8 +220,9 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
         let size = winit_window.inner_size();
 
-        self.renderer.set_window_handle(
-            Box::new(winit_window.clone()),
+        self.renderer.set_surface(
+            Box::new(winit_window.clone())
+                as Box<dyn i_slint_core::graphics::wgpu_28::wgpu::WindowHandle>,
             crate::winitwindowadapter::physical_size_to_slint(&size),
             self.requested_graphics_api.clone(),
         )?;
