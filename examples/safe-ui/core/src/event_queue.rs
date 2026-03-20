@@ -14,14 +14,14 @@ unsafe extern "C" {
 }
 
 /// Maximum number of entries buffered between drain cycles.
-const QUEUE_CAPACITY: usize = 32;
+pub const QUEUE_CAPACITY: usize = 32;
 
 /// A single entry in the unified event queue.
 ///
 /// Both FFI callbacks (from C firmware) and Rust closures (from
 /// `EventLoopProxy`) are stored as variants. The `FfiCallback` variant
 /// is ISR-safe to construct — it's just two pointer-sized fields.
-enum QueueEntry {
+pub enum QueueEntry {
     Quit,
     Callback(Box<dyn FnOnce() + Send>),
     FfiCallback { callback: unsafe extern "C" fn(*mut c_void), user_data: *mut c_void },
@@ -29,27 +29,16 @@ enum QueueEntry {
 
 // SAFETY: The `FfiCallback` variant contains raw pointers which are `!Send`.
 // This is safe because: producers only push under a critical section, and
-// the consumer (drain_callbacks) runs on a single thread (the Slint event
+// the consumer (take_queue) runs on a single thread (the Slint event
 // loop). The pointers are never accessed concurrently.
 unsafe impl Send for QueueEntry {}
 
 /// Static unified event queue. FFI producers push via
 /// [`slint_safeui_invoke_from_event_loop`], Rust producers via
-/// [`SafeUiEventLoopProxy`]. The consumer ([`drain_callbacks`]) pops
-/// from the Slint event loop.
+/// [`SafeUiEventLoopProxy`]. The consumer ([`take_queue`]) runs
+/// on the Slint event loop.
 static EVENT_QUEUE: Mutex<RefCell<Deque<QueueEntry, QUEUE_CAPACITY>>> =
     Mutex::new(RefCell::new(Deque::new()));
-
-/// Event type consumed by the platform event loop.
-///
-/// This is the Rust-side representation produced by [`drain_callbacks`].
-/// It never crosses the FFI boundary.
-pub enum Event {
-    /// Clean shutdown of the event loop.
-    Quit,
-    /// A callback to execute on the event loop thread.
-    Callback(Box<dyn FnOnce() + Send>),
-}
 
 /// Proxy for injecting events from Rust code into the Slint event loop.
 ///
@@ -123,38 +112,15 @@ pub extern "C" fn slint_safeui_invoke_from_event_loop(
     result
 }
 
-/// Drain all pending entries from the unified queue.
+/// Take all pending entries from the queue under a single short critical
+/// section.
 ///
-/// Entries are popped under a single short critical section. FFI callbacks
-/// are executed immediately; Rust closures and quit signals are returned
-/// as [`Event`] values for the caller to handle.
-///
-/// Must be called from the Slint event loop thread.
-pub fn drain_callbacks() -> heapless::Vec<Event, QUEUE_CAPACITY> {
-    let mut raw: heapless::Vec<QueueEntry, QUEUE_CAPACITY> = heapless::Vec::new();
+/// Must be called from the Slint event loop thread. The caller is
+/// responsible for iterating the returned deque and handling each
+/// [`QueueEntry`] variant.
+pub(crate) fn take_queue() -> Deque<QueueEntry, QUEUE_CAPACITY> {
     critical_section::with(|cs| {
         let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
-        while let Some(entry) = queue.pop_front() {
-            let _ = raw.push(entry);
-        }
-    });
-
-    let mut events: heapless::Vec<Event, QUEUE_CAPACITY> = heapless::Vec::new();
-    for entry in raw {
-        match entry {
-            QueueEntry::Quit => {
-                let _ = events.push(Event::Quit);
-            }
-            QueueEntry::Callback(f) => {
-                let _ = events.push(Event::Callback(f));
-            }
-            QueueEntry::FfiCallback { callback, user_data } => {
-                // SAFETY: The C caller guaranteed that callback is a valid
-                // function pointer and user_data remains valid until invocation.
-                unsafe { (callback)(user_data) };
-            }
-        }
-    }
-
-    events
+        core::mem::replace(&mut *queue, Deque::new())
+    })
 }
