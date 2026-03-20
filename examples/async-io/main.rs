@@ -62,7 +62,7 @@ fn main() -> Result<(), slint::PlatformError> {
         Symbol { name: "AMZN.US".into(), price: 0.0 },
     ]);
 
-    main_window.set_stocks(model.clone().into());
+    main_window.set_stocks(model.clone());
 
     main_window.show()?;
 
