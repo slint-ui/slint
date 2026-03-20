@@ -762,6 +762,9 @@ where
         D: serde::Deserializer<'de>,
     {
         let vec = Vec::<T>::deserialize(deserializer)?;
+        if vec.is_empty() {
+            return Ok(ModelRc::default());
+        }
         Ok(ModelRc::new(VecModel::from(vec)))
     }
 }
