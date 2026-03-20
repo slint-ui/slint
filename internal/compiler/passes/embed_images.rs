@@ -490,15 +490,15 @@ fn load_image_from_data_uri(
             &mut skia_buffer,
         );
 
-        return image::RgbaImage::from_raw(width, height, buffer)
-            .ok_or_else(size_error)
-            .map(|img| {
+        return image::RgbaImage::from_raw(width, height, buffer).ok_or_else(size_error).map(
+            |img| {
                 (
                     img,
                     SourceFormat::RgbaPremultiplied,
                     Size { width: original_size.width() as _, height: original_size.height() as _ },
                 )
-            });
+            },
+        );
     }
 
     image::load_from_memory(decoded_data).map(|image| {
