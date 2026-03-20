@@ -2465,6 +2465,11 @@ impl WindowInner {
 
     /// Sets the global property `TextInputInterface.text-input-focused`
     pub fn set_text_input_focused(&self, value: bool) {
+        if !value {
+            if let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken) {
+                window_adapter.input_method_request(InputMethodRequest::Disable);
+            }
+        }
         self.pinned_fields.text_input_focused.set(value)
     }
 
@@ -2517,6 +2522,10 @@ impl WindowInner {
                 window_item.safe_area_insets.set(inset);
             }
         }
+    }
+
+    pub(crate) fn focus_item(&self) -> ItemWeak {
+        self.focus_item.borrow().clone()
     }
 
     pub(crate) fn set_window_item_virtual_keyboard(

@@ -184,22 +184,34 @@ pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<Wind
 }
 
 /// Free the backend graphics resources allocated by the ItemTree's items.
+/// This will be called for example if an item gets hidden or a popup gets closed, ...
+/// It will be called only once not for every sub item
+///
+/// * `item_tree` - the item tree to unregister
 pub fn unregister_item_tree<Base>(
     base: core::pin::Pin<&Base>,
     item_tree: ItemTreeRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
-    window_adapter.renderer().free_graphics_resources(
-        item_tree,
-        &mut item_array.iter().map(|item| item.apply_pin(base)),
-    ).expect("Fatal error encountered when freeing graphics resources while destroying Slint component");
+    let mut it = item_array.iter().map(|item| item.apply_pin(base));
+    window_adapter.renderer().free_graphics_resources(item_tree, &mut it).expect(
+        "Fatal error encountered when freeing graphics resources while destroying Slint component",
+    );
+
+    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+    if window_inner.focus_item.borrow().upgrade().is_none() {
+        // There is any item focused anymore. It was deleted before the unregister call
+        // Therefore we can set the text input focused to false to close virtual keyboard or cursors (Android)
+        window_inner.set_text_input_focused(false);
+    }
+
     if let Some(w) = window_adapter.internal(crate::InternalToken) {
-        w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
+        // if current focused item shall be unregistered. First unfocus it
+        w.unregister_item_tree(item_tree, &mut it);
     }
 
     // Close popups that were part of a component that just got deleted
-    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
     let to_close_popups = window_inner
         .active_popups()
         .iter()
