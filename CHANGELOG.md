@@ -6,26 +6,47 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - SoftwareRenderer: avoid doing dirty-region computation when we need to redraw the whole buffer
+ - Software renderer: avoid doing dirty-region computation when we need to redraw the whole buffer
+ - Software renderer: Added feature to enable `Path` with no_std
+ - Software renderer: Fix space character with sdf fonts
+ - Fixed mouse cursor when going from one TouchArea to another (#6443)
+ - Flickable now start capturing scroll event after the first scroll
+ - Replaced `fontdue` crate with `swash` for better text rendering
+ - Fixed tab focus traversal for widget in a Flickable (#10780)
+ - Skia: Enabled subpixel glyph positioning to fix uneven text spacing (#10752)
 
 ### Slint
 
  - Fixed empty GridLayout not taking padding into account
- - Added `keys` type and `@keys(...)` macro
+ - Added support for Keyboard shortcuts (`KeyBinding` element, `keys` type, and `@keys(...)` macro)
  - Added printer charachter in the `Key` namespace
+ - Added `FlexBoxLayout`
+ - Added support for styled text (`StyledText` element, `styled-text` type, and `@markdown(...)` macro)
+ - Added `PichGestureHandler` element
+ - Fixed compiler panic when accessing model data from repeated menu (#10927)
 
 ### Widgets
 
  - CheckBox no longer intercepts the scroll event with the Qt style
+ - Slider: ignore scroll event with the Qt style
+ - ComboBox: Clamp index on reset instead of using 0 (#10805)
 
 ### Rust
 
  - Added `slint::platform::femtovg_renderer::FemtoVGWGPURenderer`
  - Added variants for printable keys in the `slint::platform::Key` enum
+ - Added mor moved more enum and struct to the `slint::language` module
+
+### Python
+
+ - Added language module
 
 ### C++
 
  - Added contant for printable keys in the `slint::platform::key_codes` namespace
+ - Added `slint::language` namespace to hold enum/struct that maps to the ones in the slint language.
+
+### Tooling
 
 ## [1.15.1] - 2026-02-12
 
