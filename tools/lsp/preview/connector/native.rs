@@ -3,8 +3,8 @@
 
 use crate::{common, preview};
 
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::{cell::RefCell, io::BufRead};
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 
@@ -223,7 +223,7 @@ impl RemoteControlledPreviewToLsp {
         Self {}
     }
 
-    fn process_input() -> tokio::task::JoinHandle<std::result::Result<(), String>> {
+    fn process_input() -> std::thread::JoinHandle<std::result::Result<(), String>> {
         // Ensure the backend is set up before the reader thread starts. This fixes
         // bug #10274 on macOS where a race condition was causing the reader thread to already
         // process messages before the event loop was running.
@@ -231,35 +231,28 @@ impl RemoteControlledPreviewToLsp {
         // Use .ok() to ignore any errors, as the backend might already be set by the user and that's fine.
         slint::BackendSelector::new().select().ok();
 
-        tokio::spawn(async move {
-            let reader = tokio::io::BufReader::new(tokio::io::stdin());
-            let mut lines = reader.lines();
-            loop {
-                match lines.next_line().await {
-                    Ok(Some(line)) => {
-                        if let Ok(message) = serde_json::from_str(&line)
-                            && let Err(err) = slint::invoke_from_event_loop(move || {
-                                preview::connector::lsp_to_preview(message);
-                            })
-                        {
-                            tracing::error!(
-                                "Failed to queue message onto event loop - reader thread will exit: {err}"
-                            );
-                            return Err(err.to_string());
-                        }
-                    }
-                    Ok(None) => {
-                        tracing::debug!("Preview: stdin EOF, quitting");
-                        let _ = slint::quit_event_loop();
-                        return Ok(());
-                    }
-                    Err(err) => {
-                        tracing::debug!("Preview: stdin error {err}, quitting");
-                        let _ = slint::quit_event_loop();
-                        return Ok(());
-                    }
+        std::thread::spawn(move || -> Result<(), String> {
+            let reader = std::io::BufReader::new(std::io::stdin().lock());
+            for line in reader.lines() {
+                let Ok(line) = line else {
+                    tracing::debug!("Preview: stdin closed, quitting");
+                    let _ = slint::quit_event_loop();
+                    return Ok(());
                 };
+                if let Ok(message) = serde_json::from_str(&line) {
+                    slint::invoke_from_event_loop(move || {
+                        preview::connector::lsp_to_preview(message);
+                    })
+                    .map_err(|err| {
+                        let err = err.to_string();
+                        tracing::error!("Failed to queue message onto event loop - reader thread will exit: {err}");
+                        err
+                    })?;
+                }
             }
+            tracing::debug!("Preview: stdin EOF, quitting");
+            let _ = slint::quit_event_loop();
+            Ok(())
         })
     }
 }
