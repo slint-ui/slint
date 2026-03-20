@@ -19,7 +19,7 @@ use winit::window::Window;
 
 pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
-    tracker: Option<Pin<Box<PropertyTracker<MudaPropertyTracker>>>>,
+    tracker: Option<Pin<Box<PropertyTracker<false, MudaPropertyTracker>>>>,
     menu: muda::Menu,
 }
 

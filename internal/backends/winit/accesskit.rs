@@ -44,7 +44,7 @@ pub struct AccessKitAdapter {
     inner: accesskit_winit::Adapter,
     window_adapter_weak: Weak<WinitWindowAdapter>,
     nodes: NodeCollection,
-    global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
+    global_property_tracker: Pin<Box<AccessibilityPropertyTracker>>,
     pending_update: bool,
     initial_tree_sent: bool,
 }
@@ -77,7 +77,9 @@ impl AccessKitAdapter {
                 )),
             },
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
-                AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
+                AccessibilityPropertyDirtyHandler {
+                    window_adapter_weak: window_adapter_weak.clone(),
+                },
             )),
             pending_update: false,
             initial_tree_sent: false,
@@ -280,7 +282,7 @@ struct NodeCollection {
     component_ids: HashMap<NonNull<u8>, u32>,
     all_nodes: Vec<CachedNode>,
     root_node_id: NodeId,
-    focused_node_tracker: Pin<Box<PropertyTracker<DelegateFocusPropertyTracker>>>,
+    focused_node_tracker: Pin<Box<PropertyTracker<false, DelegateFocusPropertyTracker>>>,
 }
 
 impl NodeCollection {
@@ -421,7 +423,7 @@ impl NodeCollection {
     fn build_new_tree(
         &mut self,
         window_adapter_weak: &Weak<WinitWindowAdapter>,
-        property_tracker: Pin<&PropertyTracker<AccessibilitiesPropertyTracker>>,
+        property_tracker: Pin<&AccessibilityPropertyTracker>,
     ) -> TreeUpdate {
         let Some(window_adapter) = window_adapter_weak.upgrade() else {
             return TreeUpdate {
@@ -705,11 +707,13 @@ impl NodeCollection {
     }
 }
 
-struct AccessibilitiesPropertyTracker {
+type AccessibilityPropertyTracker = PropertyTracker<true, AccessibilityPropertyDirtyHandler>;
+
+struct AccessibilityPropertyDirtyHandler {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 }
 
-impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyTracker {
+impl i_slint_core::properties::PropertyDirtyHandler for AccessibilityPropertyDirtyHandler {
     fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {

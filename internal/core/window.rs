@@ -426,10 +426,10 @@ pub struct PopupWindow {
 #[pin_project::pin_project]
 struct WindowPinnedFields {
     #[pin]
-    redraw_tracker: PropertyTracker<WindowRedrawTracker>,
+    redraw_tracker: PropertyTracker<false, WindowRedrawTracker>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     #[pin]
-    window_properties_tracker: PropertyTracker<WindowPropertiesTracker>,
+    window_properties_tracker: PropertyTracker<true, WindowPropertiesTracker>,
     #[pin]
     scale_factor: Property<f32>,
     #[pin]

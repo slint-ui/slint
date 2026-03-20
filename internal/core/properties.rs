@@ -1680,13 +1680,19 @@ impl<F: Fn()> PropertyDirtyHandler for F {
     }
 }
 
-/// This structure allow to run a closure that queries properties, and can report
-/// if any property we accessed have become dirty
-pub struct PropertyTracker<DirtyHandler = ()> {
+/// A PropertyTracker tracks which properties are accessed during evaluation,
+/// and can notify when those properties change.
+///
+/// The `NEEDS_SET_DIRTY` const parameter controls whether this tracker
+/// supports being dirtied externally via [`PropertyTracker::set_dirty`].
+/// When `false` (the default), the tracker can be more efficient: it will
+/// skip registering itself as a dependency of outer bindings if it has no
+/// tracked dependencies of its own, since there is no external way to dirty it.
+pub struct PropertyTracker<const NEEDS_SET_DIRTY: bool = false, DirtyHandler = ()> {
     holder: BindingHolder<DirtyHandler>,
 }
 
-impl Default for PropertyTracker<()> {
+impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, ()> {
     fn default() -> Self {
         static VT: &BindingVTable = &BindingVTable {
             drop: |_| (),
@@ -1711,7 +1717,9 @@ impl Default for PropertyTracker<()> {
     }
 }
 
-impl<DirtyHandler> Drop for PropertyTracker<DirtyHandler> {
+impl<const NEEDS_SET_DIRTY: bool, DirtyHandler> Drop
+    for PropertyTracker<NEEDS_SET_DIRTY, DirtyHandler>
+{
     fn drop(&mut self) {
         unsafe {
             DependencyListHead::drop(self.holder.dependencies.as_ptr() as *mut DependencyListHead);
@@ -1719,7 +1727,9 @@ impl<DirtyHandler> Drop for PropertyTracker<DirtyHandler> {
     }
 }
 
-impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
+impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
+    PropertyTracker<NEEDS_SET_DIRTY, DirtyHandler>
+{
     #[cfg(slint_debug_property)]
     /// set the debug name when `cfg(slint_debug_property`
     pub fn set_debug_name(&mut self, debug_name: alloc::string::String) {
@@ -1729,8 +1739,8 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
     pub fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
         let dep_nodes = self.holder.dep_nodes.take();
-        if dep_nodes.is_empty() {
-            // No need to register dependency if we have no dependency ourselves
+        if !NEEDS_SET_DIRTY && dep_nodes.is_empty() {
+            // No need to register dependency if we have no dependency ourselves (we can never become dirty)
             return;
         }
         self.holder.dep_nodes.set(dep_nodes);
@@ -1792,12 +1802,6 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
         r
     }
 
-    /// Mark this PropertyTracker as dirty
-    pub fn set_dirty(&self) {
-        self.holder.dirty.set(true);
-        unsafe { mark_dependencies_dirty(self.holder.dependencies.as_ptr() as *mut _) };
-    }
-
     /// Sets the specified callback handler function, which will be called if any
     /// properties that this tracker depends on becomes dirty.
     ///
@@ -1849,6 +1853,14 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     }
 }
 
+impl<DirtyHandler> PropertyTracker<true, DirtyHandler> {
+    /// Mark this PropertyTracker as dirty
+    pub fn set_dirty(&self) {
+        self.holder.dirty.set(true);
+        unsafe { mark_dependencies_dirty(self.holder.dependencies.as_ptr() as *mut _) };
+    }
+}
+
 #[test]
 fn test_property_handler_binding() {
     assert_eq!(PropertyHandle::has_no_binding_or_lock(BINDING_BORROWED), false);
@@ -1888,8 +1900,8 @@ fn test_property_listener_scope() {
 
 #[test]
 fn test_nested_property_trackers() {
-    let tracker1 = Box::pin(PropertyTracker::default());
-    let tracker2 = Box::pin(PropertyTracker::default());
+    let tracker1 = Box::pin(<PropertyTracker>::default());
+    let tracker2 = Box::pin(<PropertyTracker>::default());
     let prop = Box::pin(Property::new(42));
 
     let r = tracker1.as_ref().evaluate(|| tracker2.as_ref().evaluate(|| prop.as_ref().get()));
@@ -1911,7 +1923,7 @@ fn test_nested_property_trackers() {
 #[test]
 fn test_property_dirty_handler() {
     let call_flag = Rc::new(Cell::new(false));
-    let tracker = Box::pin(PropertyTracker::new_with_dirty_handler({
+    let tracker = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
         let call_flag = call_flag.clone();
         move || {
             (*call_flag).set(true);
@@ -1939,8 +1951,8 @@ fn test_property_dirty_handler() {
 
 #[test]
 fn test_property_tracker_drop() {
-    let outer_tracker = Box::pin(PropertyTracker::default());
-    let inner_tracker = Box::pin(PropertyTracker::default());
+    let outer_tracker = Box::pin(<PropertyTracker>::default());
+    let inner_tracker = Box::pin(<PropertyTracker>::default());
     let prop = Box::pin(Property::new(42));
 
     let r =
@@ -1953,8 +1965,8 @@ fn test_property_tracker_drop() {
 
 #[test]
 fn test_nested_property_tracker_dirty() {
-    let outer_tracker = Box::pin(PropertyTracker::default());
-    let inner_tracker = Box::pin(PropertyTracker::default());
+    let outer_tracker = Box::pin(PropertyTracker::<true, ()>::default());
+    let inner_tracker = Box::pin(PropertyTracker::<true, ()>::default());
     let prop = Box::pin(Property::new(42));
 
     let r =
@@ -1973,8 +1985,8 @@ fn test_nested_property_tracker_dirty() {
 #[test]
 #[allow(clippy::redundant_closure)]
 fn test_nested_property_tracker_evaluate_if_dirty() {
-    let outer_tracker = Box::pin(PropertyTracker::default());
-    let inner_tracker = Box::pin(PropertyTracker::default());
+    let outer_tracker = Box::pin(<PropertyTracker>::default());
+    let inner_tracker = Box::pin(<PropertyTracker>::default());
     let prop = Box::pin(Property::new(42));
 
     let mut cache = 0;
