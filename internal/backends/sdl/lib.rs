@@ -410,16 +410,23 @@ impl SdlWindowAdapter {
             self_weak: RefCell::new(weak.clone()),
         });
 
-        // Set initial scale factor
-        let scale = unsafe { SDL_GetWindowDisplayScale(sdl_window) };
+        // Query the window sizes. SDL3 with HIGH_PIXEL_DENSITY may have
+        // physical pixels != logical points. The scale factor is the ratio.
+        let mut w: c_int = 0;
+        let mut h: c_int = 0;
+        unsafe { SDL_GetWindowSize(sdl_window, &mut w, &mut h) };
+        let mut pw: c_int = 0;
+        let mut ph: c_int = 0;
+        unsafe { SDL_GetWindowSizeInPixels(sdl_window, &mut pw, &mut ph) };
+
+        // Derive the scale factor from the actual pixel-to-point ratio rather
+        // than SDL_GetWindowDisplayScale(), because the display scale may not
+        // match (e.g. 125% desktop scaling but the window has no HiDPI surface).
+        let scale = if w > 0 { pw as f32 / w as f32 } else { 1.0 };
         if scale > 0.0 {
             adapter.window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: scale });
         }
 
-        // Set initial size
-        let mut w: c_int = 0;
-        let mut h: c_int = 0;
-        unsafe { SDL_GetWindowSize(sdl_window, &mut w, &mut h) };
         adapter.window.dispatch_event(WindowEvent::Resized {
             size: i_slint_core::api::LogicalSize::new(w as f32, h as f32),
         });
@@ -496,7 +503,14 @@ impl SdlWindowAdapter {
             }
 
             x if x == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED.0 => {
-                let scale = unsafe { SDL_GetWindowDisplayScale(self.sdl_window) };
+                // Recompute scale from actual pixel-to-point ratio
+                let mut w: c_int = 0;
+                let mut h: c_int = 0;
+                unsafe { SDL_GetWindowSize(self.sdl_window, &mut w, &mut h) };
+                let mut pw: c_int = 0;
+                let mut ph: c_int = 0;
+                unsafe { SDL_GetWindowSizeInPixels(self.sdl_window, &mut pw, &mut ph) };
+                let scale = if w > 0 { pw as f32 / w as f32 } else { 1.0 };
                 if scale > 0.0 {
                     self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
                         scale_factor: scale,
