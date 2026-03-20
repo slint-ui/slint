@@ -44,11 +44,11 @@ impl slint::platform::Platform for Platform {
                 match entry {
                     QueueEntry::Quit => return Ok(()),
                     QueueEntry::Callback(f) => f(),
-                    QueueEntry::FfiCallback { callback, user_data } => {
+                    QueueEntry::FfiCallback(ffi_cb) => {
                         // SAFETY: The C caller guaranteed that callback is a
                         // valid function pointer and user_data remains valid
                         // until invocation.
-                        unsafe { (callback)(user_data) };
+                        unsafe { (ffi_cb.callback)(ffi_cb.user_data) };
                     }
                 }
             }

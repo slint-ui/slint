@@ -16,22 +16,38 @@ unsafe extern "C" {
 /// Maximum number of entries buffered between drain cycles.
 pub const QUEUE_CAPACITY: usize = 32;
 
+/// A callback to be invoked from C
+pub struct FfiCallback {
+    pub callback: unsafe extern "C" fn(*mut c_void),
+    pub user_data: *mut c_void,
+    pub drop_user_data: Option<unsafe extern "C" fn(*mut c_void)>,
+}
+
+// SAFETY: FfiCallback contains raw pointers which are `!Send` by default.
+// This is safe because: producers only push under a critical section, and
+// the consumer (take_queue) runs on a single thread (the Slint event loop).
+// The pointers are never accessed concurrently.
+unsafe impl Send for FfiCallback {}
+
+impl Drop for FfiCallback {
+    fn drop(&mut self) {
+        if let Some(drop_fn) = self.drop_user_data {
+            // SAFETY: Caller guaranteed drop_user_data is safe to call
+            // from any context.
+            unsafe { drop_fn(self.user_data) };
+        }
+    }
+}
+
 /// A single entry in the unified event queue.
 ///
 /// Both FFI callbacks (from C firmware) and Rust closures (from
-/// `EventLoopProxy`) are stored as variants. The `FfiCallback` variant
-/// is ISR-safe to construct — it's just two pointer-sized fields.
+/// `EventLoopProxy`) are stored as variants.
 pub enum QueueEntry {
     Quit,
     Callback(Box<dyn FnOnce() + Send>),
-    FfiCallback { callback: unsafe extern "C" fn(*mut c_void), user_data: *mut c_void },
+    FfiCallback(FfiCallback),
 }
-
-// SAFETY: The `FfiCallback` variant contains raw pointers which are `!Send`.
-// This is safe because: producers only push under a critical section, and
-// the consumer (take_queue) runs on a single thread (the Slint event
-// loop). The pointers are never accessed concurrently.
-unsafe impl Send for QueueEntry {}
 
 /// Static unified event queue. FFI producers push via
 /// [`slint_safeui_invoke_from_event_loop`], Rust producers via
@@ -84,16 +100,26 @@ impl slint::platform::EventLoopProxy for SafeUiEventLoopProxy {
 /// invocation. It is ISR-safe: no heap allocation, no blocking, no FPU
 /// usage.
 ///
+/// After the callback executes, `drop_user_data(user_data)` is called
+/// (if non-NULL) to release any resources owned by `user_data`. If the
+/// queue is full, `drop_user_data` is called immediately before
+/// returning `-1`, so the caller never leaks.
+///
 /// # Safety
 /// - `callback` must be a valid function pointer.
-/// - `user_data` must remain valid until the callback is invoked on the
-///   event loop thread (or may be null).
+/// - `user_data` must remain valid until either `callback` or
+///   `drop_user_data` is invoked (or may be null).
+/// - `drop_user_data` (if non-null) must be safe to call from any
+///   context — it may run in the caller's context on queue-full, or on
+///   the Slint event loop thread after normal execution.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_safeui_invoke_from_event_loop(
     callback: unsafe extern "C" fn(*mut c_void),
     user_data: *mut c_void,
+    drop_user_data: Option<unsafe extern "C" fn(*mut c_void)>,
 ) -> i32 {
-    let entry = QueueEntry::FfiCallback { callback, user_data };
+    let ffi_cb = FfiCallback { callback, user_data, drop_user_data };
+    let entry = QueueEntry::FfiCallback(ffi_cb);
 
     let result = critical_section::with(|cs| {
         let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
@@ -105,7 +131,12 @@ pub extern "C" fn slint_safeui_invoke_from_event_loop(
                 unsafe { slint_safeui_platform_wake() };
                 0
             }
-            Err(_) => -1,
+            Err(rejected) => {
+                // Queue full — the FfiCallback's Drop impl will run and
+                // call drop_user_data automatically.
+                drop(rejected);
+                -1
+            }
         }
     });
 
