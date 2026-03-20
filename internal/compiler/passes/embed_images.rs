@@ -476,15 +476,15 @@ fn embed_data_uri(
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
         let data_buffer = decoded_data.clone();
-        match image::load_from_memory(&data_buffer).map_err(|e| e.to_string()).and_then(|image| {
+        match image::load_from_memory(&data_buffer).map_err(|e| e.to_string()).map(|image| {
             let original_width = image.width();
             let original_height = image.height();
 
-            Ok((
+            (
                 image.to_rgba8(),
                 SourceFormat::Rgba,
                 Size { width: original_width, height: original_height },
-            ))
+            )
         }) {
             Ok((img, source_format, original_size)) => {
                 resources.insert(
