@@ -2524,10 +2524,6 @@ impl WindowInner {
         }
     }
 
-    pub(crate) fn focus_item(&self) -> ItemWeak {
-        self.focus_item.borrow().clone()
-    }
-
     pub(crate) fn set_window_item_virtual_keyboard(
         &self,
         origin: crate::lengths::LogicalPoint,
