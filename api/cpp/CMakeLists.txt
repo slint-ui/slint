@@ -74,7 +74,6 @@ endfunction()
 # defaults need to be kept in sync with the Rust bit (cpp/Cargo.toml and cbindgen.rs)
 
 define_cargo_feature(freestanding "Enable use of freestanding environment. This is only for bare-metal systems. Most other features are incompatible with this one" OFF)
-define_cargo_feature(libm "This feature enables floating point arithmetic emulation using the libm crate. Use this in MCU environments where the processor does not support floating point arithmetic." OFF)
 
 # Compat options (must be declared after the STD feature, but before the other renderer features)
 function(define_renderer_winit_compat_option renderer)
