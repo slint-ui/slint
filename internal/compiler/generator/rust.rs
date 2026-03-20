@@ -108,7 +108,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             let i = ident(&e.name);
             if e.node.is_some() { Some(quote!(#i)) } else { Some(quote!(sp::#i)) }
         }
-        Type::KeyboardShortcutType => Some(quote!(sp::KeyboardShortcut)),
+        Type::Keys => Some(quote!(sp::Keys)),
         Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(
             sp::SharedVector<
@@ -2532,17 +2532,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeyboardShortcutLiteral(shortcut) => {
-                let key = &*shortcut.key;
-                let alt = shortcut.modifiers.alt;
-                let control = shortcut.modifiers.control;
-                let shift = shortcut.modifiers.shift;
-                let meta = shortcut.modifiers.meta;
-                let ignore_shift = shortcut.ignore_shift;
-                let ignore_alt = shortcut.ignore_alt;
+        Expression::KeysLiteral(keys) => {
+                let key = &*keys.key;
+                let alt = keys.modifiers.alt;
+                let control = keys.modifiers.control;
+                let shift = keys.modifiers.shift;
+                let meta = keys.modifiers.meta;
+                let ignore_shift = keys.ignore_shift;
+                let ignore_alt = keys.ignore_alt;
 
                 quote!(
-                    sp::make_keyboard_shortcut(
+                    sp::make_keys(
                         #key.into(),
                         sp::KeyboardModifiers {
                             alt: #alt,
@@ -2654,9 +2654,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         quote!(#c => sp::SharedString::from(#v))
                     });
                     quote!(match #f { #(#cases,)*  _ => sp::SharedString::default() })
-                }
-                (Type::KeyboardShortcutType, Type::String) => {
-                    quote!(sp::ToSharedString::to_shared_string(&#f))
                 }
                 (_, Type::Void) => {
                     quote!({#f;})
@@ -3154,15 +3151,6 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
         }
-        BuiltinFunction::KeyboardShortcutMatches => {
-            if let [shortcut, event] = arguments {
-                let shortcut = compile_expression(shortcut, ctx);
-                let event = compile_expression(event, ctx);
-                quote!(#shortcut.matches(&#event))
-            } else {
-                panic!("internal error: invalid args to KeyboardShortcut::matches {arguments:?}")
-            }
-        }
         BuiltinFunction::ClearFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
@@ -3555,6 +3543,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
+        BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorOklchStruct => quote!( #(#a)*.to_oklch()),

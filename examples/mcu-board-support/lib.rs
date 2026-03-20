@@ -10,31 +10,37 @@
 extern crate alloc;
 
 #[cfg(feature = "pico-st7789")]
+#[path = "pico_st7789/pico_st7789.rs"]
 mod pico_st7789;
 #[cfg(feature = "pico-st7789")]
 pub use pico_st7789::*;
 
 #[cfg(feature = "pico2-st7789")]
+#[path = "pico2_st7789/pico2_st7789.rs"]
 mod pico2_st7789;
 #[cfg(feature = "pico2-st7789")]
 pub use pico2_st7789::*;
 
 #[cfg(feature = "pico2-touch-lcd-2-8")]
+#[path = "pico2_touch_lcd_2_8/pico2_touch_lcd_2_8.rs"]
 mod pico2_touch_lcd_2_8;
 #[cfg(feature = "pico2-touch-lcd-2-8")]
 pub use pico2_touch_lcd_2_8::*;
 
 #[cfg(feature = "stm32h735g")]
+#[path = "stm32h735g/stm32h735g.rs"]
 mod stm32h735g;
 #[cfg(feature = "stm32h735g")]
 pub use stm32h735g::*;
 
 #[cfg(feature = "stm32u5g9j-dk2")]
+#[path = "stm32u5g9j_dk2/stm32u5g9j_dk2.rs"]
 mod stm32u5g9j_dk2;
 #[cfg(feature = "stm32u5g9j-dk2")]
 pub use stm32u5g9j_dk2::*;
 
 #[cfg(feature = "esp32-s3-box-3")]
+#[path = "esp32_s3_box_3/esp32_s3_box_3.rs"]
 mod esp32_s3_box_3;
 #[cfg(feature = "esp32-s3-box-3")]
 pub use esp_hal::main as entry;
@@ -42,6 +48,7 @@ pub use esp_hal::main as entry;
 pub use esp32_s3_box_3::*;
 
 #[cfg(feature = "esp32-s3-lcd-ev-board")]
+#[path = "esp32_s3_lcd_ev_board/esp32_s3_lcd_ev_board.rs"]
 mod esp32_s3_lcd_ev_board;
 #[cfg(feature = "esp32-s3-lcd-ev-board")]
 pub use esp_hal::main as entry;
@@ -49,6 +56,7 @@ pub use esp_hal::main as entry;
 pub use esp32_s3_lcd_ev_board::*;
 
 #[cfg(feature = "esope-sld-c-w-s3")]
+#[path = "esope_sld_c_w_s3/esope_sld_c_w_s3.rs"]
 mod esope_sld_c_w_s3;
 #[cfg(feature = "esope-sld-c-w-s3")]
 pub use esope_sld_c_w_s3::*;
@@ -56,6 +64,7 @@ pub use esope_sld_c_w_s3::*;
 pub use esp_hal::main as entry;
 
 #[cfg(feature = "waveshare-esp32-s3-touch-amoled-1-8")]
+#[path = "waveshare_esp32_s3_touch_amoled_1_8/waveshare_esp32_s3_touch_amoled_1_8.rs"]
 mod waveshare_esp32_s3_touch_amoled_1_8;
 #[cfg(feature = "waveshare-esp32-s3-touch-amoled-1-8")]
 pub use esp_hal::main as entry;
@@ -63,6 +72,7 @@ pub use esp_hal::main as entry;
 pub use waveshare_esp32_s3_touch_amoled_1_8::*;
 
 #[cfg(feature = "m5stack-cores3")]
+#[path = "m5stack_cores3/m5stack_cores3.rs"]
 mod m5stack_cores3;
 #[cfg(feature = "m5stack-cores3")]
 pub use esp_hal::main as entry;

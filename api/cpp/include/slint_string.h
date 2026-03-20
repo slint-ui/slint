@@ -283,5 +283,11 @@ inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
 {
     return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
 }
+
+inline std::string_view slice_to_string_view(cbindgen_private::Slice<uint8_t> str)
+{
+    return std::string_view(reinterpret_cast<const char *>(str.ptr), str.len);
+}
+
 }
 }

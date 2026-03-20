@@ -595,6 +595,7 @@ pub struct FlexBoxLayout {
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
     pub align_items: Option<NamedReference>,
+    pub flex_wrap: Option<NamedReference>,
 }
 
 impl FlexBoxLayout {
@@ -610,6 +611,9 @@ impl FlexBoxLayout {
             visitor(&mut *e)
         }
         if let Some(e) = self.align_items.as_mut() {
+            visitor(&mut *e)
+        }
+        if let Some(e) = self.flex_wrap.as_mut() {
             visitor(&mut *e)
         }
     }

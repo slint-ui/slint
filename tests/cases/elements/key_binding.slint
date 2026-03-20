@@ -4,7 +4,7 @@
 export component TestCase inherits Window {
     in-out property <int> matches: 0;
     in-out property <bool> condition: false;
-    in-out property <[keyboard-shortcut]> shortcuts: [
+    in-out property <[keys]> shortcuts: [
         @keys(Control + C),
         @keys(Control + D),
     ];
@@ -17,20 +17,26 @@ export component TestCase inherits Window {
         background: scope.has-focus ? blue : red;
 
         scope := FocusScope {
-            Shortcut {
+            KeyBinding {
                 enabled: root.enable-ctrl-a;
                 keys: @keys(Control + A);
-                activated => { matches += 1; }
+                activated => {
+                    matches += 1;
+                }
             }
 
-            if condition: Shortcut {
+            if condition: KeyBinding {
                 keys: @keys(Control + B);
-                activated => { matches += 1; }
+                activated => {
+                    matches += 1;
+                }
             }
 
-            for shortcut in shortcuts: Shortcut {
+            for shortcut in shortcuts: KeyBinding {
                 keys: shortcut;
-                activated => { matches += 1; }
+                activated => {
+                    matches += 1;
+                }
             }
         }
     }
@@ -48,31 +54,31 @@ let assert_matches = |matches| {
 assert_matches(0);
 
 use slint::private_unstable_api::re_exports::Key;
-use slint_testing::send_keyboard_shortcut;
+use slint_testing::send_key_combo;
 
-send_keyboard_shortcut(&instance, [Key::Control, Key::A]);
+send_key_combo(&instance, [Key::Control, Key::A]);
 assert_matches(1);
 
 instance.set_enable_ctrl_a(false);
-send_keyboard_shortcut(&instance, [Key::Control, Key::A]);
+send_key_combo(&instance, [Key::Control, Key::A]);
 assert_matches(1);
 
 assert!(!instance.get_condition());
-send_keyboard_shortcut(&instance, [Key::Control, Key::B]);
+send_key_combo(&instance, [Key::Control, Key::B]);
 assert_matches(1);
 
 instance.set_condition(true);
-send_keyboard_shortcut(&instance, [Key::Control, Key::B]);
+send_key_combo(&instance, [Key::Control, Key::B]);
 assert_matches(2);
 
-send_keyboard_shortcut(&instance, [Key::Control, Key::C]);
-send_keyboard_shortcut(&instance, [Key::Control, Key::D]);
+send_key_combo(&instance, [Key::Control, Key::C]);
+send_key_combo(&instance, [Key::Control, Key::D]);
 assert_matches(4);
 
 instance.set_shortcuts([].into());
 
-send_keyboard_shortcut(&instance, [Key::Control, Key::C]);
-send_keyboard_shortcut(&instance, [Key::Control, Key::D]);
+send_key_combo(&instance, [Key::Control, Key::C]);
+send_key_combo(&instance, [Key::Control, Key::D]);
 assert_matches(4);
 ```
 
@@ -87,30 +93,30 @@ auto assert_matches = [&instance](int matches) {
 assert_matches(0);
 
 using namespace slint::platform;
-using slint::private_api::testing::send_keyboard_shortcut;
+using slint::private_api::testing::send_key_combo;
 
 slint::SharedString control(key_codes::Control);
 
-send_keyboard_shortcut(&instance, {control, "A"});
+send_key_combo(&instance, {control, "A"});
 assert_matches(1);
 
 assert(!instance.get_condition());
-send_keyboard_shortcut(&instance, {control, "B"});
+send_key_combo(&instance, {control, "B"});
 assert_matches(1);
 
 instance.set_condition(true);
-send_keyboard_shortcut(&instance, {control, "B"});
+send_key_combo(&instance, {control, "B"});
 assert_matches(2);
 
-send_keyboard_shortcut(&instance, {control, "C"});
-send_keyboard_shortcut(&instance, {control, "D"});
+send_key_combo(&instance, {control, "C"});
+send_key_combo(&instance, {control, "D"});
 assert_matches(4);
 
-// TODO: Make KeyboardShortcut public API in C++
-instance.set_shortcuts(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::KeyboardShortcut>>());
+// TODO: Make Keys public API in C++
+instance.set_shortcuts(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::Keys>>());
 
-send_keyboard_shortcut(&instance, {control, "C"});
-send_keyboard_shortcut(&instance, {control, "D"});
+send_key_combo(&instance, {control, "C"});
+send_key_combo(&instance, {control, "D"});
 assert_matches(4);
 ```
 */

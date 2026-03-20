@@ -9,7 +9,7 @@ use super::{
 use crate::api::LogicalPosition;
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardShortcut, MouseEvent,
+    KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::items::ItemTreeVTable;
@@ -275,24 +275,24 @@ impl ItemConsts for TouchArea {
     > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl ItemConsts for Shortcut {
+impl ItemConsts for KeyBinding {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Shortcut,
+        KeyBinding,
         CachedRenderingData,
-    > = Shortcut::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = KeyBinding::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct Shortcut {
-    pub keys: Property<KeyboardShortcut>,
+pub struct KeyBinding {
+    pub keys: Property<Keys>,
     pub enabled: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for Shortcut {
+impl Item for KeyBinding {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -411,7 +411,7 @@ impl MaybeShortcutList {
 #[derive(Default)]
 #[pin_project::pin_project]
 pub struct ShortcutList {
-    found: core::cell::RefCell<Vec<VWeakMapped<ItemTreeVTable, Shortcut>>>,
+    found: core::cell::RefCell<Vec<VWeakMapped<ItemTreeVTable, KeyBinding>>>,
     #[pin]
     property_tracker: PropertyTracker,
 }
@@ -441,7 +441,7 @@ impl FocusScope {
     fn visit_enabled_shortcuts<R>(
         self: Pin<&Self>,
         self_rc: &ItemRc,
-        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, Shortcut>) -> Option<R>,
+        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, KeyBinding>) -> Option<R>,
     ) -> Option<R> {
         let list = Self::FIELD_OFFSETS.shortcuts.apply_pin(self);
         let list = list.deref_pin();
@@ -452,7 +452,7 @@ impl FocusScope {
 
             let mut next = self_rc.first_child();
             while let Some(child) = next {
-                if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child)
+                if let Some(shortcut) = ItemRc::downcast::<KeyBinding>(&child)
                     && shortcut.as_pin_ref().enabled()
                 {
                     found.push(VRcMapped::downgrade(&shortcut));
@@ -556,12 +556,13 @@ impl Item for FocusScope {
             }
             KeyEventType::KeyReleased => {
                 let shortcut = self.visit_enabled_shortcuts(self_rc, |shortcut| {
-                    let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
+                    let keys =
+                        KeyBinding::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
                     if keys.matches(event) { Some(VRcMapped::clone(shortcut)) } else { None }
                 });
 
                 if let Some(shortcut) = shortcut {
-                    Shortcut::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
+                    KeyBinding::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
                     EventResult::Accept
                 } else {
                     Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))

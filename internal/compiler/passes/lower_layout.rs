@@ -886,6 +886,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
     let align_content = crate::layout::binding_reference(layout_element, "align-content");
     let align_items = crate::layout::binding_reference(layout_element, "align-items");
+    let flex_wrap = crate::layout::binding_reference(layout_element, "flex-wrap");
 
     let mut layout = crate::layout::FlexBoxLayout {
         elems: Default::default(),
@@ -893,6 +894,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         direction,
         align_content,
         align_items,
+        flex_wrap,
     };
 
     // FlexBoxLayout needs 4 values per item: x, y, width, height

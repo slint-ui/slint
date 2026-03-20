@@ -463,9 +463,13 @@ fn layout(
         para.layout.align(
             max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
-                TextHorizontalAlignment::Left => parley::Alignment::Left,
+                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                    parley::Alignment::Left
+                }
                 TextHorizontalAlignment::Center => parley::Alignment::Center,
-                TextHorizontalAlignment::Right => parley::Alignment::Right,
+                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                    parley::Alignment::Right
+                }
             },
             parley::AlignmentOptions::default(),
         );

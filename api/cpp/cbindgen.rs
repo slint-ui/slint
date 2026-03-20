@@ -302,7 +302,7 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "FocusScope",
-        "Shortcut",
+        "KeyBinding",
         "SwipeGestureHandler",
         "PinchGestureHandler",
         "Flickable",
@@ -533,7 +533,7 @@ fn gen_corelib(
             "",
         ),
         (
-            vec!["MouseEvent", "TouchPhase", "KeyboardShortcut"],
+            vec!["MouseEvent", "TouchPhase", "Keys"],
             "slint_events_internal.h",
             "#include \"slint_point.h\"
             namespace slint::cbindgen_private {
@@ -550,10 +550,9 @@ fn gen_corelib(
         let mut special_config = config.clone();
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
-            "slint_keyboard_shortcut_debug_string",
-            "slint_keyboard_shortcut_to_string",
-            "slint_keyboard_shortcut_matches",
-            "slint_keyboard_shortcut",
+            "slint_keys_debug_string",
+            "slint_keys_to_string",
+            "slint_keys",
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",
@@ -734,7 +733,10 @@ fn gen_corelib(
         .export
         .body
         .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
-    config.export.pre_body.insert("MaybeShortcutList".to_owned(), "struct ShortcutList;".into());
+    config
+        .export
+        .pre_body
+        .insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
     config
         .export
         .body
@@ -775,7 +777,7 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
-        using types::KeyboardShortcut;
+        using types::Keys;
     }
     template<typename ModelData> class Model;
 }",

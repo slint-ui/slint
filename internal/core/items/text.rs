@@ -1713,7 +1713,7 @@ impl TextInput {
         let cursor_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter, self_rc);
         let geometry = self_rc.geometry();
-        let origin = self_rc.map_to_window(geometry.origin);
+        let origin = self_rc.map_to_native_window(geometry.origin);
         let origin_vector = origin.to_vector();
         let cursor_rect_origin =
             crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin_vector);
@@ -1727,7 +1727,7 @@ impl TextInput {
             self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups);
         let clip_rect = maybe_parent.map(|parent| {
             let geom = parent.geometry();
-            LogicalRect::new(parent.map_to_window(geom.origin), geom.size)
+            LogicalRect::new(parent.map_to_native_window(geom.origin), geom.size)
         });
 
         InputMethodProperties {

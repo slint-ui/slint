@@ -177,12 +177,12 @@ export component FocusScope {
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 
-    Shortcut { }
+    KeyBinding { }
 }
 
-component Shortcut {
+component KeyBinding {
     in property <bool> enabled: true;
-    in property <keyboard-shortcut> keys;
+    in property <keys> keys;
     callback activated();
     //-is_non_item_type
 }
@@ -471,6 +471,7 @@ export component FlexBoxLayout {
     in property <FlexDirection> flex-direction;
     in property <FlexAlignContent> align-content;
     in property <FlexAlignItems> align-items;
+    in property <FlexWrap> flex-wrap;
 }
 
 component MoveTo {

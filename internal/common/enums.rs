@@ -23,6 +23,12 @@ macro_rules! for_each_enums {
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
+                /// The text will be aligned with the start edge of the containing box.
+                /// This could be left or right depending on the direction of the text.
+                Start,
+                /// The text will be aligned with the end edge of the containing box.
+                /// This could be left or right depending on the direction of the text.
+                End,
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
                 /// The text will be horizontally centered within the containing box.
@@ -393,6 +399,17 @@ macro_rules! for_each_enums {
                 End,
                 /// Items are centered along the cross axis.
                 Center,
+            }
+
+            /// Controls whether flex items wrap onto multiple lines.
+            #[non_exhaustive]
+            enum FlexWrap {
+                /// Flex items wrap onto multiple lines, from top to bottom (for row direction) or left to right (for column direction).
+                Wrap,
+                /// All flex items are laid out on a single line (default for CSS, but Slint defaults to `wrap`).
+                NoWrap,
+                /// Flex items wrap onto multiple lines in the reverse direction.
+                WrapReverse,
             }
 
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is

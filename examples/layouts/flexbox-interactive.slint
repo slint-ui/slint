@@ -24,7 +24,7 @@ export component MainWindow inherits Window {
     title: "FlexBox Layout - Direction Test";
     default-font-size: 20px;
 
-    property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+    property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
     property <[FlexDirection]> direction_values: [
         FlexDirection.row,
@@ -55,6 +55,8 @@ export component MainWindow inherits Window {
         FlexAlignItems.end,
         FlexAlignItems.center
     ];
+    property <[string]> flex_wrap_options: ["Wrap", "NoWrap", "WrapReverse"];
+    property <[FlexWrap]> flex_wrap_values: [FlexWrap.wrap, FlexWrap.no-wrap, FlexWrap.wrap-reverse];
 
     VerticalLayout {
         padding: 20phx;
@@ -62,6 +64,16 @@ export component MainWindow inherits Window {
 
         HorizontalLayout {
             spacing: 10phx;
+            Text {
+                text: "Flex Wrap:";
+                vertical-alignment: center;
+            }
+
+            flex_wrap_combo := ComboBox {
+                model: flex_wrap_options;
+                current-index: 0;
+            }
+
             Text {
                 text: "Flex Direction:";
                 vertical-alignment: center;
@@ -117,12 +129,13 @@ export component MainWindow inherits Window {
                 alignment: alignment_values[alignment_combo.current-index];
                 align-content: align_content_values[align_content_combo.current-index];
                 align-items: align_items_values[align_items_combo.current-index];
+                flex-wrap: flex_wrap_values[flex_wrap_combo.current-index];
                 padding: 10phx;
                 spacing: 10phx;
 
                 for text in names: Cell {
                     cell_text: text;
-                    width: 80phx;
+                    width: 120phx;
                     height: 60phx;
                 }
             }

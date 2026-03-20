@@ -255,3 +255,106 @@ pub extern "C" fn slint_parse_markdown(
 pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut StyledText) {
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
+
+// Translator API is currently considered experimental due to discussions
+// about the returned string type (SharedString vs. Cow<str> etc.). Also it
+// is not available with no_std due to the tr crate.
+// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+#[cfg(all(feature = "experimental", feature = "std"))]
+mod translator {
+    use crate::SharedString;
+    use crate::Slice;
+    use alloc::boxed::Box;
+    use core::ffi::c_void;
+    use i_slint_core::translations::Translator;
+    use std::borrow::Cow;
+
+    type DropCallback = extern "C" fn(obj: *const c_void);
+
+    type TranslateCallback = extern "C" fn(
+        obj: *const c_void,
+        string: Slice<u8>,
+        context: Slice<u8>,
+        out: &mut SharedString,
+    );
+
+    type NTranslateCallback = extern "C" fn(
+        obj: *const c_void,
+        n: u64,
+        singular: Slice<u8>,
+        plural: Slice<u8>,
+        context: Slice<u8>,
+        out: &mut SharedString,
+    );
+
+    struct CppTranslator {
+        pub obj: *const c_void,
+        pub drop: DropCallback,
+        pub translate: TranslateCallback,
+        pub ntranslate: NTranslateCallback,
+    }
+
+    unsafe impl Send for CppTranslator {}
+    unsafe impl Sync for CppTranslator {}
+
+    impl Drop for CppTranslator {
+        fn drop(&mut self) {
+            (self.drop)(self.obj);
+        }
+    }
+
+    impl Translator for CppTranslator {
+        fn translate<'a>(&'a self, string: &'a str, context: Option<&'a str>) -> Cow<'a, str> {
+            let mut out = SharedString::new();
+            (self.translate)(
+                self.obj,
+                string.as_bytes().into(),
+                context.unwrap_or_default().as_bytes().into(),
+                &mut out,
+            );
+            Cow::Owned(out.into())
+        }
+
+        fn ntranslate<'a>(
+            &'a self,
+            n: u64,
+            singular: &'a str,
+            plural: &'a str,
+            context: Option<&'a str>,
+        ) -> Cow<'a, str> {
+            let mut out = SharedString::new();
+            (self.ntranslate)(
+                self.obj,
+                n,
+                singular.as_bytes().into(),
+                plural.as_bytes().into(),
+                context.unwrap_or_default().as_bytes().into(),
+                &mut out,
+            );
+            Cow::Owned(out.into())
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_translate_set_translator(
+        obj: *const c_void,
+        drop: DropCallback,
+        translate: TranslateCallback,
+        ntranslate: NTranslateCallback,
+    ) -> bool {
+        #[cfg(feature = "i-slint-backend-selector")]
+        i_slint_backend_selector::with_global_context(|ctx| {
+            if !obj.is_null() {
+                ctx.set_external_translator(Some(Box::new(CppTranslator {
+                    obj,
+                    drop,
+                    translate,
+                    ntranslate,
+                })))
+            } else {
+                ctx.set_external_translator(None)
+            }
+        })
+        .is_ok()
+    }
+}
