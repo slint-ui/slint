@@ -4,15 +4,14 @@
 extern crate alloc;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-//use alloc::vec::Vec;
-//use core::cell::RefCell;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+use crate::event_queue::{self, SafeUiEventLoopProxy};
 
 struct Platform {
     scale_factor: f32,
     window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
-    //event_queue: Queue,
 }
 
 impl slint::platform::Platform for Platform {
@@ -39,14 +38,13 @@ impl slint::platform::Platform for Platform {
         loop {
             slint::platform::update_timers_and_animations();
 
-            //            let events_to_process =
-            //                critical_section::with(|cs| self.event_queue.0.borrow(cs).take());
-            //            for event in events_to_process.into_iter() {
-            //                match event {
-            //                    Event::Quit => return Ok(()),
-            //                    Event::Event(f) => f(),
-            //                }
-            //            }
+            // Drain and process all pending callbacks (FFI + internal).
+            for event in event_queue::drain_callbacks() {
+                match event {
+                    event_queue::Event::Quit => return Ok(()),
+                    event_queue::Event::Callback(f) => f(),
+                }
+            }
 
             self.window.draw_if_needed(|renderer| {
                 render_wrapper::<crate::pixels::PlatformPixel, _>(&|buffer, pixel_stride| {
@@ -72,9 +70,9 @@ impl slint::platform::Platform for Platform {
         }
     }
 
-    //fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
-    //    Some(Box::new(self.event_queue.clone()) as Box<dyn slint::platform::EventLoopProxy>)
-    //}
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
+        Some(Box::new(SafeUiEventLoopProxy))
+    }
 
     fn duration_since_start(&self) -> core::time::Duration {
         core::time::Duration::from_millis(unsafe {
@@ -119,44 +117,10 @@ pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
 
     window.set_size(slint::PhysicalSize { width, height });
 
-    let platform = Platform {
-        scale_factor,
-        window,
-        //event_queue: Queue(critical_section::Mutex::new(RefCell::new(Vec::new())).into()),
-    };
+    let platform = Platform { scale_factor, window };
 
     slint::platform::set_platform(Box::new(platform)).unwrap();
 }
-
-//enum Event {
-//    Quit,
-//    Event(Box<dyn FnOnce() + Send>),
-//}
-//
-//#[derive(Clone)]
-//struct Queue(alloc::sync::Arc<critical_section::Mutex<RefCell<Vec<Event>>>>);
-//
-//impl slint::platform::EventLoopProxy for Queue {
-//    fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-//        critical_section::with(|cs| {
-//            self.0.borrow_ref_mut(cs).push(Event::Quit);
-//        });
-//
-//        unsafe { slint_safeui_platform_wake() };
-//        Ok(())
-//    }
-//
-//    fn invoke_from_event_loop(
-//        &self,
-//        event: Box<dyn FnOnce() + Send>,
-//    ) -> Result<(), slint::EventLoopError> {
-//        critical_section::with(|cs| {
-//            self.0.borrow_ref_mut(cs).push(Event::Event(event));
-//        });
-//        unsafe { slint_safeui_platform_wake() };
-//        Ok(())
-//    }
-//}
 
 #[cfg(feature = "panic-handler")]
 #[panic_handler]

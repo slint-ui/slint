@@ -12,6 +12,12 @@ if(NOT DEFINED SLINT_SAFEUI_HEIGHT)
     set(SLINT_SAFEUI_HEIGHT "" CACHE STRING "SafeUI window height (optional)")
 endif()
 
+# Use cs-cortex-m as default critical section implementation
+set(SLINT_SAFEUI_CRITICAL_SECTION "cs-cortex-m" CACHE STRING "Critical section for Slint SafeUI")
+set_property(CACHE SLINT_SAFEUI_CRITICAL_SECTION PROPERTY STRINGS
+    "cs-cortex-m"
+)
+
 # Use pixel-bgra8888 as default pixel format
 set(SLINT_SAFEUI_PIXEL_FORMAT "pixel-bgra8888" CACHE STRING "Pixel format for Slint SafeUI")
 set_property(CACHE SLINT_SAFEUI_PIXEL_FORMAT PROPERTY STRINGS
@@ -31,7 +37,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 
-set(SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_PIXEL_FORMAT}")
+set(SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_CRITICAL_SECTION}")
+list(APPEND SLINT_SAFEUI_FEATURES "${SLINT_SAFEUI_PIXEL_FORMAT}")
 list(APPEND SLINT_SAFEUI_FEATURES "libm")
 if(SLINT_SAFEUI_PANIC_HANDLER)
     list(APPEND SLINT_SAFEUI_FEATURES "panic-handler")
