@@ -13,9 +13,14 @@ fn main() {
     let app = App::new().unwrap();
 
     // Set up the pre-render callback via the C FFI.
-    // In the callback, we use raw SDL3 calls to draw game content.
+    // We pass the start time as user_data so the animation has a proper time base.
+    let start_time = Box::new(std::time::Instant::now());
     unsafe {
-        slint_sdl_set_pre_render_callback(Some(pre_render), std::ptr::null_mut(), None);
+        slint_sdl_set_pre_render_callback(
+            Some(pre_render),
+            Box::into_raw(start_time) as *mut std::ffi::c_void,
+            Some(drop_instant),
+        );
     }
 
     let app_weak = app.as_weak();
@@ -43,20 +48,20 @@ unsafe extern "C" {
     );
 }
 
+unsafe extern "C" fn drop_instant(ptr: *mut std::ffi::c_void) {
+    unsafe { drop(Box::from_raw(ptr as *mut std::time::Instant)) };
+}
+
 /// Pre-render callback — draws animated rectangles using SDL_Renderer.
-unsafe extern "C" fn pre_render(renderer: *mut std::ffi::c_void, _user_data: *mut std::ffi::c_void) {
-    // We use inline FFI declarations here to keep the example self-contained.
-    // A real game would use the SDL3 C headers directly.
+unsafe extern "C" fn pre_render(renderer: *mut std::ffi::c_void, user_data: *mut std::ffi::c_void) {
     unsafe extern "C" {
         fn SDL_SetRenderDrawColor(r: *mut std::ffi::c_void, red: u8, green: u8, blue: u8, alpha: u8) -> bool;
         fn SDL_RenderFillRect(r: *mut std::ffi::c_void, rect: *const [f32; 4]) -> bool;
         fn SDL_SetRenderDrawBlendMode(r: *mut std::ffi::c_void, mode: u32) -> bool;
     }
 
-    let t = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs_f32();
+    let start = unsafe { &*(user_data as *const std::time::Instant) };
+    let t = start.elapsed().as_secs_f32();
 
     unsafe {
         // Dark blue background
