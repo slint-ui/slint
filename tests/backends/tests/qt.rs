@@ -7,3 +7,7 @@ fn init() {
     slint::platform::set_platform(Box::new(i_slint_backend_qt::Backend::new()) as Box<_>)
         .expect("Failed to set platform");
 }
+
+fn main() {
+    cases::harness::test_main();
+}
