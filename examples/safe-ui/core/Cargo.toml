@@ -16,6 +16,7 @@ crate-type = ["rlib", "staticlib"]
 
 [features]
 default = []
+cs-cortex-m = ["cortex-m/critical-section-single-core"]
 libm = ["slint/libm"]
 std = ["slint/std"]
 panic-handler = []
@@ -25,6 +26,10 @@ pixel-rgb888 = []
 
 [dependencies]
 bytemuck = "1.24.0"
+critical-section = "1.2.0"
+cortex-m = { version = "0.7.7", optional = true }
+heapless = "0.9.2"
+riscv = { version = "0.16.0", optional = true }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "unsafe-single-threaded"] }
 
 [build-dependencies]

@@ -3,6 +3,11 @@
 
 #![no_std]
 
+// Enforce linking crate that provides critical section implementation.
+// (We need these functions even though the lib code never calls them.)
+#[cfg(feature = "cs-cortex-m")]
+extern crate cortex_m;
+
 // Enforce mutual exclusivity of pixel format
 #[cfg(all(feature = "pixel-bgra8888", feature = "pixel-rgb565"))]
 compile_error!("Cannot enable both pixel-bgra8888 and pixel-rgb565");
@@ -20,6 +25,7 @@ compile_error!(
 
 extern crate alloc;
 
+pub mod event_queue;
 pub mod pixels;
 pub mod platform;
 
