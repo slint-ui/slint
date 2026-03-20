@@ -9,23 +9,20 @@ fn extract_extension_from_media_type(media_type: &str) -> String {
 
 pub fn decode_data_uri(data_uri: &str) -> Result<(Vec<u8>, String), String> {
     let data_url =
-        dataurl::DataUrl::parse(data_uri).map_err(|e| format!("Invalid data URI: {:?}", e))?;
+        data_url::DataUrl::process(data_uri).map_err(|e| format!("Invalid data URI: {e}"))?;
 
-    let media_type = data_url.get_media_type();
-    if !media_type.starts_with("image/") {
+    let media_type = data_url.mime_type();
+    if !media_type.matches("image", &media_type.subtype) {
         return Err(format!(
             "Unsupported media type: {}. Only image/* data URLs are supported",
             media_type
         ));
     }
 
-    let extension = extract_extension_from_media_type(media_type);
+    let extension = extract_extension_from_media_type(&media_type.to_string());
 
-    let decoded_data = if data_url.get_is_base64_encoded() {
-        data_url.get_data().to_vec()
-    } else {
-        data_url.get_text().as_bytes().to_vec()
-    };
+    let (decoded_data, _) =
+        data_url.decode_to_vec().map_err(|e| format!("Invalid data URI payload: {e}"))?;
 
     Ok((decoded_data, extension))
 }
