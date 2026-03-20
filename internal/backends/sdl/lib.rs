@@ -685,6 +685,20 @@ impl WindowAdapter for SdlWindowAdapter {
             }
         }
     }
+
+    fn internal(
+        &self,
+        _: i_slint_core::InternalToken,
+    ) -> Option<&dyn i_slint_core::window::WindowAdapterInternal> {
+        Some(self)
+    }
+}
+
+impl i_slint_core::window::WindowAdapterInternal for SdlWindowAdapter {
+    fn color_scheme(&self) -> i_slint_core::items::ColorScheme {
+        // Games typically have dark backgrounds, so default to Dark.
+        i_slint_core::items::ColorScheme::Dark
+    }
 }
 
 impl Drop for SdlWindowAdapter {
