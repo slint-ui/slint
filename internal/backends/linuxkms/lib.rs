@@ -31,6 +31,8 @@ mod renderer {
 
     #[cfg(feature = "renderer-femtovg")]
     pub mod femtovg;
+    #[cfg(feature = "renderer-femtovg-wgpu")]
+    pub mod femtovg_wgpu;
 
     #[cfg(feature = "renderer-software")]
     pub mod sw;
@@ -50,6 +52,8 @@ mod renderer {
             ),
             #[cfg(feature = "renderer-femtovg")]
             ("FemtoVG", femtovg::FemtoVGRendererAdapter::new as FactoryFn),
+            #[cfg(feature = "renderer-femtovg-wgpu")]
+            ("FemtoVG wgpu", femtovg_wgpu::FemtoVGWgpuRendererAdapter::new as FactoryFn),
             #[cfg(feature = "renderer-software")]
             ("Software", sw::SoftwareRendererAdapter::new as FactoryFn),
             ("", |_| Err(PlatformError::NoPlatform)),

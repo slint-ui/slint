@@ -93,6 +93,8 @@ impl Backend {
             Some("skia-software") => crate::renderer::skia::SkiaRendererAdapter::new_software,
             #[cfg(feature = "renderer-femtovg")]
             Some("femtovg") => crate::renderer::femtovg::FemtoVGRendererAdapter::new,
+            #[cfg(feature = "renderer-femtovg-wgpu")]
+            Some("femtovg-wgpu") => crate::renderer::femtovg_wgpu::FemtoVGWgpuRendererAdapter::new,
             #[cfg(feature = "renderer-software")]
             Some("software") => crate::renderer::sw::SoftwareRendererAdapter::new,
             None => crate::renderer::try_skia_then_femtovg_then_software,
