@@ -374,96 +374,20 @@ enum SourceFormat {
 }
 
 #[cfg(feature = "software-renderer")]
-fn load_image(
-    file: crate::fileaccess::VirtualFile,
+fn load_image_from_bytes(
+    data: &[u8],
+    extension: Option<&str>,
     scale_factor: f32,
+    resize_when_downscaling: bool,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
     use resvg::{tiny_skia, usvg};
-    use std::ffi::OsStr;
-    if file.canon_path.extension() == Some(OsStr::new("svg"))
-        || file.canon_path.extension() == Some(OsStr::new("svgz"))
-    {
+
+    let is_svg = matches!(extension, Some("svg") | Some("svgz"));
+
+    if is_svg {
         let tree = {
             let option = usvg::Options::default();
-            match file.builtin_contents {
-                Some(data) => usvg::Tree::from_data(data, &option),
-                None => usvg::Tree::from_data(
-                    std::fs::read(&file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
-                    &option,
-                ),
-            }
-            .map_err(|e| {
-                image::ImageError::Decoding(image::error::DecodingError::new(
-                    image::error::ImageFormatHint::Name("svg".into()),
-                    e,
-                ))
-            })
-        }?;
-        // TODO: ideally we should find the size used for that `Image`
-        let original_size = tree.size();
-        let width = original_size.width() * scale_factor;
-        let height = original_size.height() * scale_factor;
-
-        let mut buffer = vec![0u8; width as usize * height as usize * 4];
-        let size_error = || {
-            image::ImageError::Limits(image::error::LimitError::from_kind(
-                image::error::LimitErrorKind::DimensionError,
-            ))
-        };
-        let mut skia_buffer =
-            tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width as u32, height as u32)
-                .ok_or_else(size_error)?;
-        resvg::render(
-            &tree,
-            tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
-            &mut skia_buffer,
-        );
-        return image::RgbaImage::from_raw(width as u32, height as u32, buffer)
-            .ok_or_else(size_error)
-            .map(|img| {
-                (
-                    img,
-                    SourceFormat::RgbaPremultiplied,
-                    Size { width: original_size.width() as _, height: original_size.height() as _ },
-                )
-            });
-    }
-    if let Some(buffer) = file.builtin_contents {
-        image::load_from_memory(buffer)
-    } else {
-        image::open(file.canon_path)
-    }
-    .map(|mut image| {
-        let (original_width, original_height) = image.dimensions();
-
-        if scale_factor < 1. {
-            image = image.resize_exact(
-                (original_width as f32 * scale_factor) as u32,
-                (original_height as f32 * scale_factor) as u32,
-                image::imageops::FilterType::Gaussian,
-            );
-        }
-
-        (
-            image.to_rgba8(),
-            SourceFormat::Rgba,
-            Size { width: original_width, height: original_height },
-        )
-    })
-}
-
-#[cfg(feature = "software-renderer")]
-fn load_image_from_data_uri(
-    decoded_data: &[u8],
-    extension: &str,
-    scale_factor: f32,
-) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    if extension == "svg" || extension == "svgz" {
-        use resvg::{tiny_skia, usvg};
-
-        let tree = {
-            let option = usvg::Options::default();
-            usvg::Tree::from_data(decoded_data, &option).map_err(|e| {
+            usvg::Tree::from_data(data, &option).map_err(|e| {
                 image::ImageError::Decoding(image::error::DecodingError::new(
                     image::error::ImageFormatHint::Name("svg".into()),
                     e,
@@ -476,41 +400,87 @@ fn load_image_from_data_uri(
         let height = (original_size.height() * scale_factor) as u32;
 
         let mut buffer = vec![0u8; width as usize * height as usize * 4];
+
         let size_error = || {
             image::ImageError::Limits(image::error::LimitError::from_kind(
                 image::error::LimitErrorKind::DimensionError,
             ))
         };
+
         let mut skia_buffer =
             tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width, height)
                 .ok_or_else(size_error)?;
+
         resvg::render(
             &tree,
-            tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
+            tiny_skia::Transform::from_scale(scale_factor, scale_factor),
             &mut skia_buffer,
         );
 
-        return image::RgbaImage::from_raw(width, height, buffer).ok_or_else(size_error).map(
-            |img| {
+        return image::RgbaImage::from_raw(width, height, buffer)
+            .ok_or_else(size_error)
+            .map(|img| {
                 (
                     img,
                     SourceFormat::RgbaPremultiplied,
-                    Size { width: original_size.width() as _, height: original_size.height() as _ },
+                    Size {
+                        width: original_size.width() as _,
+                        height: original_size.height() as _,
+                    },
                 )
-            },
-        );
+            });
     }
 
-    image::load_from_memory(decoded_data).map(|image| {
-        let original_width = image.width();
-        let original_height = image.height();
+    image::load_from_memory(data).map(|mut image| {
+        let (original_width, original_height) = image.dimensions();
+
+        if resize_when_downscaling && scale_factor < 1.0 {
+            image = image.resize_exact(
+                (original_width as f32 * scale_factor) as u32,
+                (original_height as f32 * scale_factor) as u32,
+                image::imageops::FilterType::Gaussian,
+            );
+        }
 
         (
             image.to_rgba8(),
             SourceFormat::Rgba,
-            Size { width: original_width, height: original_height },
+            Size {
+                width: original_width,
+                height: original_height,
+            },
         )
     })
+}
+
+#[cfg(feature = "software-renderer")]
+fn load_image(
+    file: crate::fileaccess::VirtualFile,
+    scale_factor: f32,
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
+    use std::ffi::OsStr;
+
+    let extension = file
+        .canon_path
+        .extension()
+        .and_then(OsStr::to_str);
+
+    let data = if let Some(buffer) = file.builtin_contents {
+        buffer.to_vec()
+    } else {
+        std::fs::read(&file.canon_path)?
+    };
+
+    load_image_from_bytes(&data, extension, scale_factor, true)
+}
+
+#[cfg(feature = "software-renderer")]
+fn load_image_from_data_uri(
+    decoded_data: &[u8],
+    extension: &str,
+    scale_factor: f32,
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
+    load_image_from_bytes(decoded_data, Some(extension), scale_factor, false)
 }
 
 fn embed_data_uri(
