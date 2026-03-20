@@ -12,10 +12,9 @@
 extern crate alloc;
 
 use i_slint_core::platform::PlatformError;
-use std::{
-    rc::Rc,
-    sync::{Arc, atomic::AtomicUsize},
-};
+use std::rc::Rc;
+#[cfg(not(no_qt))]
+use std::sync::{Arc, atomic::AtomicUsize};
 
 #[cfg(not(no_qt))]
 mod qt_accessible;
