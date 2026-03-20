@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use crate::event_queue::{self, SafeUiEventLoopProxy};
+use crate::event_queue::{self, QueueEntry, SafeUiEventLoopProxy};
 
 struct Platform {
     scale_factor: f32,
@@ -38,11 +38,18 @@ impl slint::platform::Platform for Platform {
         loop {
             slint::platform::update_timers_and_animations();
 
-            // Drain and process all pending callbacks (FFI + internal).
-            for event in event_queue::drain_callbacks() {
-                match event {
-                    event_queue::Event::Quit => return Ok(()),
-                    event_queue::Event::Callback(f) => f(),
+            // Process all pending queue entries (FFI callbacks, Rust
+            // closures, quit signals).
+            for entry in event_queue::take_queue() {
+                match entry {
+                    QueueEntry::Quit => return Ok(()),
+                    QueueEntry::Callback(f) => f(),
+                    QueueEntry::FfiCallback { callback, user_data } => {
+                        // SAFETY: The C caller guaranteed that callback is a
+                        // valid function pointer and user_data remains valid
+                        // until invocation.
+                        unsafe { (callback)(user_data) };
+                    }
                 }
             }
 
