@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+
+// If the lineedit gets hidden, the text-input-focused must be false
+// to hide also virtual keyboards and so on
+
+export component TestCase inherits Window {
+
+    property <bool> le_visible;
+
+    callback focus_the_line_edit;
+    focus_the_line_edit => {
+        le.focus();
+        timer.running = true;
+    }
+    callback set_line_edit_visible_and_focused;
+    set_line_edit_visible_and_focused => {
+        le.visible = true;
+        le.focus();
+    }
+
+    timer:= Timer {
+        running: false;
+        interval: 1s;
+        triggered => {
+            le.visible = false;
+        }
+    }
+
+    le := LineEdit {}
+
+    out property<bool> focused: TextInputInterface.text-input-focused;
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_focused());
+
+instance.invoke_focus_the_line_edit();
+assert!(instance.get_focused());
+
+slint_testing::mock_elapsed_time(10);
+assert!(!instance.get_focused());
+
+instance.invoke_set_line_edit_visible_and_focused();
+assert!(instance.get_focused());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_focused());
+
+instance.invoke_focus_the_line_edit();
+assert(instance.get_focused());
+
+slint_testing::mock_elapsed_time(10);
+assert(!instance.get_focused());
+
+instance.invoke_set_line_edit_visible_and_focused();
+assert(instance.get_focused());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(!instance.focused);
+
+instance.focus_the_line_edit();
+assert(instance.focused);
+
+slintlib.private_api.mock_elapsed_time(10);
+assert(!instance.focused);
+
+instance.line_edit_visible_and_focused();
+assert(instance.focused);
+```
+*/
