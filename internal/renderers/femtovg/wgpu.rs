@@ -132,15 +132,15 @@ impl GraphicsBackend for WGPUBackend {
 }
 
 impl FemtoVGRenderer<WGPUBackend> {
-    pub fn set_window_handle(
+    pub fn set_surface(
         &self,
-        window_handle: Box<dyn wgpu::WindowHandle>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_28::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_28::init_instance_adapter_device_queue_surface(
-                window_handle,
+                surface_target,
                 requested_graphics_api,
                 /* rendering artifacts :( */
                 wgpu::Backends::GL,
