@@ -3,7 +3,6 @@
 
 extern crate alloc;
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::ffi::c_void;
 use critical_section::Mutex;
@@ -14,45 +13,32 @@ unsafe extern "C" {
     fn slint_safeui_platform_wake();
 }
 
-/// A callback + user_data pair from C, stored in the static queue.
-#[derive(Clone, Copy)]
-struct FfiCallback {
-    callback: unsafe extern "C" fn(*mut c_void),
-    user_data: *mut c_void,
-}
-
-// SAFETY: FfiCallback is only raw pointers/fn pointers. The queue is
-// drained on a single thread (the Slint event loop), and producers only
-// push under a critical section.
-unsafe impl Send for FfiCallback {}
-
-/// Maximum number of FFI callbacks buffered between drain cycles.
+/// Maximum number of entries buffered between drain cycles.
 const QUEUE_CAPACITY: usize = 32;
 
-/// Static FFI callback queue. Producers (C firmware) push via
-/// [`slint_safeui_invoke_from_event_loop`]. The consumer
-/// ([`drain_callbacks`]) pops from the Slint event loop.
-static FFI_CALLBACK_QUEUE: Mutex<RefCell<Deque<FfiCallback, QUEUE_CAPACITY>>> =
-    Mutex::new(RefCell::new(Deque::new()));
-
-/// Internal event queue for Rust-side event injection via
-/// [`EventLoopProxy`](slint::platform::EventLoopProxy).
+/// A single entry in the unified event queue.
 ///
-/// This uses a heap-allocated `Vec` behind a `Mutex` because:
-/// - `Box<dyn FnOnce() + Send>` is not `Copy`, so it can't live in a
-///   `heapless::Deque`.
-/// - Internal events are rare (UI thread callbacks), so `Vec` overhead
-///   is negligible.
-/// - The `Vec` itself is only allocated once (empty vec = no heap alloc)
-///   and grows on demand.
-static INTERNAL_EVENT_QUEUE: Mutex<RefCell<Vec<InternalEvent>>> =
-    Mutex::new(RefCell::new(Vec::new()));
-
-/// Rust-internal events that never cross FFI.
-enum InternalEvent {
+/// Both FFI callbacks (from C firmware) and Rust closures (from
+/// `EventLoopProxy`) are stored as variants. The `FfiCallback` variant
+/// is ISR-safe to construct — it's just two pointer-sized fields.
+enum QueueEntry {
     Quit,
     Callback(Box<dyn FnOnce() + Send>),
+    FfiCallback { callback: unsafe extern "C" fn(*mut c_void), user_data: *mut c_void },
 }
+
+// SAFETY: The `FfiCallback` variant contains raw pointers which are `!Send`.
+// This is safe because: producers only push under a critical section, and
+// the consumer (drain_callbacks) runs on a single thread (the Slint event
+// loop). The pointers are never accessed concurrently.
+unsafe impl Send for QueueEntry {}
+
+/// Static unified event queue. FFI producers push via
+/// [`slint_safeui_invoke_from_event_loop`], Rust producers via
+/// [`SafeUiEventLoopProxy`]. The consumer ([`drain_callbacks`]) pops
+/// from the Slint event loop.
+static EVENT_QUEUE: Mutex<RefCell<Deque<QueueEntry, QUEUE_CAPACITY>>> =
+    Mutex::new(RefCell::new(Deque::new()));
 
 /// Event type consumed by the platform event loop.
 ///
@@ -69,30 +55,37 @@ pub enum Event {
 ///
 /// This is returned by `Platform::new_event_loop_proxy()` and enables
 /// `slint::invoke_from_event_loop()` and `slint::quit_event_loop()`.
-///
-/// Events are pushed into the [`INTERNAL_EVENT_QUEUE`] (not the FFI queue)
-/// since they carry heap-allocated closures.
 #[derive(Clone)]
 pub struct SafeUiEventLoopProxy;
 
 impl slint::platform::EventLoopProxy for SafeUiEventLoopProxy {
     fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-        critical_section::with(|cs| {
-            INTERNAL_EVENT_QUEUE.borrow_ref_mut(cs).push(InternalEvent::Quit);
+        let result = critical_section::with(|cs| {
+            EVENT_QUEUE
+                .borrow_ref_mut(cs)
+                .push_back(QueueEntry::Quit)
+                .map_err(|_| slint::EventLoopError::EventLoopTerminated)
         });
-        unsafe { slint_safeui_platform_wake() };
-        Ok(())
+        if result.is_ok() {
+            unsafe { slint_safeui_platform_wake() };
+        }
+        result
     }
 
     fn invoke_from_event_loop(
         &self,
         event: Box<dyn FnOnce() + Send>,
     ) -> Result<(), slint::EventLoopError> {
-        critical_section::with(|cs| {
-            INTERNAL_EVENT_QUEUE.borrow_ref_mut(cs).push(InternalEvent::Callback(event));
+        let result = critical_section::with(|cs| {
+            EVENT_QUEUE
+                .borrow_ref_mut(cs)
+                .push_back(QueueEntry::Callback(event))
+                .map_err(|_| slint::EventLoopError::EventLoopTerminated)
         });
-        unsafe { slint_safeui_platform_wake() };
-        Ok(())
+        if result.is_ok() {
+            unsafe { slint_safeui_platform_wake() };
+        }
+        result
     }
 }
 
@@ -111,10 +104,10 @@ pub extern "C" fn slint_safeui_invoke_from_event_loop(
     callback: unsafe extern "C" fn(*mut c_void),
     user_data: *mut c_void,
 ) -> i32 {
-    let entry = FfiCallback { callback, user_data };
+    let entry = QueueEntry::FfiCallback { callback, user_data };
 
     let result = critical_section::with(|cs| {
-        let mut queue = FFI_CALLBACK_QUEUE.borrow_ref_mut(cs);
+        let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
         match queue.push_back(entry) {
             Ok(()) => {
                 // Wake the Slint event loop so it drains promptly.
@@ -130,41 +123,36 @@ pub extern "C" fn slint_safeui_invoke_from_event_loop(
     result
 }
 
-/// Drain and execute all pending callbacks, then return internal events.
+/// Drain all pending entries from the unified queue.
 ///
-/// FFI callbacks are drained from the static `heapless::Deque` under a short
-/// critical section, then **called directly** outside the critical section.
-///
-/// Internal events (from [`SafeUiEventLoopProxy`]) are drained under a
-/// separate short critical section and returned for the caller to handle.
+/// Entries are popped under a single short critical section. FFI callbacks
+/// are executed immediately; Rust closures and quit signals are returned
+/// as [`Event`] values for the caller to handle.
 ///
 /// Must be called from the Slint event loop thread.
-pub fn drain_callbacks() -> Vec<Event> {
-    // Phase 1: drain FFI callbacks under critical section.
-    let mut raw_callbacks: heapless::Vec<FfiCallback, QUEUE_CAPACITY> = heapless::Vec::new();
+pub fn drain_callbacks() -> heapless::Vec<Event, QUEUE_CAPACITY> {
+    let mut raw: heapless::Vec<QueueEntry, QUEUE_CAPACITY> = heapless::Vec::new();
     critical_section::with(|cs| {
-        let mut queue = FFI_CALLBACK_QUEUE.borrow_ref_mut(cs);
-        while let Some(cb) = queue.pop_front() {
-            let _ = raw_callbacks.push(cb);
+        let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
+        while let Some(entry) = queue.pop_front() {
+            let _ = raw.push(entry);
         }
     });
 
-    // Phase 2: execute FFI callbacks outside the critical section.
-    for cb in &raw_callbacks {
-        // SAFETY: The C caller guaranteed that callback is a valid function
-        // pointer and user_data remains valid until invocation.
-        unsafe { (cb.callback)(cb.user_data) };
-    }
-
-    // Phase 3: drain internal events under a separate critical section.
-    let internal_events: Vec<InternalEvent> =
-        critical_section::with(|cs| core::mem::take(&mut *INTERNAL_EVENT_QUEUE.borrow_ref_mut(cs)));
-
-    let mut events = Vec::with_capacity(internal_events.len());
-    for internal in internal_events {
-        match internal {
-            InternalEvent::Quit => events.push(Event::Quit),
-            InternalEvent::Callback(f) => events.push(Event::Callback(f)),
+    let mut events: heapless::Vec<Event, QUEUE_CAPACITY> = heapless::Vec::new();
+    for entry in raw {
+        match entry {
+            QueueEntry::Quit => {
+                let _ = events.push(Event::Quit);
+            }
+            QueueEntry::Callback(f) => {
+                let _ = events.push(Event::Callback(f));
+            }
+            QueueEntry::FfiCallback { callback, user_data } => {
+                // SAFETY: The C caller guaranteed that callback is a valid
+                // function pointer and user_data remains valid until invocation.
+                unsafe { (callback)(user_data) };
+            }
         }
     }
 
