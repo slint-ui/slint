@@ -434,33 +434,7 @@ fn apply_font_style(font: *mut TTF_Font, weight: i32, italic: bool) {
 
 /// Try to find a system default font. Returns a path to a TTF file.
 fn find_default_font() -> Option<String> {
-    // Common default font locations by platform
-    let candidates = [
-        // Linux - DejaVu Sans is very common
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf",
-        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
-        // Linux - Liberation Sans
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
-        // Linux - Noto Sans
-        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        "/usr/share/fonts/noto/NotoSans-Regular.ttf",
-        // macOS
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/SFPro.ttf",
-        "/Library/Fonts/Arial.ttf",
-        // Windows
-        "C:\\Windows\\Fonts\\segoeui.ttf",
-        "C:\\Windows\\Fonts\\arial.ttf",
-    ];
-
-    for path in &candidates {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-    None
+    fc_match("sans")
 }
 
 /// Try to find a system font matching the given family name.
@@ -468,21 +442,26 @@ fn find_system_font(family: &str) -> Option<String> {
     if family.is_empty() {
         return None;
     }
+    fc_match(family)
+}
 
-    // Use fc-match on Linux to find fonts by family name
+/// Use fontconfig's `fc-match` to resolve a font pattern to a file path.
+fn fc_match(pattern: &str) -> Option<String> {
+    #[cfg(not(target_os = "linux"))]
+    { let _ = pattern; return None; }
+
     #[cfg(target_os = "linux")]
     {
-        if let Ok(output) =
-            std::process::Command::new("fc-match").args(["--format=%{file}", family]).output()
-        {
-            if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() && std::path::Path::new(&path).exists() {
-                    return Some(path);
-                }
+        let output = std::process::Command::new("fc-match")
+            .args(["--format=%{file}", pattern])
+            .output()
+            .ok()?;
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() && std::path::Path::new(&path).exists() {
+                return Some(path);
             }
         }
+        None
     }
-
-    None
 }
