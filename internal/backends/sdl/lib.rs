@@ -228,25 +228,36 @@ impl Platform for Backend {
             }
         }
 
-        // If there's a pending timer, wait for the shorter of timeout or next timer
-        if let Some(next_timer) =
-            i_slint_core::platform::duration_until_next_timer_update()
-        {
-            let wait = timeout.min(next_timer);
+        // Sleep until the next event or timer, whichever comes first.
+        // Skip sleeping if we already have a pending redraw (continuous animation).
+        let has_pending_redraw = self
+            .window_adapter
+            .borrow()
+            .as_ref()
+            .is_some_and(|a| a.needs_redraw.get());
+
+        if !has_pending_redraw {
+            let wait = if let Some(next_timer) =
+                i_slint_core::platform::duration_until_next_timer_update()
+            {
+                timeout.min(next_timer)
+            } else {
+                timeout
+            };
             if !wait.is_zero() {
+                // WaitEventTimeout sleeps until an event arrives or the timeout
+                // expires. The consumed event will be processed in the next
+                // process_events call via PollEvent at the top.
                 unsafe {
-                    SDL_WaitEventTimeout(&mut event, wait.as_millis().min(i32::MAX as u128) as i32);
-                    // If we got an event, push it back so it's processed next iteration
-                    if event.r#type != 0 {
-                        SDL_PushEvent(&mut event);
+                    let mut wake_event = SDL_Event::default();
+                    SDL_WaitEventTimeout(
+                        &mut wake_event,
+                        wait.as_millis().min(i32::MAX as u128) as i32,
+                    );
+                    // Push it back so PollEvent sees it next iteration
+                    if wake_event.r#type != 0 {
+                        SDL_PushEvent(&mut wake_event);
                     }
-                }
-            }
-        } else if !timeout.is_zero() {
-            unsafe {
-                SDL_WaitEventTimeout(&mut event, timeout_ms);
-                if event.r#type != 0 {
-                    SDL_PushEvent(&mut event);
                 }
             }
         }
@@ -963,10 +974,17 @@ pub unsafe extern "C" fn slint_sdl_set_pre_render_callback(
     user_data: *mut c_void,
     drop_user_data: Option<unsafe extern "C" fn(*mut c_void)>,
 ) {
+    // Wrap the C callback + user_data so that drop_user_data is called when
+    // the closure is dropped (i.e. when the callback is replaced or cleared).
     struct CbData {
         cb: unsafe extern "C" fn(*mut c_void, *mut c_void),
         data: *mut c_void,
         drop_fn: Option<unsafe extern "C" fn(*mut c_void)>,
+    }
+    impl CbData {
+        fn invoke(&self, renderer_ptr: *mut c_void) {
+            unsafe { (self.cb)(renderer_ptr, self.data) };
+        }
     }
     impl Drop for CbData {
         fn drop(&mut self) {
@@ -979,8 +997,10 @@ pub unsafe extern "C" fn slint_sdl_set_pre_render_callback(
     PRE_RENDER_CB.with(|cell| {
         *cell.borrow_mut() = callback.map(|cb| {
             let d = CbData { cb, data: user_data, drop_fn: drop_user_data };
+            // Use `d` as a whole (via the invoke method) so the closure captures
+            // the entire CbData, keeping drop_fn alive until the closure is dropped.
             let closure: Box<dyn Fn(*mut c_void)> = Box::new(move |renderer_ptr| {
-                unsafe { (d.cb)(renderer_ptr, d.data) };
+                d.invoke(renderer_ptr);
             });
             closure
         });

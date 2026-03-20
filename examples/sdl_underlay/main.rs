@@ -4,32 +4,53 @@
 //! Rust version of the SDL underlay example.
 //!
 //! Demonstrates rendering custom game content with SDL_Renderer before
-//! Slint draws its UI overlay on top. Uses the C FFI functions so the
-//! approach is identical to what a C++ game would do.
+//! Slint draws its UI overlay on top.
 
 slint::include_modules!();
+
+use std::cell::Cell;
+use std::rc::Rc;
+
+struct GameState {
+    start: std::time::Instant,
+    animation_enabled: Rc<Cell<bool>>,
+    speed: Rc<Cell<f32>>,
+}
 
 fn main() {
     let app = App::new().unwrap();
 
-    // Set up the pre-render callback via the C FFI.
-    // We pass the start time as user_data so the animation has a proper time base.
-    let start_time = Box::new(std::time::Instant::now());
+    // Shared state read by the pre-render callback
+    let animation_enabled = Rc::new(Cell::new(true));
+    let speed = Rc::new(Cell::new(1.0f32));
+    let start = std::time::Instant::now();
+
+    let state = Box::new(GameState {
+        start,
+        animation_enabled: animation_enabled.clone(),
+        speed: speed.clone(),
+    });
+
     unsafe {
         slint_sdl_set_pre_render_callback(
             Some(pre_render),
-            Box::into_raw(start_time) as *mut std::ffi::c_void,
-            Some(drop_instant),
+            Box::into_raw(state) as *mut std::ffi::c_void,
+            Some(drop_state),
         );
     }
 
+    // Timer to poll UI properties and drive redraws
     let app_weak = app.as_weak();
+    let anim = animation_enabled.clone();
+    let spd = speed.clone();
     let timer = slint::Timer::default();
     timer.start(
         slint::TimerMode::Repeated,
         std::time::Duration::from_millis(16),
         move || {
             if let Some(app) = app_weak.upgrade() {
+                anim.set(app.get_animation_enabled());
+                spd.set(app.get_speed());
                 app.window().request_redraw();
             }
         },
@@ -39,7 +60,10 @@ fn main() {
     app.run().unwrap();
 }
 
-// Import the C FFI from the SDL backend
+// ---------------------------------------------------------------------------
+// C FFI for the pre-render callback
+// ---------------------------------------------------------------------------
+
 unsafe extern "C" {
     fn slint_sdl_set_pre_render_callback(
         callback: Option<unsafe extern "C" fn(*mut std::ffi::c_void, *mut std::ffi::c_void)>,
@@ -48,23 +72,34 @@ unsafe extern "C" {
     );
 }
 
-unsafe extern "C" fn drop_instant(ptr: *mut std::ffi::c_void) {
-    unsafe { drop(Box::from_raw(ptr as *mut std::time::Instant)) };
+unsafe extern "C" fn drop_state(ptr: *mut std::ffi::c_void) {
+    unsafe { drop(Box::from_raw(ptr as *mut GameState)) };
 }
 
-/// Pre-render callback — draws animated rectangles using SDL_Renderer.
-unsafe extern "C" fn pre_render(renderer: *mut std::ffi::c_void, user_data: *mut std::ffi::c_void) {
+unsafe extern "C" fn pre_render(
+    renderer: *mut std::ffi::c_void,
+    user_data: *mut std::ffi::c_void,
+) {
     unsafe extern "C" {
-        fn SDL_SetRenderDrawColor(r: *mut std::ffi::c_void, red: u8, green: u8, blue: u8, alpha: u8) -> bool;
-        fn SDL_RenderFillRect(r: *mut std::ffi::c_void, rect: *const [f32; 4]) -> bool;
+        fn SDL_SetRenderDrawColor(
+            r: *mut std::ffi::c_void, red: u8, green: u8, blue: u8, alpha: u8,
+        ) -> bool;
+        fn SDL_RenderFillRect(
+            r: *mut std::ffi::c_void, rect: *const [f32; 4],
+        ) -> bool;
         fn SDL_SetRenderDrawBlendMode(r: *mut std::ffi::c_void, mode: u32) -> bool;
     }
 
-    let start = unsafe { &*(user_data as *const std::time::Instant) };
-    let t = start.elapsed().as_secs_f32();
+    let state = unsafe { &*(user_data as *const GameState) };
+
+    let elapsed = state.start.elapsed().as_secs_f32();
+    let t = if state.animation_enabled.get() {
+        elapsed * state.speed.get()
+    } else {
+        0.0
+    };
 
     unsafe {
-        // Dark blue background
         SDL_SetRenderDrawBlendMode(renderer, 1); // SDL_BLENDMODE_BLEND
         SDL_SetRenderDrawColor(renderer, 20, 20, 40, 255);
         SDL_RenderFillRect(renderer, std::ptr::null());
