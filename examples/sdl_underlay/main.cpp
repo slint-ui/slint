@@ -150,7 +150,7 @@ int main()
 
     // Poll the UI properties each frame via a timer to update game state.
     // (In a real game you'd integrate this into your game loop instead.)
-    auto app_weak = app->as_weak();
+    slint::ComponentWeakHandle<App> app_weak(app);
     slint::Timer animation_timer;
     animation_timer.start(slint::TimerMode::Repeated,
                           std::chrono::milliseconds(16),

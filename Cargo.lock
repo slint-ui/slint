@@ -9293,6 +9293,8 @@ version = "0.1.0"
 dependencies = [
  "slint",
  "slint-build",
+ "slint-interpreter",
+ "spin_on",
 ]
 
 [[package]]

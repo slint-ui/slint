@@ -85,6 +85,7 @@ const SLINT_SDL_EVENT_QUIT: u32 = SDL_EVENT_USER.0 + 2;
 /// then pass to [`i_slint_core::platform::set_platform`].
 pub struct Backend {
     start_time: Instant,
+    sdl_resources: RefCell<Option<Rc<SdlResources>>>,
     window_adapter: RefCell<Option<Rc<SdlWindowAdapter>>>,
     pre_render_callback: RefCell<Option<Box<dyn Fn(*mut c_void)>>>,
 }
@@ -105,6 +106,7 @@ impl Backend {
 
         Ok(Self {
             start_time: Instant::now(),
+            sdl_resources: RefCell::new(None),
             window_adapter: RefCell::new(None),
             pre_render_callback: RefCell::new(None),
         })
@@ -128,15 +130,26 @@ impl Backend {
         self.window_adapter
             .borrow()
             .as_ref()
-            .map_or(std::ptr::null_mut(), |wa| wa.sdl_renderer as *mut c_void)
+            .map_or(std::ptr::null_mut(), |wa| wa.res.sdl_renderer as *mut c_void)
     }
 }
 
 impl Platform for Backend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        let adapter = SdlWindowAdapter::new()?;
+        // Create the SDL resources (window, renderer, text engine) on the
+        // first call. Subsequent calls (e.g. interpreter reloads) reuse the
+        // same resources — only the WindowAdapter (which wraps a Slint
+        // `Window` tied to the component) is recreated.
+        let res = if let Some(res) = self.sdl_resources.borrow().as_ref() {
+            res.clone()
+        } else {
+            let res = SdlResources::new()?;
+            *self.sdl_resources.borrow_mut() = Some(res.clone());
+            res
+        };
+
+        let adapter = SdlWindowAdapter::new(res)?;
         *self.window_adapter.borrow_mut() = Some(adapter.clone());
-        // Store weak ref for C FFI access
         SDL_WINDOW_ADAPTER.with(|cell| {
             *cell.borrow_mut() = Some(Rc::downgrade(&adapter));
         });
@@ -209,18 +222,18 @@ impl Platform for Backend {
 
                 // Clear first, then let the game draw, then render Slint UI on top.
                 unsafe {
-                    SDL_SetRenderDrawColor(adapter.sdl_renderer, 0, 0, 0, 255);
-                    SDL_RenderClear(adapter.sdl_renderer);
+                    SDL_SetRenderDrawColor(adapter.res.sdl_renderer, 0, 0, 0, 255);
+                    SDL_RenderClear(adapter.res.sdl_renderer);
                 }
 
                 // Call pre-render callback (for game rendering).
                 // Check both the Rust API callback and the C FFI callback.
                 if let Some(ref callback) = *self.pre_render_callback.borrow() {
-                    callback(adapter.sdl_renderer as *mut c_void);
+                    callback(adapter.res.sdl_renderer as *mut c_void);
                 }
                 PRE_RENDER_CB.with(|cell| {
                     if let Some(ref cb) = *cell.borrow() {
-                        cb(adapter.sdl_renderer as *mut c_void);
+                        cb(adapter.res.sdl_renderer as *mut c_void);
                     }
                 });
 
@@ -361,21 +374,44 @@ impl i_slint_core::platform::EventLoopProxy for SdlEventLoopProxy {
 // WindowAdapter
 // ---------------------------------------------------------------------------
 
-/// The SDL window adapter. Wraps an SDL_Window and SDL_Renderer.
-#[allow(dead_code)]
-struct SdlWindowAdapter {
-    window: i_slint_core::api::Window,
+/// Shared SDL resources that persist across window adapter instances.
+/// This allows the interpreter to reload components without recreating
+/// the SDL window, renderer, or font caches.
+struct SdlResources {
     sdl_window: *mut SDL_Window,
     sdl_renderer: *mut SDL_Renderer,
     text_engine: *mut sdl3_ttf_sys::ttf::TTF_TextEngine,
     font_manager: FontManager,
+    texture_cache: RefCell<HashMap<(usize, u32), CachedTexture>>,
+}
+
+impl Drop for SdlResources {
+    fn drop(&mut self) {
+        self.texture_cache.borrow_mut().clear();
+        if !self.text_engine.is_null() {
+            unsafe { TTF_DestroyRendererTextEngine(self.text_engine) };
+        }
+        if !self.sdl_renderer.is_null() {
+            unsafe { SDL_DestroyRenderer(self.sdl_renderer) };
+        }
+        if !self.sdl_window.is_null() {
+            unsafe { SDL_DestroyWindow(self.sdl_window) };
+        }
+    }
+}
+
+/// The SDL window adapter. Each component instance gets its own adapter
+/// (with its own `Window`) but they all share the same SDL resources.
+#[allow(dead_code)]
+struct SdlWindowAdapter {
+    window: i_slint_core::api::Window,
+    res: Rc<SdlResources>,
     needs_redraw: Cell<bool>,
     visible: Cell<bool>,
-    texture_cache: RefCell<HashMap<(usize, u32), CachedTexture>>,
     self_weak: RefCell<Weak<Self>>,
 }
 
-impl SdlWindowAdapter {
+impl SdlResources {
     fn new() -> Result<Rc<Self>, PlatformError> {
         let title = CString::new("Slint Window").unwrap();
 
@@ -397,13 +433,10 @@ impl SdlWindowAdapter {
             return Err(format!("SDL_CreateRenderer failed: {}", sdl_error()).into());
         }
 
-        // Enable blending by default
         unsafe {
             SDL_SetRenderDrawBlendMode(sdl_renderer, SDL_BLENDMODE_BLEND);
         }
 
-        // Create the SDL_ttf renderer text engine for efficient text rendering.
-        // This caches glyph textures internally so repeated draws are fast.
         let text_engine = unsafe { TTF_CreateRendererTextEngine(sdl_renderer) };
         if text_engine.is_null() {
             unsafe {
@@ -413,17 +446,23 @@ impl SdlWindowAdapter {
             return Err(format!("TTF_CreateRendererTextEngine failed: {}", sdl_error()).into());
         }
 
-        let font_manager = FontManager::new();
-
-        let adapter = Rc::new_cyclic(|weak| Self {
-            window: i_slint_core::api::Window::new(weak.clone() as Weak<dyn WindowAdapter>),
+        Ok(Rc::new(Self {
             sdl_window,
             sdl_renderer,
             text_engine,
-            font_manager,
+            font_manager: FontManager::new(),
+            texture_cache: RefCell::new(HashMap::new()),
+        }))
+    }
+}
+
+impl SdlWindowAdapter {
+    fn new(res: Rc<SdlResources>) -> Result<Rc<Self>, PlatformError> {
+        let adapter = Rc::new_cyclic(|weak| Self {
+            window: i_slint_core::api::Window::new(weak.clone() as Weak<dyn WindowAdapter>),
+            res,
             needs_redraw: Cell::new(true),
             visible: Cell::new(false),
-            texture_cache: RefCell::new(HashMap::new()),
             self_weak: RefCell::new(weak.clone()),
         });
 
@@ -431,10 +470,10 @@ impl SdlWindowAdapter {
         // physical pixels != logical points. The scale factor is the ratio.
         let mut w: c_int = 0;
         let mut h: c_int = 0;
-        unsafe { SDL_GetWindowSize(sdl_window, &mut w, &mut h) };
+        unsafe { SDL_GetWindowSize(adapter.res.sdl_window, &mut w, &mut h) };
         let mut pw: c_int = 0;
         let mut ph: c_int = 0;
-        unsafe { SDL_GetWindowSizeInPixels(sdl_window, &mut pw, &mut ph) };
+        unsafe { SDL_GetWindowSizeInPixels(adapter.res.sdl_window, &mut pw, &mut ph) };
 
         // Derive the scale factor from the actual pixel-to-point ratio rather
         // than SDL_GetWindowDisplayScale(), because the display scale may not
@@ -466,17 +505,17 @@ impl SdlWindowAdapter {
 
         // Reset clip to full window
         unsafe {
-            SDL_SetRenderClipRect(self.sdl_renderer, std::ptr::null());
+            SDL_SetRenderClipRect(self.res.sdl_renderer, std::ptr::null());
         }
 
         let mut item_renderer = SdlItemRenderer::new(
-            self.sdl_renderer,
-            self.text_engine,
-            &self.font_manager,
+            self.res.sdl_renderer,
+            self.res.text_engine,
+            &self.res.font_manager,
             sf,
             window_inner,
             logical_size,
-            &self.texture_cache,
+            &self.res.texture_cache,
         );
 
         i_slint_core::item_rendering::render_component_items(
@@ -487,7 +526,7 @@ impl SdlWindowAdapter {
         );
 
         unsafe {
-            SDL_RenderPresent(self.sdl_renderer);
+            SDL_RenderPresent(self.res.sdl_renderer);
         }
 
         Ok(())
@@ -515,10 +554,10 @@ impl SdlWindowAdapter {
                 // Recompute scale from actual pixel-to-point ratio
                 let mut w: c_int = 0;
                 let mut h: c_int = 0;
-                unsafe { SDL_GetWindowSize(self.sdl_window, &mut w, &mut h) };
+                unsafe { SDL_GetWindowSize(self.res.sdl_window, &mut w, &mut h) };
                 let mut pw: c_int = 0;
                 let mut ph: c_int = 0;
-                unsafe { SDL_GetWindowSizeInPixels(self.sdl_window, &mut pw, &mut ph) };
+                unsafe { SDL_GetWindowSizeInPixels(self.res.sdl_window, &mut pw, &mut ph) };
                 let scale = if w > 0 { pw as f32 / w as f32 } else { 1.0 };
                 if scale > 0.0 {
                     self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
@@ -616,9 +655,9 @@ impl WindowAdapter for SdlWindowAdapter {
         self.visible.set(visible);
         unsafe {
             if visible {
-                SDL_ShowWindow(self.sdl_window);
+                SDL_ShowWindow(self.res.sdl_window);
             } else {
-                SDL_HideWindow(self.sdl_window);
+                SDL_HideWindow(self.res.sdl_window);
             }
         }
         if visible {
@@ -630,28 +669,28 @@ impl WindowAdapter for SdlWindowAdapter {
     fn position(&self) -> Option<i_slint_core::api::PhysicalPosition> {
         let mut x: c_int = 0;
         let mut y: c_int = 0;
-        unsafe { SDL_GetWindowPosition(self.sdl_window, &mut x, &mut y) };
+        unsafe { SDL_GetWindowPosition(self.res.sdl_window, &mut x, &mut y) };
         Some(i_slint_core::api::PhysicalPosition::new(x, y))
     }
 
     fn set_position(&self, position: i_slint_core::api::WindowPosition) {
         let phys = position.to_physical(self.window.scale_factor());
         unsafe {
-            SDL_SetWindowPosition(self.sdl_window, phys.x, phys.y);
+            SDL_SetWindowPosition(self.res.sdl_window, phys.x, phys.y);
         }
     }
 
     fn set_size(&self, size: i_slint_core::api::WindowSize) {
         let phys = size.to_physical(self.window.scale_factor());
         unsafe {
-            SDL_SetWindowSize(self.sdl_window, phys.width as c_int, phys.height as c_int);
+            SDL_SetWindowSize(self.res.sdl_window, phys.width as c_int, phys.height as c_int);
         }
     }
 
     fn size(&self) -> PhysicalSize {
         let mut w: c_int = 0;
         let mut h: c_int = 0;
-        unsafe { SDL_GetWindowSizeInPixels(self.sdl_window, &mut w, &mut h) };
+        unsafe { SDL_GetWindowSizeInPixels(self.res.sdl_window, &mut w, &mut h) };
         PhysicalSize::new(w as u32, h as u32)
     }
 
@@ -681,7 +720,7 @@ impl WindowAdapter for SdlWindowAdapter {
         let title = properties.title();
         if let Ok(c_title) = CString::new(title.as_str()) {
             unsafe {
-                SDL_SetWindowTitle(self.sdl_window, c_title.as_ptr());
+                SDL_SetWindowTitle(self.res.sdl_window, c_title.as_ptr());
             }
         }
     }
@@ -701,23 +740,8 @@ impl i_slint_core::window::WindowAdapterInternal for SdlWindowAdapter {
     }
 }
 
-impl Drop for SdlWindowAdapter {
-    fn drop(&mut self) {
-        // Clear texture cache before destroying renderer
-        self.texture_cache.borrow_mut().clear();
-
-        // Destroy text engine before the renderer (it holds internal textures)
-        if !self.text_engine.is_null() {
-            unsafe { TTF_DestroyRendererTextEngine(self.text_engine) };
-        }
-        if !self.sdl_renderer.is_null() {
-            unsafe { SDL_DestroyRenderer(self.sdl_renderer) };
-        }
-        if !self.sdl_window.is_null() {
-            unsafe { SDL_DestroyWindow(self.sdl_window) };
-        }
-    }
-}
+// SdlWindowAdapter has no Drop — the SDL resources are owned by SdlResources
+// and cleaned up when the last Rc<SdlResources> is dropped.
 
 // ---------------------------------------------------------------------------
 // RendererSealed implementation — text measurement and font management
@@ -733,7 +757,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> LogicalSize {
         let font_request = text_item.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf, 0);
+        let font = self.res.font_manager.font_for_request(&font_request, sf, 0);
 
         let text = match text_item.text() {
             i_slint_core::item_rendering::PlainOrStyledText::Plain(s) => s.to_string(),
@@ -748,7 +772,7 @@ impl RendererSealed for SdlWindowAdapter {
             None
         };
 
-        let (w, h) = self.font_manager.text_size(font, &text, max_width_phys);
+        let (w, h) = self.res.font_manager.text_size(font, &text, max_width_phys);
         LogicalSize::new(w / sf, h / sf)
     }
 
@@ -760,10 +784,10 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> LogicalSize {
         let font_request = text_item.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf, 0);
+        let font = self.res.font_manager.font_for_request(&font_request, sf, 0);
 
         let s = ch.to_string();
-        let (w, h) = self.font_manager.text_size(font, &s, None);
+        let (w, h) = self.res.font_manager.text_size(font, &s, None);
         LogicalSize::new(w / sf, h / sf)
     }
 
@@ -772,8 +796,8 @@ impl RendererSealed for SdlWindowAdapter {
         font_request: FontRequest,
     ) -> i_slint_core::items::FontMetrics {
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf, 0);
-        let (ascent, descent, x_height, cap_height) = self.font_manager.font_metrics(font);
+        let font = self.res.font_manager.font_for_request(&font_request, sf, 0);
+        let (ascent, descent, x_height, cap_height) = self.res.font_manager.font_metrics(font);
 
         i_slint_core::items::FontMetrics {
             ascent: ascent / sf,
@@ -791,7 +815,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> usize {
         let font_request = text_input.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf, 0);
+        let font = self.res.font_manager.font_for_request(&font_request, sf, 0);
         if font.is_null() {
             return 0;
         }
@@ -813,7 +837,7 @@ impl RendererSealed for SdlWindowAdapter {
         for (i, line) in text.split('\n').enumerate() {
             if i == line_idx {
                 return byte_offset
-                    + self.font_manager.byte_offset_for_x(font, line, phys_x);
+                    + self.res.font_manager.byte_offset_for_x(font, line, phys_x);
             }
             byte_offset += line.len() + 1; // +1 for newline
         }
@@ -829,7 +853,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> LogicalRect {
         let font_request = text_input.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf, 0);
+        let font = self.res.font_manager.font_for_request(&font_request, sf, 0);
         if font.is_null() {
             return LogicalRect::default();
         }
@@ -843,7 +867,7 @@ impl RendererSealed for SdlWindowAdapter {
         let last_newline = text_before.rfind('\n').map_or(0, |pos| pos + 1);
         let line_text = &text_before[last_newline..];
 
-        let x = self.font_manager.x_for_byte_offset(font, line_text, line_text.len());
+        let x = self.res.font_manager.x_for_byte_offset(font, line_text, line_text.len());
         let y = line_idx as f32 * line_height;
         let cursor_width = text_input.text_cursor_width().get() * sf;
 
@@ -860,7 +884,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> Result<(), PlatformError> {
         // Clear texture cache entries for this component
         // A more precise implementation would only remove textures for the specific items
-        self.texture_cache.borrow_mut().clear();
+        self.res.texture_cache.borrow_mut().clear();
         Ok(())
     }
 
@@ -870,7 +894,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Try to extract a family name from the font data (simplified)
         let family_name = "CustomFont".to_string();
-        self.font_manager
+        self.res.font_manager
             .register_font_from_memory(family_name, data.to_vec());
         Ok(())
     }
@@ -884,7 +908,7 @@ impl RendererSealed for SdlWindowAdapter {
             .and_then(|s| s.to_str())
             .unwrap_or("CustomFont")
             .to_string();
-        self.font_manager.register_font_from_path(
+        self.res.font_manager.register_font_from_path(
             family_name,
             path.to_string_lossy().into_owned(),
         );
@@ -1028,7 +1052,7 @@ pub unsafe extern "C" fn slint_sdl_set_pre_render_callback(
 /// Must be called from the main thread after a window has been shown.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_sdl_get_renderer() -> *mut c_void {
-    get_sdl_ptr(|wa| wa.sdl_renderer as *mut c_void)
+    get_sdl_ptr(|wa| wa.res.sdl_renderer as *mut c_void)
 }
 
 /// Returns the `SDL_Window*` pointer (as `void*`), or null if no SDL
@@ -1038,7 +1062,7 @@ pub unsafe extern "C" fn slint_sdl_get_renderer() -> *mut c_void {
 /// Must be called from the main thread after a window has been shown.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_sdl_get_window() -> *mut c_void {
-    get_sdl_ptr(|wa| wa.sdl_window as *mut c_void)
+    get_sdl_ptr(|wa| wa.res.sdl_window as *mut c_void)
 }
 
 /// Helper: access the SdlWindowAdapter through any active window.

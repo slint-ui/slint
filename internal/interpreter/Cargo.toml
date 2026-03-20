@@ -76,6 +76,9 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 ## windowing system. Requires libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Use the SDL3 backend with SDL_Renderer. Requires SDL3 and SDL3_ttf.
+backend-sdl = ["i-slint-backend-selector/backend-sdl", "std"]
+
 ## Alias to a backend and renderer that depends on the platform.
 ## Will select the Qt backend on linux if present, and the winit otherwise
 backend-default = ["i-slint-backend-selector/default", "dep:i-slint-backend-qt"]

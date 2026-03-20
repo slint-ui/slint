@@ -11,8 +11,14 @@ publish = false
 name = "sdl_underlay"
 path = "main.rs"
 
+[[bin]]
+name = "sdl_underlay_live"
+path = "main_interpreter.rs"
+
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-sdl"] }
+slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["backend-sdl", "compat-1-2"] }
+spin_on = "0.1"
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
