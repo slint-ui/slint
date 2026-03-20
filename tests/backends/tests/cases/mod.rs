@@ -1,15 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-mod harness;
+pub mod harness;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
 
-use harness::test;
-
-test! {
+#[satchel::test]
 fn multiple_quit_event_loop_calls() {
     slint::slint! {
         export component App inherits Window {
@@ -53,5 +51,4 @@ fn multiple_quit_event_loop_calls() {
         did_process_events.load(Ordering::Relaxed),
         "run() exited without processing events — stale quit event was consumed"
     );
-}
 }

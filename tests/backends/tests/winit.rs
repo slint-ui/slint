@@ -9,3 +9,7 @@ fn init() {
     )
     .expect("Failed to set platform!");
 }
+
+fn main() {
+    cases::harness::test_main();
+}
