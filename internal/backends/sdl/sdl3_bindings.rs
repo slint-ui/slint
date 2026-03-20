@@ -70,11 +70,12 @@ pub use sdl3_sys::video::{
 // ---------------------------------------------------------------------------
 
 pub use sdl3_ttf_sys::ttf::{
-    TTF_CloseFont, TTF_CreateRendererTextEngine, TTF_CreateText,
+    TTF_CloseFont, TTF_CopyFont, TTF_CreateRendererTextEngine, TTF_CreateText,
     TTF_DestroyRendererTextEngine, TTF_DestroyText, TTF_DrawRendererText, TTF_Font,
-    TTF_GetFontAscent, TTF_GetFontDescent, TTF_GetFontHeight,
-    TTF_GetFontLineSkip, TTF_GetStringSize, TTF_Init, TTF_MeasureString,
-    TTF_OpenFont, TTF_OpenFontIO, TTF_Quit, TTF_SetFontStyle, TTF_SetTextColor, TTF_SetTextWrapWidth, TTF_STYLE_BOLD, TTF_STYLE_ITALIC, TTF_STYLE_NORMAL,
+    TTF_GetFontAscent, TTF_GetFontDescent, TTF_GetFontHeight, TTF_GetFontOutline,
+    TTF_GetFontLineSkip, TTF_GetStringSize, TTF_Init, TTF_MeasureString, TTF_OpenFont,
+    TTF_OpenFontIO, TTF_Quit, TTF_SetFontOutline, TTF_SetFontStyle, TTF_SetTextColor,
+    TTF_SetTextWrapWidth, TTF_STYLE_BOLD, TTF_STYLE_ITALIC, TTF_STYLE_NORMAL,
 };
 
 // ---------------------------------------------------------------------------

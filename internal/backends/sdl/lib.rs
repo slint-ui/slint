@@ -733,7 +733,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> LogicalSize {
         let font_request = text_item.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf);
+        let font = self.font_manager.font_for_request(&font_request, sf, 0);
 
         let text = match text_item.text() {
             i_slint_core::item_rendering::PlainOrStyledText::Plain(s) => s.to_string(),
@@ -760,7 +760,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> LogicalSize {
         let font_request = text_item.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf);
+        let font = self.font_manager.font_for_request(&font_request, sf, 0);
 
         let s = ch.to_string();
         let (w, h) = self.font_manager.text_size(font, &s, None);
@@ -772,7 +772,7 @@ impl RendererSealed for SdlWindowAdapter {
         font_request: FontRequest,
     ) -> i_slint_core::items::FontMetrics {
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf);
+        let font = self.font_manager.font_for_request(&font_request, sf, 0);
         let (ascent, descent, x_height, cap_height) = self.font_manager.font_metrics(font);
 
         i_slint_core::items::FontMetrics {
@@ -791,7 +791,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> usize {
         let font_request = text_input.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf);
+        let font = self.font_manager.font_for_request(&font_request, sf, 0);
         if font.is_null() {
             return 0;
         }
@@ -829,7 +829,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> LogicalRect {
         let font_request = text_input.font_request(item_rc);
         let sf = self.window.scale_factor();
-        let font = self.font_manager.font_for_request(&font_request, sf);
+        let font = self.font_manager.font_for_request(&font_request, sf, 0);
         if font.is_null() {
             return LogicalRect::default();
         }

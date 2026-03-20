@@ -185,6 +185,10 @@ impl<'a> SdlItemRenderer<'a> {
     /// Uses `TTF_CreateText` / `TTF_DrawRendererText` which lets SDL_ttf cache
     /// glyph textures internally, avoiding the per-frame surface→texture upload
     /// that `TTF_RenderText_Blended` + `SDL_CreateTextureFromSurface` would need.
+    ///
+    /// `phys_offset` is an additional offset in physical pixels applied after
+    /// the logical→physical conversion. Used to compensate for TTF_SetFontOutline
+    /// expanding glyphs outward.
     fn render_text_to_renderer(
         &self,
         text: &str,
@@ -193,6 +197,7 @@ impl<'a> SdlItemRenderer<'a> {
         x: f32,
         y: f32,
         max_width: Option<f32>,
+        phys_offset: (f32, f32),
     ) {
         if font.is_null() || text.is_empty() || self.text_engine.is_null() {
             return;
@@ -234,8 +239,8 @@ impl<'a> SdlItemRenderer<'a> {
             }
 
             // Draw at the translated position (in physical pixels)
-            let phys_x = (x + self.state.offset.x) * sf;
-            let phys_y = (y + self.state.offset.y) * sf;
+            let phys_x = (x + self.state.offset.x) * sf + phys_offset.0;
+            let phys_y = (y + self.state.offset.y) * sf + phys_offset.1;
             TTF_DrawRendererText(ttf_text, phys_x, phys_y);
 
             TTF_DestroyText(ttf_text);
@@ -464,7 +469,7 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
         }
 
         let font_request = text.font_request(self_rc);
-        let font = self.font_manager.font_for_request(&font_request, self.scale_factor);
+        let font = self.font_manager.font_for_request(&font_request, self.scale_factor, 0);
         if font.is_null() {
             return;
         }
@@ -504,7 +509,26 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
             None
         };
 
-        self.render_text_to_renderer(&string, font, color, x_offset, y_offset, max_width);
+        // Handle text stroke (outline). TTF_SetFontOutline renders an outline
+        // around each glyph. We draw the outline pass first, then the fill on top.
+        let (stroke_brush, stroke_width, stroke_style) = text.stroke();
+        let stroke_color = self.brush_to_color(&stroke_brush);
+        let stroke_px = stroke_width.get() * self.scale_factor;
+
+        if stroke_color.alpha() > 0 && stroke_px > 0.0 {
+            let outline = match stroke_style {
+                // Outside: the full stroke width is outside the glyph edge
+                items::TextStrokeStyle::Outside => stroke_px.round() as i32,
+                // Center: half the stroke is outside, half inside
+                items::TextStrokeStyle::Center => (stroke_px / 2.0).round().max(1.0) as i32,
+                _ => stroke_px.round() as i32,
+            };
+            let outlined_font = self.font_manager.font_for_request(&font_request, self.scale_factor, outline);
+            let px = -((2 * outline) as f32);
+            self.render_text_to_renderer(&string, outlined_font, stroke_color, x_offset, y_offset, max_width, (px, px));
+        }
+
+        self.render_text_to_renderer(&string, font, color, x_offset, y_offset, max_width, (0.0, 0.0));
     }
 
     fn draw_text_input(
@@ -516,14 +540,14 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
         let font_request = text_input.font_request(self_rc);
         let font = self
             .font_manager
-            .font_for_request(&font_request, self.scale_factor);
+            .font_for_request(&font_request, self.scale_factor, 0);
 
         let visual = text_input.visual_representation(None);
         let text = &visual.text;
 
         if !text.is_empty() {
             let color = self.brush_to_color(&text_input.color());
-            self.render_text_to_renderer(text, font, color, 0.0, 0.0, None);
+            self.render_text_to_renderer(text, font, color, 0.0, 0.0, None, (0.0, 0.0));
         }
 
         // Draw cursor
@@ -590,6 +614,7 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
                     sel_start.min(sel_end),
                     0.0,
                     None,
+                    (0.0, 0.0),
                 );
             }
         }
@@ -767,8 +792,8 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
 
     fn draw_string(&mut self, string: &str, color: Color) {
         let request = FontRequest::default();
-        let font = self.font_manager.font_for_request(&request, self.scale_factor);
-        self.render_text_to_renderer(string, font, color, 0.0, 0.0, None);
+        let font = self.font_manager.font_for_request(&request, self.scale_factor, 0);
+        self.render_text_to_renderer(string, font, color, 0.0, 0.0, None, (0.0, 0.0));
     }
 
     fn draw_image_direct(&mut self, image: Image) {

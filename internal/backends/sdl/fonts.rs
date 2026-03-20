@@ -22,10 +22,11 @@ struct FontCacheKey {
     pixel_size_tenths: i32, // pixel_size * 10, to avoid float hashing
     weight: i32,
     italic: bool,
+    outline: i32,
 }
 
 impl FontCacheKey {
-    fn from_request(request: &FontRequest, scale_factor: f32) -> Self {
+    fn from_request(request: &FontRequest, scale_factor: f32, outline: i32) -> Self {
         let pixel_size = request.pixel_size.map_or(DEFAULT_FONT_SIZE, |s| s.get()) * scale_factor;
         Self {
             family: request
@@ -35,13 +36,14 @@ impl FontCacheKey {
             pixel_size_tenths: (pixel_size * 10.0) as i32,
             weight: request.weight.unwrap_or(400),
             italic: request.italic,
+            outline,
         }
     }
 }
 
 /// Manages font loading and caching for the SDL backend.
 pub(crate) struct FontManager {
-    /// Cached fonts keyed by (family, size, weight, italic).
+    /// Cached fonts keyed by (family, size, weight, italic, outline).
     cache: RefCell<HashMap<FontCacheKey, *mut TTF_Font>>,
     /// Fonts registered from memory (kept alive for the font's lifetime).
     registered_fonts: RefCell<Vec<(String, Vec<u8>)>>,
@@ -63,17 +65,39 @@ impl FontManager {
         }
     }
 
-    /// Get or open a TTF_Font for the given request. The returned pointer is valid
-    /// as long as the FontManager is alive. Returns null if no font could be loaded.
+    /// Get or open a TTF_Font for the given request and outline. The returned
+    /// pointer is valid as long as the FontManager is alive. Returns null if no
+    /// font could be loaded.
+    ///
+    /// When `outline > 0` and a non-outlined version of the same font is already
+    /// cached, `TTF_CopyFont` is used to create the outlined variant. This shares
+    /// the underlying FreeType face data and avoids loading from disk again, while
+    /// keeping a separate glyph cache so that toggling the outline doesn't flush
+    /// the base font's cache.
     pub fn font_for_request(
         &self,
         request: &FontRequest,
         scale_factor: f32,
+        outline: i32,
     ) -> *mut TTF_Font {
-        let key = FontCacheKey::from_request(request, scale_factor);
+        let key = FontCacheKey::from_request(request, scale_factor, outline);
 
         if let Some(&font) = self.cache.borrow().get(&key) {
             return font;
+        }
+
+        // For outlined variants, try to copy from the cached base font
+        if outline > 0 {
+            let base_key = FontCacheKey::from_request(request, scale_factor, 0);
+            let base = self.cache.borrow().get(&base_key).copied();
+            if let Some(base) = base {
+                let font = unsafe { TTF_CopyFont(base) };
+                if !font.is_null() {
+                    unsafe { TTF_SetFontOutline(font, outline) };
+                    self.cache.borrow_mut().insert(key, font);
+                    return font;
+                }
+            }
         }
 
         let pixel_size = request.pixel_size.map_or(DEFAULT_FONT_SIZE, |s| s.get()) * scale_factor;
@@ -84,6 +108,9 @@ impl FontManager {
 
         let font = self.load_font(family, pixel_size, request.weight.unwrap_or(400), request.italic);
         if !font.is_null() {
+            if outline > 0 {
+                unsafe { TTF_SetFontOutline(font, outline) };
+            }
             self.cache.borrow_mut().insert(key, font);
         }
         font

@@ -9,6 +9,7 @@ import { VerticalBox, HorizontalBox, Button, CheckBox, Slider, GroupBox } from "
 export component App inherits Window {
     in-out property <bool> animation-enabled: true;
     in-out property <float> speed: 1.0;
+    in-out property <length> title-stroke-width: 1px;
     callback quit();
 
     preferred-width: 800px;
@@ -23,7 +24,7 @@ export component App inherits Window {
         x: 16px;
         y: 16px;
         width: 260px;
-        height: 280px;
+        height: 360px;
         background: #1a1a2ecc;
         border-radius: 12px;
         border-width: 1px;
@@ -39,6 +40,8 @@ export component App inherits Window {
                 font-size: 20px;
                 color: #e0e0ff;
                 font-weight: 700;
+                stroke: #4060ff;
+                stroke-width: root.title-stroke-width;
             }
 
             Text {
@@ -63,6 +66,19 @@ export component App inherits Window {
                 minimum: 0.1;
                 maximum: 3.0;
                 value <=> root.speed;
+            }
+
+            Text {
+                text: "Stroke: " + Math.round(root.title-stroke-width / 1px) + "px";
+                font-size: 12px;
+                color: #c0c0e0;
+            }
+
+            Slider {
+                minimum: 0;
+                maximum: 5;
+                value: root.title-stroke-width / 1px;
+                changed(v) => { root.title-stroke-width = v * 1px; }
             }
 
             Button {
