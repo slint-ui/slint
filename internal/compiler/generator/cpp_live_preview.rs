@@ -17,7 +17,7 @@ pub fn generate(
 ) -> std::io::Result<File> {
     let mut file = super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config);
 
-    file.includes.push("<slint_live_preview.h>".into());
+    file.includes.push("<private/slint_live_preview.h>".into());
 
     generate_value_conversions(&mut file, &doc.used_types.borrow().structs_and_enums);
 

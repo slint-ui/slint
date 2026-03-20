@@ -14,7 +14,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(enums_priv, "#pragma once")?;
     writeln!(enums_priv, "// This file is auto-generated from {}", file!())?;
-    writeln!(enums_priv, "#include \"slint_enums.h\"")?;
+    writeln!(enums_priv, "#include \"private/slint_enums.h\"")?;
     writeln!(enums_priv, "namespace slint::cbindgen_private {{")?;
     let mut enums_pub = BufWriter::new(
         std::fs::File::create(path.join("slint_enums.h"))
@@ -117,10 +117,10 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(structs_priv, "#pragma once")?;
     writeln!(structs_priv, "// This file is auto-generated from {}", file!())?;
-    writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
-    writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
-    writeln!(structs_priv, "#include \"slint_point.h\"")?;
-    writeln!(structs_priv, "#include \"slint_image.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_builtin_structs.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_enums_internal.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_point.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
@@ -507,7 +507,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -524,7 +524,7 @@ fn gen_corelib(
         (
             vec!["PathData", "PathElement", "slint_new_path_elements", "slint_new_path_events", "Point"],
             "slint_pathdata_internal.h",
-            "#include \"slint_sharedvector.h\"\n#include \"slint_point.h\"",
+            "#include \"private/slint_sharedvector.h\"\n#include \"private/slint_point.h\"",
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
@@ -535,7 +535,7 @@ fn gen_corelib(
         (
             vec!["MouseEvent", "TouchPhase", "Keys"],
             "slint_events_internal.h",
-            "#include \"slint_point.h\"
+            "#include \"private/slint_point.h\"
             namespace slint::cbindgen_private {
                 struct KeyEvent; struct PointerEvent;
                 struct Rect;
@@ -642,7 +642,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("window.rs"))
             .with_src(crate_dir.join("../renderers/software/lib.rs"))
-            .with_include("slint_enums_internal.h")
+            .with_include("private/slint_enums_internal.h")
             .generate()
             .with_context(|| format!("Unable to generate bindings for {internal_header}"))?
             .write_to_file(include_dir.join(internal_header));
@@ -676,7 +676,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("model.rs"))
         .with_src(crate_dir.join("graphics/image.rs"))
         .with_src(crate_dir.join("lengths.rs"))
-        .with_include("slint_string.h")
+        .with_include("private/slint_string.h")
         .with_after_include(format!(
             r#"
 /// This macro expands to the to the numeric value of the major version of Slint you're
@@ -746,22 +746,22 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
-        .with_include("slint_config.h")
-        .with_include("vtable.h")
-        .with_include("slint_string.h")
-        .with_include("slint_sharedvector.h")
-        .with_include("slint_properties.h")
-        .with_include("slint_callbacks.h")
-        .with_include("slint_color.h")
-        .with_include("slint_image.h")
-        .with_include("slint_pathdata.h")
-        .with_include("slint_brush.h")
-        .with_include("slint_generated_public.h")
-        .with_include("slint_enums_internal.h")
-        .with_include("slint_point.h")
-        .with_include("slint_timer.h")
-        .with_include("slint_builtin_structs_internal.h")
-        .with_include("slint_events_internal.h")
+        .with_include("private/slint_config.h")
+        .with_include("private/vtable.h")
+        .with_include("private/slint_string.h")
+        .with_include("private/slint_sharedvector.h")
+        .with_include("private/slint_properties.h")
+        .with_include("private/slint_callbacks.h")
+        .with_include("private/slint_color.h")
+        .with_include("private/slint_image.h")
+        .with_include("private/slint_pathdata.h")
+        .with_include("private/slint_brush.h")
+        .with_include("private/slint_generated_public.h")
+        .with_include("private/slint_enums_internal.h")
+        .with_include("private/slint_point.h")
+        .with_include("private/slint_timer.h")
+        .with_include("private/slint_builtin_structs_internal.h")
+        .with_include("private/slint_events_internal.h")
         .with_after_include(
             r"
 namespace slint {
@@ -838,7 +838,7 @@ fn gen_backend_qt(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_include("slint_internal.h")
+        .with_include("private/slint_internal.h")
         .with_after_include(
             r"
             namespace slint::cbindgen_private {
@@ -878,7 +878,6 @@ fn gen_testing(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_include("slint_testing_internal.h")
         .generate()
         .context("Unable to generate bindings for slint_testing_internal.h")?
         .write_to_file(include_dir.join("slint_testing_internal.h"));
@@ -900,8 +899,8 @@ fn gen_platform(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_include("slint_image_internal.h")
-        .with_include("slint_internal.h")
+        .with_include("private/slint_image_internal.h")
+        .with_include("private/slint_internal.h")
         .with_after_include(
             r"
 namespace slint::platform { struct Rgb565Pixel; }
@@ -972,8 +971,8 @@ fn gen_interpreter(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_include("slint_internal.h")
-        .with_include("slint_interpreter_generated_public.h")
+        .with_include("private/slint_internal.h")
+        .with_include("private/slint_interpreter_generated_public.h")
         .with_after_include(
             r"
             namespace slint::cbindgen_private {
@@ -1047,27 +1046,28 @@ declare_features! {
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
-/// `include_dir` is the output directory
+/// `out_dir` is the output directory
 /// Returns the list of all paths that contain dependencies to the generated output. If you call this
 /// function from build.rs, feed each entry to stdout prefixed with `cargo:rerun-if-changed=`.
 pub fn gen_all(
     root_dir: &Path,
-    include_dir: &Path,
+    out_dir: &Path,
     enabled_features: EnabledFeatures,
 ) -> anyhow::Result<Vec<PathBuf>> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
-    std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
+    let gen_dir = out_dir.join("private");
+    std::fs::create_dir_all(&gen_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
-    enums(include_dir)?;
-    builtin_structs(include_dir)?;
-    gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
-    gen_backend_qt(root_dir, include_dir, &mut deps)?;
-    gen_platform(root_dir, include_dir, &mut deps)?;
+    enums(&gen_dir)?;
+    builtin_structs(&gen_dir)?;
+    gen_corelib(root_dir, &gen_dir, &mut deps, enabled_features)?;
+    gen_backend_qt(root_dir, &gen_dir, &mut deps)?;
+    gen_platform(root_dir, &gen_dir, &mut deps)?;
     if enabled_features.testing {
-        gen_testing(root_dir, include_dir, &mut deps)?;
+        gen_testing(root_dir, &gen_dir, &mut deps)?;
     }
     if enabled_features.interpreter {
-        gen_interpreter(root_dir, include_dir, &mut deps)?;
+        gen_interpreter(root_dir, &gen_dir, &mut deps)?;
     }
     Ok(deps)
 }

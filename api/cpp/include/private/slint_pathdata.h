@@ -4,7 +4,7 @@
 #pragma once
 #include <initializer_list>
 #include <string_view>
-#include "slint_pathdata_internal.h"
+#include "private/slint_pathdata_internal.h"
 
 namespace slint::private_api {
 using cbindgen_private::PathEvent;
