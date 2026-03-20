@@ -452,6 +452,67 @@ fn load_image(
     })
 }
 
+#[cfg(feature = "software-renderer")]
+fn load_image_from_data_uri(
+    decoded_data: &[u8],
+    extension: &str,
+    scale_factor: f32,
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
+    if extension == "svg" || extension == "svgz" {
+        use resvg::{tiny_skia, usvg};
+
+        let tree = {
+            let option = usvg::Options::default();
+            usvg::Tree::from_data(decoded_data, &option).map_err(|e| {
+                image::ImageError::Decoding(image::error::DecodingError::new(
+                    image::error::ImageFormatHint::Name("svg".into()),
+                    e,
+                ))
+            })?
+        };
+
+        let original_size = tree.size();
+        let width = (original_size.width() * scale_factor) as u32;
+        let height = (original_size.height() * scale_factor) as u32;
+
+        let mut buffer = vec![0u8; width as usize * height as usize * 4];
+        let size_error = || {
+            image::ImageError::Limits(image::error::LimitError::from_kind(
+                image::error::LimitErrorKind::DimensionError,
+            ))
+        };
+        let mut skia_buffer =
+            tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width, height)
+                .ok_or_else(size_error)?;
+        resvg::render(
+            &tree,
+            tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
+            &mut skia_buffer,
+        );
+
+        return image::RgbaImage::from_raw(width, height, buffer)
+            .ok_or_else(size_error)
+            .map(|img| {
+                (
+                    img,
+                    SourceFormat::RgbaPremultiplied,
+                    Size { width: original_size.width() as _, height: original_size.height() as _ },
+                )
+            });
+    }
+
+    image::load_from_memory(decoded_data).map(|image| {
+        let original_width = image.width();
+        let original_height = image.height();
+
+        (
+            image.to_rgba8(),
+            SourceFormat::Rgba,
+            Size { width: original_width, height: original_height },
+        )
+    })
+}
+
 fn embed_data_uri(
     global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
     data_uri: &str,
@@ -476,16 +537,9 @@ fn embed_data_uri(
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
         let data_buffer = decoded_data.clone();
-        match image::load_from_memory(&data_buffer).map_err(|e| e.to_string()).map(|image| {
-            let original_width = image.width();
-            let original_height = image.height();
-
-            (
-                image.to_rgba8(),
-                SourceFormat::Rgba,
-                Size { width: original_width, height: original_height },
-            )
-        }) {
+        match load_image_from_data_uri(&data_buffer, &extension, _scale_factor)
+            .map_err(|e| e.to_string())
+        {
             Ok((img, source_format, original_size)) => {
                 resources.insert(
                     unique_key,
