@@ -40,6 +40,10 @@ if(SLINT_FEATURE_INTERPRETER)
     slint_test(window)
 endif()
 
+if(SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_EXPERIMENTAL)
+    slint_test(translator)
+endif()
+
 slint_test(properties)
 if(NOT SLINT_FEATURE_FREESTANDING)
     slint_test(eventloop)

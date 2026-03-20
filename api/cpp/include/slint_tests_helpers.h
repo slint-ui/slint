@@ -26,6 +26,14 @@ inline void send_mouse_click(const Component *component, float x, float y)
 }
 
 template<typename Component>
+inline void send_keyboard_key_text(const Component *component, const slint::SharedString &text,
+                                   bool pressed)
+{
+    cbindgen_private::slint_send_keyboard_key_text(&text, pressed,
+                                                   &component->window().window_handle());
+}
+
+template<typename Component>
 inline void send_keyboard_char(const Component *component, const slint::SharedString &str,
                                bool pressed)
 {
@@ -33,15 +41,14 @@ inline void send_keyboard_char(const Component *component, const slint::SharedSt
 }
 
 template<typename Component>
-inline void send_keyboard_shortcut(const Component *component,
-                                   std::vector<slint::SharedString> shortcut)
+inline void send_key_combo(const Component *component, std::vector<slint::SharedString> keys)
 {
-    for (const auto &character : shortcut) {
-        send_keyboard_char(component, character, true);
+    for (const auto &key : keys) {
+        send_keyboard_key_text(component, key, true);
     }
-    std::reverse(std::begin(shortcut), std::end(shortcut));
-    for (const auto &character : shortcut) {
-        send_keyboard_char(component, character, false);
+    std::reverse(std::begin(keys), std::end(keys));
+    for (const auto &key : keys) {
+        send_keyboard_key_text(component, key, false);
     }
 }
 

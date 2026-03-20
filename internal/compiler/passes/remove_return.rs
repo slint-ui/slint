@@ -27,7 +27,7 @@ pub fn remove_return(doc: &crate::object_tree::Document) {
             let Some(ret_ty) = ret_ty else { return };
             let ctx = RemoveReturnContext { ret_ty };
             *e = process_expression(std::mem::take(e), true, &ctx, &ctx.ret_ty)
-                .to_expression(&ctx.ret_ty);
+                .into_expression(&ctx.ret_ty);
         })
     });
 }
@@ -147,7 +147,7 @@ fn process_codeblock(
                         actual_value,
                     };
                 } else if toplevel {
-                    let rest = process_codeblock(iter, true, ty, ctx).to_expression(&ctx.ret_ty);
+                    let rest = process_codeblock(iter, true, ty, ctx).into_expression(&ctx.ret_ty);
                     let mut rest_ex = Expression::CodeBlock(
                         actual_value.into_iter().chain(core::iter::once(rest)).collect(),
                     );
@@ -238,6 +238,7 @@ struct RemoveReturnContext {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum ExpressionResult {
     /// The expression maps directly to a LLR expression
     Just(Expression),
@@ -270,7 +271,7 @@ const FIELD_ACTUAL: &str = "actual";
 const FIELD_RETURNED: &str = "returned";
 
 impl ExpressionResult {
-    fn to_expression(self, ty: &Type) -> Expression {
+    fn into_expression(self, ty: &Type) -> Expression {
         match self {
             ExpressionResult::Just(e) => e,
             ExpressionResult::Return(e) => e.unwrap_or(Expression::CodeBlock(Vec::new())),

@@ -132,7 +132,7 @@ fn extract_documentation(declaration: &SyntaxNode) -> Option<String> {
     let mut result2 = String::new();
     for line in result.lines().skip_while(|p| p.trim().is_empty()) {
         if line.len() > indentation_size {
-            result2.push_str(&line[indentation_size..].trim_end());
+            result2.push_str(line[indentation_size..].trim_end());
         }
         result2.push('\n');
     }

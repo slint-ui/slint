@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#[allow(clippy::module_inception)]
 pub mod fmt;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tool;

@@ -38,16 +38,15 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
         let span = t.span();
         match t {
             TokenTree::Ident(i) => {
-                if let Some(last) = vec.last_mut() {
-                    if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
+                if let Some(last) = vec.last_mut()
+                    && ((last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
                         || (last.kind == SyntaxKind::Identifier
                             && are_token_touching(prev_span, span)
-                                .unwrap_or_else(|| last.text.ends_with('-')))
-                    {
-                        last.text = format!("{}{}", last.text, i).into();
-                        prev_span = span;
-                        continue;
-                    }
+                                .unwrap_or_else(|| last.text.ends_with('-'))))
+                {
+                    last.text = format!("{}{}", last.text, i).into();
+                    prev_span = span;
+                    continue;
                 }
                 vec.push(parser::Token {
                     kind: SyntaxKind::Identifier,
@@ -73,12 +72,12 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                                 SyntaxKind::Bang => Some((SyntaxKind::NotEqual, "!=")),
                                 _ => None,
                             };
-                            if let Some((k, t)) = kt {
-                                if prev_spacing == Spacing::Joint {
-                                    last.kind = k;
-                                    last.text = t.into();
-                                    continue;
-                                }
+                            if let Some((k, t)) = kt
+                                && prev_spacing == Spacing::Joint
+                            {
+                                last.kind = k;
+                                last.text = t.into();
+                                continue;
                             }
                         }
                         SyntaxKind::Equal
@@ -87,29 +86,27 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     '!' => SyntaxKind::Bang,
                     '.' => {
                         // `4..log` is lexed as `4 . . log` in rust, but should be `4. . log` in slint
-                        if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::NumberLiteral
-                                && are_token_touching(prev_span, p.span()).unwrap_or(false)
-                                && !last.text.contains('.')
-                                && !last.text.ends_with(char::is_alphabetic)
-                            {
-                                last.text = format!("{}.", last.text).into();
-                                prev_span = span;
-                                continue;
-                            }
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::NumberLiteral
+                            && are_token_touching(prev_span, p.span()).unwrap_or(false)
+                            && !last.text.contains('.')
+                            && !last.text.ends_with(char::is_alphabetic)
+                        {
+                            last.text = format!("{}.", last.text).into();
+                            prev_span = span;
+                            continue;
                         }
                         SyntaxKind::Dot
                     }
                     '+' => SyntaxKind::Plus,
                     '-' => {
-                        if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::Identifier
-                                && are_token_touching(prev_span, p.span()).unwrap_or(true)
-                            {
-                                last.text = format!("{}-", last.text).into();
-                                prev_span = span;
-                                continue;
-                            }
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::Identifier
+                            && are_token_touching(prev_span, p.span()).unwrap_or(true)
+                        {
+                            last.text = format!("{}-", last.text).into();
+                            prev_span = span;
+                            continue;
                         }
                         SyntaxKind::Minus
                     }
@@ -145,31 +142,33 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     '&' => {
                         // Since the '&' alone does not exist or cannot be part of any other token that &&
                         // just consider it as '&&' and skip the joint ones.  FIXME. do that properly
-                        if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::AndAnd && prev_spacing == Spacing::Joint {
-                                continue;
-                            }
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::AndAnd
+                            && prev_spacing == Spacing::Joint
+                        {
+                            continue;
                         }
                         SyntaxKind::AndAnd
                     }
                     '|' => {
                         // Since the '|' alone does not exist or cannot be part of any other token that ||
                         // just consider it as '||' and skip the joint ones.
-                        if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::Pipe && prev_spacing == Spacing::Joint {
-                                last.kind = SyntaxKind::OrOr;
-                                continue;
-                            }
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::Pipe
+                            && prev_spacing == Spacing::Joint
+                        {
+                            last.kind = SyntaxKind::OrOr;
+                            continue;
                         }
                         SyntaxKind::Pipe
                     }
                     '%' => {
                         // handle % as a unit
-                        if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::NumberLiteral {
-                                last.text = format!("{}%", last.text).into();
-                                continue;
-                            }
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::NumberLiteral
+                        {
+                            last.text = format!("{}%", last.text).into();
+                            continue;
                         }
                         SyntaxKind::Percent
                     }
@@ -192,16 +191,15 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                 let kind = if f == '"' {
                     SyntaxKind::StringLiteral
                 } else if f.is_ascii_digit() {
-                    if let Some(last) = vec.last_mut() {
-                        if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
+                    if let Some(last) = vec.last_mut()
+                        && ((last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
                             || (last.kind == SyntaxKind::Identifier
                                 && are_token_touching(prev_span, span)
-                                    .unwrap_or_else(|| last.text.ends_with('-')))
-                        {
-                            last.text = format!("{}{}", last.text, s).into();
-                            prev_span = span;
-                            continue;
-                        }
+                                    .unwrap_or_else(|| last.text.ends_with('-'))))
+                    {
+                        last.text = format!("{}{}", last.text, s).into();
+                        prev_span = span;
+                        continue;
                     }
                     SyntaxKind::NumberLiteral
                 } else {

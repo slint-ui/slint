@@ -206,7 +206,7 @@ pub fn translate(
         translated = crate::context::GLOBAL_CONTEXT.with(|ctx| {
             let ctx = ctx.get()?;
             let external_translator = ctx.external_translator()?;
-            let context = if !contextid.is_empty() { Some(contextid.as_ref()) } else { None };
+            let context = if !contextid.is_empty() { Some(contextid) } else { None };
             Some(
                 if plural.is_empty() {
                     external_translator.translate(original, context)
@@ -247,7 +247,7 @@ fn translate_gettext(
         std::format!("{ctx}\u{4}{s}")
     }
     fn demangle_context(r: String) -> String {
-        if let Some(x) = r.split('\u{4}').last() {
+        if let Some(x) = r.split('\u{4}').next_back() {
             return x.into();
         }
         r

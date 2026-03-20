@@ -80,8 +80,8 @@ test("get/set global properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Number");
+        expect(thrownError.code).toBe("StringExpected");
+        expect(thrownError.message).toContain("String");
     }
 
     {
@@ -92,8 +92,8 @@ test("get/set global properties", () => {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Object");
+        expect(thrownError.code).toBe("StringExpected");
+        expect(thrownError.message).toContain("String");
     }
 });
 

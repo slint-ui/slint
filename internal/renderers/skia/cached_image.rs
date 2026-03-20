@@ -104,6 +104,8 @@ pub(crate) fn as_skia_image(
         ImageInner::WGPUTexture(any_wgpu_texture) => {
             surface.and_then(|surface| surface.import_wgpu_texture(canvas, any_wgpu_texture))
         }
+        #[allow(unreachable_patterns)]
+        _ => None,
     }
 }
 
@@ -117,7 +119,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
                 .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
                 .collect::<Vec<u8>>();
             (
-                skia_safe::Data::new_copy(&*rgba),
+                skia_safe::Data::new_copy(&rgba),
                 pixels.width() as usize * 4,
                 pixels.size(),
                 skia_safe::ColorType::RGBA8888,

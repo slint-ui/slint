@@ -131,6 +131,12 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
 
+impl Default for Backend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Backend {
     pub fn new() -> Self {
         #[cfg(not(no_qt))]
@@ -322,6 +328,16 @@ impl i_slint_core::platform::Platform for Backend {
             core::time::Duration::from_millis(duration_ms as u64)
         } else {
             core::time::Duration::ZERO
+        }
+    }
+
+    #[cfg(not(no_qt))]
+    fn open_url(&self, url: &str) {
+        let url: qttypes::QString = url.into();
+        unsafe {
+            cpp::cpp! { [url as "QString"] {
+                QDesktopServices::openUrl(url);
+            }}
         }
     }
 }

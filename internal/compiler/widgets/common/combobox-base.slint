@@ -54,7 +54,14 @@ export component ComboBoxBase {
     }
 
     function reset-current() {
-        root.current-index = 0;
+        if (root.model.length == 0) {
+            root.current-index = 0;
+        } else {
+            root.current-index = root.current-index.clamp(0, root.model.length - 1);
+        }
+        // Update the current value immediately, instead of in the next event loop
+        // via the changed handler of current-index
+        root.update-current-value();
     }
 
     function update-current-value() {

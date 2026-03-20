@@ -122,45 +122,44 @@ impl OpenWeatherController {
     fn current_day_weather_data_from_response(
         weather_response: &Option<OneCallResponse>,
     ) -> DayWeatherData {
-        if let Some(weather_data) = weather_response {
-            if let Some(current) = &weather_data.current {
-                let weather_details = &current.weather[0];
-                let today_weather_info =
-                    weather_data.daily.as_ref().and_then(|daily| daily.first());
+        if let Some(weather_data) = weather_response
+            && let Some(current) = &weather_data.current
+        {
+            let weather_details = &current.weather[0];
+            let today_weather_info = weather_data.daily.as_ref().and_then(|daily| daily.first());
 
-                let detailed_temp = match today_weather_info {
-                    Some(info) => {
-                        let temp = info.temp;
-                        TemperatureData {
-                            min: temp.min,
-                            max: temp.max,
+            let detailed_temp = match today_weather_info {
+                Some(info) => {
+                    let temp = info.temp;
+                    TemperatureData {
+                        min: temp.min,
+                        max: temp.max,
 
-                            morning: temp.morn,
-                            day: temp.day,
-                            evening: temp.eve,
-                            night: temp.night,
-                        }
+                        morning: temp.morn,
+                        day: temp.day,
+                        evening: temp.eve,
+                        night: temp.night,
                     }
-                    None => TemperatureData {
-                        min: current.temp,
-                        max: current.temp,
+                }
+                None => TemperatureData {
+                    min: current.temp,
+                    max: current.temp,
 
-                        morning: current.temp,
-                        day: current.temp,
-                        evening: current.temp,
-                        night: current.temp,
-                    },
-                };
+                    morning: current.temp,
+                    day: current.temp,
+                    evening: current.temp,
+                    night: current.temp,
+                },
+            };
 
-                return DayWeatherData {
-                    description: weather_details.description.clone(),
-                    condition: Self::weather_condition_from_icon_icon_type(&weather_details.icon),
-                    current_temperature: current.temp,
-                    detailed_temperature: detailed_temp,
-                    precipitation: PrecipitationData::default(),
-                    uv_index: 0.0,
-                };
-            }
+            return DayWeatherData {
+                description: weather_details.description.clone(),
+                condition: Self::weather_condition_from_icon_icon_type(&weather_details.icon),
+                current_temperature: current.temp,
+                detailed_temperature: detailed_temp,
+                precipitation: PrecipitationData::default(),
+                uv_index: 0.0,
+            };
         }
 
         DayWeatherData::default()
@@ -171,45 +170,45 @@ impl OpenWeatherController {
     ) -> Vec<ForecastWeatherData> {
         let mut forecast_weather_info: Vec<ForecastWeatherData> = Vec::new();
 
-        if let Some(weather_data) = weather_response {
-            if let Some(daily_weather_data) = &weather_data.daily {
-                for day_weather_data in daily_weather_data.iter() {
-                    if let Some(datetime) = DateTime::from_timestamp(day_weather_data.datetime, 0) {
-                        let weather_details = &day_weather_data.weather[0];
+        if let Some(weather_data) = weather_response
+            && let Some(daily_weather_data) = &weather_data.daily
+        {
+            for day_weather_data in daily_weather_data.iter() {
+                if let Some(datetime) = DateTime::from_timestamp(day_weather_data.datetime, 0) {
+                    let weather_details = &day_weather_data.weather[0];
 
-                        let detailed_temperature = TemperatureData {
-                            min: day_weather_data.temp.min,
-                            max: day_weather_data.temp.max,
+                    let detailed_temperature = TemperatureData {
+                        min: day_weather_data.temp.min,
+                        max: day_weather_data.temp.max,
 
-                            morning: day_weather_data.temp.morn,
-                            day: day_weather_data.temp.day,
-                            evening: day_weather_data.temp.eve,
-                            night: day_weather_data.temp.night,
-                        };
+                        morning: day_weather_data.temp.morn,
+                        day: day_weather_data.temp.day,
+                        evening: day_weather_data.temp.eve,
+                        night: day_weather_data.temp.night,
+                    };
 
-                        let precipitation: PrecipitationData = PrecipitationData {
-                            probability: day_weather_data.pop,
-                            rain_volume: day_weather_data.rain.unwrap_or(0 as f64),
-                            snow_volume: day_weather_data.snow.unwrap_or(0 as f64),
-                        };
+                    let precipitation: PrecipitationData = PrecipitationData {
+                        probability: day_weather_data.pop,
+                        rain_volume: day_weather_data.rain.unwrap_or(0 as f64),
+                        snow_volume: day_weather_data.snow.unwrap_or(0 as f64),
+                    };
 
-                        let day_weather_info = DayWeatherData {
-                            description: weather_details.description.clone(),
-                            condition: Self::weather_condition_from_icon_icon_type(
-                                &weather_details.icon,
-                            ),
-                            current_temperature: day_weather_data.temp.day,
-                            detailed_temperature,
-                            precipitation,
-                            uv_index: day_weather_data.uvi,
-                        };
+                    let day_weather_info = DayWeatherData {
+                        description: weather_details.description.clone(),
+                        condition: Self::weather_condition_from_icon_icon_type(
+                            &weather_details.icon,
+                        ),
+                        current_temperature: day_weather_data.temp.day,
+                        detailed_temperature,
+                        precipitation,
+                        uv_index: day_weather_data.uvi,
+                    };
 
-                        // TODO: localization
-                        forecast_weather_info.push(ForecastWeatherData {
-                            day_name: get_day_from_datetime(datetime),
-                            weather_data: day_weather_info,
-                        });
-                    }
+                    // TODO: localization
+                    forecast_weather_info.push(ForecastWeatherData {
+                        day_name: get_day_from_datetime(datetime),
+                        weather_data: day_weather_info,
+                    });
                 }
             }
         }

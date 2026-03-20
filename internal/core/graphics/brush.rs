@@ -303,7 +303,7 @@ impl ConicGradientBrush {
         }
 
         // Need to make changes, so copy
-        let mut stops: alloc::vec::Vec<_> = stops_slice.iter().copied().collect();
+        let mut stops: alloc::vec::Vec<_> = stops_slice.to_vec();
 
         // Add interpolated boundary stop at 0.0 if needed
         if !has_stop_at_0 {
@@ -359,7 +359,7 @@ impl ConicGradientBrush {
         let angle = self.angle();
         self.0 = SharedVector::with_capacity(stops.len() + 1);
         self.0.push(GradientStop { color: Default::default(), position: angle });
-        self.0.extend(stops.into_iter());
+        self.0.extend(stops);
     }
 
     /// Apply rotation to the gradient (CSS `from <angle>` syntax).
@@ -382,10 +382,10 @@ impl ConicGradientBrush {
         let mut stops: alloc::vec::Vec<_> = self.0.iter().skip(1).copied().collect();
 
         // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
-        if let Some(first) = stops.first_mut() {
-            if first.position.abs() < f32::EPSILON {
-                first.position = f32::EPSILON;
-            }
+        if let Some(first) = stops.first_mut()
+            && first.position.abs() < f32::EPSILON
+        {
+            first.position = f32::EPSILON;
         }
 
         // Step 1: Apply rotation by adding from_angle and wrapping to [0, 1) range
@@ -418,30 +418,26 @@ impl ConicGradientBrush {
 
         // Step 4: Add boundary stops at 0.0 and 1.0 if missing
         let has_stop_at_0 = stops.iter().any(|s| s.position.abs() < f32::EPSILON);
-        if !has_stop_at_0 {
-            if let (Some(last), Some(first)) = (stops.last(), stops.first()) {
-                let gap = 1.0 - last.position + first.position;
-                let color_at_0 = if gap > f32::EPSILON {
-                    let t = (1.0 - last.position) / gap;
-                    Self::interpolate_color(&last.color, &first.color, t)
-                } else {
-                    last.color
-                };
-                stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
-            }
+        if !has_stop_at_0 && let (Some(last), Some(first)) = (stops.last(), stops.first()) {
+            let gap = 1.0 - last.position + first.position;
+            let color_at_0 = if gap > f32::EPSILON {
+                let t = (1.0 - last.position) / gap;
+                Self::interpolate_color(&last.color, &first.color, t)
+            } else {
+                last.color
+            };
+            stops.insert(0, GradientStop { position: 0.0, color: color_at_0 });
         }
 
         let has_stop_at_1 = stops.iter().any(|s| (s.position - 1.0).abs() < f32::EPSILON);
-        if !has_stop_at_1 {
-            if let Some(first) = stops.first() {
-                stops.push(GradientStop { position: 1.0, color: first.color });
-            }
+        if !has_stop_at_1 && let Some(first) = stops.first() {
+            stops.push(GradientStop { position: 1.0, color: first.color });
         }
 
         // Update the internal storage
         self.0 = SharedVector::with_capacity(stops.len() + 1);
         self.0.push(GradientStop { color: Default::default(), position: from_angle });
-        self.0.extend(stops.into_iter());
+        self.0.extend(stops);
     }
 
     /// Returns the starting angle (rotation) of the conic gradient in degrees.

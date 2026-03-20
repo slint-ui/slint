@@ -78,6 +78,11 @@ pub struct EventLoopState {
     loop_error: Option<PlatformError>,
     current_resize_direction: Option<ResizeDirection>,
 
+    /// Buffered mouse move event pending dispatch. Consecutive `CursorMoved`
+    /// events are coalesced. Otherwise winit sends events so frequently that it can cause performance
+    /// issues (see #9038 and #10912).
+    pending_mouse_move: Option<(winit::window::WindowId, LogicalPoint)>,
+
     /// Set to true when pumping events for the shortest amount of time possible.
     pumping_events_instantly: bool,
 
@@ -95,6 +100,7 @@ impl EventLoopState {
             pressed: Default::default(),
             loop_error: Default::default(),
             current_resize_direction: Default::default(),
+            pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
             custom_application_handler,
         }
@@ -113,6 +119,16 @@ impl EventLoopState {
             .collect::<Vec<_>>();
         for window in windows_to_suspend.into_iter() {
             let _ = window.suspend();
+        }
+    }
+
+    /// Dispatch the buffered mouse move event, if any.
+    fn flush_pending_mouse_move(&mut self) {
+        if let Some((window_id, position)) = self.pending_mouse_move.take()
+            && let Some(window) = self.shared_backend_data.window_by_id(window_id)
+        {
+            let runtime_window = WindowInner::from_pub(window.window());
+            runtime_window.process_mouse_input(MouseEvent::Moved { position, is_touch: false });
         }
     }
 }
@@ -184,6 +200,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
+        if !matches!(event, WindowEvent::CursorMoved { .. }) {
+            self.flush_pending_mouse_move();
+        }
+
         match event {
             WindowEvent::RedrawRequested => {
                 self.loop_error = window.draw().err();
@@ -319,10 +339,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 );
                 let position = position.to_logical(runtime_window.scale_factor() as f64);
                 self.cursor_pos = euclid::point2(position.x, position.y);
-                runtime_window.process_mouse_input(MouseEvent::Moved {
-                    position: self.cursor_pos,
-                    is_touch: false,
-                });
+                // winit sends this event at a very high frequency. So, bunch up consecutive
+                // cursor moved events and dispatch them as soon as any other kind of event
+                // arrives.
+                self.pending_mouse_move = Some((window_id, self.cursor_pos));
             }
             WindowEvent::CursorLeft { .. } => {
                 // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
@@ -432,7 +452,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // Slint convention (positive = clockwise).
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::RotationGesture {
                     position: self.cursor_pos,
-                    delta: -(delta as f32),
+                    delta: -delta,
                     phase: winit_touch_phase(phase),
                 });
             }
@@ -510,6 +530,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        self.flush_pending_mouse_move();
+
         if matches!(
             self.custom_application_handler
                 .as_mut()
@@ -537,10 +559,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             }
         }
 
-        if event_loop.control_flow() == ControlFlow::Wait {
-            if let Some(next_timer) = corelib::platform::duration_until_next_timer_update() {
-                event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
-            }
+        if event_loop.control_flow() == ControlFlow::Wait
+            && let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
+        {
+            event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
         }
 
         if self.pumping_events_instantly {

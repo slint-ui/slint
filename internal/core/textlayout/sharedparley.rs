@@ -31,6 +31,7 @@ pub struct TextLayoutCache {
     cache_miss_count: std::cell::Cell<u64>,
 }
 
+#[allow(clippy::derivable_impls)] // clippy doesn't see the feature = "testing" code
 impl Default for TextLayoutCache {
     fn default() -> Self {
         Self {
@@ -208,7 +209,7 @@ impl LayoutWithoutLineBreaksBuilder {
             };
 
             builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
-                &font_stack,
+                font_stack,
             )));
 
             if let Some(weight) = font_request.weight {
@@ -307,7 +308,7 @@ impl LayoutWithoutLineBreaksBuilder {
                             parley::StyleProperty::Brush(Brush {
                                 override_fill_color: None,
                                 stroke: self.stroke,
-                                link_color: link_color.clone(),
+                                link_color,
                             }),
                             span.range,
                         );
@@ -355,13 +356,8 @@ fn create_text_paragraphs(
                 }
             });
 
-            let layout = layout_builder.build(
-                font_context,
-                text,
-                selection,
-                formatting.into_iter(),
-                Some(link_color),
-            );
+            let layout =
+                layout_builder.build(font_context, text, selection, formatting, Some(link_color));
 
             TextParagraph { range, y: PhysicalLength::default(), layout, links }
         };
@@ -375,7 +371,7 @@ fn create_text_paragraphs(
                 let mut char_it = text.char_indices().peekable();
                 let mut eot = false;
                 move || {
-                    while let Some((idx, ch)) = char_it.next() {
+                    for (idx, ch) in char_it.by_ref() {
                         if ch == '\n' {
                             let next_range = start..idx;
                             start = idx + ch.len_utf8();
@@ -387,7 +383,7 @@ fn create_text_paragraphs(
                         return None;
                     }
                     eot = true;
-                    return Some(start..text.len());
+                    Some(start..text.len())
                 }
             });
 
@@ -401,10 +397,7 @@ fn create_text_paragraphs(
                 ));
             }
         }
-        #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
-        PlainOrStyledText::Styled(rich_text) =>
-        {
-            #[cfg(feature = "experimental-rich-text")]
+        PlainOrStyledText::Styled(rich_text) => {
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
                     font_context,
@@ -470,9 +463,13 @@ fn layout(
         para.layout.align(
             max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
-                TextHorizontalAlignment::Left => parley::Alignment::Left,
+                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                    parley::Alignment::Left
+                }
                 TextHorizontalAlignment::Center => parley::Alignment::Center,
-                TextHorizontalAlignment::Right => parley::Alignment::Right,
+                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                    parley::Alignment::Right
+                }
             },
             parley::AlignmentOptions::default(),
         );
@@ -568,7 +565,6 @@ struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
     layout: parley::Layout<Brush>,
-    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     links: std::vec::Vec<(Range<usize>, std::string::String)>,
 }
 
@@ -939,7 +935,7 @@ impl Layout {
                     .map(|g| g.x)
                     .unwrap_or(0.0);
 
-                let mut elipsis_glyph = info.elipsis_glyph.clone();
+                let mut elipsis_glyph = info.elipsis_glyph;
                 elipsis_glyph.x = elipsis_x;
 
                 let font_size = PhysicalLength::new(glyph_run.run().font_size());
@@ -1083,7 +1079,7 @@ pub fn draw_text(
     guard.paragraphs = Some(layout.paragraphs);
 }
 
-#[cfg(feature = "experimental-rich-text")]
+#[cfg(feature = "std")]
 pub fn link_under_cursor(
     font_context: &mut parley::FontContext,
     scale_factor: ScaleFactor,

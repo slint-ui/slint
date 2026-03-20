@@ -146,9 +146,9 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
                 href: linkMap.ImageType.href,
                 defaultValue: "the empty image",
             };
-        case "keyboard-shortcut":
+        case "keys":
             return {
-                href: linkMap["keyboard-shortcut"].href,
+                href: linkMap["keys"].href,
                 defaultValue: "@keys()",
             };
         case "int":

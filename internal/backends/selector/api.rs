@@ -275,28 +275,34 @@ impl BackendSelector {
             feature = "i-slint-backend-winit",
             feature = "i-slint-backend-linuxkms"
         ))]
-        if self.backend.is_none() || self.renderer.is_none() {
-            if let Ok(backend_config) = std::env::var("SLINT_BACKEND") {
-                let backend_config = backend_config.to_lowercase();
-                let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
-                if !backend.is_empty() {
-                    self.backend.get_or_insert_with(|| backend.to_owned());
-                }
-                if !renderer.is_empty() {
-                    self.renderer.get_or_insert_with(|| renderer.to_owned());
-                }
+        if (self.backend.is_none() || self.renderer.is_none())
+            && let Ok(backend_config) = std::env::var("SLINT_BACKEND")
+        {
+            let backend_config = backend_config.to_lowercase();
+            let (backend, renderer) = super::parse_backend_env_var(backend_config.as_str());
+            if !backend.is_empty() {
+                self.backend.get_or_insert_with(|| backend.to_owned());
+            }
+            if !renderer.is_empty() {
+                self.renderer.get_or_insert_with(|| renderer.to_owned());
             }
         }
 
-        let backend_name = self.backend.as_deref().unwrap_or_else(|| {
-            // Only the winit backend supports graphics API requests right now, so prefer that over
-            // aborting.
-            #[cfg(feature = "i-slint-backend-winit")]
-            if self.requested_graphics_api.is_some() {
-                return "winit";
+        let backend_name = match self.backend.as_deref() {
+            Some(name) => name,
+            None => {
+                // Only the winit backend supports graphics API requests right now, so prefer that over
+                // aborting.
+                #[cfg(feature = "i-slint-backend-winit")]
+                if self.requested_graphics_api.is_some() {
+                    "winit"
+                } else {
+                    super::DEFAULT_BACKEND_NAME
+                }
+                #[cfg(not(feature = "i-slint-backend-winit"))]
+                super::DEFAULT_BACKEND_NAME
             }
-            super::DEFAULT_BACKEND_NAME
-        });
+        };
 
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
             #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]

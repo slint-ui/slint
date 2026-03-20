@@ -218,9 +218,10 @@ pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
+pub use i_slint_core::items::{StandardListViewItem, TableColumn};
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
-    ReverseModel, SortModel, StandardListViewItem, TableColumn, VecModel,
+    ReverseModel, SortModel, VecModel,
 };
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
@@ -284,10 +285,10 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 ///
 /// * Tokio futures require entering the context of a global Tokio runtime.
 /// * Tokio futures aren't guaranteed to hand off their work to separate threads and may therefore not complete, because
-/// the Slint runtime can't drive the Tokio runtime.
+///   the Slint runtime can't drive the Tokio runtime.
 /// * Tokio futures require regular yielding to the Tokio runtime for fairness, a constraint that also can't be met by Slint.
 /// * Tokio's [current-thread schedule](https://docs.rs/tokio/latest/tokio/runtime/index.html#current-thread-scheduler)
-/// cannot be used in Slint main thread, because Slint cannot yield to it.
+///   cannot be used in Slint main thread, because Slint cannot yield to it.
 ///
 /// To address these constraints, use [async_compat](https://docs.rs/async-compat/latest/async_compat/index.html)'s [Compat::new()](https://docs.rs/async-compat/latest/async_compat/struct.Compat.html#method.new)
 /// to implicitly allocate a shared, multi-threaded Tokio runtime that will be used for Tokio futures.
@@ -435,6 +436,31 @@ pub mod platform {
 /// See also the list of [global structs and enums](slint:StructType)
 pub mod language {
     pub use i_slint_core::items::ColorScheme;
+
+    macro_rules! export_builtin_structs {
+        ($(
+            $(#[$attr:meta])*
+            struct $Name:ident {
+                @name = $NameTy:ident :: $NameVariant:ident,
+                export {
+                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
+                }
+                private {
+                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
+                }
+            }
+        )*) => {
+            $(
+                export_builtin_structs!(@export $NameTy $Name);
+            )*
+        };
+        (@export BuiltinPublicStruct $Name:ident) => {
+            pub use i_slint_core::items::$Name;
+        };
+        (@export BuiltinPrivateStruct $Name:ident) => {};
+    }
+
+    i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 }
 
 #[cfg(any(

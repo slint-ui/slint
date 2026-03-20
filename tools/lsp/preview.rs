@@ -56,7 +56,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(connector::RemoteControlledPreviewToLsp::new());
 
-    let ui = ui::create_ui(&to_lsp, &"")?;
+    let ui = ui::create_ui(&to_lsp, "")?;
 
     to_lsp
         .send_telemetry(&mut [(
@@ -159,10 +159,11 @@ impl PreviewState {
     }
 
     pub fn rename_current_component(&mut self, url: &Url, old_name: &str, new_name: &str) {
-        if let Some(pc) = &mut self.current_previewed_component {
-            if pc.url == *url && pc.component.as_deref() == Some(old_name) {
-                pc.component = Some(new_name.to_string());
-            }
+        if let Some(pc) = &mut self.current_previewed_component
+            && pc.url == *url
+            && pc.component.as_deref() == Some(old_name)
+        {
+            pc.component = Some(new_name.to_string());
         }
     }
 
@@ -189,7 +190,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
         //
         // This is a rather heavy-handed operation, but currently the best we can do.
         // Ideally, this should just reload that specific resource.
-        preview_state.resources.contains(&url)
+        preview_state.resources.contains(url)
     });
 
     if needs_reload {
@@ -206,11 +207,11 @@ fn delete_document(url: &lsp_types::Url) {
         )
     });
 
-    if let Some(current) = current {
-        if &current.url == url || url_is_used {
-            // Trigger a compile error now!
-            load_preview(current, LoadBehavior::Reload);
-        }
+    if let Some(current) = current
+        && (&current.url == url || url_is_used)
+    {
+        // Trigger a compile error now!
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -464,14 +465,12 @@ fn rename_component(
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.rename_current_component(&old_url, &old_name, &new_name);
 
-            if let Some(current) = &mut preview_state.current_component() {
-                if current.url == old_url {
-                    if let Some(component) = &current.component {
-                        if component == &old_name {
-                            current.component = Some(new_name.clone());
-                        }
-                    }
-                }
+            if let Some(current) = &mut preview_state.current_component()
+                && current.url == old_url
+                && let Some(component) = &current.component
+                && component == &old_name
+            {
+                current.component = Some(new_name.clone());
             }
         });
         // Update which component to show after refresh from the editor.
@@ -1304,33 +1303,27 @@ async fn reload_timer_function() {
             SelectionNotification::Never,
         );
 
-        if notify_editor {
-            if let Some(component_instance) = component_instance() {
-                if let Some((element, debug_index)) = component_instance
-                    .element_node_at_source_code_position(&se.path, se.offset.into())
-                    .first()
-                {
-                    let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index)
-                    else {
-                        return;
-                    };
-                    let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
-                    let (path, pos) = element_node.with_element_node(|node| {
-                        let sf = &node.source_file;
-                        (
-                            sf.path().to_owned(),
-                            util::text_size_to_lsp_position(sf, se.offset, format),
-                        )
-                    });
-                    let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-                    lsp.ask_editor_to_show_document(
-                        &path.to_string_lossy(),
-                        lsp_types::Range::new(pos, pos),
-                        false,
-                    )
-                    .unwrap();
-                }
-            }
+        if notify_editor
+            && let Some(component_instance) = component_instance()
+            && let Some((element, debug_index)) = component_instance
+                .element_node_at_source_code_position(&se.path, se.offset.into())
+                .first()
+        {
+            let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
+                return;
+            };
+            let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
+            let (path, pos) = element_node.with_element_node(|node| {
+                let sf = &node.source_file;
+                (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset, format))
+            });
+            let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
+            lsp.ask_editor_to_show_document(
+                &path.to_string_lossy(),
+                lsp_types::Range::new(pos, pos),
+                false,
+            )
+            .unwrap();
         }
     }
 }
@@ -1586,10 +1579,11 @@ pub fn highlight(url: Option<Url>, offset: TextSize) {
 
     let selected = selected_element();
 
-    if let Some(selected) = &selected {
-        if selected.path == path && selected.offset == offset {
-            return;
-        }
+    if let Some(selected) = &selected
+        && selected.path == path
+        && selected.offset == offset
+    {
+        return;
     }
 
     let contains_dependency = PREVIEW_STATE.with_borrow(|preview_state| {
@@ -1735,8 +1729,8 @@ fn set_selected_element(
                 is_resizable: !is_in_layout && !is_layout,
             });
 
-            if let Some(document_cache) = document_cache_from(preview_state) {
-                if let Some((uri, version, selection)) = selection
+            if let Some(document_cache) = document_cache_from(preview_state)
+                && let Some((uri, version, selection)) = selection
                     .clone()
                     .or_else(|| {
                         let current = preview_state.current_component()?;
@@ -1765,24 +1759,22 @@ fn set_selected_element(
                             document_cache.element_at_offset(&url, selection.offset)?,
                         ))
                     })
-                {
-                    let win =
-                        i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
-                    let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
-                    ui::palette::set_palette(ui, palettes);
+            {
+                let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
+                let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
+                ui::palette::set_palette(ui, palettes);
 
-                    let in_layout = match parent_layout_kind {
-                        ui::LayoutKind::None => properties::LayoutKind::None,
-                        ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,
-                        ui::LayoutKind::Vertical => properties::LayoutKind::VerticalBox,
-                        ui::LayoutKind::Grid => properties::LayoutKind::GridLayout,
-                    };
-                    preview_state.property_range_declarations = Some(ui::ui_set_properties(
-                        ui,
-                        &document_cache,
-                        properties::query_properties(&uri, version, &selection, in_layout).ok(),
-                    ));
-                }
+                let in_layout = match parent_layout_kind {
+                    ui::LayoutKind::None => properties::LayoutKind::None,
+                    ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,
+                    ui::LayoutKind::Vertical => properties::LayoutKind::VerticalBox,
+                    ui::LayoutKind::Grid => properties::LayoutKind::GridLayout,
+                };
+                preview_state.property_range_declarations = Some(ui::ui_set_properties(
+                    ui,
+                    &document_cache,
+                    properties::query_properties(&uri, version, &selection, in_layout).ok(),
+                ));
             }
         }
 
@@ -1793,22 +1785,22 @@ fn set_selected_element(
         (preview_state.to_lsp.borrow().clone().unwrap(), preview_state.format())
     });
 
-    if editor_notification == SelectionNotification::Now {
-        if let Some(element_node) = element_node {
-            let (path, pos) = element_node.with_element_node(|node| {
-                let sf = &node.source_file;
-                (
-                    sf.path().to_owned(),
-                    util::text_size_to_lsp_position(sf, node.text_range().start(), format),
-                )
-            });
-            lsp.ask_editor_to_show_document(
-                &path.to_string_lossy(),
-                lsp_types::Range::new(pos, pos),
-                false,
+    if editor_notification == SelectionNotification::Now
+        && let Some(element_node) = element_node
+    {
+        let (path, pos) = element_node.with_element_node(|node| {
+            let sf = &node.source_file;
+            (
+                sf.path().to_owned(),
+                util::text_size_to_lsp_position(sf, node.text_range().start(), format),
             )
-            .unwrap();
-        }
+        });
+        lsp.ask_editor_to_show_document(
+            &path.to_string_lossy(),
+            lsp_types::Range::new(pos, pos),
+            false,
+        )
+        .unwrap();
     }
 }
 

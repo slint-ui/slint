@@ -63,3 +63,13 @@ struct MyStruct {
     foo: i32,
 }
 ```
+
+Also you can use multiple `@rust-attr()` directives. For example:
+
+```slint,ignore
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
+@rust-attr(serde(rename_all = "camelCase"))
+struct MyStruct {
+    foo-bar: int,
+}
+```

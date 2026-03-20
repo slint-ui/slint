@@ -6,7 +6,7 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexDirection, LayoutAlignment,
+    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexDirection, FlexWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -16,7 +16,7 @@ use num_traits::Float;
 
 pub use crate::items::Orientation;
 
-/// The constraint that applies to an item
+/// The constraint that applies to a layout
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -464,7 +464,7 @@ pub struct GridLayoutData {
 /// The input data for a cell of a GridLayout, before row/col determination and before H/V split
 /// Used as input to organize_grid_layout()
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct GridLayoutInputData {
     /// whether this cell is the first one in a Row element
     pub new_row: bool,
@@ -477,6 +477,18 @@ pub struct GridLayoutInputData {
     /// Only the u16 range is valid, values outside of that will be clamped with a warning at runtime
     pub colspan: f32,
     pub rowspan: f32,
+}
+
+impl Default for GridLayoutInputData {
+    fn default() -> Self {
+        Self {
+            new_row: false,
+            col: i_slint_common::ROW_COL_AUTO,
+            row: i_slint_common::ROW_COL_AUTO,
+            colspan: 1.0,
+            rowspan: 1.0,
+        }
+    }
 }
 
 /// The organized layout data for a GridLayout, after row/col determination:
@@ -504,7 +516,7 @@ impl GridLayoutOrganizedData {
         // Two-level indirection for repeated items:
         //   jump_pos = (ri_start_cell - cell_nr_adj) * 4
         //   data_base = self[jump_pos]        (base of this repeater's data)
-        //   stride    = step * 4              (computed from repeater_steps)
+        //   stride    = self[jump_pos + 1]    (u16 entries per row = step * 4)
         //   data_idx = data_base + row_in_rep * stride + col_in_rep * 4
         let mut final_idx = 0;
         let mut cell_nr_adj = 0i32; // needs to be signed in case we start with an empty repeater
@@ -527,7 +539,7 @@ impl GridLayoutOrganizedData {
                 let col_in_rep = cell_in_rep % step;
                 let jump_pos = (ri_start_cell - cell_nr_adj) as usize * 4;
                 let data_base = self[jump_pos] as usize;
-                let stride = step as usize * 4;
+                let stride = self[jump_pos + 1] as usize;
                 final_idx = data_base + row_in_rep as usize * stride + col_in_rep as usize * 4;
                 break;
             }
@@ -563,7 +575,7 @@ impl GridLayoutOrganizedData {
 
 /// Two-level indirection organized data generator for grid layouts with repeaters.
 /// Uses 2-level indirection: cache[cache[jump_pos] + ri * stride + col * 4]
-/// Each jump cell stores [data_base, 0, 0, 0] where stride is computed as step * 4.
+/// Each jump cell stores [data_base, stride, 0, 0] where stride = step * 4.
 ///
 /// Layout: [static_cells (4 u16 each)] [jump_cells (4 u16 each, 1 per repeater)]
 ///         [row_data (rep_count * step * 4 u16)] ... (repeated for each repeater)
@@ -615,9 +627,11 @@ impl<'a> OrganizedDataGenerator<'a> {
                 if nr == self.counter {
                     // First cell of this repeater
                     let data_u16_start = self.repeat_u16_offset;
+                    let stride = step * 4;
 
-                    // Write jump cell: [data_base, 0, 0, 0]
+                    // Write jump cell: [data_base, stride, 0, 0]
                     res[self.current_offset * 4] = data_u16_start as _;
+                    res[self.current_offset * 4 + 1] = stride as _;
                     self.current_offset += 1;
                 }
                 if self.counter >= nr {
@@ -964,9 +978,11 @@ impl<'a> GridLayoutCacheGenerator<'a> {
                 if nr == self.counter {
                     // First cell of this repeater
                     let data_f32_start = self.repeat_f32_offset;
+                    let stride = step * 2;
 
-                    // Write jump cell: [data_base, 0]
+                    // Write 1 jump cell (2 f32): [data_base, stride]
                     res[self.current_offset * 2] = data_f32_start as _;
+                    res[self.current_offset * 2 + 1] = stride as _;
                     self.current_offset += 1;
                 }
                 if self.counter >= nr {
@@ -1110,7 +1126,7 @@ pub struct BoxLayoutData<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-/// The FlexBoxLayoutData is used for a flex layout with wrapping.
+/// The FlexBoxLayoutData is used for a flex layout.
 pub struct FlexBoxLayoutData<'a> {
     pub width: Coord,
     pub height: Coord,
@@ -1122,6 +1138,7 @@ pub struct FlexBoxLayoutData<'a> {
     pub direction: FlexDirection,
     pub align_content: FlexAlignContent,
     pub align_items: FlexAlignItems,
+    pub flex_wrap: FlexWrap,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, LayoutItemInfo>,
     /// Vertical constraints (height) for each cell
@@ -1139,18 +1156,23 @@ pub struct LayoutItemInfo {
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
+    // One element results into two coordinates in the result vector. 1. Position, 2. Size
     result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
 
     if data.cells.is_empty() {
         return result;
     }
 
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let num_spacings = (data.cells.len() - 1) as Coord;
+    let spacings = data.spacing * num_spacings;
+    let content_size = size_without_padding - spacings; // The size the cells can occupy without going outside of the layout
     let mut layout_data: Vec<_> = data
         .cells
         .iter()
         .map(|c| {
-            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100 as Coord);
-            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100 as Coord);
+            let min = c.constraint.min.max(c.constraint.min_percent * content_size / 100 as Coord);
+            let max = c.constraint.max.min(c.constraint.max_percent * content_size / 100 as Coord);
             grid_internal::LayoutData {
                 min,
                 max,
@@ -1161,10 +1183,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         })
         .collect();
 
-    let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
-    let num_spacings = (layout_data.len() - 1) as Coord;
-    let spacings = data.spacing * num_spacings;
 
     let align = match data.alignment {
         LayoutAlignment::Stretch => {
@@ -1239,12 +1258,12 @@ pub fn box_layout_info(
         return info;
     };
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
-    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
+    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w; // Minimum size of the complete layout
     let max = if is_stretch {
         (cells.iter().map(|c| c.constraint.max).fold(extra_w, Saturating::add)).max(min)
     } else {
         Coord::MAX
-    };
+    }; // Maximum size of the complete layout
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
@@ -1267,7 +1286,8 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, LayoutAlignment, LayoutItemInfo, Padding, Slice,
+        Coord, FlexAlignContent, FlexAlignItems, FlexWrap as SlintFlexWrap, LayoutAlignment,
+        LayoutItemInfo, Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1287,6 +1307,7 @@ mod flexbox_taffy {
         pub alignment: LayoutAlignment,
         pub align_content: FlexAlignContent,
         pub align_items: FlexAlignItems,
+        pub flex_wrap: SlintFlexWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
@@ -1391,7 +1412,11 @@ mod flexbox_taffy {
                     Style {
                         display: Display::Flex,
                         flex_direction: params.flex_direction,
-                        flex_wrap: FlexWrap::Wrap,
+                        flex_wrap: match params.flex_wrap {
+                            SlintFlexWrap::Wrap => FlexWrap::Wrap,
+                            SlintFlexWrap::NoWrap => FlexWrap::NoWrap,
+                            SlintFlexWrap::WrapReverse => FlexWrap::WrapReverse,
+                        },
                         justify_content: Some(match params.alignment {
                             // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
                             // AlignContent::Start/End would ignore direction and always use writing mode
@@ -1589,6 +1614,7 @@ pub fn solve_flexbox_layout(
         alignment: data.alignment,
         align_content: data.align_content,
         align_items: data.align_items,
+        flex_wrap: data.flex_wrap,
         flex_direction: taffy_direction,
         container_width,
         container_height,
@@ -1628,6 +1654,7 @@ pub fn flexbox_layout_info(
     orientation: Orientation,
     direction: FlexDirection,
     constraint_size: Coord,
+    flex_wrap: FlexWrap,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
@@ -1639,17 +1666,11 @@ pub fn flexbox_layout_info(
         return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
     }
 
-    // Min size is the maximum of any single item (since they can wrap) plus padding
-    let (cells, padding, spacing) = match (direction, orientation) {
-        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
-        | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical) => {
-            (&cells_h, padding_h, spacing_h)
-        }
-        _ => (&cells_v, padding_v, spacing_v),
+    let (cells, padding, spacing) = match orientation {
+        Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
+        Orientation::Vertical => (&cells_v, padding_v, spacing_v),
     };
     let extra_pad = padding.begin + padding.end;
-    let min =
-        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
 
     // Determine if we're asking for main-axis or cross-axis
     let is_main_axis = matches!(
@@ -1658,20 +1679,35 @@ pub fn flexbox_layout_info(
             | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
     );
 
-    // The main-axis constraint determines how items wrap.
-    // For main-axis queries, use sqrt of total item area as an approximation.
-    // For cross-axis queries, use the provided constraint_size.
-    let main_axis_constraint = if is_main_axis {
-        // constraint_size is not used for the main axis
-        let total_area = cells_h
-            .iter()
-            .map(|c| c.constraint.preferred_bounded())
-            .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
-            .map(|(h, v)| h * v)
-            .sum::<Coord>();
-        let count = cells.len();
-        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    let min = if matches!(flex_wrap, FlexWrap::NoWrap) && is_main_axis {
+        // No wrapping: items must all fit in one line, min = sum of minimums + spacing
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>()
+            + spacing * (cells.len().saturating_sub(1)) as Coord
+            + extra_pad
     } else {
+        // Wrapping (or cross-axis): the widest/tallest single item must fit
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+    };
+
+    // The main-axis constraint determines how items wrap.
+    let main_axis_constraint = if is_main_axis {
+        // Note that constraint_size is not used for the main axis
+        if matches!(flex_wrap, FlexWrap::NoWrap) {
+            // No wrapping: items won't wrap regardless of size, use max content
+            Coord::MAX
+        } else {
+            // Use sqrt of total item area as an approximation.
+            let total_area = cells_h
+                .iter()
+                .map(|c| c.constraint.preferred_bounded())
+                .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
+                .map(|(h, v)| h * v)
+                .sum::<Coord>();
+            let count = cells.len();
+            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+        }
+    } else {
+        // For cross-axis queries, use the provided constraint_size.
         constraint_size
     };
 
@@ -1697,6 +1733,7 @@ pub fn flexbox_layout_info(
         alignment: LayoutAlignment::Start,
         align_content: FlexAlignContent::Stretch,
         align_items: FlexAlignItems::Stretch,
+        flex_wrap,
         flex_direction: taffy_direction,
         container_width,
         container_height,
@@ -1862,6 +1899,7 @@ pub(crate) mod ffi {
         orientation: Orientation,
         direction: FlexDirection,
         constraint_size: Coord,
+        flex_wrap: FlexWrap,
     ) -> LayoutInfo {
         super::flexbox_layout_info(
             cells_h,
@@ -1873,6 +1911,7 @@ pub(crate) mod ffi {
             orientation,
             direction,
             constraint_size,
+            flex_wrap,
         )
     }
 }
@@ -1948,7 +1987,7 @@ mod tests {
             result.as_slice(),
             &[
                 0, 1, 0, 2, // fixed cell
-                8, 0, 0, 0, // jump cell: data_base=8, stride=4 (step=1, epi=4)
+                8, 4, 0, 0, // jump cell: data_base=8, stride=4 (step=1, epi=4)
                 1, 2, 1, 3, // repeated cell 1
                 1, 1, 2, 4, // repeated cell 2
                 2, 2, 3, 5, // repeated cell 3
@@ -2078,12 +2117,12 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                28, 0, 0, 0, // rep0 jump: data at 28, stride=4 (empty)
+                28, 4, 0, 0, // rep0 jump: data at 28, stride=4 (empty)
                 0, 1, 0, 1, // fixed cell (col=0)
-                28, 0, 0, 0, // rep1 jump: data at 28, stride=4 (4 rows)
+                28, 4, 0, 0, // rep1 jump: data at 28, stride=4 (4 rows)
                 5, 1, 0, 1, // fixed cell (col=5)
-                44, 0, 0, 0, // rep2 jump: data at 44, stride=4 (2 rows)
-                52, 0, 0, 0, // rep3 jump: data at 52, stride=4 (empty)
+                44, 4, 0, 0, // rep2 jump: data at 44, stride=4 (2 rows)
+                52, 4, 0, 0, // rep3 jump: data at 52, stride=4 (empty)
                 8, 1, 0, 1, // fixed cell (col=8)
                 1, 1, 0, 1, // rep1 row 0
                 2, 1, 0, 1, // rep1 row 1
@@ -2156,7 +2195,7 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                4, 0, 0, 0, // jump cell: data at u16 idx 4, stride=8 (=step*4=2*4)
+                4, 8, 0, 0, // jump cell: data at u16 idx 4, stride=8 (=step*4=2*4)
                 0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
                 0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
                 0, 1, 2, 1, 1, 1, 2, 1, // row 2: col 0, col 1
@@ -2215,7 +2254,7 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                2., 0., // jump cell: data at pos 2
+                2., 4., // jump cell: data at pos 2, stride=4 (=step*2=2*2)
                 0., 50., 0., 50., // row 0
                 50., 50., 50., 50., // row 1
                 100., 50., 100., 50., // row 2
@@ -2277,8 +2316,8 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                8, 0, 0, 0, // repeater 0 jump: data at 8, stride=8 (=step*4=2*4)
-                32, 0, 0, 0, // repeater 1 jump: data at 32, stride=12 (=step*4=3*4)
+                8, 8, 0, 0, // repeater 0 jump: data at 8, stride=8 (=step*4=2*4)
+                32, 12, 0, 0, // repeater 1 jump: data at 32, stride=12 (=step*4=3*4)
                 // Repeater 0 data
                 0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
                 0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
@@ -2362,8 +2401,8 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                4., 0., // repeater 0 jump: data at pos 4
-                16., 0., // repeater 1 jump: data at pos 16
+                4., 4., // repeater 0 jump: data at pos 4, stride=4 (=step*2=2*2)
+                16., 6., // repeater 1 jump: data at pos 16, stride=6 (=step*2=3*2)
                 0., 50., 0., 50., // repeater 0 row 0 data
                 50., 50., 50., 50., // repeater 0 row 1 data
                 100., 50., 100., 50., // repeater 0 row 2 data

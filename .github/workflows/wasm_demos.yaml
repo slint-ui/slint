@@ -7,9 +7,6 @@ on:
     workflow_dispatch:
     workflow_call:
         inputs:
-            rustflags:
-                type: string
-                description: extra rustflags
             build_artifacts:
                 type: boolean
                 required: true
@@ -20,7 +17,6 @@ jobs:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
-            RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -66,7 +62,7 @@ jobs:
               working-directory: demos/weather-demo
             - name: "Upload Demo Artifacts"
               if: ${{ inputs.build_artifacts }}
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: wasm_demo
                   path: |

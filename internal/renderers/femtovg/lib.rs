@@ -518,13 +518,14 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
         // Ensure the context is current before the renderer is destroyed
         self.graphics_backend.with_graphics_api(|api| {
             // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-            if !self.rendering_first_time.get() && api.is_some() {
-                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                    self.with_graphics_api(|api| {
-                        callback.notify(RenderingState::RenderingTeardown, &api)
-                    })
-                    .ok();
-                }
+            if !self.rendering_first_time.get()
+                && api.is_some()
+                && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
+            {
+                self.with_graphics_api(|api| {
+                    callback.notify(RenderingState::RenderingTeardown, &api)
+                })
+                .ok();
             }
 
             self.graphics_cache.clear_all();
@@ -533,12 +534,12 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
 
         self.text_layout_cache.clear_all();
 
-        if let Some(canvas) = self.canvas.borrow_mut().take() {
-            if Rc::strong_count(&canvas) != 1 {
-                i_slint_core::debug_log!(
-                    "internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked."
-                )
-            }
+        if let Some(canvas) = self.canvas.borrow_mut().take()
+            && Rc::strong_count(&canvas) != 1
+        {
+            i_slint_core::debug_log!(
+                "internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked."
+            )
         }
 
         self.graphics_backend.clear_graphics_context();

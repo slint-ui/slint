@@ -18,31 +18,31 @@ pub(crate) fn get_signature_help(
     let mut result = Vec::new();
 
     loop {
-        if let Some(node) = syntax_nodes::FunctionCallExpression::new(node.clone()) {
-            if let Some(f) = node.Expression().next() {
-                let mut active_parameter = None;
-                for t in node.children_with_tokens() {
-                    if t.text_range().start() > pos {
-                        break;
+        if let Some(node) = syntax_nodes::FunctionCallExpression::new(node.clone())
+            && let Some(f) = node.Expression().next()
+        {
+            let mut active_parameter = None;
+            for t in node.children_with_tokens() {
+                if t.text_range().start() > pos {
+                    break;
+                }
+                match t.kind() {
+                    SyntaxKind::LParent => {
+                        active_parameter = Some(0);
                     }
-                    match t.kind() {
-                        SyntaxKind::LParent => {
-                            active_parameter = Some(0);
+                    SyntaxKind::Comma => {
+                        if let Some(active_parameter) = active_parameter.as_mut() {
+                            *active_parameter += 1;
                         }
-                        SyntaxKind::Comma => {
-                            if let Some(active_parameter) = active_parameter.as_mut() {
-                                *active_parameter += 1;
-                            }
-                        }
-                        SyntaxKind::RParent => {
-                            active_parameter = None;
-                        }
-                        _ => (),
-                    };
-                }
-                if let Some(si) = signature_info(document_cache, f.into(), active_parameter) {
-                    result.push(si);
-                }
+                    }
+                    SyntaxKind::RParent => {
+                        active_parameter = None;
+                    }
+                    _ => (),
+                };
+            }
+            if let Some(si) = signature_info(document_cache, f.into(), active_parameter) {
+                result.push(si);
             }
         }
 

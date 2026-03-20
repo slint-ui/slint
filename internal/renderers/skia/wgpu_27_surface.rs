@@ -133,7 +133,7 @@ impl super::Surface for WGPUSurface {
             }
             // Outdated or lost: re-configure and try again
             Err(_) => {
-                self.surface.configure(&self.device, &*self.surface_config.borrow());
+                self.surface.configure(&self.device, &self.surface_config.borrow());
                 self.surface.get_current_texture().map_err(|e| {
                     format!("Error obtaining current surface texture after initial error: {e}")
                 })?
@@ -181,7 +181,7 @@ impl super::Surface for WGPUSurface {
             | wgpu_27::TextureFormat::Rgba8UnormSrgb
             | wgpu_27::TextureFormat::Bgra8Unorm
             | wgpu_27::TextureFormat::Bgra8UnormSrgb => 32,
-            fmt @ _ => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
+            fmt => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
         })
     }
 
@@ -258,9 +258,9 @@ impl TryFrom<wgpu::Backend> for Backend {
             wgpu_27::Backend::Metal => Ok(Self::Metal),
             #[cfg(target_family = "windows")]
             wgpu_27::Backend::Dx12 => Ok(Self::Dx12),
-            other @ _ => Err(PlatformError::from(format!(
+            other => Err(PlatformError::from(format!(
                 "Unsupported WGPU backend for use with Skia: {}",
-                other.to_string()
+                other
             ))),
         }
     }
@@ -279,7 +279,7 @@ impl Backend {
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe { dx12::make_dx12_context(&_adapter, &device, &queue) },
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            Self::Vulkan => unsafe { vulkan::make_vulkan_context(&device, &queue) },
+            Self::Vulkan => unsafe { vulkan::make_vulkan_context(device, queue) },
         }
     }
 

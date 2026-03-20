@@ -1,17 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::RefCountedReference;
-use crate::to_js_unknown;
-
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
 use i_slint_compiler::langtype::Type;
 use itertools::Itertools;
-use napi::Env;
-use napi::JsFunction;
-use napi::JsString;
-use napi::JsUnknown;
+use napi::bindgen_prelude::*;
+use napi::{Env, JsValue};
 use slint_interpreter::Compiler;
 use slint_interpreter::Value;
 use smol_str::StrExt;
@@ -103,20 +98,18 @@ impl JsComponentCompiler {
         self.internal.style().cloned()
     }
 
-    // todo: set_file_loader
-
     #[napi(getter)]
     pub fn diagnostics(&self) -> Vec<JsDiagnostic> {
         self.diagnostics.iter().map(|d| JsDiagnostic::from(d.clone())).collect()
     }
 
     #[napi(getter)]
-    pub fn structs(&self, env: Env) -> HashMap<String, JsUnknown> {
-        fn convert_type(env: &Env, ty: &Type) -> Option<(String, JsUnknown)> {
+    pub fn structs<'a>(&self, env: &'a Env) -> HashMap<String, Unknown<'a>> {
+        fn convert_type<'a>(env: &'a Env, ty: &Type) -> Option<(String, Unknown<'a>)> {
             match ty {
                 Type::Struct(s) if s.node().is_some() => {
                     let name = s.name.slint_name().unwrap();
-                    let struct_instance = to_js_unknown(
+                    let struct_instance = crate::to_js_unknown(
                         env,
                         &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(
                             |(name, field_type)| {
@@ -136,26 +129,23 @@ impl JsComponentCompiler {
 
         self.structs_and_enums
             .iter()
-            .filter_map(|ty| convert_type(&env, ty))
-            .collect::<HashMap<String, JsUnknown>>()
+            .filter_map(|ty| convert_type(env, ty))
+            .collect::<HashMap<String, Unknown<'a>>>()
     }
 
     #[napi(getter)]
-    pub fn enums(&self, env: Env) -> HashMap<String, JsUnknown> {
-        fn convert_type(env: &Env, ty: &Type) -> Option<(String, JsUnknown)> {
+    pub fn enums<'a>(&self, env: &'a Env) -> HashMap<String, Unknown<'a>> {
+        fn convert_type<'a>(env: &'a Env, ty: &Type) -> Option<(String, Unknown<'a>)> {
             match ty {
                 Type::Enumeration(en) => {
-                    let mut o = env.create_object().ok()?;
+                    let mut o = Object::new(env).ok()?;
 
                     for value in en.values.iter() {
                         let value = value.replace_smolstr("-", "_");
-                        o.set_property(
-                            env.create_string(&value).ok()?,
-                            env.create_string(&value).ok()?.into_unknown(),
-                        )
-                        .ok()?;
+                        let str_val = env.create_string(&value).ok()?;
+                        o.set_named_property(&value, str_val).ok()?;
                     }
-                    Some((en.name.to_string(), o.into_unknown()))
+                    Some((en.name.to_string(), o.into_unknown(env).ok()?))
                 }
                 _ => None,
             }
@@ -163,44 +153,42 @@ impl JsComponentCompiler {
 
         self.structs_and_enums
             .iter()
-            .filter_map(|ty| convert_type(&env, ty))
-            .collect::<HashMap<String, JsUnknown>>()
+            .filter_map(|ty| convert_type(env, ty))
+            .collect::<HashMap<String, Unknown<'a>>>()
     }
 
     #[napi(setter)]
-    pub fn set_file_loader(&mut self, env: Env, callback: JsFunction) -> napi::Result<()> {
-        let function_ref = std::rc::Rc::new(RefCountedReference::new(&env, callback)?);
+    pub fn set_file_loader(
+        &mut self,
+        env: &Env,
+        callback: crate::DynFunction<'_>,
+    ) -> napi::Result<()> {
+        let stored_fn = std::rc::Rc::new(crate::StoredFunction::new(&callback)?);
+        let env = *env;
 
         self.internal.set_file_loader(move |path| {
             let path = PathBuf::from(path);
-            let function_ref = function_ref.clone();
+            let stored_fn = stored_fn.clone();
             Box::pin({
                 async move {
-                    let Ok(callback) = function_ref.get::<JsFunction>() else {
+                    let Ok(path_str) = env.create_string(path.display().to_string().as_str())
+                    else {
                         return Some(Err(std::io::Error::other(
-                            "Node.js: cannot access file loader callback.",
+                            "Node.js: wrong argument for callback file_loader.",
                         )));
                     };
 
-                    let Ok(path) = env.create_string(path.display().to_string().as_str()) else {
+                    let Ok(result) = stored_fn.call(&env, vec![path_str.raw()]) else {
                         return Some(Err(std::io::Error::other(
-                            "Node.js: wrong argunemt for callback file_loader.",
+                            "Node.js: file loader callback failed.",
                         )));
                     };
 
-                    let result = match callback.call(None, &[path]) {
-                        Ok(result) => result,
-                        Err(err) => {
-                            return Some(Err(std::io::Error::other(err.to_string())));
-                        }
-                    };
-
-                    let js_string: napi::Result<JsString> = result.try_into();
-
+                    let js_string = result.coerce_to_string();
                     let Ok(js_string) = js_string else {
                         return Some(Err(std::io::Error::other(
-                        "Node.js: cannot read return value of file loader callback as js string.",
-                    )));
+                            "Node.js: cannot read return value of file loader callback as js string.",
+                        )));
                     };
 
                     let Ok(utf8_string) = js_string.into_utf8() else {

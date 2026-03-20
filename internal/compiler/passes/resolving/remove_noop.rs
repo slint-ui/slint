@@ -48,7 +48,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::StringLiteral(_) => true,
         Expression::IncludeString(_) => true,
         Expression::BoolLiteral(_) => true,
-        Expression::KeyboardShortcut(_) => true,
+        Expression::Keys(_) => true,
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),
         Expression::FunctionParameterReference { .. } => true,
         // Invalid and uncompiled expressions are unknown at this point, so default to

@@ -74,14 +74,14 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
     let mut callback_args = Vec::new();
     let mut callback_rets = Vec::new();
     for field in fields {
-        if let Some((arg, ret)) = callback_arg(&field.ty) {
-            if matches!(field.vis, syn::Visibility::Public(_)) {
-                let name = field.ident.as_ref().unwrap();
-                callback_field_names_normalized.push(normalize_identifier(name));
-                callback_field_names.push(name);
-                callback_args.push(arg);
-                callback_rets.push(ret);
-            }
+        if let Some((arg, ret)) = callback_arg(&field.ty)
+            && matches!(field.vis, syn::Visibility::Public(_))
+        {
+            let name = field.ident.as_ref().unwrap();
+            callback_field_names_normalized.push(normalize_identifier(name));
+            callback_field_names.push(name);
+            callback_args.push(arg);
+            callback_rets.push(ret);
         }
     }
 
@@ -134,19 +134,18 @@ fn normalize_identifier(name: &syn::Ident) -> String {
 
 // Try to match `Property<Foo>` on the syn tree and return Foo if found
 fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
-    if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty {
-        if let Some(syn::PathSegment {
+    if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty
+        && let Some(syn::PathSegment {
             ident,
             arguments:
                 syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments { args, .. }),
         }) = segments.first()
-        {
-            match args.first() {
-                Some(syn::GenericArgument::Type(property_type)) if *ident == "Property" => {
-                    return Some(property_type);
-                }
-                _ => {}
+    {
+        match args.first() {
+            Some(syn::GenericArgument::Type(property_type)) if *ident == "Property" => {
+                return Some(property_type);
             }
+            _ => {}
         }
     }
     None
@@ -154,27 +153,26 @@ fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
 
 // Try to match `Callback<Args, Ret>` on the syn tree and return Args and Ret if found
 fn callback_arg(ty: &syn::Type) -> Option<(&syn::Type, Option<&syn::Type>)> {
-    if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty {
-        if let Some(syn::PathSegment {
+    if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty
+        && let Some(syn::PathSegment {
             ident,
             arguments:
                 syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments { args, .. }),
         }) = segments.first()
-        {
-            if ident != "Callback" {
-                return None;
-            }
-            let mut it = args.iter();
-            let first = match it.next() {
-                Some(syn::GenericArgument::Type(ty)) => ty,
-                _ => return None,
-            };
-            let sec = match it.next() {
-                Some(syn::GenericArgument::Type(ty)) => Some(ty),
-                _ => None,
-            };
-            return Some((first, sec));
+    {
+        if ident != "Callback" {
+            return None;
         }
+        let mut it = args.iter();
+        let first = match it.next() {
+            Some(syn::GenericArgument::Type(ty)) => ty,
+            _ => return None,
+        };
+        let sec = match it.next() {
+            Some(syn::GenericArgument::Type(ty)) => Some(ty),
+            _ => None,
+        };
+        return Some((first, sec));
     }
     None
 }

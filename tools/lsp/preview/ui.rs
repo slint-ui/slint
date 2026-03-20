@@ -341,7 +341,7 @@ pub fn ui_set_known_components(
 
     api.set_known_components(result.clone().into());
     api.on_library_search(move |term| {
-        result.set_search_text(term.into());
+        result.set_search_text(term);
     });
 }
 
@@ -1353,7 +1353,7 @@ fn update_properties(
     for (c, n) in std::iter::zip(current_model.iter(), next_model.iter()) {
         debug_assert_eq!(c.group_name, n.group_name);
 
-        fn extract_inner_model<'a>(m: &'a PropertyGroup) -> &'a VecModel<PropertyInformation> {
+        fn extract_inner_model(m: &PropertyGroup) -> &VecModel<PropertyInformation> {
             m.properties
                 .as_any()
                 .downcast_ref::<search_model::SearchModel<PropertyInformation>>()

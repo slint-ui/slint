@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::{Rc, Weak};
 
-use crate::{ElementHandle, ElementRoot};
+use crate::{ElementHandle, ElementRoot, LayoutKind};
 
 struct RootWrapper<'a>(&'a ItemTreeRc);
 
@@ -26,7 +26,7 @@ impl ElementRoot for RootWrapper<'_> {
 
 impl super::Sealed for RootWrapper<'_> {}
 
-#[allow(non_snake_case, unused_imports, non_camel_case_types)]
+#[allow(non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/proto.rs"));
 }
@@ -299,7 +299,7 @@ impl TestingClient {
                     query = query.match_type_name(type_name)
                 }
                 proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name_or_base(type_name_or_base) => {
-                    query = query.match_type_name(type_name_or_base)
+                    query = query.match_inherits(type_name_or_base)
                 }
                 proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_accessible_role(role) => {
                     query = query.match_accessible_role(convert_from_proto_accessible_role(role).ok_or_else(|| "Unknown accessibility role used in element query".to_string())?)
@@ -379,6 +379,13 @@ impl TestingClient {
                 .to_string(),
             accessible_enabled: element.accessible_enabled().unwrap_or_default(),
             accessible_read_only: element.accessible_read_only().unwrap_or_default(),
+            layout_kind: match element.layout_kind() {
+                Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout,
+                Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout,
+                Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout,
+                Some(LayoutKind::FlexBox) => proto::LayoutKind::FlexBox,
+                None => proto::LayoutKind::NotALayout,
+            },
         })
     }
 
@@ -476,15 +483,14 @@ async fn message_loop(
 
         let message_size: usize =
             Cursor::new(message_size_buf).read_u32::<BigEndian>().unwrap() as usize;
-        let mut message_buf = Vec::with_capacity(message_size);
-        message_buf.resize(message_size, 0);
+        let mut message_buf = vec![0; message_size];
         if stream.read_exact(&mut message_buf).await.is_err() {
             break "Unable to read request data from AUT connection";
         }
 
         let message = match proto::RequestToAUT::from_reader(
             &mut quick_protobuf::reader::BytesReader::from_bytes(&message_buf),
-            &mut message_buf,
+            &message_buf,
         ) {
             Ok(msg) => msg,
             Err(_) => {
@@ -616,7 +622,7 @@ fn convert_window_event(
         }) => i_slint_core::platform::WindowEvent::PointerPressed {
             position: convert_logical_position(
                 position
-                    .ok_or_else(|| format!("Missing logical position in pointer press event"))?,
+                    .ok_or_else(|| "Missing logical position in pointer press event".to_string())?,
             ),
             button: convert_pointer_event_button(button),
         },
@@ -626,15 +632,16 @@ fn convert_window_event(
         }) => i_slint_core::platform::WindowEvent::PointerReleased {
             position: convert_logical_position(
                 position
-                    .ok_or_else(|| format!("Missing logical position in pointer press event"))?,
+                    .ok_or_else(|| "Missing logical position in pointer press event".to_string())?,
             ),
             button: convert_pointer_event_button(button),
         },
         proto::mod_WindowEvent::OneOfevent::pointer_moved(proto::PointerMoveEvent { position }) => {
             i_slint_core::platform::WindowEvent::PointerMoved {
                 position: convert_logical_position(
-                    position
-                        .ok_or_else(|| format!("Missing logical position in pointer move event"))?,
+                    position.ok_or_else(|| {
+                        "Missing logical position in pointer move event".to_string()
+                    })?,
                 ),
             }
         }
@@ -642,14 +649,15 @@ fn convert_window_event(
             position,
             delta_x,
             delta_y,
-        }) => i_slint_core::platform::WindowEvent::PointerScrolled {
-            position: convert_logical_position(
-                position
-                    .ok_or_else(|| format!("Missing logical position in pointer scroll event"))?,
-            ),
-            delta_x,
-            delta_y,
-        },
+        }) => {
+            i_slint_core::platform::WindowEvent::PointerScrolled {
+                position: convert_logical_position(position.ok_or_else(|| {
+                    "Missing logical position in pointer scroll event".to_string()
+                })?),
+                delta_x,
+                delta_y,
+            }
+        }
         proto::mod_WindowEvent::OneOfevent::pointer_exited(proto::PointerExitedEvent {}) => {
             i_slint_core::platform::WindowEvent::PointerExited {}
         }
@@ -663,7 +671,7 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
         }
         proto::mod_WindowEvent::OneOfevent::None => {
-            return Err(format!("Unknown window event received in system testing protobuf"));
+            return Err("Unknown window event received in system testing protobuf".to_string());
         }
     })
 }

@@ -293,10 +293,9 @@ pub fn with_property_lookup_ctx<R>(
     } else if let Some(b) = element
         .Binding()
         .find(|p| i_slint_compiler::parser::identifier_text(p).is_some_and(|x| x == prop_name))
+        && let Some(cb) = b.BindingExpression().CodeBlock()
     {
-        if let Some(cb) = b.BindingExpression().CodeBlock() {
-            add_codeblock_local_variables(&cb, to_offset, &mut lookup_context);
-        }
+        add_codeblock_local_variables(&cb, to_offset, &mut lookup_context);
     }
 
     Some(f(&mut lookup_context))
@@ -308,10 +307,10 @@ fn add_codeblock_local_variables(
     to_offset: Option<TextSize>,
     ctx: &mut LookupCtx,
 ) {
-    if let Some(offset) = to_offset {
-        if !code_block.text_range().contains(offset) {
-            return; // out of scope
-        }
+    if let Some(offset) = to_offset
+        && !code_block.text_range().contains(offset)
+    {
+        return; // out of scope
     }
 
     let locals = code_block

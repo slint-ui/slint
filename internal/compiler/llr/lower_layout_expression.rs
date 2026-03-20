@@ -338,6 +338,11 @@ pub(super) fn solve_flexbox_layout(
                     .with(|e| Type::Enumeration(e.enums.FlexAlignItems.clone())),
                 fld.align_items,
             ),
+            (
+                "flex_wrap",
+                crate::typeregister::BUILTIN.with(|e| Type::Enumeration(e.enums.FlexWrap.clone())),
+                fld.flex_wrap,
+            ),
             ("cells_h", fld.cells_h.ty(ctx), fld.cells_h),
             ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
         ],
@@ -496,6 +501,7 @@ fn compute_flexbox_layout_info_for_direction(
             orientation_expr,
             fld.direction,
             constraint_size,
+            fld.flex_wrap,
         ];
 
         match fld.compute_cells {
@@ -533,6 +539,7 @@ fn compute_flexbox_layout_info_for_direction(
             }),
             fld.direction,
             llr_Expression::NumberLiteral(f32::MAX.into()),
+            fld.flex_wrap,
         ];
 
         match fld.compute_cells {
@@ -564,6 +571,7 @@ struct FlexBoxLayoutDataResult {
     direction: llr_Expression,
     align_content: llr_Expression,
     align_items: llr_Expression,
+    flex_wrap: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
     /// When there are repeaters involved, we need to do a WithFlexBoxLayoutItemInfo with the
@@ -619,6 +627,16 @@ fn flexbox_layout_data(
         })
     };
 
+    let flex_wrap = if let Some(expr) = &layout.flex_wrap {
+        llr_Expression::PropertyReference(ctx.map_property_reference(expr))
+    } else {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexWrap.clone());
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: e.default_value,
+            enumeration: e,
+        })
+    };
+
     let repeater_count =
         layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
@@ -656,6 +674,7 @@ fn flexbox_layout_data(
             direction,
             align_content,
             align_items,
+            flex_wrap,
             cells_h,
             cells_v,
             compute_cells: None,
@@ -671,7 +690,7 @@ fn flexbox_layout_data(
                     };
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
-                    repeated_children_count: None,
+                    row_child_templates: None,
                 }))
             } else {
                 // For static elements, we need both orientations
@@ -698,6 +717,7 @@ fn flexbox_layout_data(
             direction,
             align_content,
             align_items,
+            flex_wrap,
             cells_h,
             cells_v,
             compute_cells: Some(("cells_h".into(), "cells_v".into(), elements)),
@@ -766,7 +786,7 @@ fn box_layout_data(
                     };
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
-                    repeated_children_count: None,
+                    row_child_templates: None,
                 }))
             } else {
                 let layout_info =
@@ -827,11 +847,10 @@ fn grid_layout_cell_constraints(
                     LoweredElement::Repeated { repeated_index } => *repeated_index,
                     _ => panic!(),
                 };
-                let cell = item.cell.borrow();
-                let repeated_children_count = cell.child_items.as_ref().map(|c| c.len());
+                let row_child_templates = get_row_child_templates(&item.item.element, ctx);
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
-                    repeated_children_count,
+                    row_child_templates,
                 }));
             } else {
                 let layout_info =
@@ -921,10 +940,9 @@ fn grid_layout_input_data(
                     LoweredElement::Repeated { repeated_index } => *repeated_index,
                     _ => panic!(),
                 };
-                let cell = item.cell.borrow();
-                let repeated_children_count = cell.child_items.as_ref().map(|c| c.len());
+                let row_child_templates = get_row_child_templates(&item.item.element, ctx);
                 let repeated_element =
-                    GridLayoutRepeatedElement { new_row, repeater_index, repeated_children_count };
+                    GridLayoutRepeatedElement { new_row, repeater_index, row_child_templates };
                 elements.push(Either::Right(repeated_element));
                 after_repeater_in_same_row = true;
             } else {
@@ -1088,13 +1106,23 @@ pub fn get_grid_layout_input_for_repeated(
         };
 
     if let Some(child_items) = grid_cell.child_items.as_ref() {
-        // Repeated Row
+        // Repeated Row: only handle static children here;
+        // inner repeater children are handled by the code generators at runtime
         let mut new_row_expr = llr_Expression::BoolLiteral(true);
-        for (i, child_item) in child_items.iter().enumerate() {
-            let child_element = child_item.element.borrow();
-            let child_cell = child_element.grid_layout_cell.as_ref().unwrap().borrow();
-            push_assignment(i, &new_row_expr, &child_cell);
-            new_row_expr = llr_Expression::BoolLiteral(false);
+        let mut i = 0;
+        for child_item in child_items.iter() {
+            match child_item {
+                crate::layout::RowChildTemplate::Static(layout_item) => {
+                    let child_element = layout_item.element.borrow();
+                    let child_cell = child_element.grid_layout_cell.as_ref().unwrap().borrow();
+                    push_assignment(i, &new_row_expr, &child_cell);
+                    new_row_expr = llr_Expression::BoolLiteral(false);
+                    i += 1;
+                }
+                crate::layout::RowChildTemplate::Repeated { .. } => {
+                    // Inner repeater children are filled at runtime by the code generators
+                }
+            }
         }
     } else {
         // Single repeated item
@@ -1110,4 +1138,20 @@ pub fn get_grid_layout_input_for_repeated(
     }
 
     llr_Expression::CodeBlock(assignments)
+}
+
+/// Returns the row child template list for a repeated Row element.
+///
+/// Reads it from the already-lowered Row sub-component (which must have been
+/// lowered before the parent's expression lowering — see the ordering in
+/// `lower_sub_component`).
+///
+/// Returns `None` if this is a column-repeater (not a Row sub-component).
+/// Returns `Some(vec)` with one entry per child in declaration order.
+fn get_row_child_templates(
+    outer_element: &ElementRc,
+    ctx: &ExpressionLoweringCtx,
+) -> Option<Vec<super::RowChildTemplateInfo>> {
+    let comp = outer_element.borrow().base_type.as_component().clone();
+    ctx.state.row_child_templates(&comp)
 }

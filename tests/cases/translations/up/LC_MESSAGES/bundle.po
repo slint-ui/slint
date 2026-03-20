@@ -115,3 +115,7 @@ msgstr "SAME(Main)"
 msgctxt "Main"
 msgid "Diff"
 msgstr "DIFF(Main)"
+
+msgctxt "TestCase"
+msgid "Translated to empty"
+msgstr ""

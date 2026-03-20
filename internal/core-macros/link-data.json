@@ -98,14 +98,14 @@
     "KeyboardInput": {
         "href": "reference/keyboard-input/overview/"
     },
-    "KeyboardShortcuts": {
-        "href": "reference/keyboard-input/overview/#keyboard-shortcuts"
+    "KeyBindingOverview": {
+        "href": "reference/keyboard-input/overview/#key-bindings"
     },
-    "Shortcut": {
+    "KeyBinding": {
         "href": "reference/keyboard-input/focusscope/#shortcut"
     },
-    "keyboard-shortcut": {
-        "href": "reference/primitive-types/#keyboard-shortcut"
+    "keys": {
+        "href": "reference/primitive-types/#keys"
     },
     "length": {
         "href": "reference/primitive-types/#length"

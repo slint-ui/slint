@@ -16,7 +16,7 @@ use i_slint_core::accessibility::{
 };
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
-use i_slint_core::input::KeyboardShortcut;
+use i_slint_core::input::Keys;
 use i_slint_core::item_tree::{
     IndexRange, ItemRc, ItemTree, ItemTreeNode, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable,
     ItemTreeWeak, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
@@ -133,7 +133,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        let is_repeated = s.description.original.parent_element.upgrade().is_some_and(|p| {
+        let is_repeated = s.description.original.parent_element().is_some_and(|p| {
             p.borrow().repeated.as_ref().is_some_and(|r| !r.is_conditional_element)
         });
         if is_repeated {
@@ -812,6 +812,7 @@ fn ensure_repeater_updated<'id>(
         .item_tree_to_repeat
         .original
         .parent_element
+        .borrow()
         .upgrade()
         .unwrap()
         .borrow()
@@ -1033,7 +1034,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<BorderRectangle>(),
             rtti_for::<TouchArea>(),
             rtti_for::<FocusScope>(),
-            rtti_for::<Shortcut>(),
+            rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
             rtti_for::<PinchGestureHandler>(),
             rtti_for::<Path>(),
@@ -1301,7 +1302,7 @@ pub(crate) fn generate_item_tree<'id>(
                     i_slint_common::for_each_enums!(match_enum_type)
                 }
             }
-            Type::KeyboardShortcutType => property_info::<KeyboardShortcut>(),
+            Type::Keys => property_info::<Keys>(),
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::ArrayOfU16 => property_info::<SharedVector<u16>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
@@ -1335,7 +1336,7 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
-    if let Some(parent_element) = component.parent_element.upgrade()
+    if let Some(parent_element) = component.parent_element()
         && let Some(r) = &parent_element.borrow().repeated
         && !r.is_conditional_element
     {
@@ -1345,8 +1346,10 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
 
-        let model_ty =
-            Expression::RepeaterModelReference { element: component.parent_element.clone() }.ty();
+        let model_ty = Expression::RepeaterModelReference {
+            element: component.parent_element.borrow().clone(),
+        }
+        .ty();
         let (prop, type_info) =
             property_info_for_type(&model_ty, SPECIAL_PROPERTY_MODEL_DATA).unwrap();
         custom_properties.insert(
@@ -1355,12 +1358,11 @@ pub(crate) fn generate_item_tree<'id>(
         );
     }
 
-    let parent_item_tree_offset =
-        if component.parent_element.upgrade().is_some() || is_popup_menu_impl {
-            Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
-        } else {
-            None
-        };
+    let parent_item_tree_offset = if component.parent_element().is_some() || is_popup_menu_impl {
+        Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
+    } else {
+        None
+    };
 
     let root_offset = builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>();
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
@@ -1379,7 +1381,7 @@ pub(crate) fn generate_item_tree<'id>(
         .collect();
 
     // only the public exported component needs the public property list
-    let public_properties = if component.parent_element.upgrade().is_none() {
+    let public_properties = if component.parent_element().is_none() {
         component.root_element.borrow().property_declarations.clone()
     } else {
         Default::default()
@@ -2152,6 +2154,7 @@ unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWea
                 .description
                 .original
                 .parent_element
+                .borrow()
                 .upgrade()
                 .and_then(|e| e.borrow().item_index.get().cloned())
                 .unwrap_or(u32::MAX);

@@ -4,9 +4,35 @@
 //ignore: pyi
 
 export component TestCase inherits Window {
-    out property<styled-text> t1: @markdown("Hello {}", "World");
-    out property<styled-text> t2: @markdown("Hello {}", "*World*");
-    out property<styled-text> t3: @markdown("Hello *{}*", "World");
+    VerticalLayout {
+        s1 := StyledText {
+            text: @markdown("Hello {}", "World");
+        }
+        s2 := StyledText {
+            text: @markdown("Hello {}", "*World*");
+        }
+        s3 := StyledText {
+            text: @markdown("Hello *{}*", "World");
+        }
+        s4 := StyledText {
+            text: @markdown("Hello {}", @markdown("*{}*", "World"));
+        }
+        s5 := StyledText {
+            text: @markdown("*{}* {}", @markdown("**H{}**", "ello"), @markdown("*{}*", "World"));
+        }
+    }
+
+    out property<styled-text> t1: s1.text;
+    out property<styled-text> t2: s2.text;
+    out property<styled-text> t3: s3.text;
+
+    out property<length> w1: s1.preferred-width;
+    out property<length> w2: s2.preferred-width;
+    out property<length> w3: s3.preferred-width;
+    out property<length> w4: s4.preferred-width;
+    out property<length> w5: s5.preferred-width;
+
+    property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 62px;
 }
 
 /*
@@ -16,5 +42,19 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_t1(), StyledText::parse_interpolated::<StyledText>("Hello World", &[]).unwrap());
 assert_eq!(instance.get_t2(), StyledText::parse_interpolated::<StyledText>("Hello \\*World\\*", &[]).unwrap());
 assert_eq!(instance.get_t3(), StyledText::parse_interpolated::<StyledText>("Hello *World*", &[]).unwrap());
+assert_eq!(instance.get_w1(), 66.0);
+assert_eq!(instance.get_w2(), 80.0);
+assert_eq!(instance.get_w3(), 64.0);
+assert_eq!(instance.get_w4(), 64.0);
+assert_eq!(instance.get_w5(), 62.0);
+```
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_w1() == 66.0);
+assert(instance.get_w2() == 80.0);
+assert(instance.get_w3() == 64.0);
+assert(instance.get_w4() == 64.0);
+assert(instance.get_w5() == 62.0);
 ```
 */

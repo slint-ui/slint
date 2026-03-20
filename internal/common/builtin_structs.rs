@@ -26,6 +26,7 @@
 /// i_slint_common::for_each_builtin_structs!(print_builtin_structs);
 /// ```
 #[macro_export]
+#[allow(clippy::crate_in_macro_def)] // Intentional: this macro is consumed in crates where `crate::animations::Instant` must resolve in the caller.
 macro_rules! for_each_builtin_structs {
     ($macro:ident) => {
         $macro![
@@ -39,7 +40,7 @@ macro_rules! for_each_builtin_structs {
             /// On Windows, the Windows key is mapped to the meta modifier.
             #[derive(Copy, Eq)]
             struct KeyboardModifiers {
-                @name = BuiltinPrivateStruct::KeyboardModifiers,
+                @name = BuiltinPublicStruct::KeyboardModifiers,
                 export {
                     /// Indicates the Alt key on a keyboard.
                     alt: bool,
@@ -210,7 +211,7 @@ macro_rules! for_each_builtin_structs {
                     icon: Image,
                     /// an opaque id that can be used to identify the menu entry
                     id: SharedString,
-                    // keyboard_shortcut: KeySequence,
+                    // keys: KeySequence,
                     /// whether the menu entry is enabled
                     enabled: bool,
                     /// whether the menu entry is checkable

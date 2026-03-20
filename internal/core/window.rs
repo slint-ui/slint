@@ -746,12 +746,11 @@ impl TouchState {
                     // Clear double-tap state if the finger moved too far
                     // from the last tap, preventing false double-taps
                     // after drags.
-                    if let Some((_, last_pos)) = self.last_tap {
-                        if (position - last_pos).square_length() as f32
+                    if let Some((_, last_pos)) = self.last_tap
+                        && (position - last_pos).square_length() as f32
                             >= Self::DOUBLE_TAP_DISTANCE_SQ
-                        {
-                            self.last_tap = None;
-                        }
+                    {
+                        self.last_tap = None;
                     }
                     events.push(MouseEvent::Moved { position, is_touch: true });
                 }
@@ -1704,7 +1703,7 @@ impl WindowInner {
             }
 
             let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new(item_tree.clone(), 0)),
+                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
                 Some(menubar_item) => {
                     event.translate(
                         menubar_item
@@ -1789,6 +1788,21 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
+        // NFC-normalize the event text so that shortcut matching works consistently
+        // regardless of the composed/decomposed form the backend provides
+        // (e.g. é as U+00E9 vs e + U+0301).
+        // Note: icu_normalizer is currently only enabled if parley is enabled
+        #[cfg(feature = "shared-parley")]
+        {
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let normalized = normalizer.normalize(&event.text);
+            // Only replace the event text if normalization actually changed it,
+            // to avoid unnecessary allocations.
+            if let alloc::borrow::Cow::Owned(normalized) = normalized {
+                event.text = normalized.into();
+            }
+        }
+
         if let Some(updated_modifier) = self
             .modifiers
             .get()
@@ -2146,6 +2160,9 @@ impl WindowInner {
                     let mut item_trees = Vec::with_capacity(borrow.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
                     for popup in borrow.iter() {
+                        // If the popup is not a real window and does not have its own coordinate system.
+                        // We have to draw the popup and consider the location for subelements because everything must
+                        // be rendered relative to the main window position
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
@@ -2235,36 +2252,7 @@ impl WindowInner {
         is_menu: bool,
     ) -> NonZeroU32 {
         let position = parent_item
-            .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
-        let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
-                return item_tree;
-            }
-            let mut r = crate::item_tree::ItemWeak::default();
-            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
-            match r.upgrade() {
-                None => return item_tree,
-                Some(x) => item_tree = x.item_tree().clone(),
-            }
-        };
-
-        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
-        let (parent_window_adapter, position) = if let Some(parent_popup) = self
-            .active_popups
-            .borrow()
-            .iter()
-            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
-        {
-            match &parent_popup.location {
-                PopupWindowLocation::TopLevel(wa) => (wa.clone(), position),
-                PopupWindowLocation::ChildWindow(offset) => {
-                    (self.window_adapter(), position + offset.to_vector())
-                }
-            }
-        } else {
-            (self.window_adapter(), position)
-        };
-
+            .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -2317,6 +2305,37 @@ impl WindowInner {
             self.close_popup(sibling);
         }
 
+        let root_of = |mut item_tree: ItemTreeRc| loop {
+            if ItemRc::new_root(item_tree.clone()).downcast::<crate::items::WindowItem>().is_some()
+            {
+                return item_tree;
+            }
+            let mut r = crate::item_tree::ItemWeak::default();
+            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
+            match r.upgrade() {
+                None => return item_tree,
+                Some(x) => item_tree = x.item_tree().clone(),
+            }
+        };
+
+        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
+        let parent_window_adapter = if let Some(parent_popup) = self
+            .active_popups
+            .borrow()
+            .iter()
+            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
+        {
+            // Popup in a popup
+            match &parent_popup.location {
+                PopupWindowLocation::TopLevel(wa) => wa.clone(),
+                PopupWindowLocation::ChildWindow(_) => self.window_adapter(),
+            }
+        } else {
+            self.window_adapter()
+        };
+
+        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
+        // of the current window
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
@@ -2369,8 +2388,9 @@ impl WindowInner {
         parent_item: &ItemRc,
     ) -> bool {
         if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
-            let position = parent_item
-                .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
+            let position = parent_item.map_to_native_window(
+                parent_item.geometry().origin + position.to_euclid().to_vector(),
+            );
             let position = crate::lengths::logical_position_to_api(position);
             x.show_native_popup_menu(context_menu_item, position)
         } else {
@@ -2478,7 +2498,7 @@ impl WindowInner {
     /// is returned, it's guaranteed to be safe to downcast to `WindowItem`.
     pub fn window_item_rc(&self) -> Option<ItemRc> {
         self.try_component().and_then(|component_rc| {
-            let item_rc = ItemRc::new(component_rc, 0);
+            let item_rc = ItemRc::new_root(component_rc);
             if item_rc.downcast::<crate::items::WindowItem>().is_some() {
                 Some(item_rc)
             } else {
@@ -2490,7 +2510,7 @@ impl WindowInner {
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
-            ItemRc::new(component_rc, 0).downcast::<crate::items::WindowItem>()
+            ItemRc::new_root(component_rc).downcast::<crate::items::WindowItem>()
         })
     }
 
@@ -2621,8 +2641,7 @@ impl WindowInner {
 
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
-        &self
-            .ctx
+        self.ctx
             .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
     }
 

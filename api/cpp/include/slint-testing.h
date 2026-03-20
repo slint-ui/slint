@@ -19,6 +19,7 @@
 namespace slint::testing {
 
 using slint::cbindgen_private::AccessibleRole;
+using slint::cbindgen_private::LayoutKind;
 
 /// Init the testing backend.
 /// Should be called before any other Slint function that can access the platform.
@@ -207,6 +208,18 @@ public:
         SharedVector<SharedString> bases;
         if (cbindgen_private::slint_testing_element_bases(&inner, &bases)) {
             return bases;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    /// Returns the layout kind if this element is a layout container;
+    /// std::nullopt if the element is not a layout or is not valid anymore.
+    std::optional<slint::testing::LayoutKind> layout_kind() const
+    {
+        LayoutKind kind {};
+        if (cbindgen_private::slint_testing_element_layout_kind(&inner, &kind)) {
+            return kind;
         } else {
             return std::nullopt;
         }

@@ -110,6 +110,15 @@ The primary direction in which items are placed. Set to `row` to place items hor
 It also supports `row-reverse` and `column-reverse` which invert the flow: `row-reverse` places items right-to-left (starting at the right edge), and `column-reverse` places items bottom-to-top (starting at the bottom edge).
 </SlintProperty>
 
+### flex-wrap
+<SlintProperty propName="flex-wrap" typeName="enum" enumName="FlexWrap">
+Controls whether flex items wrap onto multiple lines when they don't fit in the container.
+- `wrap`: Items wrap onto the next line in the normal direction (default). New lines are added in the cross-axis direction.
+- `no-wrap`: All items are placed on a single line. Items may overflow the container.
+- `wrap-reverse`: Items wrap onto the next line, but lines are stacked in the reverse cross-axis direction.
+The default value is `wrap`.
+</SlintProperty>
+
 ### align-content
 <SlintProperty propName="align-content" typeName="enum" enumName="FlexAlignContent">
 Set the distribution of flex lines along the cross axis.

@@ -61,7 +61,7 @@ mod renderer {
                 Ok(renderer) => return Ok(renderer),
                 Err(err) => {
                     renderer_errors.push(if !name.is_empty() {
-                        format!("Error from {} renderer: {}", name, err).into()
+                        format!("Error from {} renderer: {}", name, err)
                     } else {
                         "No renderers configured.".into()
                     });

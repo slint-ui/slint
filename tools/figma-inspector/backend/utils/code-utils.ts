@@ -3,7 +3,7 @@
 
 import type { EventTS } from "../../shared/universals";
 
-export function dispatch(data: any, origin = "*") {
+function dispatch(data: any, origin = "*") {
     figma.ui.postMessage(data, {
         origin,
     });
@@ -32,13 +32,4 @@ export function listenTS<Key extends keyof EventTS>(
     };
 
     figma.ui.on("message", func);
-}
-
-export async function getStore(key: string) {
-    const value = await figma.clientStorage.getAsync(key);
-    return value;
-}
-
-export async function setStore(key: string, value: string) {
-    await figma.clientStorage.setAsync(key, value);
 }

@@ -99,12 +99,12 @@
                             "name": "keyword.other.import.slint"
                         },
                         "2": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         },
                         "2": {
                             "name": "keyword.other.from.slint"
@@ -139,12 +139,12 @@
                             "name": "keyword.other.export.slint"
                         },
                         "2": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "patterns": [
@@ -187,12 +187,12 @@
                             "name": "entity.name.type.struct.slint"
                         },
                         "3": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "patterns": [
@@ -227,12 +227,12 @@
                             "name": "entity.name.type.enum.slint"
                         },
                         "3": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "patterns": [
@@ -270,12 +270,12 @@
                             "name": "entity.other.inherited-class.component.slint"
                         },
                         "6": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "patterns": [
@@ -298,13 +298,13 @@
                             "name": "entity.name.type.global.slint"
                         },
                         "3": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "end": "(\\})",
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "patterns": [
@@ -349,6 +349,9 @@
                 },
                 {
                     "include": "#callback-setup"
+                },
+                {
+                    "include": "#function-call"
                 },
                 {
                     "include": "#expression"
@@ -417,12 +420,12 @@
                     "name": "entity.name.type.element.slint"
                 },
                 "5": {
-      							"name": "punctuation.brackets.curly.slint"
+                    "name": "punctuation.brackets.curly.slint"
                 }
             },
             "endCaptures": {
                 "1": {
-      							"name": "punctuation.brackets.curly.slint"
+                    "name": "punctuation.brackets.curly.slint"
                 }
             },
             "patterns": [
@@ -497,12 +500,12 @@
                     "end": "(\\})\\s*",
                     "beginCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "endCaptures": {
                         "1": {
-              							"name": "punctuation.brackets.curly.slint"
+                            "name": "punctuation.brackets.curly.slint"
                         }
                     },
                     "patterns": [

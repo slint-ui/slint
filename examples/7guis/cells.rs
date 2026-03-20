@@ -190,7 +190,7 @@ impl CellsModel {
             r_model.notify.row_changed(col);
         }
 
-        make_deps(&mut *self.dep_graph.borrow_mut(), (row, col), &exp);
+        make_deps(&mut self.dep_graph.borrow_mut(), (row, col), &exp);
 
         Some(())
     }

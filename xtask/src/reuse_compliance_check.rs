@@ -14,7 +14,7 @@ where
     I::Item: AsRef<OsStr>,
 {
     let home_dir = std::env::var("HOME").context("HOME is not set in the environment")?;
-    Ok(sh.cmd(command).args(args).env("PATH", &format!("/bin:/usr/bin:{home_dir}/.local/bin")))
+    Ok(sh.cmd(command).args(args).env("PATH", format!("/bin:/usr/bin:{home_dir}/.local/bin")))
 }
 
 pub fn find_reuse() -> Result<PathBuf> {
@@ -22,9 +22,7 @@ pub fn find_reuse() -> Result<PathBuf> {
 }
 
 pub fn reuse_download(sh: &Shell, reuse: &Path) -> Result<String> {
-    Ok(cmd(sh, reuse, &["download", "--all"])?
-        .read()
-        .context("Failed to download missing licenses.")?)
+    cmd(sh, reuse, &["download", "--all"])?.read().context("Failed to download missing licenses.")
 }
 
 pub fn reuse_lint(sh: &Shell, reuse: &Path) -> Result<()> {
@@ -60,10 +58,13 @@ fn parse_spdx_data(sh: &Shell, reuse: &Path) -> Result<BTreeMap<PathBuf, Vec<Str
                 licenses = Vec::new();
             }
 
-            current_filename = line[10..].into();
-        } else if line.starts_with("LicenseInfoInFile: ") {
-            let license = line[19..].into();
-            licenses.push(license);
+            if let Some(stripped) = line.strip_prefix("FileName: ") {
+                current_filename = stripped.into();
+            }
+        } else if line.starts_with("LicenseInfoInFile: ")
+            && let Some(stripped) = line.strip_prefix("LicenseInfoInFile: ")
+        {
+            licenses.push(stripped.into());
         }
     }
 

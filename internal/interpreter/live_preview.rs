@@ -158,21 +158,21 @@ impl LiveReloadingComponent {
 
     /// Return the instance
     pub fn instance(&self) -> &ComponentInstance {
-        &self.instance.as_ref().expect("always set after Self is created from Rc::new_cyclic")
+        self.instance.as_ref().expect("always set after Self is created from Rc::new_cyclic")
     }
 
     /// Set a property and remember its value for when the component is reloaded
     pub fn set_property(&self, name: &str, value: Value) {
         self.properties.borrow_mut().insert(name.into(), value.clone());
         self.instance()
-            .set_property(&name, value)
+            .set_property(name, value)
             .unwrap_or_else(|e| panic!("Cannot set property {name}: {e}"))
     }
 
     /// Forward to get_property
     pub fn get_property(&self, name: &str) -> Value {
         self.instance()
-            .get_property(&name)
+            .get_property(name)
             .unwrap_or_else(|e| panic!("Cannot get property {name}: {e}"))
     }
 
@@ -187,7 +187,7 @@ impl LiveReloadingComponent {
     pub fn set_callback(&self, name: &str, callback: Rc<dyn Fn(&[Value]) -> Value + 'static>) {
         self.callbacks.borrow_mut().insert(name.into(), callback.clone());
         self.instance()
-            .set_callback(&name, move |args| callback(args))
+            .set_callback(name, move |args| callback(args))
             .unwrap_or_else(|e| panic!("Cannot set callback {name}: {e}"));
     }
 
@@ -272,7 +272,7 @@ impl Watcher {
         }));
 
         // no event loop, no need to start a watcher
-        if !result.is_ok() {
+        if result.is_err() {
             return arc;
         }
 
@@ -284,14 +284,12 @@ impl Watcher {
                 let Some(watcher) = watcher_weak.upgrade() else { return };
                 if matches!(event.kind, K::Modify(M::Data(_) | M::Any) | K::Create(_))
                     && watcher.lock().is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
-                {
-                    if let WatcherState::Waiting(waker) =
+                    && let WatcherState::Waiting(waker) =
                         std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
-                    {
-                        // Wait a bit to let the time to write multiple files
-                        std::thread::sleep(std::time::Duration::from_millis(15));
-                        waker.wake();
-                    }
+                {
+                    // Wait a bit to let the time to write multiple files
+                    std::thread::sleep(std::time::Duration::from_millis(15));
+                    waker.wake();
                 }
             })
             .ok();

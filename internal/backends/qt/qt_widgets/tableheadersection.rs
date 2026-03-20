@@ -9,7 +9,7 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTableHeaderSection {
-    pub item: Property<i_slint_core::model::TableColumn>,
+    pub item: Property<i_slint_core::items::TableColumn>,
     pub index: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,

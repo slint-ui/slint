@@ -24,6 +24,7 @@ pub struct LinuxFBDisplay {
 }
 
 impl LinuxFBDisplay {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
         renderer_formats: &[drm::buffer::DrmFourcc],
@@ -47,6 +48,7 @@ impl LinuxFBDisplay {
         )))
     }
 
+    #[allow(clippy::arc_with_non_send_sync)]
     fn new_with_path(
         device_opener: &crate::DeviceOpener,
         path: &std::path::Path,
@@ -132,7 +134,7 @@ impl LinuxFBDisplay {
         let format = super::negotiate_format(renderer_formats, &available_formats)
             .ok_or_else(|| PlatformError::Other(
                 format!("No compatible format found for LinuxFB. Renderer supports: {:?}, FB supports: {:?}",
-                        renderer_formats, available_formats).into()))?;
+                        renderer_formats, available_formats)))?;
 
         let bpp = vinfo.bits_per_pixel / 8;
 
@@ -329,7 +331,6 @@ const FBIOGET_VSCREENINFO: u32 = 0x4600;
 #[repr(C)]
 #[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
-
 pub struct fb_bitfield {
     offset: u32,
     length: u32,

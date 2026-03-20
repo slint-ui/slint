@@ -796,7 +796,7 @@ impl RendererSealed for SoftwareRenderer {
             &font_request,
             scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         #[cfg(feature = "systemfonts")]
@@ -862,7 +862,7 @@ impl RendererSealed for SoftwareRenderer {
             &font_request,
             scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         match (font, parley_disabled()) {
@@ -907,7 +907,7 @@ impl RendererSealed for SoftwareRenderer {
             &font_request,
             scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         match (font, parley_disabled()) {
@@ -965,7 +965,7 @@ impl RendererSealed for SoftwareRenderer {
             &font_request,
             scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         match (font, parley_disabled()) {
@@ -1054,7 +1054,7 @@ impl RendererSealed for SoftwareRenderer {
             &font_request,
             scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         match (font, parley_disabled()) {
@@ -2674,13 +2674,13 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             &font_request,
             self.scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
             drop(font_ctx);
-            sharedparley::draw_text(self, text, Some(self_rc), size, Some(&self.text_layout_cache));
+            sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
             return;
         }
 
@@ -2767,7 +2767,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             &font_request,
             self.scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
 
         match (font, parley_disabled()) {
@@ -3146,7 +3146,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             &font_request,
             self.scale_factor,
             #[cfg(feature = "systemfonts")]
-            &mut *font_ctx,
+            &mut font_ctx,
         );
         let clip = self.current_state.clip.cast() * self.scale_factor;
 

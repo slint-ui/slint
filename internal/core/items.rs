@@ -683,7 +683,7 @@ declare_item_vtable! {
 }
 
 crate::declare_item_vtable! {
-    fn slint_get_ShortcutVTable() -> ShortcutVTable for Shortcut
+    fn slint_get_KeyBindingVTable() -> KeyBindingVTable for KeyBinding
 }
 
 declare_item_vtable! {
@@ -1177,6 +1177,7 @@ declare_item_vtable! {
 }
 
 /// The implementation of the `PropertyAnimation` element
+/// This animation has the time as animation limit
 #[repr(C)]
 #[derive(FieldOffsets, SlintElement, Clone, Debug)]
 #[pin]
@@ -1329,7 +1330,7 @@ impl RenderRectangle for WindowItem {
 }
 
 fn next_window_item(item: &ItemRc) -> Option<ItemRc> {
-    let root_item_in_local_item_tree = ItemRc::new(item.item_tree().clone(), 0);
+    let root_item_in_local_item_tree = ItemRc::new_root(item.item_tree().clone());
 
     if root_item_in_local_item_tree.downcast::<crate::items::WindowItem>().is_some() {
         Some(root_item_in_local_item_tree)
@@ -1357,7 +1358,7 @@ impl WindowItem {
     }
 
     pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
-        let first_item = ItemRc::new(item_tree, 0);
+        let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
             .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())

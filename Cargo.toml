@@ -36,6 +36,7 @@ members = [
   'examples/mcu-board-support',
   'examples/mcu-embassy',
   'examples/uefi-demo',
+  'examples/async-io',
   'demos/weather-demo',
   'demos/usecases/rust',
   'helper_crates/const-field-offset',
@@ -175,7 +176,13 @@ web-sys = { version = "0.3.72", default-features = false }
 smol_str = { version = "0.3.1" }
 rayon = { version = "1.10.0", default-features = false }
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
+
+# Note: We're migrating our unicode handling over to the icu family of crates.
+# Prefer using icu crates over adding more unicode-* dependencies
+# parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { version = "1.12.0" }
+icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
+
 glow = { version = "0.16" }
 tikv-jemallocator = { version = "0.6" }
 wgpu-27 = { package = "wgpu", version = "27", default-features = false }

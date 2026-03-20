@@ -13,6 +13,9 @@ export component ComboBox {
 
     callback selected <=> base.selected;
 
+    property <int> visible-items: min(6, model.length);
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * 2rem;
+
     accessible-role: combobox;
     accessible-enabled: root.enabled;
     accessible-expandable: true;
@@ -35,7 +38,7 @@ export component ComboBox {
         width: 100%;
         height: 100%;
         show-popup => {
-            if model.length <= 6 {
+            if model.length <= root.visible-items {
                 small-popup.show();
             } else {
                 big-popup.show();
@@ -51,8 +54,8 @@ export component ComboBox {
         x: 0;
         y: root.height;
         width: root.width;
-        // Try to hardcode about the size of 6 items
-        height: 6 * 2rem;
+        height: root.visible-items * 2rem;
+        close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
         NativeComboBoxPopup {
@@ -69,6 +72,7 @@ export component ComboBox {
             }
 
             ScrollView {
+                viewport-y: root.popup-scroll-y;
                 VerticalLayout {
                     alignment: start;
 
@@ -81,6 +85,7 @@ export component ComboBox {
                         ta2 := TouchArea {
                             clicked => {
                                 base.select(index);
+                                big-popup.close();
                             }
                         }
                     }
@@ -93,6 +98,7 @@ export component ComboBox {
         x: 0;
         y: root.height;
         width: root.width;
+        close-policy: close-on-click-outside;
         NativeComboBoxPopup {
             width: 100%;
             height: 100%;
@@ -121,6 +127,7 @@ export component ComboBox {
                     ta := TouchArea {
                         clicked => {
                             base.select(index);
+                            small-popup.close();
                         }
                     }
                 }

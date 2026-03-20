@@ -37,6 +37,7 @@ struct SeatWrap {
 
 #[cfg(feature = "libseat")]
 impl SeatWrap {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(seat: &Rc<RefCell<libseat::Seat>>) -> input::Libinput {
         let seat_name = seat.borrow_mut().name().to_string();
         let mut libinput = input::Libinput::new_with_udev(Self {
@@ -49,7 +50,7 @@ impl SeatWrap {
 }
 
 #[cfg(feature = "libseat")]
-impl<'a> LibinputInterface for SeatWrap {
+impl LibinputInterface for SeatWrap {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<OwnedFd, i32> {
         self.seat
             .borrow_mut()
@@ -66,7 +67,7 @@ impl<'a> LibinputInterface for SeatWrap {
                 // Safety: API requires us to own it, but in close_restricted() we'll take it back.
                 unsafe { OwnedFd::from_raw_fd(raw_fd) }
             })
-            .map_err(|e| e.0.into())
+            .map_err(|e| e.0)
     }
     fn close_restricted(&mut self, fd: OwnedFd) {
         // Transfer ownership back to libseat
@@ -82,6 +83,7 @@ struct DirectDeviceAccess {}
 
 #[cfg(not(feature = "libseat"))]
 impl DirectDeviceAccess {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> input::Libinput {
         let mut libinput = input::Libinput::new_with_udev(Self {});
         libinput.udev_assign_seat("seat0").unwrap();
@@ -90,7 +92,7 @@ impl DirectDeviceAccess {
 }
 
 #[cfg(not(feature = "libseat"))]
-impl<'a> LibinputInterface for DirectDeviceAccess {
+impl LibinputInterface for DirectDeviceAccess {
     fn open_restricted(&mut self, path: &Path, flags_raw: i32) -> Result<OwnedFd, i32> {
         let flags = nix::fcntl::OFlag::from_bits_retain(flags_raw);
         OpenOptions::new()
@@ -210,7 +212,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         let screen_size = window.size().to_logical(window.scale_factor());
 
         for event in &mut self.libinput {
-            if self.libinput_event_hook.as_ref().map_or(false, |hook| hook(&event)) {
+            if self.libinput_event_hook.as_ref().is_some_and(|hook| hook(&event)) {
                 continue;
             };
             match event {
@@ -347,8 +349,9 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         //key_code, state, sym
                         //);
 
-                        if control && alt && sym == xkb::Keysym::BackSpace
-                            || control && alt && sym == xkb::Keysym::Delete
+                        if (sym == xkb::Keysym::Delete || sym == xkb::Keysym::BackSpace)
+                            && alt
+                            && control
                         {
                             i_slint_core::api::quit_event_loop()
                                 .expect("Unable to quit event loop multiple times");

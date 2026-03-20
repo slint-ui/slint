@@ -137,6 +137,6 @@ mod data {
             }
         });
 
-        mail_box_adapter.set_mails(mails.into());
+        mail_box_adapter.set_mails(mails);
     }
 }

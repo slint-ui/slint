@@ -1192,7 +1192,7 @@ trait RemEuclid {
 #[cfg(not(feature = "std"))]
 impl RemEuclid for f32 {
     fn rem_euclid(self, b: f32) -> f32 {
-        return num_traits::Euclid::rem_euclid(&self, &b);
+        num_traits::Euclid::rem_euclid(&self, &b)
     }
 }
 
@@ -1338,8 +1338,7 @@ pub(crate) mod ffi {
         unsafe {
             core::ptr::write(
                 image,
-                Image::load_from_path(std::path::Path::new(path.as_str()))
-                    .unwrap_or(Image::default()),
+                Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or_default(),
             )
         }
     }
@@ -1362,17 +1361,17 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
-            ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                #[cfg(feature = "std")]
-                ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
-                _ => None,
-            },
+            #[cfg(feature = "std")]
+            ImageInner::EmbeddedImage {
+                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
+                ..
+            } => Some(path),
             ImageInner::NineSlice(nine) => match &nine.0 {
-                ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                    #[cfg(feature = "std")]
-                    ImageCacheKey::Path(CachedPath { path, .. }) => Some(path),
-                    _ => None,
-                },
+                #[cfg(feature = "std")]
+                ImageInner::EmbeddedImage {
+                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
+                    ..
+                } => Some(path),
                 _ => None,
             },
             _ => None,

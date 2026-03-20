@@ -70,3 +70,62 @@ SCENARIO("ElementHandle")
         REQUIRE(*elements[1].id() == "App::second");
     }
 }
+
+SCENARIO("LayoutKind")
+{
+    using namespace slint::interpreter;
+    using namespace slint;
+
+    ComponentCompiler compiler;
+
+    auto result = compiler.build_from_source(
+            R"(
+        export component App {
+            hl := HorizontalLayout {
+                vl := VerticalLayout {
+                    Rectangle {}
+                }
+            }
+            gl := GridLayout {
+                Rectangle {}
+            }
+            rect := Rectangle {}
+        }
+    )",
+            "");
+    REQUIRE(result.has_value());
+    auto component_definition = *result;
+
+    auto instance = component_definition.create();
+
+    SECTION("HorizontalLayout")
+    {
+        auto elements = slint::testing::ElementHandle::find_by_element_id(instance, "App::hl");
+        REQUIRE(elements.size() == 1);
+        const auto lk = elements[0].layout_kind();
+        REQUIRE(lk.has_value());
+        REQUIRE(*lk == slint::testing::LayoutKind::HorizontalLayout);
+        REQUIRE(*elements[0].type_name() == "HorizontalLayout");
+    }
+
+    SECTION("VerticalLayout nested in HorizontalLayout")
+    {
+        auto elements = slint::testing::ElementHandle::find_by_element_id(instance, "App::vl");
+        REQUIRE(elements.size() == 1);
+        REQUIRE(*elements[0].layout_kind() == slint::testing::LayoutKind::VerticalLayout);
+    }
+
+    SECTION("GridLayout")
+    {
+        auto elements = slint::testing::ElementHandle::find_by_element_id(instance, "App::gl");
+        REQUIRE(elements.size() == 1);
+        REQUIRE(*elements[0].layout_kind() == slint::testing::LayoutKind::GridLayout);
+    }
+
+    SECTION("Non-layout element")
+    {
+        auto elements = slint::testing::ElementHandle::find_by_element_id(instance, "App::rect");
+        REQUIRE(elements.size() == 1);
+        REQUIRE_FALSE(elements[0].layout_kind().has_value());
+    }
+}

@@ -150,9 +150,10 @@ impl StyledText {
             }
             match list_item_type {
                 Some(ListItemType::Unordered) => {
-                    if indentation % 3 == 0 {
+                    let remainder = indentation % 3;
+                    if remainder == 0 {
                         text.push_str("• ")
-                    } else if indentation % 3 == 1 {
+                    } else if remainder == 1 {
                         text.push_str("◦ ")
                     } else {
                         text.push_str("▪ ")
@@ -326,9 +327,9 @@ impl StyledText {
                     ));
                 }
                 pulldown_cmark::Event::Text(text) => {
-                    let mut paragraph =
+                    let paragraph =
                         paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
-                    substitute(&mut paragraph, &text)?;
+                    substitute(paragraph, &text)?;
                 }
                 pulldown_cmark::Event::End(_) => {
                     let (style, start) = if let Some(value) = style_stack.pop() {
@@ -348,11 +349,11 @@ impl StyledText {
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
                 }
                 pulldown_cmark::Event::Code(text) => {
-                    let mut paragraph =
+                    let paragraph =
                         paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
                     let start = paragraph.text.len();
 
-                    substitute(&mut paragraph, &text)?;
+                    substitute(paragraph, &text)?;
                     paragraph.formatting.push(FormattedSpan {
                         range: start..paragraph.text.len(),
                         style: Style::Code,
@@ -429,7 +430,7 @@ impl StyledText {
                                         expecting_color_attribute = false;
 
                                         let value =
-                                            crate::color_parsing::parse_color_literal(&*value)
+                                            crate::color_parsing::parse_color_literal(&value)
                                                 .or_else(|| {
                                                     crate::color_parsing::named_colors()
                                                         .get(&*value)

@@ -21,6 +21,7 @@ use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
+use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
 
@@ -96,7 +97,7 @@ fn resolve_expression(
             }
         };
         match expr {
-            Expression::DebugHook { expression, .. } => *expression = Box::new(new_expr),
+            Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
     }
@@ -798,9 +799,6 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        if !ctx.diag.enable_experimental {
-            ctx.diag.push_error("The @markdown() function is experimental".into(), &node);
-        }
         let Some(string) = node
             .child_text(SyntaxKind::StringLiteral)
             .and_then(|s| crate::literals::unescape_string(&s))
@@ -839,7 +837,7 @@ impl Expression {
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(string.into()),
+                Expression::StringLiteral(string),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -1012,22 +1010,47 @@ impl Expression {
     }
 
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
-        let mut shortcut = langtype::KeyboardShortcut::default();
+        let mut keys = langtype::Keys::default();
 
         let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
-        for identifier in node
+
+        let idents_and_questions: Vec<_> = node
             .children_with_tokens()
-            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier))
+            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier | SyntaxKind::Question))
             // The first identifier is always `keys`
             .skip(1)
-        {
+            .collect();
+
+        for (index, ident_or_question) in idents_and_questions.iter().enumerate() {
+            if ident_or_question.kind() == SyntaxKind::Question {
+                continue;
+            }
+            let identifier = ident_or_question;
+
+            let is_question = || -> bool {
+                matches!(
+                    idents_and_questions.get(index + 1).map(NodeOrToken::kind),
+                    Some(SyntaxKind::Question)
+                )
+            };
+
             match identifier.as_token().unwrap().text() {
-                "Alt" => shortcut.modifiers.alt = true,
-                "Control" => shortcut.modifiers.control = true,
-                "Meta" => shortcut.modifiers.meta = true,
-                "Shift" => shortcut.modifiers.shift = true,
-                "IgnoreShift" => shortcut.ignore_shift = true,
-                "IgnoreAlt" => shortcut.ignore_alt = true,
+                "Alt" => {
+                    if is_question() {
+                        keys.ignore_alt = true;
+                    } else {
+                        keys.modifiers.alt = true;
+                    }
+                }
+                "Control" => keys.modifiers.control = true,
+                "Meta" => keys.modifiers.meta = true,
+                "Shift" => {
+                    if is_question() {
+                        keys.ignore_shift = true;
+                    } else {
+                        keys.modifiers.shift = true;
+                    }
+                }
                 key_name => {
                     if let Some((key, shiftbehavior)) = lookup_key(key_name) {
                         key_code = Some((
@@ -1046,9 +1069,9 @@ impl Expression {
                         };
                         ctx.diag.push_error(
                             format!("{key_name} not defined in the Keys namespace\n({hint})"),
-                            &identifier,
+                            identifier,
                         );
-                        shortcut.modifiers = KeyboardModifiers::default();
+                        keys.modifiers = KeyboardModifiers::default();
                         break;
                     }
                 }
@@ -1060,20 +1083,20 @@ impl Expression {
         if let Some((key_code, shift_behavior, node)) = key_code {
             match shift_behavior {
                 ShiftBehavior::LocalizedShiftable { shifted_hint } => {
-                    if shortcut.ignore_shift {
+                    if keys.ignore_shift {
                         ctx.diag.push_warning(
                             format!(
-                                "{name} already implies IgnoreShift (remove IgnoreShift)",
+                                "{name} already implies Shift? (remove Shift?)",
                                 name = node.as_token().unwrap().text()
                             ),
                             &node,
                         );
                     }
-                    shortcut.ignore_shift = true;
-                    if shortcut.modifiers.shift {
+                    keys.ignore_shift = true;
+                    if keys.modifiers.shift {
                         ctx.diag.push_error(
                                         format!(
-                                            "Shortcuts involving {name} ignore Shift to support different keyboard layouts\n\
+                                            "Key bindings involving {name} ignore Shift to support different keyboard layouts\n\
                                             Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
                                             name = node.as_token().unwrap().text()
                                         ),
@@ -1085,27 +1108,44 @@ impl Expression {
                 // No special action needed
                 ShiftBehavior::Unshiftable => {}
             }
-            shortcut.key = key_code;
+            keys.key = key_code;
         }
 
         // If there is a string literal, use it as the key
-        node.child_token(SyntaxKind::StringLiteral).map(|token| {
-            if let Some(key) = crate::literals::unescape_string(&token.text()) {
-                shortcut.key = key;
+        if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
+            && let Some(key) = crate::literals::unescape_string(token.text())
+        {
+            // NFC-normalize the key string for consistent matching
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let key: SmolStr = normalizer.normalize(&key).into();
 
-                let lowercase = shortcut.key.to_lowercase();
-                if lowercase != shortcut.key {
-                    ctx.diag.push_error(
-                        format!(
-                            "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
-                        ),
-                        &token,
-                    );
-                }
+            // Validate that the string literal contains exactly one grapheme cluster
+            let grapheme_count = key.graphemes(true).count();
+            if grapheme_count == 0 {
+                ctx.diag.push_error("Key string literal must not be empty".to_string(), &token);
+            } else if grapheme_count > 1 {
+                ctx.diag.push_error(
+                    format!(
+                        "Key string literal must contain exactly one grapheme cluster, found {grapheme_count}",
+                    ),
+                    &token,
+                );
             }
-        });
 
-        Expression::KeyboardShortcut(shortcut)
+            keys.key = key;
+
+            let lowercase: SmolStr = keys.key.to_lowercase().into();
+            if lowercase != keys.key {
+                ctx.diag.push_error(
+                    format!(
+                        "Key string literals must currently be lowercase, use \"{lowercase}\" instead",
+                    ),
+                    &token,
+                );
+            }
+        }
+
+        Expression::Keys(keys)
     }
 
     /// Perform the lookup

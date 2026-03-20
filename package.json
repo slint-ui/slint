@@ -2,8 +2,11 @@
   "name": "slint_repository",
   "version": "1.16.0",
   "description": "",
-  "main": "index.js",
+  "devDependencies": {
+    "knip": "catalog:"
+  },
   "scripts": {
+    "knip": "knip",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",
@@ -16,11 +19,15 @@
     "onlyBuiltDependencies": [
       "@biomejs/biome",
       "esbuild",
-      "sharp"
+      "sharp",
+      "skia-canvas"
     ],
     "overrides": {
       "lodash@>=4.0.0 <=4.17.22": ">=4.17.23",
-      "minimatch@<10.2.1": ">=10.2.1"
+      "svgo@=4.0.0": ">=4.0.1",
+      "devalue@<5.6.4": ">=5.6.4",
+      "devalue@<=5.6.3": ">=5.6.4",
+      "flatted@<3.4.0": ">=3.4.0"
     }
   }
 }

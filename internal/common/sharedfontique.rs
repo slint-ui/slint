@@ -57,7 +57,7 @@ pub fn create_collection(shared: bool) -> Collection {
             // just use the first font of the first family in the file.
             if let Some(font) = fonts.first().and_then(|(id, infos)| {
                 let info = infos.first()?;
-                get_font_for_info(&mut collection, &mut source_cache, *id, &info)
+                get_font_for_info(&mut collection, &mut source_cache, *id, info)
             }) {
                 default_fonts.insert(path, font);
             }
@@ -69,10 +69,8 @@ pub fn create_collection(shared: bool) -> Collection {
         if path.extension().is_some() {
             add_font_from_path(path.to_owned());
         } else if let Ok(dir) = std::fs::read_dir(path) {
-            for file in dir {
-                if let Ok(file) = file {
-                    add_font_from_path(file.path());
-                }
+            for file in dir.flatten() {
+                add_font_from_path(file.path());
             }
         }
     }

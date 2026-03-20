@@ -74,7 +74,7 @@ impl Item for ComplexText {
     ) -> LayoutInfo {
         text_layout_info(
             self,
-            &self_rc,
+            self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -263,7 +263,7 @@ impl Item for StyledTextItem {
     ) -> LayoutInfo {
         text_layout_info(
             self,
-            &self_rc,
+            self_rc,
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width.apply_pin(self),
@@ -280,7 +280,7 @@ impl Item for StyledTextItem {
         InputEventFilterResult::ForwardEvent
     }
 
-    #[cfg(feature = "experimental-rich-text")]
+    #[cfg_attr(not(feature = "std"), allow(unused))]
     fn input_event(
         self: Pin<&Self>,
         event: &MouseEvent,
@@ -289,6 +289,7 @@ impl Item for StyledTextItem {
         _: &mut super::MouseCursor,
     ) -> InputEventResult {
         match event {
+            #[cfg(feature = "std")]
             MouseEvent::Pressed {
                 position,
                 button: PointerEventButton::Left,
@@ -313,17 +314,6 @@ impl Item for StyledTextItem {
             }
             _ => InputEventResult::EventIgnored,
         }
-    }
-
-    #[cfg(not(feature = "experimental-rich-text"))]
-    fn input_event(
-        self: Pin<&Self>,
-        _: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
-    ) -> InputEventResult {
-        InputEventResult::EventIgnored
     }
 
     fn capture_key_event(
@@ -890,7 +880,7 @@ impl Item for TextInput {
                     self.set_cursor_position(
                         clicked_offset,
                         true,
-                        if (pressed - 1) % 3 == 0 {
+                        if (pressed - 1).is_multiple_of(3) {
                             TextChangeNotify::TriggerCallbacks
                         } else {
                             TextChangeNotify::SkipCallbacks
@@ -1005,11 +995,13 @@ impl Item for TextInput {
                     None => (),
                 };
 
-                if let Some(keycode) = event.text.chars().next() {
-                    if keycode == key_codes::Return && !self.read_only() && self.single_line() {
-                        Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
-                        return KeyEventResult::EventAccepted;
-                    }
+                if let Some(keycode) = event.text.chars().next()
+                    && keycode == key_codes::Return
+                    && !self.read_only()
+                    && self.single_line()
+                {
+                    Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
+                    return KeyEventResult::EventAccepted;
                 }
 
                 // Only insert/interpreter non-control character strings
@@ -1174,8 +1166,8 @@ impl Item for TextInput {
                         ));
                     }
 
-                    #[cfg(not(target_vendor = "apple"))]
-                    if *_reason == FocusReason::TabNavigation {
+                    if cfg!(not(target_vendor = "apple")) && *_reason == FocusReason::TabNavigation
+                    {
                         self.select_all(window_adapter, self_rc);
                     }
                 }
@@ -1513,7 +1505,7 @@ impl TextInput {
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
                 loop {
-                    i = i.checked_sub(1).unwrap_or_default();
+                    i = i.saturating_sub(1);
                     if text.is_char_boundary(i) {
                         break i;
                     }
@@ -1721,7 +1713,7 @@ impl TextInput {
         let cursor_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter, self_rc);
         let geometry = self_rc.geometry();
-        let origin = self_rc.map_to_window(geometry.origin);
+        let origin = self_rc.map_to_native_window(geometry.origin);
         let origin_vector = origin.to_vector();
         let cursor_rect_origin =
             crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin_vector);
@@ -1735,7 +1727,7 @@ impl TextInput {
             self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::StopAtPopups);
         let clip_rect = maybe_parent.map(|parent| {
             let geom = parent.geometry();
-            LogicalRect::new(parent.map_to_window(geom.origin), geom.size)
+            LogicalRect::new(parent.map_to_native_window(geom.origin), geom.size)
         });
 
         InputMethodProperties {
@@ -2054,12 +2046,12 @@ impl TextInput {
                 true,
                 FocusReason::PointerClick,
             );
-        } else if !self.read_only() {
-            if let Some(w) = window_adapter.internal(crate::InternalToken) {
-                w.input_method_request(InputMethodRequest::Enable(
-                    self.ime_properties(window_adapter, self_rc),
-                ));
-            }
+        } else if !self.read_only()
+            && let Some(w) = window_adapter.internal(crate::InternalToken)
+        {
+            w.input_method_request(InputMethodRequest::Enable(
+                self.ime_properties(window_adapter, self_rc),
+            ));
         }
     }
 

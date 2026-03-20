@@ -184,20 +184,20 @@ impl<Length> ShapeBuffer<Length> {
 
                 layout.font.shape_text(&text[*run_start..run_end], &mut glyphs);
 
-                if let Some(letter_spacing) = layout.letter_spacing {
-                    if glyphs.len() > glyphs_start {
-                        let mut last_byte_offset = glyphs[glyphs_start].text_byte_offset;
-                        for index in glyphs_start + 1..glyphs.len() {
-                            let current_glyph_byte_offset = glyphs[index].text_byte_offset;
-                            if current_glyph_byte_offset != last_byte_offset {
-                                let previous_glyph = &mut glyphs[index - 1];
-                                previous_glyph.advance += letter_spacing;
-                            }
-                            last_byte_offset = current_glyph_byte_offset;
+                if let Some(letter_spacing) = layout.letter_spacing
+                    && glyphs.len() > glyphs_start
+                {
+                    let mut last_byte_offset = glyphs[glyphs_start].text_byte_offset;
+                    for index in glyphs_start + 1..glyphs.len() {
+                        let current_glyph_byte_offset = glyphs[index].text_byte_offset;
+                        if current_glyph_byte_offset != last_byte_offset {
+                            let previous_glyph = &mut glyphs[index - 1];
+                            previous_glyph.advance += letter_spacing;
                         }
-
-                        glyphs.last_mut().unwrap().advance += letter_spacing;
+                        last_byte_offset = current_glyph_byte_offset;
                     }
+
+                    glyphs.last_mut().unwrap().advance += letter_spacing;
                 }
 
                 let run = TextRun {

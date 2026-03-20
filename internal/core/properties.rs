@@ -224,13 +224,11 @@ pub(crate) mod dependency_tracker {
         pub fn debug_assert_valid(&self) {
             unsafe {
                 debug_assert!(
-                    self.prev.get().is_null()
-                        || (*self.prev.get()).get() == self as *const DependencyNode<T>
+                    self.prev.get().is_null() || core::ptr::eq((*self.prev.get()).get(), self)
                 );
                 debug_assert!(
                     self.next.get().is_null()
-                        || (*self.next.get()).prev.get()
-                            == (&self.next) as *const Cell<*const DependencyNode<T>>
+                        || core::ptr::eq((*self.next.get()).prev.get(), &self.next)
                 );
                 // infinite loop?
                 debug_assert_ne!(self.next.get(), self as *const DependencyNode<T>);
@@ -583,11 +581,8 @@ impl PropertyHandle {
             self.set_lock_flag(true);
             scopeguard::defer! { self.set_lock_flag(false); }
             let handle = self.handle.get();
-            let binding = if let Some(pointer) = Self::pointer_to_binding(handle) {
-                Some(Pin::new_unchecked(&mut *(pointer)))
-            } else {
-                None
-            };
+            let binding =
+                Self::pointer_to_binding(handle).map(|pointer| Pin::new_unchecked(&mut *(pointer)));
             f(binding)
         }
     }
@@ -678,28 +673,27 @@ impl PropertyHandle {
     // handle is not locked. (Upholding the requirements of UnsafeCell)
     unsafe fn update<T>(&self, value: *mut T) {
         let remove = self.access(|binding| {
-            if let Some(binding) = binding {
-                if binding.dirty.get() {
-                    unsafe fn evaluate_as_current_binding(
-                        value: *mut (),
-                        binding: Pin<&BindingHolder>,
-                    ) -> BindingResult {
-                        CURRENT_BINDING.set(Some(binding), || unsafe {
-                            (binding.vtable.evaluate)(
-                                binding.get_ref() as *const BindingHolder,
-                                value as *mut (),
-                            )
-                        })
-                    }
+            if let Some(binding) = binding
+                && binding.dirty.get()
+            {
+                unsafe fn evaluate_as_current_binding(
+                    value: *mut (),
+                    binding: Pin<&BindingHolder>,
+                ) -> BindingResult {
+                    CURRENT_BINDING.set(Some(binding), || unsafe {
+                        (binding.vtable.evaluate)(
+                            binding.get_ref() as *const BindingHolder,
+                            value as *mut (),
+                        )
+                    })
+                }
 
-                    // clear all the nodes so that we can start from scratch
-                    binding.dep_nodes.set(Default::default());
-                    let r =
-                        unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
-                    binding.dirty.set(false);
-                    if r == BindingResult::RemoveBinding {
-                        return true;
-                    }
+                // clear all the nodes so that we can start from scratch
+                binding.dep_nodes.set(Default::default());
+                let r = unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
+                binding.dirty.set(false);
+                if r == BindingResult::RemoveBinding {
+                    return true;
                 }
             }
             false
@@ -777,7 +771,7 @@ impl Drop for PropertyHandle {
     fn drop(&mut self) {
         self.remove_binding();
         debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
-        if self.handle.get() as *const u32 != (&CONSTANT_PROPERTY_SENTINEL) as *const u32 {
+        if !core::ptr::eq(self.handle.get() as *const u32, &CONSTANT_PROPERTY_SENTINEL) {
             unsafe {
                 DependencyListHead::drop(self.handle.as_ptr() as *mut _);
             }
@@ -1116,7 +1110,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         let handle_val = self.handle.handle.get();
         if let Some(holder) = PropertyHandle::pointer_to_binding(handle_val) {
             // Safety: the handle is a pointer to a binding
-            if unsafe { *&raw const (*holder).is_two_way_binding } {
+            if unsafe { (*holder).is_two_way_binding } {
                 // Safety: the handle is a pointer to a binding whose B is a TwoWayBinding<T>
                 return Some(unsafe {
                     (*(holder as *const BindingHolder<TwoWayBinding<T>>))

@@ -62,8 +62,7 @@ fn main() -> std::io::Result<()> {
         .unwrap_or_else(|| format!("{}.po", args.domain.as_deref().unwrap_or("messages")).into());
 
     let mut messages = if args.join_existing {
-        let po = rspolib::pofile(&*output).map_err(|x| std::io::Error::other(x))?;
-        po
+        rspolib::pofile(&*output).map_err(std::io::Error::other)?
     } else {
         let package = args.package_name.as_ref().map(|x| x.as_ref()).unwrap_or("PACKAGE");
         let version = args.package_version.as_ref().map(|x| x.as_ref()).unwrap_or("VERSION");
@@ -114,86 +113,82 @@ fn visit_node(
     args: &Cli,
 ) {
     for n in node.children() {
-        if n.kind() == SyntaxKind::AtTr {
-            if let Some(msgid) = n
+        if n.kind() == SyntaxKind::AtTr
+            && let Some(msgid) = n
                 .child_text(SyntaxKind::StringLiteral)
                 .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
-            {
-                let tr = syntax_nodes::AtTr::from(n.clone());
-                let msgctxt = tr
-                    .TrContext()
-                    .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
-                    .or_else(|| current_context.clone());
-                let plural = tr
-                    .TrPlural()
-                    .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
+        {
+            let tr = syntax_nodes::AtTr::from(n.clone());
+            let msgctxt = tr
+                .TrContext()
+                .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
+                .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+                .or_else(|| current_context.clone());
+            let plural = tr
+                .TrPlural()
+                .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
+                .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
 
-                let update = |msg: &mut rspolib::POEntry| {
-                    let span = node.span();
-                    if span.is_valid() {
-                        let (line, _) = node.source_file.line_column(
-                            span.offset,
-                            i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                        );
-                        if line > 0 {
-                            let path = node.source_file.path().to_string_lossy().into_owned();
-                            let lineno = line.to_string();
-                            if !msg.occurrences.iter().any(|(p, l)| p == &path && l == &lineno) {
-                                msg.occurrences.push((path, lineno));
-                            }
+            let update = |msg: &mut rspolib::POEntry| {
+                let span = node.span();
+                if span.is_valid() {
+                    let (line, _) = node
+                        .source_file
+                        .line_column(span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
+                    if line > 0 {
+                        let path = node.source_file.path().to_string_lossy().into_owned();
+                        let lineno = line.to_string();
+                        if !msg.occurrences.iter().any(|(p, l)| p == &path && l == &lineno) {
+                            msg.occurrences.push((path, lineno));
                         }
                     }
+                }
 
-                    if msg.comment.as_deref().unwrap_or("").is_empty() {
-                        if let Some(c) = tr
-                            .child_token(SyntaxKind::StringLiteral)
-                            .and_then(get_comments_before_line)
-                            .or_else(|| tr.first_token().and_then(get_comments_before_line))
-                        {
-                            msg.comment = Some(c);
-                        }
+                if msg.comment.as_deref().unwrap_or("").is_empty()
+                    && let Some(c) = tr
+                        .child_token(SyntaxKind::StringLiteral)
+                        .and_then(get_comments_before_line)
+                        .or_else(|| tr.first_token().and_then(get_comments_before_line))
+                {
+                    msg.comment = Some(c);
+                }
+            };
+
+            // Try to find an existing entry in the PO file
+            let existing = results.entries.iter_mut().find(|e| {
+                e.msgid == msgid
+                    && e.msgctxt.as_deref() == msgctxt.as_deref()
+                    && if let Some(ref p) = plural {
+                        e.msgid_plural.as_deref() == Some(p.as_str())
+                    } else {
+                        e.msgid_plural.is_none()
                     }
-                };
+            });
 
-                // Try to find an existing entry in the PO file
-                let existing = results.entries.iter_mut().find(|e| {
-                    e.msgid == msgid
-                        && e.msgctxt.as_deref() == msgctxt.as_deref()
-                        && if let Some(ref p) = plural {
-                            e.msgid_plural.as_deref() == Some(p.as_str())
-                        } else {
-                            e.msgid_plural.is_none()
-                        }
-                });
-
-                if let Some(x) = existing {
-                    update(x);
+            if let Some(x) = existing {
+                update(x);
+            } else {
+                let mut msg = rspolib::POEntry { msgid: msgid.into(), ..Default::default() };
+                if let Some(ref p) = plural {
+                    msg.msgid_plural = Some(p.to_string());
+                    // Workaround for #4238 : poedit doesn't add the plural by default.
+                    msg.msgstr_plural = vec![String::new(), String::new()];
                 } else {
-                    let mut msg = rspolib::POEntry::default();
-                    msg.msgid = msgid.into();
-                    if let Some(ref p) = plural {
-                        msg.msgid_plural = Some(p.to_string());
-                        // Workaround for #4238 : poedit doesn't add the plural by default.
-                        msg.msgstr_plural = vec![String::new(), String::new()];
-                    } else {
-                        msg.msgstr = Some(String::new());
-                    }
-                    if let Some(msgctxt) = msgctxt {
-                        msg.msgctxt = Some(msgctxt.into());
-                    }
-                    update(&mut msg);
-                    // Append or replace
-                    if let Some(pos) = results
-                        .entries
-                        .iter()
-                        .position(|e| e.msgid == msg.msgid && e.msgctxt == msg.msgctxt)
-                    {
-                        results.entries[pos] = msg;
-                    } else {
-                        results.entries.push(msg);
-                    }
+                    msg.msgstr = Some(String::new());
+                }
+                if let Some(msgctxt) = msgctxt {
+                    msg.msgctxt = Some(msgctxt.into());
+                }
+                update(&mut msg);
+                // Append or replace
+                if let Some(pos) = results
+                    .entries
+                    .iter()
+                    .position(|e| e.msgid == msg.msgid && e.msgctxt == msg.msgctxt)
+                {
+                    results.entries[pos] = msg;
+                } else {
+                    results.entries.push(msg);
                 }
             }
         }

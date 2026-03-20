@@ -177,11 +177,12 @@ export component FocusScope {
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 
-    Shortcut { }
+    KeyBinding { }
 }
 
-component Shortcut {
-    in property <keyboard-shortcut> keys;
+component KeyBinding {
+    in property <bool> enabled: true;
+    in property <keys> keys;
     callback activated();
     //-is_non_item_type
 }
@@ -470,6 +471,7 @@ export component FlexBoxLayout {
     in property <FlexDirection> flex-direction;
     in property <FlexAlignContent> align-content;
     in property <FlexAlignItems> align-items;
+    in property <FlexWrap> flex-wrap;
 }
 
 component MoveTo {
@@ -540,6 +542,7 @@ export component Path {
     in property <float> viewbox-y;
     in property <float> viewbox-width;
     in property <float> viewbox-height;
+    in property <ImageFit> fit-style: contain;
     in property <bool> clip;
     in property <bool> anti-alias: true;
 

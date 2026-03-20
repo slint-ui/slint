@@ -46,10 +46,58 @@ export component MissingChild uses { ValidInterface from base} { }
 //                                                       >  <error{'base' does not exist}
 
 export component ChildDoesNotImplementInterface1 uses { ValidInterface from base } {
-//                                                                          >  <error{'base' does not implement 'speak' from 'ValidInterface'}
-//                                                                          >  <^error{'base' does not implement 'value' from 'ValidInterface'}
-//                                                                          >  <^^error{'base' does not implement 'reset' from 'ValidInterface'}
+//                                                                          >  <error{'base' does not implement 'reset' from 'ValidInterface' - not found}
+//                                                                          >  <^error{'base' does not implement 'speak' from 'ValidInterface' - not found}
+//                                                                          >  <^^error{'base' does not implement 'value' from 'ValidInterface' - not found}
     base := ComponentA { }
+}
+
+component IncorrectPropertyVisibility {
+    out property <int> value;
+    callback speak();
+    public pure function reset() {
+    }
+}
+
+export component ChildDoesNotImplementInterfaceProperty1 uses { ValidInterface from impl } {
+//                                                                                  >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected visibility: 'input output'}
+    impl := IncorrectPropertyVisibility { }
+}
+
+component IncorrectPropertyType {
+    in-out property <float> value;
+    callback speak();
+    public pure function reset() {
+    }
+}
+
+export component ChildDoesNotImplementInterfacePropert2 uses { ValidInterface from impl } {
+//                                                                                 >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected type: 'int'}
+    impl := IncorrectPropertyType { }
+}
+
+component IncorrectCallbackReturnType {
+    in-out property <int> value;
+    callback speak() -> string;
+    public pure function reset() {
+    }
+}
+
+export component ChildDoesNotImplementInterfaceCallback1 uses { ValidInterface from impl } {
+//                                                                                  >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void'}
+    impl := IncorrectCallbackReturnType { }
+}
+
+component IncorrectSpeakType {
+    in-out property <int> value;
+    out property <string> speak;
+    public pure function reset() {
+    }
+}
+
+export component ChildDoesNotImplementInterfaceCallback uses { ValidInterface from impl } {
+//                                                                                 >  <error{'impl' does not implement 'speak' from 'ValidInterface' - expected type: 'callback-> void', visibility: 'input output'}
+    impl := IncorrectSpeakType { }
 }
 
 export interface FunctionInterface {
@@ -63,7 +111,7 @@ export component IncorrectPurity {
 }
 
 export component ChildDoesNotImplementInterface2 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected purity declaration: 'true'}
     base := IncorrectPurity { }
 }
 
@@ -74,7 +122,7 @@ export component IncorrectArgTypes {
 }
 
 export component ChildDoesNotImplementInterface3 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
     base := IncorrectArgTypes { }
 }
 
@@ -85,7 +133,7 @@ export component IncorrectArgNames {
 }
 
 export component ChildDoesNotImplementInterface4 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
     base := IncorrectArgNames { }
 }
 
@@ -95,7 +143,7 @@ export component IncorrectReturnType {
 }
 
 export component ChildDoesNotImplementInterface5 uses { FunctionInterface from base } {
-//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface'}
+//                                                                             >  <error{'base' does not implement 'foo' from 'FunctionInterface' - expected type: 'function(int,string) -> bool'}
     base := IncorrectReturnType { }
 }
 
@@ -127,9 +175,9 @@ component BaseWithConflicts {
 }
 
 export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithConflicts {
-//                                             >             <error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
-//                                             >             <^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
-//                                             >             <^^error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
+//                                             >             <error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
+//                                             >             <^error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
+//                                             >             <^^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }
 

@@ -13,7 +13,7 @@ use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::Coord;
 use i_slint_core::items::{DialogButtonRole, FlexDirection, ItemRc};
-use i_slint_core::layout::{self as core_layout, GridLayoutOrganizedData};
+use i_slint_core::layout::{self as core_layout, GridLayoutInputData, GridLayoutOrganizedData};
 use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -45,9 +45,10 @@ pub(crate) fn compute_grid_layout_info(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
     let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
-    let repeater_indices = grid_repeater_indices(grid_layout, local_context);
     let repeater_steps = grid_repeater_steps(grid_layout, local_context);
-    let constraints = grid_layout_constraints(grid_layout, orientation, local_context);
+    let repeater_indices = grid_repeater_indices(grid_layout, local_context, &repeater_steps);
+    let constraints =
+        grid_layout_constraints(grid_layout, orientation, local_context, &repeater_steps);
     core_layout::grid_layout_info(
         organized_data.clone(),
         Slice::from_slice(constraints.as_slice()),
@@ -60,6 +61,7 @@ pub(crate) fn compute_grid_layout_info(
     .into()
 }
 
+/// Determine layout info of a box layout
 pub(crate) fn compute_box_layout_info(
     box_layout: &BoxLayout,
     orientation: Orientation,
@@ -83,9 +85,9 @@ pub(crate) fn organize_grid_layout(
     layout: &GridLayout,
     local_context: &mut EvalLocalContext,
 ) -> Value {
-    let cells = grid_layout_input_data(layout, local_context);
-    let repeater_indices = grid_repeater_indices(layout, local_context);
     let repeater_steps = grid_repeater_steps(layout, local_context);
+    let cells = grid_layout_input_data(layout, local_context, &repeater_steps);
+    let repeater_indices = grid_repeater_indices(layout, local_context, &repeater_steps);
     if let Some(buttons_roles) = &layout.dialog_button_roles {
         let roles = buttons_roles
             .iter()
@@ -116,9 +118,10 @@ pub(crate) fn solve_grid_layout(
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
-    let repeater_indices = grid_repeater_indices(grid_layout, local_context);
     let repeater_steps = grid_repeater_steps(grid_layout, local_context);
-    let constraints = grid_layout_constraints(grid_layout, orientation, local_context);
+    let repeater_indices = grid_repeater_indices(grid_layout, local_context, &repeater_steps);
+    let constraints =
+        grid_layout_constraints(grid_layout, orientation, local_context, &repeater_steps);
 
     let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
     let size_ref = grid_layout.geometry.rect.size_reference(orientation);
@@ -210,6 +213,10 @@ pub(crate) fn solve_flexbox_layout(
         .map_or(i_slint_core::items::FlexAlignItems::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
+    let flex_wrap =
+        flexbox_layout.flex_wrap.as_ref().map_or(i_slint_core::items::FlexWrap::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
 
     let (padding_h, spacing_h) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Horizontal, &expr_eval);
@@ -228,6 +235,7 @@ pub(crate) fn solve_flexbox_layout(
             direction,
             align_content,
             align_items,
+            flex_wrap,
             cells_h: Slice::from(cells_h.as_slice()),
             cells_v: Slice::from(cells_v.as_slice()),
         },
@@ -290,6 +298,11 @@ pub(crate) fn compute_flexbox_layout_info(
     let (padding_v, spacing_v) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
 
+    let flex_wrap =
+        flexbox_layout.flex_wrap.as_ref().map_or(i_slint_core::items::FlexWrap::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
+
     if is_main_axis {
         // Main axis: use simple layout info (no constraint needed)
         // This avoids reading the perpendicular dimension and prevents circular dependencies
@@ -303,6 +316,7 @@ pub(crate) fn compute_flexbox_layout_info(
             to_runtime(orientation),
             direction,
             Coord::MAX,
+            flex_wrap,
         )
         .into()
     } else {
@@ -331,6 +345,7 @@ pub(crate) fn compute_flexbox_layout_info(
             to_runtime(orientation),
             direction,
             constraint_size,
+            flex_wrap,
         )
         .into()
     }
@@ -394,6 +409,7 @@ fn flexbox_layout_data(
     (cells_h, cells_v, repeated_indices)
 }
 
+/// Determine the evaluated padding and spacing values from the layout geometry
 fn padding_and_spacing(
     layout_geometry: &LayoutGeometry,
     orientation: Orientation,
@@ -429,11 +445,13 @@ fn repeater_instances(
 fn grid_layout_input_data(
     grid_layout: &i_slint_compiler::layout::GridLayout,
     ctx: &EvalLocalContext,
-) -> Vec<core_layout::GridLayoutInputData> {
+    repeater_steps: &[u32],
+) -> Vec<GridLayoutInputData> {
     let component = ctx.component_instance;
     let mut result = Vec::with_capacity(grid_layout.elems.len());
     let mut after_repeater_in_same_row = false;
     let mut new_row = true;
+    let mut repeater_idx = 0usize;
     for elem in grid_layout.elems.iter() {
         let eval_or_default = |expr: &RowColExpr, component: InstanceRef| match expr {
             RowColExpr::Literal(value) => *value as f32,
@@ -461,38 +479,76 @@ fn grid_layout_input_data(
                 let sub_instance_ref =
                     unsafe { InstanceRef::from_pin_ref(sub_comp.borrow(), guard) };
 
-                let mut push_cell = |cell: &i_slint_compiler::layout::GridLayoutCell,
-                                     new_row: bool| {
-                    let row = eval_or_default(&cell.row_expr, sub_instance_ref);
-                    let col = eval_or_default(&cell.col_expr, sub_instance_ref);
-                    let rowspan = eval_or_default(&cell.rowspan_expr, sub_instance_ref);
-                    let colspan = eval_or_default(&cell.colspan_expr, sub_instance_ref);
-
-                    result.push(core_layout::GridLayoutInputData {
-                        new_row,
-                        col,
-                        row,
-                        colspan,
-                        rowspan,
-                    });
-                };
-
                 if let Some(children) = elem.cell.borrow().child_items.as_ref() {
                     // Repeated row
                     new_row = true;
-                    for child_item in children {
-                        let element_ref = &child_item.element.borrow();
-                        let child_cell = element_ref.grid_layout_cell.as_ref().unwrap().borrow();
-                        push_cell(&child_cell, new_row);
-                        new_row = false;
+                    let start_count = result.len();
+
+                    // Single pass in declaration order: push statics and inner-repeater
+                    // auto-cells interleaved so that column assignments match template order.
+                    // (A two-pass approach that appended all inner-repeater cells after all
+                    // statics would produce wrong column assignments, and only tracking the
+                    // last Repeated entry would miss earlier conditionals/for-loops.)
+                    for child_template in children {
+                        match child_template {
+                            i_slint_compiler::layout::RowChildTemplate::Static(child_item) => {
+                                let (row_val, col_val, rowspan_val, colspan_val) = {
+                                    let element_ref = child_item.element.borrow();
+                                    let child_cell =
+                                        element_ref.grid_layout_cell.as_ref().unwrap().borrow();
+                                    (
+                                        eval_or_default(&child_cell.row_expr, sub_instance_ref),
+                                        eval_or_default(&child_cell.col_expr, sub_instance_ref),
+                                        eval_or_default(&child_cell.rowspan_expr, sub_instance_ref),
+                                        eval_or_default(&child_cell.colspan_expr, sub_instance_ref),
+                                    )
+                                };
+                                result.push(GridLayoutInputData {
+                                    new_row,
+                                    col: col_val,
+                                    row: row_val,
+                                    colspan: colspan_val,
+                                    rowspan: rowspan_val,
+                                });
+                                new_row = false;
+                            }
+                            i_slint_compiler::layout::RowChildTemplate::Repeated {
+                                repeated_element,
+                                ..
+                            } => {
+                                let inner_instances =
+                                    repeater_instances(sub_instance_ref, repeated_element);
+                                for i in 0..inner_instances.len() {
+                                    result.push(GridLayoutInputData {
+                                        new_row: i == 0 && new_row,
+                                        ..Default::default()
+                                    });
+                                }
+                                if !inner_instances.is_empty() {
+                                    new_row = false;
+                                }
+                            }
+                        }
+                    }
+                    // Pad to match max step count for this repeater (handles jagged arrays)
+                    let cells_pushed = result.len() - start_count;
+                    let expected_step =
+                        repeater_steps.get(repeater_idx).copied().unwrap_or(0) as usize;
+                    for _ in cells_pushed..expected_step {
+                        result.push(GridLayoutInputData::default());
                     }
                 } else {
                     // Single repeated item
                     let cell = elem.cell.borrow();
-                    push_cell(&cell, new_row);
+                    let row = eval_or_default(&cell.row_expr, sub_instance_ref);
+                    let col = eval_or_default(&cell.col_expr, sub_instance_ref);
+                    let rowspan = eval_or_default(&cell.rowspan_expr, sub_instance_ref);
+                    let colspan = eval_or_default(&cell.colspan_expr, sub_instance_ref);
+                    result.push(GridLayoutInputData { new_row, col, row, colspan, rowspan });
                     new_row = false;
                 }
             }
+            repeater_idx += 1;
             after_repeater_in_same_row = true;
         } else {
             let new_row =
@@ -501,27 +557,47 @@ fn grid_layout_input_data(
             let col = eval_or_default(&elem.cell.borrow().col_expr, component);
             let rowspan = eval_or_default(&elem.cell.borrow().rowspan_expr, component);
             let colspan = eval_or_default(&elem.cell.borrow().colspan_expr, component);
-            result.push(core_layout::GridLayoutInputData { new_row, col, row, colspan, rowspan });
+            result.push(GridLayoutInputData { new_row, col, row, colspan, rowspan });
         }
     }
     result
 }
 
+/// Count the actual runtime children for a repeated row.
+/// For rows without inner repeaters, this is just the child_items count.
+/// For rows with inner repeaters, the Repeated template expands to actual inner instances.
+fn row_runtime_child_count(
+    child_items: &[i_slint_compiler::layout::RowChildTemplate],
+    sub_instance_ref: InstanceRef,
+) -> usize {
+    let mut count = 0;
+    for child in child_items {
+        if let Some(repeated_element) = child.repeated_element() {
+            count += repeater_instances(sub_instance_ref, repeated_element).len();
+        } else {
+            count += 1;
+        }
+    }
+    count
+}
+
 fn grid_repeater_indices(
     grid_layout: &i_slint_compiler::layout::GridLayout,
     ctx: &mut EvalLocalContext,
+    repeater_steps: &[u32],
 ) -> Vec<u32> {
     let component = ctx.component_instance;
     let mut repeater_indices = Vec::new();
-
     let mut num_cells = 0;
+    let mut step_idx = 0;
     for elem in grid_layout.elems.iter() {
         if elem.item.element.borrow().repeated.is_some() {
             let component_vec = repeater_instances(component, &elem.item.element);
             repeater_indices.push(num_cells as _);
             repeater_indices.push(component_vec.len() as _);
-            let item_count = elem.cell.borrow().child_items.as_ref().map_or(1, |c| c.len());
+            let item_count = repeater_steps[step_idx] as usize;
             num_cells += component_vec.len() * item_count;
+            step_idx += 1;
         } else {
             num_cells += 1;
         }
@@ -531,12 +607,33 @@ fn grid_repeater_indices(
 
 fn grid_repeater_steps(
     grid_layout: &i_slint_compiler::layout::GridLayout,
-    _ctx: &mut EvalLocalContext,
+    ctx: &mut EvalLocalContext,
 ) -> Vec<u32> {
+    let component = ctx.component_instance;
     let mut repeater_steps = Vec::new();
     for elem in grid_layout.elems.iter() {
         if elem.item.element.borrow().repeated.is_some() {
-            let item_count = elem.cell.borrow().child_items.as_ref().map_or(1, |c| c.len());
+            let item_count = match &elem.cell.borrow().child_items {
+                Some(ci)
+                    if ci.iter().any(i_slint_compiler::layout::RowChildTemplate::is_repeated) =>
+                {
+                    // Compute max runtime count across all instances (padding with empty cells didn't happen yet)
+                    let component_vec = repeater_instances(component, &elem.item.element);
+                    component_vec
+                        .iter()
+                        .map(|sub| {
+                            generativity::make_guard!(guard);
+                            let sub_pin = sub.as_pin_ref();
+                            let sub_ref =
+                                unsafe { InstanceRef::from_pin_ref(sub_pin.borrow(), guard) };
+                            row_runtime_child_count(ci, sub_ref)
+                        })
+                        .max()
+                        .unwrap_or(0)
+                }
+                Some(ci) => ci.len(),
+                None => 1,
+            };
             repeater_steps.push(item_count as u32);
         }
     }
@@ -547,6 +644,7 @@ fn grid_layout_constraints(
     grid_layout: &i_slint_compiler::layout::GridLayout,
     orientation: Orientation,
     ctx: &mut EvalLocalContext,
+    repeater_steps: &[u32],
 ) -> Vec<core_layout::LayoutItemInfo> {
     let component = ctx.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
@@ -554,14 +652,18 @@ fn grid_layout_constraints(
     };
     let mut constraints = Vec::with_capacity(grid_layout.elems.len());
 
+    let mut repeater_idx = 0usize;
     for layout_elem in grid_layout.elems.iter() {
         if layout_elem.item.element.borrow().repeated.is_some() {
             let component_vec = repeater_instances(component, &layout_elem.item.element);
             let child_items = layout_elem.cell.borrow().child_items.clone();
-            let repeated_children_count = child_items.as_ref().map(|c| c.len());
-            if let Some(num) = repeated_children_count {
+            let has_children = child_items.is_some();
+            if has_children {
                 // Repeated row
+                let ci = child_items.as_ref().unwrap();
+                let step = repeater_steps.get(repeater_idx).copied().unwrap_or(0) as usize;
                 for sub_comp in &component_vec {
+                    let per_instance_start = constraints.len();
                     // Evaluate constraints in the context of the repeated sub-component
                     generativity::make_guard!(guard);
                     let sub_pin = sub_comp.as_pin_ref();
@@ -573,18 +675,74 @@ fn grid_layout_constraints(
                             .try_into()
                             .unwrap()
                     };
-                    for idx in 0..num {
-                        let mut layout_info =
-                            sub_pin.layout_item_info(to_runtime(orientation), Some(idx));
-                        if let Some(child_item) = child_items.as_ref().and_then(|cc| cc.get(idx)) {
-                            fill_layout_info_constraints(
-                                &mut layout_info.constraint,
-                                &child_item.constraints,
-                                orientation,
-                                &expr_eval,
-                            );
+
+                    // Iterate over the child templates: static children get their layout info
+                    // from the Row sub-component; nested repeater children get theirs from the
+                    // inner repeater instances.
+                    for child_template in ci.iter() {
+                        match child_template {
+                            i_slint_compiler::layout::RowChildTemplate::Static(child_item) => {
+                                let mut layout_info = crate::eval_layout::get_layout_info(
+                                    &child_item.element,
+                                    sub_instance_ref,
+                                    &sub_instance_ref.window_adapter(),
+                                    orientation,
+                                );
+                                fill_layout_info_constraints(
+                                    &mut layout_info,
+                                    &child_item.constraints,
+                                    orientation,
+                                    &expr_eval,
+                                );
+                                constraints
+                                    .push(core_layout::LayoutItemInfo { constraint: layout_info });
+                            }
+                            i_slint_compiler::layout::RowChildTemplate::Repeated {
+                                item: child_item,
+                                repeated_element,
+                            } => {
+                                // Get the inner repeater instances from within this Row instance
+                                let inner_instances =
+                                    repeater_instances(sub_instance_ref, repeated_element);
+                                for inner_comp in &inner_instances {
+                                    let inner_pin = inner_comp.as_pin_ref();
+                                    let mut layout_info =
+                                        inner_pin.layout_item_info(to_runtime(orientation), None);
+                                    // Constraints' NamedReferences point to elements inside the
+                                    // inner repeated component, so evaluate in that context.
+                                    generativity::make_guard!(inner_guard);
+                                    let inner_borrow = inner_pin.borrow();
+                                    let inner_instance_ref = unsafe {
+                                        InstanceRef::from_pin_ref(inner_borrow, inner_guard)
+                                    };
+                                    let inner_expr_eval = |nr: &NamedReference| -> f32 {
+                                        eval::load_property(
+                                            inner_instance_ref,
+                                            &nr.element(),
+                                            nr.name(),
+                                        )
+                                        .unwrap()
+                                        .try_into()
+                                        .unwrap()
+                                    };
+                                    fill_layout_info_constraints(
+                                        &mut layout_info.constraint,
+                                        &child_item.constraints,
+                                        orientation,
+                                        &inner_expr_eval,
+                                    );
+                                    constraints.push(layout_info);
+                                }
+                            }
                         }
-                        constraints.push(layout_info);
+                    }
+                    // Pad this instance to the step size (handles jagged arrays where
+                    // inner repeaters have different lengths across outer Row instances).
+                    let pushed = constraints.len() - per_instance_start;
+                    for _ in pushed..step {
+                        constraints.push(core_layout::LayoutItemInfo {
+                            constraint: core_layout::LayoutInfo::default(),
+                        });
                     }
                 }
             } else {
@@ -595,6 +753,7 @@ fn grid_layout_constraints(
                         .map(|x| x.as_pin_ref().layout_item_info(to_runtime(orientation), None)),
                 );
             }
+            repeater_idx += 1;
         } else {
             let mut layout_info = get_layout_info(
                 &layout_elem.item.element,
@@ -614,6 +773,7 @@ fn grid_layout_constraints(
     constraints
 }
 
+/// Collect all elements in this layout and store the LayoutItemInfo of it for further calculation
 fn box_layout_data(
     box_layout: &i_slint_compiler::layout::BoxLayout,
     orientation: Orientation,
@@ -625,6 +785,7 @@ fn box_layout_data(
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
+            // Collect all repeated elements
             let component_vec = repeater_instances(component, &cell.element);
             if let Some(ri) = repeater_indices.as_mut() {
                 ri.push(cells.len() as _);
@@ -636,6 +797,7 @@ fn box_layout_data(
                     .map(|x| x.as_pin_ref().layout_item_info(to_runtime(orientation), None)),
             );
         } else {
+            // Collect non repeated elements
             let mut layout_info =
                 get_layout_info(&cell.element, component, &window_adapter, orientation);
             fill_layout_info_constraints(

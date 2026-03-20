@@ -158,7 +158,7 @@ fn try_create_window_with_fallback_renderer(
     .find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
-            renderer_factory(&shared_backend_data).ok()?,
+            renderer_factory(shared_backend_data).ok()?,
             attrs.clone(),
             #[cfg(any(enable_accesskit, muda))]
             _proxy.clone(),
@@ -401,7 +401,7 @@ impl BackendBuilder {
                 renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(maybe_graphics_api)?
             }
             #[cfg(all(enable_skia_renderer, supports_opengl))]
-            (Some("skia-opengl"), maybe_graphics_api @ _) => {
+            (Some("skia-opengl"), maybe_graphics_api) => {
                 // If a graphics API was requested, double check that it's GL.
                 if let Some(api) = maybe_graphics_api {
                     i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
@@ -412,19 +412,18 @@ impl BackendBuilder {
                 enable_skia_renderer,
                 any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
             ))]
-            (Some("skia-wgpu"), maybe_graphics_api @ _) => {
+            (Some("skia-wgpu"), maybe_graphics_api) => {
                 if let Some(factory) = maybe_graphics_api.map_or_else(
                     || {
-                        let result;
                         cfg_if::cfg_if!(
                             if #[cfg(feature = "unstable-wgpu-28")]
                         {
-                            result = Some(
+                            let result = Some(
                                 renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
                                     as RendererFactoryFn,
                             );
                         } else {
-                             result = Some(
+                            let result = Some(
                                 renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
                                     as RendererFactoryFn,
                             );
@@ -452,9 +451,9 @@ impl BackendBuilder {
                 ) {
                     factory
                 } else {
-                    return Err(
-                        format!("Skia with WGPU doesn't support non-WGPU graphics API").into()
-                    );
+                    return Err("Skia with WGPU doesn't support non-WGPU graphics API"
+                        .to_string()
+                        .into());
                 }
             }
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
@@ -481,8 +480,10 @@ impl BackendBuilder {
                 cfg_if::cfg_if! {
                     if #[cfg(enable_skia_renderer)] {
                         renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                    } else {
+                    } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
                         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
+                    } else {
+                        return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                     }
                 }
             }
@@ -875,6 +876,13 @@ impl i_slint_core::platform::Platform for Backend {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn open_url(&self, url: &str) {
+        if let Err(e) = webbrowser::open(url) {
+            eprintln!("Failed to open URL: {}", e);
+        }
+    }
 }
 
 mod private {
@@ -993,7 +1001,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
                 .map(|wa| wa.self_weak.clone())
                 .ok_or_else(|| {
                     PlatformError::OtherError(
-                        format!("Slint window is not backed by a Winit window adapter").into(),
+                        "Slint window is not backed by a Winit window adapter".to_string().into(),
                     )
                 })?;
             WinitWindowAdapter::async_winit_window(adapter_weak).await

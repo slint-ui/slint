@@ -69,7 +69,7 @@ jobs:
                   args: --release --out wheelhouse --find-interpreter
                   container: ${{ matrix.platform.container }}
             - name: Store the distribution packages
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                 name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
                 path: api/python/slint/wheelhouse/*.whl
@@ -100,7 +100,7 @@ jobs:
                   target: aarch64-apple-ios
             - uses: actions/setup-python@v6
               with:
-                python-version: '3.12'
+                python-version: '3.13'
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: taplo-cli
@@ -138,10 +138,10 @@ jobs:
               with:
                   working-directory: api/python/slint
                   target: ${{ matrix.target }}
-                  args: --release --out wheelhouse --find-interpreter
+                  args: --release --out wheelhouse --interpreter 3.13
 
             - name: Store the distribution packages
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                 name: python-package-distributions-${{ matrix.target }}
                 path: api/python/slint/wheelhouse/*.whl
@@ -170,7 +170,7 @@ jobs:
                   working-directory: api/python/slint
                   command: sdist
                   args: --out dist
-            - uses: actions/upload-artifact@v6
+            - uses: actions/upload-artifact@v7
               with:
                 name: python-package-distributions-source
                 path: api/python/slint/dist/*.tar.gz
@@ -187,7 +187,7 @@ jobs:
         permissions:
             id-token: write  # IMPORTANT: mandatory for trusted publishing
         steps:
-            - uses: actions/download-artifact@v7
+            - uses: actions/download-artifact@v8
               with:
                 pattern: python-package-distributions-*
                 path: dist
@@ -209,7 +209,7 @@ jobs:
       permissions:
           id-token: write  # IMPORTANT: mandatory for trusted publishing
       steps:
-          - uses: actions/download-artifact@v7
+          - uses: actions/download-artifact@v8
             with:
               pattern: python-package-distributions-*
               path: dist

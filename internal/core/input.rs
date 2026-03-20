@@ -7,7 +7,7 @@
 
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
-use crate::items::{DropEvent, ItemRef, MouseCursor, TextCursorDirection};
+use crate::items::{DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
@@ -348,13 +348,11 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
-/// A `KeyboardShortcut` is created by the `@keys(...)` macro and
-/// defines which key events match the given shortcuts.
-///
-/// See [`Self::matches()`] for details
+/// A `Keys` is created by the `@keys(...)` macro and
+/// defines which key event(s) activate a KeyBinding.
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
-pub struct KeyboardShortcut {
+pub struct Keys {
     /// The `key` used to trigger the shortcut
     ///
     /// Note: This is currently converted to lowercase when the shortcut is created!
@@ -367,14 +365,14 @@ pub struct KeyboardShortcut {
     ignore_alt: bool,
 }
 
-/// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
-pub fn make_keyboard_shortcut(
+/// Re-exported in private_unstable_api to create a Keys struct.
+pub fn make_keys(
     key: SharedString,
     modifiers: KeyboardModifiers,
     ignore_shift: bool,
     ignore_alt: bool,
-) -> KeyboardShortcut {
-    KeyboardShortcut { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
+) -> Keys {
+    Keys { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
 }
 
 #[cfg(feature = "ffi")]
@@ -385,7 +383,7 @@ pub(crate) mod ffi {
     use super::*;
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut(
+    pub unsafe extern "C" fn slint_keys(
         key: &SharedString,
         alt: bool,
         control: bool,
@@ -393,9 +391,9 @@ pub(crate) mod ffi {
         meta: bool,
         ignore_shift: bool,
         ignore_alt: bool,
-        out: &mut KeyboardShortcut,
+        out: &mut Keys,
     ) {
-        *out = make_keyboard_shortcut(
+        *out = make_keys(
             key.clone(),
             KeyboardModifiers { alt, control, shift, meta },
             ignore_shift,
@@ -404,48 +402,36 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_debug_string(
-        shortcut: &KeyboardShortcut,
-        out: &mut SharedString,
-    ) {
+    pub unsafe extern "C" fn slint_keys_debug_string(shortcut: &Keys, out: &mut SharedString) {
         *out = crate::format!("{shortcut:?}");
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_to_string(
-        shortcut: &KeyboardShortcut,
-        out: &mut SharedString,
-    ) {
+    pub unsafe extern "C" fn slint_keys_to_string(shortcut: &Keys, out: &mut SharedString) {
         *out = shortcut.to_shared_string();
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_matches(
-        shortcut: &KeyboardShortcut,
-        key_event: &KeyEvent,
-    ) -> bool {
-        shortcut.matches(key_event)
     }
 }
 
-impl KeyboardShortcut {
-    /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
-    pub fn matches(&self, key_event: &KeyEvent) -> bool {
-        // An empty KeyboardShortcut is never triggered, even if the modifiers match.
+impl Keys {
+    /// Check whether a `Keys` can be triggered by the given `KeyEvent`
+    pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
+        // An empty Keys is never triggered, even if the modifiers match.
         if self.key.is_empty() {
             return false;
         }
 
         // TODO: Should this check the event_type and only match on KeyReleased?
-        let mut expected_modifiers = self.modifiers.clone();
+        let mut expected_modifiers = self.modifiers;
         if self.ignore_shift {
             expected_modifiers.shift = key_event.modifiers.shift;
         }
         if self.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
-        // Note: The constructor of KeyboardShortcut ensures that the shortcut's key is already
-        // in lowercase, so we can just compare it to the lowercased event text.
+        // Note: The shortcut's key is already in lowercase and NFC-normalized
+        // (by the compiler and backends respectively), so we only need to
+        // lowercase the event text. Backends are expected to NFC-normalize
+        // key event text before dispatching.
         //
         // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
         // if caps lock is active, even if shift is not pressed.
@@ -484,13 +470,13 @@ impl KeyboardShortcut {
     }
 }
 
-impl Display for KeyboardShortcut {
+impl Display for Keys {
     /// Converts the keyboard shortcut to a string that looks native on the current platform.
     ///
     /// For example, the shortcut created with @keys(Meta + Control + A)
     /// will be converted like this:
     /// - **macOS**: `⌃⌘A`
-    /// - **Windows**: `Super+Ctrl+A`
+    /// - **Windows**: `Win+Ctrl+A`
     /// - **Linux**: `Super+Ctrl+A`
     ///
     /// Note that this functions output is best-effort and may be adjusted/improved at any time,
@@ -505,7 +491,7 @@ impl Display for KeyboardShortcut {
             return Ok(());
         }
 
-        if cfg!(target_os = "macos") {
+        if crate::is_apple_platform() {
             // Slint remaps modifiers on macOS: control → Command, meta → Control
             // From Apple's documentation:
             //
@@ -529,11 +515,12 @@ impl Display for KeyboardShortcut {
 
             // TODO: These should probably be translated, but better to have at least
             // platform-local names than nothing.
-            let (ctrl_str, alt_str, shift_str, meta_str) = if cfg!(target_os = "windows") {
-                ("Ctrl", "Alt", "Shift", "Win")
-            } else {
-                ("Ctrl", "Alt", "Shift", "Super")
-            };
+            let (ctrl_str, alt_str, shift_str, meta_str) =
+                if crate::detect_operating_system() == OperatingSystemType::Windows {
+                    ("Ctrl", "Alt", "Shift", "Win")
+                } else {
+                    ("Ctrl", "Alt", "Shift", "Super")
+                };
 
             if self.modifiers.meta {
                 f.write_str(meta_str)?;
@@ -556,7 +543,7 @@ impl Display for KeyboardShortcut {
     }
 }
 
-impl core::fmt::Debug for KeyboardShortcut {
+impl core::fmt::Debug for Keys {
     /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
@@ -565,14 +552,14 @@ impl core::fmt::Debug for KeyboardShortcut {
         } else {
             let alt = self
                 .ignore_alt
-                .then_some("IgnoreAlt+")
+                .then_some("Alt?+")
                 .or(self.modifiers.alt.then_some("Alt+"))
                 .unwrap_or_default();
             let ctrl = if self.modifiers.control { "Control+" } else { "" };
             let meta = if self.modifiers.meta { "Meta+" } else { "" };
             let shift = self
                 .ignore_shift
-                .then_some("IgnoreShift+")
+                .then_some("Shift?+")
                 .or(self.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
             let keycode: SharedString = self
@@ -936,10 +923,10 @@ pub(crate) fn handle_mouse_grab(
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
-        if window_adapter.renderer().supports_transformations() {
-            if let Some(inverse_transform) = item.inverse_children_transform() {
-                event.transform(inverse_transform);
-            }
+        if window_adapter.renderer().supports_transformations()
+            && let Some(inverse_transform) = item.inverse_children_transform()
+        {
+            event.transform(inverse_transform);
         }
 
         let interested = matches!(
@@ -1015,10 +1002,10 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
-            if window_adapter.renderer().supports_transformations() {
-                if let Some(inverse_transform) = item.inverse_children_transform() {
-                    *p = inverse_transform.transform_point(p.cast()).cast();
-                }
+            if window_adapter.renderer().supports_transformations()
+                && let Some(inverse_transform) = item.inverse_children_transform()
+            {
+                *p = inverse_transform.transform_point(p.cast()).cast();
             }
         }
         if !contains || clipped {
@@ -1074,16 +1061,16 @@ pub fn process_mouse_input(
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
-    if let MouseEvent::Wheel { position, .. } = mouse_event {
-        if r.has_aborted() {
-            // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
-            return process_mouse_input(
-                root,
-                &MouseEvent::Moved { position: *position, is_touch: false },
-                window_adapter,
-                result,
-            );
-        }
+    if let MouseEvent::Wheel { position, .. } = mouse_event
+        && r.has_aborted()
+    {
+        // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
+        return process_mouse_input(
+            root,
+            &MouseEvent::Moved { position: *position, is_touch: false },
+            window_adapter,
+            result,
+        );
     }
 
     result
@@ -1433,7 +1420,7 @@ mod tests {
             _expected_linux,
         ) in test_cases
         {
-            let shortcut = make_keyboard_shortcut(key.into(), modifiers, ignore_shift, ignore_alt);
+            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt);
 
             use crate::alloc::string::ToString;
             let result = shortcut.to_string();

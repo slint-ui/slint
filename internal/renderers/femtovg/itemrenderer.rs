@@ -56,7 +56,7 @@ impl<R: femtovg::Renderer + TextureImporter> Clone for ItemGraphicsCacheEntry<R>
         match self {
             Self::Texture(arg0) => Self::Texture(arg0.clone()),
             Self::TextureWithOrigin { texture, origin } => {
-                Self::TextureWithOrigin { texture: texture.clone(), origin: origin.clone() }
+                Self::TextureWithOrigin { texture: texture.clone(), origin: *origin }
             }
             Self::ColorizedImage { _original_image, colorized_image } => Self::ColorizedImage {
                 _original_image: _original_image.clone(),
@@ -950,7 +950,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         if color.alpha() == 0 {
             None
         } else {
-            Some(GlyphBrush::Fill(femtovg::Paint::color(to_femtovg_color(&color))))
+            Some(GlyphBrush::Fill(femtovg::Paint::color(to_femtovg_color(color))))
         }
     }
 
@@ -991,11 +991,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         match &mut brush {
             GlyphBrush::Fill(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
+                canvas.fill_glyph_run(font_id, glyphs_it, paint).unwrap();
             }
             GlyphBrush::Stroke(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.stroke_glyph_run(font_id, glyphs_it, &paint).unwrap();
+                canvas.stroke_glyph_run(font_id, glyphs_it, paint).unwrap();
             }
         }
     }
@@ -1473,10 +1473,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     .collect();
 
                 // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned() {
-                    if last_stop.0 != 1.0 {
-                        stops.push((1.0, last_stop.1));
-                    }
+                if let Some(last_stop) = stops.last().cloned()
+                    && last_stop.0 != 1.0
+                {
+                    stops.push((1.0, last_stop.1));
                 }
 
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, stops)
@@ -1493,10 +1493,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     .collect();
 
                 // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned() {
-                    if last_stop.0 != 1.0 {
-                        stops.push((1.0, last_stop.1));
-                    }
+                if let Some(last_stop) = stops.last().cloned()
+                    && last_stop.0 != 1.0
+                {
+                    stops.push((1.0, last_stop.1));
                 }
 
                 femtovg::Paint::radial_gradient_stops(

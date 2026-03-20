@@ -64,15 +64,11 @@ fn syntax_tests() -> std::io::Result<()> {
             for test_entry in path.read_dir()? {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
-                if let Some(ext) = path.extension() {
-                    if (ext == "60" || ext == "slint")
-                        && pattern
-                            .as_ref()
-                            .map(|p| p.is_match(&path.to_string_lossy()))
-                            .unwrap_or(true)
-                    {
-                        test_entries.push(path);
-                    }
+                if let Some(ext) = path.extension()
+                    && (ext == "60" || ext == "slint")
+                    && pattern.as_ref().map(|p| p.is_match(&path.to_string_lossy())).unwrap_or(true)
+                {
+                    test_entries.push(path);
                 }
             }
         }
@@ -183,10 +179,10 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
 
         // Windows edge-case, if the end falls on a newline, it should span the entire
         // newline character, which is two characters, not one.
-        if let Some(end_offset) = end {
-            if source.get(end_offset..=(end_offset + 1)) == Some("\r\n") {
-                end = Some(end_offset + 1)
-            };
+        if let Some(end_offset) = end
+            && source.get(end_offset..=(end_offset + 1)) == Some("\r\n")
+        {
+            end = Some(end_offset + 1);
         }
 
         let expected_diag_level = match warning_or_error {
@@ -372,8 +368,8 @@ fn update(
                 source.push('\n');
             }
             source.insert_str(byte_offset, &to_insert);
-            for line in (l - 1)..lines.len() {
-                lines[line] += to_insert.len();
+            for line_offset in lines.iter_mut().skip(l - 1) {
+                *line_offset += to_insert.len();
             }
             last_line_adjust[l - 1] += 1;
         };

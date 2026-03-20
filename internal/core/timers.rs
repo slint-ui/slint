@@ -158,7 +158,7 @@ impl Timer {
     ///
     /// Arguments:
     /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
-    ///    for [`Repeated`](TimerMode::Repeated) timers.
+    ///   for [`Repeated`](TimerMode::Repeated) timers.
     pub fn set_interval(&self, interval: core::time::Duration) {
         if let Some(id) = self.id() {
             let _ = CURRENT_TIMERS.try_with(|timers| {

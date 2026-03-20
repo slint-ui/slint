@@ -282,11 +282,8 @@ fn generate_texture(
                     }
                 }
                 ColorState::Rgb([a, b, c]) => {
-                    let abs_diff = |t, u| {
-                        if t < u { u - t } else { t - u }
-                    };
                     let px = get_pixel();
-                    if abs_diff(a, px[0]) > 2 || abs_diff(b, px[1]) > 2 || abs_diff(c, px[2]) > 2 {
+                    if a.abs_diff(px[0]) > 2 || b.abs_diff(px[1]) > 2 || c.abs_diff(px[2]) > 2 {
                         color = ColorState::Different
                     }
                 }
@@ -384,7 +381,6 @@ fn load_image(
                 ))
             })
         }?;
-        let scale_factor = scale_factor as f32;
         // TODO: ideally we should find the size used for that `Image`
         let original_size = tree.size();
         let width = original_size.width() * scale_factor;
