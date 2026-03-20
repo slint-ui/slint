@@ -364,6 +364,12 @@ fn load_data(
     };
 
     let types = c.properties_and_callbacks().collect::<HashMap<_, _>>();
+    let globals = c.globals();
+    let globals_types = globals
+        .filter_map(|g| {
+            c.global_properties_and_callbacks(&g).map(|iter| (g, iter.collect::<HashMap<_, _>>()))
+        })
+        .collect::<HashMap<_, _>>();
     let obj = json.as_object().ok_or("The data is not a JSON object")?;
     for (name, v) in obj {
         match types.get(name.as_str()) {
@@ -376,7 +382,63 @@ fn load_data(
                 },
                 Err(e) => eprintln!("Warning: cannot set property '{name}' from data file: {e}"),
             },
-            None => eprintln!("Warning: ignoring unknown property: {name}"),
+            None => match name.split_once('.') {
+                Some((global_name, prop_name)) => {
+                    match globals_types.get(global_name).and_then(|m| m.get(prop_name)) {
+                        Some((t, _)) => match slint_interpreter::Value::from_json(t, v) {
+                            Ok(v) => {
+                                match instance.set_global_property(global_name, prop_name, v) {
+                                    Ok(()) => (),
+                                    Err(e) => {
+                                        eprintln!(
+                                            "Warning: cannot set property '{name}' from data file: {e}"
+                                        )
+                                    }
+                                }
+                            }
+                            Err(e) => eprintln!(
+                                "Warning: cannot set property '{name}' from data file: {e}"
+                            ),
+                        },
+                        None => eprintln!("Warning: ignoring unknown property: {name}"),
+                    }
+                }
+                None => match globals_types.get(name.as_str()) {
+                    Some(global_types) => match v {
+                        serde_json::Value::Object(map) => {
+                            for (inner_name, v) in map {
+                                match global_types.get(inner_name.as_str()) {
+                                    Some((t, _)) => match slint_interpreter::Value::from_json(t, v)
+                                    {
+                                        Ok(v) => match instance
+                                            .set_global_property(name, inner_name, v)
+                                        {
+                                            Ok(()) => (),
+                                            Err(e) => {
+                                                eprintln!(
+                                                    "Warning: cannot set property '{name}.{inner_name}' from data file: {e}"
+                                                )
+                                            }
+                                        },
+                                        Err(e) => eprintln!(
+                                            "Warning: cannot set property '{name}.{inner_name}' from data file: {e}"
+                                        ),
+                                    },
+                                    None => eprintln!(
+                                        "Warning: ignoring unknown property: {name}.{inner_name}"
+                                    ),
+                                }
+                            }
+                        }
+                        _ => {
+                            eprintln!(
+                                "Warning: cannot set global '{name}' properties: The data is not a JSON object"
+                            )
+                        }
+                    },
+                    None => eprintln!("Warning: ignoring unknown property: {name}"),
+                },
+            },
         }
     }
     Ok(())
