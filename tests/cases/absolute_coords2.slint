@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// import { Button } from "std-widgets.slint";
+export component TestCase {
+    width: 500phx;
+    height: 500phx;
+
+    in-out property <bool> correct_x: false;
+    in-out property <bool> correct_y: false;
+
+    // Button {
+    //     text: "Show popup";
+    //     clicked => {
+    //         popup.show();
+    //     }
+    // }
+    init => {
+        popup.show();
+    }
+    popup := PopupWindow {
+        x: 8phx;
+        y: 7phx;
+        width: 200px;
+        height: 200px;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+        Rectangle {
+            x: 5px;
+            y: 9px;
+            width: parent.width;
+            height: parent.height;
+            Rectangle {
+                background: green;
+                init => {
+                    root.correct_x = self.absolute-position.x == 5px;
+                    root.correct_y = self.absolute-position.y == 9px;
+                    debug("Correct: ", root.correct_x, ",", self.absolute-position.x);
+                }
+            }
+            background: violet;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_correct_x());
+assert!(instance.get_correct_y());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_correct_x());
+assert(instance.get_correct_y());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.correct_x);
+assert(instance.correct_y);
+```
+*/
