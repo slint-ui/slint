@@ -13,21 +13,21 @@ export component TestCase inherits Window {
         popup.show();
     }
 
-    callback focus_the_line_edit;
-    focus_the_line_edit => {
-        le.focus();
-        timer.running = true;
-    }
-
-    timer:= Timer {
-        running: false;
-        interval: 1s;
-        triggered => {
-            popup.close();
-        }
+    callback close_popup;
+    close_popup => {
+        popup.close();
     }
 
     popup:= PopupWindow {
+        Timer {
+            running: true;
+            interval: 2s;
+            triggered => {
+                le.focus();
+                self.running = false;
+            }
+        }
+
         le := LineEdit {}
     }
 
@@ -40,10 +40,10 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 assert!(!instance.get_focused());
 
-instance.invoke_focus_the_line_edit();
+slint_testing::mock_elapsed_time(10);
 assert!(instance.get_focused());
 
-slint_testing::mock_elapsed_time(10);
+instance.invoke_close_popup();
 assert!(!instance.get_focused());
 ```
 
@@ -52,10 +52,10 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(!instance.get_focused());
 
-instance.invoke_focus_the_line_edit();
+slint_testing::mock_elapsed_time(10);
 assert(instance.get_focused());
 
-slint_testing::mock_elapsed_time(10);
+instance.invoke_close_popup();
 assert(!instance.get_focused());
 ```
 
@@ -63,10 +63,10 @@ assert(!instance.get_focused());
 var instance = new slint.TestCase();
 assert(!instance.focused);
 
-instance.focus_the_line_edit();
+slintlib.private_api.mock_elapsed_time(10);
 assert(instance.focused);
 
-slintlib.private_api.mock_elapsed_time(10);
+instance.close_popup();
 assert(!instance.focused);
 
 instance.line_edit_visible_and_focused();
