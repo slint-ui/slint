@@ -11,7 +11,6 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-build = "build.rs"
 publish = false
 
 [lib]
@@ -24,6 +23,5 @@ default = []
 i-slint-core = { workspace = true, features = ["default"] }
 log = { workspace = true }
 euclid = { workspace = true }
-
-[build-dependencies]
-pkg-config = "0.3"
+sdl3-sys = "0.6.1"
+sdl3-ttf-sys = "0.6.0"

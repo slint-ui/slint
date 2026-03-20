@@ -4967,7 +4967,8 @@ dependencies = [
  "euclid",
  "i-slint-core",
  "log",
- "pkg-config",
+ "sdl3-sys",
+ "sdl3-ttf-sys",
 ]
 
 [[package]]
@@ -9315,6 +9316,21 @@ dependencies = [
  "cfg-if",
  "libc",
  "version-compare 0.1.1",
+]
+
+[[package]]
+name = "sdl3-sys"
+version = "0.6.1+SDL-3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d73fc820b0b6b9bd0557de7b799ec9da1ca4f35fcd1cb42f7ceb85e640d1477"
+
+[[package]]
+name = "sdl3-ttf-sys"
+version = "0.6.0+SDL-ttf-3.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c30da3dcd7e062f19350b47a532f7629c42801b801687535fd31e8ba2adfd71d"
+dependencies = [
+ "sdl3-sys",
 ]
 
 [[package]]

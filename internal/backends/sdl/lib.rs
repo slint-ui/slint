@@ -69,11 +69,11 @@ use std::time::Instant;
 // ---------------------------------------------------------------------------
 
 /// We use SDL_EVENT_USER + 0 to signal "invoke callback" from another thread.
-const SLINT_SDL_EVENT_INVOKE: u32 = SDL_EVENT_USER;
+const SLINT_SDL_EVENT_INVOKE: u32 = SDL_EVENT_USER.0;
 /// We use SDL_EVENT_USER + 1 to signal "request redraw".
-const SLINT_SDL_EVENT_REDRAW: u32 = SDL_EVENT_USER + 1;
+const SLINT_SDL_EVENT_REDRAW: u32 = SDL_EVENT_USER.0 + 1;
 /// We use SDL_EVENT_USER + 2 to signal "quit event loop".
-const SLINT_SDL_EVENT_QUIT: u32 = SDL_EVENT_USER + 2;
+const SLINT_SDL_EVENT_QUIT: u32 = SDL_EVENT_USER.0 + 2;
 
 // ---------------------------------------------------------------------------
 // Backend
@@ -173,11 +173,11 @@ impl Platform for Backend {
             let event_type = unsafe { event.r#type };
 
             match event_type {
-                SDL_EVENT_QUIT | SLINT_SDL_EVENT_QUIT => {
+                x if x == SDL_EVENT_QUIT.0 || x == SLINT_SDL_EVENT_QUIT => {
                     return Ok(core::ops::ControlFlow::Break(()));
                 }
 
-                SLINT_SDL_EVENT_INVOKE => {
+                x if x == SLINT_SDL_EVENT_INVOKE => {
                     // Retrieve and execute the callback
                     let user = unsafe { event.user };
                     if !user.data1.is_null() {
@@ -187,7 +187,7 @@ impl Platform for Backend {
                     }
                 }
 
-                SLINT_SDL_EVENT_REDRAW => {
+                x if x == SLINT_SDL_EVENT_REDRAW => {
                     // Handled below in the render phase
                 }
 
@@ -304,7 +304,7 @@ impl i_slint_core::platform::EventLoopProxy for SdlEventLoopProxy {
             r#type: SLINT_SDL_EVENT_QUIT,
             reserved: 0,
             timestamp: 0,
-            window_id: 0,
+            windowID: sdl3_sys::video::SDL_WindowID(0),
             code: 0,
             data1: std::ptr::null_mut(),
             data2: std::ptr::null_mut(),
@@ -328,7 +328,7 @@ impl i_slint_core::platform::EventLoopProxy for SdlEventLoopProxy {
             r#type: SLINT_SDL_EVENT_INVOKE,
             reserved: 0,
             timestamp: 0,
-            window_id: 0,
+            windowID: sdl3_sys::video::SDL_WindowID(0),
             code: 0,
             data1: ptr as *mut c_void,
             data2: std::ptr::null_mut(),
@@ -468,7 +468,7 @@ impl SdlWindowAdapter {
         let event_type = unsafe { event.r#type };
 
         match event_type {
-            SDL_EVENT_WINDOW_RESIZED => {
+            x if x == SDL_EVENT_WINDOW_RESIZED.0 => {
                 let we = unsafe { event.window };
                 self.window.dispatch_event(WindowEvent::Resized {
                     size: i_slint_core::api::LogicalSize::new(we.data1 as f32, we.data2 as f32),
@@ -476,12 +476,12 @@ impl SdlWindowAdapter {
                 self.request_redraw();
             }
 
-            SDL_EVENT_WINDOW_EXPOSED => {
+            x if x == SDL_EVENT_WINDOW_EXPOSED.0 => {
                 // Mark that we need a redraw without pushing an event (to avoid loops)
                 self.needs_redraw.set(true);
             }
 
-            SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED => {
+            x if x == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED.0 => {
                 let scale = unsafe { SDL_GetWindowDisplayScale(self.sdl_window) };
                 if scale > 0.0 {
                     self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
@@ -491,19 +491,19 @@ impl SdlWindowAdapter {
                 }
             }
 
-            SDL_EVENT_WINDOW_CLOSE_REQUESTED => {
+            x if x == SDL_EVENT_WINDOW_CLOSE_REQUESTED.0 => {
                 self.window
                     .dispatch_event(WindowEvent::CloseRequested);
             }
 
-            SDL_EVENT_MOUSE_MOTION => {
+            x if x == SDL_EVENT_MOUSE_MOTION.0 => {
                 let me = unsafe { event.motion };
                 self.window.dispatch_event(WindowEvent::PointerMoved {
                     position: i_slint_core::api::LogicalPosition::new(me.x, me.y),
                 });
             }
 
-            SDL_EVENT_MOUSE_BUTTON_DOWN => {
+            x if x == SDL_EVENT_MOUSE_BUTTON_DOWN.0 => {
                 let be = unsafe { event.button };
                 let button = sdl_mouse_button(be.button);
                 self.window.dispatch_event(WindowEvent::PointerPressed {
@@ -512,7 +512,7 @@ impl SdlWindowAdapter {
                 });
             }
 
-            SDL_EVENT_MOUSE_BUTTON_UP => {
+            x if x == SDL_EVENT_MOUSE_BUTTON_UP.0 => {
                 let be = unsafe { event.button };
                 let button = sdl_mouse_button(be.button);
                 self.window.dispatch_event(WindowEvent::PointerReleased {
@@ -521,7 +521,7 @@ impl SdlWindowAdapter {
                 });
             }
 
-            SDL_EVENT_MOUSE_WHEEL => {
+            x if x == SDL_EVENT_MOUSE_WHEEL.0 => {
                 let we = unsafe { event.wheel };
                 self.window.dispatch_event(WindowEvent::PointerScrolled {
                     position: i_slint_core::api::LogicalPosition::new(we.mouse_x, we.mouse_y),
@@ -530,7 +530,7 @@ impl SdlWindowAdapter {
                 });
             }
 
-            SDL_EVENT_KEY_DOWN => {
+            x if x == SDL_EVENT_KEY_DOWN.0 => {
                 let ke = unsafe { event.key };
                 if let Some(text) = sdl_key_to_slint_key(ke.key) {
                     let event = if ke.repeat {
@@ -542,14 +542,14 @@ impl SdlWindowAdapter {
                 }
             }
 
-            SDL_EVENT_KEY_UP => {
+            x if x == SDL_EVENT_KEY_UP.0 => {
                 let ke = unsafe { event.key };
                 if let Some(text) = sdl_key_to_slint_key(ke.key) {
                     self.window.dispatch_event(WindowEvent::KeyReleased { text });
                 }
             }
 
-            SDL_EVENT_TEXT_INPUT => {
+            x if x == SDL_EVENT_TEXT_INPUT.0 => {
                 let te = unsafe { event.text };
                 if !te.text.is_null() {
                     let text_str =
@@ -626,7 +626,7 @@ impl WindowAdapter for SdlWindowAdapter {
             r#type: SLINT_SDL_EVENT_REDRAW,
             reserved: 0,
             timestamp: 0,
-            window_id: 0,
+            windowID: sdl3_sys::video::SDL_WindowID(0),
             code: 0,
             data1: std::ptr::null_mut(),
             data2: std::ptr::null_mut(),
@@ -861,7 +861,7 @@ impl RendererSealed for SdlWindowAdapter {
 // ---------------------------------------------------------------------------
 
 fn sdl_mouse_button(button: u8) -> i_slint_core::platform::PointerEventButton {
-    match button {
+    match button as i32 {
         SDL_BUTTON_LEFT => i_slint_core::platform::PointerEventButton::Left,
         SDL_BUTTON_MIDDLE => i_slint_core::platform::PointerEventButton::Middle,
         SDL_BUTTON_RIGHT => i_slint_core::platform::PointerEventButton::Right,
@@ -869,7 +869,7 @@ fn sdl_mouse_button(button: u8) -> i_slint_core::platform::PointerEventButton {
     }
 }
 
-fn sdl_key_to_slint_key(sdl_key: u32) -> Option<SharedString> {
+fn sdl_key_to_slint_key(sdl_key: SDL_Keycode) -> Option<SharedString> {
     use i_slint_core::input::key_codes::Key;
 
     let key = match sdl_key {
