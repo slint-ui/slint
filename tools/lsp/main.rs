@@ -19,6 +19,7 @@ pub mod util;
 use common::{LspToPreview, Result};
 use language::*;
 
+use futures_util::FutureExt;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
     DidOpenTextDocument, Notification,
@@ -35,7 +36,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::io::Write as _;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, atomic};
 use std::task::{Poll, Waker};
@@ -284,7 +284,11 @@ fn main() {
             },
         }
     } else {
-        let rt = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
         let local_set = tokio::task::LocalSet::new();
         match local_set.block_on(&rt, run_lsp_server(args)) {
             Ok(threads) => threads.join().unwrap(),
@@ -404,9 +408,6 @@ async fn main_loop(
         pending_recompile: Default::default(),
     });
 
-    let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
-    startup_lsp(&ctx).await?;
-
     let connection = Arc::new(connection);
     let (from_lsp_sender, mut from_lsp_receiver) = tokio::sync::mpsc::unbounded_channel();
     let inner_connection = connection.clone();
@@ -422,6 +423,9 @@ async fn main_loop(
             }
         }
     });
+
+    let inner_ctx = ctx.clone();
+    let mut startup = tokio::task::spawn_local(async move { startup_lsp(&inner_ctx).await }).fuse();
 
     loop {
         let recompile_idle_timeout = if ctx.pending_recompile.borrow().is_empty() {
@@ -439,7 +443,7 @@ async fn main_loop(
                             let _ = receiver_task.join();
                             return Ok(());
                         }
-                        futures.push(Box::pin(rh.handle_request(req, &ctx)));
+                        rh.handle_request(req, &ctx).await?;
                     }
                     Some(Message::Response(resp)) => {
                         let mut request_queue = request_queue.lock().unwrap();
@@ -460,7 +464,7 @@ async fn main_loop(
                         *q = OutgoingRequest::Done(resp)
                     }
                     Some(Message::Notification(notification)) => {
-                        futures.push(Box::pin(handle_notification(notification, &ctx)))
+                        handle_notification(notification, &ctx).await?;
                     }
                     None => {
                         from_lsp_receiver.close();
@@ -487,6 +491,7 @@ async fn main_loop(
                 }
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
+                tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
 
                 for url in pending_recompile {
@@ -496,6 +501,12 @@ async fn main_loop(
                             tracing::error!("Failed document reload: {err}");
                         }
                     });
+                }
+            }
+            result = &mut startup => {
+                if let Err(err) = result.map_err(|err| err.into()).and_then(std::convert::identity) {
+                    tracing::error!("LSP startup failed: {err}");
+                    return Err(err);
                 }
             }
         }
