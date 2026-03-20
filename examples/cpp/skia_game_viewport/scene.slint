@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { VerticalBox, HorizontalBox, Slider, GroupBox, CheckBox } from "std-widgets.slint";
+
+export component App inherits Window {
+    out property <float> sprite-speed <=> speed-slider.value;
+    out property <bool> show-grid <=> grid-check.checked;
+
+    // Player position as a fraction of window size (0.0 to 1.0)
+    in-out property <float> player-x: 0.5;
+    in-out property <float> player-y: 0.5;
+    in-out property <float> player-angle: 0.0;
+
+    // Input state: which keys are currently held
+    out property <bool> key-up;
+    out property <bool> key-down;
+    out property <bool> key-left;
+    out property <bool> key-right;
+
+    // Transparent background so the Skia underlay is visible
+    background: transparent;
+
+    preferred-width: 800px;
+    preferred-height: 600px;
+    title: "Slint Skia Game Viewport Example";
+
+    // Capture keyboard input for the game
+    game-focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == "w" || event.text == Key.UpArrow) {
+                root.key-up = true;
+                return accept;
+            }
+            if (event.text == "s" || event.text == Key.DownArrow) {
+                root.key-down = true;
+                return accept;
+            }
+            if (event.text == "a" || event.text == Key.LeftArrow) {
+                root.key-left = true;
+                return accept;
+            }
+            if (event.text == "d" || event.text == Key.RightArrow) {
+                root.key-right = true;
+                return accept;
+            }
+            return reject;
+        }
+        key-released(event) => {
+            if (event.text == "w" || event.text == Key.UpArrow) {
+                root.key-up = false;
+                return accept;
+            }
+            if (event.text == "s" || event.text == Key.DownArrow) {
+                root.key-down = false;
+                return accept;
+            }
+            if (event.text == "a" || event.text == Key.LeftArrow) {
+                root.key-left = false;
+                return accept;
+            }
+            if (event.text == "d" || event.text == Key.RightArrow) {
+                root.key-right = false;
+                return accept;
+            }
+            return reject;
+        }
+
+        VerticalBox {
+            alignment: end;
+
+            // The game scene is rendered as an underlay via SkCanvas in BeforeRendering.
+            // This panel floats on top as a HUD.
+            Rectangle {
+                background: #000000aa;
+                border-radius: 8px;
+                height: 60px;
+
+                HorizontalBox {
+                    padding-left: 16px;
+                    padding-right: 16px;
+
+                    Text {
+                        text: "WASD to move";
+                        vertical-alignment: center;
+                        color: #888888;
+                    }
+                    Text {
+                        text: "Speed:";
+                        vertical-alignment: center;
+                        color: white;
+                    }
+                    speed-slider := Slider {
+                        minimum: 0.1;
+                        maximum: 5.0;
+                        value: 1.0;
+                    }
+                    grid-check := CheckBox {
+                        text: "Grid";
+                        checked: true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Auto-focus the game input scope on startup
+    forward-focus: game-focus;
+}

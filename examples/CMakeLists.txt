@@ -41,5 +41,6 @@ if(TARGET Slint::slint-compiler AND (SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATUR
         add_subdirectory(cpp/platform_qt)
     endif(Qt6_FOUND)
     add_subdirectory(cpp/platform_native)
+    add_subdirectory(cpp/skia_game_viewport)
 endif()
 
