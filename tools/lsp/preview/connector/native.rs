@@ -14,7 +14,7 @@ pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
 
 struct ChildProcessLspToPreviewInner {
     communication_handle: tokio::task::JoinHandle<std::result::Result<(), String>>,
-    to_child_sender: tokio::sync::mpsc::UnboundedSender<Box<[u8]>>,
+    to_child_sender: tokio::sync::mpsc::UnboundedSender<String>,
 }
 
 pub struct ChildProcessLspToPreview {
@@ -83,10 +83,11 @@ impl ChildProcessLspToPreview {
         });
 
         let (to_child_sender, mut to_child_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<Box<[u8]>>();
+            tokio::sync::mpsc::unbounded_channel::<String>();
         tokio::spawn(async move {
-            while let Some(msg) = to_child_receiver.recv().await {
-                if let Err(err) = to_child.write_all(&*msg).await {
+            while let Some(mut msg) = to_child_receiver.recv().await {
+                msg.push('\n');
+                if let Err(err) = to_child.write_all(&msg.as_bytes()).await {
                     tracing::error!("Failed writing to preview child process: {err}");
                     break;
                 }
@@ -104,8 +105,7 @@ impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
             let message = serde_json::to_string(&common::LspToPreviewMessage::Quit).unwrap();
-            let _ = inner.to_child_sender.send(message.as_bytes().into());
-            let _ = inner.to_child_sender.send(Box::new([0x0a]));
+            let _ = inner.to_child_sender.send(message);
         }
     }
 }
@@ -119,7 +119,7 @@ impl common::LspToPreview for ChildProcessLspToPreview {
                 tracing::debug!("Failed to serialize message to preview");
                 return;
             };
-            let _ = inner.to_child_sender.send(message.as_bytes().into());
+            let _ = inner.to_child_sender.send(message);
         } else if let common::LspToPreviewMessage::ShowPreview(_) = message {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
