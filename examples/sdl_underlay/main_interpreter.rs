@@ -97,12 +97,16 @@ fn main() {
 }
 
 fn load_component(path: &str) -> Option<slint_interpreter::ComponentInstance> {
-    let mut compiler = slint_interpreter::ComponentCompiler::default();
-    let def = spin_on::spin_on(compiler.build_from_path(std::path::PathBuf::from(path)));
-    for diag in compiler.diagnostics() {
+    let compiler = slint_interpreter::Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_path(std::path::PathBuf::from(path)));
+    for diag in result.diagnostics() {
         eprintln!("{}", diag);
     }
-    Some(def?.create().unwrap())
+    if result.has_errors() {
+        return None;
+    }
+    let def = result.components().next()?;
+    Some(def.create().unwrap())
 }
 
 fn setup_callbacks(instance: &slint_interpreter::ComponentInstance) {

@@ -559,23 +559,23 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
         }
 
         // Draw cursor
-        if text_input.cursor_visible() && text_input.enabled() {
-            if let Some(cursor_pos) = visual.cursor_position {
-                if !font.is_null() {
-                    let cursor_pos = cursor_pos.min(visual.text.len());
-                    let x = self.font_manager.x_for_byte_offset(font, &visual.text, cursor_pos)
-                        / self.scale_factor;
-                    let cursor_width = text_input.text_cursor_width().get();
-                    let font_height = unsafe { TTF_GetFontHeight(font) } as f32 / self.scale_factor;
+        if text_input.cursor_visible()
+            && text_input.enabled()
+            && let Some(cursor_pos) = visual.cursor_position
+            && !font.is_null()
+        {
+            let cursor_pos = cursor_pos.min(visual.text.len());
+            let x = self.font_manager.x_for_byte_offset(font, &visual.text, cursor_pos)
+                / self.scale_factor;
+            let cursor_width = text_input.text_cursor_width().get();
+            let font_height = unsafe { TTF_GetFontHeight(font) } as f32 / self.scale_factor;
 
-                    let cursor_color = visual.cursor_color;
-                    self.set_color(cursor_color);
-                    let frect = self.to_physical_frect(x, 0.0, cursor_width, font_height);
-                    unsafe {
-                        SDL_SetRenderDrawBlendMode(self.renderer, SDL_BLENDMODE_BLEND);
-                        SDL_RenderFillRect(self.renderer, &frect);
-                    }
-                }
+            let cursor_color = visual.cursor_color;
+            self.set_color(cursor_color);
+            let frect = self.to_physical_frect(x, 0.0, cursor_width, font_height);
+            unsafe {
+                SDL_SetRenderDrawBlendMode(self.renderer, SDL_BLENDMODE_BLEND);
+                SDL_RenderFillRect(self.renderer, &frect);
             }
         }
 

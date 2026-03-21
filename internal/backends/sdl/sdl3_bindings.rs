@@ -68,10 +68,10 @@ pub use sdl3_sys::render::{
 pub use sdl3_sys::stdinc::SDL_free;
 
 pub use sdl3_sys::video::{
-    SDL_CreateWindow, SDL_DestroyWindow, SDL_GetWindowDisplayScale, SDL_GetWindowPosition,
-    SDL_GetWindowSize, SDL_GetWindowSizeInPixels, SDL_HideWindow, SDL_SetWindowPosition,
-    SDL_SetWindowSize, SDL_SetWindowTitle, SDL_ShowWindow, SDL_WINDOW_HIGH_PIXEL_DENSITY,
-    SDL_WINDOW_RESIZABLE, SDL_Window,
+    SDL_CreateWindow, SDL_DestroyWindow, SDL_GetWindowPosition, SDL_GetWindowSize,
+    SDL_GetWindowSizeInPixels, SDL_HideWindow, SDL_SetWindowPosition, SDL_SetWindowSize,
+    SDL_SetWindowTitle, SDL_ShowWindow, SDL_WINDOW_HIGH_PIXEL_DENSITY, SDL_WINDOW_RESIZABLE,
+    SDL_Window,
 };
 
 // ---------------------------------------------------------------------------
@@ -82,9 +82,9 @@ pub use sdl3_ttf_sys::ttf::{
     TTF_CloseFont, TTF_CopyFont, TTF_CreateRendererTextEngine, TTF_CreateText,
     TTF_DestroyRendererTextEngine, TTF_DestroyText, TTF_DrawRendererText, TTF_Font,
     TTF_GetFontAscent, TTF_GetFontDescent, TTF_GetFontHeight, TTF_GetFontLineSkip,
-    TTF_GetFontOutline, TTF_GetStringSize, TTF_Init, TTF_MeasureString, TTF_OpenFont,
-    TTF_OpenFontIO, TTF_Quit, TTF_STYLE_BOLD, TTF_STYLE_ITALIC, TTF_STYLE_NORMAL,
-    TTF_SetFontOutline, TTF_SetFontStyle, TTF_SetTextColor, TTF_SetTextWrapWidth,
+    TTF_GetStringSize, TTF_Init, TTF_MeasureString, TTF_OpenFont, TTF_OpenFontIO, TTF_Quit,
+    TTF_STYLE_BOLD, TTF_STYLE_ITALIC, TTF_STYLE_NORMAL, TTF_SetFontOutline, TTF_SetFontStyle,
+    TTF_SetTextColor, TTF_SetTextWrapWidth,
 };
 
 // ---------------------------------------------------------------------------

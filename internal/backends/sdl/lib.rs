@@ -174,8 +174,6 @@ impl Platform for Backend {
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         let mut event = SDL_Event::default();
-        let timeout_ms = timeout.as_millis().min(i32::MAX as u128) as i32;
-
         // Process all pending events
         loop {
             let has_event = unsafe { SDL_PollEvent(&mut event) };
@@ -216,29 +214,29 @@ impl Platform for Backend {
         i_slint_core::platform::update_timers_and_animations();
 
         // Render if needed
-        if let Some(adapter) = self.window_adapter.borrow().as_ref() {
-            if adapter.needs_redraw.get() {
-                adapter.needs_redraw.set(false);
+        if let Some(adapter) = self.window_adapter.borrow().as_ref()
+            && adapter.needs_redraw.get()
+        {
+            adapter.needs_redraw.set(false);
 
-                // Clear first, then let the game draw, then render Slint UI on top.
-                unsafe {
-                    SDL_SetRenderDrawColor(adapter.res.sdl_renderer, 0, 0, 0, 255);
-                    SDL_RenderClear(adapter.res.sdl_renderer);
-                }
-
-                // Call pre-render callback (for game rendering).
-                // Check both the Rust API callback and the C FFI callback.
-                if let Some(ref callback) = *self.pre_render_callback.borrow() {
-                    callback(adapter.res.sdl_renderer as *mut c_void);
-                }
-                PRE_RENDER_CB.with(|cell| {
-                    if let Some(ref cb) = *cell.borrow() {
-                        cb(adapter.res.sdl_renderer as *mut c_void);
-                    }
-                });
-
-                adapter.render()?;
+            // Clear first, then let the game draw, then render Slint UI on top.
+            unsafe {
+                SDL_SetRenderDrawColor(adapter.res.sdl_renderer, 0, 0, 0, 255);
+                SDL_RenderClear(adapter.res.sdl_renderer);
             }
+
+            // Call pre-render callback (for game rendering).
+            // Check both the Rust API callback and the C FFI callback.
+            if let Some(ref callback) = *self.pre_render_callback.borrow() {
+                callback(adapter.res.sdl_renderer as *mut c_void);
+            }
+            PRE_RENDER_CB.with(|cell| {
+                if let Some(ref cb) = *cell.borrow() {
+                    cb(adapter.res.sdl_renderer as *mut c_void);
+                }
+            });
+
+            adapter.render()?;
         }
 
         // Sleep until the next event or timer, whichever comes first.
@@ -974,9 +972,9 @@ fn sdl_key_to_slint_key(sdl_key: SDL_Keycode) -> Option<SharedString> {
 // C FFI — allows C/C++ code to interact with the SDL backend
 // ---------------------------------------------------------------------------
 
-/// Thread-local storage for the pre-render callback. This is used by the
-/// rendering path (which always runs on the main thread) to call the game's
-/// rendering function before Slint draws its UI.
+// Thread-local storage for the pre-render callback. This is used by the
+// rendering path (which always runs on the main thread) to call the game's
+// rendering function before Slint draws its UI.
 thread_local! {
     static PRE_RENDER_CB: RefCell<Option<Box<dyn Fn(*mut c_void)>>> = const { RefCell::new(None) };
 }
@@ -1066,8 +1064,8 @@ fn get_sdl_ptr(f: impl Fn(&SdlWindowAdapter) -> *mut c_void) -> *mut c_void {
     })
 }
 
-/// Thread-local weak reference to the SdlWindowAdapter, set when the
-/// window is created.
+// Thread-local weak reference to the SdlWindowAdapter, set when the
+// window is created.
 thread_local! {
     static SDL_WINDOW_ADAPTER: RefCell<Option<Weak<SdlWindowAdapter>>> = const { RefCell::new(None) };
 }
