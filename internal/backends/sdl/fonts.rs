@@ -29,10 +29,7 @@ impl FontCacheKey {
     fn from_request(request: &FontRequest, scale_factor: f32, outline: i32) -> Self {
         let pixel_size = request.pixel_size.map_or(DEFAULT_FONT_SIZE, |s| s.get()) * scale_factor;
         Self {
-            family: request
-                .family
-                .as_ref()
-                .map_or_else(String::new, |f| f.to_string()),
+            family: request.family.as_ref().map_or_else(String::new, |f| f.to_string()),
             pixel_size_tenths: (pixel_size * 10.0) as i32,
             weight: request.weight.unwrap_or(400),
             italic: request.italic,
@@ -101,12 +98,10 @@ impl FontManager {
         }
 
         let pixel_size = request.pixel_size.map_or(DEFAULT_FONT_SIZE, |s| s.get()) * scale_factor;
-        let family = request
-            .family
-            .as_ref()
-            .map_or("", |f| f.as_str());
+        let family = request.family.as_ref().map_or("", |f| f.as_str());
 
-        let font = self.load_font(family, pixel_size, request.weight.unwrap_or(400), request.italic);
+        let font =
+            self.load_font(family, pixel_size, request.weight.unwrap_or(400), request.italic);
         if !font.is_null() {
             if outline > 0 {
                 unsafe { TTF_SetFontOutline(font, outline) };
@@ -116,13 +111,7 @@ impl FontManager {
         font
     }
 
-    fn load_font(
-        &self,
-        family: &str,
-        pixel_size: f32,
-        weight: i32,
-        italic: bool,
-    ) -> *mut TTF_Font {
+    fn load_font(&self, family: &str, pixel_size: f32, weight: i32, italic: bool) -> *mut TTF_Font {
         // Try registered fonts from memory first
         for (name, data) in self.registered_fonts.borrow().iter() {
             if family.is_empty() || name.eq_ignore_ascii_case(family) {
@@ -184,34 +173,23 @@ impl FontManager {
         }
     }
 
-    pub fn register_font_from_memory(
-        &self,
-        family_name: String,
-        data: Vec<u8>,
-    ) {
+    pub fn register_font_from_memory(&self, family_name: String, data: Vec<u8>) {
         self.registered_fonts.borrow_mut().push((family_name, data));
         // Clear cache so newly registered fonts are picked up
         self.cache.borrow_mut().clear();
     }
 
-    pub fn register_font_from_path(
-        &self,
-        family_name: String,
-        path: String,
-    ) {
+    pub fn register_font_from_path(&self, family_name: String, path: String) {
         self.registered_font_paths.borrow_mut().push((family_name, path));
         self.cache.borrow_mut().clear();
     }
 
     /// Measure text size in physical pixels.
-    pub fn text_size(
-        &self,
-        font: *mut TTF_Font,
-        text: &str,
-        max_width: Option<f32>,
-    ) -> (f32, f32) {
+    pub fn text_size(&self, font: *mut TTF_Font, text: &str, max_width: Option<f32>) -> (f32, f32) {
         if font.is_null() || text.is_empty() {
-            let h = if font.is_null() { DEFAULT_FONT_SIZE } else {
+            let h = if font.is_null() {
+                DEFAULT_FONT_SIZE
+            } else {
                 unsafe { TTF_GetFontHeight(font) as f32 }
             };
             return (0.0, h);
@@ -268,12 +246,7 @@ impl FontManager {
     }
 
     /// Measure wrapped text by simulating word wrapping.
-    fn measure_wrapped_text(
-        &self,
-        font: *mut TTF_Font,
-        text: &str,
-        max_width: f32,
-    ) -> (f32, f32) {
+    fn measure_wrapped_text(&self, font: *mut TTF_Font, text: &str, max_width: f32) -> (f32, f32) {
         let line_skip = unsafe { TTF_GetFontLineSkip(font) } as f32;
         let font_height = unsafe { TTF_GetFontHeight(font) } as f32;
         let mut total_height = 0.0f32;
@@ -314,10 +287,7 @@ impl FontManager {
                 }
                 if count == 0 {
                     // At least one character per line to avoid infinite loop
-                    count = remaining
-                        .char_indices()
-                        .nth(1)
-                        .map_or(remaining.len(), |(i, _)| i);
+                    count = remaining.char_indices().nth(1).map_or(remaining.len(), |(i, _)| i);
                 }
                 max_line_width = max_line_width.max(extent as f32);
                 if first_line {
@@ -360,12 +330,7 @@ impl FontManager {
     }
 
     /// Find the byte offset in `text` closest to physical pixel position `x` on a single line.
-    pub fn byte_offset_for_x(
-        &self,
-        font: *mut TTF_Font,
-        text: &str,
-        x: f32,
-    ) -> usize {
+    pub fn byte_offset_for_x(&self, font: *mut TTF_Font, text: &str, x: f32) -> usize {
         if font.is_null() || text.is_empty() || x <= 0.0 {
             return 0;
         }
@@ -411,12 +376,7 @@ impl FontManager {
     }
 
     /// Get the x-position in physical pixels for a given byte offset in single-line text.
-    pub fn x_for_byte_offset(
-        &self,
-        font: *mut TTF_Font,
-        text: &str,
-        byte_offset: usize,
-    ) -> f32 {
+    pub fn x_for_byte_offset(&self, font: *mut TTF_Font, text: &str, byte_offset: usize) -> f32 {
         if font.is_null() || text.is_empty() || byte_offset == 0 {
             return 0.0;
         }
@@ -475,7 +435,10 @@ fn find_system_font(family: &str) -> Option<String> {
 /// Use fontconfig's `fc-match` to resolve a font pattern to a file path.
 fn fc_match(pattern: &str) -> Option<String> {
     #[cfg(not(target_os = "linux"))]
-    { let _ = pattern; return None; }
+    {
+        let _ = pattern;
+        return None;
+    }
 
     #[cfg(target_os = "linux")]
     {

@@ -23,25 +23,24 @@
 // backend-sdl feature.
 // ---------------------------------------------------------------------------
 extern "C" {
-    /// Set a callback that is invoked before each Slint frame.  The callback
-    /// receives the SDL_Renderer* and a user-data pointer.
-    void slint_sdl_set_pre_render_callback(
-        void (*callback)(void *renderer, void *user_data),
-        void *user_data,
-        void (*drop_user_data)(void *));
+/// Set a callback that is invoked before each Slint frame.  The callback
+/// receives the SDL_Renderer* and a user-data pointer.
+void slint_sdl_set_pre_render_callback(void (*callback)(void *renderer, void *user_data),
+                                       void *user_data, void (*drop_user_data)(void *));
 
-    /// Returns the SDL_Renderer* managed by the Slint SDL backend.
-    void *slint_sdl_get_renderer();
+/// Returns the SDL_Renderer* managed by the Slint SDL backend.
+void *slint_sdl_get_renderer();
 
-    /// Returns the SDL_Window* managed by the Slint SDL backend.
-    void *slint_sdl_get_window();
+/// Returns the SDL_Window* managed by the Slint SDL backend.
+void *slint_sdl_get_window();
 }
 
 // ---------------------------------------------------------------------------
 // Game rendering — a simple animated scene drawn with SDL_Renderer
 // ---------------------------------------------------------------------------
 
-struct GameState {
+struct GameState
+{
     std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     bool animation_enabled = true;
     float speed = 1.0f;
@@ -86,12 +85,7 @@ static void render_game(SDL_Renderer *renderer, GameState *state)
 
             SDL_SetRenderDrawColor(renderer, r, g, b, 180);
 
-            SDL_FRect rect = {
-                cx - size / 2.0f,
-                cy - size / 2.0f,
-                size,
-                size
-            };
+            SDL_FRect rect = { cx - size / 2.0f, cy - size / 2.0f, size, size };
             SDL_RenderFillRect(renderer, &rect);
         }
     }
@@ -152,15 +146,14 @@ int main()
     // (In a real game you'd integrate this into your game loop instead.)
     slint::ComponentWeakHandle<App> app_weak(app);
     slint::Timer animation_timer;
-    animation_timer.start(slint::TimerMode::Repeated,
-                          std::chrono::milliseconds(16),
+    animation_timer.start(slint::TimerMode::Repeated, std::chrono::milliseconds(16),
                           [app_weak, state_ptr] {
-        if (auto app = app_weak.lock()) {
-            state_ptr->animation_enabled = (*app)->get_animation_enabled();
-            state_ptr->speed = (*app)->get_speed();
-            (*app)->window().request_redraw();
-        }
-    });
+                              if (auto app = app_weak.lock()) {
+                                  state_ptr->animation_enabled = (*app)->get_animation_enabled();
+                                  state_ptr->speed = (*app)->get_speed();
+                                  (*app)->window().request_redraw();
+                              }
+                          });
 
     app->run();
     return 0;

@@ -21,17 +21,16 @@
 // C FFI declarations for the Slint SDL backend
 // ---------------------------------------------------------------------------
 extern "C" {
-    void slint_sdl_set_pre_render_callback(
-        void (*callback)(void *renderer, void *user_data),
-        void *user_data,
-        void (*drop_user_data)(void *));
+void slint_sdl_set_pre_render_callback(void (*callback)(void *renderer, void *user_data),
+                                       void *user_data, void (*drop_user_data)(void *));
 }
 
 // ---------------------------------------------------------------------------
 // Game rendering
 // ---------------------------------------------------------------------------
 
-struct GameState {
+struct GameState
+{
     std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     bool animation_enabled = true;
     float speed = 1.0f;
@@ -65,7 +64,7 @@ static void render_game(SDL_Renderer *renderer, GameState *state)
             uint8_t g = (uint8_t)(128 + 127 * sinf(t * 0.5f + row * 0.4f));
             uint8_t b = (uint8_t)(128 + 127 * sinf(t * 0.3f + (col + row) * 0.3f));
             SDL_SetRenderDrawColor(renderer, r, g, b, 180);
-            SDL_FRect rect = { cx - size/2, cy - size/2, size, size };
+            SDL_FRect rect = { cx - size / 2, cy - size / 2, size, size };
             SDL_RenderFillRect(renderer, &rect);
         }
     }
@@ -76,7 +75,7 @@ static void render_game(SDL_Renderer *renderer, GameState *state)
         float sz = 30.0f + 20.0f * sinf(t * 2.0f + i * 1.1f);
         uint8_t alpha = (uint8_t)(100 + 80 * sinf(t + i));
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
-        SDL_FRect star = { x - sz/2, y - sz/2, sz, sz };
+        SDL_FRect star = { x - sz / 2, y - sz / 2, sz, sz };
         SDL_RenderFillRect(renderer, &star);
     }
 }
@@ -96,7 +95,8 @@ static void drop_game_state(void *user_data)
 // Load/reload the .slint component via the interpreter
 // ---------------------------------------------------------------------------
 
-struct AppState {
+struct AppState
+{
     slint::ComponentHandle<slint::interpreter::ComponentInstance> instance;
     GameState *game;
 };
@@ -108,9 +108,8 @@ load_component(const std::string &path)
     auto def = compiler.build_from_path(path);
 
     for (auto &diag : compiler.diagnostics()) {
-        fprintf(stderr, "%s:%d: %s\n",
-                std::string(diag.source_file).c_str(),
-                diag.line, std::string(diag.message).c_str());
+        fprintf(stderr, "%s:%d: %s\n", std::string(diag.source_file).c_str(), diag.line,
+                std::string(diag.message).c_str());
     }
 
     if (!def) {
@@ -121,9 +120,8 @@ load_component(const std::string &path)
     return def->create();
 }
 
-static void setup_instance(
-    slint::ComponentHandle<slint::interpreter::ComponentInstance> &instance,
-    GameState *state)
+static void setup_instance(slint::ComponentHandle<slint::interpreter::ComponentInstance> &instance,
+                           GameState *state)
 {
     instance->set_callback("quit", [](auto) {
         slint::quit_event_loop();
@@ -143,7 +141,8 @@ int main(int argc, char *argv[])
 
     // Initial load
     auto instance = load_component(slint_path);
-    if (!instance) return 1;
+    if (!instance)
+        return 1;
 
     // Set up game rendering
     auto *game_state = new GameState();
@@ -155,39 +154,39 @@ int main(int argc, char *argv[])
     auto last_mtime = std::filesystem::last_write_time(slint_path);
 
     slint::Timer reload_timer;
-    reload_timer.start(slint::TimerMode::Repeated,
-                       std::chrono::milliseconds(500),
+    reload_timer.start(slint::TimerMode::Repeated, std::chrono::milliseconds(500),
                        [&slint_path, &instance, game_state, &last_mtime, &reload_timer] {
-        std::error_code ec;
-        auto mtime = std::filesystem::last_write_time(slint_path, ec);
-        if (ec || mtime == last_mtime) return;
-        last_mtime = mtime;
+                           std::error_code ec;
+                           auto mtime = std::filesystem::last_write_time(slint_path, ec);
+                           if (ec || mtime == last_mtime)
+                               return;
+                           last_mtime = mtime;
 
-        fprintf(stderr, "[sdl_underlay] Reloading %s...\n", slint_path.c_str());
-        auto new_instance = load_component(slint_path);
-        if (!new_instance) return;
+                           fprintf(stderr, "[sdl_underlay] Reloading %s...\n", slint_path.c_str());
+                           auto new_instance = load_component(slint_path);
+                           if (!new_instance)
+                               return;
 
-        // Show new before hiding old, so the window count never drops to
-        // zero (which would quit the event loop).
-        setup_instance(*new_instance, game_state);
-        (*new_instance)->show();
-        (*instance)->hide();
-        *instance = *new_instance;
-    });
+                           // Show new before hiding old, so the window count never drops to
+                           // zero (which would quit the event loop).
+                           setup_instance(*new_instance, game_state);
+                           (*new_instance)->show();
+                           (*instance)->hide();
+                           *instance = *new_instance;
+                       });
 
     // Animation timer
     slint::Timer anim_timer;
-    anim_timer.start(slint::TimerMode::Repeated,
-                     std::chrono::milliseconds(16),
+    anim_timer.start(slint::TimerMode::Repeated, std::chrono::milliseconds(16),
                      [&instance, game_state] {
-        auto val = (*instance)->get_property("animation-enabled");
-        if (val && val->to_bool())
-            game_state->animation_enabled = *val->to_bool();
-        auto spd = (*instance)->get_property("speed");
-        if (spd && spd->to_number())
-            game_state->speed = static_cast<float>(*spd->to_number());
-        (*instance)->window().request_redraw();
-    });
+                         auto val = (*instance)->get_property("animation-enabled");
+                         if (val && val->to_bool())
+                             game_state->animation_enabled = *val->to_bool();
+                         auto spd = (*instance)->get_property("speed");
+                         if (spd && spd->to_number())
+                             game_state->speed = static_cast<float>(*spd->to_number());
+                         (*instance)->window().request_redraw();
+                     });
 
     (*instance)->show();
     slint::run_event_loop();

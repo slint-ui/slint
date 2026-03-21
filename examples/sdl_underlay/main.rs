@@ -44,17 +44,13 @@ fn main() {
     let anim = animation_enabled.clone();
     let spd = speed.clone();
     let timer = slint::Timer::default();
-    timer.start(
-        slint::TimerMode::Repeated,
-        std::time::Duration::from_millis(16),
-        move || {
-            if let Some(app) = app_weak.upgrade() {
-                anim.set(app.get_animation_enabled());
-                spd.set(app.get_speed());
-                app.window().request_redraw();
-            }
-        },
-    );
+    timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(16), move || {
+        if let Some(app) = app_weak.upgrade() {
+            anim.set(app.get_animation_enabled());
+            spd.set(app.get_speed());
+            app.window().request_redraw();
+        }
+    });
 
     app.on_quit(|| slint::quit_event_loop().unwrap());
     app.run().unwrap();
@@ -76,28 +72,23 @@ unsafe extern "C" fn drop_state(ptr: *mut std::ffi::c_void) {
     unsafe { drop(Box::from_raw(ptr as *mut GameState)) };
 }
 
-unsafe extern "C" fn pre_render(
-    renderer: *mut std::ffi::c_void,
-    user_data: *mut std::ffi::c_void,
-) {
+unsafe extern "C" fn pre_render(renderer: *mut std::ffi::c_void, user_data: *mut std::ffi::c_void) {
     unsafe extern "C" {
         fn SDL_SetRenderDrawColor(
-            r: *mut std::ffi::c_void, red: u8, green: u8, blue: u8, alpha: u8,
+            r: *mut std::ffi::c_void,
+            red: u8,
+            green: u8,
+            blue: u8,
+            alpha: u8,
         ) -> bool;
-        fn SDL_RenderFillRect(
-            r: *mut std::ffi::c_void, rect: *const [f32; 4],
-        ) -> bool;
+        fn SDL_RenderFillRect(r: *mut std::ffi::c_void, rect: *const [f32; 4]) -> bool;
         fn SDL_SetRenderDrawBlendMode(r: *mut std::ffi::c_void, mode: u32) -> bool;
     }
 
     let state = unsafe { &*(user_data as *const GameState) };
 
     let elapsed = state.start.elapsed().as_secs_f32();
-    let t = if state.animation_enabled.get() {
-        elapsed * state.speed.get()
-    } else {
-        0.0
-    };
+    let t = if state.animation_enabled.get() { elapsed * state.speed.get() } else { 0.0 };
 
     unsafe {
         SDL_SetRenderDrawBlendMode(renderer, 1); // SDL_BLENDMODE_BLEND

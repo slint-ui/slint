@@ -42,9 +42,7 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
 };
-use i_slint_core::items::{
-    self, BoxShadow, ItemRc, Layer, Opacity, Path, TextInput, TextWrap,
-};
+use i_slint_core::items::{self, BoxShadow, ItemRc, Layer, Opacity, Path, TextInput, TextWrap};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
 };
@@ -162,19 +160,13 @@ impl<'a> SdlItemRenderer<'a> {
             Brush::SolidColor(c) => *c,
             Brush::LinearGradient(g) => {
                 // Gradient not supported by SDL_Renderer; use first stop color.
-                g.stops()
-                    .next()
-                    .map_or(Color::from_argb_encoded(0), |s| s.color)
+                g.stops().next().map_or(Color::from_argb_encoded(0), |s| s.color)
             }
             Brush::RadialGradient(g) => {
-                g.stops()
-                    .next()
-                    .map_or(Color::from_argb_encoded(0), |s| s.color)
+                g.stops().next().map_or(Color::from_argb_encoded(0), |s| s.color)
             }
             Brush::ConicGradient(g) => {
-                g.stops()
-                    .next()
-                    .map_or(Color::from_argb_encoded(0), |s| s.color)
+                g.stops().next().map_or(Color::from_argb_encoded(0), |s| s.color)
             }
             _ => Color::from_argb_encoded(0),
         }
@@ -222,9 +214,8 @@ impl<'a> SdlItemRenderer<'a> {
             }
         };
 
-        let ttf_text = unsafe {
-            TTF_CreateText(self.text_engine, font, c_text.as_ptr(), text.len())
-        };
+        let ttf_text =
+            unsafe { TTF_CreateText(self.text_engine, font, c_text.as_ptr(), text.len()) };
         if ttf_text.is_null() {
             return;
         }
@@ -280,7 +271,6 @@ impl<'a> SdlItemRenderer<'a> {
             std::ptr::null_mut()
         }
     }
-
 }
 
 impl<'a> ItemRenderer for SdlItemRenderer<'a> {
@@ -353,21 +343,30 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
                     SDL_SetRenderDrawBlendMode(self.renderer, SDL_BLENDMODE_BLEND);
 
                     // Top border
-                    SDL_RenderFillRect(self.renderer, &SDL_FRect {
-                        x: ox, y: oy, w: pw, h: phys_bw,
-                    });
+                    SDL_RenderFillRect(
+                        self.renderer,
+                        &SDL_FRect { x: ox, y: oy, w: pw, h: phys_bw },
+                    );
                     // Bottom border
-                    SDL_RenderFillRect(self.renderer, &SDL_FRect {
-                        x: ox, y: oy + ph - phys_bw, w: pw, h: phys_bw,
-                    });
+                    SDL_RenderFillRect(
+                        self.renderer,
+                        &SDL_FRect { x: ox, y: oy + ph - phys_bw, w: pw, h: phys_bw },
+                    );
                     // Left border
-                    SDL_RenderFillRect(self.renderer, &SDL_FRect {
-                        x: ox, y: oy + phys_bw, w: phys_bw, h: ph - 2.0 * phys_bw,
-                    });
+                    SDL_RenderFillRect(
+                        self.renderer,
+                        &SDL_FRect { x: ox, y: oy + phys_bw, w: phys_bw, h: ph - 2.0 * phys_bw },
+                    );
                     // Right border
-                    SDL_RenderFillRect(self.renderer, &SDL_FRect {
-                        x: ox + pw - phys_bw, y: oy + phys_bw, w: phys_bw, h: ph - 2.0 * phys_bw,
-                    });
+                    SDL_RenderFillRect(
+                        self.renderer,
+                        &SDL_FRect {
+                            x: ox + pw - phys_bw,
+                            y: oy + phys_bw,
+                            w: phys_bw,
+                            h: ph - 2.0 * phys_bw,
+                        },
+                    );
                 }
             }
         }
@@ -436,9 +435,7 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
             SDL_RenderTexture(
                 self.renderer,
                 texture,
-                src_rect
-                    .as_ref()
-                    .map_or(std::ptr::null(), |r| r as *const _),
+                src_rect.as_ref().map_or(std::ptr::null(), |r| r as *const _),
                 &dst,
             );
             SDL_DestroyTexture(texture);
@@ -503,11 +500,7 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
             _ => 0.0,
         };
 
-        let max_width = if text.wrap() != TextWrap::NoWrap {
-            Some(size.width)
-        } else {
-            None
-        };
+        let max_width = if text.wrap() != TextWrap::NoWrap { Some(size.width) } else { None };
 
         // Handle text stroke (outline). TTF_SetFontOutline renders an outline
         // around each glyph. We draw the outline pass first, then the fill on top.
@@ -523,12 +516,29 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
                 items::TextStrokeStyle::Center => (stroke_px / 2.0).round().max(1.0) as i32,
                 _ => stroke_px.round() as i32,
             };
-            let outlined_font = self.font_manager.font_for_request(&font_request, self.scale_factor, outline);
+            let outlined_font =
+                self.font_manager.font_for_request(&font_request, self.scale_factor, outline);
             let px = -((2 * outline) as f32);
-            self.render_text_to_renderer(&string, outlined_font, stroke_color, x_offset, y_offset, max_width, (px, px));
+            self.render_text_to_renderer(
+                &string,
+                outlined_font,
+                stroke_color,
+                x_offset,
+                y_offset,
+                max_width,
+                (px, px),
+            );
         }
 
-        self.render_text_to_renderer(&string, font, color, x_offset, y_offset, max_width, (0.0, 0.0));
+        self.render_text_to_renderer(
+            &string,
+            font,
+            color,
+            x_offset,
+            y_offset,
+            max_width,
+            (0.0, 0.0),
+        );
     }
 
     fn draw_text_input(
@@ -538,9 +548,7 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
         _size: LogicalSize,
     ) {
         let font_request = text_input.font_request(self_rc);
-        let font = self
-            .font_manager
-            .font_for_request(&font_request, self.scale_factor, 0);
+        let font = self.font_manager.font_for_request(&font_request, self.scale_factor, 0);
 
         let visual = text_input.visual_representation(None);
         let text = &visual.text;
@@ -555,13 +563,10 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
             if let Some(cursor_pos) = visual.cursor_position {
                 if !font.is_null() {
                     let cursor_pos = cursor_pos.min(visual.text.len());
-                    let x = self
-                        .font_manager
-                        .x_for_byte_offset(font, &visual.text, cursor_pos)
+                    let x = self.font_manager.x_for_byte_offset(font, &visual.text, cursor_pos)
                         / self.scale_factor;
                     let cursor_width = text_input.text_cursor_width().get();
-                    let font_height =
-                        unsafe { TTF_GetFontHeight(font) } as f32 / self.scale_factor;
+                    let font_height = unsafe { TTF_GetFontHeight(font) } as f32 / self.scale_factor;
 
                     let cursor_color = visual.cursor_color;
                     self.set_color(cursor_color);
@@ -576,16 +581,15 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
 
         // Draw selection background
         if visual.selection_range.start != visual.selection_range.end && !font.is_null() {
-            let sel_start = self
-                .font_manager
-                .x_for_byte_offset(font, &visual.text, visual.selection_range.start)
-                / self.scale_factor;
-            let sel_end = self
-                .font_manager
-                .x_for_byte_offset(font, &visual.text, visual.selection_range.end)
-                / self.scale_factor;
-            let font_height =
-                unsafe { TTF_GetFontHeight(font) } as f32 / self.scale_factor;
+            let sel_start = self.font_manager.x_for_byte_offset(
+                font,
+                &visual.text,
+                visual.selection_range.start,
+            ) / self.scale_factor;
+            let sel_end =
+                self.font_manager.x_for_byte_offset(font, &visual.text, visual.selection_range.end)
+                    / self.scale_factor;
+            let font_height = unsafe { TTF_GetFontHeight(font) } as f32 / self.scale_factor;
 
             let sel_color = text_input.selection_background_color();
             self.set_color(sel_color);
@@ -684,8 +688,7 @@ impl<'a> ItemRenderer for SdlItemRenderer<'a> {
             self.apply_clip();
             true
         } else {
-            self.state.clip =
-                LogicalRect::new(self.state.clip.origin, LogicalSize::new(0.0, 0.0));
+            self.state.clip = LogicalRect::new(self.state.clip.origin, LogicalSize::new(0.0, 0.0));
             self.apply_clip();
             false
         }

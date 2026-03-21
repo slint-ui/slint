@@ -50,13 +50,13 @@ use fonts::FontManager;
 use renderer::{CachedTexture, SdlItemRenderer};
 use sdl3_bindings::*;
 
+use i_slint_core::SharedString;
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::{Platform, PlatformError, WindowEvent};
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::SharedString;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -243,11 +243,8 @@ impl Platform for Backend {
 
         // Sleep until the next event or timer, whichever comes first.
         // Skip sleeping if we already have a pending redraw (continuous animation).
-        let has_pending_redraw = self
-            .window_adapter
-            .borrow()
-            .as_ref()
-            .is_some_and(|a| a.needs_redraw.get());
+        let has_pending_redraw =
+            self.window_adapter.borrow().as_ref().is_some_and(|a| a.needs_redraw.get());
 
         if !has_pending_redraw {
             let wait = if let Some(next_timer) =
@@ -294,10 +291,7 @@ impl Platform for Backend {
         }
     }
 
-    fn clipboard_text(
-        &self,
-        _clipboard: i_slint_core::platform::Clipboard,
-    ) -> Option<String> {
+    fn clipboard_text(&self, _clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         unsafe {
             let ptr = SDL_GetClipboardText();
             if ptr.is_null() {
@@ -504,8 +498,7 @@ impl SdlWindowAdapter {
         let window_inner = WindowInner::from_pub(&self.window);
 
         let component_rc = window_inner.component();
-        let window_adapter_rc =
-            self.self_weak.borrow().upgrade().unwrap() as Rc<dyn WindowAdapter>;
+        let window_adapter_rc = self.self_weak.borrow().upgrade().unwrap() as Rc<dyn WindowAdapter>;
         let window_adapter_rc = i_slint_core::window::WindowAdapterRc::from(window_adapter_rc);
 
         let size = self.window.size();
@@ -569,16 +562,14 @@ impl SdlWindowAdapter {
                 unsafe { SDL_GetWindowSizeInPixels(self.res.sdl_window, &mut pw, &mut ph) };
                 let scale = if w > 0 { pw as f32 / w as f32 } else { 1.0 };
                 if scale > 0.0 {
-                    self.window.dispatch_event(WindowEvent::ScaleFactorChanged {
-                        scale_factor: scale,
-                    });
+                    self.window
+                        .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: scale });
                     self.request_redraw();
                 }
             }
 
             x if x == SDL_EVENT_WINDOW_CLOSE_REQUESTED.0 => {
-                self.window
-                    .dispatch_event(WindowEvent::CloseRequested);
+                self.window.dispatch_event(WindowEvent::CloseRequested);
             }
 
             x if x == SDL_EVENT_MOUSE_MOTION.0 => {
@@ -637,15 +628,12 @@ impl SdlWindowAdapter {
             x if x == SDL_EVENT_TEXT_INPUT.0 => {
                 let te = unsafe { event.text };
                 if !te.text.is_null() {
-                    let text_str =
-                        unsafe { std::ffi::CStr::from_ptr(te.text) }.to_string_lossy();
+                    let text_str = unsafe { std::ffi::CStr::from_ptr(te.text) }.to_string_lossy();
                     // Dispatch each character as a key press + release
                     for ch in text_str.chars() {
                         let text = SharedString::from(ch.to_string().as_str());
-                        self.window
-                            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
-                        self.window
-                            .dispatch_event(WindowEvent::KeyReleased { text });
+                        self.window.dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+                        self.window.dispatch_event(WindowEvent::KeyReleased { text });
                     }
                 }
             }
@@ -802,10 +790,7 @@ impl RendererSealed for SdlWindowAdapter {
         LogicalSize::new(w / sf, h / sf)
     }
 
-    fn font_metrics(
-        &self,
-        font_request: FontRequest,
-    ) -> i_slint_core::items::FontMetrics {
+    fn font_metrics(&self, font_request: FontRequest) -> i_slint_core::items::FontMetrics {
         let sf = self.window.scale_factor();
         let font = self.res.font_manager.font_for_request(&font_request, sf, 0);
         let (ascent, descent, x_height, cap_height) = self.res.font_manager.font_metrics(font);
@@ -847,8 +832,7 @@ impl RendererSealed for SdlWindowAdapter {
         let mut byte_offset = 0;
         for (i, line) in text.split('\n').enumerate() {
             if i == line_idx {
-                return byte_offset
-                    + self.res.font_manager.byte_offset_for_x(font, line, phys_x);
+                return byte_offset + self.res.font_manager.byte_offset_for_x(font, line, phys_x);
             }
             byte_offset += line.len() + 1; // +1 for newline
         }
@@ -905,8 +889,7 @@ impl RendererSealed for SdlWindowAdapter {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Try to extract a family name from the font data (simplified)
         let family_name = "CustomFont".to_string();
-        self.res.font_manager
-            .register_font_from_memory(family_name, data.to_vec());
+        self.res.font_manager.register_font_from_memory(family_name, data.to_vec());
         Ok(())
     }
 
@@ -914,15 +897,11 @@ impl RendererSealed for SdlWindowAdapter {
         &self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let family_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("CustomFont")
-            .to_string();
-        self.res.font_manager.register_font_from_path(
-            family_name,
-            path.to_string_lossy().into_owned(),
-        );
+        let family_name =
+            path.file_stem().and_then(|s| s.to_str()).unwrap_or("CustomFont").to_string();
+        self.res
+            .font_manager
+            .register_font_from_path(family_name, path.to_string_lossy().into_owned());
         Ok(())
     }
 
@@ -931,10 +910,7 @@ impl RendererSealed for SdlWindowAdapter {
     }
 
     fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        self.self_weak
-            .borrow()
-            .upgrade()
-            .map(|rc| rc as Rc<dyn WindowAdapter>)
+        self.self_weak.borrow().upgrade().map(|rc| rc as Rc<dyn WindowAdapter>)
     }
 
     fn default_font_size(&self) -> LogicalLength {

@@ -12,9 +12,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 fn main() {
-    let slint_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "examples/sdl_underlay/scene.slint".into());
+    let slint_path =
+        std::env::args().nth(1).unwrap_or_else(|| "examples/sdl_underlay/scene.slint".into());
 
     // Initial load
     let instance = load_component(&slint_path).expect("Failed to load .slint file");
@@ -30,7 +29,11 @@ fn main() {
         let spd = speed.clone();
         unsafe {
             let state = Box::new((start, anim, spd));
-            slint_sdl_set_pre_render_callback(Some(pre_render), Box::into_raw(state) as *mut _, Some(drop_state));
+            slint_sdl_set_pre_render_callback(
+                Some(pre_render),
+                Box::into_raw(state) as *mut _,
+                Some(drop_state),
+            );
         }
     }
 
@@ -47,21 +50,29 @@ fn main() {
     let reload_inst = instance.clone();
     let reload_mtime = last_mtime.clone();
     let reload_timer = slint::Timer::default();
-    reload_timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(500), move || {
-        let Ok(mtime) = std::fs::metadata(&reload_path).and_then(|m| m.modified()) else { return };
-        if mtime == reload_mtime.get() { return; }
-        reload_mtime.set(mtime);
-        eprintln!("[sdl_underlay] Reloading {}...", reload_path);
-        if let Some(new_instance) = load_component(&reload_path) {
-            let mut inst = reload_inst.borrow_mut();
-            // Show new before hiding old, so the window count never drops
-            // to zero (which would quit the event loop).
-            setup_callbacks(&new_instance);
-            new_instance.show().ok();
-            inst.hide().ok();
-            *inst = new_instance;
-        }
-    });
+    reload_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(500),
+        move || {
+            let Ok(mtime) = std::fs::metadata(&reload_path).and_then(|m| m.modified()) else {
+                return;
+            };
+            if mtime == reload_mtime.get() {
+                return;
+            }
+            reload_mtime.set(mtime);
+            eprintln!("[sdl_underlay] Reloading {}...", reload_path);
+            if let Some(new_instance) = load_component(&reload_path) {
+                let mut inst = reload_inst.borrow_mut();
+                // Show new before hiding old, so the window count never drops
+                // to zero (which would quit the event loop).
+                setup_callbacks(&new_instance);
+                new_instance.show().ok();
+                inst.hide().ok();
+                *inst = new_instance;
+            }
+        },
+    );
 
     // Animation timer
     let anim_inst = instance.clone();
@@ -70,7 +81,9 @@ fn main() {
     let anim_timer = slint::Timer::default();
     anim_timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(16), move || {
         let inst = anim_inst.borrow();
-        if let Some(v) = inst.get_property("animation-enabled").ok().and_then(|v| bool::try_from(v).ok()) {
+        if let Some(v) =
+            inst.get_property("animation-enabled").ok().and_then(|v| bool::try_from(v).ok())
+        {
             anim_enabled.set(v);
         }
         if let Some(v) = inst.get_property("speed").ok().and_then(|v| f64::try_from(v).ok()) {
@@ -119,7 +132,13 @@ unsafe extern "C" fn drop_state(ptr: *mut std::ffi::c_void) {
 
 unsafe extern "C" fn pre_render(renderer: *mut std::ffi::c_void, user_data: *mut std::ffi::c_void) {
     unsafe extern "C" {
-        fn SDL_SetRenderDrawColor(r: *mut std::ffi::c_void, red: u8, green: u8, blue: u8, alpha: u8) -> bool;
+        fn SDL_SetRenderDrawColor(
+            r: *mut std::ffi::c_void,
+            red: u8,
+            green: u8,
+            blue: u8,
+            alpha: u8,
+        ) -> bool;
         fn SDL_RenderFillRect(r: *mut std::ffi::c_void, rect: *const [f32; 4]) -> bool;
         fn SDL_SetRenderDrawBlendMode(r: *mut std::ffi::c_void, mode: u32) -> bool;
     }
@@ -142,7 +161,7 @@ unsafe extern "C" fn pre_render(renderer: *mut std::ffi::c_void, user_data: *mut
             let g = (128.0 + 127.0 * (t * 0.5 + fi * 0.4).sin()) as u8;
             let b = (128.0 + 127.0 * (t * 0.3 + fi * 0.3).sin()) as u8;
             SDL_SetRenderDrawColor(renderer, r, g, b, 200);
-            SDL_RenderFillRect(renderer, &[x - size/2.0, y - size/2.0, size, size]);
+            SDL_RenderFillRect(renderer, &[x - size / 2.0, y - size / 2.0, size, size]);
         }
     }
 }
