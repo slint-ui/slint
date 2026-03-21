@@ -383,6 +383,9 @@ struct SdlResources {
     text_engine: *mut sdl3_ttf_sys::ttf::TTF_TextEngine,
     font_manager: FontManager,
     texture_cache: RefCell<HashMap<(usize, u32), CachedTexture>>,
+    /// Incremented each time a new WindowAdapter is created. Used to prevent
+    /// a stale adapter from hiding the SDL window during interpreter reloads.
+    adapter_generation: Cell<u64>,
 }
 
 impl Drop for SdlResources {
@@ -409,6 +412,8 @@ struct SdlWindowAdapter {
     needs_redraw: Cell<bool>,
     visible: Cell<bool>,
     self_weak: RefCell<Weak<Self>>,
+    /// The generation at which this adapter was created.
+    generation: u64,
 }
 
 impl SdlResources {
@@ -452,18 +457,22 @@ impl SdlResources {
             text_engine,
             font_manager: FontManager::new(),
             texture_cache: RefCell::new(HashMap::new()),
+            adapter_generation: Cell::new(0),
         }))
     }
 }
 
 impl SdlWindowAdapter {
     fn new(res: Rc<SdlResources>) -> Result<Rc<Self>, PlatformError> {
+        let generation = res.adapter_generation.get() + 1;
+        res.adapter_generation.set(generation);
         let adapter = Rc::new_cyclic(|weak| Self {
             window: i_slint_core::api::Window::new(weak.clone() as Weak<dyn WindowAdapter>),
             res,
             needs_redraw: Cell::new(true),
             visible: Cell::new(false),
             self_weak: RefCell::new(weak.clone()),
+            generation,
         });
 
         // Query the window sizes. SDL3 with HIGH_PIXEL_DENSITY may have
@@ -653,15 +662,17 @@ impl WindowAdapter for SdlWindowAdapter {
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
         self.visible.set(visible);
-        unsafe {
-            if visible {
-                SDL_ShowWindow(self.res.sdl_window);
-            } else {
-                SDL_HideWindow(self.res.sdl_window);
-            }
-        }
         if visible {
+            unsafe { SDL_ShowWindow(self.res.sdl_window) };
             self.request_redraw();
+        } else {
+            // Only hide the actual SDL window if this adapter is still the
+            // current one.  During interpreter live-reloads a new adapter
+            // takes over the shared SDL window before the old one is hidden;
+            // hiding the window in that case would make it disappear.
+            if self.generation == self.res.adapter_generation.get() {
+                unsafe { SDL_HideWindow(self.res.sdl_window) };
+            }
         }
         Ok(())
     }
