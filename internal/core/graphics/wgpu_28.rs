@@ -398,10 +398,11 @@ pub fn init_instance_adapter_device_queue_surface(
                 adapter
                     .request_device(&wgpu::DeviceDescriptor {
                         label: None,
-                        required_features: wgpu::Features::empty(),
-                        // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                        required_limits: wgpu::Limits::downlevel_webgl2_defaults()
-                            .using_resolution(adapter.limits()),
+                        // Request all non-experimental features the adapter supports,
+                        // so that embedders like Bevy can use full GPU capabilities.
+                        required_features: adapter.features()
+                            - wgpu::Features::all_experimental_mask(),
+                        required_limits: adapter.limits(),
                         experimental_features: wgpu::ExperimentalFeatures::disabled(),
                         memory_hints: wgpu::MemoryHints::MemoryUsage,
                         trace: wgpu::Trace::default(),
