@@ -211,6 +211,9 @@ impl i_slint_core::platform::Platform for Backend {
         let loop_signal = event_loop.get_signal();
 
         *self.proxy.loop_signal.lock().unwrap() = Some(loop_signal.clone());
+        if let Some(adapter) = self.window.borrow().as_ref() {
+            adapter.set_loop_signal(loop_signal.clone());
+        }
         let quit_loop = self.proxy.quit_loop.clone();
 
         let mouse_position_property = input::LibInputHandler::init(
