@@ -65,7 +65,6 @@ impl SkiaRendererAdapter {
     pub fn new_vulkan(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        use i_slint_core::graphics::wgpu_28::wgpu;
         use std::os::fd::{AsFd, AsRawFd};
 
         let drm_output = DrmOutput::new(device_opener)?;
@@ -73,30 +72,22 @@ impl SkiaRendererAdapter {
         let plane = drm_output.find_compatible_plane()?;
         let (width, height) = drm_output.size();
         let refresh_rate_mhz = drm_output.refresh_rate_millihertz();
-
-        let surface_target =
-            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
-                fd: drm_output.drm_device.as_fd().as_raw_fd(),
-                plane: plane.handle().into(),
-                connector_id: drm_output.connector.handle().into(),
-                width,
-                height,
-                refresh_rate: refresh_rate_mhz,
-            });
-
         let size = PhysicalWindowSize::new(width, height);
 
-        let skia_wgpu_surface =
-            i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
-                surface_target,
-                size,
-                None,
-            )?;
+        let skia_wgpu_surface = Self::create_wgpu_surface(
+            drm_output.drm_device.as_fd().as_raw_fd(),
+            plane.handle().into(),
+            drm_output.connector.handle().into(),
+            width,
+            height,
+            refresh_rate_mhz,
+            size,
+        )?;
 
         let renderer = Box::new(Self {
             renderer: SkiaRenderer::new_with_surface(
                 &SkiaSharedContext::default(),
-                Box::new(skia_wgpu_surface),
+                skia_wgpu_surface,
             ),
             // TODO: For vulkan we don't have a page flip event handling mechanism yet, so drive it with a timer.
             presenter: crate::display::noop_presenter::NoopPresenter::new(),
@@ -107,6 +98,64 @@ impl SkiaRendererAdapter {
         eprintln!("Using Skia Vulkan renderer with wgpu");
 
         Ok(renderer)
+    }
+
+    #[cfg(all(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
+    fn create_wgpu_surface(
+        fd: i32,
+        plane: u32,
+        connector_id: u32,
+        width: u32,
+        height: u32,
+        refresh_rate: u32,
+        size: PhysicalWindowSize,
+    ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
+        use i_slint_core::graphics::wgpu_28::wgpu;
+
+        let surface_target =
+            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd,
+                plane,
+                connector_id,
+                width,
+                height,
+                refresh_rate,
+            });
+
+        Ok(Box::new(i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
+            surface_target,
+            size,
+            None,
+        )?))
+    }
+
+    #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
+    fn create_wgpu_surface(
+        fd: i32,
+        plane: u32,
+        connector_id: u32,
+        width: u32,
+        height: u32,
+        refresh_rate: u32,
+        size: PhysicalWindowSize,
+    ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
+        use i_slint_core::graphics::wgpu_27::wgpu;
+
+        let surface_target =
+            i_slint_core::graphics::wgpu_27::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd,
+                plane,
+                connector_id,
+                width,
+                height,
+                refresh_rate,
+            });
+
+        Ok(Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
+            surface_target,
+            size,
+            None,
+        )?))
     }
 
     #[cfg(feature = "renderer-skia-opengl")]
