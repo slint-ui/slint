@@ -17,7 +17,8 @@ path = "lib.rs"
 
 [features]
 renderer-skia = ["renderer-skia-opengl"]
-renderer-skia-vulkan = ["i-slint-renderer-skia/wgpu-28", "drm", "dep:memmap2"]
+renderer-skia-vulkan = ["i-slint-renderer-skia/wgpu-27", "drm", "dep:memmap2"]
+unstable-wgpu-28 = ["i-slint-renderer-skia/wgpu-28"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm"]
