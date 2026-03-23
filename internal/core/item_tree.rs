@@ -184,7 +184,7 @@ pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<Wind
 }
 
 /// Free the backend graphics resources allocated by the ItemTree's items.
-/// This will be called for example if an item gets hidden or a popup gets closed, ...
+/// This will be called  if an sub-tree gets destroyed or a popup gets closed, ...
 /// It will be called only once not for every sub item
 ///
 /// * `item_tree` - the item tree to unregister
