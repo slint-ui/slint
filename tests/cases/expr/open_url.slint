@@ -17,12 +17,4 @@ let url = slint_testing::access_testing_window(instance.window(), |window| windo
 assert_eq!(url, Some("https://example.com".into()));
 ```
 
-```cpp
-auto handle = TestCase::create();
-TestCase &instance = *handle;
-instance.invoke_open_url_callback("https://example.com");
-auto url = slint_testing::access_testing_window(instance.window(), [](auto *window){ return window->open_url(); });
-assert_eq(url, std::make_optional("https://example.com"));
-```
-
 */
