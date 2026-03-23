@@ -38,11 +38,14 @@ mod renderer {
     pub mod sw;
 
     pub fn try_skia_then_femtovg_then_software(
-        _device_opener: &crate::DeviceOpener,
+        device_opener: &crate::DeviceOpener,
+        requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn FullscreenRenderer>, PlatformError> {
         #[allow(unused)]
-        type FactoryFn =
-            fn(&crate::DeviceOpener) -> Result<Box<(dyn FullscreenRenderer)>, PlatformError>;
+        type FactoryFn = fn(
+            &crate::DeviceOpener,
+            Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
+        ) -> Result<Box<(dyn FullscreenRenderer)>, PlatformError>;
 
         let renderers = [
             #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
@@ -56,12 +59,12 @@ mod renderer {
             ("FemtoVG wgpu", femtovg_wgpu::FemtoVGWgpuRendererAdapter::new as FactoryFn),
             #[cfg(feature = "renderer-software")]
             ("Software", sw::SoftwareRendererAdapter::new as FactoryFn),
-            ("", |_| Err(PlatformError::NoPlatform)),
+            ("", |_, _| Err(PlatformError::NoPlatform)),
         ];
 
         let mut renderer_errors: Vec<String> = Vec::new();
         for (name, factory) in renderers {
-            match factory(_device_opener) {
+            match factory(device_opener, requested_graphics_api) {
                 Ok(renderer) => return Ok(renderer),
                 Err(err) => {
                     renderer_errors.push(if !name.is_empty() {
@@ -95,6 +98,7 @@ use noop_backend::*;
 #[derive(Default)]
 pub struct BackendBuilder {
     pub(crate) renderer_name: Option<String>,
+    pub(crate) requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     #[cfg(target_os = "linux")]
     pub(crate) libinput_event_hook: Option<Box<dyn Fn(&input::Event) -> bool>>,
 }
@@ -102,6 +106,14 @@ pub struct BackendBuilder {
 impl BackendBuilder {
     pub fn with_renderer_name(mut self, name: String) -> Self {
         self.renderer_name = Some(name);
+        self
+    }
+
+    pub fn request_graphics_api(
+        mut self,
+        graphics_api: i_slint_core::graphics::RequestedGraphicsAPI,
+    ) -> Self {
+        self.requested_graphics_api = Some(graphics_api);
         self
     }
 

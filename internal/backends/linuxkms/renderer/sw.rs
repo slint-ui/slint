@@ -149,6 +149,7 @@ impl SoftwareRendererAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
+        _requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let display = crate::display::swdisplay::new(
             device_opener,
