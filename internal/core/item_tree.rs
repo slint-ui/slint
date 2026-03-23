@@ -194,6 +194,9 @@ pub fn unregister_item_tree<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
+    item_array.iter().for_each(|item| {
+        item.deinit();
+    });
     window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
         "Fatal error encountered when freeing graphics resources while destroying Slint component",
     );

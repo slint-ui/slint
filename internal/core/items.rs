@@ -126,6 +126,8 @@ pub struct ItemVTable {
     /// bindings are set.
     pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
 
+    pub deinit: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapter),
+
     /// offset in bytes from the *const ItemImpl.
     /// isize::MAX  means None
     #[allow(non_upper_case_globals)]
