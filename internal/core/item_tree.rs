@@ -207,7 +207,6 @@ pub fn unregister_item_tree<Base>(
     }
 
     if let Some(w) = window_adapter.internal(crate::InternalToken) {
-        // if current focused item shall be unregistered. First unfocus it
         w.unregister_item_tree(item_tree, &mut it);
     }
 
