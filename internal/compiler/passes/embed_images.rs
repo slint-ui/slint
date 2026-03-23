@@ -378,7 +378,6 @@ fn load_image_from_bytes(
     data: &[u8],
     extension: Option<&str>,
     scale_factor: f32,
-    resize_when_downscaling: bool,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
     use resvg::{tiny_skia, usvg};
 
@@ -434,7 +433,7 @@ fn load_image_from_bytes(
     image::load_from_memory(data).map(|mut image| {
         let (original_width, original_height) = image.dimensions();
 
-        if resize_when_downscaling && scale_factor < 1.0 {
+        if scale_factor < 1.0 {
             image = image.resize_exact(
                 (original_width as f32 * scale_factor) as u32,
                 (original_height as f32 * scale_factor) as u32,
@@ -471,7 +470,7 @@ fn load_image(
         std::fs::read(&file.canon_path)?
     };
 
-    load_image_from_bytes(&data, extension, scale_factor, true)
+    load_image_from_bytes(&data, extension, scale_factor)
 }
 
 #[cfg(feature = "software-renderer")]
@@ -480,7 +479,7 @@ fn load_image_from_data_uri(
     extension: &str,
     scale_factor: f32,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    load_image_from_bytes(decoded_data, Some(extension), scale_factor, false)
+    load_image_from_bytes(decoded_data, Some(extension), scale_factor)
 }
 
 fn embed_data_uri(
