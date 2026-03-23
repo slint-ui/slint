@@ -177,6 +177,7 @@ pub mod re_exports {
     pub use i_slint_core::context::SlintContext;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
+    pub use i_slint_core::open_url;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
