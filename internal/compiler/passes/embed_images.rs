@@ -416,18 +416,15 @@ fn load_image_from_bytes(
             &mut skia_buffer,
         );
 
-        return image::RgbaImage::from_raw(width, height, buffer)
-            .ok_or_else(size_error)
-            .map(|img| {
+        return image::RgbaImage::from_raw(width, height, buffer).ok_or_else(size_error).map(
+            |img| {
                 (
                     img,
                     SourceFormat::RgbaPremultiplied,
-                    Size {
-                        width: original_size.width() as _,
-                        height: original_size.height() as _,
-                    },
+                    Size { width: original_size.width() as _, height: original_size.height() as _ },
                 )
-            });
+            },
+        );
     }
 
     image::load_from_memory(data).map(|mut image| {
@@ -444,10 +441,7 @@ fn load_image_from_bytes(
         (
             image.to_rgba8(),
             SourceFormat::Rgba,
-            Size {
-                width: original_width,
-                height: original_height,
-            },
+            Size { width: original_width, height: original_height },
         )
     })
 }
@@ -459,10 +453,7 @@ fn load_image(
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
     use std::ffi::OsStr;
 
-    let extension = file
-        .canon_path
-        .extension()
-        .and_then(OsStr::to_str);
+    let extension = file.canon_path.extension().and_then(OsStr::to_str);
 
     let data = if let Some(buffer) = file.builtin_contents {
         buffer.to_vec()
