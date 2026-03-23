@@ -14,6 +14,9 @@ All notable changes to this project are documented in this file.
  - Replaced `fontdue` crate with `swash` for better text rendering
  - Fixed tab focus traversal for widget in a Flickable (#10780)
  - Skia: Enabled subpixel glyph positioning to fix uneven text spacing (#10752)
+ - Winit: batch mouse move event to prevent too many move event to delay rendering (#9038)
+ - Wasm: enabled clipboard interaction by default
+ - Improved Flickable animations
 
 ### Slint
 
@@ -24,18 +27,24 @@ All notable changes to this project are documented in this file.
  - Added support for styled text (`StyledText` element, `styled-text` type, and `@markdown(...)` macro)
  - Added `PichGestureHandler` element
  - Fixed compiler panic when accessing model data from repeated menu (#10927)
+ - Added `Path::fit-style` property
+ - Added `start` and `end` to the `TextHorizontalAlignment` enum
 
 ### Widgets
 
  - CheckBox no longer intercepts the scroll event with the Qt style
  - Slider: ignore scroll event with the Qt style
  - ComboBox: Clamp index on reset instead of using 0 (#10805)
+ - ComboBox: Fixed scrolling to selected item when dropdown opens (#10995)
+ - ComboBox: Fixed popup closing on scrollbar interaction (#10998)
 
 ### Rust
 
  - Added `slint::platform::femtovg_renderer::FemtoVGWGPURenderer`
  - Added variants for printable keys in the `slint::platform::Key` enum
  - Added mor moved more enum and struct to the `slint::language` module
+ - Added support for multiple `@rust-attr` per struct or enum
+ - Added `open_url` methd to the `Platform` trait (#11035)
 
 ### Python
 
@@ -46,7 +55,14 @@ All notable changes to this project are documented in this file.
  - Added contant for printable keys in the `slint::platform::key_codes` namespace
  - Added `slint::language` namespace to hold enum/struct that maps to the ones in the slint language.
 
+### Javascipt
+
+ - ported to napi-rs 3.0
+
 ### Tooling
+
+  - LSP: fix formatting of struct type (#10647)
+  - viewer: handle global properties with the `--save-data` and `--load-data` arguments
 
 ## [1.15.1] - 2026-02-12
 
