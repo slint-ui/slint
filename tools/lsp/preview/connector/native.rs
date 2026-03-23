@@ -87,7 +87,7 @@ impl ChildProcessLspToPreview {
         tokio::spawn(async move {
             while let Some(mut msg) = to_child_receiver.recv().await {
                 msg.push('\n');
-                if let Err(err) = to_child.write_all(&msg.as_bytes()).await {
+                if let Err(err) = to_child.write_all(msg.as_bytes()).await {
                     tracing::error!("Failed writing to preview child process: {err}");
                     break;
                 }
