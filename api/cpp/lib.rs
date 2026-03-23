@@ -252,8 +252,9 @@ pub extern "C" fn slint_parse_markdown(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_open_url(url: &SharedString) {
-    i_slint_core::open_url(url)
+pub unsafe extern "C" fn slint_open_url(url: &SharedString, win: *const WindowAdapterRcOpaque) {
+    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
+    i_slint_core::open_url(url, window_adapter.window())
 }
 
 #[unsafe(no_mangle)]
