@@ -512,11 +512,11 @@ cbindgen_private::Flickable::~Flickable()
 
 cbindgen_private::FocusScope::FocusScope()
 {
-    slint_maybe_shortcut_list_init(&shortcuts);
+    slint_maybe_key_binding_list_init(&key_bindings);
 }
 cbindgen_private::FocusScope::~FocusScope()
 {
-    slint_maybe_shortcut_list_free(&shortcuts);
+    slint_maybe_key_binding_list_free(&key_bindings);
 }
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)
