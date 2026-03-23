@@ -23,6 +23,7 @@ impl FemtoVGWgpuRendererAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
+        requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
 
@@ -44,7 +45,7 @@ impl FemtoVGWgpuRendererAdapter {
 
         let renderer = i_slint_renderer_femtovg::FemtoVGRenderer::new_suspended();
         renderer
-            .set_surface(surface_target, size, None)
+            .set_surface(surface_target, size, requested_graphics_api.cloned())
             .map_err(|e| format!("Error initializing FemtoVG wgpu surface: {e}"))?;
 
         let renderer = Box::new(Self { renderer, size, _drm_output: drm_output });

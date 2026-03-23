@@ -69,12 +69,13 @@ pub struct Backend {
     window: RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     user_event_receiver: RefCell<Option<calloop::channel::Channel<Box<dyn FnOnce() + Send>>>>,
     proxy: Proxy,
-    renderer_factory: for<'a> fn(
-        &'a crate::DeviceOpener,
-    ) -> Result<
-        Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
-        PlatformError,
-    >,
+    renderer_factory:
+        fn(
+            &crate::DeviceOpener,
+            Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
+        )
+            -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError>,
+    requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
     libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
@@ -142,6 +143,7 @@ impl Backend {
             user_event_receiver: RefCell::new(Some(user_event_receiver)),
             proxy: Proxy::new(user_event_sender),
             renderer_factory,
+            requested_graphics_api: builder.requested_graphics_api,
             sel_clipboard: Default::default(),
             clipboard: Default::default(),
             libinput_event_hook: builder.libinput_event_hook,
@@ -196,7 +198,8 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|e| format!("Failed to parse SLINT_KMS_ROTATION: {e}"))
             })?;
 
-        let renderer = (self.renderer_factory)(&device_accessor)?;
+        let renderer =
+            (self.renderer_factory)(&device_accessor, self.requested_graphics_api.as_ref())?;
         let adapter = FullscreenWindowAdapter::new(renderer, rotation)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());

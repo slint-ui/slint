@@ -157,6 +157,7 @@ impl FemtoVGRendererAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
+        _requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
         let egl_display = Rc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);

@@ -64,6 +64,7 @@ impl SkiaRendererAdapter {
     #[cfg(feature = "renderer-skia-vulkan")]
     pub fn new_vulkan(
         device_opener: &crate::DeviceOpener,
+        requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         use std::os::fd::{AsFd, AsRawFd};
 
@@ -82,6 +83,7 @@ impl SkiaRendererAdapter {
             height,
             refresh_rate_mhz,
             size,
+            requested_graphics_api.cloned(),
         )?;
 
         let renderer = Box::new(Self {
@@ -109,6 +111,7 @@ impl SkiaRendererAdapter {
         height: u32,
         refresh_rate: u32,
         size: PhysicalWindowSize,
+        requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
         use i_slint_core::graphics::wgpu_28::wgpu;
 
@@ -125,7 +128,7 @@ impl SkiaRendererAdapter {
         Ok(Box::new(i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
             surface_target,
             size,
-            None,
+            requested_graphics_api,
         )?))
     }
 
@@ -138,6 +141,7 @@ impl SkiaRendererAdapter {
         height: u32,
         refresh_rate: u32,
         size: PhysicalWindowSize,
+        requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
         use i_slint_core::graphics::wgpu_27::wgpu;
 
@@ -154,7 +158,7 @@ impl SkiaRendererAdapter {
         Ok(Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
             surface_target,
             size,
-            None,
+            requested_graphics_api,
         )?))
     }
 
@@ -162,6 +166,7 @@ impl SkiaRendererAdapter {
     #[allow(clippy::arc_with_non_send_sync)]
     pub fn new_opengl(
         device_opener: &crate::DeviceOpener,
+        _requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
         let display = Arc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
@@ -204,6 +209,7 @@ impl SkiaRendererAdapter {
 
     pub fn new_software(
         device_opener: &crate::DeviceOpener,
+        _requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let display =
             crate::display::swdisplay::new(device_opener, SKIA_SUPPORTED_DRM_FOURCC_FORMATS)?;
@@ -231,22 +237,23 @@ impl SkiaRendererAdapter {
 
     pub fn new_try_vulkan_then_opengl_then_software(
         device_opener: &crate::DeviceOpener,
+        requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         #[allow(unused_assignments)]
         let mut result = Err("No skia renderer available".to_string().into());
 
         #[cfg(feature = "renderer-skia-vulkan")]
         {
-            result = Self::new_vulkan(device_opener);
+            result = Self::new_vulkan(device_opener, requested_graphics_api);
         }
 
         #[cfg(feature = "renderer-skia-opengl")]
         if result.is_err() {
-            result = Self::new_opengl(device_opener);
+            result = Self::new_opengl(device_opener, requested_graphics_api);
         }
 
         if result.is_err() {
-            result = Self::new_software(device_opener);
+            result = Self::new_software(device_opener, requested_graphics_api);
         }
 
         result
