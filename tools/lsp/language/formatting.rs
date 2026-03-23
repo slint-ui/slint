@@ -6,7 +6,7 @@ use crate::fmt::{fmt, writer};
 use crate::util::text_range_to_lsp_range;
 use dissimilar::Chunk;
 use i_slint_compiler::parser::{SyntaxToken, TextRange, TextSize};
-use lsp_types::{DocumentFormattingParams, TextEdit};
+use preview_protocol::lsp_types::{DocumentFormattingParams, TextEdit};
 
 struct StringWriter {
     text: String,
@@ -89,7 +89,7 @@ pub fn format_document(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lsp_types::{Position, Range};
+    use preview_protocol::lsp_types::{self, Position, Range};
 
     /// Given an unformatted source text, return text edits that will turn the source into formatted text
     fn get_formatting_edits(source: &str) -> Option<Vec<TextEdit>> {

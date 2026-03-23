@@ -6,9 +6,9 @@ use core::cell::RefCell;
 use core::num::NonZeroUsize;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{self, TextSize, syntax_nodes};
-use lsp_types::Url;
 use slint::{ComponentHandle as _, Model, ModelRc, SharedString, ToSharedString as _};
 use std::rc::Rc;
+use preview_protocol::lsp_types::{self, Url};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum TreeNodeChange {

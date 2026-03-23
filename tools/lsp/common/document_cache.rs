@@ -8,7 +8,10 @@ use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
-use lsp_types::Url;
+use preview_protocol::{
+    SourceFileVersion,
+    lsp_types::{self, Url},
+};
 
 use std::{
     cell::RefCell,
@@ -21,8 +24,6 @@ use std::{
 
 use crate::common::{ElementRcNode, Result, file_to_uri, uri_to_file};
 use std::collections::HashSet;
-
-pub type SourceFileVersion = Option<i32>;
 
 pub type SourceFileVersionMap = HashMap<PathBuf, SourceFileVersion>;
 

@@ -1,0 +1,18 @@
+[package]
+name = "preview-protocol"
+description.workspace = true
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
+lsp-types = "0.95.0"
+serde.workspace = true
+serde_json.workspace = true

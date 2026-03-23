@@ -76,6 +76,7 @@ members = [
   'tools/lsp',
   'tools/updater',
   'tools/viewer',
+  'tools/preview-protocol',
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
   'xtask',

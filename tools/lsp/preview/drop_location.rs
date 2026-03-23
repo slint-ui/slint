@@ -11,6 +11,7 @@ use i_slint_compiler::parser::{
 };
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
+use preview_protocol::lsp_types;
 
 use crate::common::{self, text_edit};
 use crate::language::completion;
@@ -352,7 +353,7 @@ pub fn insert_position_at_end(
 
         Some(InsertInformation {
             insertion_position: common::VersionedPosition::new(
-                crate::common::VersionedUrl::new(url, version),
+                preview_protocol::VersionedUrl::new(url, version),
                 offset,
             ),
             replacement_range,
@@ -410,7 +411,7 @@ pub fn insert_position_before_child(
 
             return Some(InsertInformation {
                 insertion_position: common::VersionedPosition::new(
-                    crate::common::VersionedUrl::new(url, version),
+                    preview_protocol::VersionedUrl::new(url, version),
                     first_token_offset,
                 ),
                 replacement_range: 0,
@@ -434,7 +435,7 @@ fn insert_position_before_first_component(
     let url = {
         let url = lsp_types::Url::from_file_path(document.source_file.path()).ok()?;
         let version = document_cache.document_version_by_path(document.source_file.path());
-        common::VersionedUrl::new(url, version)
+        preview_protocol::VersionedUrl::new(url, version)
     };
 
     let first_component: Option<SyntaxNode> = document.Component().next().map(|c| c.into());
@@ -1348,7 +1349,7 @@ pub fn move_element_to(
 #[cfg(test)]
 mod tests {
     use i_slint_compiler::parser::{TextRange, TextSize};
-    use lsp_types::Url;
+    use preview_protocol::lsp_types::{self, Url};
 
     use std::collections::HashMap;
 

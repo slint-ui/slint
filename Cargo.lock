@@ -8265,6 +8265,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "preview-protocol"
+version = "1.16.0"
+dependencies = [
+ "lsp-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "printerdemo"
 version = "1.17.0"
 dependencies = [
@@ -10144,6 +10153,9 @@ dependencies = [
  "lsp-server",
  "lsp-types",
  "nucleo-matcher",
+ "muda",
+ "objc2-foundation 0.3.2",
+ "preview-protocol",
  "send_wrapper",
  "serde",
  "serde-wasm-bindgen",

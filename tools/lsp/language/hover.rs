@@ -10,7 +10,7 @@ use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
-use lsp_types::{Hover, HoverContents, MarkupContent};
+use preview_protocol::lsp_types::{self, Hover, HoverContents, MarkupContent};
 
 pub fn get_tooltip(
     document_cache: &mut common::DocumentCache,

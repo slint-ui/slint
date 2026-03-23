@@ -12,6 +12,7 @@ use itertools::Itertools;
 use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
+use preview_protocol::lsp_types;
 
 use crate::common::{self, ComponentInformation};
 use crate::preview::{self, SelectionNotification, preview_data, properties};

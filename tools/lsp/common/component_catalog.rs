@@ -9,6 +9,7 @@ use crate::wasm_prelude::*;
 use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::ElementType;
+use preview_protocol::lsp_types;
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {

@@ -4,8 +4,8 @@
 use std::{collections::HashMap, rc::Rc};
 
 use itertools::Itertools;
-use lsp_types::Url;
 use smol_str::SmolStr;
+use preview_protocol::lsp_types::Url;
 
 use i_slint_compiler::{
     expression_tree, langtype, literals, object_tree,
@@ -375,6 +375,7 @@ fn convert_number_literal(
 #[cfg(test)]
 mod tests {
     use slint::{Model, SharedString};
+    use preview_protocol::lsp_types;
 
     use crate::{
         common,

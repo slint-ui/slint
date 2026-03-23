@@ -7,7 +7,9 @@ use i_slint_compiler::langtype::{Function, Type};
 use i_slint_compiler::lookup::{LookupObject as _, LookupResult, LookupResultCallable};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
-use lsp_types::{ParameterInformation, ParameterLabel, SignatureHelp, SignatureInformation};
+use preview_protocol::lsp_types::{
+    ParameterInformation, ParameterLabel, SignatureHelp, SignatureInformation,
+};
 
 pub(crate) fn get_signature_help(
     document_cache: &mut DocumentCache,

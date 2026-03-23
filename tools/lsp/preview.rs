@@ -9,8 +9,7 @@
 //! the case of `native` runs in a separate thread at this time.
 
 use crate::common::{
-    self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig,
-    PreviewToLspMessage, SourceFileVersion, component_catalog, rename_component, text_edit,
+    self, ComponentInformation, ElementRcNode, component_catalog, rename_component, text_edit,
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
@@ -19,7 +18,6 @@ use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
@@ -27,6 +25,10 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use preview_protocol::{
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+    lsp_types::{self, Url},
+};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -67,7 +69,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     ui.window().set_fullscreen(config.fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
-    to_lsp.send(&common::PreviewToLspMessage::RequestState { unused: true }).unwrap();
+    to_lsp.send(&preview_protocol::PreviewToLspMessage::RequestState { unused: true }).unwrap();
 
     let ui_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -257,7 +259,7 @@ fn apply_live_preview_data() {
     }
 }
 
-fn set_contents(url: &common::VersionedUrl, content: String) {
+fn set_contents(url: &preview_protocol::VersionedUrl, content: String) {
     if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -918,7 +920,7 @@ fn resize_selected_element_impl(
 
     properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(common::VersionedUrl::new(url, version), offset),
+        common::VersionedPosition::new(preview_protocol::VersionedUrl::new(url, version), offset),
         properties,
     )
     .map(|edit| (edit, format!("{op} element")))
@@ -1378,9 +1380,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 }
 
 async fn parse_source(
-    config: common::PreviewConfig,
+    config: preview_protocol::PreviewConfig,
     path: PathBuf,
-    version: common::SourceFileVersion,
+    version: preview_protocol::SourceFileVersion,
     source_code: String,
     style: String,
     component: Option<String>,
@@ -1389,7 +1391,7 @@ async fn parse_source(
     ) -> core::pin::Pin<
         Box<
             dyn core::future::Future<
-                    Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
+                    Output = Option<std::io::Result<(preview_protocol::SourceFileVersion, String)>>,
                 >,
         >,
     > + 'static,

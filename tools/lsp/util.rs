@@ -10,6 +10,7 @@ use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
+use preview_protocol::lsp_types;
 
 use crate::common;
 

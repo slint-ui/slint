@@ -11,10 +11,13 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::{DocumentCache, LspToPreview, LspToPreviewMessage, Result, VersionedUrl};
+use common::{DocumentCache, LspToPreview, Result};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
-use lsp_types::Url;
+use preview_protocol::{
+    LspToPreviewMessage, VersionedUrl,
+    lsp_types::{self, Url},
+};
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -27,6 +30,7 @@ use crate::wasm_prelude::*;
 type JsResult<T> = std::result::Result<T, JsError>;
 
 pub mod wasm_prelude {
+    use preview_protocol::lsp_types;
     use std::path::{Path, PathBuf};
 
     /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
@@ -325,7 +329,7 @@ impl SlintServer {
         &self,
         value: JsValue,
     ) -> std::result::Result<(), JsValue> {
-        use crate::common::PreviewToLspMessage as M;
+        use preview_protocol::PreviewToLspMessage as M;
 
         let ctx = self.ctx.lock().await;
 

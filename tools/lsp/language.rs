@@ -23,18 +23,19 @@ use i_slint_compiler::parser::{
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use itertools::Itertools;
-use lsp_types::request::{
-    CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
-    DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
-    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest, SignatureHelpRequest,
-};
-use lsp_types::{
-    ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
+use preview_protocol::lsp_types::{
+    self, ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
-    DocumentSymbol, DocumentSymbolResponse, FileChangeType, InitializeParams, InitializeResult,
-    OneOf, Position, PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerInfo,
-    TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
+    DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
+    PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
+    Url, WorkDoneProgressOptions,
+    request::{
+        CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
+        DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting,
+        GotoDefinition, HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest,
+        SignatureHelpRequest,
+    },
 };
 
 use std::collections::HashMap;
@@ -69,7 +70,7 @@ fn create_show_preview_command(
 
 fn create_populate_command(
     uri: lsp_types::Url,
-    version: common::SourceFileVersion,
+    version: preview_protocol::SourceFileVersion,
     title: String,
     text: String,
 ) -> Command {
@@ -90,20 +91,20 @@ pub fn send_state_to_preview(ctx: &Context) {
         }
         let version = ctx.document_cache.document_version(&url);
 
-        ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url, version),
+        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetContents {
+            url: preview_protocol::VersionedUrl::new(url, version),
             contents: node.text().to_string(),
         });
         doc_count += 1;
     }
 
-    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration {
+    ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.clone(),
     });
 
     if let Some(c) = ctx.to_show.clone() {
         tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::ShowPreview(c));
     } else {
         tracing::debug!(
             "Sending state to preview: {} documents, showing default component",
@@ -153,12 +154,12 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 
 pub struct Context {
     pub document_cache: common::DocumentCache,
-    pub preview_config: common::PreviewConfig,
+    pub preview_config: preview_protocol::PreviewConfig,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<common::PreviewComponent>,
+    pub to_show: Option<preview_protocol::PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
     pub to_preview: Rc<dyn common::LspToPreview>,
@@ -423,7 +424,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             {
                 let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
 
-                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::HighlightFromEditor {
                     url: Some(uri),
                     offset: element.text_range().start().into(),
                 });
@@ -444,16 +445,18 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .as_ref()
                     .is_some_and(|n| n.kind() != SyntaxKind::Component)
                 {
-                    ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
-                        url: Some(uri),
-                        offset: gp.unwrap().text_range().start().into(),
-                    });
+                    ctx.to_preview.send(
+                        &preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                            url: Some(uri),
+                            offset: gp.unwrap().text_range().start().into(),
+                        },
+                    );
                 }
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             }
 
             if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
-                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
+                ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::HighlightFromEditor {
                     url: None,
                     offset: 0,
                 });
@@ -472,8 +475,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        ctx.to_preview
-            .send(&common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
+        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+            url: None,
+            offset: 0,
+        });
         Ok(None)
     });
     rh.register::<Rename>(|params, ctx| {
@@ -575,9 +580,9 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
-    let c = common::PreviewComponent { url, component };
+    let c = preview_protocol::PreviewComponent { url, component };
     ctx.to_show = Some(c.clone());
-    ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+    ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::ShowPreview(c));
 
     Ok(())
 }
@@ -585,7 +590,7 @@ pub fn show_preview_command(
 fn populate_command_range(
     node: &SyntaxNode,
     format: common::ByteFormat,
-) -> Option<lsp_types::Range> {
+) -> Option<preview_protocol::lsp_types::Range> {
     let range = node.text_range();
 
     let start_offset = node
@@ -749,8 +754,8 @@ pub(crate) async fn load_document_impl(
 
     let dependencies = match action {
         FileAction::ProcessContent(content) => {
-            ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-                url: common::VersionedUrl::new(url.clone(), version),
+            ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetContents {
+                url: preview_protocol::VersionedUrl::new(url.clone(), version),
                 contents: content.clone(),
             });
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
@@ -759,7 +764,8 @@ pub(crate) async fn load_document_impl(
         }
         FileAction::IgnoreFile => return Default::default(),
         FileAction::InvalidateFile => {
-            ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.to_preview
+                .send(&preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() });
             ctx.document_cache.invalidate_url(&url)
         }
     };
@@ -913,7 +919,8 @@ fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<
 pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Dropping document: {url}");
     // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() });
+    ctx.to_preview
+        .send(&preview_protocol::LspToPreviewMessage::InvalidateContents { url: url.clone() });
 
     drop_document_impl(ctx, url)
 }
@@ -921,7 +928,7 @@ pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Re
 pub async fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Deleting document: {url}");
     // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+    ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
     drop_document_impl(ctx, url)
 }
@@ -1559,7 +1566,7 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         );
     }
 
-    let config = common::PreviewConfig {
+    let config = preview_protocol::PreviewConfig {
         hide_ui,
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
@@ -1569,7 +1576,7 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
     };
     {
         ctx.preview_config = config.clone();
-        ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
+        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetConfiguration { config });
     }
 
     tracing::debug!("Loaded configuration from client");

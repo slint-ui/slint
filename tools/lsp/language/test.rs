@@ -3,7 +3,7 @@
 
 //! Code to help with writing tests for the language server
 
-use lsp_types::{Diagnostic, Url};
+use preview_protocol::lsp_types::{self, Diagnostic, Url};
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -294,7 +294,8 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.to_show = Some(common::PreviewComponent { url: main_url.clone(), component: None });
+    ctx.to_show =
+        Some(preview_protocol::PreviewComponent { url: main_url.clone(), component: None });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &mut ctx,

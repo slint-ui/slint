@@ -9,6 +9,7 @@ use i_slint_compiler::{
 };
 use i_slint_core::lengths::LogicalPoint;
 use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
+use preview_protocol::lsp_types;
 
 use crate::common;
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};

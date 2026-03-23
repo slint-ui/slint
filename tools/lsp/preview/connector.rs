@@ -11,10 +11,10 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
-use crate::{common, preview};
+use crate::preview;
 
-pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
-    use common::LspToPreviewMessage as M;
+pub fn lsp_to_preview(message: preview_protocol::LspToPreviewMessage) {
+    use preview_protocol::LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => preview::invalidate_contents(&url),
         M::ForgetFile { url } => preview::delete_document(&url),

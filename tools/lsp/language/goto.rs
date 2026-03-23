@@ -7,7 +7,7 @@ use crate::common::{
 };
 use crate::util;
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
-use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
+use preview_protocol::lsp_types::{self, GotoDefinitionResponse, LocationLink, Position, Range};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;

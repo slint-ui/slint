@@ -5,14 +5,18 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use lsp_types::{TextEdit, Url, WorkspaceEdit};
+use preview_protocol::VersionedUrl;
+use preview_protocol::{
+    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion,
+    lsp_types::{self, TextEdit, Url, WorkspaceEdit},
+};
 
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
 pub mod component_catalog;
 pub mod document_cache;
-pub use document_cache::{DocumentCache, SourceFileVersion};
+pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 pub mod rename_component;
 pub mod rename_element_id;
@@ -454,36 +458,6 @@ pub fn create_workspace_edit_from_single_text_edits(
 }
 
 /// A versioned file
-#[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub struct VersionedUrl {
-    /// The file url
-    url: Url,
-    // The file version
-    version: SourceFileVersion,
-}
-
-impl VersionedUrl {
-    pub fn new(url: Url, version: SourceFileVersion) -> Self {
-        VersionedUrl { url, version }
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn version(&self) -> &SourceFileVersion {
-        &self.version
-    }
-}
-
-impl std::fmt::Debug for VersionedUrl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let version = self.version.map(|v| format!("v{v}")).unwrap_or_else(|| "none".to_string());
-        write!(f, "{}@{}", self.url, version)
-    }
-}
-
-/// A versioned file
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Position {
     /// The file url
@@ -535,44 +509,6 @@ impl VersionedPosition {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
-pub struct PreviewConfig {
-    pub hide_ui: Option<bool>,
-    pub style: String,
-    pub include_paths: Vec<PathBuf>,
-    pub library_paths: HashMap<String, PathBuf>,
-    pub format_utf8: bool,
-    pub enable_experimental: bool,
-}
-
-/// The Component to preview
-#[allow(unused)]
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct PreviewComponent {
-    /// The file name to preview
-    pub url: Url,
-    /// The name of the component within that file.
-    /// If None, then the last component is going to be shown.
-    pub component: Option<String>,
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum LspToPreviewMessage {
-    InvalidateContents { url: lsp_types::Url },
-    ForgetFile { url: lsp_types::Url },
-    SetContents { url: VersionedUrl, contents: String },
-    SetConfiguration { config: PreviewConfig },
-    ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
-    Quit,
-}
-
-impl lsp_types::notification::Notification for LspToPreviewMessage {
-    type Params = Self;
-    const METHOD: &'static str = "slint/lsp_to_preview";
-}
-
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Diagnostic {
@@ -595,26 +531,6 @@ impl PropertyChange {
     pub fn new(name: &str, value: String) -> Self {
         PropertyChange { name: name.to_string(), value }
     }
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum PreviewToLspMessage {
-    /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
-    /// Show a document in the editor.
-    ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
-    /// Switch between native and WASM preview (if supported)
-    PreviewTypeChanged { is_external: bool },
-    /// Request all documents and configuration to be sent from the LSP to the
-    /// Preview.
-    RequestState { unused: bool },
-    /// Pass a `WorkspaceEdit` on to the editor
-    SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
-    /// Pass a `ShowMessage` notification on to the editor
-    SendShowMessage { message: lsp_types::ShowMessageParams },
-    /// Send a telemetry event
-    TelemetryEvent(serde_json::Map<String, serde_json::Value>),
 }
 
 /// Information on the Element types available
@@ -681,6 +597,8 @@ pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub mod lsp_to_editor {
+    use preview_protocol::lsp_types;
+
     pub fn notify_lsp_diagnostics(
         sender: &crate::ServerNotifier,
         uri: lsp_types::Url,
