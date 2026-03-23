@@ -4592,7 +4592,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);
-            format!("slint::cbindgen_private::slint_open_url({}, {})", url, window)
+            format!("slint::cbindgen_private::slint_open_url(&{}, &{}.handle())", url, window)
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
