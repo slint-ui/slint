@@ -1192,9 +1192,6 @@ impl Item for TextInput {
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Disable);
-                    }
                     // commit the preedit text on android
                     #[cfg(target_os = "android")]
                     {
