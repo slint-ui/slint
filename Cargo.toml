@@ -183,7 +183,7 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 
-glow = { version = "0.16" }
+glow = { version = "0.17" }
 tikv-jemallocator = { version = "0.6" }
 wgpu-27 = { package = "wgpu", version = "27", default-features = false }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
