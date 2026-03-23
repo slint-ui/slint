@@ -33,4 +33,4 @@ catalog:
   starlight-links-validator: 0.20.1
   typescript: 5.9.3
   vite: 8.0.1
-  vitest: 4.0.18
+  vitest: 4.1.0
