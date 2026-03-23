@@ -33,3 +33,20 @@ export component Example inherits Window {
 ## debug(...)
 
 The debug function can take one or multiple values as arguments, prints them, and returns nothing.
+
+## open-url(url: string)
+
+Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
+
+```slint playground
+import { Button } from "std-widgets.slint";
+
+export component Example inherits Window {
+    Button {
+        text: "Open Slint Website";
+        clicked => {
+            open-url("https://slint.dev");
+        }
+    }
+}
+```
