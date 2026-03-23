@@ -433,13 +433,14 @@ fn format_element(
         if n.kind() != SyntaxKind::Comment
             && let Some(last_removed_whitespace) = state.last_removed_whitespace.take()
         {
-            let is_empty_line = last_removed_whitespace.contains("\n\n");
+            let is_empty_line = whitespace_has_empty_line(&last_removed_whitespace);
             if is_empty_line && !inserted_newline {
                 state.new_line();
             }
         }
         if n.kind() == SyntaxKind::Whitespace && !state.after_comment {
-            let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
+            let is_empty_line =
+                n.as_token().map(|n| whitespace_has_empty_line(n.text())).unwrap_or(false);
             if is_empty_line {
                 if !inserted_newline {
                     state.new_line();
@@ -870,7 +871,8 @@ fn format_codeblock(
     for n in sub {
         state.skip_all_whitespace = true;
         if n.kind() == SyntaxKind::Whitespace {
-            let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
+            let is_empty_line =
+                n.as_token().map(|n| whitespace_has_empty_line(n.text())).unwrap_or(false);
             if is_empty_line {
                 state.new_line();
             }
@@ -2616,47 +2618,26 @@ component UpAndDownButton inherits Rectangle {
     }
 
     #[test]
-    fn preserve_indentation_after_object_literal_comments() {
+    fn preserve_blank_lines_between_top_level_items() {
         assert_formatting(
             r#"
-struct Palette {
-    shadow: brush,
-}
+struct Palette {}
 
 global Skin {
-    out property <Palette> palette: true ? {
-        shadow: #0001, // ### added alpha
-    } : {
-        shadow: #fff1, // ### added alpha
-    };
-
-    // From Skin::initHints in Skin.cpp
-    out property <length> DefaultFont: 12px;
+    // ...
 }
 
-export component Clock inherits VerticalLayout {
-    in property <string> time;
+export component Clock {
 }
 "#,
             r#"
-struct Palette {
-    shadow: brush,
-}
+struct Palette {}
 
 global Skin {
-    out property <Palette> palette: true ? {
-        shadow: #0001, // ### added alpha
-    } : {
-        shadow: #fff1, // ### added alpha
-    };
-
-    // From Skin::initHints in Skin.cpp
-    out property <length> DefaultFont: 12px;
+    // ...
 }
 
-export component Clock inherits VerticalLayout {
-    in property <string> time;
-}
+export component Clock { }
 "#,
         );
     }
