@@ -26,6 +26,8 @@ on:
         required: true
       ANDROID_KEYSTORE_BASE64:
         required: true
+      ANDROID_KEYSTORE_ALIAS:
+        required: true
 
 permissions:
   contents: read
@@ -42,6 +44,7 @@ jobs:
       secrets:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
   material_tests:
       env:
           CARGO_PROFILE_RELEASE_OPT_LEVEL: s

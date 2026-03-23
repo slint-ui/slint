@@ -19,6 +19,8 @@ on:
           required: true
         ANDROID_KEYSTORE_BASE64:
           required: true
+        ANDROID_KEYSTORE_ALIAS:
+          required: true
         READ_WRITE_PRIVATE_KEY:
           required: true
 
@@ -645,6 +647,7 @@ jobs:
         CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
 
     servo_example:
         needs: files-changed
