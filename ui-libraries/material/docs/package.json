@@ -26,7 +26,7 @@
         "@fontsource-variable/inter": "5.2.8",
         "@types/node": "catalog:",
         "astro": "catalog:",
-        "limax": "4.2.2",
+        "limax": "4.2.3",
         "lodash.merge": "4.6.2",
         "rehype-external-links": "catalog:",
         "sharp": "catalog:",
@@ -34,8 +34,8 @@
         "unpic": "4.2.2"
     },
     "devDependencies": {
-        "@astrojs/markdown-remark": "7.0.0",
-        "@astrojs/mdx": "5.0.1",
+        "@astrojs/markdown-remark": "7.0.1",
+        "@astrojs/mdx": "5.0.2",
         "@astrojs/partytown": "2.1.5",
         "@astrojs/tailwind": "6.0.2",
         "@biomejs/biome": "catalog:",
