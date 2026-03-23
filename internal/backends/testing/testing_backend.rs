@@ -33,6 +33,7 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
+    pub open_url: Rc<RefCell<Option<SharedString>>>,
 }
 
 impl TestingBackend {
@@ -41,6 +42,7 @@ impl TestingBackend {
             clipboard: Mutex::default(),
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
+            open_url: Default::default(),
         }
     }
 }
@@ -55,6 +57,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             ime_requests: Default::default(),
             mouse_cursor: Default::default(),
             all_item_trees: Default::default(),
+            open_url: self.open_url.clone(),
         }))
     }
 
@@ -111,6 +114,10 @@ impl i_slint_core::platform::Platform for TestingBackend {
             .as_ref()
             .map(|q| Box::new(q.clone()) as Box<dyn i_slint_core::platform::EventLoopProxy>)
     }
+
+    fn open_url(&self, url: &str) {
+        *self.open_url.borrow_mut() = Some(url.into());
+    }
 }
 
 #[derive(Default)]
@@ -134,12 +141,17 @@ pub struct TestingWindow {
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
     mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
     all_item_trees: CheckAllItemTreesUnregistered,
+    pub open_url: Rc<RefCell<Option<SharedString>>>,
 }
 
 impl TestingWindow {
     #[allow(dead_code)] // Used by various tests
     pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
         self.mouse_cursor.get()
+    }
+
+    pub fn open_url(&self) -> Option<SharedString> {
+        self.open_url.borrow().clone()
     }
 }
 
