@@ -33,6 +33,9 @@ catalogs:
     cspell:
       specifier: 9.7.0
       version: 9.7.0
+    knip:
+      specifier: 6.0.2
+      version: 6.0.2
     playwright-ctrf-json-reporter:
       specifier: 0.0.27
       version: 0.0.27
@@ -67,7 +70,7 @@ importers:
   .:
     devDependencies:
       knip:
-        specifier: 6.0.2
+        specifier: 'catalog:'
         version: 6.0.2
 
   api/node:
@@ -7141,11 +7144,6 @@ packages:
     engines: {node: '>= 14'}
     hasBin: true
 
-  yaml@2.8.2:
-    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
-    engines: {node: '>= 14.6'}
-    hasBin: true
-
   yaml@2.8.3:
     resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
     engines: {node: '>= 14.6'}
@@ -14080,7 +14078,7 @@ snapshots:
       markdown-it: 14.1.1
       minimatch: 9.0.9
       typescript: 5.9.3
-      yaml: 2.8.2
+      yaml: 2.8.3
 
   typesafe-path@0.2.2: {}
 
@@ -14578,8 +14576,6 @@ snapshots:
       yaml: 2.7.1
 
   yaml@2.7.1: {}
-
-  yaml@2.8.2: {}
 
   yaml@2.8.3: {}
 
