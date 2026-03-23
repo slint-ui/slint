@@ -103,7 +103,7 @@ jobs:
 
       - name: Sign aab
         if: steps.cache-aab.outputs.cache-hit != 'true'
-        working-directory: /target/x/release/android
+        working-directory: ${{ github.workspace }}/target/x/release/android
         run: jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore $CARGO_APK_RELEASE_KEYSTORE material-gallery.aab $KEYSTORE_ALIAS
 
       - name: Verify aab
