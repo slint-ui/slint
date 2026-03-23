@@ -25,7 +25,7 @@
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
     "image-js": "1.4.0",
-    "typedoc": "0.28.17",
+    "typedoc": "0.28.18",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
