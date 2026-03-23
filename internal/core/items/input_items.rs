@@ -578,8 +578,7 @@ impl Item for FocusScope {
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
-                if let Some((key_binding, ambiguous)) = self.key_binding_for_event(self_rc, event)
-                {
+                if let Some((key_binding, ambiguous)) = self.key_binding_for_event(self_rc, event) {
                     if ambiguous {
                         let keys = KeyBinding::FIELD_OFFSETS
                             .keys
