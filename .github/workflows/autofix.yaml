@@ -70,8 +70,16 @@ jobs:
             READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
 
     done:
-        needs: [ci]
+        # Note: We use `needs` + `if: always()` here to ensure the "done"
+        # task is never just "skipped", which would count as success().
+        # Instead, make the task fail depending on whether there is any failure
+        # in the ci workflow.
+        needs: [ci, format_fix, lint_typecheck]
+        if: ${{ always() }}
         name: done
         runs-on: ubuntu-latest
         steps:
-            - run: echo "All checks passed."
+            - if: ${{ contains(needs.*.result, 'failure') }}
+              run: echo "A required check failed! 🌋" && false
+            - if: ${{ !contains(needs.*.result, 'failure') }}
+              run: echo "All checks passed. 🎉"
