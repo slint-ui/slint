@@ -98,7 +98,7 @@ impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
             red: (v >> 8) as u8,
             green: (v >> 16) as u8,
             blue: (v >> 24) as u8,
-            alpha: (v >> 0) as u8,
+            alpha: v as u8,
         }
     }
 }
