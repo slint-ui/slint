@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "slint_internal.h"
-#include "slint_platform_internal.h"
-#include "slint_qt_internal.h"
-#include "slint_window.h"
-#include "slint_models.h"
-#include "slint_item_tree.h"
+#include "private/slint_internal.h"
+#include "private/slint_platform_internal.h"
+#include "private/slint_qt_internal.h"
+#include "private/slint_window.h"
+#include "private/slint_models.h"
+#include "private/slint_item_tree.h"
 
 #include <vector>
 #include <chrono>

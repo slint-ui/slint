@@ -77,7 +77,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 #include <assert.h>
 #include <cmath>
 #include <iostream>
-#include <slint_tests_helpers.h>
+#include <private/slint_tests_helpers.h>
 namespace slint_testing = slint::private_api::testing;
 ",
     )?;

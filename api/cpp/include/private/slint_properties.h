@@ -13,8 +13,8 @@ struct ChangeTracker
 };
 }
 
-#include "slint_properties_internal.h"
-#include "slint_builtin_structs_internal.h"
+#include "private/slint_properties_internal.h"
+#include "private/slint_builtin_structs_internal.h"
 
 namespace slint::private_api {
 

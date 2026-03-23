@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "slint_internal.h"
+#include "private/slint_internal.h"
 
 #if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                   \
      && !defined(SLINT_FEATURE_FREESTANDING))                                                      \

@@ -6,7 +6,6 @@
 #include "catch2/catch_all.hpp"
 
 #include <slint.h>
-#include <slint_image.h>
 
 using slint::private_api::Property;
 
