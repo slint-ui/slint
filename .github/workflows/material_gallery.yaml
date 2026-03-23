@@ -56,9 +56,9 @@ jobs:
         with:
           target: aarch64-linux-android
 
-      - name: Install Android API level 30
+      - name: Install Android API level 35
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
-        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35"
 
       # 3. Setup Environment (Run only if artifacts are missing)
       - name: Add NDK LLVM to PATH
