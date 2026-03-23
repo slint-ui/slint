@@ -4418,6 +4418,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "font-types"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73829a7b5c91198af28a99159b7ae4afbb252fb906159ff7f189f3a2ceaa3df2"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "fontconfig-parser"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5443,7 +5452,7 @@ dependencies = [
  "rgb",
  "scoped-tls-hkt",
  "scopeguard",
- "skrifa 0.37.0",
+ "skrifa 0.41.0",
  "slab",
  "strum",
  "swash",
@@ -5518,7 +5527,7 @@ dependencies = [
  "pin-weak",
  "raw-window-handle",
  "raw-window-metal",
- "read-fonts 0.35.0",
+ "read-fonts 0.38.0",
  "scoped-tls-hkt",
  "skia-safe",
  "softbuffer",
@@ -5547,7 +5556,7 @@ dependencies = [
  "integer-sqrt",
  "lyon_path",
  "num-traits",
- "skrifa 0.37.0",
+ "skrifa 0.41.0",
  "swash",
  "zeno",
 ]
@@ -5977,17 +5986,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff7f53bdf698e7aa7ec916411bbdc8078135da11b66db5182675b2227f6c0d07"
 dependencies = [
  "bitflags 2.11.0",
-]
-
-[[package]]
-name = "kurbo"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce9729cc38c18d86123ab736fd2e7151763ba226ac2490ec092d1dd148825e32"
-dependencies = [
- "arrayvec",
- "euclid",
- "smallvec",
 ]
 
 [[package]]
@@ -7578,7 +7576,7 @@ checksum = "6717cf23b488adf64b9d711329542ba34de147df262370221940dfabc2c91358"
 dependencies = [
  "bytemuck",
  "core_maths",
- "font-types",
+ "font-types 0.10.1",
 ]
 
 [[package]]
@@ -7589,7 +7587,17 @@ checksum = "5eaa2941a4c05443ee3a7b26ab076a553c343ad5995230cc2b1d3e993bdc6345"
 dependencies = [
  "bytemuck",
  "core_maths",
- "font-types",
+ "font-types 0.10.1",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70eac20eeee8bd51247a0c2f349f657563fffd19d041cd12988cc2801ec2ebef"
+dependencies = [
+ "bytemuck",
+ "font-types 0.11.1",
 ]
 
 [[package]]
@@ -7705,9 +7713,9 @@ dependencies = [
 
 [[package]]
 name = "resvg"
-version = "0.46.0"
+version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b563218631706d614e23059436526d005b50ab5f2d506b55a17eb65c5eb83419"
+checksum = "9be183ad6a216aa96f33e4c8033b0988b8b3ea6fd2359d19af5bac4643fd8e81"
 dependencies = [
  "gif",
  "image-webp",
@@ -7715,7 +7723,7 @@ dependencies = [
  "pico-args",
  "rgb",
  "svgtypes",
- "tiny-skia",
+ "tiny-skia 0.12.0",
  "usvg",
  "zune-jpeg",
 ]
@@ -7959,7 +7967,7 @@ dependencies = [
  "log",
  "memmap2",
  "smithay-client-toolkit 0.19.2",
- "tiny-skia",
+ "tiny-skia 0.11.4",
 ]
 
 [[package]]
@@ -8186,6 +8194,16 @@ checksum = "9c9eb0b904a04d09bd68c65d946617b8ff733009999050f3b851c32fb3cfb60e"
 dependencies = [
  "bytemuck",
  "read-fonts 0.36.0",
+]
+
+[[package]]
+name = "skrifa"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c3bef975c2f5f07c0a780f95e1f5002deafb716f8e0484816cc08b1a823d2f"
+dependencies = [
+ "bytemuck",
+ "read-fonts 0.38.0",
 ]
 
 [[package]]
@@ -8442,18 +8460,18 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.27.2"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.27.2"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -8479,7 +8497,7 @@ version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "695b5790b3131dafa99b3bbfd25a216edb3d216dad9ca208d4657bfb8f2abc3d"
 dependencies = [
- "kurbo 0.13.0",
+ "kurbo",
  "siphasher",
 ]
 
@@ -8697,8 +8715,22 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "log",
- "png 0.17.16",
- "tiny-skia-path",
+ "tiny-skia-path 0.11.4",
+]
+
+[[package]]
+name = "tiny-skia"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ffee5eaaf5527f630fb0e356b90ebdec84d5d18d937c5e440350f88c5a91ea"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "bytemuck",
+ "cfg-if",
+ "log",
+ "png 0.18.1",
+ "tiny-skia-path 0.12.0",
 ]
 
 [[package]]
@@ -8706,6 +8738,17 @@ name = "tiny-skia-path"
 version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c9e7fc0c2e86a30b117d0462aa261b72b7a99b7ebd7deb3a14ceda95c5bdc93"
+dependencies = [
+ "arrayref",
+ "bytemuck",
+ "strict-num",
+]
+
+[[package]]
+name = "tiny-skia-path"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edca365c3faccca67d06593c5980fa6c57687de727a03131735bb85f01fdeeb9"
 dependencies = [
  "arrayref",
  "bytemuck",
@@ -9176,16 +9219,16 @@ dependencies = [
 
 [[package]]
 name = "usvg"
-version = "0.46.0"
+version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e419dff010bb12512b0ae9e3d2f318dfbdf0167fde7eb05465134d4e8756076f"
+checksum = "d46cf96c5f498d36b7a9693bc6a7075c0bb9303189d61b2249b0dc3d309c07de"
 dependencies = [
  "base64",
  "data-url",
  "flate2",
  "fontdb",
  "imagesize",
- "kurbo 0.13.0",
+ "kurbo",
  "log",
  "pico-args",
  "roxmltree 0.21.1",
@@ -9194,7 +9237,8 @@ dependencies = [
  "siphasher",
  "strict-num",
  "svgtypes",
- "tiny-skia-path",
+ "tiny-skia-path 0.12.0",
+ "ttf-parser",
  "unicode-bidi",
  "unicode-script",
  "unicode-vo",
@@ -10707,15 +10751,15 @@ dependencies = [
 
 [[package]]
 name = "write-fonts"
-version = "0.43.0"
+version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "886614b5ce857341226aa091f3c285e450683894acaaa7887f366c361efef79d"
+checksum = "3d3d8c2a5be94ed1451407100aa168d50893f3ea125a493a6a46722b01795bbe"
 dependencies = [
- "font-types",
+ "font-types 0.11.1",
  "indexmap",
- "kurbo 0.12.0",
+ "kurbo",
  "log",
- "read-fonts 0.35.0",
+ "read-fonts 0.38.0",
 ]
 
 [[package]]
