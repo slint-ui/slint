@@ -9646,7 +9646,7 @@ snapshots:
 
   '@types/capture-console@1.0.5':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 25.0.3
 
   '@types/chai@5.2.3':
     dependencies:
@@ -9674,7 +9674,7 @@ snapshots:
   '@types/fs-extra@11.0.4':
     dependencies:
       '@types/jsonfile': 6.1.4
-      '@types/node': 24.12.0
+      '@types/node': 25.0.3
 
   '@types/hast@3.0.4':
     dependencies:
@@ -9686,7 +9686,7 @@ snapshots:
 
   '@types/jsonfile@6.1.4':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 25.0.3
 
   '@types/jszip@3.4.1':
     dependencies:
@@ -9736,7 +9736,7 @@ snapshots:
 
   '@types/sax@1.2.7':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 25.0.3
 
   '@types/unist@2.0.11': {}
 
