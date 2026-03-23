@@ -1291,10 +1291,7 @@ mod flexbox_taffy {
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
-    use taffy::prelude::{
-        AlignContent, AlignItems, AvailableSpace, Dimension, Display, FlexWrap, LengthPercentage,
-        NodeId, Rect, Size, Style, TaffyTree,
-    };
+    use taffy::prelude::*;
 
     /// Parameters for FlexboxTaffyBuilder::new
     pub struct FlexBoxLayoutParams<'a> {
@@ -1343,10 +1340,10 @@ mod flexbox_taffy {
                     // flex_basis depends on direction
                     let flex_basis = match params.flex_direction {
                         TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                            Dimension::Length(preferred_width as _)
+                            Dimension::length(preferred_width as _)
                         }
                         TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
-                            Dimension::Length(preferred_height as _)
+                            Dimension::length(preferred_height as _)
                         }
                     };
 
@@ -1358,44 +1355,44 @@ mod flexbox_taffy {
                                     TaffyFlexDirection::Column
                                     | TaffyFlexDirection::ColumnReverse => {
                                         if preferred_width > 0 as Coord {
-                                            Dimension::Length(preferred_width as _)
+                                            Dimension::length(preferred_width as _)
                                         } else {
-                                            Dimension::Auto
+                                            Dimension::auto()
                                         }
                                     }
-                                    _ => Dimension::Auto,
+                                    _ => Dimension::auto(),
                                 },
                                 height: match params.flex_direction {
                                     TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
                                         if preferred_height > 0 as Coord {
-                                            Dimension::Length(preferred_height as _)
+                                            Dimension::length(preferred_height as _)
                                         } else {
-                                            Dimension::Auto
+                                            Dimension::auto()
                                         }
                                     }
-                                    _ => Dimension::Auto,
+                                    _ => Dimension::auto(),
                                 },
                             },
                             min_size: Size {
-                                width: Dimension::Length(h_constraint.min as _),
-                                height: Dimension::Length(
+                                width: Dimension::length(h_constraint.min as _),
+                                height: Dimension::length(
                                     v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
                                 ),
                             },
                             max_size: Size {
                                 width: if h_constraint.max < Coord::MAX {
-                                    Dimension::Length(h_constraint.max as _)
+                                    Dimension::length(h_constraint.max as _)
                                 } else {
-                                    Dimension::Auto
+                                    Dimension::auto()
                                 },
                                 height: if let Some(vc) = v_constraint {
                                     if vc.max < Coord::MAX {
-                                        Dimension::Length(vc.max as _)
+                                        Dimension::length(vc.max as _)
                                     } else {
-                                        Dimension::Auto
+                                        Dimension::auto()
                                     }
                                 } else {
-                                    Dimension::Auto
+                                    Dimension::auto()
                                 },
                             },
                             flex_grow: 0.0,
@@ -1441,24 +1438,24 @@ mod flexbox_taffy {
                             FlexAlignContent::Center => AlignContent::Center,
                         }),
                         gap: Size {
-                            width: LengthPercentage::Length(params.spacing_h as _),
-                            height: LengthPercentage::Length(params.spacing_v as _),
+                            width: LengthPercentage::length(params.spacing_h as _),
+                            height: LengthPercentage::length(params.spacing_v as _),
                         },
                         padding: Rect {
-                            left: LengthPercentage::Length(params.padding_h.begin as _),
-                            right: LengthPercentage::Length(params.padding_h.end as _),
-                            top: LengthPercentage::Length(params.padding_v.begin as _),
-                            bottom: LengthPercentage::Length(params.padding_v.end as _),
+                            left: LengthPercentage::length(params.padding_h.begin as _),
+                            right: LengthPercentage::length(params.padding_h.end as _),
+                            top: LengthPercentage::length(params.padding_v.begin as _),
+                            bottom: LengthPercentage::length(params.padding_v.end as _),
                         },
                         size: Size {
                             width: params
                                 .container_width
-                                .map(|w| Dimension::Length(w as _))
-                                .unwrap_or(Dimension::Auto),
+                                .map(|w| Dimension::length(w as _))
+                                .unwrap_or(Dimension::auto()),
                             height: params
                                 .container_height
-                                .map(|h| Dimension::Length(h as _))
-                                .unwrap_or(Dimension::Auto),
+                                .map(|h| Dimension::length(h as _))
+                                .unwrap_or(Dimension::auto()),
                         },
                         ..Default::default()
                     },
