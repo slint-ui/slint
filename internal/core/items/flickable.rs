@@ -11,8 +11,9 @@ use super::{
 };
 use crate::animations::Instant;
 use crate::animations::physics_simulation;
+use crate::input::InternalKeyEvent;
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
@@ -167,7 +168,7 @@ impl Item for Flickable {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -176,7 +177,7 @@ impl Item for Flickable {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

@@ -11,8 +11,9 @@ use crate::api::{
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent, KeyEventType,
-    MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, key_codes,
+    ClickState, FocusEvent, FocusReason, InternalKeyEvent, InternalKeyboardModifierState,
+    KeyEventType, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
+    key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -1787,7 +1788,10 @@ impl WindowInner {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
+    pub fn process_key_input(
+        &self,
+        mut internal_key_event: InternalKeyEvent,
+    ) -> crate::input::KeyEventResult {
         // NFC-normalize the event text so that shortcut matching works consistently
         // regardless of the composed/decomposed form the backend provides
         // (e.g. é as U+00E9 vs e + U+0301).
@@ -1795,24 +1799,23 @@ impl WindowInner {
         #[cfg(feature = "shared-parley")]
         {
             let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
-            let normalized = normalizer.normalize(&event.text);
+            let normalized = normalizer.normalize(&internal_key_event.key_event.text);
             // Only replace the event text if normalization actually changed it,
             // to avoid unnecessary allocations.
             if let alloc::borrow::Cow::Owned(normalized) = normalized {
-                event.text = normalized.into();
+                internal_key_event.key_event.text = normalized.into();
             }
         }
 
-        if let Some(updated_modifier) = self
-            .modifiers
-            .get()
-            .state_update(event.event_type == KeyEventType::KeyPressed, &event.text)
-        {
+        if let Some(updated_modifier) = self.modifiers.get().state_update(
+            internal_key_event.event_type == KeyEventType::KeyPressed,
+            &internal_key_event.key_event.text,
+        ) {
             // Updates the key modifiers depending on the key code and pressed state.
             self.modifiers.set(updated_modifier);
         }
 
-        event.modifiers = self.modifiers.get().into();
+        internal_key_event.key_event.modifiers = self.modifiers.get().into();
 
         let mut item = self.focus_item.borrow().clone().upgrade();
 
@@ -1836,7 +1839,7 @@ impl WindowInner {
 
         // Check capture_key_event (going from window to focused item):
         for i in item_list.iter().rev() {
-            if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), i)
+            if i.borrow().as_ref().capture_key_event(&internal_key_event, &self.window_adapter(), i)
                 == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
@@ -1848,8 +1851,11 @@ impl WindowInner {
 
         // Deliver key_event (to focused item, going up towards the window):
         while let Some(focus_item) = item {
-            if focus_item.borrow().as_ref().key_event(&event, &self.window_adapter(), &focus_item)
-                == crate::input::KeyEventResult::EventAccepted
+            if focus_item.borrow().as_ref().key_event(
+                &internal_key_event,
+                &self.window_adapter(),
+                &focus_item,
+            ) == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
                 return crate::input::KeyEventResult::EventAccepted;
@@ -1858,25 +1864,28 @@ impl WindowInner {
         }
 
         // Make Tab/Backtab handle keyboard focus
-        let extra_mod = event.modifiers.control || event.modifiers.meta || event.modifiers.alt;
-        if event.text.starts_with(key_codes::Tab)
-            && !event.modifiers.shift
+        let extra_mod = internal_key_event.key_event.modifiers.control
+            || internal_key_event.key_event.modifiers.meta
+            || internal_key_event.key_event.modifiers.alt;
+        if internal_key_event.key_event.text.starts_with(key_codes::Tab)
+            && !internal_key_event.key_event.modifiers.shift
             && !extra_mod
-            && event.event_type == KeyEventType::KeyPressed
+            && internal_key_event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
             crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
-        } else if (event.text.starts_with(key_codes::Backtab)
-            || (event.text.starts_with(key_codes::Tab) && event.modifiers.shift))
-            && event.event_type == KeyEventType::KeyPressed
+        } else if (internal_key_event.key_event.text.starts_with(key_codes::Backtab)
+            || (internal_key_event.key_event.text.starts_with(key_codes::Tab)
+                && internal_key_event.key_event.modifiers.shift))
+            && internal_key_event.event_type == KeyEventType::KeyPressed
             && !extra_mod
         {
             self.focus_previous_item();
             crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
-        } else if event.event_type == KeyEventType::KeyPressed
-            && event.text.starts_with(key_codes::Escape)
+        } else if internal_key_event.event_type == KeyEventType::KeyPressed
+            && internal_key_event.key_event.text.starts_with(key_codes::Escape)
         {
             // Closes top most popup on ESC key pressed when policy is not no-auto-close
 
@@ -3126,10 +3135,13 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter.window().0.process_key_input(crate::items::KeyEvent {
-                text: text.clone(),
-                repeat,
+            window_adapter.window().0.process_key_input(InternalKeyEvent {
                 event_type,
+                key_event: crate::items::KeyEvent {
+                    text: text.clone(),
+                    repeat,
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         }

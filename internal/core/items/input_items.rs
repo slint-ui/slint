@@ -8,8 +8,8 @@ use super::{
 };
 use crate::api::LogicalPosition;
 use crate::input::{
-    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, Keys, MouseEvent,
+    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
+    InternalKeyEvent, KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::items::ItemTreeVTable;
@@ -219,7 +219,7 @@ impl Item for TouchArea {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -228,7 +228,7 @@ impl Item for TouchArea {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -326,7 +326,7 @@ impl Item for KeyBinding {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {
@@ -335,7 +335,7 @@ impl Item for KeyBinding {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {
@@ -479,13 +479,13 @@ impl FocusScope {
     fn key_binding_for_event(
         self: Pin<&Self>,
         self_rc: &ItemRc,
-        key_event: &KeyEvent,
+        inter_key_event: &InternalKeyEvent,
     ) -> Option<(VRcMapped<ItemTreeVTable, KeyBinding>, bool)> {
         let mut first_match = None;
 
         let ambiguous = self.visit_enabled_key_bindings(self_rc, |key_binding| {
             let keys = KeyBinding::FIELD_OFFSETS.keys.apply_pin(key_binding.as_pin_ref()).get();
-            if keys.matches(key_event) {
+            if keys.matches(&inter_key_event.key_event) {
                 match &first_match {
                     Some(key_binding) => {
                         return Some(VRcMapped::clone(key_binding));
@@ -549,17 +549,19 @@ impl Item for FocusScope {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         let r = match event.event_type {
-            KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.capture_key_pressed.apply_pin(self).call(&(event.clone(),))
-            }
-            KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.capture_key_released.apply_pin(self).call(&(event.clone(),))
-            }
+            KeyEventType::KeyPressed => Self::FIELD_OFFSETS
+                .capture_key_pressed
+                .apply_pin(self)
+                .call(&(event.key_event.clone(),)),
+            KeyEventType::KeyReleased => Self::FIELD_OFFSETS
+                .capture_key_released
+                .apply_pin(self)
+                .call(&(event.key_event.clone(),)),
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 EventResult::Reject
             }
@@ -572,7 +574,7 @@ impl Item for FocusScope {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -595,7 +597,10 @@ impl Item for FocusScope {
                         .call(&());
                     EventResult::Accept
                 } else {
-                    Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
+                    Self::FIELD_OFFSETS
+                        .key_pressed
+                        .apply_pin(self)
+                        .call(&(event.key_event.clone(),))
                 }
             }
             KeyEventType::KeyReleased => {
@@ -607,7 +612,10 @@ impl Item for FocusScope {
                     // Either both events appear in the callbacks, or neither do.
                     EventResult::Accept
                 } else {
-                    Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
+                    Self::FIELD_OFFSETS
+                        .key_released
+                        .apply_pin(self)
+                        .call(&(event.key_event.clone(),))
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
@@ -835,7 +843,7 @@ impl Item for SwipeGestureHandler {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -844,7 +852,7 @@ impl Item for SwipeGestureHandler {
 
     fn key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1136,7 +1144,7 @@ impl Item for PinchGestureHandler {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1145,7 +1153,7 @@ impl Item for PinchGestureHandler {
 
     fn key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

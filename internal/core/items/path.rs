@@ -13,7 +13,7 @@ use super::{
 };
 use crate::graphics::{Brush, PathData, PathDataIterator};
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
@@ -89,7 +89,7 @@ impl Item for Path {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -98,7 +98,7 @@ impl Item for Path {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

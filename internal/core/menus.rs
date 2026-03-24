@@ -5,6 +5,7 @@
 #![allow(unsafe_code)]
 
 use crate::graphics::Image;
+use crate::input::InternalKeyEvent;
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
@@ -229,7 +230,7 @@ impl crate::items::Item for MenuItem {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {
@@ -238,7 +239,7 @@ impl crate::items::Item for MenuItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {

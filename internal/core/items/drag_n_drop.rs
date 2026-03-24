@@ -5,7 +5,7 @@ use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -147,7 +147,7 @@ impl Item for DragArea {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -156,7 +156,7 @@ impl Item for DragArea {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -281,7 +281,7 @@ impl Item for DropArea {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -290,7 +290,7 @@ impl Item for DropArea {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
