@@ -91,7 +91,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
             struct KeyEvent {
-                @name = BuiltinPrivateStruct::KeyEvent,
+                @name = BuiltinPublicStruct::KeyEvent,
                 export {
                     /// The unicode representation of the key pressed.
                     text: SharedString,
@@ -102,19 +102,6 @@ macro_rules! for_each_builtin_structs {
                     repeat: bool,
                 }
                 private {
-                    /// Indicates whether the key was pressed or released
-                    event_type: KeyEventType,
-                    /// If the event type is KeyEventType::UpdateComposition or KeyEventType::CommitComposition,
-                    /// then this field specifies what part of the current text to replace.
-                    /// Relative to the offset of the pre-edit text within the text input element's text.
-                    replacement_range: Option<core::ops::Range<i32>>,
-                    /// If the event type is KeyEventType::UpdateComposition, this is the new pre-edit text
-                    preedit_text: SharedString,
-                    /// The selection within the preedit_text
-                    preedit_selection: Option<core::ops::Range<i32>>,
-                    /// The new cursor position, when None, the cursor is put after the text that was just inserted
-                    cursor_position: Option<i32>,
-                    anchor_position: Option<i32>,
                 }
             }
 
