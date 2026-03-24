@@ -4343,7 +4343,9 @@ fn compile_builtin_function_call(
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    slint::private_api::setup_popup_menu_from_menu_item_tree(slint::private_api::create_menu_wrapper(item_tree_dyn), {access_entries}, {access_sub_menu}, {access_activated});
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn);
+                    slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
+                    slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
             } else {
                 let condition = if let [condition] = &rest {
@@ -4360,11 +4362,12 @@ fn compile_builtin_function_call(
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
+                    slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
                     if ({window}.supports_native_menu_bar()) {{
-                        auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
                         slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &menu_wrapper);
                     }} else {{
-                        slint::private_api::setup_popup_menu_from_menu_item_tree(slint::private_api::create_menu_wrapper(item_tree_dyn), {access_entries}, {access_sub_menu}, {access_activated});
+                        slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                     }}
                 }}")
             }

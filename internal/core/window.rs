@@ -5,25 +5,25 @@
 
 #![warn(missing_docs)]
 //! Exposed Window API
-
 use crate::api::{
     CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventType, MouseEvent,
-    MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState, key_codes,
+    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
+    MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
+    key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
+use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, SharedString};
+use crate::{Callback, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -31,7 +31,7 @@ use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
-use vtable::VRcMapped;
+use vtable::{VRc, VRcMapped};
 
 pub mod popup;
 
@@ -436,6 +436,8 @@ struct WindowPinnedFields {
     active: Property<bool>,
     #[pin]
     text_input_focused: Property<bool>,
+    #[pin]
+    menubar_shortcuts: Property<SharedVector<MenuEntry>>,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -461,6 +463,8 @@ pub struct WindowInner {
     pinned_fields: Pin<Box<WindowPinnedFields>>,
     maximized: Cell<bool>,
     minimized: Cell<bool>,
+
+    menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
@@ -515,6 +519,10 @@ impl WindowInner {
                     false,
                     "i_slint_core::Window::text_input_focused",
                 ),
+                menubar_shortcuts: Property::new_named(
+                    SharedVector::default(),
+                    "i_slint_core::Window::menubar_shortcuts",
+                ),
             }),
             maximized: Cell::new(false),
             minimized: Cell::new(false),
@@ -528,6 +536,7 @@ impl WindowInner {
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
             ctx: Default::default(),
+            menubar: Default::default(),
         }
     }
 
@@ -812,6 +821,14 @@ impl WindowInner {
 
         internal_key_event.key_event.modifiers = self.context().0.modifiers.get().into();
 
+        // Emulate macOS menubar behavior: The OS consumes the event before it reaches any
+        // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
+        // propagation if a shortcut matches.
+        if self.process_menubar_shortcuts(&internal_key_event) == KeyEventResult::EventAccepted {
+            crate::properties::ChangeTracker::run_change_handlers();
+            return crate::input::KeyEventResult::EventAccepted;
+        }
+
         let mut item = self.focus_item.borrow().clone().upgrade();
 
         if item.as_ref().is_some_and(|i| !i.is_visible()) {
@@ -907,7 +924,38 @@ impl WindowInner {
             crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
         }
+
         crate::properties::ChangeTracker::run_change_handlers();
+        crate::input::KeyEventResult::EventIgnored
+    }
+
+    fn process_menubar_shortcuts(
+        &self,
+        internal_key_event: &InternalKeyEvent,
+    ) -> crate::input::KeyEventResult {
+        let event_type = internal_key_event.event_type;
+        let menubar = self.menubar.borrow().as_ref().and_then(vtable::VWeak::upgrade);
+
+        if (event_type == KeyEventType::KeyReleased || event_type == KeyEventType::KeyPressed)
+            && let Some(menubar) = menubar
+        {
+            let shortcuts = self.pinned_fields.as_ref().project_ref().menubar_shortcuts.get();
+            let mut matches = shortcuts
+                .into_iter()
+                .filter(|entry| entry.shortcut.matches(&internal_key_event.key_event));
+            if let Some(entry) = matches.next() {
+                if internal_key_event.event_type == KeyEventType::KeyPressed {
+                    VRc::borrow(&menubar).activate(&entry);
+                    if matches.next().is_some() {
+                        crate::debug_log!(
+                            "Warning: Ambiguous menubar shortcut: {}",
+                            entry.shortcut
+                        );
+                    }
+                }
+                return crate::input::KeyEventResult::EventAccepted;
+            }
+        }
         crate::input::KeyEventResult::EventIgnored
     }
 
@@ -1242,6 +1290,39 @@ impl WindowInner {
         if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
             x.setup_menubar(menubar);
         }
+    }
+
+    /// Setup the shortcuts for the menubar
+    /// Note: We still register the same shortcuts if the native menubar is active.
+    /// Generally, the native menubar should capture the shortcuts first,
+    /// but in case it doesn't, the window can still match them manually.
+    pub fn setup_menubar_shortcuts(&self, menubar: VRc<MenuVTable>) {
+        *self.menubar.borrow_mut() = Some(VRc::downgrade(&menubar));
+        let weak = VRc::downgrade(&menubar);
+        self.pinned_fields.menubar_shortcuts.set_binding(move || {
+            fn flatten_menu(
+                root: vtable::VRef<'_, MenuVTable>,
+                parent: Option<&MenuEntry>,
+            ) -> SharedVector<MenuEntry> {
+                let mut menu_entries = Default::default();
+                root.sub_menu(parent, &mut menu_entries);
+
+                let mut result = menu_entries.clone();
+
+                for entry in menu_entries {
+                    result.extend(flatten_menu(root, Some(&entry)).into_iter());
+                }
+                result
+            }
+
+            let Some(menubar) = weak.upgrade() else {
+                return SharedVector::default();
+            };
+            flatten_menu(VRc::borrow(&menubar), None)
+                .into_iter()
+                .filter(|entry| entry.enabled && entry.shortcut != Keys::default())
+                .collect()
+        });
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
@@ -2086,12 +2167,19 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         menu_instance: &vtable::VRc<MenuVTable>,
     ) {
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            if let Some(x) = window_adapter.internal(crate::InternalToken) {
-                x.setup_menubar(menu_instance.clone())
-            }
-        }
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        let window = window_adapter.window();
+        window.0.setup_menubar(vtable::VRc::clone(menu_instance));
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_setup_menu_bar_shortcuts(
+        handle: *const WindowAdapterRcOpaque,
+        menu_instance: &vtable::VRc<MenuVTable>,
+    ) {
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        let window = window_adapter.window();
+        window.0.setup_menubar_shortcuts(vtable::VRc::clone(menu_instance));
     }
 
     /// Show a native context menu

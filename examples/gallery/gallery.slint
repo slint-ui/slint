@@ -17,7 +17,10 @@ export component App inherits Window {
     MenuBar {
         Menu {
             title: @tr("MenuBar" => "File");
-            MenuItem { title: @tr("MenuBar" => "Open"); }
+            MenuItem {
+                title: @tr("MenuBar" => "Open");
+                shortcut: @keys(Control + O);
+            }
             Menu {
                 title: @tr("MenuBar" => "Open Recent");
                 for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }

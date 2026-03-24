@@ -9,16 +9,16 @@
 //! and for normal keys with: <https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode>
 //!
 //! The format is a semicolon separated list of keys
-//! `<char code>  # Slint name # Shifted key => Qt code # Winit code # xkb code`
+//! `<char code>  # Slint name # Shifted key # Muda accelerator code => Qt code # Winit code # xkb code`
 //!
-//! Note: The values after and including the => only exist for special keys. The Shifted key may also be empty,
-//! in which case the key code stays the same when applying shift or only changes case.
+//! Note: The values after and including the => only exist for special keys. The Shifted key and
+//! Muda accelerator code may both be empty.
 //!
 //! ## Example
 //!
 //! ```
 //! macro_rules! do_something_with_keys {
-//!     ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+//!     ($($char:literal # $name:ident # $($shifted:ident)? # $($muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
 //!         //...
 //!     };
 //! }
@@ -30,177 +30,177 @@
 macro_rules! for_each_keys {
     ($macro:ident) => {
         $macro![
-'\u{0008}'  # Backspace   # => Qt_Key_Key_Backspace    # Backspace    # BackSpace  ;
-'\u{0009}'  # Tab         # => Qt_Key_Key_Tab          # Tab          # Tab        ;
-'\u{000a}'  # Return      # => Qt_Key_Key_Enter|Qt_Key_Key_Return # Enter # Return;
-'\u{001b}'  # Escape      # => Qt_Key_Key_Escape       # Escape       # Escape     ;
-'\u{0019}'  # Backtab     # => Qt_Key_Key_Backtab      #              # BackTab    ;
-'\u{007f}'  # Delete      # => Qt_Key_Key_Delete       # Delete       # Delete     ;
+'\u{0008}'  # Backspace   # # Backspace   => Qt_Key_Key_Backspace    # Backspace    # BackSpace  ;
+'\u{0009}'  # Tab         # # Tab         => Qt_Key_Key_Tab          # Tab          # Tab        ;
+'\u{000a}'  # Return      # # Enter       => Qt_Key_Key_Enter|Qt_Key_Key_Return # Enter # Return;
+'\u{001b}'  # Escape      # # Escape      => Qt_Key_Key_Escape       # Escape       # Escape     ;
+'\u{0019}'  # Backtab     # #             => Qt_Key_Key_Backtab      #              # BackTab    ;
+'\u{007f}'  # Delete      # # Delete      => Qt_Key_Key_Delete       # Delete       # Delete     ;
 
 // The modifier key codes comes from https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode.
-'\u{0010}'  # Shift       # => Qt_Key_Key_Shift        # Shift(Left)  # Shift_L    ;
-'\u{0011}'  # Control     # => Qt_Key_Key_Control      # Control(Left)# Control_L  ;
-'\u{0012}'  # Alt         # => Qt_Key_Key_Alt          # Alt          # Alt_L      ;
-'\u{0013}'  # AltGr       # => Qt_Key_Key_AltGr        # AltGraph     # Mode_switch;
-'\u{0014}'  # CapsLock    # => Qt_Key_Key_CapsLock     #              # Caps_Lock  ;
+'\u{0010}'  # Shift       # #             => Qt_Key_Key_Shift        # Shift(Left)  # Shift_L    ;
+'\u{0011}'  # Control     # #             => Qt_Key_Key_Control      # Control(Left)# Control_L  ;
+'\u{0012}'  # Alt         # #             => Qt_Key_Key_Alt          # Alt          # Alt_L      ;
+'\u{0013}'  # AltGr       # #             => Qt_Key_Key_AltGr        # AltGraph     # Mode_switch;
+'\u{0014}'  # CapsLock    # #             => Qt_Key_Key_CapsLock     #              # Caps_Lock  ;
 
-'\u{0015}'  # ShiftR      # =>                         # Shift(Right) # Shift_R    ;
-'\u{0016}'  # ControlR    # =>                         # Control(Right)# Control_R  ;
+'\u{0015}'  # ShiftR      # #             =>                         # Shift(Right) # Shift_R    ;
+'\u{0016}'  # ControlR    # #             =>                         # Control(Right)# Control_R  ;
 
 // Use custom codes instead of DOM_VK_META for meta, because the Mozilla defined code is a regular character (E0; LATIN SMALL LETTER A WITH GRAVE)
 // which makes those keys appear as text.
-'\u{0017}'  # Meta        # => Qt_Key_Key_Meta         # Super(Left)  # Meta_L     ;
-'\u{0018}'  # MetaR       # =>                         # Super(Right) # Meta_R     ;
+'\u{0017}'  # Meta        # #             => Qt_Key_Key_Meta         # Super(Left)  # Meta_L     ;
+'\u{0018}'  # MetaR       # #             =>                         # Super(Right) # Meta_R     ;
 
-'\u{0020}'  # Space       # => Qt_Key_Key_Space        # Space # space     ;
+'\u{0020}'  # Space       # # Space       => Qt_Key_Key_Space        # Space # space     ;
 
-'\u{F700}'	# UpArrow     # => Qt_Key_Key_Up           # ArrowUp           # Up         ;
-'\u{F701}'	# DownArrow   # => Qt_Key_Key_Down         # ArrowDown         # Down       ;
-'\u{F702}'	# LeftArrow   # => Qt_Key_Key_Left         # ArrowLeft         # Left       ;
-'\u{F703}'	# RightArrow  # => Qt_Key_Key_Right        # ArrowRight        # Right      ;
-'\u{F704}'	# F1          # => Qt_Key_Key_F1           # F1           # F1         ;
-'\u{F705}'	# F2          # => Qt_Key_Key_F2           # F2           # F2         ;
-'\u{F706}'	# F3          # => Qt_Key_Key_F3           # F3           # F3         ;
-'\u{F707}'	# F4          # => Qt_Key_Key_F4           # F4           # F4         ;
-'\u{F708}'	# F5          # => Qt_Key_Key_F5           # F5           # F5         ;
-'\u{F709}'	# F6          # => Qt_Key_Key_F6           # F6           # F6         ;
-'\u{F70A}'	# F7          # => Qt_Key_Key_F7           # F7           # F7         ;
-'\u{F70B}'	# F8          # => Qt_Key_Key_F8           # F8           # F8         ;
-'\u{F70C}'	# F9          # => Qt_Key_Key_F9           # F9           # F9         ;
-'\u{F70D}'	# F10         # => Qt_Key_Key_F10          # F10          # F10        ;
-'\u{F70E}'	# F11         # => Qt_Key_Key_F11          # F11          # F11        ;
-'\u{F70F}'	# F12         # => Qt_Key_Key_F12          # F12          # F12        ;
-'\u{F710}'	# F13         # => Qt_Key_Key_F13          # F13          # F13        ;
-'\u{F711}'	# F14         # => Qt_Key_Key_F14          # F14          # F14        ;
-'\u{F712}'	# F15         # => Qt_Key_Key_F15          # F15          # F15        ;
-'\u{F713}'	# F16         # => Qt_Key_Key_F16          # F16          # F16        ;
-'\u{F714}'	# F17         # => Qt_Key_Key_F17          # F17          # F17        ;
-'\u{F715}'	# F18         # => Qt_Key_Key_F18          # F18          # F18        ;
-'\u{F716}'	# F19         # => Qt_Key_Key_F19          # F19          # F19        ;
-'\u{F717}'	# F20         # => Qt_Key_Key_F20          # F20          # F20        ;
-'\u{F718}'	# F21         # => Qt_Key_Key_F21          # F21          # F21        ;
-'\u{F719}'	# F22         # => Qt_Key_Key_F22          # F22          # F22        ;
-'\u{F71A}'	# F23         # => Qt_Key_Key_F23          # F23          # F23        ;
-'\u{F71B}'	# F24         # => Qt_Key_Key_F24          # F24          # F24        ;
-//'\u{F71C}'    # F25         # => Qt_Key_Key_F25          # F25          # F25        ;
-//'\u{F71D}'    # F26         # => Qt_Key_Key_F26          # F26          # F26        ;
-//'\u{F71E}'    # F27         # => Qt_Key_Key_F27          # F27          # F27        ;
-//'\u{F71F}'    # F28         # => Qt_Key_Key_F28          # F28          # F28        ;
-//'\u{F720}'    # F29         # => Qt_Key_Key_F29          # F29          # F29        ;
-//'\u{F721}'    # F30         # => Qt_Key_Key_F30          # F30          # F30        ;
-//'\u{F722}'    # F31         # => Qt_Key_Key_F31          # F31          # F31        ;
-//'\u{F723}'    # F32         # => Qt_Key_Key_F32          # F32          # F32        ;
-//'\u{F724}'    # F33         # => Qt_Key_Key_F33          # F33          # F33        ;
-//'\u{F725}'    # F34         # => Qt_Key_Key_F34          # F34          # F34        ;
-//'\u{F726}'    # F35         # => Qt_Key_Key_F35          # F35          # F35        ;
-'\u{F727}'	# Insert      # => Qt_Key_Key_Insert       # Insert       # Insert     ;
+'\u{F700}'	# UpArrow     # # ArrowUp     => Qt_Key_Key_Up           # ArrowUp           # Up         ;
+'\u{F701}'	# DownArrow   # # ArrowDown   => Qt_Key_Key_Down         # ArrowDown         # Down       ;
+'\u{F702}'	# LeftArrow   # # ArrowLeft   => Qt_Key_Key_Left         # ArrowLeft         # Left       ;
+'\u{F703}'	# RightArrow  # # ArrowRight  => Qt_Key_Key_Right        # ArrowRight        # Right      ;
+'\u{F704}'	# F1          # # F1          => Qt_Key_Key_F1           # F1           # F1         ;
+'\u{F705}'	# F2          # # F2          => Qt_Key_Key_F2           # F2           # F2         ;
+'\u{F706}'	# F3          # # F3          => Qt_Key_Key_F3           # F3           # F3         ;
+'\u{F707}'	# F4          # # F4          => Qt_Key_Key_F4           # F4           # F4         ;
+'\u{F708}'	# F5          # # F5          => Qt_Key_Key_F5           # F5           # F5         ;
+'\u{F709}'	# F6          # # F6          => Qt_Key_Key_F6           # F6           # F6         ;
+'\u{F70A}'	# F7          # # F7          => Qt_Key_Key_F7           # F7           # F7         ;
+'\u{F70B}'	# F8          # # F8          => Qt_Key_Key_F8           # F8           # F8         ;
+'\u{F70C}'	# F9          # # F9          => Qt_Key_Key_F9           # F9           # F9         ;
+'\u{F70D}'	# F10         # # F10         => Qt_Key_Key_F10          # F10          # F10        ;
+'\u{F70E}'	# F11         # # F11         => Qt_Key_Key_F11          # F11          # F11        ;
+'\u{F70F}'	# F12         # # F12         => Qt_Key_Key_F12          # F12          # F12        ;
+'\u{F710}'	# F13         # # F13         => Qt_Key_Key_F13          # F13          # F13        ;
+'\u{F711}'	# F14         # # F14         => Qt_Key_Key_F14          # F14          # F14        ;
+'\u{F712}'	# F15         # # F15         => Qt_Key_Key_F15          # F15          # F15        ;
+'\u{F713}'	# F16         # # F16         => Qt_Key_Key_F16          # F16          # F16        ;
+'\u{F714}'	# F17         # # F17         => Qt_Key_Key_F17          # F17          # F17        ;
+'\u{F715}'	# F18         # # F18         => Qt_Key_Key_F18          # F18          # F18        ;
+'\u{F716}'	# F19         # # F19         => Qt_Key_Key_F19          # F19          # F19        ;
+'\u{F717}'	# F20         # # F20         => Qt_Key_Key_F20          # F20          # F20        ;
+'\u{F718}'	# F21         # # F21         => Qt_Key_Key_F21          # F21          # F21        ;
+'\u{F719}'	# F22         # # F22         => Qt_Key_Key_F22          # F22          # F22        ;
+'\u{F71A}'	# F23         # # F23         => Qt_Key_Key_F23          # F23          # F23        ;
+'\u{F71B}'	# F24         # # F24         => Qt_Key_Key_F24          # F24          # F24        ;
+//'\u{F71C}'    # F25         # # F25         => Qt_Key_Key_F25          # F25          # F25        ;
+//'\u{F71D}'    # F26         # # F26         => Qt_Key_Key_F26          # F26          # F26        ;
+//'\u{F71E}'    # F27         # # F27         => Qt_Key_Key_F27          # F27          # F27        ;
+//'\u{F71F}'    # F28         # # F28         => Qt_Key_Key_F28          # F28          # F28        ;
+//'\u{F720}'    # F29         # # F29         => Qt_Key_Key_F29          # F29          # F29        ;
+//'\u{F721}'    # F30         # # F30         => Qt_Key_Key_F30          # F30          # F30        ;
+//'\u{F722}'    # F31         # # F31         => Qt_Key_Key_F31          # F31          # F31        ;
+//'\u{F723}'    # F32         # # F32         => Qt_Key_Key_F32          # F32          # F32        ;
+//'\u{F724}'    # F33         # # F33         => Qt_Key_Key_F33          # F33          # F33        ;
+//'\u{F725}'    # F34         # # F34         => Qt_Key_Key_F34          # F34          # F34        ;
+//'\u{F726}'    # F35         # # F35         => Qt_Key_Key_F35          # F35          # F35        ;
+'\u{F727}'	# Insert      # # Insert      => Qt_Key_Key_Insert       # Insert       # Insert     ;
 //'\u{F728}'	# Delete     ;  // already as a control code
-'\u{F729}'	# Home        # => Qt_Key_Key_Home         # Home         # Home       ;
-//'\u{F72A}'	# Begin       # =>                         #              ;
-'\u{F72B}'	# End         # => Qt_Key_Key_End          # End          # End        ;
-'\u{F72C}'	# PageUp      # => Qt_Key_Key_PageUp       # PageUp       # Page_Up    ;
-'\u{F72D}'	# PageDown    # => Qt_Key_Key_PageDown     # PageDown     # Page_Down  ;
-//'\u{F72E}'	# PrintScreen # =>                         # Snapshot     ;
-'\u{F72F}'	# ScrollLock  # => Qt_Key_Key_ScrollLock   # ScrollLock   # Scroll_Lock;
-'\u{F730}'	# Pause       # => Qt_Key_Key_Pause        # Pause        # Pause      ;
-'\u{F731}'	# SysReq      # => Qt_Key_Key_SysReq       # PrintScreen  # Sys_Req    ;
-//'\u{F732}'	# Break       # =>                         #              ;
-//'\u{F733}'	# Reset       # =>                         #              ;
-'\u{F734}'	# Stop        # => Qt_Key_Key_Stop         #              # XF86_Stop       ;
-'\u{F735}'	# Menu        # => Qt_Key_Key_Menu         # ContextMenu  # Menu       ;
-//'\u{F736}'	# User        # =>                         #              ;
-//'\u{F737}'	# System      # =>                         #              ;
-//'\u{F738}'	# Print       # => Qt_Key_Key_Print        #              ;
-//'\u{F739}'	# ClearLine   # =>                         #              ;
-//'\u{F73A}'	# ClearDisplay# =>                         #              ;
-//'\u{F73B}'	# InsertLine  # =>                         #              ;
-//'\u{F73C}'	# DeleteLine  # =>                         #              ;
-//'\u{F73D}'	# InsertChar  # =>                         #              ;
-//'\u{F73E}'	# DeleteChar  # =>                         #              ;
-//'\u{F73F}'	# Prev        # =>                         #              ;
-//'\u{F740}'	# Next        # =>                         #              ;
-//'\u{F741}'	# Select      # => Qt_Key_Key_Select       #              ;
-//'\u{F742}'	# Execute     # => Qt_Key_Key_Execute      #              ;
-//'\u{F743}'	# Undo        # => Qt_Key_Key_Undo         #              ;
-//'\u{F744}'	# Redo        # => Qt_Key_Key_Redo         #              ;
-//'\u{F745}'	# Find        # => Qt_Key_Key_Find         #              ;
-//'\u{F746}'	# Help        # => Qt_Key_Key_Help         #              ;
-//'\u{F747}'	# ModeSwitch  # => Qt_Key_Key_Mode_switch  #            ;
-'\u{F748}'	# Back        # => Qt_Key_Key_Back  #           #    ;
+'\u{F729}'	# Home        # # Home        => Qt_Key_Key_Home         # Home         # Home       ;
+//'\u{F72A}'	# Begin       # #             =>                         #              ;
+'\u{F72B}'	# End         # # End         => Qt_Key_Key_End          # End          # End        ;
+'\u{F72C}'	# PageUp      # # PageUp      => Qt_Key_Key_PageUp       # PageUp       # Page_Up    ;
+'\u{F72D}'	# PageDown    # # PageDown    => Qt_Key_Key_PageDown     # PageDown     # Page_Down  ;
+//'\u{F72E}'	# PrintScreen # #             =>                         # Snapshot     ;
+'\u{F72F}'	# ScrollLock  # # ScrollLock  => Qt_Key_Key_ScrollLock   # ScrollLock   # Scroll_Lock;
+'\u{F730}'	# Pause       # # Pause       => Qt_Key_Key_Pause        # Pause        # Pause      ;
+'\u{F731}'	# SysReq      # # PrintScreen => Qt_Key_Key_SysReq       # PrintScreen  # Sys_Req    ;
+//'\u{F732}'	# Break       # #             =>                         #              ;
+//'\u{F733}'	# Reset       # #             =>                         #              ;
+'\u{F734}'	# Stop        # #             => Qt_Key_Key_Stop         #              # XF86_Stop       ;
+'\u{F735}'	# Menu        # # ContextMenu => Qt_Key_Key_Menu         # ContextMenu  # Menu       ;
+//'\u{F736}'	# User        # #             =>                         #              ;
+//'\u{F737}'	# System      # #             =>                         #              ;
+//'\u{F738}'	# Print       # #             => Qt_Key_Key_Print        #              ;
+//'\u{F739}'	# ClearLine   # #             =>                         #              ;
+//'\u{F73A}'	# ClearDisplay# #             =>                         #              ;
+//'\u{F73B}'	# InsertLine  # #             =>                         #              ;
+//'\u{F73C}'	# DeleteLine  # #             =>                         #              ;
+//'\u{F73D}'	# InsertChar  # #             =>                         #              ;
+//'\u{F73E}'	# DeleteChar  # #             =>                         #              ;
+//'\u{F73F}'	# Prev        # #             =>                         #              ;
+//'\u{F740}'	# Next        # #             =>                         #              ;
+//'\u{F741}'	# Select      # #             => Qt_Key_Key_Select       #              ;
+//'\u{F742}'	# Execute     # #             => Qt_Key_Key_Execute      #              ;
+//'\u{F743}'	# Undo        # #             => Qt_Key_Key_Undo         #              ;
+//'\u{F744}'	# Redo        # #             => Qt_Key_Key_Redo         #              ;
+//'\u{F745}'	# Find        # #             => Qt_Key_Key_Find         #              ;
+//'\u{F746}'	# Help        # #             => Qt_Key_Key_Help         #              ;
+//'\u{F747}'	# ModeSwitch  # #             => Qt_Key_Key_Mode_switch  #            ;
+'\u{F748}'	# Back        # #             => Qt_Key_Key_Back  #           #    ;
 
 
 // -------------------- NORMAL KEYS ------------------------------
 // The names are based on: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode
-'a' # A # ;
-'b' # B # ;
-'c' # C # ;
-'d' # D # ;
-'e' # E # ;
-'f' # F # ;
-'g' # G # ;
-'h' # H # ;
-'i' # I # ;
-'j' # J # ;
-'k' # K # ;
-'l' # L # ;
-'m' # M # ;
-'n' # N # ;
-'o' # O # ;
-'p' # P # ;
-'q' # Q # ;
-'r' # R # ;
-'s' # S # ;
-'t' # T # ;
-'u' # U # ;
-'v' # V # ;
-'w' # W # ;
-'x' # X # ;
-'y' # Y # ;
-'z' # Z # ;
+'a' # A # # KeyA ;
+'b' # B # # KeyB ;
+'c' # C # # KeyC ;
+'d' # D # # KeyD ;
+'e' # E # # KeyE ;
+'f' # F # # KeyF ;
+'g' # G # # KeyG ;
+'h' # H # # KeyH ;
+'i' # I # # KeyI ;
+'j' # J # # KeyJ ;
+'k' # K # # KeyK ;
+'l' # L # # KeyL ;
+'m' # M # # KeyM ;
+'n' # N # # KeyN ;
+'o' # O # # KeyO ;
+'p' # P # # KeyP ;
+'q' # Q # # KeyQ ;
+'r' # R # # KeyR ;
+'s' # S # # KeyS ;
+'t' # T # # KeyT ;
+'u' # U # # KeyU ;
+'v' # V # # KeyV ;
+'w' # W # # KeyW ;
+'x' # X # # KeyX ;
+'y' # Y # # KeyY ;
+'z' # Z # # KeyZ ;
 
-'0' # Digit0 # CloseParen;
-'1' # Digit1 # Exclamation;
-'2' # Digit2 # At;
-'3' # Digit3 # Hash;
-'4' # Digit4 # Dollar;
-'5' # Digit5 # Percent;
-'6' # Digit6 # Circumflex;
-'7' # Digit7 # Ampersand;
-'8' # Digit8 # Asterisk;
-'9' # Digit9 # OpenParen;
+'0' # Digit0 # CloseParen  # Digit0 ;
+'1' # Digit1 # Exclamation # Digit1 ;
+'2' # Digit2 # At          # Digit2 ;
+'3' # Digit3 # Hash        # Digit3 ;
+'4' # Digit4 # Dollar      # Digit4 ;
+'5' # Digit5 # Percent     # Digit5 ;
+'6' # Digit6 # Circumflex  # Digit6 ;
+'7' # Digit7 # Ampersand   # Digit7 ;
+'8' # Digit8 # Asterisk    # Digit8 ;
+'9' # Digit9 # OpenParen   # Digit9 ;
 
-'^' # Circumflex        # Digit6;
-'!' # Exclamation       # Digit1;
-'"' # DoubleQuote       # Quote;
-'#' # Hash              # Digit3;
-'$' # Dollar            # Digit4;
-'%' # Percent           # Digit5;
-'&' # Ampersand         # Digit7;
-'_' # Underscore        # HyphenMinus;
-'(' # OpenParen         # Digit9;
-')' # CloseParen        # Digit0;
-'*' # Asterisk          # Digit8;
-'+' # Plus              # Equal;
-'|' # Pipe              # BackSlash;
-'-' # HyphenMinus       # Underscore;
-'{' # OpenCurlyBracket  # OpenBracket;
-'}' # CloseCurlyBracket # CloseBracket;
-'~' # Tilde             # BackQuote;
-':' # Colon             # Semicolon;
-';' # Semicolon         # Colon;
-'<' # LessThan          # Comma;
-'=' # Equals            # Plus;
-'>' # GreaterThan       # Period;
-'?' # QuestionMark      # Slash;
-'@' # At                # Digit2;
-',' # Comma             # LessThan;
-'.' # Period            # GreaterThan;
-'/' # Slash             # QuestionMark;
-'`' # BackQuote         # Tilde;
-'[' # OpenBracket       # OpenCurlyBracket;
-'\\' # BackSlash        # Pipe;
-']' # CloseBracket      # CloseCurlyBracket;
-'\'' # Quote            # DoubleQuote;
+'^' # Circumflex        # Digit6            # ;
+'!' # Exclamation       # Digit1            # ;
+'"' # DoubleQuote       # Quote             # ;
+'#' # Hash              # Digit3            # ;
+'$' # Dollar            # Digit4            # ;
+'%' # Percent           # Digit5            # ;
+'&' # Ampersand         # Digit7            # ;
+'_' # Underscore        # HyphenMinus       # ;
+'(' # OpenParen         # Digit9            # ;
+')' # CloseParen        # Digit0            # ;
+'*' # Asterisk          # Digit8            # ;
+'+' # Plus              # Equal             # ;
+'|' # Pipe              # BackSlash         # ;
+'-' # HyphenMinus       # Underscore        # Minus ;
+'{' # OpenCurlyBracket  # OpenBracket       # ;
+'}' # CloseCurlyBracket # CloseBracket      # ;
+'~' # Tilde             # BackQuote         # ;
+':' # Colon             # Semicolon         # ;
+';' # Semicolon         # Colon             # Semicolon ;
+'<' # LessThan          # Comma             # ;
+'=' # Equals            # Plus              # Equal ;
+'>' # GreaterThan       # Period            # ;
+'?' # QuestionMark      # Slash             # ;
+'@' # At                # Digit2            # ;
+',' # Comma             # LessThan          # Comma ;
+'.' # Period            # GreaterThan       # Period ;
+'/' # Slash             # QuestionMark      # Slash ;
+'`' # BackQuote         # Tilde             # Backquote ;
+'[' # OpenBracket       # OpenCurlyBracket  # BracketLeft ;
+'\\' # BackSlash        # Pipe              # Backslash ;
+']' # CloseBracket      # CloseCurlyBracket # BracketRight ;
+'\'' # Quote            # DoubleQuote       # Quote ;
 
 ];
     };

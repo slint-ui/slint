@@ -1698,7 +1698,7 @@ fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
         };
     }
     macro_rules! generate_key_map {
-        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
+        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
             {
                 [
                     $(

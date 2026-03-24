@@ -192,6 +192,8 @@ macro_rules! for_each_builtin_structs {
                     has_sub_menu: bool,
                     /// The menu entry is a separator
                     is_separator: bool,
+                    /// The shortcut keys
+                    shortcut: Keys,
                 }
                 private {}
             }

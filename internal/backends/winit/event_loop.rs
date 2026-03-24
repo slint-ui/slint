@@ -266,7 +266,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
 
                 macro_rules! winit_key_to_char {
-                ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
+                ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
                     match &key_code {
                         $( $( $(
                                     winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit)
