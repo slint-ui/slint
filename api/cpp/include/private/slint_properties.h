@@ -381,6 +381,8 @@ struct ChangeTracker
 {
     ChangeTracker() { cbindgen_private::slint_change_tracker_construct(&inner); }
     ~ChangeTracker() { cbindgen_private::slint_change_tracker_drop(&inner); }
+    ChangeTracker(const ChangeTracker &) = delete;
+    ChangeTracker &operator=(const ChangeTracker &) = delete;
 
     template<typename Data, typename FnEval, typename FnNotify>
     void init(Data data, FnEval fn_eval, FnNotify fn_notify)
