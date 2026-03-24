@@ -596,6 +596,27 @@ pub enum KeyEventType {
     CommitComposition = 3,
 }
 
+#[derive(Default)]
+/// This struct is used to pass key events to the runtime.
+pub struct InternalKeyEvent {
+    /// That's the public type with only public fields
+    pub key_event: KeyEvent,
+    /// Indicates whether the key was pressed or released
+    pub event_type: KeyEventType,
+    /// If the event type is KeyEventType::UpdateComposition or KeyEventType::CommitComposition,
+    /// then this field specifies what part of the current text to replace.
+    /// Relative to the offset of the pre-edit text within the text input element's text.
+    pub replacement_range: Option<core::ops::Range<i32>>,
+    /// If the event type is KeyEventType::UpdateComposition, this is the new pre-edit text
+    pub preedit_text: SharedString,
+    /// The selection within the preedit_text
+    pub preedit_selection: Option<core::ops::Range<i32>>,
+    /// The new cursor position, when None, the cursor is put after the text that was just inserted
+    pub cursor_position: Option<i32>,
+    /// The anchor position, when None, the cursor is put after the text that was just inserted
+    pub anchor_position: Option<i32>,
+}
+
 impl KeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
