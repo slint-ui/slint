@@ -34,8 +34,8 @@ export component TestCase implements InterfaceWithDefaults inherits Base {
     // Explicitly override the InterfaceWithDefaults default for precision
     precision: 3;
 
-    // We expect to be using our explicitly override for precision and the InterfaceWithDefaults value for confidence
-    out property <bool> test: self.text == "Hello" && self.enabled && self.precision == 3 && self.confidence == 1.0;
+    // We expect to be using our explicit override for precision and the Base value for confidence
+    out property <bool> test: self.text == "Hello" && self.enabled && self.precision == 3 && self.confidence == 0.5;
 }
 
 /*

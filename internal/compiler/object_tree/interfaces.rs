@@ -307,7 +307,11 @@ pub(super) fn apply_default_property_values(
         })
     {
         if let Some(binding) = interface.borrow().bindings.get(property_name) {
-            e.bindings.entry(property_name.clone()).or_insert_with(|| binding.clone());
+            // Only apply the default binding if there isn't already a binding set on the element.
+            if e.is_binding_set(property_name, true) {
+                continue;
+            }
+            e.bindings.insert(property_name.clone(), binding.clone());
         }
     }
 }
