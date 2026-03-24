@@ -10,8 +10,8 @@ export component TestCase inherits Window {
         @keys("é"),
     ];
 
-    // For access from NodeJS
-    out property <keys> first_shortcut: shortcuts[0];
+    // Single shortcut for testing the property accessors
+    in-out property <keys> first_shortcut: shortcuts[0];
 
     // Test conversion from keys to string
     out property <string> shortcut_as_string: shortcuts[0].to-string();
@@ -192,6 +192,29 @@ let shortcut = instance.first_shortcut;
 assert.equal(shortcut, "Control+Shift+\"\\u{1b}\"")
 
 // TODO: Simulate shortcuts in JS
+```
+
+```python
+instance = TestCase()
+
+shortcut = instance.first_shortcut
+assert type(shortcut).__name__ == "Keys"
+
+# str() uses platform-native Display format, which matches the Slint .to-string() output
+assert str(shortcut) == instance.shortcut_as_string
+assert str(instance.shortcuts[1]) == instance.shortcut_a_as_string
+assert str(instance.shortcuts[2]) == instance.shortcut_plus_as_string
+
+# Equality
+assert shortcut == instance.first_shortcut
+assert shortcut != instance.shortcuts[1]
+
+# Setters
+new_keys = instance.shortcuts[1]
+if new_keys is not None:
+    instance.first_shortcut = new_keys
+
+# TODO: Simulate shortcuts in Python
 ```
 
 */
