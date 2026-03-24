@@ -1003,6 +1003,7 @@ impl BorrowedOpenGLTextureBuilder {
         })
     }
 
+    /// Generates the base configuration for a borrowed OpenGL texture that is marked as external.
     #[allow(unsafe_code)]
     pub unsafe fn new_gl_2d_external_rgba_texture(
         texture_id: core::num::NonZeroU32,
