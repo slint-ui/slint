@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::borrow::Cow;
+use std::fs;
 
 #[derive(Clone)]
 pub struct VirtualFile {
@@ -74,6 +75,21 @@ fn test_load_file() {
     assert!(rel_cargo_toml.canon_path.exists());
 
     assert_eq!(abs_cargo_toml.canon_path, rel_cargo_toml.canon_path);
+}
+
+/// Writes a buffer into a file, but only if the content differs from the file content
+///
+/// Tries to read the destination file first, and only writes the new content if
+/// the file didn't exist or the file content differs from the content to write.
+/// This avoids unnecessary mtime modification of the file, which caused build
+/// systems like Ninja to rebuild other things even though the outpuf of
+/// slint-compiler didn't change.
+pub fn write_file_if_changed(path: &std::path::Path, content: &[u8]) -> std::io::Result<bool> {
+    if fs::read(path).is_ok_and(|existing| existing == content) {
+        return Ok(false);
+    }
+    fs::write(path, content)?;
+    Ok(true)
 }
 
 mod builtin_library {
