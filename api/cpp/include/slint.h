@@ -9,6 +9,7 @@
 #include "private/slint_window.h"
 #include "private/slint_models.h"
 #include "private/slint_item_tree.h"
+#include "private/slint_keys.h"
 
 #include <vector>
 #include <chrono>
@@ -354,13 +355,6 @@ translate_from_bundle_with_plural(std::span<const char8_t *const> strs,
                        plural_rules.size());
     cbindgen_private::slint_translate_from_bundle_with_plural(
             strs_slice, indices_slice, plural_rules_slice, arguments, n, &result);
-    return result;
-}
-
-inline SharedString keys_to_string(const cbindgen_private::Keys &keys)
-{
-    SharedString result;
-    cbindgen_private::slint_keys_to_string(&keys, &result);
     return result;
 }
 

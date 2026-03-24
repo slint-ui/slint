@@ -464,7 +464,7 @@ impl Keys {
 }
 
 impl Display for Keys {
-    /// Converts the keyboard shortcut to a string that looks native on the current platform.
+    /// Converts the [`Keys`] to a string that looks native on the current platform.
     ///
     /// For example, the shortcut created with @keys(Meta + Control + A)
     /// will be converted like this:
