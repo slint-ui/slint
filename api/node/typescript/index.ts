@@ -989,6 +989,7 @@ export namespace private_api {
     export import SlintSize = napi.SlintSize;
     export import SlintPoint = napi.SlintPoint;
     export import SlintImageData = napi.SlintImageData;
+    export import SlintKeys = napi.SlintKeys;
 
     export function send_mouse_click(
         component: Component,
@@ -1003,6 +1004,10 @@ export namespace private_api {
         s: string,
     ) {
         component.component_instance.sendKeyboardStringSequence(s);
+    }
+
+    export function send_key_combo(component: Component, keys: string[]) {
+        component.component_instance.sendKeyCombo(keys);
     }
 
     export import initTesting = napi.initTesting;

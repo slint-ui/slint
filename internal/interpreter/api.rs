@@ -1821,6 +1821,21 @@ pub mod testing {
             &WindowInner::from_pub(comp.window()).window_adapter(),
         );
     }
+
+    /// Simulate pressing a combination of keys together, then releasing them in reverse order.
+    ///
+    /// Each entry in `keys` is a key text (a single character or a special-key unicode codepoint).
+    /// All keys are pressed in order, then released in reverse
+    // Emulates the same behavior as `i_slint_backend_testing::send_key_combo_with_text`.
+    pub fn send_key_combo(comp: &super::ComponentInstance, keys: &[i_slint_core::SharedString]) {
+        let window_adapter = &WindowInner::from_pub(comp.window()).window_adapter();
+        for key in keys {
+            i_slint_core::tests::slint_send_keyboard_key_text(key, true, window_adapter);
+        }
+        for key in keys.iter().rev() {
+            i_slint_core::tests::slint_send_keyboard_key_text(key, false, window_adapter);
+        }
+    }
 }
 
 #[test]
