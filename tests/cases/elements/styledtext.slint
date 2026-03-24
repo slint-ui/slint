@@ -5,13 +5,11 @@ export component TestCase inherits Window {
     VerticalLayout {
         st := StyledText {
             text: @markdown("Hello **World**: {} *{}*", "_abc_", @markdown("<u>xyz</u>"));
-            font-size: 24px;
-            color: red;
+            default-color: red;
         }
 
         st_link := StyledText {
             text: @markdown("Click [this link](https://slint.dev)");
-            font-size: 24px;
             link-clicked(url) => {
                 clicked_link_url = url;
             }
