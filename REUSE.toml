@@ -63,7 +63,7 @@ path = [
   "rustfmt.toml",
   "*.md",
   "tests/cases/**/**.txt",
-  "internal/compiler/tests/syntax/**/**.txt"
+  "internal/compiler/tests/syntax/**/**.txt",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
