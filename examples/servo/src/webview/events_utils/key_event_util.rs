@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 use slint::{
-    SharedString, language::KeyboardModifiers, platform::Key as SlintKey,
-    private_unstable_api::re_exports::KeyEvent,
+    SharedString,
+    language::{KeyEvent, KeyboardModifiers},
+    platform::Key as SlintKey,
 };
 
 use servo::{Code, InputEvent, Key, KeyState, KeyboardEvent, Location, Modifiers, NamedKey};
