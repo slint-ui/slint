@@ -5,57 +5,14 @@ import { MaterialFontSettings, MaterialPalette } from "styling.slint";
 import { ScrollView } from "scrollview.slint";
 import { TextEditBase } from "../common/textedit-base.slint";
 
-export component TextEdit {
-    in property <TextWrap> wrap <=> base.wrap;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
-    in property <bool> read-only <=> base.read-only;
-    in property <length> font-size <=> base.font-size;
-    in property <string> font-family <=> base.font-family;
-    in property <bool> font-italic <=> base.font-italic;
-    in property <bool> enabled <=> base.enabled;
-    in property <string> placeholder-text <=> base.placeholder-text;
-    out property <bool> has-focus: base.has-focus;
-    out property <length> visible-width <=> base.visible-width;
-    out property <length> visible-height <=> base.visible-height;
-    in-out property <string> text <=> base.text;
-    in-out property <length> viewport-x <=> base.viewport-x;
-    in-out property <length> viewport-y <=> base.viewport-y;
-    in-out property <length> viewport-width <=> base.viewport-width;
-    in-out property <length> viewport-height <=> base.viewport-height;
+import { TextEditInterface } from "../common/std-widget-interfaces.slint";
 
-    callback edited <=> base.edited;
-    callback key-pressed <=> base.key-pressed;
-    callback key-released <=> base.key-released;
-
+export component TextEdit uses { TextEditInterface from base } {
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
     accessible-value <=> text;
     accessible-placeholder-text: placeholder-text;
     accessible-read-only: root.read-only;
-
-    public function set-selection-offsets(start: int, end: int) {
-        base.set-selection-offsets(start, end);
-    }
-
-    public function select-all() {
-        base.select-all();
-    }
-
-    public function clear-selection() {
-        base.clear-selection();
-    }
-
-    public function cut() {
-        base.cut();
-    }
-
-    public function copy() {
-        base.copy();
-    }
-
-    public function paste() {
-        base.paste();
-    }
 
     forward-focus: base;
     horizontal-stretch: 1;
