@@ -1522,7 +1522,7 @@ mod tests {
     fn test_tracking_model_handle() {
         let model: Rc<VecModel<u8>> = Rc::new(Default::default());
         let handle = ModelRc::from(model.clone() as Rc<dyn Model<Data = u8>>);
-        let tracker = Box::pin(crate::properties::PropertyTracker::default());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
         assert_eq!(
             tracker.as_ref().evaluate(|| {
                 handle.model_tracker().track_row_count_changes();
@@ -1562,7 +1562,7 @@ mod tests {
     fn test_data_tracking() {
         let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
         let handle = ModelRc::from(model.clone());
-        let tracker = Box::pin(crate::properties::PropertyTracker::default());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
         assert_eq!(
             tracker.as_ref().evaluate(|| {
                 handle.model_tracker().track_row_data_changes(1);
