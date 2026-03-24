@@ -11,7 +11,7 @@ export component TestCase inherits Window {
     out property <float> scale <=> pinch.scale;
     out property <angle> rotation <=> pinch.rotation;
     out property <Point> center <=> pinch.center;
-    out property <bool> smart-magnified: false;
+    out property <Point> smart-magnified;
 
     pinch := PinchGestureHandler {
         started => {
@@ -26,8 +26,8 @@ export component TestCase inherits Window {
         cancelled => {
             r += "cancelled;";
         }
-        smart-magnify => {
-            root.smart-magnified = true;
+        double-tapped(position) => {
+            root.smart-magnified = position;
         }
     }
 }
@@ -239,9 +239,9 @@ slint_testing::send_pinch_gesture(&instance, 0.0, 300.0, 300.0, TouchPhase::Ende
 let instance = TestCase::new().unwrap();
 
 // === Test 12: DoubleTapGesture fires smart-magnify callback ===
-assert_eq!(instance.get_smart_magnified(), false);
-slint_testing::send_double_tap_gesture(&instance, 300.0, 300.0);
-assert_eq!(instance.get_smart_magnified(), true);
+assert_eq!(instance.get_smart_magnified(), Default::default());
+slint_testing::send_double_tap_gesture(&instance, 350.0, 300.0);
+assert_eq!(instance.get_smart_magnified(), slint::LogicalPosition::new(350.0, 300.0));
 // DoubleTapGesture should not activate the gesture
 assert_eq!(instance.get_active(), false);
 ```
@@ -252,7 +252,7 @@ let instance = TestCase::new().unwrap();
 // === Test 13: DoubleTapGesture ignored when disabled ===
 instance.set_enabled(false);
 slint_testing::send_double_tap_gesture(&instance, 300.0, 300.0);
-assert_eq!(instance.get_smart_magnified(), false);
+assert_eq!(instance.get_smart_magnified(), Default::default());
 ```
 
 ```rust

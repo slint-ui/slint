@@ -214,7 +214,7 @@ export component MainWindow inherits Window {
             root.status-text = "cancelled";
         }
 
-        smart-magnify => {
+        double-tapped => {
             if gestureData.current-scale > 1.5 {
                 gestureData.current-scale = 1.0;
                 gestureData.current-rotation = 0deg;

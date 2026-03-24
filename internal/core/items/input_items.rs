@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg,
-    MouseCursor, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind,
-    PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg,
+    EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, ItemTreeVTable,
+    KeyEventArg, MouseCursor, PointArg, PointerEvent, PointerEventArg, PointerEventButton,
+    PointerEventKind, PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg,
 };
 use crate::api::LogicalPosition;
 use crate::input::{
@@ -12,7 +12,6 @@ use crate::input::{
     InternalKeyEvent, KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::ItemTreeVTable;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
 use crate::properties::PropertyTracker;
@@ -988,7 +987,7 @@ pub struct PinchGestureHandler {
     pub updated: Callback<VoidArg>,
     pub ended: Callback<VoidArg>,
     pub cancelled: Callback<VoidArg>,
-    pub smart_magnify: Callback<VoidArg>,
+    pub double_tapped: Callback<PointArg>,
 
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -1129,11 +1128,14 @@ impl Item for PinchGestureHandler {
                     }
                 }
             }
-            MouseEvent::DoubleTapGesture { .. } => {
+            MouseEvent::DoubleTapGesture { position } => {
                 if !self.enabled() {
                     return InputEventResult::EventIgnored;
                 }
-                Self::FIELD_OFFSETS.smart_magnify.apply_pin(self).call(&());
+                Self::FIELD_OFFSETS
+                    .double_tapped
+                    .apply_pin(self)
+                    .call(&(LogicalPosition::from_euclid(*position),));
                 InputEventResult::EventAccepted
             }
             // Grab mouse during active gesture to maintain exclusivity.

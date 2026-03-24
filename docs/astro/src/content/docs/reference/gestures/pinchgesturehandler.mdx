@@ -91,4 +91,4 @@ For trackpad gestures, this is the mouse cursor position.
 -   **`updated()`**: Invoked whenever the `scale`, `rotation`, or `center` changes during the gesture.
 -   **`ended()`**: Invoked when the gesture completes normally (fingers lifted).
 -   **`cancelled()`**: Invoked when the gesture is cancelled, for example when the handler is disabled during an active gesture or the window loses focus.
--   **`smart-magnify()`**: Invoked on a platform "smart magnify" gesture (two-finger double-tap on macOS/iOS trackpads). This does not activate the gesture or change `scale`/`rotation`.
+-   **`double-tapped(position: Point)`**: Invoked on a platform "smart magnify" gesture (two-finger double-tap on macOS/iOS trackpads). This does not activate the gesture or change `scale`/`rotation`.
