@@ -15,8 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut, key_codes,
+    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
+    InternalKeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut, key_codes,
 };
 use crate::item_rendering::{
     CachedRenderingData, HasFont, ItemRenderer, PlainOrStyledText, RenderString, RenderText,
@@ -103,7 +103,7 @@ impl Item for ComplexText {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -112,7 +112,7 @@ impl Item for ComplexText {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -318,7 +318,7 @@ impl Item for StyledTextItem {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -327,7 +327,7 @@ impl Item for StyledTextItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -497,7 +497,7 @@ impl Item for SimpleText {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -506,7 +506,7 @@ impl Item for SimpleText {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -904,7 +904,7 @@ impl Item for TextInput {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -913,7 +913,7 @@ impl Item for TextInput {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -923,19 +923,19 @@ impl Item for TextInput {
         match event.event_type {
             KeyEventType::KeyPressed => {
                 // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
-                if Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
+                if Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.key_event.clone(),))
                     == EventResult::Accept
                 {
                     return KeyEventResult::EventAccepted;
                 }
 
-                match event.text_shortcut() {
+                match event.key_event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
                             TextInput::move_cursor(
                                 self,
                                 direction,
-                                event.modifiers.into(),
+                                event.key_event.modifiers.into(),
                                 TextChangeNotify::TriggerCallbacks,
                                 window_adapter,
                                 self_rc,
@@ -995,7 +995,7 @@ impl Item for TextInput {
                     None => (),
                 };
 
-                if let Some(keycode) = event.text.chars().next()
+                if let Some(keycode) = event.key_event.text.chars().next()
                     && keycode == key_codes::Return
                     && !self.read_only()
                     && self.single_line()
@@ -1005,8 +1005,8 @@ impl Item for TextInput {
                 }
 
                 // Only insert/interpreter non-control character strings
-                if event.text.is_empty()
-                    || event.text.as_str().chars().any(|ch| {
+                if event.key_event.text.is_empty()
+                    || event.key_event.text.as_str().chars().any(|ch| {
                         // exclude the private use area as we encode special keys into it
                         ('\u{f700}'..='\u{f7ff}').contains(&ch) || (ch.is_control() && ch != '\n')
                     })
@@ -1014,7 +1014,7 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
 
-                if let Some(shortcut) = event.shortcut() {
+                if let Some(shortcut) = event.key_event.shortcut() {
                     match shortcut {
                         StandardShortcut::SelectAll => {
                             self.select_all(window_adapter, self_rc);
@@ -1047,7 +1047,7 @@ impl Item for TextInput {
                     }
                 }
 
-                if self.read_only() || event.modifiers.control {
+                if self.read_only() || event.key_event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1057,7 +1057,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.text.as_str()) {
+                if !self.accept_text_input(event.key_event.text.as_str()) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1067,18 +1067,18 @@ impl Item for TextInput {
 
                 // FIXME: respect grapheme boundaries
                 let insert_pos = self.selection_anchor_and_cursor().1;
-                text.insert_str(insert_pos, &event.text);
+                text.insert_str(insert_pos, &event.key_event.text);
 
                 self.add_undo_item(UndoItem {
                     pos: insert_pos,
-                    text: event.text.clone(),
+                    text: event.key_event.text.clone(),
                     cursor: real_cursor,
                     anchor: real_anchor,
                     kind: UndoItemKind::TextInsert,
                 });
 
                 self.as_ref().text.set(text.into());
-                let new_cursor_pos = (insert_pos + event.text.len()) as i32;
+                let new_cursor_pos = (insert_pos + event.key_event.text.len()) as i32;
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(
                     new_cursor_pos,
@@ -1097,13 +1097,17 @@ impl Item for TextInput {
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => {
-                match Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),)) {
+                match Self::FIELD_OFFSETS
+                    .key_released
+                    .apply_pin(self)
+                    .call(&(event.key_event.clone(),))
+                {
                     EventResult::Accept => KeyEventResult::EventAccepted,
                     EventResult::Reject => KeyEventResult::EventIgnored,
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.text) {
+                if !self.accept_text_input(&event.key_event.text) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1115,7 +1119,7 @@ impl Item for TextInput {
                     // Set the selection so the call to insert erases it
                     self.anchor_position_byte_offset.set(cursor.saturating_add(r.start));
                     self.cursor_position_byte_offset.set(cursor.saturating_add(r.end));
-                    if event.text.is_empty() {
+                    if event.key_event.text.is_empty() {
                         self.delete_selection(
                             window_adapter,
                             self_rc,
@@ -1128,7 +1132,7 @@ impl Item for TextInput {
                         );
                     }
                 }
-                self.insert(&event.text, window_adapter, self_rc);
+                self.insert(&event.key_event.text, window_adapter, self_rc);
                 if let Some(cursor) = event.cursor_position {
                     self.anchor_position_byte_offset.set(event.anchor_position.unwrap_or(cursor));
                     self.set_cursor_position(
