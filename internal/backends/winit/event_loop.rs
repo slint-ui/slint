@@ -18,6 +18,7 @@ use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
 use i_slint_core as corelib;
+use i_slint_core::input::InternalKeyEvent;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
@@ -313,7 +314,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     .err();
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
-                let event = KeyEvent {
+                let event = InternalKeyEvent {
                     event_type: KeyEventType::UpdateComposition,
                     preedit_text: string.into(),
                     preedit_selection: preedit_selection.map(|e| e.0 as i32..e.1 as i32),
@@ -322,9 +323,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 runtime_window.process_key_input(event);
             }
             WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
-                let event = KeyEvent {
+                let event = InternalKeyEvent {
                     event_type: KeyEventType::CommitComposition,
-                    text: string.into(),
+                    key_event: KeyEvent { text: string.into(), ..Default::default() },
                     ..Default::default()
                 };
                 runtime_window.process_key_input(event);
