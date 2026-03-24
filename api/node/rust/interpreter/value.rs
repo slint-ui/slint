@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, js_into_rust_model,
+    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, SlintKeys, js_into_rust_model,
     rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
@@ -69,6 +69,7 @@ pub enum JsValueType {
     Struct,
     Brush,
     Image,
+    Keys,
 }
 
 impl From<slint_interpreter::ValueType> for JsValueType {
@@ -111,8 +112,7 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             o.into_unknown(env)
         }
         Value::Keys(keys) => {
-            // TODO: Make this an actual JS object
-            format!("{keys:?}").as_str().into_unknown(env)
+            SlintKeys::from(keys.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
         Value::Brush(brush) => {
             SlintBrush::from(brush.clone()).into_instance(env)?.as_object(env).into_unknown(env)
@@ -314,6 +314,12 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
 
             Ok(Value::EnumerationValue(e.name.to_string(), value.to_string()))
         }
+        Type::Keys => {
+            let obj = unknown.coerce_to_object()?;
+            let keys_instance: ClassInstance<SlintKeys> =
+                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
+            Ok(Value::Keys(keys_instance.inner.clone()))
+        }
         Type::Invalid
         | Type::Model
         | Type::Void
@@ -326,7 +332,6 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
-        | Type::Keys
         | Type::ElementReference
         | Type::StyledText => Err(napi::Error::from_reason("reason")),
     }

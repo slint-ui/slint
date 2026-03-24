@@ -7,6 +7,9 @@ pub use brush::*;
 mod image_data;
 pub use image_data::*;
 
+mod keys;
+pub use keys::*;
+
 mod model;
 pub use model::*;
 
