@@ -525,7 +525,7 @@ fn embed_data_uri(
         unique_key,
         EmbeddedResources {
             id: resource_id,
-            kind: EmbeddedResourcesKind::DecodedData(decoded_data, extension.clone()),
+            kind: EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()),
         },
     );
 

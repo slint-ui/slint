@@ -976,7 +976,7 @@ fn embed_resource(
                 ..Default::default()
             }));
         }
-        crate::embedded_resources::EmbeddedResourcesKind::DecodedData(data, _) => {
+        crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(data, _) => {
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
                 name: format_smolstr!("slint_embedded_resource_{}", resource.id),
