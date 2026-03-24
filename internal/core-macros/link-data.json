@@ -75,7 +75,7 @@
         "href": "reference/layouts/gridlayout/"
     },
     "Globals": {
-        "href": "reference/global-structs-enums/"
+        "href": "guide/language/coding/globals/"
     },
     "HorizontalBox": {
         "href": "reference/std-widgets/layouts/horizontalbox/"
