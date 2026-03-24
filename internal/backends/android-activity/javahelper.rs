@@ -5,6 +5,7 @@ use super::*;
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;
@@ -502,27 +503,30 @@ fn callback_update_text<'local>(
                         preedit_start
                     }
                 } as i32;
-                i_slint_core::input::KeyEvent {
-                    event_type: i_slint_core::input::KeyEventType::UpdateComposition,
-                    text: i_slint_core::format!(
-                        "{}{}",
-                        &text[..preedit_start],
-                        &text[preedit_end..]
-                    ),
+                InternalKeyEvent {
+                    event_type: KeyEventType::UpdateComposition,
                     preedit_text: text[preedit_start..preedit_end].into(),
                     preedit_selection: Some(0..(preedit_end - preedit_start) as i32),
                     replacement_range: Some(i32::MIN..i32::MAX),
                     cursor_position: Some(adjust(cursor_position)),
                     anchor_position: Some(adjust(anchor_position)),
+                    key_event: KeyEvent {
+                        text: i_slint_core::format!(
+                            "{}{}",
+                            &text[..preedit_start],
+                            &text[preedit_end..]
+                        ),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 }
             } else {
-                i_slint_core::input::KeyEvent {
-                    event_type: i_slint_core::input::KeyEventType::CommitComposition,
-                    text,
+                InternalKeyEvent {
+                    event_type: KeyEventType::CommitComposition,
                     replacement_range: Some(i32::MIN..i32::MAX),
                     cursor_position: Some(cursor_position as _),
                     anchor_position: Some(anchor_position as _),
+                    key_event: KeyEvent { text: text, ..Default::default() },
                     ..Default::default()
                 }
             };
