@@ -108,6 +108,10 @@ assert_eq(instance.get_matches(), 6);
 // Unicode normalization: send NFD é (e + combining acute U+0301) - should match after normalization
 send_key_combo(&instance, { "e\xcc\x81" });
 assert_eq(instance.get_matches(), 7);
+
+assert_eq(instance.get_first_shortcut().to_string(), instance.get_shortcut_as_string());
+assert_eq(instance.get_shortcuts()->row_data(1)->to_string(), instance.get_shortcut_a_as_string());
+assert_eq(instance.get_shortcuts()->row_data(2)->to_string(), instance.get_shortcut_plus_as_string());
 ```
 
 ```rust

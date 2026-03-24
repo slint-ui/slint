@@ -534,9 +534,10 @@ fn gen_corelib(
             "",
         ),
         (
-            vec!["MouseEvent", "TouchPhase", "Keys"],
+            vec!["MouseEvent", "TouchPhase", "Keys", "slint_keys_to_string", "slint_keys"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
+            #include \"private/slint_builtin_structs_internal.h\"
             namespace slint::cbindgen_private {
                 struct PointerEvent;
                 struct Rect;
@@ -751,6 +752,7 @@ fn gen_corelib(
         .with_include("private/vtable.h")
         .with_include("private/slint_string.h")
         .with_include("private/slint_sharedvector.h")
+        .with_include("private/slint_keys.h")
         .with_include("private/slint_properties.h")
         .with_include("private/slint_callbacks.h")
         .with_include("private/slint_color.h")
@@ -778,7 +780,6 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
-        using types::Keys;
     }
     template<typename ModelData> class Model;
 }",

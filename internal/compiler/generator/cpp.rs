@@ -535,7 +535,7 @@ impl CppType for Type {
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
             Type::String => Some("slint::SharedString".into()),
-            Type::Keys => Some("slint::cbindgen_private::types::Keys".into()),
+            Type::Keys => Some("slint::Keys".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -3500,8 +3500,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::KeysLiteral(ks) => {
             format!(
                 "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
-                    slint::cbindgen_private::types::Keys out;
-                    slint::cbindgen_private::slint_keys(&key, alt, control, shift, meta, ignoreShift, ignoreAlt, &out);
+                    slint::Keys out;
+                    slint::private_api::make_keys(out, key, alt, control, shift, meta, ignoreShift, ignoreAlt);
                     return out;
                 }}({}, {}, {}, {}, {}, {}, {})",
                 shared_string_literal(&ks.key),
@@ -4265,7 +4265,7 @@ fn compile_builtin_function_call(
             format!("{}.to_uppercase()", a.next().unwrap())
         }
         BuiltinFunction::KeysToString => {
-            format!("slint::private_api::keys_to_string({})", a.next().unwrap())
+            format!("{}.to_string()", a.next().unwrap())
         }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())

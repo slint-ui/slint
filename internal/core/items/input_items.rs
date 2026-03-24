@@ -484,7 +484,7 @@ impl FocusScope {
         let mut first_match = None;
 
         let ambiguous = self.visit_enabled_key_bindings(self_rc, |key_binding| {
-            let keys = KeyBinding::FIELD_OFFSETS.keys.apply_pin(key_binding.as_pin_ref()).get();
+            let keys = key_binding.as_pin_ref().keys();
             if keys.matches(&inter_key_event.key_event) {
                 match &first_match {
                     Some(key_binding) => {
