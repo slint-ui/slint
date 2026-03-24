@@ -165,7 +165,6 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                     let pri_type = stringify!($pri_type).replace(' ', "");
                     let pri_type = match pri_type.as_str() {
                         "usize" => "uintptr_t",
-                        "crate::animations::Instant" => "uint64_t",
                         // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
                         "Option<i32>" => "std::pair<int32_t, int32_t>",
                         "Option<core::ops::Range<i32>>" => "std::tuple<int32_t, int32_t, int32_t>",
@@ -236,6 +235,7 @@ fn default_config() -> cbindgen::Config {
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
             ("Channel".into(), "uint8_t".into()),
+            ("Instant".into(), "uint64_t".into()),
         ]
         .iter()
         .cloned()
@@ -446,6 +446,7 @@ fn gen_corelib(
     properties_config.export.exclude.clear();
     properties_config.structure.derive_eq = true;
     properties_config.structure.derive_neq = true;
+    properties_config.export.include.push("StateInfo".into());
     private_exported_types.extend(properties_config.export.include.iter().cloned());
     cbindgen::Builder::new()
         .with_config(properties_config)
