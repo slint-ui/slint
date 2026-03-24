@@ -357,6 +357,7 @@ pub enum PyValueType {
     Brush,
     Image,
     Enumeration,
+    Keys,
 }
 
 impl From<i_slint_compiler::langtype::Type> for PyValueType {
@@ -381,7 +382,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::Color => PyValueType::Brush,
             Type::Image => PyValueType::Image,
             Type::Enumeration(..) => PyValueType::Enumeration,
-            Type::Keys => PyValueType::String,
+            Type::Keys => PyValueType::Keys,
             _ => unimplemented!(),
         }
     }

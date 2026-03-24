@@ -15,6 +15,8 @@ use i_slint_compiler::langtype::Type;
 
 use i_slint_core::model::{Model, ModelRc};
 
+use crate::keys::PyKeys;
+
 #[gen_stub_pyclass]
 pub struct SlintToPyValue {
     pub slint_value: slint_interpreter::Value,
@@ -47,7 +49,7 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
             Value::EnumerationValue(enum_name, enum_value) => {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
-            Value::Keys(keys) => format!("{keys:?}").into_bound_py_any(py),
+            Value::Keys(keys) => crate::keys::PyKeys::from(keys).into_bound_py_any(py),
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
@@ -296,6 +298,10 @@ impl TypeCollection {
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyBrush>>()
                     .map(|pybrush| slint_interpreter::Value::Brush(pybrush.brush.clone()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, PyKeys>>()
+                    .and_then(|keys| Ok(slint_interpreter::Value::Keys(keys.keys.clone())))
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyColor>>()
