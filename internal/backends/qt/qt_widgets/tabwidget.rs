@@ -4,7 +4,7 @@
 // cSpell: ignore hframe qreal tabbar vframe
 
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent},
     platform::PointerEventButton,
 };
 
@@ -265,7 +265,7 @@ impl Item for NativeTabWidget {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -274,7 +274,7 @@ impl Item for NativeTabWidget {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -501,7 +501,7 @@ impl Item for NativeTab {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -510,7 +510,7 @@ impl Item for NativeTab {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

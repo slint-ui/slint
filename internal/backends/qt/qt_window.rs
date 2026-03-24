@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     euclid,
 };
-use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
@@ -367,14 +367,16 @@ cpp! {{
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
-
-                    let event = KeyEvent {
+                    let event = InternalKeyEvent {
+                        key_event: KeyEvent {
+                            text: i_slint_core::format!("{}", commit_string),
+                            ..Default::default()
+                        },
                         event_type: KeyEventType::UpdateComposition,
-                        text: i_slint_core::format!("{}", commit_string),
                         preedit_text: i_slint_core::format!("{}", preedit_string),
                         preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
                         replacement_range: (!commit_string.is_empty() || !preedit_string.is_empty() || preedit_cursor >= 0)
-                            .then_some(replacement_start..replacement_start+replacement_length),
+                        .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
                     runtime_window.process_key_input(event);
