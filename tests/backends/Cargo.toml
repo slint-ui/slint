@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 # This disables the default feature selection so that each test binary is forced to set up
 # the right backend and doesn't accidentally just use the default backend!
-slint = { workspace = true, no-default-features = true, features = ["std", "compat-1-2", "renderer-software"] }
+slint = { workspace = true, default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 i-slint-backend-winit = { workspace = true, features = ["x11", "wayland", "renderer-software"] }
 i-slint-backend-qt = { workspace = true, features = ["default"] }
 
