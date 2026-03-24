@@ -25,7 +25,6 @@ compile_error!(
 
 extern crate alloc;
 
-pub mod event_queue;
 pub mod pixels;
 pub mod platform;
 
