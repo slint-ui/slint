@@ -537,7 +537,7 @@ fn gen_corelib(
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             namespace slint::cbindgen_private {
-                struct KeyEvent; struct PointerEvent;
+                struct PointerEvent;
                 struct Rect;
                 using LogicalRect = Rect;
                 using LogicalPoint = Point2D<float>;
