@@ -286,11 +286,11 @@ impl TypeCollection {
 
         let interpreter_val = ob
             .extract::<bool>()
-            .map(|b| slint_interpreter::Value::Bool(b))
+            .map(slint_interpreter::Value::Bool)
             .or_else(|_| {
                 ob.extract::<&'_ str>().map(|s| slint_interpreter::Value::String(s.into()))
             })
-            .or_else(|_| ob.extract::<f64>().map(|num| slint_interpreter::Value::Number(num)))
+            .or_else(|_| ob.extract::<f64>().map(slint_interpreter::Value::Number))
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::image::PyImage>>()
                     .map(|pyimg| slint_interpreter::Value::Image(pyimg.image.clone()))
@@ -301,11 +301,11 @@ impl TypeCollection {
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, PyKeys>>()
-                    .and_then(|keys| Ok(slint_interpreter::Value::Keys(keys.keys.clone())))
+                    .map(|keys| slint_interpreter::Value::Keys(keys.keys.clone()))
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyColor>>()
-                    .map(|pycolor| slint_interpreter::Value::Brush(pycolor.color.clone().into()))
+                    .map(|pycolor| slint_interpreter::Value::Brush(pycolor.color.into()))
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::models::PyModelBase>>().map(|pymodel| {
@@ -324,26 +324,28 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
-                ob.extract::<PyRef<'_, PyStruct>>().and_then(|pystruct| {
-                    Ok(slint_interpreter::Value::Struct(pystruct.data.clone()))
-                })
+                ob.extract::<PyRef<'_, PyStruct>>()
+                    .map(|pystruct| slint_interpreter::Value::Struct(pystruct.data.clone()))
             })
             .or_else(|_| {
-                ob.is_instance(&enum_class(ob.py()).into_bound(ob.py())).and_then(|r| {
-                    r.then(|| {
-                        let enum_name =
-                            ob.getattr("__class__").and_then(|cls| cls.getattr("__name__"))?;
-                        let enum_value = ob.getattr("name")?;
-                        Ok(slint_interpreter::Value::EnumerationValue(
-                            enum_name.to_string(),
-                            enum_value.to_string(),
-                        ))
-                    })
-                    .unwrap_or_else(|| {
-                        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                            "Object to convert is not an enum",
-                        ))
-                    })
+                ob.is_instance(&enum_class(ob.py()).into_bound(ob.py())).and_then(|is_enum| {
+                    if is_enum {
+                        {
+                            let enum_name =
+                                ob.getattr("__class__").and_then(|cls| cls.getattr("__name__"))?;
+                            let enum_value = ob.getattr("name")?;
+                            Ok(slint_interpreter::Value::EnumerationValue(
+                                enum_name.to_string(),
+                                enum_value.to_string(),
+                            ))
+                        }
+                    } else {
+                        {
+                            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                                "Object to convert is not an enum",
+                            ))
+                        }
+                    }
                 })
             })
             .or_else(|_| {
