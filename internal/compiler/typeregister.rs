@@ -788,6 +788,7 @@ pub mod builtin_structs {
         ($pub_type:ident, SharedString) => { Type::String };
         ($pub_type:ident, Image) => { Type::Image };
         ($pub_type:ident, Coord) => { Type::LogicalLength };
+        ($pub_type:ident, Keys) => { Type::Keys };
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
         // builtin structs

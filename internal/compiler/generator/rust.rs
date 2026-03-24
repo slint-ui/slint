@@ -3739,11 +3739,10 @@ fn compile_builtin_function_call(
                     quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
                 };
                 quote! {
-                    let menu_item_tree = #menu_from_item_tree;
+                    let menu_item_tree = sp::VRc::new(#menu_from_item_tree);
                     if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        let menu_item_tree = sp::VRc::new(menu_item_tree);
-                        let menu_item_tree = sp::VRc::into_dyn(menu_item_tree);
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree);
+                        let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
+                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
                     } else
                 }
             };
@@ -3752,23 +3751,25 @@ fn compile_builtin_function_call(
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
                 #native_impl
                 /*else*/ {
-                    let menu_item_tree = sp::Rc::new(menu_item_tree);
-                    let menu_item_tree_ = menu_item_tree.clone();
+                    let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
                     #access_entries.set_binding(move || {
                         let mut entries = sp::SharedVector::default();
-                        sp::Menu::sub_menu(&*menu_item_tree_, sp::Option::None, &mut entries);
+                        sp::VRc::borrow(&menu_item_tree_).sub_menu(sp::Option::None, &mut entries);
+                        sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+                    });
+                    let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
+                    #access_sub_menu.set_handler(move |entry| {
+                        let mut entries = sp::SharedVector::default();
+                        sp::VRc::borrow(&menu_item_tree_).sub_menu(sp::Option::Some(&entry.0), &mut entries);
                         sp::ModelRc::new(sp::SharedVectorModel::from(entries))
                     });
                     let menu_item_tree_ = menu_item_tree.clone();
-                    #access_sub_menu.set_handler(move |entry| {
-                        let mut entries = sp::SharedVector::default();
-                        sp::Menu::sub_menu(&*menu_item_tree_, sp::Option::Some(&entry.0), &mut entries);
-                        sp::ModelRc::new(sp::SharedVectorModel::from(entries))
-                    });
                     #access_activated.set_handler(move |entry| {
-                        sp::Menu::activate(&*menu_item_tree, &entry.0);
+                        sp::VRc::borrow(&menu_item_tree_).activate(&entry.0);
                     });
                 }
+                sp::WindowInner::from_pub(#window_adapter_tokens.window())
+                    .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
             })
         }
         BuiltinFunction::MonthDayCount => {

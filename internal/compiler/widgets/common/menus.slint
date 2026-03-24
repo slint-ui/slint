@@ -49,6 +49,14 @@ export component PopupMenuImpl inherits Window {
             }
         }
 
+        for entry[index] in entries: KeyBinding {
+            keys: entry.shortcut;
+            enabled: entry.enabled;
+            activated => {
+                root.activated(entry);
+            }
+        }
+
         open-sub-menu-after-timeout := Timer {
             interval: 500ms;
             running: false;

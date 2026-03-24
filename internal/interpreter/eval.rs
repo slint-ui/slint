@@ -1435,12 +1435,13 @@ fn call_builtin_function(
                 rest.first(),
             );
 
-            if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken)
-                && !no_native
-                && w.supports_native_menu_bar()
-            {
-                let menubar = vtable::VRc::into_dyn(menu_item_tree);
-                w.setup_menubar(menubar);
+            let window_adapter = component.window_adapter();
+            let window_inner = WindowInner::from_pub(window_adapter.window());
+            let menubar = vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree));
+            window_inner.setup_menubar_shortcuts(vtable::VRc::clone(&menubar));
+
+            if !no_native && window_inner.supports_native_menu_bar() {
+                window_inner.setup_menubar(menubar);
                 return Value::Void;
             }
 
