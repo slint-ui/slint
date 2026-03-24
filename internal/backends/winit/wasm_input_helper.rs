@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::SharedString;
-use i_slint_core::input::{KeyEvent, KeyEventType};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use wasm_bindgen::JsCast;
@@ -221,8 +221,8 @@ impl WasmInputHelper {
         h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
-                window_inner.process_key_input(KeyEvent {
-                    text: data.into(),
+                window_inner.process_key_input(InternalKeyEvent {
+                    key_event: KeyEvent { text: data.into(), ..Default::default() },
                     event_type: KeyEventType::CommitComposition,
                     ..Default::default()
                 });
@@ -234,7 +234,7 @@ impl WasmInputHelper {
         h.add_event_listener("compositionupdate", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
-                window_inner.process_key_input(KeyEvent {
+                window_inner.process_key_input(InternalKeyEvent {
                     preedit_text: data.into(),
                     event_type: KeyEventType::UpdateComposition,
                     ..Default::default()
