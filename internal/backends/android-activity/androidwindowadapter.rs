@@ -10,6 +10,7 @@ use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventResult, KeyEventType, TouchPhase};
 use i_slint_core::items::ColorScheme;
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
@@ -284,30 +285,28 @@ impl AndroidWindowAdapter {
         Ok(ControlFlow::Continue(()))
     }
 
-    fn try_dispatch_key_event(&self, ev: WindowEvent) -> i_slint_core::input::KeyEventResult {
+    fn try_dispatch_key_event(&self, ev: WindowEvent) -> KeyEventResult {
         #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         match ev {
             WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
-                .process_key_input(i_slint_core::input::KeyEvent {
-                    text,
-                    repeat: false,
-                    event_type: i_slint_core::input::KeyEventType::KeyPressed,
+                .process_key_input(InternalKeyEvent {
+                    event_type: KeyEventType::KeyPressed,
+                    key_event: KeyEvent { text, ..Default::default() },
                     ..Default::default()
                 }),
             WindowEvent::KeyPressRepeated { text } => WindowInner::from_pub(&self.window)
-                .process_key_input(i_slint_core::input::KeyEvent {
-                    text,
-                    repeat: true,
-                    event_type: i_slint_core::input::KeyEventType::KeyPressed,
+                .process_key_input(InternalKeyEvent {
+                    event_type: KeyEventType::KeyPressed,
+                    key_event: KeyEvent { text, repeat: true, ..Default::default() },
                     ..Default::default()
                 }),
             WindowEvent::KeyReleased { text } => WindowInner::from_pub(&self.window)
-                .process_key_input(i_slint_core::input::KeyEvent {
-                    text,
-                    event_type: i_slint_core::input::KeyEventType::KeyReleased,
+                .process_key_input(InternalKeyEvent {
+                    key_event: KeyEvent { text, ..Default::default() },
+                    event_type: KeyEventType::KeyReleased,
                     ..Default::default()
                 }),
-            _ => i_slint_core::input::KeyEventResult::EventIgnored,
+            _ => KeyEventResult::EventIgnored,
         }
     }
 
@@ -319,9 +318,7 @@ impl AndroidWindowAdapter {
             let read_input = iter.next(|event| match event {
                 InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
                     Some(ev) => {
-                        if self.try_dispatch_key_event(ev)
-                            == i_slint_core::input::KeyEventResult::EventAccepted
-                        {
+                        if self.try_dispatch_key_event(ev) == KeyEventResult::EventAccepted {
                             InputStatus::Handled
                         } else {
                             InputStatus::Unhandled
@@ -372,7 +369,7 @@ impl AndroidWindowAdapter {
                                 WindowInner::from_pub(&self.window).process_touch_input(
                                     p.pointer_id() as u64,
                                     touch_pos(&p),
-                                    i_slint_core::input::TouchPhase::Started,
+                                    TouchPhase::Started,
                                 );
                             }
                             InputStatus::Handled
@@ -383,7 +380,7 @@ impl AndroidWindowAdapter {
                                 WindowInner::from_pub(&self.window).process_touch_input(
                                     p.pointer_id() as u64,
                                     touch_pos(&p),
-                                    i_slint_core::input::TouchPhase::Ended,
+                                    TouchPhase::Ended,
                                 );
                             }
                             InputStatus::Handled
@@ -406,7 +403,7 @@ impl AndroidWindowAdapter {
                                 runtime_window.process_touch_input(
                                     p.pointer_id() as u64,
                                     touch_pos(&p),
-                                    i_slint_core::input::TouchPhase::Moved,
+                                    TouchPhase::Moved,
                                 );
                             }
                             InputStatus::Handled
@@ -419,7 +416,7 @@ impl AndroidWindowAdapter {
                                 WindowInner::from_pub(&self.window).process_touch_input(
                                     p.pointer_id() as u64,
                                     touch_pos(&p),
-                                    i_slint_core::input::TouchPhase::Started,
+                                    TouchPhase::Started,
                                 );
                             }
                             InputStatus::Handled
@@ -430,7 +427,7 @@ impl AndroidWindowAdapter {
                                 WindowInner::from_pub(&self.window).process_touch_input(
                                     p.pointer_id() as u64,
                                     touch_pos(&p),
-                                    i_slint_core::input::TouchPhase::Ended,
+                                    TouchPhase::Ended,
                                 );
                             }
                             InputStatus::Handled
@@ -448,7 +445,7 @@ impl AndroidWindowAdapter {
                                 runtime_window.process_touch_input(
                                     p.pointer_id() as u64,
                                     touch_pos(&p),
-                                    i_slint_core::input::TouchPhase::Cancelled,
+                                    TouchPhase::Cancelled,
                                 );
                             }
                             InputStatus::Handled
@@ -467,27 +464,33 @@ impl AndroidWindowAdapter {
                     let event = if let Some(r) = state.compose_region {
                         let adjust =
                             |pos| if pos > r.start { pos - r.start + r.end } else { pos } as i32;
-                        i_slint_core::input::KeyEvent {
-                            event_type: i_slint_core::input::KeyEventType::UpdateComposition,
-                            text: i_slint_core::format!(
-                                "{}{}",
-                                &state.text[..r.start],
-                                &state.text[r.end..]
-                            ),
+                        InternalKeyEvent {
+                            event_type: KeyEventType::UpdateComposition,
                             preedit_text: state.text[r.start..r.end].into(),
                             preedit_selection: Some(0..(r.end - r.start) as i32),
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(adjust(state.selection.end)),
                             anchor_position: Some(adjust(state.selection.start)),
+                            key_event: KeyEvent {
+                                text: i_slint_core::format!(
+                                    "{}{}",
+                                    &state.text[..r.start],
+                                    &state.text[r.end..]
+                                ),
+                                ..Default::default()
+                            },
                             ..Default::default()
                         }
                     } else {
-                        i_slint_core::input::KeyEvent {
-                            event_type: i_slint_core::input::KeyEventType::CommitComposition,
-                            text: state.text.as_str().into(),
+                        InternalKeyEvent {
+                            event_type: KeyEventType::CommitComposition,
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(state.selection.end as _),
                             anchor_position: Some(state.selection.start as _),
+                            key_event: KeyEvent {
+                                text: state.text.as_str().into(),
+                                ..Default::default()
+                            },
                             ..Default::default()
                         }
                     };
