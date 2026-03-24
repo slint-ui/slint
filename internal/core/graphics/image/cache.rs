@@ -167,7 +167,7 @@ fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> S
             height: rgba8image.height(),
             data: rgba8image
                 .as_pixels()
-                .into_iter()
+                .iter()
                 .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
                 .collect(),
         })
