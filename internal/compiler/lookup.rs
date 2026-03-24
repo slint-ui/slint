@@ -849,6 +849,7 @@ impl LookupObject for BuiltinFunctionLookup {
             .or_else(|| {
                 f(&SmolStr::new_static("animation-tick"), BuiltinFunction::AnimationTick.into())
             })
+            .or_else(|| f(&SmolStr::new_static("open-url"), BuiltinFunction::OpenUrl.into()))
     }
 }
 

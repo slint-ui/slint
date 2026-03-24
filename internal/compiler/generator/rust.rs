@@ -3759,6 +3759,11 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
+        BuiltinFunction::OpenUrl => {
+            let url = a.next().unwrap();
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::open_url(&#url, #window_adapter_tokens.window()))
+        }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();

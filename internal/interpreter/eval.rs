@@ -1625,6 +1625,13 @@ fn call_builtin_function(
                 panic!("internal error: argument to RestartTimer must be an element")
             }
         }
+        BuiltinFunction::OpenUrl => {
+            let url: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let window_adapter = local_context.component_instance.window_adapter();
+            corelib::open_url(&url, window_adapter.window());
+            Value::Void
+        }
         BuiltinFunction::ParseMarkdown => {
             let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
