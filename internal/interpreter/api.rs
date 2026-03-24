@@ -302,9 +302,7 @@ macro_rules! declare_value_struct_conversion {
             export {
                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
             }
-            private {
-                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-            }
+            private { $($pri:tt)* }
         }
     )*) => {
         $(
@@ -312,7 +310,6 @@ macro_rules! declare_value_struct_conversion {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
                     $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
-                    $(handle_private!(SET $Name $pri_field, struct_, item);)*
                     Value::Struct(struct_)
                 }
             }
@@ -326,7 +323,6 @@ macro_rules! declare_value_struct_conversion {
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
                             $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
-                            $(handle_private!(GET $Name $pri_field, x, res);)*
                             Ok(res)
                         }
                         _ => Err(()),
@@ -337,21 +333,10 @@ macro_rules! declare_value_struct_conversion {
     };
 }
 
-macro_rules! handle_private {
-    (SET StateInfo $field:ident, $struct_:ident, $item:ident) => {
-        $struct_.set_field(stringify!($field).into(), $item.$field.into())
-    };
-    (SET $_:ident $field:ident, $struct_:ident, $item:ident) => {{}};
-    (GET StateInfo $field:ident, $struct_:ident, $item:ident) => {
-        $item.$field =
-            $struct_.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_| ())?
-    };
-    (GET $_:ident $field:ident, $struct_:ident, $item:ident) => {{}};
-}
-
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
+declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 

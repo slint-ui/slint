@@ -30,4 +30,7 @@ export Test := Comp {
 
     property<color> color;
 //                  >   <error{Cannot override property 'color'}
+
+    property<StateInfo> state-info : { current-state: 0, previous-state: 4 };
+//           >       <error{Unknown type 'StateInfo'}
 }

@@ -86,6 +86,7 @@ pub struct BuiltinTypes {
     pub logical_size_type: Rc<Struct>,
     pub font_metrics_type: Type,
     pub layout_info_type: Rc<Struct>,
+    pub state_info_type: Rc<Struct>,
     pub gridlayout_input_data_type: Type,
     pub path_element_type: Type,
     pub layout_item_info_type: Type,
@@ -144,6 +145,15 @@ impl BuiltinTypes {
                 arg_names: Vec::new(),
             })),
             layout_info_type: layout_info_type.clone(),
+            state_info_type: Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("current-state"), Type::Int32),
+                    (SmolStr::new_static("previous-state"), Type::Int32),
+                    (SmolStr::new_static("change-time"), Type::Duration),
+                ])
+                .collect(),
+                name: BuiltinPrivateStruct::StateInfo.into(),
+            }),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
                 name: BuiltinPrivateStruct::PathElement.into(),
