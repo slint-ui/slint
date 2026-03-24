@@ -3,7 +3,7 @@
 
 use crate::key_generated;
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason, KeyEventType},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType},
     items::TextHorizontalAlignment,
     platform::PointerEventButton,
 };
@@ -262,7 +262,7 @@ impl Item for NativeSpinBox {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -271,21 +271,21 @@ impl Item for NativeSpinBox {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if !self.enabled() || self.read_only() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
-        if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
+        if event.key_event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
             && self.value() < self.maximum()
         {
             let new_val = self.value() + self.step_size();
             self.value.set(new_val);
             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
-        } else if event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
+        } else if event.key_event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
             && self.value() > self.minimum()
         {
             let new_val = self.value() - self.step_size();

@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::{input::FocusEventResult, items::SortOrder};
+use i_slint_core::{
+    input::{FocusEventResult, InternalKeyEvent},
+    items::SortOrder,
+};
 
 use super::*;
 
@@ -81,7 +84,7 @@ impl Item for NativeTableHeaderSection {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -90,7 +93,7 @@ impl Item for NativeTableHeaderSection {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
