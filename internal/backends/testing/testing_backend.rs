@@ -33,6 +33,7 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
+    #[allow(dead_code)]
     pub open_url: Rc<RefCell<Option<SharedString>>>,
 }
 
@@ -150,6 +151,7 @@ impl TestingWindow {
         self.mouse_cursor.get()
     }
 
+    #[allow(dead_code)]
     pub fn open_url(&self) -> Option<SharedString> {
         self.open_url.borrow().clone()
     }
