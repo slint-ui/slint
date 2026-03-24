@@ -4,7 +4,7 @@
 // Skia font rendering is not consistent across platforms
 //ignore:skia
 
-export component TestCase inherits Window {
+TestCase := Window {
     width: 64px;
     height: 64px;
     forward-focus: i-text-input;
@@ -18,9 +18,8 @@ export component TestCase inherits Window {
         selection-background-color: blue.transparentize(10%);
         selection-foreground-color: yellow;
         font-size: 12px;
-        init => {
-            i-text-input.set-selection-offsets(3, 13);
-        }
+        cursor-position-byte-offset: 3;
+        anchor-position-byte-offset: 13;
     }
     TextInput {
         x: parent.width / 2;
@@ -32,8 +31,7 @@ export component TestCase inherits Window {
         selection-background-color: red;
         selection-foreground-color: orange;
         font-size: 13px;
-        init => {
-            self.set-selection-offsets(16, 13);
-        }
+        cursor-position-byte-offset: 16;
+        anchor-position-byte-offset: 13;
     }
 }
