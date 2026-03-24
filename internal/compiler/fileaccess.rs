@@ -84,12 +84,11 @@ fn test_load_file() {
 /// This avoids unnecessary mtime modification of the file, which caused build
 /// systems like Ninja to rebuild other things even though the outpuf of
 /// slint-compiler didn't change.
-pub fn write_file_if_changed(path: &std::path::Path, content: &[u8]) -> std::io::Result<bool> {
+pub fn write_file_if_changed(path: &std::path::Path, content: &[u8]) -> std::io::Result<()> {
     if fs::read(path).is_ok_and(|existing| existing == content) {
-        return Ok(false);
+        return Ok(());
     }
-    fs::write(path, content)?;
-    Ok(true)
+    fs::write(path, content)
 }
 
 mod builtin_library {
