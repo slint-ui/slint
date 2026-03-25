@@ -24,6 +24,7 @@ pub trait TokenWriter {
 }
 
 /// Just write the token stream to a file
+#[cfg_attr(target_arch = "wasm32", allow(unused))]
 pub struct FileWriter<'a, W> {
     pub file: &'a mut W,
 }

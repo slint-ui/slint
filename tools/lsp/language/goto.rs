@@ -193,11 +193,10 @@ fn test_goto_definition_multi_files() {
         url1 = url1.to_file_path().unwrap().display()
     );
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
-        None,
+        &mut crate::language::ContextOrDocumentCache::DocumentCache(&mut dc),
         source2.clone(),
         url2.clone(),
         Some(43),
-        &mut dc,
     ));
     let diag = crate::language::convert_diagnostics(&extra_files, diag, common::ByteFormat::Utf8);
     for (u, ds) in diag {

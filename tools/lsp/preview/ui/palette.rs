@@ -603,8 +603,7 @@ export component Main { }
             config.style = Some(style.to_string());
             let mut dc = common::DocumentCache::new(config);
             let (url, _) = crate::language::test::load(
-                None,
-                &mut dc,
+                crate::language::ContextOrDocumentCache::DocumentCache(&mut dc),
                 &std::env::temp_dir().join("xxx/test.slint"),
                 r#"
                     import { Palette } from "std-widgets.slint";

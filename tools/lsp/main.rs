@@ -28,12 +28,11 @@ use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, InitializeParams, Url,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{RwLock, mpsc};
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::io::Write as _;
@@ -189,25 +188,35 @@ impl ServerNotifier {
 }
 
 impl RequestHandler {
-    async fn handle_request(&self, request: lsp_server::Request, ctx: &Rc<Context>) -> Result<()> {
+    async fn handle_request(
+        &self,
+        request: lsp_server::Request,
+        ctx: &Rc<RwLock<Context>>,
+    ) -> Result<()> {
         if let Some(x) = self.0.get(&request.method.as_str()) {
             match x(request.params, ctx.clone()).await {
-                Ok(r) => ctx
-                    .server_notifier
-                    .sender
-                    .send(Message::Response(Response::new_ok(request.id, r)))?,
-                Err(e) => ctx.server_notifier.sender.send(Message::Response(Response::new_err(
-                    request.id,
-                    match e.code {
-                        LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
-                        LspErrorCode::InternalError => ErrorCode::InternalError as i32,
-                        LspErrorCode::RequestFailed => ErrorCode::RequestFailed as i32,
-                        LspErrorCode::ContentModified => ErrorCode::ContentModified as i32,
-                    },
-                    e.message,
-                )))?,
+                Ok(r) => {
+                    let ctx = ctx.read().await;
+                    ctx.server_notifier
+                        .sender
+                        .send(Message::Response(Response::new_ok(request.id, r)))?;
+                }
+                Err(e) => {
+                    let ctx = ctx.read().await;
+                    ctx.server_notifier.sender.send(Message::Response(Response::new_err(
+                        request.id,
+                        match e.code {
+                            LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
+                            LspErrorCode::InternalError => ErrorCode::InternalError as i32,
+                            LspErrorCode::RequestFailed => ErrorCode::RequestFailed as i32,
+                            LspErrorCode::ContentModified => ErrorCode::ContentModified as i32,
+                        },
+                        e.message,
+                    )))?;
+                }
             };
         } else {
+            let ctx = ctx.read().await;
             ctx.server_notifier.sender.send(Message::Response(Response::new_err(
                 request.id,
                 ErrorCode::MethodNotFound as i32,
@@ -397,9 +406,9 @@ async fn main_loop(
         enable_experimental: false,
     };
 
-    let ctx = Rc::new(Context {
-        document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
-        preview_config: RefCell::new(Default::default()),
+    let ctx = Rc::new(RwLock::new(Context {
+        document_cache: crate::common::DocumentCache::new(compiler_config),
+        preview_config: Default::default(),
         server_notifier,
         init_param,
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -407,7 +416,7 @@ async fn main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-    });
+    }));
 
     let connection = Arc::new(connection);
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
@@ -417,10 +426,10 @@ async fn main_loop(
     });
 
     let inner_ctx = ctx.clone();
-    let mut startup = tokio::task::spawn_local(async move { startup_lsp(&inner_ctx).await }).fuse();
+    let mut startup = tokio::task::spawn_local(async move { startup_lsp(inner_ctx).await }).fuse();
 
     loop {
-        let recompile_idle_timeout = if ctx.pending_recompile.borrow().is_empty() {
+        let recompile_idle_timeout = if ctx.read().await.pending_recompile.is_empty() {
             Duration::MAX
         } else {
             RECOMPILE_IDLE_TIMEOUT
@@ -484,12 +493,13 @@ async fn main_loop(
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
-                let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
+                let pending_recompile = std::mem::take(&mut ctx.write().await.pending_recompile);
 
                 for url in pending_recompile {
                     let ctx = ctx.clone();
                     tokio::task::spawn_local(async move {
-                        if let Err(err) = language::reload_document(&ctx, url).await {
+                        let mut ctx = ctx.write().await;
+                        if let Err(err) = language::reload_document(&mut ctx, url).await {
                             tracing::error!("Failed document reload: {err}");
                         }
                     });
@@ -524,22 +534,25 @@ fn crossbeam_tokio_adapter(
     }
 }
 
-async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -> Result<()> {
+async fn handle_notification(
+    req: lsp_server::Notification,
+    ctx: &Rc<RwLock<Context>>,
+) -> Result<()> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
+            let mut ctx = ctx.write().await;
             open_document(
-                ctx,
+                &mut ctx,
                 params.text_document.text,
                 params.text_document.uri,
                 Some(params.text_document.version),
-                &mut ctx.document_cache.borrow_mut(),
             )
             .await
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            close_document(ctx, params.text_document.uri).await
+            close_document(&mut *ctx.write().await, params.text_document.uri).await
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
@@ -549,20 +562,19 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 params.text_document.version
             );
             load_document(
-                ctx,
+                &mut *ctx.write().await,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 Some(params.text_document.version),
-                &mut ctx.document_cache.borrow_mut(),
             )
             .await
         }
-        DidChangeConfiguration::METHOD => load_configuration(ctx).await,
+        DidChangeConfiguration::METHOD => load_configuration(&ctx).await,
         DidChangeWatchedFiles::METHOD => {
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
             for fe in params.changes {
                 tracing::debug!("Watched file changed: {} (type: {:?})", fe.uri, fe.typ);
-                trigger_file_watcher(ctx, fe.uri, fe.typ).await?;
+                trigger_file_watcher(&mut *ctx.write().await, fe.uri, fe.typ).await?;
             }
             Ok(())
         }
@@ -571,11 +583,13 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         language::SHOW_PREVIEW_COMMAND => {
             match language::show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
-                ctx,
+                &mut *ctx.write().await,
             ) {
                 Ok(()) => Ok(()),
                 Err(e) => match e.code {
                     LspErrorCode::RequestFailed => ctx
+                        .read()
+                        .await
                         .server_notifier
                         .send_notification::<lsp_types::notification::ShowMessage>(
                         lsp_types::ShowMessageParams {
@@ -622,9 +636,10 @@ async fn send_workspace_edit(
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
     message: crate::common::PreviewToLspMessage,
-    ctx: &Rc<Context>,
+    ctx: &Rc<RwLock<Context>>,
 ) -> Result<()> {
     use crate::common::PreviewToLspMessage as M;
+    let ctx = ctx.read().await;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
             if diagnostics.is_empty() {
@@ -659,10 +674,12 @@ async fn handle_preview_to_lsp_message(
         }
         M::RequestState { .. } => {
             tracing::debug!("Preview requested state");
-            crate::language::send_state_to_preview(ctx);
+            crate::language::send_state_to_preview(&ctx);
         }
         M::SendWorkspaceEdit { label, edit } => {
-            let _ = send_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit)).await;
+            let sn = ctx.server_notifier.clone();
+            drop(ctx); // don't keep lock over await point
+            let _ = send_workspace_edit(sn, label, Ok(edit)).await;
         }
         M::SendShowMessage { message } => {
             ctx.server_notifier
