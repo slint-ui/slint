@@ -7,7 +7,6 @@ export component Demo {
     GridLayout {
         for x in 10: Row {
             for y in 10: Text {
-//                       >   <error{'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)}
                 text: y;
             }
         }
@@ -18,7 +17,6 @@ export component Demo {
     GridLayout {
         if condition: Row {
             for y in 10: Text {
-//                       >   <error{'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)}
                 text: y;
             }
         }

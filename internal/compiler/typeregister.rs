@@ -414,7 +414,7 @@ impl TypeRegister {
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);
         register.insert_type(Type::StyledText);
-        register.insert_type(Type::KeyboardShortcutType);
+        register.insert_type(Type::Keys);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 
@@ -580,9 +580,6 @@ impl TypeRegister {
         register.elements.remove("DragArea").unwrap();
         register.elements.remove("DropArea").unwrap();
         register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
-
-        register.elements.remove("StyledText").unwrap();
-        register.types.remove("styled-text").unwrap();
 
         match register.elements.get_mut("Window").unwrap() {
             ElementType::Builtin(b) => {

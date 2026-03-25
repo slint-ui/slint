@@ -10,21 +10,29 @@ description = "Run clang format fix on all C++ files"
 run = '''fd '.*\.(h|H|hpp|hxx|h\+\+|c|C|cpp|cxx|c\+\+)$' -0 | xargs -0 clang-format -i'''
 tools = { "pipx:clang-format" = "20.1.3" }
 
-["fix:rust:lockfile"]
-description = "Update the lockfile (if absolutely necessary)"
+["fix:rust:lockfile:root"]
+description = "Update the main lockfile (if absolutely necessary)"
 # Use cargo build -p xtask to test if the lockfile needs upating.
 # The fix:legal:copyright task needs the xtask anyhow, so this has a double use.
-run = "cargo build --locked -p xtask || (echo \"### Updating Lockfile! ###\" && cargo update)"
+run = "cargo build --locked -p xtask || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
+
+["fix:rust:lockfile:bevy"]
+description = "Update the bevy example lockfile (if absolutely necessary)"
+# Use cargo metadata to test if the lockfile needs upating.
+# --format-version suppresses "warning: please specify `--format-version` flag explicitly to avoid compatibility problems"
+run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
+dir = "examples/bevy"
 
 ["fix:legal:copyright"]
 description = "Run the check_license_headers --fix xtask"
 run = "cargo xtask check_license_headers --fix-it"
-depends = ["fix:rust:lockfile"]
+depends = ["fix:rust:lockfile:root"]
 
 ["fix:python:format"]
 description = "Run ruff format"
-run = "ruff format"
-tools = { "ruff" = "0.11.8" }
+# Run via uv as the ruff installation via mise is unreliable in the CI.
+# It keeps failing to find ruff, despite saying that it was installed.
+run = "uv tool run ruff@0.11.8 format"
 
 ["fix:rust:format"]
 description = "Run cargo fmt --all"
@@ -124,6 +132,8 @@ depends = [
   "fix:pnpm:dedupe",
   "fix:ts:biome",
   "fix:ts:format",
+  "fix:rust:lockfile:root",
+  "fix:rust:lockfile:bevy",
 ]
 
 ["ci:autofix:lint"]

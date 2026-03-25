@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{
-    BuiltinElement, BuiltinPublicStruct, EnumerationValue, Function, KeyboardShortcut, Struct, Type,
+    BuiltinElement, BuiltinPublicStruct, EnumerationValue, Function, Keys, Struct, Type,
 };
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
@@ -73,6 +73,7 @@ pub enum BuiltinFunction {
     StringCharacterCount,
     StringToLowercase,
     StringToUppercase,
+    KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
     ColorOklchStruct,
@@ -104,7 +105,6 @@ pub enum BuiltinFunction {
     ParseDate,
     TextInputFocused,
     SetTextInputFocused,
-    KeyboardShortcutMatches,
     ImplicitLayoutInfo(Orientation),
     ItemAbsolutePosition,
     RegisterCustomFontByPath,
@@ -116,6 +116,7 @@ pub enum BuiltinFunction {
     StartTimer,
     StopTimer,
     RestartTimer,
+    OpenUrl,
     ParseMarkdown,
     StringToStyledText,
 }
@@ -213,6 +214,7 @@ declare_builtin_function_types!(
     StringCharacterCount: (Type::String) -> Type::Int32,
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
+    KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -271,7 +273,6 @@ declare_builtin_function_types!(
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
     TextInputFocused: () -> Type::Bool,
-    KeyboardShortcutMatches: (Type::KeyboardShortcutType, typeregister::builtin_structs::KeyEvent().into()) -> Type::Bool,
     DateNow: () -> Type::Array(Rc::new(Type::Int32)),
     ValidDate: (Type::String, Type::String) -> Type::Bool,
     ParseDate: (Type::String, Type::String) -> Type::Array(Rc::new(Type::Int32)),
@@ -292,6 +293,7 @@ declare_builtin_function_types!(
     RestartTimer: (Type::ElementReference) -> Type::Void,
     ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
     StringToStyledText: (Type::String) -> Type::StyledText
+    OpenUrl: (Type::String) -> Type::Void,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -360,7 +362,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase => true,
+            | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorOklchStruct
@@ -383,7 +386,6 @@ impl BuiltinFunction {
             BuiltinFunction::Oklch => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => false,
-            BuiltinFunction::KeyboardShortcutMatches => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::RegisterCustomFontByPath
@@ -398,6 +400,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => false,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::OpenUrl => false,
         }
     }
 
@@ -449,7 +452,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase => true,
+            | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorOklchStruct
@@ -467,7 +471,6 @@ impl BuiltinFunction {
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => true,
-            BuiltinFunction::KeyboardShortcutMatches => true,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
@@ -480,6 +483,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => true,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::OpenUrl => false,
         }
     }
 }
@@ -776,7 +780,7 @@ pub enum Expression {
 
     EnumerationValue(EnumerationValue),
 
-    KeyboardShortcut(KeyboardShortcut),
+    Keys(Keys),
 
     ReturnStatement(Option<Box<Expression>>),
 
@@ -827,6 +831,7 @@ pub enum Expression {
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
     },
+    /// Determine the coordinates of the items
     SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
@@ -961,7 +966,7 @@ impl Expression {
             Expression::RadialGradient { .. } => Type::Brush,
             Expression::ConicGradient { .. } => Type::Brush,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
-            Expression::KeyboardShortcut(_) => Type::KeyboardShortcutType,
+            Expression::Keys(_) => Type::Keys,
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
@@ -1064,7 +1069,7 @@ impl Expression {
                 }
             }
             Expression::EnumerationValue(_) => {}
-            Expression::KeyboardShortcut(_) => {}
+            Expression::Keys(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref().map(visitor);
             }
@@ -1184,7 +1189,7 @@ impl Expression {
                 }
             }
             Expression::EnumerationValue(_) => {}
-            Expression::KeyboardShortcut(_) => {}
+            Expression::Keys(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref_mut().map(visitor);
             }
@@ -1295,7 +1300,7 @@ impl Expression {
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::EnumerationValue(_) => true,
-            Expression::KeyboardShortcut(_) => true,
+            Expression::Keys(_) => true,
             Expression::ReturnStatement(expr) => {
                 expr.as_ref().is_none_or(|expr| expr.is_constant(ga))
             }
@@ -1551,7 +1556,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::KeyboardShortcutType => Expression::KeyboardShortcut(KeyboardShortcut::default()),
+            Type::Keys => Expression::Keys(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::Invalid,
         }
@@ -1973,8 +1978,8 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             Some(val) => write!(f, "{}.{}", e.enumeration.name, val),
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },
-        Expression::KeyboardShortcut(shortcut) => {
-            write!(f, "@keys({shortcut})")
+        Expression::Keys(keys) => {
+            write!(f, "@keys({keys})")
         }
         Expression::ReturnStatement(e) => {
             write!(f, "return ")?;

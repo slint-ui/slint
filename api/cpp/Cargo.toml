@@ -46,7 +46,6 @@ software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
-libm = ["i-slint-core/libm", "i-slint-renderer-software?/libm"]
 
 std = [
   "i-slint-core/default",
@@ -55,8 +54,9 @@ std = [
   "i-slint-renderer-software?/std",
   "i-slint-core/raw-window-handle-06",
   "i-slint-backend-selector/raw-window-handle-06",
+  "i-slint-core/tr",
 ]
-freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
+freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]

@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use winit::event_loop::ActiveEventLoop;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -532,6 +533,9 @@ pub(crate) struct SharedBackendData {
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
+    /// The generation is used to determine if a quit_event_loop call is meant for the current
+    /// event loop or is from a stale event.
+    event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
     #[cfg(target_os = "ios")]
     #[allow(unused)]
@@ -611,6 +615,7 @@ impl SharedBackendData {
             clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
+            event_loop_generation: Default::default(),
             is_wayland,
             #[cfg(target_os = "ios")]
             keyboard_notifications,
@@ -788,6 +793,8 @@ impl i_slint_core::platform::Platform for Backend {
                 return loop_state.spawn();
             }
         }
+        // Note: fetch_add wraps around on overflow, which is what we want.
+        self.shared_data.event_loop_generation.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let new_state = loop_state.run()?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         Ok(())
@@ -819,11 +826,12 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
-        struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>);
+        struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>, Arc<AtomicUsize>);
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+                let generation = self.1.load(std::sync::atomic::Ordering::Relaxed);
                 self.0
-                    .send_event(SlintEvent(CustomEvent::Exit))
+                    .send_event(SlintEvent(CustomEvent::Exit(generation)))
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
 
@@ -850,7 +858,10 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|_| EventLoopError::EventLoopTerminated)
             }
         }
-        Some(Box::new(Proxy(self.shared_data.event_loop_proxy.clone())))
+        Some(Box::new(Proxy(
+            self.shared_data.event_loop_proxy.clone(),
+            Arc::clone(&self.shared_data.event_loop_generation),
+        )))
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -875,6 +886,13 @@ impl i_slint_core::platform::Platform for Backend {
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn open_url(&self, url: &str) {
+        if let Err(e) = webbrowser::open(url) {
+            eprintln!("Failed to open URL: {}", e);
+        }
     }
 }
 

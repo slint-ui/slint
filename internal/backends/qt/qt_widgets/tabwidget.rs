@@ -4,7 +4,7 @@
 // cSpell: ignore hframe qreal tabbar vframe
 
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent},
     platform::PointerEventButton,
 };
 
@@ -96,7 +96,7 @@ impl Item for NativeTabWidget {
                             .apply_pin(shared_data.as_ref())
                             .get()
                             .get() as _,
-                        height: (std::i32::MAX / 2) as _,
+                        height: (i32::MAX / 2) as _,
                     },
                     qttypes::QSizeF {
                         width: TabBarSharedData::FIELD_OFFSETS
@@ -104,12 +104,12 @@ impl Item for NativeTabWidget {
                             .apply_pin(shared_data.as_ref())
                             .get()
                             .get() as _,
-                        height: (std::i32::MAX / 2) as _,
+                        height: (i32::MAX / 2) as _,
                     },
                 ),
                 Orientation::Vertical => (
                     qttypes::QSizeF {
-                        width: (std::i32::MAX / 2) as _,
+                        width: (i32::MAX / 2) as _,
                         height: TabBarSharedData::FIELD_OFFSETS
                             .height
                             .apply_pin(shared_data.as_ref())
@@ -117,7 +117,7 @@ impl Item for NativeTabWidget {
                             .get() as _,
                     },
                     qttypes::QSizeF {
-                        width: (std::i32::MAX / 2) as _,
+                        width: (i32::MAX / 2) as _,
                         height: TabBarSharedData::FIELD_OFFSETS
                             .tabbar_preferred_height
                             .apply_pin(shared_data.as_ref())
@@ -265,7 +265,7 @@ impl Item for NativeTabWidget {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -274,7 +274,7 @@ impl Item for NativeTabWidget {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -501,7 +501,7 @@ impl Item for NativeTab {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -510,7 +510,7 @@ impl Item for NativeTab {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

@@ -182,9 +182,13 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
             };
 
             let x = match self.horizontal_alignment {
-                TextHorizontalAlignment::Left => Font::Length::zero(),
+                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                    Font::Length::zero()
+                }
                 TextHorizontalAlignment::Center => self.max_width / two - text_width() / two,
-                TextHorizontalAlignment::Right => self.max_width - text_width(),
+                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                    self.max_width - text_width()
+                }
             };
 
             let mut elide_glyph = elide_glyph.as_ref();

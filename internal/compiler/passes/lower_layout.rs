@@ -467,26 +467,68 @@ impl GridLayout {
     ) {
         let layout_item = create_layout_item(item_element, diag);
         if let ElementType::Component(comp) = &item_element.borrow().base_type {
-            let repeated_children_count = comp.root_element.borrow().children.len();
             let mut children_layout_items = Vec::new();
             let jump_pos = *num_cached_items;
 
-            // This code will be extended to support nested repeaters
-            let step = repeated_children_count as f64;
-            let (stride_h_expr, stride_v_expr, stride_org_expr) = (
-                Expression::NumberLiteral(step * 2.0, Unit::None), // pos+size
-                Expression::NumberLiteral(step * 2.0, Unit::None), // pos+size
-                Expression::NumberLiteral(step * 4.0, Unit::None), // row+col+rowspan+colspan
-            );
+            // Determine whether any child is an inner repeater (dynamic stride)
+            let children_ref = comp.root_element.borrow().children.clone();
+            let has_inner_repeaters = children_ref.iter().any(|c| c.borrow().repeated.is_some());
 
-            for (child_idx, child) in comp.root_element.borrow().children.iter().enumerate() {
-                if child.borrow().repeated.is_some() {
-                    diag.push_error(
-                        "'if' or 'for' expressions are not currently supported within repeated Row elements (https://github.com/slint-ui/slint/issues/10670)".into(),
-                        &*child.borrow(),
-                    );
-                };
+            // Compute stride expressions for H/V coord caches and org-data cache.
+            // For non-inner rows: stride is compile-time (step * entries_per_item).
+            // For inner-repeater rows: stride is runtime, stored at cache[index+1] by
+            // the layout solver (GridLayoutCacheGenerator / OrganizedDataGenerator).
+            let step = children_ref.len() as f64;
+            let (stride_h_expr, stride_v_expr, stride_org_expr): (
+                Expression,
+                Expression,
+                Expression,
+            ) = if has_inner_repeaters {
+                // stride = step * entries_per_item, computed at runtime and stored at
+                // cache[jump_pos*2+1] (coord) or cache[jump_pos*4+1] (org)
+                (
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: layout_cache_prop_h.clone(),
+                        index: jump_pos * 2 + 1,
+                        repeater_index: None,
+                        entries_per_item: 1,
+                    },
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: layout_cache_prop_v.clone(),
+                        index: jump_pos * 2 + 1,
+                        repeater_index: None,
+                        entries_per_item: 1,
+                    },
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: organized_data_prop.clone(),
+                        index: jump_pos * 4 + 1,
+                        repeater_index: None,
+                        entries_per_item: 1,
+                    },
+                )
+            } else {
+                // stride = step * 2 for coord (pos+size per child), step * 4 for org (4 u16)
+                (
+                    Expression::NumberLiteral(step * 2.0, Unit::None), // pos+size
+                    Expression::NumberLiteral(step * 2.0, Unit::None), // pos+size
+                    Expression::NumberLiteral(step * 4.0, Unit::None), // row+col+rowspan+colspan
+                )
+            };
 
+            // Track the cumulative position (as an Expression) of each child in the
+            // flattened stride. For static children the position increments by 1; for
+            // inner repeaters it increments by the model length (dynamic).
+            //
+            // Each child's position in the stride determines where its data lives in
+            // the coordinate/organized-data caches. We encode this via
+            // inner_repeater_index in GridRepeaterCacheAccess:
+            //   data_idx = data_start + row_idx * stride + child_offset + inner_rep_idx * epi
+            // Using child_offset=0 (for pos) / 1 (for size) and
+            // inner_rep_idx = cumulative_position (+ model_index for inner items).
+            let mut cumulative_pos: Option<Expression> = None;
+
+            for child in children_ref.iter() {
+                let is_nested_repeater = child.borrow().repeated.is_some();
                 let sub_item = create_layout_item(child, diag);
 
                 // Read colspan and rowspan from the child element
@@ -516,12 +558,33 @@ impl GridLayout {
                 }));
                 child.borrow_mut().grid_layout_cell = Some(child_grid_cell);
 
+                // Compute the effective inner_rep_idx for this child:
+                // - For inner repeater items: cumulative_pos + model_index
+                // - For static children: cumulative_pos (their fixed position in stride)
+                // When cumulative_pos is None (= 0), we simplify to avoid unnecessary
+                // BinaryExpression nodes.
+                let effective_inner_rep_idx = if is_nested_repeater {
+                    // Inner repeater: position = cumulative_pos + model_index
+                    let model_idx = sub_item.repeater_index.clone().unwrap();
+                    Some(if let Some(ref base) = cumulative_pos {
+                        Expression::BinaryExpression {
+                            lhs: Box::new(base.clone()),
+                            rhs: Box::new(model_idx),
+                            op: '+',
+                        }
+                    } else {
+                        model_idx
+                    })
+                } else {
+                    // Static child: position = cumulative_pos
+                    cumulative_pos.clone()
+                };
+
                 let repeater_params = RepeaterCacheParams {
                     index: jump_pos,
                     rep_idx: &layout_item.repeater_index,
                     child_offset: 0,
-                    // for now always a literal, this will be more dynamic when we support nested repeaters
-                    inner_rep_idx: &Some(Expression::NumberLiteral(child_idx as f64, Unit::None)),
+                    inner_rep_idx: &effective_inner_rep_idx,
                 };
                 // The layout engine will set x,y,width,height for each of the repeated children
                 set_coord_prop_from_cache(
@@ -543,7 +606,60 @@ impl GridLayout {
                     (&None::<RowColExpr>, &None::<RowColExpr>),
                     diag,
                 );
-                children_layout_items.push(sub_item.item);
+
+                // Update cumulative position for the next child
+                if is_nested_repeater {
+                    // Inner repeater: adds model.length() items to the position.
+                    // For a conditional `if cond: element`, the model is a boolean expression,
+                    // so the length is `cond ? 1 : 0`, not `ArrayLength(cond)`.
+                    let (model_expr, is_conditional) = {
+                        let b = child.borrow();
+                        let r = b.repeated.as_ref().unwrap();
+                        (r.model.clone(), r.is_conditional_element)
+                    };
+                    let len_expr = if is_conditional {
+                        Expression::Condition {
+                            condition: Box::new(model_expr),
+                            true_expr: Box::new(Expression::NumberLiteral(1., Unit::None)),
+                            false_expr: Box::new(Expression::NumberLiteral(0., Unit::None)),
+                        }
+                    } else {
+                        Expression::FunctionCall {
+                            function: Callable::Builtin(BuiltinFunction::ArrayLength),
+                            arguments: vec![model_expr],
+                            source_location: None,
+                        }
+                    };
+                    cumulative_pos = Some(if let Some(prev) = cumulative_pos.take() {
+                        Expression::BinaryExpression {
+                            lhs: Box::new(prev),
+                            rhs: Box::new(len_expr),
+                            op: '+',
+                        }
+                    } else {
+                        len_expr
+                    });
+                } else {
+                    // Static child: adds 1 to the position
+                    cumulative_pos = Some(if let Some(prev) = cumulative_pos.take() {
+                        Expression::BinaryExpression {
+                            lhs: Box::new(prev),
+                            rhs: Box::new(Expression::NumberLiteral(1., Unit::None)),
+                            op: '+',
+                        }
+                    } else {
+                        Expression::NumberLiteral(1., Unit::None)
+                    });
+                }
+
+                if is_nested_repeater {
+                    children_layout_items.push(RowChildTemplate::Repeated {
+                        item: sub_item.item,
+                        repeated_element: child.clone(),
+                    });
+                } else {
+                    children_layout_items.push(RowChildTemplate::Static(sub_item.item));
+                }
             }
 
             // 1 jump cell per repeater
@@ -770,6 +886,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
     let align_content = crate::layout::binding_reference(layout_element, "align-content");
     let align_items = crate::layout::binding_reference(layout_element, "align-items");
+    let flex_wrap = crate::layout::binding_reference(layout_element, "flex-wrap");
 
     let mut layout = crate::layout::FlexBoxLayout {
         elems: Default::default(),
@@ -777,6 +894,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         direction,
         align_content,
         align_items,
+        flex_wrap,
     };
 
     // FlexBoxLayout needs 4 values per item: x, y, width, height

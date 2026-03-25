@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::input::{FocusEventResult, InternalKeyEvent};
 use i_slint_core::items::ScrollBarPolicy;
 
 use super::*;
@@ -240,12 +240,8 @@ impl Item for NativeScrollView {
                 }
                 MouseEvent::Wheel { delta_x, delta_y, .. } => {
                     let max = max as f32;
-                    let new_val;
-                    if horizontal {
-                        new_val = value as f32 + delta_x;
-                    } else {
-                        new_val = value as f32 + delta_y;
-                    }
+                    let new_val =
+                        if horizontal { value as f32 + delta_x } else { value as f32 + delta_y };
                     let old_val = value_prop.get();
                     let new_val = LogicalLength::new(new_val.min(0.).max(-max));
                     value_prop.set(new_val);
@@ -302,7 +298,7 @@ impl Item for NativeScrollView {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -311,7 +307,7 @@ impl Item for NativeScrollView {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

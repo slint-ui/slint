@@ -44,8 +44,8 @@ accessibility = ["slint-interpreter/accessibility"]
 testing = ["dep:i-slint-backend-testing"]
 
 [dependencies]
-napi = { version = "2.14.0", default-features = false, features = ["napi8"] }
-napi-derive = "2.14.0"
+napi = { version = "3", default-features = false, features = ["napi8"] }
+napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
@@ -59,4 +59,4 @@ i-slint-backend-testing = { workspace = true, optional = true }
 smol_str = { workspace = true }
 
 [build-dependencies]
-napi-build = "2.1.0"
+napi-build = "2"

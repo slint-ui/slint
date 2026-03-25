@@ -1,0 +1,197 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Open me with the live-preview to see the logged keyboard events
+export component TestCase inherits Window {
+    in-out property <[keys]> shortcuts: [
+        @keys(Control + Shift + Escape),
+        @keys(Control + Shift + A),
+        @keys(Control + Plus),
+        @keys("é"),
+    ];
+
+    // For access from NodeJS
+    out property <keys> first_shortcut: shortcuts[0];
+
+    // Test conversion from keys to string
+    out property <string> shortcut_as_string: shortcuts[0].to-string();
+    out property <string> shortcut_a_as_string: shortcuts[1].to-string();
+    out property <string> shortcut_plus_as_string: shortcuts[2].to-string();
+
+    out property <int> matches: 0;
+
+    Text {
+        text: input.has-focus ? "Focused" : "Unfocused";
+    }
+
+    init => {
+        input.focus()
+    }
+
+    input := FocusScope {
+        min-width: 100px;
+        min-height: 50px;
+        Text {
+            text: input.has-focus ? "focused" : "click to focus";
+        }
+
+        key-pressed(event) => {
+            debug("Pressed: ", event);
+            EventResult.reject
+        }
+        for keys in root.shortcuts: KeyBinding {
+            keys: keys;
+            activated => {
+                root.matches += 1;
+                debug("MATCHES {keys}");
+            }
+        }
+
+        key-released(event) => {
+            debug("Released: ", event);
+            EventResult.reject
+        }
+    }
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+const auto shortcuts = instance.get_shortcuts();
+const auto shortcut = shortcuts->row_data(0).value();
+slint::SharedString shortcut_string;
+slint::cbindgen_private::slint_keys_debug_string(&shortcut, &shortcut_string);
+assert_eq(shortcut_string, "Control+Shift+\"\\u{1b}\"");
+
+using namespace slint::platform;
+
+slint::SharedString escape(key_codes::Escape);
+slint::SharedString shift(key_codes::Shift);
+slint::SharedString control(key_codes::Control);
+slint::SharedString alt(key_codes::Alt);
+
+using slint::private_api::testing::send_key_combo;
+
+// Does not match with incorrect modifiers
+send_key_combo(&instance, {escape});
+send_key_combo(&instance, {control, escape});
+send_key_combo(&instance, {alt, escape});
+send_key_combo(&instance, {control, alt, shift, escape});
+assert_eq(instance.get_matches(), 0);
+
+// matches with correct modifiers
+send_key_combo(&instance, {control, shift, escape});
+assert_eq(instance.get_matches(), 1);
+
+// additional matches
+send_key_combo(&instance, { control, "+" });
+send_key_combo(&instance, { control, shift, "+" });
+send_key_combo(&instance, { control, shift, "A" });
+// A lowercase 'a' together with Shift may appear if caps-lock is active, or on the Qt backend.
+send_key_combo(&instance, { control, shift, "a" });
+assert_eq(instance.get_matches(), 5);
+
+// additional non-matches
+send_key_combo(&instance, { control, alt, "+" });
+send_key_combo(&instance, { control, "A" });
+send_key_combo(&instance, { control, "a" });
+assert_eq(instance.get_matches(), 5);
+
+// Unicode normalization: send NFC é (U+00E9) - should match directly
+send_key_combo(&instance, { "\xc3\xa9" });
+assert_eq(instance.get_matches(), 6);
+
+// Unicode normalization: send NFD é (e + combining acute U+0301) - should match after normalization
+send_key_combo(&instance, { "e\xcc\x81" });
+assert_eq(instance.get_matches(), 7);
+```
+
+```rust
+use slint::Model;
+
+let instance = TestCase::new().unwrap();
+let shortcuts = instance.get_shortcuts();
+let expected = [
+    "Control+Shift+\"\\u{1b}\"",
+    "Control+Shift+\"a\"",
+    "Control+Shift?+\"+\"",
+    "\"é\"",
+];
+for (shortcut, expected) in shortcuts.iter().zip(expected) {
+    assert_eq!(format!("{:?}", shortcut), expected);
+}
+
+use slint::private_unstable_api::re_exports::Key;
+// Doesn't match with incorrect modifiers
+slint_testing::send_key_combo(&instance, [Key::Escape]);
+slint_testing::send_key_combo(&instance, [Key::Control, Key::Escape]);
+slint_testing::send_key_combo(&instance, [Key::Control, Key::Alt, Key::Shift, Key::Escape]);
+assert_eq!(instance.get_matches(), 0);
+// matches with correct modifers
+slint_testing::send_key_combo(&instance, [Key::Control, Key::Shift, Key::Escape]);
+assert_eq!(instance.get_matches(), 1);
+
+// additional matches
+slint_testing::send_key_combo(&instance, [Key::Control, Key::Plus]);
+slint_testing::send_key_combo(&instance, [Key::Control, Key::Shift, Key::Plus]);
+slint_testing::send_key_combo(&instance, [char::from(Key::Control), char::from(Key::Shift), 'A']);
+// A lowercase 'a' together with Shift may appear if caps-lock is active, or on the Qt backend.
+slint_testing::send_key_combo(&instance, [char::from(Key::Control), char::from(Key::Shift), 'a']);
+assert_eq!(instance.get_matches(), 5);
+
+// additional non-matches
+slint_testing::send_key_combo(&instance, [Key::Control, Key::Alt, Key::Plus]);
+slint_testing::send_key_combo(&instance, [char::from(Key::Control), 'A']);
+slint_testing::send_key_combo(&instance, [char::from(Key::Control), 'a']);
+assert_eq!(instance.get_matches(), 5);
+
+// Unicode normalization: send NFC é (U+00E9) - should match directly
+slint_testing::send_key_combo(&instance, ['\u{00e9}']);
+assert_eq!(instance.get_matches(), 6);
+
+// Unicode normalization: send NFD é (e + combining acute U+0301) - should match after NFC normalization
+slint_testing::send_key_combo_with_text(&instance, &["e\u{0301}".into()]);
+assert_eq!(instance.get_matches(), 7);
+
+// Test platform string conversion - explicit comparison with expected values
+let shortcut_string = instance.get_shortcut_as_string();
+let shortcut_a_string = instance.get_shortcut_a_as_string();
+let shortcut_plus_string = instance.get_shortcut_plus_as_string();
+
+#[cfg(target_os = "macos")]
+{
+    assert_eq!(shortcut_string.as_str(), "⇧⌘Escape");
+    assert_eq!(shortcut_a_string.as_str(), "⇧⌘A");
+    assert_eq!(shortcut_plus_string.as_str(), "⌘+");
+}
+
+#[cfg(target_os = "windows")]
+{
+    assert_eq!(shortcut_string.as_str(), "Ctrl+Shift+Escape");
+    assert_eq!(shortcut_a_string.as_str(), "Ctrl+Shift+A");
+    assert_eq!(shortcut_plus_string.as_str(), "Ctrl++");
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+{
+    assert_eq!(shortcut_string.as_str(), "Ctrl+Shift+Escape");
+    assert_eq!(shortcut_a_string.as_str(), "Ctrl+Shift+A");
+    assert_eq!(shortcut_plus_string.as_str(), "Ctrl++");
+}
+
+```
+
+```js
+var instance = new slint.TestCase({});
+
+let shortcut = instance.first_shortcut;
+assert.equal(shortcut, "Control+Shift+\"\\u{1b}\"")
+
+// TODO: Simulate shortcuts in JS
+```
+
+*/

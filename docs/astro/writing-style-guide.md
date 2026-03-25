@@ -48,6 +48,9 @@ In our written communication we aim to be:
    - Use: "Achieve Y using the new X feature in Slint."
    - Rationale: Users care about how a feature helps them solve a problem or reach a goal—not just that it exists.
 
+ 8. In Markdown (including in documentation comments), add a newline between sentences, or after a comma if the line is too long.
+   - Rationale: Just like we add a newline after `;` in code, this helps create readable diffs and avoids reflowing a entire paragraph for every edit.
+
 ## Docs
 
   - Ensure links don't go to blank pages e.g. [1.7 concepts](https://releases.slint.dev/1.7.0/docs/slint/src/language/concepts/)

@@ -397,10 +397,7 @@ fn create_text_paragraphs(
                 ));
             }
         }
-        #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
-        PlainOrStyledText::Styled(rich_text) =>
-        {
-            #[cfg(feature = "experimental-rich-text")]
+        PlainOrStyledText::Styled(rich_text) => {
             for paragraph in rich_text.paragraphs {
                 paragraphs.push(paragraph_from_text(
                     font_context,
@@ -466,9 +463,13 @@ fn layout(
         para.layout.align(
             max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
-                TextHorizontalAlignment::Left => parley::Alignment::Left,
+                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                    parley::Alignment::Left
+                }
                 TextHorizontalAlignment::Center => parley::Alignment::Center,
-                TextHorizontalAlignment::Right => parley::Alignment::Right,
+                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                    parley::Alignment::Right
+                }
             },
             parley::AlignmentOptions::default(),
         );
@@ -564,7 +565,6 @@ struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
     layout: parley::Layout<Brush>,
-    #[cfg_attr(not(feature = "experimental-rich-text"), allow(unused))]
     links: std::vec::Vec<(Range<usize>, std::string::String)>,
 }
 
@@ -1079,7 +1079,7 @@ pub fn draw_text(
     guard.paragraphs = Some(layout.paragraphs);
 }
 
-#[cfg(feature = "experimental-rich-text")]
+#[cfg(feature = "std")]
 pub fn link_under_cursor(
     font_context: &mut parley::FontContext,
     scale_factor: ScaleFactor,

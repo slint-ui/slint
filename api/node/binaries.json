@@ -1,18 +1,11 @@
 {
-  "name": "@slint-ui/slint-ui-binary",
-  "version": "1.16.0",
   "binaryName": "slint-ui",
-  "package": "@slint-ui/slint-ui-binary",
-  "napi": {
-    "triples": {
-      "defaults": false,
-      "additional": [
-        "x86_64-unknown-linux-gnu",
-        "aarch64-unknown-linux-gnu",
-        "aarch64-apple-darwin",
-        "x86_64-pc-windows-msvc",
-        "aarch64-pc-windows-msvc"
-      ]
-    }
-  }
+  "packageName": "@slint-ui/slint-ui-binary",
+  "targets": [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc"
+  ]
 }

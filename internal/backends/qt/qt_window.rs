@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     euclid,
 };
-use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
@@ -56,6 +56,7 @@ cpp! {{
     #include <QtCore/QTimer>
     #include <QtGui/QAccessible>
     #include <QtGui/QCursor>
+    #include <QtGui/QDesktopServices>
     #include <QtGui/QIconEngine>
     #include <QtGui/QImageReader>
     #include <QtGui/QPaintEngine>
@@ -366,14 +367,16 @@ cpp! {{
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
-
-                    let event = KeyEvent {
+                    let event = InternalKeyEvent {
+                        key_event: KeyEvent {
+                            text: i_slint_core::format!("{}", commit_string),
+                            ..Default::default()
+                        },
                         event_type: KeyEventType::UpdateComposition,
-                        text: i_slint_core::format!("{}", commit_string),
                         preedit_text: i_slint_core::format!("{}", preedit_string),
                         preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
                         replacement_range: (!commit_string.is_empty() || !preedit_string.is_empty() || preedit_cursor >= 0)
-                            .then_some(replacement_start..replacement_start+replacement_length),
+                        .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
                     runtime_window.process_key_input(event);
@@ -1211,15 +1214,10 @@ impl QRawFont {
     }
 }
 
+#[derive(Default)]
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
     fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
-}
-
-impl Default for FontCache {
-    fn default() -> Self {
-        Self { fonts: Default::default() }
-    }
 }
 
 impl FontCache {
@@ -1343,7 +1341,7 @@ impl QtItemRenderer<'_> {
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
         let scale_factor = ScaleFactor::new(self.scale_factor());
 
-        let fit = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&image.source()).into() {
+        let fit = if let ImageInner::NineSlice(nine) = <&ImageInner>::from(&image.source()) {
             i_slint_core::graphics::fit9slice(
                 nine.0.size(),
                 nine.1,
@@ -1521,7 +1519,7 @@ impl QtItemRenderer<'_> {
 
             i_slint_core::item_rendering::render_item_children(
                 self,
-                &item_rc.item_tree(),
+                item_rc.item_tree(),
                 item_rc.index() as isize, &window_adapter
             );
 
@@ -1689,7 +1687,7 @@ impl QtWindow {
             };
 
             for (component, origin) in components {
-                if let Some(component) = ItemTreeWeak::upgrade(&component) {
+                if let Some(component) = ItemTreeWeak::upgrade(component) {
                     i_slint_core::item_rendering::render_component_items(
                         &component,
                         &mut renderer,

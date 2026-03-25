@@ -485,7 +485,7 @@ fn to_debug_string(
                 ]),
             }
         }
-        Type::Enumeration(_) | Type::KeyboardShortcutType => {
+        Type::Enumeration(_) | Type::Keys => {
             Expression::Cast { from: Box::new(expr), to: (Type::String) }
         }
     }

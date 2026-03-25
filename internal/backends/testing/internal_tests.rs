@@ -30,20 +30,53 @@ pub fn send_mouse_click<
 }
 
 /// Simulate entering a keyboard shortcut or other "nested" character sequence
-pub fn send_keyboard_shortcut<
+pub fn send_key_combo<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
     keys: impl IntoIterator<Item = impl Into<char>>,
 ) {
-    let keys: Vec<_> = keys.into_iter().map(Into::into).collect();
-    for key in &keys {
-        send_keyboard_char(component, *key, true);
+    let keys: Vec<SharedString> = keys.into_iter().map(|k| k.into().into()).collect();
+    send_key_combo_with_text(component, &keys);
+}
+
+/// Simulate entering a keyboard shortcut where each key is a text string.
+///
+/// Unlike [`send_key_combo`], each key can be an arbitrary string,
+/// which supports multi-codepoint grapheme clusters (e.g. NFD-encoded Unicode).
+pub fn send_key_combo_with_text<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    keys: &[SharedString],
+) {
+    for key in keys {
+        send_keyboard_key_text(component, key, true);
     }
     for key in keys.iter().rev() {
-        send_keyboard_char(component, *key, false);
+        send_keyboard_key_text(component, key, false);
     }
+}
+
+/// Simulate a single key event with the given text (pressed or released).
+///
+/// Unlike [`send_keyboard_char`], the text is dispatched as a single event,
+/// which supports multi-codepoint grapheme clusters.
+pub fn send_keyboard_key_text<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    text: &SharedString,
+    pressed: bool,
+) {
+    i_slint_core::tests::slint_send_keyboard_key_text(
+        text,
+        pressed,
+        &WindowInner::from_pub(component.window()).window_adapter(),
+    )
 }
 
 /// Simulate entering a sequence of ascii characters key by (pressed or released).
@@ -52,14 +85,10 @@ pub fn send_keyboard_char<
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
 >(
     component: &Component,
-    string: char,
+    ch: char,
     pressed: bool,
 ) {
-    i_slint_core::tests::slint_send_keyboard_char(
-        &SharedString::from(string),
-        pressed,
-        &WindowInner::from_pub(component.window()).window_adapter(),
-    )
+    send_keyboard_key_text(component, &SharedString::from(ch), pressed)
 }
 
 /// Simulate entering a sequence of ascii characters key by key.

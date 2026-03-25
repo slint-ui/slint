@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component SuperSimple {
-    property <[keyboard-shortcut]> invalid_shortcuts: [
+    property <[keys]> invalid_shortcuts: [
         // Right-side modifier keys
         @keys(AltR + "a"),
 //            >  <error{Right-side modifiers are not supported}
@@ -76,4 +76,4 @@ export component SuperSimple {
         @keys(Control + +),
 //                      ^error{Unexpected '+' in keyboard shortcut (use Plus to refer to the key)}
     ];
-}
+    }

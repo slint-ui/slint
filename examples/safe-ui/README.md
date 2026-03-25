@@ -37,6 +37,14 @@ The SafeUI core supports the following pixel formats via Cargo features:
 - `pixel-rgb565` - 16-bit RGB, 5-6-5 bit distribution (memory efficient)
 - `pixel-rgb888` - 24-bit RGB, 8 bits per channel
 
+## Critical Section Implementation
+
+The callback queue uses the [`critical-section`](https://crates.io/crates/critical-section) crate for ISR-safe access to the static queue. The actual critical section implementation depends on your target platform and is selected via the `SLINT_SAFEUI_CRITICAL_SECTION` CMake variable:
+
+- `cs-cortex-m` (default) — Uses `cortex-m`'s single-core critical section (interrupt disable/enable via `PRIMASK`). Suitable for single-core Cortex-M MCUs.
+
+The simulator (`std` feature) uses the `critical-section` crate's built-in `std` implementation automatically and does not require any of the above features.
+
 ## Build System Integration
 
 Integration of this example into an existing safety domain build system works by means of CMake. In your existing `CMakeLists.txt` for your target
@@ -46,6 +54,7 @@ that produces the final binary, use `FetchContent` to pull in the `SlintSafeUi` 
 set(Rust_CARGO_TARGET "thumbv7em-none-eabihf" CACHE STRING "")
 
 set(SLINT_SAFEUI_PANIC_HANDLER ON CACHE BOOL "" FORCE)
+set(SLINT_SAFEUI_CRITICAL_SECTION "cs-cortex-m" CACHE STRING "" FORCE)
 set(SLINT_SAFEUI_PIXEL_FORMAT "pixel-rgb565" CACHE STRING "" FORCE)
 set(SLINT_SAFEUI_WIDTH "640" CACHE STRING "" FORCE)
 set(SLINT_SAFEUI_HEIGHT "480" CACHE STRING "" FORCE)
@@ -71,6 +80,8 @@ target_link_libraries(my_firmware PRIVATE SlintSafeUi)
 The basic C system interface is documented in [./core/src/slint-safeui-platform-interface.h](./core/src/slint-safeui-platform-interface.h). This header file is also part of the `INTERFACE`
 of the `SlintSafeUi` CMake target. Implement these functions in your firmware.
 
+To run code on the Slint event loop thread from C firmware (including ISR context), use `slint_safeui_invoke_from_event_loop()`. This is ISR-safe: no heap allocation, no blocking, no FPU usage. It queues a function pointer and user data into a static queue under a critical section, then wakes the Slint event loop to execute the callback.
+
 Once you've started your UI task, invoke `slint_app_main()` to start the Slint event loop and the UI safety layer.
 
 ## Simulation
@@ -86,6 +97,3 @@ The "simulator" implements the same C system interface and runs the Slint UI saf
 ## Known Limitations
 
 - Partial rendering is not implemented. While this is technically possible, we aim to exclude the partial renderer from the safety certification process for now.
-- The pixel format is hard-coded to BGRA8888. This is relatively easy to change, if necessary.
-- `slint::invoke_from_event_loop()` (and `slint_safeui_platform_wake` in the interface) isn't fully implemented yet. This is partly due to missing abstractions
-  (mutexes) as well as missing support to distinguish between waking up from an interrupt handler vs. being invoked from another task (`vTaskNotifyGiveFromISR()` vs `xTaskNotifyGive()`)

@@ -381,7 +381,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::Color => PyValueType::Brush,
             Type::Image => PyValueType::Image,
             Type::Enumeration(..) => PyValueType::Enumeration,
-            Type::KeyboardShortcutType => PyValueType::String,
+            Type::Keys => PyValueType::String,
             _ => unimplemented!(),
         }
     }

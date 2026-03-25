@@ -733,6 +733,42 @@ impl<T> core::cmp::PartialEq for ModelRc<T> {
     }
 }
 
+#[cfg(feature = "serde")]
+use serde::ser::SerializeSeq;
+#[cfg(feature = "serde")]
+impl<T> serde::Serialize for ModelRc<T>
+where
+    T: serde::Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.row_count()))?;
+        for item in self.iter() {
+            seq.serialize_element(&item)?;
+        }
+        seq.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T> serde::Deserialize<'de> for ModelRc<T>
+where
+    T: serde::Deserialize<'de> + Clone + 'static,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let vec = Vec::<T>::deserialize(deserializer)?;
+        if vec.is_empty() {
+            return Ok(ModelRc::default());
+        }
+        Ok(ModelRc::new(VecModel::from(vec)))
+    }
+}
+
 impl<T> ModelRc<T> {
     pub fn new(model: impl Model<Data = T> + 'static) -> Self {
         Self(Some(Rc::new(model)))
@@ -1086,7 +1122,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         }
 
         let listview_height = listview_height.get();
-        let mut vp_y = viewport_y.get().min(zero);
+        let mut vp_y = viewport_y.get();
+        if !viewport_y.has_binding() {
+            vp_y = vp_y.min(zero);
+        }
 
         // We need some sort of estimation of the element height
         let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
@@ -1150,7 +1189,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             // we scrolled down, try to find out the new offset.
             let mut it_y = first_item_y + vp_y;
             let mut new_offset = inner.offset;
-            debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
+            if !viewport_y.has_binding() {
+                debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
+            }
             for (i, c) in inner.instances.iter_mut().enumerate() {
                 if c.0 == RepeatedInstanceState::Dirty {
                     if c.1.is_none() {
@@ -1288,11 +1329,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             viewport_height.set(inner.cached_item_height * row_count as Coord);
             viewport_width.set(vp_width);
             let new_viewport_y = -inner.anchor_y + new_offset_y;
-            if new_viewport_y != viewport_y.get() {
-                // If the new value gets set, all bindings are removed which means also an animation gets removed
-                viewport_y.set(new_viewport_y);
+            if !viewport_y.has_binding() {
+                if new_viewport_y != viewport_y.get() {
+                    // If the new value gets set, all bindings are removed which means also an animation gets removed
+                    viewport_y.set(new_viewport_y);
+                }
+                inner.previous_viewport_y = new_viewport_y;
             }
-            inner.previous_viewport_y = new_viewport_y;
             break;
         }
         drop(inner);
@@ -1470,11 +1513,23 @@ mod tests {
     use super::*;
     use std::vec;
 
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_serialize_deserialize_modelrc() {
+        let model_rc = ModelRc::new(VecModel::from(vec![1, 2, 3]));
+        let serialized = serde_json::to_string(&model_rc).unwrap();
+        let deserialized: ModelRc<i32> = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.row_count(), 3);
+        assert_eq!(deserialized.row_data(0), Some(1));
+        assert_eq!(deserialized.row_data(1), Some(2));
+        assert_eq!(deserialized.row_data(2), Some(3));
+    }
+
     #[test]
     fn test_tracking_model_handle() {
         let model: Rc<VecModel<u8>> = Rc::new(Default::default());
         let handle = ModelRc::from(model.clone() as Rc<dyn Model<Data = u8>>);
-        let tracker = Box::pin(crate::properties::PropertyTracker::default());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
         assert_eq!(
             tracker.as_ref().evaluate(|| {
                 handle.model_tracker().track_row_count_changes();
@@ -1514,7 +1569,7 @@ mod tests {
     fn test_data_tracking() {
         let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
         let handle = ModelRc::from(model.clone());
-        let tracker = Box::pin(crate::properties::PropertyTracker::default());
+        let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
         assert_eq!(
             tracker.as_ref().evaluate(|| {
                 handle.model_tracker().track_row_data_changes(1);

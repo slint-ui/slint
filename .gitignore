@@ -30,6 +30,7 @@ global-structs-enums.mdx
 *.d.ts
 
 __pycache__
+.cache
 uv.lock
 .python-version
 

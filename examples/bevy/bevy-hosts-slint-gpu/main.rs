@@ -221,7 +221,7 @@ struct TextureSender(std::sync::mpsc::Sender<wgpu::Texture>);
 
 /// Bevy image handle that gets extracted to the render world.
 /// Used to look up the underlying GPU texture.
-#[derive(Resource, Clone, Component, ExtractResource)]
+#[derive(Resource, Clone, ExtractResource)]
 struct SlintImageHandle(Handle<Image>);
 
 /// Manages the shared WGPU texture between Bevy's render world and the Slint renderer.
@@ -401,7 +401,7 @@ fn setup(
     // Instructions overlay
     commands.spawn((
         Text::new("Arrow keys: rotate cube | Mouse: interact with UI"),
-        TextFont { font_size: 20.0, ..default() },
+        TextFont { font_size: bevy::prelude::FontSize::Px(20.0), ..default() },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
@@ -479,7 +479,7 @@ fn initialize_slint(
         adapter.resize(slint::PhysicalSize::new(UI_WIDTH, UI_HEIGHT), SCALE_FACTOR);
 
         // The SlintSharedTexture was already inserted in main() with the channel receiver
-        world.insert_non_send_resource(SlintContext {
+        world.insert_non_send(SlintContext {
             // Keep instance alive for the app's lifetime
             _instance: instance,
             adapter,

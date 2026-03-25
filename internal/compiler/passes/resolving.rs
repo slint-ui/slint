@@ -21,6 +21,7 @@ use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
+use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
 
@@ -461,25 +462,30 @@ impl Expression {
             };
         }
 
-        let absolute_source_path = {
-            let path = std::path::Path::new(&s);
-            if crate::pathutils::is_absolute(path) {
-                s
-            } else {
-                ctx.type_loader
-                    .and_then(|loader| {
-                        loader.resolve_import_path(Some(&(*node).clone().into()), &s)
-                    })
-                    .map(|i| i.0.to_string_lossy().into())
-                    .unwrap_or_else(|| {
-                        crate::pathutils::join(
-                            &crate::pathutils::dirname(node.source_file.path()),
-                            path,
-                        )
-                        .map(|p| p.to_string_lossy().into())
-                        .unwrap_or(s.clone())
-                    })
-            }
+        let resource_ref = if s.starts_with("data:") {
+            ImageReference::AbsolutePath(s)
+        } else {
+            let absolute_source_path = {
+                let path = std::path::Path::new(&s);
+                if crate::pathutils::is_absolute(path) {
+                    s
+                } else {
+                    ctx.type_loader
+                        .and_then(|loader| {
+                            loader.resolve_import_path(Some(&(*node).clone().into()), &s)
+                        })
+                        .map(|i| i.0.to_string_lossy().into())
+                        .unwrap_or_else(|| {
+                            crate::pathutils::join(
+                                &crate::pathutils::dirname(node.source_file.path()),
+                                path,
+                            )
+                            .map(|p| p.to_string_lossy().into())
+                            .unwrap_or(s.clone())
+                        })
+                }
+            };
+            ImageReference::AbsolutePath(absolute_source_path)
         };
 
         let nine_slice = node
@@ -515,7 +521,7 @@ impl Expression {
         };
 
         Expression::ImageReference {
-            resource_ref: ImageReference::AbsolutePath(absolute_source_path),
+            resource_ref,
             source_location: Some(node.to_source_location()),
             nine_slice,
         }
@@ -755,9 +761,6 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        if !ctx.diag.enable_experimental {
-            ctx.diag.push_error("The @markdown() function is experimental".into(), &node);
-        }
         let Some(string) = node
             .child_text(SyntaxKind::StringLiteral)
             .and_then(|s| crate::literals::unescape_string(&s))
@@ -969,7 +972,7 @@ impl Expression {
     }
 
     pub fn from_at_keys_node(node: syntax_nodes::AtKeys, ctx: &mut LookupCtx) -> Self {
-        let mut shortcut = langtype::KeyboardShortcut::default();
+        let mut keys = langtype::Keys::default();
 
         let mut key_code: Option<(SmolStr, ShiftBehavior, NodeOrToken)> = None;
 
@@ -996,18 +999,18 @@ impl Expression {
             match identifier.as_token().unwrap().text() {
                 "Alt" => {
                     if is_question() {
-                        shortcut.ignore_alt = true;
+                        keys.ignore_alt = true;
                     } else {
-                        shortcut.modifiers.alt = true;
+                        keys.modifiers.alt = true;
                     }
                 }
-                "Control" => shortcut.modifiers.control = true,
-                "Meta" => shortcut.modifiers.meta = true,
+                "Control" => keys.modifiers.control = true,
+                "Meta" => keys.modifiers.meta = true,
                 "Shift" => {
                     if is_question() {
-                        shortcut.ignore_shift = true;
+                        keys.ignore_shift = true;
                     } else {
-                        shortcut.modifiers.shift = true;
+                        keys.modifiers.shift = true;
                     }
                 }
                 key_name => {
@@ -1030,7 +1033,7 @@ impl Expression {
                             format!("{key_name} not defined in the Keys namespace\n({hint})"),
                             identifier,
                         );
-                        shortcut.modifiers = KeyboardModifiers::default();
+                        keys.modifiers = KeyboardModifiers::default();
                         break;
                     }
                 }
@@ -1042,7 +1045,7 @@ impl Expression {
         if let Some((key_code, shift_behavior, node)) = key_code {
             match shift_behavior {
                 ShiftBehavior::LocalizedShiftable { shifted_hint } => {
-                    if shortcut.ignore_shift {
+                    if keys.ignore_shift {
                         ctx.diag.push_warning(
                             format!(
                                 "{name} already implies Shift? (remove Shift?)",
@@ -1051,11 +1054,11 @@ impl Expression {
                             &node,
                         );
                     }
-                    shortcut.ignore_shift = true;
-                    if shortcut.modifiers.shift {
+                    keys.ignore_shift = true;
+                    if keys.modifiers.shift {
                         ctx.diag.push_error(
                                         format!(
-                                            "Shortcuts involving {name} ignore Shift to support different keyboard layouts\n\
+                                            "Key bindings involving {name} ignore Shift to support different keyboard layouts\n\
                                             Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
                                             name = node.as_token().unwrap().text()
                                         ),
@@ -1067,27 +1070,44 @@ impl Expression {
                 // No special action needed
                 ShiftBehavior::Unshiftable => {}
             }
-            shortcut.key = key_code;
+            keys.key = key_code;
         }
 
         // If there is a string literal, use it as the key
         if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
             && let Some(key) = crate::literals::unescape_string(token.text())
         {
-            shortcut.key = key;
+            // NFC-normalize the key string for consistent matching
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let key: SmolStr = normalizer.normalize(&key).into();
 
-            let lowercase = shortcut.key.to_lowercase();
-            if lowercase != shortcut.key {
+            // Validate that the string literal contains exactly one grapheme cluster
+            let grapheme_count = key.graphemes(true).count();
+            if grapheme_count == 0 {
+                ctx.diag.push_error("Key string literal must not be empty".to_string(), &token);
+            } else if grapheme_count > 1 {
                 ctx.diag.push_error(
                     format!(
-                        "Keyboard shortcut literals must currently be lowercase, use \"{lowercase}\" instead",
+                        "Key string literal must contain exactly one grapheme cluster, found {grapheme_count}",
+                    ),
+                    &token,
+                );
+            }
+
+            keys.key = key;
+
+            let lowercase: SmolStr = keys.key.to_lowercase().into();
+            if lowercase != keys.key {
+                ctx.diag.push_error(
+                    format!(
+                        "Key string literals must currently be lowercase, use \"{lowercase}\" instead",
                     ),
                     &token,
                 );
             }
         }
 
-        Expression::KeyboardShortcut(shortcut)
+        Expression::Keys(keys)
     }
 
     /// Perform the lookup

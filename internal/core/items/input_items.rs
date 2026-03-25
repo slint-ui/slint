@@ -8,8 +8,8 @@ use super::{
 };
 use crate::api::LogicalPosition;
 use crate::input::{
-    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardShortcut, MouseEvent,
+    FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
+    InternalKeyEvent, KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::items::ItemTreeVTable;
@@ -219,7 +219,7 @@ impl Item for TouchArea {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -228,7 +228,7 @@ impl Item for TouchArea {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -275,24 +275,24 @@ impl ItemConsts for TouchArea {
     > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl ItemConsts for Shortcut {
+impl ItemConsts for KeyBinding {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Shortcut,
+        KeyBinding,
         CachedRenderingData,
-    > = Shortcut::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = KeyBinding::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct Shortcut {
-    pub keys: Property<KeyboardShortcut>,
+pub struct KeyBinding {
+    pub keys: Property<Keys>,
     pub enabled: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for Shortcut {
+impl Item for KeyBinding {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
@@ -326,7 +326,7 @@ impl Item for Shortcut {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {
@@ -335,7 +335,7 @@ impl Item for Shortcut {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {
@@ -378,9 +378,9 @@ impl Item for Shortcut {
 /// first accessed.
 #[repr(C)]
 #[derive(Default)] // results in a null pointer, which we will initialize on first access
-pub struct MaybeShortcutList(Cell<*const ShortcutList>);
+pub struct MaybeKeyBindingList(Cell<*const KeyBindingList>);
 
-impl MaybeShortcutList {
+impl MaybeKeyBindingList {
     fn ensure_init(&self) {
         // This would be a race condition in Multi-threaded code, but
         // this type isn't Sync, so this function cannot race with another thread.
@@ -390,18 +390,18 @@ impl MaybeShortcutList {
     }
 }
 
-impl Drop for MaybeShortcutList {
+impl Drop for MaybeKeyBindingList {
     fn drop(&mut self) {
         let ptr = self.0.replace(core::ptr::null());
         if !ptr.is_null() {
             // SAFETY: Must be a pointer returned by `Box::leak`, which is guaranteed by `ensure_init`.
-            drop(unsafe { Box::from_raw(ptr as *mut ShortcutList) });
+            drop(unsafe { Box::from_raw(ptr as *mut KeyBindingList) });
         }
     }
 }
 
-impl MaybeShortcutList {
-    fn deref_pin(self: Pin<&Self>) -> Pin<&ShortcutList> {
+impl MaybeKeyBindingList {
+    fn deref_pin(self: Pin<&Self>) -> Pin<&KeyBindingList> {
         self.ensure_init();
         // SAFETY: Must be non-null and properly aligned, which is guaranteed by `ensure_init`.
         unsafe { Pin::new_unchecked(&*self.get_ref().0.get()) }
@@ -410,8 +410,8 @@ impl MaybeShortcutList {
 
 #[derive(Default)]
 #[pin_project::pin_project]
-pub struct ShortcutList {
-    found: core::cell::RefCell<Vec<VWeakMapped<ItemTreeVTable, Shortcut>>>,
+pub struct KeyBindingList {
+    found: core::cell::RefCell<Vec<VWeakMapped<ItemTreeVTable, KeyBinding>>>,
     #[pin]
     property_tracker: PropertyTracker,
 }
@@ -432,18 +432,18 @@ pub struct FocusScope {
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
-    pub shortcuts: MaybeShortcutList,
+    pub key_bindings: MaybeKeyBindingList,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
 
 impl FocusScope {
-    fn visit_enabled_shortcuts<R>(
+    fn visit_enabled_key_bindings<R>(
         self: Pin<&Self>,
         self_rc: &ItemRc,
-        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, Shortcut>) -> Option<R>,
+        mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, KeyBinding>) -> Option<R>,
     ) -> Option<R> {
-        let list = Self::FIELD_OFFSETS.shortcuts.apply_pin(self);
+        let list = Self::FIELD_OFFSETS.key_bindings.apply_pin(self);
         let list = list.deref_pin();
 
         list.project_ref().property_tracker.evaluate_if_dirty(|| {
@@ -452,19 +452,19 @@ impl FocusScope {
 
             let mut next = self_rc.first_child();
             while let Some(child) = next {
-                if let Some(shortcut) = ItemRc::downcast::<Shortcut>(&child)
-                    && shortcut.as_pin_ref().enabled()
+                if let Some(key_binding) = ItemRc::downcast::<KeyBinding>(&child)
+                    && key_binding.as_pin_ref().enabled()
                 {
-                    found.push(VRcMapped::downgrade(&shortcut));
+                    found.push(VRcMapped::downgrade(&key_binding));
                 }
                 next = child.next_sibling();
             }
         });
 
         let list = list.found.borrow();
-        for shortcut in &*list {
-            let Some(shortcut) = shortcut.upgrade() else {
-                crate::debug_log!("Warning: Found a dropped shortcut");
+        for key_binding in &*list {
+            let Some(shortcut) = key_binding.upgrade() else {
+                crate::debug_log!("Warning: Found a dropped KeyBinding!");
                 continue;
             };
             if let Some(result) = fun(&shortcut) {
@@ -473,6 +473,32 @@ impl FocusScope {
         }
 
         None
+    }
+
+    /// Returns the first matching key binding and whether there are multiple matches.
+    fn key_binding_for_event(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        inter_key_event: &InternalKeyEvent,
+    ) -> Option<(VRcMapped<ItemTreeVTable, KeyBinding>, bool)> {
+        let mut first_match = None;
+
+        let ambiguous = self.visit_enabled_key_bindings(self_rc, |key_binding| {
+            let keys = KeyBinding::FIELD_OFFSETS.keys.apply_pin(key_binding.as_pin_ref()).get();
+            if keys.matches(&inter_key_event.key_event) {
+                match &first_match {
+                    Some(key_binding) => {
+                        return Some(VRcMapped::clone(key_binding));
+                    }
+                    None => {
+                        first_match = Some(VRcMapped::clone(key_binding));
+                    }
+                };
+            }
+            None
+        });
+
+        first_match.map(|binding| (VRcMapped::clone(&binding), ambiguous.is_some()))
     }
 }
 
@@ -523,17 +549,19 @@ impl Item for FocusScope {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         let r = match event.event_type {
-            KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.capture_key_pressed.apply_pin(self).call(&(event.clone(),))
-            }
-            KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.capture_key_released.apply_pin(self).call(&(event.clone(),))
-            }
+            KeyEventType::KeyPressed => Self::FIELD_OFFSETS
+                .capture_key_pressed
+                .apply_pin(self)
+                .call(&(event.key_event.clone(),)),
+            KeyEventType::KeyReleased => Self::FIELD_OFFSETS
+                .capture_key_released
+                .apply_pin(self)
+                .call(&(event.key_event.clone(),)),
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 EventResult::Reject
             }
@@ -546,25 +574,48 @@ impl Item for FocusScope {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
-            }
-            KeyEventType::KeyReleased => {
-                let shortcut = self.visit_enabled_shortcuts(self_rc, |shortcut| {
-                    let keys = Shortcut::FIELD_OFFSETS.keys.apply_pin(shortcut.as_pin_ref()).get();
-                    if keys.matches(event) { Some(VRcMapped::clone(shortcut)) } else { None }
-                });
-
-                if let Some(shortcut) = shortcut {
-                    Shortcut::FIELD_OFFSETS.activated.apply_pin(shortcut.as_pin_ref()).call(&());
+                if let Some((key_binding, ambiguous)) = self.key_binding_for_event(self_rc, event) {
+                    if ambiguous {
+                        let keys = KeyBinding::FIELD_OFFSETS
+                            .keys
+                            .apply_pin(key_binding.as_pin_ref())
+                            .get();
+                        crate::debug_log!(
+                            "Warning: Multiple matching KeyBinding elements for keys {:?}!",
+                            keys
+                        );
+                    }
+                    KeyBinding::FIELD_OFFSETS
+                        .activated
+                        .apply_pin(key_binding.as_pin_ref())
+                        .call(&());
                     EventResult::Accept
                 } else {
-                    Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
+                    Self::FIELD_OFFSETS
+                        .key_pressed
+                        .apply_pin(self)
+                        .call(&(event.key_event.clone(),))
+                }
+            }
+            KeyEventType::KeyReleased => {
+                let binding = self.key_binding_for_event(self_rc, event);
+                if binding.is_some() {
+                    // The binding should have already handled the key press,
+                    // so we just accept the release event if it matches a binding,
+                    // to ensure the events remain "symmetric" in the key-pressed and key-released callbacks.
+                    // Either both events appear in the callbacks, or neither do.
+                    EventResult::Accept
+                } else {
+                    Self::FIELD_OFFSETS
+                        .key_released
+                        .apply_pin(self)
+                        .call(&(event.key_event.clone(),))
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
@@ -792,7 +843,7 @@ impl Item for SwipeGestureHandler {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -801,7 +852,7 @@ impl Item for SwipeGestureHandler {
 
     fn key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -894,18 +945,18 @@ mod ffi {
 
     /// # Safety
     /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-    /// hold a MaybeShortcutList
+    /// hold a MaybeKeybindingList
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_maybe_shortcut_list_init(list: *mut MaybeShortcutList) {
+    pub unsafe extern "C" fn slint_maybe_key_binding_list_init(list: *mut MaybeKeyBindingList) {
         unsafe {
-            core::ptr::write(list, MaybeShortcutList::default());
+            core::ptr::write(list, MaybeKeyBindingList::default());
         }
     }
 
     /// # Safety
-    /// This must be called using a non-null pointer pointing to an initialized MaybeShortcutList
+    /// This must be called using a non-null pointer pointing to an initialized MaybeKeybindingList
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_maybe_shortcut_list_free(list: *mut MaybeShortcutList) {
+    pub unsafe extern "C" fn slint_maybe_key_binding_list_free(list: *mut MaybeKeyBindingList) {
         unsafe { core::ptr::drop_in_place(list) };
     }
 }
@@ -1093,7 +1144,7 @@ impl Item for PinchGestureHandler {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1102,7 +1153,7 @@ impl Item for PinchGestureHandler {
 
     fn key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

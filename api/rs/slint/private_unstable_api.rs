@@ -180,7 +180,7 @@ pub mod re_exports {
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
-        KeyboardShortcut, MouseEvent, key_codes::Key, make_keyboard_shortcut,
+        Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
         IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, register_item_tree,
@@ -197,6 +197,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
+    pub use i_slint_core::open_url;
     pub use i_slint_core::properties::{
         ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
     };

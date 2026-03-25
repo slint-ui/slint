@@ -305,8 +305,8 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::StringLiteral(x) => write!(f, "{x:?}"),
             Expression::NumberLiteral(x) => write!(f, "{x:?}"),
             Expression::BoolLiteral(x) => write!(f, "{x:?}"),
-            Expression::KeyboardShortcutLiteral(shortcut) => {
-                write!(f, "@keys({shortcut})",)
+            Expression::KeysLiteral(keys) => {
+                write!(f, "@keys({keys})",)
             }
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
             Expression::FunctionParameterReference { index } => write!(f, "arg_{index}"),
@@ -427,17 +427,32 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 repeater_index,
                 stride,
                 child_offset,
-                ..
+                inner_repeater_index,
+                entries_per_item,
             } => {
-                write!(
-                    f,
-                    "{0}[{0}[{1}] + {2} * {3} + {4}]",
-                    DisplayPropertyRef(layout_cache_prop, ctx),
-                    index,
-                    e(repeater_index),
-                    e(stride),
-                    child_offset
-                )
+                if let Some(inner_idx) = inner_repeater_index {
+                    write!(
+                        f,
+                        "{0}[{0}[{1}] + {2} * {3} + {4} * {5} + {6}]",
+                        DisplayPropertyRef(layout_cache_prop, ctx),
+                        index,
+                        e(repeater_index),
+                        e(stride),
+                        e(inner_idx),
+                        entries_per_item,
+                        child_offset
+                    )
+                } else {
+                    write!(
+                        f,
+                        "{0}[{0}[{1}] + {2} * {3} + {4}]",
+                        DisplayPropertyRef(layout_cache_prop, ctx),
+                        index,
+                        e(repeater_index),
+                        e(stride),
+                        child_offset
+                    )
+                }
             }
             Expression::WithLayoutItemInfo { .. } => write!(f, "WithLayoutItemInfo(TODO)",),
             Expression::WithFlexBoxLayoutItemInfo { .. } => {
