@@ -8,7 +8,6 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::input::Keys;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
