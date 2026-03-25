@@ -621,6 +621,7 @@ impl FlickableData {
             MouseEvent::Wheel { position, delta_x, delta_y, phase } => {
                 match phase {
                     TouchPhase::Cancelled => {
+                        // Qt sends the Cancelled Phase
                         // If we recently handled a wheel event, intercept it to prevent children from grabbing
                         // the scroll event
                         let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
@@ -634,7 +635,25 @@ impl FlickableData {
                         }
                     }
                     TouchPhase::Started => InputEventFilterResult::Intercept,
-                    TouchPhase::Moved | TouchPhase::Ended => {
+                    TouchPhase::Moved => {
+                        if inner.scrolling_ongoing {
+                            InputEventFilterResult::Intercept
+                        } else {
+                            // If we recently handled a wheel event, intercept it to prevent children from grabbing
+                            // the scroll event
+                            let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
+                            if FlickableDataInner::is_allowed_scroll_direction(
+                                flick, delta, flick_rc,
+                            ) && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                            {
+                                InputEventFilterResult::Intercept
+                            } else {
+                                inner.last_scroll_event = None;
+                                InputEventFilterResult::ForwardEvent
+                            }
+                        }
+                    }
+                    TouchPhase::Ended => {
                         if inner.scrolling_ongoing {
                             InputEventFilterResult::Intercept
                         } else {
