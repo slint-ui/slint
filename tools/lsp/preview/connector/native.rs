@@ -6,26 +6,28 @@ use crate::{common, preview};
 use std::collections::HashMap;
 use std::{cell::RefCell, io::BufRead};
 
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::task::JoinHandle;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    sync::mpsc,
+};
 
 pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
     None
 }
 
 struct ChildProcessLspToPreviewInner {
-    communication_handle: tokio::task::JoinHandle<std::result::Result<(), String>>,
-    to_child_sender: tokio::sync::mpsc::UnboundedSender<String>,
+    communication_handle: JoinHandle<Result<(), String>>,
+    to_child_sender: mpsc::UnboundedSender<String>,
 }
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
-    preview_to_lsp_channel: tokio::sync::mpsc::UnboundedSender<common::PreviewToLspMessage>,
+    preview_to_lsp_channel: mpsc::UnboundedSender<common::PreviewToLspMessage>,
 }
 
 impl ChildProcessLspToPreview {
-    pub fn new(
-        preview_to_lsp_channel: tokio::sync::mpsc::UnboundedSender<common::PreviewToLspMessage>,
-    ) -> Self {
+    pub fn new(preview_to_lsp_channel: mpsc::UnboundedSender<common::PreviewToLspMessage>) -> Self {
         Self { inner: RefCell::new(None), preview_to_lsp_channel }
     }
 
@@ -82,8 +84,7 @@ impl ChildProcessLspToPreview {
             Ok(())
         });
 
-        let (to_child_sender, mut to_child_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<String>();
+        let (to_child_sender, mut to_child_receiver) = mpsc::unbounded_channel::<String>();
         tokio::spawn(async move {
             while let Some(mut msg) = to_child_receiver.recv().await {
                 msg.push('\n');
