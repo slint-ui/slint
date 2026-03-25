@@ -47,9 +47,9 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
     let children = std::mem::take(&mut flickable.borrow_mut().children);
     let is_listview = children
         .iter()
-        .any(|c| c.borrow().repeated.as_ref().is_some_and(|r| r.is_listview.is_some()));
+        .find_map(|c| c.borrow().repeated.as_ref().and_then(|r| r.is_listview.clone()));
 
-    if is_listview {
+    if let Some(listview) = &is_listview {
         // Fox Listview, we don't bind the y property to the geometry because for large listview, we want to support coordinate with more precision than f32
         // so the actual geometry is relative to the Flickable instead of the viewport
         // We still assign a binding to the y property in case it is read by someone
@@ -71,17 +71,14 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
                 RefCell::new(
                     Expression::BinaryExpression {
                         lhs: Expression::PropertyReference(new_y.clone()).into(),
-                        rhs: Expression::PropertyReference(NamedReference::new(
-                            flickable,
-                            SmolStr::new_static("viewport-y"),
-                        ))
-                        .into(),
+                        rhs: Expression::PropertyReference(listview.viewport_y.clone()).into(),
                         op: '-',
                     }
                     .into(),
                 ),
             );
             inner_elem.borrow_mut().geometry_props.as_mut().unwrap().y = new_y;
+            listview.viewport_height.mark_as_set();
         }
     }
 
@@ -97,7 +94,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
     for prop in element_type.as_builtin().properties.keys() {
         // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
         if let Some(vp_prop) = prop.strip_prefix("viewport-") {
-            if is_listview && matches!(vp_prop, "y" | "height") {
+            if is_listview.is_some() && matches!(vp_prop, "y" | "height") {
                 //don't bind viewport-y for ListView because the layout is handled by the runtime
                 continue;
             }
