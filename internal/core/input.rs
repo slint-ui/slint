@@ -341,8 +341,12 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
-/// A `Keys` is created by the `@keys(...)` macro and
-/// defines which key event(s) activate a KeyBinding.
+#[i_slint_core_macros::slint_doc]
+/// The `Keys` type is the Rust representation of Slint's `keys` primitive type.
+///
+/// It can be created with the `@keys` macro in Slint and defines which key event(s) activate a KeyBinding.
+///
+/// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
 pub struct Keys {
@@ -466,7 +470,7 @@ impl Keys {
 impl Display for Keys {
     /// Converts the [`Keys`] to a string that looks native on the current platform.
     ///
-    /// For example, the shortcut created with @keys(Meta + Control + A)
+    /// For example, the shortcut created with `@keys(Meta + Control + A)`
     /// will be converted like this:
     /// - **macOS**: `⌃⌘A`
     /// - **Windows**: `Win+Ctrl+A`
