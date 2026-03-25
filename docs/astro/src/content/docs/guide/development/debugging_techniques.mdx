@@ -10,6 +10,28 @@ On this page we share different techniques and tools we've built into Slint that
 ## Debugging Property Values
 
 Use the <Link type="DebugFn" label="debug()" /> function to print the values of properties to stderr.
+It supports multiple arguments and different types. Non-scalar types (e.g. `struct` types) are usually
+represented as a single line `json` string.
+
+**Example**
+
+```slint
+TouchArea {
+    moved => {
+        // a single constant string argument
+        debug("moved");
+
+        // output: moved
+    }
+
+    pointer-event(event) => {
+        // multiple variable arguments with different types
+        debug(self.mouse-x, self.mouse-y, event);
+
+        // output: 135(px) 402(px) { button: other, kind: move, modifiers: { alt: false, control: false, meta: false, shift: false } }
+    }
+}
+```
 
 ## Slow Motion Animations
 
