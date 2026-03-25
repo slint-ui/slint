@@ -3,16 +3,14 @@
 
 //! This pass lowers the access to the global Platform to constants and builtin function calls.
 
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
 use crate::object_tree::{Component, visit_all_expressions};
 use std::rc::Rc;
 
 pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typeloader::TypeLoader) {
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| match e {
-            Expression::PropertyReference(nr)
-                if nr.element().borrow().builtin_type().is_some_and(|bt| bt.name == "Platform") =>
-            {
+            Expression::PropertyReference(nr) if is_platform(nr) => {
                 if nr.name() == "os" {
                     *e = Expression::FunctionCall {
                         function: BuiltinFunction::DetectOperatingSystem.into(),
@@ -30,8 +28,17 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                     *e = Expression::StringLiteral(style.into());
                 }
             }
-
+            Expression::FunctionCall { function, .. }
+                if matches!(&*function, Callable::Function(nr)
+                    if is_platform(nr) && nr.name() == "open-url") =>
+            {
+                *function = BuiltinFunction::OpenUrl.into();
+            }
             _ => {}
         })
     })
+}
+
+fn is_platform(nr: &NamedReference) -> bool {
+    nr.element().borrow().builtin_type().is_some_and(|bt| bt.name == "Platform")
 }

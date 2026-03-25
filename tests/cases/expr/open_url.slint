@@ -4,7 +4,7 @@
 TestCase := Rectangle {
     callback open-url-callback(url: string);
     open-url-callback(url) => {
-        open-url(url);
+        Platform.open-url(url);
     }
 }
 
