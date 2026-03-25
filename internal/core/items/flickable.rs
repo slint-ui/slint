@@ -478,7 +478,6 @@ impl FlickableDataInner {
             // out (by not updating the last_scroll_event)
             InputEventResult::EventAccepted
         } else {
-            // self.last_scroll_event = None;
             InputEventResult::EventIgnored
         }
     }
