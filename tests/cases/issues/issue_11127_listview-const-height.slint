@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ScrollView {
+    out property <length> visible_width;
+    out property <length> visible_height;
+    in_out property <length> viewport_width;
+    in_out property <length> viewport_height;
+    in_out property <length> viewport_x;
+    in_out property <length> viewport_y;
+
+    flickable := Flickable {
+        @children
+    }
+}
+
+component ListView inherits ScrollView { }
+
+export component TestCase inherits Window {
+    width: 164px;
+    height: 164px;
+    ListView {
+        width: 100%; height: 100%;
+        for entry in 1: VerticalLayout {
+            HorizontalLayout {
+                height: 40px;
+            }
+        }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 50., 50.);
+```
+
+*/
