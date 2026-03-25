@@ -484,47 +484,48 @@ impl FlickableDataInner {
     }
 
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
-        if !self.position_time_rb.empty() {
-            let (time, dist) = self.position_time_rb.diff();
-            let millis = time.as_millis();
-            if self.capture_events
-                && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
-                && millis > 0
+        if self.position_time_rb.empty() {
+            return;
+        }
+        let (time, dist) = self.position_time_rb.diff();
+        let millis = time.as_millis();
+        if self.capture_events
+            && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
+            && millis > 0
+        {
+            let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+            let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+            let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+            let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+            let limit_x =
+                if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
+            let limit_y =
+                if dist.y < 0 as Coord { -vh } else { euclid::Length::new(Coord::default()) };
+
+            let limit =
+                ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
             {
-                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                let limit_x =
-                    if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
-                let limit_y =
-                    if dist.y < 0 as Coord { -vh } else { euclid::Length::new(Coord::default()) };
+                let simulation =
+                    physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                        dist.x as f32 / (millis as f32 / 1000.),
+                        DECELERATION,
+                        SPRING_DAMPER_RETURN_TIME,
+                    );
+                viewport_x.set_physic_animation_value(limit.x_length(), simulation);
+            }
 
-                let limit =
-                    ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
-                {
-                    let simulation =
-                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                            dist.x as f32 / (millis as f32 / 1000.),
-                            DECELERATION,
-                            SPRING_DAMPER_RETURN_TIME,
-                        );
-                    viewport_x.set_physic_animation_value(limit.x_length(), simulation);
-                }
+            {
+                let animation_y =
+                    physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                        dist.y as f32 / (millis as f32 / 1000.),
+                        DECELERATION,
+                        SPRING_DAMPER_RETURN_TIME,
+                    );
+                viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
+            }
 
-                {
-                    let animation_y =
-                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                            dist.y as f32 / (millis as f32 / 1000.),
-                            DECELERATION,
-                            SPRING_DAMPER_RETURN_TIME,
-                        );
-                    viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
-                }
-
-                if dist.x != 0 as Coord || dist.y != 0 as Coord {
-                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
-                }
+            if dist.x != 0 as Coord || dist.y != 0 as Coord {
+                (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
             }
         }
     }
