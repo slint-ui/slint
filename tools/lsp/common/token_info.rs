@@ -177,13 +177,32 @@ pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) ->
                 itertools::Either::Right(ty) => Some(TokenInfo::Type(ty)),
             };
         } else if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::ExportModule) {
-            let import_file = node
-                .source_file
-                .path()
-                .parent()
-                .unwrap_or_else(|| Path::new("/"))
-                .join(node.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
-            let import_file = clean_path(&import_file);
+            let import_text =
+                node.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"').to_string();
+            let import_file = if import_text.starts_with('@') {
+                document_cache
+                    .resolve_import_path(Some(&token.clone().into()), &import_text)
+                    .map(|(path, _)| path)
+                    .unwrap_or_else(|| {
+                        clean_path(
+                            &node
+                                .source_file
+                                .path()
+                                .parent()
+                                .unwrap_or_else(|| Path::new("/"))
+                                .join(&import_text),
+                        )
+                    })
+            } else {
+                clean_path(
+                    &node
+                        .source_file
+                        .path()
+                        .parent()
+                        .unwrap_or_else(|| Path::new("/"))
+                        .join(&import_text),
+                )
+            };
             return Some(TokenInfo::FileName(import_file));
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
             // don't fallback to the Binding

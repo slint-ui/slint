@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "slint_color_internal.h"
+#include "private/slint_color_internal.h"
 
 namespace slint {
 

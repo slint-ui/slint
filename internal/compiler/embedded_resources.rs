@@ -94,7 +94,9 @@ pub enum EmbeddedResourcesKind {
     /// Only List the resource, do not actually embed it
     ListOnly,
     /// Just put the file content as a resource
-    RawData,
+    FileData,
+    /// Encoded payload from a data URI (bytes, extension)
+    DataUriPayload(Vec<u8>, String),
     /// The data has been processed in a texture
     #[cfg(feature = "software-renderer")]
     TextureData(Texture),

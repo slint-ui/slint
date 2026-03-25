@@ -45,7 +45,7 @@ pub fn warn_duplicates(component: &Rc<Component>, diagnostics: &mut BuildDiagnos
                         entry.insert(span);
                     }
                     Entry::Occupied(first) => {
-                        diagnostics.push_warning(
+                        diagnostics.push_error(
                             "This KeyBinding element has the same keys as an existing KeyBinding - it is undefined which binding activates".into(),
                             &span,
                         );

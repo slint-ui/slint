@@ -4,7 +4,7 @@
 export component TestCase inherits Window {
     in-out property <int> matches: 0;
     in-out property <bool> condition: false;
-    in-out property <[keys]> shortcuts: [
+    in-out property <[keys]> key_bindings: [
         @keys(Control + C),
         @keys(Control + D),
     ];
@@ -12,6 +12,9 @@ export component TestCase inherits Window {
     in-out property <bool> enable-ctrl-a: true;
 
     forward-focus: scope;
+
+    out property <int> pressed-count: 0;
+    out property <int> released-count: 0;
 
     Rectangle {
         background: scope.has-focus ? blue : red;
@@ -32,11 +35,19 @@ export component TestCase inherits Window {
                 }
             }
 
-            for shortcut in shortcuts: KeyBinding {
-                keys: shortcut;
+            for keys in key_bindings: KeyBinding {
+                keys: keys;
                 activated => {
                     matches += 1;
                 }
+            }
+            key-pressed(event) => {
+                pressed-count += 1;
+                EventResult.reject
+            }
+            key-released(event) => {
+                released-count += 1;
+                EventResult.reject
             }
         }
     }
@@ -50,6 +61,9 @@ assert!(instance.get_has_focus());
 
 let assert_matches = |matches| {
     assert_eq!(instance.get_matches(), matches);
+    // ensure that pressed/released events appear symmetric (one release for each pressed event),
+    // even if KeyBindings consume part of the events
+    assert_eq!(instance.get_pressed_count(), instance.get_released_count());
 };
 assert_matches(0);
 
@@ -75,7 +89,7 @@ send_key_combo(&instance, [Key::Control, Key::C]);
 send_key_combo(&instance, [Key::Control, Key::D]);
 assert_matches(4);
 
-instance.set_shortcuts([].into());
+instance.set_key_bindings([].into());
 
 send_key_combo(&instance, [Key::Control, Key::C]);
 send_key_combo(&instance, [Key::Control, Key::D]);
@@ -89,6 +103,9 @@ assert(instance.get_has_focus());
 
 auto assert_matches = [&instance](int matches) {
     assert_eq(instance.get_matches(), matches);
+    // ensure that pressed/released events appear symmetric (one release for each pressed event),
+    // even if KeyBindings consume part of the events
+    assert_eq(instance.get_pressed_count(), instance.get_released_count());
 };
 assert_matches(0);
 
@@ -113,7 +130,7 @@ send_key_combo(&instance, {control, "D"});
 assert_matches(4);
 
 // TODO: Make Keys public API in C++
-instance.set_shortcuts(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::Keys>>());
+instance.set_key_bindings(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::Keys>>());
 
 send_key_combo(&instance, {control, "C"});
 send_key_combo(&instance, {control, "D"});

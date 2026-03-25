@@ -163,15 +163,15 @@ impl PropertyDirtyHandler for FocusDelegationPropertyTracker {
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
-    state_tracker: PropertyTracker<AccessibleItemPropertiesTracker>,
+    state_tracker: PropertyTracker<false, AccessibleItemPropertiesTracker>,
     #[pin]
-    value_tracker: PropertyTracker<ValuePropertyTracker>,
+    value_tracker: PropertyTracker<false, ValuePropertyTracker>,
     #[pin]
-    label_tracker: PropertyTracker<LabelPropertyTracker>,
+    label_tracker: PropertyTracker<false, LabelPropertyTracker>,
     #[pin]
-    description_tracker: PropertyTracker<DescriptionPropertyTracker>,
+    description_tracker: PropertyTracker<false, DescriptionPropertyTracker>,
     #[pin]
-    focus_delegation_tracker: PropertyTracker<FocusDelegationPropertyTracker>,
+    focus_delegation_tracker: PropertyTracker<false, FocusDelegationPropertyTracker>,
     item: ItemWeak,
 }
 

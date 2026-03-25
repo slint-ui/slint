@@ -914,6 +914,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
         self.canvas.borrow_mut().scale(x_factor, y_factor);
         let clip = &mut self.state.last_mut().unwrap().scissor;
+        clip.origin.x /= x_factor;
+        clip.origin.y /= y_factor;
         clip.size.width /= x_factor;
         clip.size.height /= y_factor;
     }

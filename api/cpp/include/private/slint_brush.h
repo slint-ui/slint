@@ -3,9 +3,9 @@
 
 #pragma once
 #include <string_view>
-#include "slint_color.h"
-#include "slint_brush_internal.h"
-#include "slint_string.h"
+#include "private/slint_color.h"
+#include "private/slint_brush_internal.h"
+#include "private/slint_string.h"
 
 namespace slint {
 

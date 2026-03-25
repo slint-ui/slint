@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "slint_internal.h"
-#include "slint_window.h"
+#include "private/slint_internal.h"
+#include "private/slint_window.h"
 
 namespace slint {
 namespace private_api {

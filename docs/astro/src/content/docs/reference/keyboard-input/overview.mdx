@@ -7,14 +7,14 @@ description: Key Handling Overview
 import Link from '@slint/common-files/src/components/Link.astro';
 import SpecialKeys from "../../../collections/enums/keys.md"
 
-To handle keyboard input in Slint, use the `FocusScope` or individual `key-pressed` and `key-released` callbacks in various elements.
+To handle keyboard input in Slint, use the `FocusScope` with `KeyBinding` elements or individual `key-pressed` and `key-released` callbacks in various elements.
 Keyboard input is delivered via [`KeyEvent`](#keyevent) data structures.
 The primary field of this data structure is the `text` property, which holds all affected keys
 encoded in a string.
 Use the [`Key` namespace](#key-namespace) to identify known named keys.
 
-To handle key bindings, Slint uses a built-in <Link type="keys" label="keys" /> type, which is constructed from the `@keys` macro.
-See [Keyboard Bindings](#key-bindings).
+See the [Key Bindings](#key-bindings) section for how to handle key bindings declaratively with
+Slint's <Link type="KeyBinding" label="KeyBinding"/> elements and the built-in <Link type="keys" label="keys" /> type, which is constructed from the `@keys` macro.
 
 ## KeyEvent
 
@@ -28,8 +28,6 @@ See [Keyboard Bindings](#key-bindings).
 
 Use the <Link type="KeyBinding" label="KeyBinding element"/> inside a `FocusScope` to declare key bindings (or keyboard shortcuts).
 The `KeyBinding`'s `keys` property takes an instance of the <Link label="keys type" type="keys"/> and invokes the `activated` callback when the key combination is detected.
-Note that only one binding can be activated by a given key event.
-If two bindings share the same key event, it is undefined which one is activated.
 
 The `keys` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
 
@@ -65,6 +63,13 @@ export component Example inherits Window {
     }
 }
 ```
+
+:::caution[Caution]
+The behavior of ambiguous KeyBinding elements is currently undefined,
+for example when two or more KeyBindings declare the same `keys`.
+
+If possible, conflicts are detected at compile-time. Ambiguous key bindings that are detected at runtime will log a warning.
+:::
 
 ### Different Keyboard Layouts
 

@@ -4,7 +4,7 @@
 #pragma once
 #include <string_view>
 #include <span>
-#include "slint_string_internal.h"
+#include "private/slint_string_internal.h"
 
 namespace slint {
 

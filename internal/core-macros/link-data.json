@@ -75,7 +75,7 @@
         "href": "reference/layouts/gridlayout/"
     },
     "Globals": {
-        "href": "reference/global-structs-enums/"
+        "href": "guide/language/coding/globals/"
     },
     "HorizontalBox": {
         "href": "reference/std-widgets/layouts/horizontalbox/"
@@ -102,7 +102,7 @@
         "href": "reference/keyboard-input/overview/#key-bindings"
     },
     "KeyBinding": {
-        "href": "reference/keyboard-input/focusscope/#shortcut"
+        "href": "reference/keyboard-input/focusscope/#keybinding"
     },
     "keys": {
         "href": "reference/primitive-types/#keys"

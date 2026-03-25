@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "slint_item_tree.h"
+#include "private/slint_item_tree.h"
 
 #include <algorithm>
 #include <functional>

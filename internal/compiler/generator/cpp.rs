@@ -940,6 +940,23 @@ pub fn generate_types(used_types: &[Type], config: &Config) -> File {
     file
 }
 
+fn expand_data_to_cpp_u8_array(data: &[u8]) -> String {
+    let mut init = "{ ".to_string();
+
+    for (index, byte) in data.iter().enumerate() {
+        if index > 0 {
+            init.push(',');
+        }
+        write!(&mut init, "0x{byte:x}").unwrap();
+        if index % 16 == 0 {
+            init.push('\n');
+        }
+    }
+
+    init.push('}');
+    init
+}
+
 fn embed_resource(
     resource: &crate::embedded_resources::EmbeddedResources,
     path: &SmolStr,
@@ -947,29 +964,24 @@ fn embed_resource(
 ) {
     match &resource.kind {
         crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {}
-        crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+        crate::embedded_resources::EmbeddedResourcesKind::FileData => {
             let resource_file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
             let data = resource_file.read();
-
-            let mut init = "{ ".to_string();
-
-            for (index, byte) in data.iter().enumerate() {
-                if index > 0 {
-                    init.push(',');
-                }
-                write!(&mut init, "0x{byte:x}").unwrap();
-                if index % 16 == 0 {
-                    init.push('\n');
-                }
-            }
-
-            init.push('}');
 
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
                 name: format_smolstr!("slint_embedded_resource_{}", resource.id),
                 array_size: Some(data.len()),
-                init: Some(init),
+                init: Some(expand_data_to_cpp_u8_array(data.as_ref())),
+                ..Default::default()
+            }));
+        }
+        crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(data, _) => {
+            declarations.push(Declaration::Var(Var {
+                ty: "const uint8_t".into(),
+                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
+                array_size: Some(data.len()),
+                init: Some(expand_data_to_cpp_u8_array(data)),
                 ..Default::default()
             }));
         }
@@ -4588,6 +4600,11 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RetartTimer {arguments:?}")
             }
+        }
+        BuiltinFunction::OpenUrl => {
+            let url = a.next().unwrap();
+            let window = access_window_field(ctx);
+            format!("slint::cbindgen_private::slint_open_url(&{}, &{}.handle())", url, window)
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

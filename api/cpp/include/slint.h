@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include "slint_internal.h"
-#include "slint_platform_internal.h"
-#include "slint_qt_internal.h"
-#include "slint_window.h"
-#include "slint_models.h"
-#include "slint_item_tree.h"
+#include "private/slint_internal.h"
+#include "private/slint_platform_internal.h"
+#include "private/slint_qt_internal.h"
+#include "private/slint_window.h"
+#include "private/slint_models.h"
+#include "private/slint_item_tree.h"
 
 #include <vector>
 #include <chrono>
@@ -512,11 +512,11 @@ cbindgen_private::Flickable::~Flickable()
 
 cbindgen_private::FocusScope::FocusScope()
 {
-    slint_maybe_shortcut_list_init(&shortcuts);
+    slint_maybe_key_binding_list_init(&key_bindings);
 }
 cbindgen_private::FocusScope::~FocusScope()
 {
-    slint_maybe_shortcut_list_free(&shortcuts);
+    slint_maybe_key_binding_list_free(&key_bindings);
 }
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)

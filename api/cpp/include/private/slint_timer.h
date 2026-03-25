@@ -6,7 +6,7 @@
 #pragma once
 
 #include <chrono>
-#include <slint_timer_internal.h>
+#include "private/slint_timer_internal.h"
 
 #ifndef SLINT_FEATURE_FREESTANDING
 #    include <thread>

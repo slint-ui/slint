@@ -116,6 +116,7 @@ pub enum BuiltinFunction {
     StartTimer,
     StopTimer,
     RestartTimer,
+    OpenUrl,
     ParseMarkdown,
     StringToStyledText,
 }
@@ -292,6 +293,7 @@ declare_builtin_function_types!(
     RestartTimer: (Type::ElementReference) -> Type::Void,
     ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
     StringToStyledText: (Type::String) -> Type::StyledText
+    OpenUrl: (Type::String) -> Type::Void,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -398,6 +400,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => false,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::OpenUrl => false,
         }
     }
 
@@ -480,6 +483,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => true,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::OpenUrl => false,
         }
     }
 }

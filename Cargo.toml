@@ -69,6 +69,7 @@ members = [
   'tests/manual/module-builds/blogica',
   'tests/manual/module-builds/blogicb',
   'tests/manual/module-builds/app',
+  'tests/backends/',
   'tools/compiler',
   'tools/docsnapper',
   'tools/figma_import',
@@ -160,7 +161,7 @@ itertools = { version = "0.14" }
 log = { version = "0.4.17" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
-resvg = { version = "0.46.0", default-features = false, features = ["text", "raster-images"] }
+resvg = { version = "0.47.0", default-features = false, features = ["text", "raster-images"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
@@ -168,8 +169,8 @@ serde = { version = "1.0.163", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.96" }
 softbuffer = { version = "0.4.4", default-features = false }
 spin_on = { version = "0.1" }
-strum = { version = "0.27.1", default-features = false, features = ["derive"] }
-toml_edit = { version = "0.24.0" }
+strum = { version = "0.28", default-features = false, features = ["derive"] }
+toml_edit = { version = "0.25.0" }
 ttf-parser = { version = "0.25" }
 typed-index-collections = "3.2"
 web-sys = { version = "0.3.72", default-features = false }
@@ -183,15 +184,15 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 unicode-segmentation = { version = "1.12.0" }
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 
-glow = { version = "0.16" }
+glow = { version = "0.17" }
 tikv-jemallocator = { version = "0.6" }
 wgpu-27 = { package = "wgpu", version = "27", default-features = false }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.7.0" }
-read-fonts = { version = "0.35" }
-skrifa = { version = "0.37" }
+read-fonts = { version = "0.38" }
+skrifa = { version = "0.41" }
 windows = { version = "0.62" }
 windows-core = { version = "0.62.0" }
 lyon_path = { version = "1.0", default-features = false }

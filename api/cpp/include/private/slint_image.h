@@ -4,11 +4,11 @@
 #pragma once
 #include <string_view>
 #include <span>
-#include "slint_generated_public.h"
-#include "slint_size.h"
-#include "slint_image_internal.h"
-#include "slint_string.h"
-#include "slint_sharedvector.h"
+#include "private/slint_generated_public.h"
+#include "private/slint_size.h"
+#include "private/slint_image_internal.h"
+#include "private/slint_string.h"
+#include "private/slint_sharedvector.h"
 
 namespace slint {
 
