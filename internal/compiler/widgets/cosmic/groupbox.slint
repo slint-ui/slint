@@ -3,10 +3,10 @@
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 
-export component GroupBox {
-    in property <string> title;
-    in property <bool> enabled: true;
-    in property <length> content-padding: 8px;
+import { GroupBoxInterface } from "../common/std-widget-interfaces.slint";
+
+export component GroupBox implements GroupBoxInterface {
+    content-padding: 8px;
 
     accessible-role: groupbox;
     accessible-label: root.title;
