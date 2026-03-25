@@ -112,9 +112,10 @@ export component App {
 #         // ...
 #     }
 # }
-# }
+# } /*
 #[test]
 fn test_basic_user_interface()
+# */
 {
     i_slint_backend_testing::init_no_event_loop();
     let app = App::new().unwrap();
@@ -157,9 +158,13 @@ example wraps the core functions for testing in an async closure:
 ```rust
 
 use slint::platform::PointerEventButton;
+use i_slint_backend_testing::ElementHandle;
 
+# /*
 #[test]
-fn test_click() {
+fn test_click()
+# */
+{
     i_slint_backend_testing::init_integration_test_with_system_time();
 
     slint::spawn_local(async move {
