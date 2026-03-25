@@ -71,6 +71,16 @@ pub fn apply_default_properties_from_style(
                         to: Type::Brush,
                     });
                 }
+                "StyledText" => {
+                    elem.set_binding_if_not_set("default-color".into(), || Expression::Cast {
+                        from: Expression::PropertyReference(NamedReference::new(
+                            &palette.root_element,
+                            SmolStr::new_static("foreground"),
+                        ))
+                        .into(),
+                        to: Type::Brush,
+                    });
+                }
                 "Dialog" | "Window" => {
                     elem.set_binding_if_not_set("background".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
