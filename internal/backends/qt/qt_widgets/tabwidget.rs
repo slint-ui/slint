@@ -96,7 +96,7 @@ impl Item for NativeTabWidget {
                             .apply_pin(shared_data.as_ref())
                             .get()
                             .get() as _,
-                        height: (std::i32::MAX / 2) as _,
+                        height: (i32::MAX / 2) as _,
                     },
                     qttypes::QSizeF {
                         width: TabBarSharedData::FIELD_OFFSETS
@@ -104,12 +104,12 @@ impl Item for NativeTabWidget {
                             .apply_pin(shared_data.as_ref())
                             .get()
                             .get() as _,
-                        height: (std::i32::MAX / 2) as _,
+                        height: (i32::MAX / 2) as _,
                     },
                 ),
                 Orientation::Vertical => (
                     qttypes::QSizeF {
-                        width: (std::i32::MAX / 2) as _,
+                        width: (i32::MAX / 2) as _,
                         height: TabBarSharedData::FIELD_OFFSETS
                             .height
                             .apply_pin(shared_data.as_ref())
@@ -117,7 +117,7 @@ impl Item for NativeTabWidget {
                             .get() as _,
                     },
                     qttypes::QSizeF {
-                        width: (std::i32::MAX / 2) as _,
+                        width: (i32::MAX / 2) as _,
                         height: TabBarSharedData::FIELD_OFFSETS
                             .tabbar_preferred_height
                             .apply_pin(shared_data.as_ref())

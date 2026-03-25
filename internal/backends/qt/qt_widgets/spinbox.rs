@@ -248,14 +248,15 @@ impl Item for NativeSpinBox {
             self.data.set(data);
         }
 
-        if let MouseEvent::Pressed { .. } = event {
-            if !self.has_focus() && !self.read_only() {
-                WindowInner::from_pub(window_adapter.window()).set_focus_item(
-                    self_rc,
-                    true,
-                    FocusReason::PointerClick,
-                );
-            }
+        if let MouseEvent::Pressed { .. } = event
+            && !self.has_focus()
+            && !self.read_only()
+        {
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                self_rc,
+                true,
+                FocusReason::PointerClick,
+            );
         }
         InputEventResult::EventAccepted
     }
