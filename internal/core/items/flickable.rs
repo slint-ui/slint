@@ -442,7 +442,6 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
-                // TODO: is the delta only for qt zero?
                 self.capture_events = true;
                 self.scrolling_ongoing = true;
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
