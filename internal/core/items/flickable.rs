@@ -9,10 +9,11 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
     VoidArg,
 };
+use crate::animations::Instant;
 use crate::animations::physics_simulation;
 use crate::input::InternalKeyEvent;
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
@@ -386,11 +387,13 @@ struct FlickableDataInner {
     /// Ringbuffer to store the last move events. From those data the velocity can be
     /// calculated required for the animation after the release event
     position_time_rb: PositionTimeRingBuffer<5>,
+
+    scrolling_ongoing: bool,
 }
 
 impl FlickableDataInner {
     fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
-        self.last_scroll_event.is_some_and(|(last_time, last_position, _)| {
+        self.last_scroll_event.is_some_and(|(last_time, last_position)| {
             // Note: Squared length for MCU support, which use i32 coords.
             crate::animations::current_tick() - last_time < timeout
                 && LogicalLength::new((last_position - position).square_length().abs())
@@ -436,12 +439,13 @@ impl FlickableDataInner {
 
                 viewport_x.set(new_pos.x_length());
                 viewport_y.set(new_pos.y_length());
-                self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
+                self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
                 // TODO: is the delta only for qt zero?
+                self.capture_events = true;
                 self.scrolling_ongoing = true;
-                self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
+                self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
                 if !self.scrolling_ongoing {
@@ -451,44 +455,67 @@ impl FlickableDataInner {
                     return InputEventResult::EventIgnored;
                 }
 
+                self.position_time_rb.push(crate::animations::current_tick(), new_pos);
                 viewport_x.set(new_pos.x_length());
                 viewport_y.set(new_pos.y_length());
-                self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
+                self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Ended => {
                 self.scrolling_ongoing = false;
-                // At least for qt the delta is zero for start and ended
-                if let Some((time, _, last_delta)) = self.last_scroll_event {
-                    let millis = (crate::animations::current_tick() - time).as_millis();
-                    {
-                        let simulation =
-                            physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                                last_delta.x as f32 / (millis as f32 / 1000.),
-                                500.,
-                                200e-3,
-                            );
-                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                        let limit = if last_delta.x < 0. { vw } else { euclid::Length::new(0.) };
-                        viewport_x.set_physic_animation_value(limit, simulation);
-                    }
-                    {
-                        let animation_y =
-                            physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                                last_delta.y as f32 / (millis as f32 / 1000.),
-                                500.,
-                                200e-3,
-                            );
-                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                        let limit = if last_delta.y < 0. { -vh } else { euclid::Length::new(0.) };
-                        viewport_y.set_physic_animation_value(limit, animation_y);
-                    }
 
-                    self.last_scroll_event = None;
-                } else {
-                    // TODO: this should never happen, but for some reason two Ended signals are sended
-                    //assert!(false);
-                    return InputEventResult::EventAccepted; // Shall never happen
-                };
+                if !self.position_time_rb.empty() {
+                    let (time, dist) = self.position_time_rb.diff();
+                    let millis = time.as_millis();
+                    if self.capture_events
+                        && dist.square_length()
+                            > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
+                        && millis > 0
+                    {
+                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                        let limit_x = if dist.x < 0 as Coord {
+                            -vw
+                        } else {
+                            euclid::Length::new(Coord::default())
+                        };
+                        let limit_y = if dist.y < 0 as Coord {
+                            -vh
+                        } else {
+                            euclid::Length::new(Coord::default())
+                        };
+                        let limit = ensure_in_bound(
+                            flick,
+                            LogicalPoint::from_lengths(limit_x, limit_y),
+                            flick_rc,
+                        );
+                        {
+                            let simulation =
+                                physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                                    dist.x as f32 / (millis as f32 / 1000.),
+                                    DECELERATION,
+                                    SPRING_DAMPER_RETURN_TIME,
+                                );
+                            viewport_x.set_physic_animation_value(limit.x_length(), simulation);
+                        }
+                        {
+                            let animation_y =
+                                physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                                    dist.y as f32 / (millis as f32 / 1000.),
+                                    DECELERATION,
+                                    SPRING_DAMPER_RETURN_TIME,
+                                );
+                            viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
+                        }
+
+                        self.last_scroll_event = None;
+                    } else {
+                        self.capture_events = false;
+                        // TODO: this should never happen, but for some reason two Ended signals are sended
+                        //assert!(false);
+                        return InputEventResult::EventAccepted; // Shall never happen
+                    };
+                }
+                self.capture_events = false;
             }
         }
 
