@@ -7,6 +7,6 @@ Test := Rectangle {
 /*
 ```rust
 let t = Test::new().unwrap();
-assert_eq!(t.get_text(), "Hello\n\tWorld\n");
+assert_eq!(t.get_text().replace("\r\n", "\n"), "Hello\n\tWorld\n");
 ```
 */
