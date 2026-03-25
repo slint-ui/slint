@@ -17,9 +17,9 @@ use corelib::items::{ColorScheme, PointerEventButton};
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
-use i_slint_core::input::TouchPhase;
 use i_slint_core as corelib;
 use i_slint_core::input::InternalKeyEvent;
+use i_slint_core::input::TouchPhase;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
