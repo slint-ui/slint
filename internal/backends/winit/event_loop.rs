@@ -17,6 +17,7 @@ use corelib::items::{ColorScheme, PointerEventButton};
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
+use i_slint_core::input::TouchPhase;
 use i_slint_core as corelib;
 use i_slint_core::input::InternalKeyEvent;
 
@@ -353,7 +354,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     runtime_window.process_mouse_input(MouseEvent::Exit);
                 }
             }
-            WindowEvent::MouseWheel { delta, .. } => {
+            WindowEvent::MouseWheel { delta, phase, .. } => {
                 let (delta_x, delta_y) = match delta {
                     winit::event::MouseScrollDelta::LineDelta(lx, ly) => (lx * 60., ly * 60.),
                     winit::event::MouseScrollDelta::PixelDelta(d) => {
@@ -361,10 +362,17 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         (d.x, d.y)
                     }
                 };
+                let phase = match phase {
+                    winit::event::TouchPhase::Started => TouchPhase::Started,
+                    winit::event::TouchPhase::Moved => TouchPhase::Moved,
+                    winit::event::TouchPhase::Ended => TouchPhase::Ended,
+                    winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+                };
                 runtime_window.process_mouse_input(MouseEvent::Wheel {
                     position: self.cursor_pos,
                     delta_x,
                     delta_y,
+                    phase,
                 });
             }
             WindowEvent::MouseInput { state, button, .. } => {
