@@ -69,7 +69,6 @@ pub enum JsValueType {
     Struct,
     Brush,
     Image,
-    StyledText,
 }
 
 impl From<slint_interpreter::ValueType> for JsValueType {
@@ -82,7 +81,6 @@ impl From<slint_interpreter::ValueType> for JsValueType {
             slint_interpreter::ValueType::Struct => JsValueType::Struct,
             slint_interpreter::ValueType::Brush => JsValueType::Brush,
             slint_interpreter::ValueType::Image => JsValueType::Image,
-            slint_interpreter::ValueType::StyledText => JsValueType::StyledText,
             _ => JsValueType::Void,
         }
     }
