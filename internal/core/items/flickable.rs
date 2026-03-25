@@ -586,9 +586,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                let was_capturing = inner.capture_events;
-                Self::mouse_released(&mut inner, flick, event, flick_rc);
-                if was_capturing {
+                if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
                     InputEventFilterResult::ForwardEvent
@@ -675,7 +673,9 @@ impl FlickableData {
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
                 let was_capturing = inner.capture_events;
-                Self::mouse_released(&mut inner, flick, event, flick_rc);
+                if !inner.scrolling_ongoing {
+                    Self::mouse_released(&mut inner, flick, event, flick_rc);
+                }
                 if was_capturing {
                     InputEventResult::EventAccepted
                 } else {
@@ -744,7 +744,9 @@ impl FlickableData {
                         InputEventResult::EventAccepted
                     }
                 } else {
-                    inner.capture_events = false;
+                    if !inner.scrolling_ongoing {
+                        inner.capture_events = false;
+                    }
                     InputEventResult::EventIgnored
                 }
             }
