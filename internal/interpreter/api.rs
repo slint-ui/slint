@@ -52,9 +52,6 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
-    /// Correspond to `styled-text` type in .slint.
-    #[doc(hidden)]
-    StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
     Other = -1,
@@ -79,7 +76,6 @@ impl From<LangType> for ValueType {
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
             LangType::Image => Self::Image,
-            LangType::StyledText => Self::StyledText,
             _ => Self::Other,
         }
     }
