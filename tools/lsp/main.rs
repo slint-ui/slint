@@ -28,6 +28,7 @@ use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, InitializeParams, Url,
 };
+use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
@@ -325,7 +326,7 @@ async fn main_loop(
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
     let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
-        tokio::sync::mpsc::unbounded_channel::<crate::common::PreviewToLspMessage>();
+        mpsc::unbounded_channel::<crate::common::PreviewToLspMessage>();
 
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
@@ -409,19 +410,10 @@ async fn main_loop(
     });
 
     let connection = Arc::new(connection);
-    let (from_lsp_sender, mut from_lsp_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let inner_connection = connection.clone();
     let receiver_task = std::thread::spawn(move || {
-        loop {
-            match inner_connection.receiver.recv() {
-                Ok(msg) => {
-                    if from_lsp_sender.send(msg.clone()).is_err() {
-                        return;
-                    }
-                }
-                Err(_) => return,
-            }
-        }
+        crossbeam_tokio_adapter(inner_connection, from_lsp_sender);
     });
 
     let inner_ctx = ctx.clone();
@@ -509,6 +501,25 @@ async fn main_loop(
                     return Err(err);
                 }
             }
+        }
+    }
+}
+
+/// Crossbeam does not play well with async (it's always blocking), so we need to run a separate
+/// thread just to relay messages between a Crossbeam channel and an async channel.
+/// We need Crossbeam because we're using lsp-server, which does not support anything else.
+fn crossbeam_tokio_adapter(
+    connection: Arc<Connection>,
+    from_lsp_sender: mpsc::UnboundedSender<Message>,
+) {
+    loop {
+        match connection.receiver.recv() {
+            Ok(msg) => {
+                if from_lsp_sender.send(msg.clone()).is_err() {
+                    return;
+                }
+            }
+            Err(_) => return,
         }
     }
 }
