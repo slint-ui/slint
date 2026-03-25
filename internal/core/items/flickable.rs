@@ -37,7 +37,7 @@ use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
 mod data_ringbuffer;
-use data_ringbuffer::MoveDataRingbuffer;
+use data_ringbuffer::PositionTimeRingBuffer;
 
 /// Deceleration during the animation. It slows down the initial velocity of the simulation
 /// so that the simulation stops at some point if it didn't reach the limit
@@ -383,7 +383,9 @@ struct FlickableDataInner {
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
 
-    move_data: MoveDataRingbuffer<5>,
+    /// Ringbuffer to store the last move events. From those data the velocity can be
+    /// calculated required for the animation after the release event
+    position_time_rb: PositionTimeRingBuffer<5>,
 }
 
 impl FlickableDataInner {
@@ -480,7 +482,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                inner.move_data = MoveDataRingbuffer::default();
+                inner.position_time_rb = PositionTimeRingBuffer::default();
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
@@ -609,7 +611,7 @@ impl FlickableData {
                         inner.pressed_pos = *position;
                     };
 
-                    inner.move_data.push(crate::animations::current_tick(), *position);
+                    inner.position_time_rb.push(crate::animations::current_tick(), *position);
 
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
 
@@ -671,8 +673,8 @@ impl FlickableData {
         _event: &MouseEvent,
         flick_rc: &ItemRc,
     ) {
-        if !inner.move_data.empty() {
-            let (time, dist) = inner.move_data.diff();
+        if !inner.position_time_rb.empty() {
+            let (time, dist) = inner.position_time_rb.diff();
             let millis = time.as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _

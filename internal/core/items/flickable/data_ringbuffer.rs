@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module contains a simple ringbuffer to store time and location data. It is used in the flickable to
+//! This module contains a simple ringbuffer to store time and location tuples. It is used in the flickable to
 //! determine the initial velocity of the animation
 
 use crate::Coord;
@@ -11,9 +11,9 @@ use crate::lengths::LogicalPx;
 use core::time::Duration;
 use euclid::Vector2D;
 
-/// Simple ringbuffer
+/// Simple ringbuffer storing time and position tuples
 #[derive(Debug)]
-pub(crate) struct MoveDataRingbuffer<const N: usize> {
+pub(crate) struct PositionTimeRingBuffer<const N: usize> {
     /// Pointing to the next free element
     curr_index: usize,
     /// Indicates if the buffer is full
@@ -21,13 +21,13 @@ pub(crate) struct MoveDataRingbuffer<const N: usize> {
     values: [(Instant, LogicalPoint); N],
 }
 
-impl<const N: usize> Default for MoveDataRingbuffer<N> {
+impl<const N: usize> Default for PositionTimeRingBuffer<N> {
     fn default() -> Self {
         Self { curr_index: 0, full: false, values: [(Instant::now(), LogicalPoint::default()); N] }
     }
 }
 
-impl<const N: usize> MoveDataRingbuffer<N> {
+impl<const N: usize> PositionTimeRingBuffer<N> {
     /// Indicates if the buffer is empty
     pub fn empty(&self) -> bool {
         !(self.full || self.curr_index > 0)
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_empty_buffer() {
-        let buffer: MoveDataRingbuffer<5> = MoveDataRingbuffer::default();
+        let buffer: PositionTimeRingBuffer<5> = PositionTimeRingBuffer::default();
         assert!(buffer.empty());
         assert_eq!(buffer.curr_index, 0);
         assert!(!buffer.full);
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_push_single_element() {
-        let mut buffer: MoveDataRingbuffer<5> = MoveDataRingbuffer::default();
+        let mut buffer: PositionTimeRingBuffer<5> = PositionTimeRingBuffer::default();
         let time = Instant::now();
         let point = LogicalPoint::new(10.0, 20.0);
 
@@ -96,7 +96,7 @@ mod tests {
     /// Buffer not complete full
     #[test]
     fn test_push_two_elements() {
-        let mut buffer: MoveDataRingbuffer<5> = MoveDataRingbuffer::default();
+        let mut buffer: PositionTimeRingBuffer<5> = PositionTimeRingBuffer::default();
         let time = Instant::now();
 
         buffer.push(time, LogicalPoint::new(10.0, 20.0));
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_push_until_full() {
-        let mut buffer: MoveDataRingbuffer<5> = MoveDataRingbuffer::default();
+        let mut buffer: PositionTimeRingBuffer<5> = PositionTimeRingBuffer::default();
         let base_time = Instant::now();
 
         // Push 3 elements to fill the buffer
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn test_push_beyond_capacity() {
         const CAP: usize = 5;
-        let mut buffer: MoveDataRingbuffer<CAP> = MoveDataRingbuffer::default();
+        let mut buffer: PositionTimeRingBuffer<CAP> = PositionTimeRingBuffer::default();
         let base_time = Instant::now();
 
         // Push more than capacity
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn test_push_beyond_capacity_wrap_back() {
         const CAP: usize = 5;
-        let mut buffer: MoveDataRingbuffer<CAP> = MoveDataRingbuffer::default();
+        let mut buffer: PositionTimeRingBuffer<CAP> = PositionTimeRingBuffer::default();
         let base_time = Instant::now();
 
         // Push more than capacity
