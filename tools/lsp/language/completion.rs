@@ -2076,4 +2076,21 @@ mod tests {
             Some("cb3 => {$1}".into())
         );
     }
+
+    #[test]
+    fn builtin_globals() {
+        let source = r#"
+            component Foo {
+                out property <string> test1: Platform.🔺;
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        dbg!(&res);
+        res.iter().find(|ci| ci.label == "os").unwrap();
+        res.iter().find(|ci| ci.label == "open-url(..)").unwrap();
+        assert!(!res.iter().any(|ci| ci.label == "width"));
+        assert!(!res.iter().any(|ci| ci.label == "opacity"));
+        assert!(!res.iter().any(|ci| ci.label == "absolute-position"));
+        assert!(!res.iter().any(|ci| ci.label == "accessible-action-default"));
+    }
 }
