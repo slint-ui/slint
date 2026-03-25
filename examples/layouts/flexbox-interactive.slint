@@ -41,12 +41,15 @@ export component MainWindow inherits Window {
         LayoutAlignment.space-around,
         LayoutAlignment.space-evenly
     ];
-    property <[string]> align_content_options: ["Stretch", "Start", "End", "Center"];
+    property <[string]> align_content_options: ["Stretch", "Start", "End", "Center", "Space Between", "Space Around", "Space Evenly"];
     property <[FlexAlignContent]> align_content_values: [
         FlexAlignContent.stretch,
         FlexAlignContent.start,
         FlexAlignContent.end,
-        FlexAlignContent.center
+        FlexAlignContent.center,
+        FlexAlignContent.space-between,
+        FlexAlignContent.space-around,
+        FlexAlignContent.space-evenly
     ];
     property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
     property <[FlexAlignItems]> align_items_values: [
