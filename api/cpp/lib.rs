@@ -258,7 +258,7 @@ pub unsafe extern "C" fn slint_open_url(url: &SharedString, win: *const WindowAd
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_string_to_styled_text(text: SharedString, out: &mut StyledText) {
+pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
 
