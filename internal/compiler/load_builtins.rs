@@ -167,10 +167,16 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             let return_type = f.ReturnType().map_or(Type::Void, |p| {
                 object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register)
             });
+            let mut args = Vec::new();
+            let mut arg_names = Vec::new();
+            for a in f.ArgumentDeclaration() {
+                args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
+                arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
+            }
             (
                 name,
                 BuiltinPropertyInfo::new(Type::Function(
-                    Function { return_type, args: Vec::new(), arg_names: vec![] }.into(),
+                    Function { return_type, args, arg_names }.into(),
                 )),
             )
         }));
