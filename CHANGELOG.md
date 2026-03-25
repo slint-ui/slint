@@ -6,58 +6,58 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - Software renderer: avoid doing dirty-region computation when we need to redraw the whole buffer
- - Software renderer: Added feature to enable `Path` with no_std
- - Software renderer: Fix space character with sdf fonts
- - Fixed mouse cursor when going from one TouchArea to another (#6443)
- - Flickable now start capturing scroll event after the first scroll
- - Replaced `fontdue` crate with `swash` for better text rendering
- - Fixed tab focus traversal for widget in a Flickable (#10780)
- - Skia: Enabled subpixel glyph positioning to fix uneven text spacing (#10752)
- - Winit: batch mouse move event to prevent too many move event to delay rendering (#9038)
- - Wasm: enabled clipboard interaction by default
- - Improved Flickable animations
+ - Software renderer: avoid doing dirty-region computation when we need to redraw the whole buffer.
+ - Software renderer: Added `software-renderer-path` feature to enable `Path` with `no_std`.
+ - Software renderer: Fix space character with sdf fonts.
+ - FemtoVG & Software Renderer: Use `swash` for glyph rasterization for better text rendering.
+ - Fixed Tab focus traversal for widget in a `Flickable`. (#10780)
+ - Skia: Enabled subpixel glyph positioning to fix uneven text spacing. (#10752)
+ - Winit: Batch mouse move events to prevent too many move event to delay rendering. (#9038)
+ - Wasm: Enabled clipboard interaction by default.
 
 ### Slint
 
- - Fixed empty GridLayout not taking padding into account
- - Added support for Keyboard shortcuts (`KeyBinding` element, `keys` type, and `@keys(...)` macro)
- - Added printer charachter in the `Key` namespace
- - Added `FlexBoxLayout`
- - Added support for styled text (`StyledText` element, `styled-text` type, and `@markdown(...)` macro)
- - Added `PichGestureHandler` element
- - Fixed compiler panic when accessing model data from repeated menu (#10927)
- - Added `Path::fit-style` property
- - Added `start` and `end` to the `TextHorizontalAlignment` enum
+ - `TouchArea` Fixed mouse cursor when going from one `TouchArea` to another. (#6443)
+ - `Flickable` now starts capturing scroll event after the first scroll.
+ - `Flickable`: Improved animations.
+ - Fixed empty `GridLayout` not taking padding into account.
+ - Added support for Keyboard shortcuts with `KeyBinding` element, `keys` type, and `@keys(...)` macro.
+ - Added printable keys in the `Key` namespace.
+ - Added `FlexBoxLayout`.
+ - Added support for styled text with `StyledText` element, `styled-text` type, and `@markdown(...)` macro.
+ - Added `PinchGestureHandler` element for handling multi-touch pinch gestures.
+ - Fixed compiler panic when accessing model data from repeated menu. (#10927)
+ - Added `Path::fit-style` property.
+ - `TextHorizontalAlignment`: Added `start` and `end` variants.
 
 ### Widgets
 
- - CheckBox no longer intercepts the scroll event with the Qt style
- - Slider: ignore scroll event with the Qt style
- - ComboBox: Clamp index on reset instead of using 0 (#10805)
- - ComboBox: Fixed scrolling to selected item when dropdown opens (#10995)
- - ComboBox: Fixed popup closing on scrollbar interaction (#10998)
+ - `CheckBox` no longer intercepts the scroll event with the Qt style.
+ - `Slider`: Ignore scroll events with the Qt style.
+ - `ComboBox`: Clamp index on reset instead of using 0. (#10805)
+ - `ComboBox`: Fixed scrolling to selected item when dropdown opens. (#10995)
+ - `ComboBox`: Fixed popup closing on scrollbar interaction. (#10998)
 
 ### Rust
 
- - Added `slint::platform::femtovg_renderer::FemtoVGWGPURenderer`
- - Added variants for printable keys in the `slint::platform::Key` enum
- - Added mor moved more enum and struct to the `slint::language` module
- - Added support for multiple `@rust-attr` per struct or enum
- - Added `open_url` methd to the `Platform` trait (#11035)
+ - Added `slint::platform::femtovg_renderer::FemtoVGWGPURenderer`.
+ - Added variants for printable keys in the `slint::platform::Key` enum.
+ - Added `KeyboardModifiers`, `KeyEvent`, and `StandardListViewItem` to the `slint::language` module.
+ - Added support for multiple `@rust-attr` per struct or enum.
+ - Added `open_url` methd to the `Platform` trait. (#11035)
 
 ### Python
 
- - Added language module
+ - Added `slint.language` package to hold enums/structs from the Slint language.
 
 ### C++
 
- - Added contant for printable keys in the `slint::platform::key_codes` namespace
- - Added `slint::language` namespace to hold enum/struct that maps to the ones in the slint language.
+ - Added contants for printable keys in the `slint::platform::key_codes` namespace
+ - Added `slint::language` namespace to hold enums/structs from the Slint language.
 
-### Javascipt
+### JavaScript
 
- - ported to napi-rs 3.0
+ - Ported to napi-rs 3.0
 
 ### Tooling
 
