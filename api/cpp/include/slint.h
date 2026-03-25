@@ -317,11 +317,16 @@ inline StyledText parse_markdown(const SharedString &format_string,
     return result;
 }
 
-inline StyledText string_to_styled_text(SharedString text)
+inline StyledText string_to_styled_text(const SharedString &text)
 {
     StyledText result;
-    cbindgen_private::slint_string_to_styled_text(text, &result);
+    cbindgen_private::slint_string_to_styled_text(&text, &result);
     return result;
+}
+
+inline void open_url(const SharedString &url, const WindowAdapterRc &window_adapter)
+{
+    cbindgen_private::slint_open_url(&url, &window_adapter.handle());
 }
 
 inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
