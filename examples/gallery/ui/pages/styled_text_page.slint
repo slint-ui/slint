@@ -40,10 +40,16 @@ export component StyledTextPage inherits Page {
             VerticalBox {
                 StyledText {
                     text: @markdown("Visit [Slint Website](https://slint.dev) for more information.");
+                    link-clicked(link) => {
+                        Platform.open-url(link);
+                    }
                 }
 
                 StyledText {
                     text: @markdown("Check out our [GitHub](https://github.com/slint-ui/slint) repository and [Documentation](https://slint.dev/docs).");
+                    link-clicked(link) => {
+                        Platform.open-url(link);
+                    }
                 }
             }
         }
