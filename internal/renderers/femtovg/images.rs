@@ -159,6 +159,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 texture_id,
                 size,
                 origin,
+                external: _,
                 ..
             }) => {
                 let image_flags = match origin {
