@@ -599,8 +599,10 @@ export component Main { }
         ];
 
         for (style, border) in cases {
-            let mut config = crate::common::document_cache::CompilerConfiguration::default();
-            config.style = Some(style.to_string());
+            let config = crate::common::document_cache::CompilerConfiguration {
+                style: Some(style.to_string()),
+                ..Default::default()
+            };
             let mut dc = common::DocumentCache::new(config);
             let (url, _) = crate::language::test::load(
                 crate::language::ContextOrDocumentCache::DocumentCache(&mut dc),

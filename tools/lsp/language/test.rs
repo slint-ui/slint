@@ -25,7 +25,7 @@ use super::Context;
 /// ```
 pub fn mock_context() -> Context {
     crate::language::Context {
-        document_cache: empty_document_cache().into(),
+        document_cache: empty_document_cache(),
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
@@ -39,8 +39,10 @@ pub fn mock_context() -> Context {
 
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> common::DocumentCache {
-    let mut config = crate::common::document_cache::CompilerConfiguration::default();
-    config.style = Some("fluent".to_string());
+    let config = crate::common::document_cache::CompilerConfiguration {
+        style: Some("fluent".to_string()),
+        ..Default::default()
+    };
     common::DocumentCache::new(config)
 }
 
@@ -297,7 +299,7 @@ fn preview_file_recompiled_when_dependency_changes() {
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
     let mut ctx = Context {
-        document_cache: cache.into(),
+        document_cache: cache,
         to_show: Some(common::PreviewComponent { url: main_url.clone(), component: None }),
         ..mock_context()
     };

@@ -569,7 +569,7 @@ async fn handle_notification(
             )
             .await
         }
-        DidChangeConfiguration::METHOD => load_configuration(&ctx).await,
+        DidChangeConfiguration::METHOD => load_configuration(ctx).await,
         DidChangeWatchedFiles::METHOD => {
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
             for fe in params.changes {

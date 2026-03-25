@@ -314,7 +314,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<GotoDefinition, _>(|params, ctx| async move {
         let mut ctx = ctx.write().await;
         let result = token_descr(
-            &mut ctx.document_cache,
+            &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         )
@@ -325,7 +325,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let mut ctx = ctx.write().await;
 
         let result = token_descr(
-            &mut ctx.document_cache,
+            &ctx.document_cache,
             &params.text_document_position.text_document.uri,
             &params.text_document_position.position,
         )
@@ -349,7 +349,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<HoverRequest, _>(|params, ctx| async move {
         let mut ctx = ctx.write().await;
         let result = token_descr(
-            &mut ctx.document_cache,
+            &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         )
@@ -360,7 +360,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<SignatureHelpRequest, _>(|params, ctx| async move {
         let mut ctx = ctx.write().await;
         let result = token_descr(
-            &mut ctx.document_cache,
+            &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         )
@@ -371,7 +371,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let mut ctx = ctx.write().await;
 
         let result =
-            token_descr(&mut ctx.document_cache, &params.text_document.uri, &params.range.start)
+            token_descr(&ctx.document_cache, &params.text_document.uri, &params.range.start)
                 .and_then(|(token, _)| {
                     let capabilities = ctx.init_param.capabilities.clone();
                     get_code_actions(&mut ctx.document_cache, token, &capabilities)
@@ -435,13 +435,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(semantic_tokens::get_semantic_tokens(&mut ctx.document_cache, &params.text_document))
     });
     rh.register::<DocumentHighlightRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+        let ctx = ctx.read().await;
         let uri = params.text_document_position_params.text_document.uri;
-        if let Some((tk, _)) = token_descr(
-            &mut ctx.document_cache,
-            &uri,
-            &params.text_document_position_params.position,
-        ) {
+        if let Some((tk, _)) =
+            token_descr(&ctx.document_cache, &uri, &params.text_document_position_params.position)
+        {
             let p = tk.parent();
             let gp = p.parent();
 
@@ -504,10 +502,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+        let ctx = ctx.read().await;
         let uri = params.text_document_position.text_document.uri;
         if let Some((tk, _off)) =
-            token_descr(&mut ctx.document_cache, &uri, &params.text_document_position.position)
+            token_descr(&ctx.document_cache, &uri, &params.text_document_position.position)
         {
             let p = tk.parent();
             let version = ctx.document_cache.document_version(&uri);
@@ -544,9 +542,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         })
     });
     rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+        let ctx = ctx.read().await;
         let uri = params.text_document.uri;
-        if let Some((tk, _)) = token_descr(&mut ctx.document_cache, &uri, &params.position) {
+        if let Some((tk, _)) = token_descr(&ctx.document_cache, &uri, &params.position) {
             if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
                 return Ok(Some(PrepareRenameResponse::Range(util::token_to_lsp_range(
                     &tk,
@@ -563,8 +561,8 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(None)
     });
     rh.register::<Formatting, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
-        Ok(formatting::format_document(params, &mut ctx.document_cache))
+        let ctx = ctx.read().await;
+        Ok(formatting::format_document(params, &ctx.document_cache))
     });
 }
 
@@ -1963,8 +1961,11 @@ export global NoPreviewForGlobal {}
 
         let text_literal = lsp_types::Range::new(Position::new(7, 18), Position::new(7, 32));
         assert_eq!(
-            token_descr(&mut dc, &url, &text_literal.start)
-                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            token_descr(&dc, &url, &text_literal.start).and_then(|(token, _)| get_code_actions(
+                &mut dc,
+                token,
+                &capabilities
+            )),
             Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                 title: "Wrap in `@tr()`".into(),
                 edit: Some(WorkspaceEdit {
@@ -1998,7 +1999,7 @@ export global NoPreviewForGlobal {}
 
             capabilities.experimental = None;
             assert_eq!(
-                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                token_descr(&dc, &url, &pos).and_then(|(token, _)| get_code_actions(
                     &mut dc,
                     token,
                     &capabilities
@@ -2008,7 +2009,7 @@ export global NoPreviewForGlobal {}
 
             capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
             assert_eq!(
-                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                token_descr(&dc, &url, &pos).and_then(|(token, _)| get_code_actions(
                     &mut dc,
                     token,
                     &capabilities
@@ -2097,15 +2098,21 @@ export global NoPreviewForGlobal {}
 
         capabilities.experimental = None;
         assert_eq!(
-            token_descr(&mut dc, &url, &horizontal_box.start)
-                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            token_descr(&dc, &url, &horizontal_box.start).and_then(|(token, _)| get_code_actions(
+                &mut dc,
+                token,
+                &capabilities
+            )),
             None
         );
 
         capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
         assert_eq!(
-            token_descr(&mut dc, &url, &horizontal_box.start)
-                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            token_descr(&dc, &url, &horizontal_box.start).and_then(|(token, _)| get_code_actions(
+                &mut dc,
+                token,
+                &capabilities
+            )),
             Some(vec![
                 CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Wrap in element".into(),
@@ -2172,7 +2179,7 @@ export global NoPreviewForGlobal {}
         let import_pos = lsp_types::Position::new(0, 43);
         capabilities.experimental = None;
         assert_eq!(
-            token_descr(&mut dc, &url, &line_edit).and_then(|(token, _)| get_code_actions(
+            token_descr(&dc, &url, &line_edit).and_then(|(token, _)| get_code_actions(
                 &mut dc,
                 token,
                 &capabilities
@@ -2208,7 +2215,7 @@ export global NoPreviewForGlobal {}
         ] {
             let pos = Position::new(2, col);
             assert_eq!(
-                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                token_descr(&dc, &url, &pos).and_then(|(token, _)| get_code_actions(
                     &mut dc,
                     token,
                     &capabilities
@@ -2225,7 +2232,7 @@ export global NoPreviewForGlobal {}
         // Test that we don't get a show preview action for struct and globals
         for line in [27, 28] {
             let pos = Position::new(line, 15);
-            let token = token_descr(&mut dc, &url, &pos).unwrap().0;
+            let token = token_descr(&dc, &url, &pos).unwrap().0;
             assert!(token.text().starts_with("NoPreviewFor"));
             assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
         }
