@@ -418,8 +418,6 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        use crate::animations::physics_simulation;
-
         let old_pos = LogicalPoint::from_lengths(
             (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
             (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
@@ -429,22 +427,36 @@ impl FlickableDataInner {
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
 
         match phase {
+            TouchPhase::Cancelled => {
+                if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+                    // Release the capture immediately, this event is not meant for this Flickable.
+                    self.last_scroll_event = None;
+                    return InputEventResult::EventIgnored;
+                }
+
+                viewport_x.set(new_pos.x_length());
+                viewport_y.set(new_pos.y_length());
+                self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
+            }
             TouchPhase::Started => {
                 // TODO: is the delta only for qt zero?
+                self.scrolling_ongoing = true;
             }
-            TouchPhase::Cancelled | TouchPhase::Moved => {
-                // if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
-                //     // Release the capture immediately, this event is not meant for this Flickable.
-                //     self.last_scroll_event = None;
-                //     return InputEventResult::EventIgnored;
-                // }
+            TouchPhase::Moved => {
+                if !self.scrolling_ongoing {
+                    // If no scrolling is ongoing, it means the start was captured by a different
+                    // element and so we shall ignore it here
+                    self.last_scroll_event = None;
+                    return InputEventResult::EventIgnored;
+                }
 
                 viewport_x.set(new_pos.x_length());
                 viewport_y.set(new_pos.y_length());
                 self.last_scroll_event = Some((crate::animations::current_tick(), position, delta));
             }
             TouchPhase::Ended => {
-                // At least for qt the delta is zero for begin and end
+                self.scrolling_ongoing = false;
+                // At least for qt the delta is zero for start and ended
                 if let Some((time, _, last_delta)) = self.last_scroll_event {
                     let millis = (crate::animations::current_tick() - time).as_millis();
                     {
