@@ -5088,6 +5088,7 @@ dependencies = [
  "annotate-snippets",
  "base64 0.22.1",
  "by_address",
+ "data-url",
  "derive_more",
  "divan",
  "fdsm",

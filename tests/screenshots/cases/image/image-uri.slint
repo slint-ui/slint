@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 150px;
+    height: 100px;
+    background: white;
+
+    // PNG data URL (base64 encoded) - 1x1 red pixel
+    Image {
+        x: 10px;
+        y: 10px;
+        width: 32px;
+        height: 32px;
+        source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
+    }
+
+    // SVG data URL (URL encoded) - simple star
+    Image {
+        x: 50px;
+        y: 10px;
+        width: 30px;
+        height: 30px;
+        source: @image-url("data:image/svg+xml,%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22utf-8%22%3F%3E%0A%3Csvg%20version%3D%221.1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%2295%22%20viewBox%3D%220%200%20100%2095%22%3E%0A%3Cpolygon%20fill%3D%22%23231815%22%20points%3D%2250%2C0%2065.451%2C31.271%20100%2C36.287%2075%2C60.729%2081.902%2C95%2050%2C78.361%2018.098%2C95%2025%2C60.729%200%2C36.287%2034.549%2C31.271%22%2F%3E%0A%3C%2Fsvg%3E");
+    }
+
+    // SVG data URL (base64 encoded) - green circle
+    Image {
+        x: 90px;
+        y: 10px;
+        width: 40px;
+        height: 40px;
+        source: @image-url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iZ3JlZW4iLz48L3N2Zz4=");
+    }
+}
