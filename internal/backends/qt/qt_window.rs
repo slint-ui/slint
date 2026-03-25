@@ -743,6 +743,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             LineJoin::Bevel => 0x40,
             _ => 0x00,
         };
+        let stroke_miter_limit = path.stroke_miter_limit();
 
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
@@ -791,11 +792,18 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 stroke_width as "float",
                 stroke_pen_cap_style as "int",
                 stroke_pen_join_style as "int",
+                stroke_miter_limit as "float",
                 anti_alias as "bool"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
-            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style)) : Qt::NoPen);
+            if (stroke_width > 0) {
+                QPen pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style));
+                pen.setMiterLimit(static_cast<qreal>(stroke_miter_limit));
+                (*painter)->setPen(pen);
+            } else {
+                (*painter)->setPen(Qt::NoPen);
+            }
             (*painter)->setBrush(fill_brush);
             (*painter)->setRenderHint(QPainter::Antialiasing, anti_alias);
             (*painter)->drawPath(painter_path);

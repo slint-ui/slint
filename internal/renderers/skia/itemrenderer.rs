@@ -698,6 +698,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 i_slint_core::items::LineJoin::Bevel => skia_safe::PaintJoin::Bevel,
                 i_slint_core::items::LineJoin::Miter | _ => skia_safe::PaintJoin::Miter,
             });
+            border_paint.set_stroke_miter(path.stroke_miter_limit());
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
         }
