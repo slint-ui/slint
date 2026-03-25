@@ -45,7 +45,7 @@ use data_ringbuffer::MoveDataRingbuffer;
 const DECELERATION: f32 = 2000.;
 /// Time of the animation until it returned back to the limit when it went beyond the limit
 /// The unit is seconds
-const SPRING_DAMPER_RETURN_TIME: f32 = 200e-3;
+const SPRING_DAMPER_RETURN_TIME: f32 = 0.2;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
