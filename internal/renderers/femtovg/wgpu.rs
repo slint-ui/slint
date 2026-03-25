@@ -305,6 +305,7 @@ impl FemtoVGWGPURenderer {
     }
 }
 
+#[doc(hidden)]
 impl RendererSealed for FemtoVGWGPURenderer {
     fn text_size(
         &self,
