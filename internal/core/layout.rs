@@ -1436,6 +1436,9 @@ mod flexbox_taffy {
                             FlexAlignContent::Start => AlignContent::FlexStart,
                             FlexAlignContent::End => AlignContent::FlexEnd,
                             FlexAlignContent::Center => AlignContent::Center,
+                            FlexAlignContent::SpaceBetween => AlignContent::SpaceBetween,
+                            FlexAlignContent::SpaceAround => AlignContent::SpaceAround,
+                            FlexAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         gap: Size {
                             width: LengthPercentage::length(params.spacing_h as _),

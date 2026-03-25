@@ -386,6 +386,12 @@ macro_rules! for_each_enums {
                 End,
                 /// Lines are centered along the cross axis.
                 Center,
+                /// Equal gaps between lines, no gap at the edges.
+                SpaceBetween,
+                /// Equal gaps around each line (half-size at edges).
+                SpaceAround,
+                /// Equal gaps between lines and at the edges.
+                SpaceEvenly,
             }
 
             /// Controls the alignment of individual items along the cross axis within each flex line.
