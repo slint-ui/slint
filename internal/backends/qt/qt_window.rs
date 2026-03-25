@@ -1214,15 +1214,10 @@ impl QRawFont {
     }
 }
 
+#[derive(Default)]
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
     fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
-}
-
-impl Default for FontCache {
-    fn default() -> Self {
-        Self { fonts: Default::default() }
-    }
 }
 
 impl FontCache {
@@ -1346,7 +1341,7 @@ impl QtItemRenderer<'_> {
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
         let scale_factor = ScaleFactor::new(self.scale_factor());
 
-        let fit = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&image.source()).into() {
+        let fit = if let ImageInner::NineSlice(nine) = <&ImageInner>::from(&image.source()) {
             i_slint_core::graphics::fit9slice(
                 nine.0.size(),
                 nine.1,
@@ -1524,7 +1519,7 @@ impl QtItemRenderer<'_> {
 
             i_slint_core::item_rendering::render_item_children(
                 self,
-                &item_rc.item_tree(),
+                item_rc.item_tree(),
                 item_rc.index() as isize, &window_adapter
             );
 
@@ -1692,7 +1687,7 @@ impl QtWindow {
             };
 
             for (component, origin) in components {
-                if let Some(component) = ItemTreeWeak::upgrade(&component) {
+                if let Some(component) = ItemTreeWeak::upgrade(component) {
                     i_slint_core::item_rendering::render_component_items(
                         &component,
                         &mut renderer,

@@ -34,7 +34,7 @@ impl Item for NativeProgressIndicator {
     ) -> LayoutInfo {
         let indeterminate = self.indeterminate();
         let progress =
-            if indeterminate { 0 } else { (self.progress().max(0.0).min(1.0) * 100.) as i32 };
+            if indeterminate { 0 } else { (self.progress().clamp(0.0, 1.0) * 100.) as i32 };
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
@@ -119,7 +119,7 @@ impl Item for NativeProgressIndicator {
 
     fn_render! { this dpr size painter widget initial_state =>
         let indeterminate = this.indeterminate();
-        let progress = if indeterminate { -1 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
+        let progress = if indeterminate { -1 } else { (this.progress().clamp(0.0, 1.0) * 100.) as i32 };
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
