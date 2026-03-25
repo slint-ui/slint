@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+export component TestCase inherits Window {
 
 
     width: 500phx;
@@ -17,7 +17,7 @@ TestCase := Window {
         viewport_height: 2100phx;
 
         flicked => {
-            root.flicked += viewport_x/1phx * 100000 + viewport_y/1phx;
+            root.flicked += self.viewport_x/1phx * 100000 + self.viewport_y/1phx;
         }
 
         inner_ta := TouchArea {
@@ -29,33 +29,35 @@ TestCase := Window {
                 background: parent.pressed ? blue : parent.has_hover ? green : red;
             }
             clicked => {
-                root.clicked = mouse_x/1phx * 100000 + mouse_y/1phx;
+                root.clicked = self.mouse_x/1phx * 100000 + self.mouse_y/1phx;
             }
             double-clicked => {
-                root.double-clicked = mouse_x/1phx * 100000 + mouse_y/1phx;
+                root.double-clicked = self.mouse_x/1phx * 100000 + self.mouse_y/1phx;
             }
         }
 
     }
 
-    property<length> offset_x: -f.viewport_x;
-    property<length> offset_y: -f.viewport_y;
-    property<bool> inner_ta_pressed: inner_ta.pressed;
-    property<bool> inner_ta_has_hover: inner_ta.has_hover;
-    property<int> clicked;
-    property<int> double-clicked;
-    property <int> flicked;
+    in-out property<length> offset_x: -f.viewport_x;
+    in-out property<length> offset_y: -f.viewport_y;
+    in-out property<bool> inner_ta_pressed: inner_ta.pressed;
+    in-out property<bool> inner_ta_has_hover: inner_ta.has_hover;
+    in-out property<int> clicked;
+    in-out property<int> double-clicked;
+    in-out property <int> flicked;
 }
 
 /*
 
 ```rust
+// Test 0
 // Test that basic scrolling works, and that releasing the mouse animates
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 slint_testing::mock_elapsed_time(5000);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
@@ -67,14 +69,15 @@ assert_eq!(instance.get_offset_y(), 50.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 10.0) });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 10.0), button: PointerEventButton::Left });
 // Start of the animation, the position is still unchanged
-assert_eq!(instance.get_offset_x(), 200.);
-assert_eq!(instance.get_offset_y(), 50.);
+assert_eq!(instance.get_offset_x(), 240.); // 300 - 60
+assert_eq!(instance.get_offset_y(), 90.); // 100 - 10
 slint_testing::mock_elapsed_time(50);
 // middle of the animation
-assert!(instance.get_offset_x() > 210.);
-assert!(instance.get_offset_y() > 60., "Expected > 60, Received: {}", instance.get_offset_y());
+assert!(instance.get_offset_x() > 240.);
+assert!(instance.get_offset_y() > 100., "Expected > 100, Received: {}", instance.get_offset_y());
 assert!(instance.get_offset_x() < 400., "Expected < 400, Received: {}", instance.get_offset_x());
 assert!(instance.get_offset_y() < 150., "Expected <= 150, Received: {}", instance.get_offset_y());
 
@@ -95,6 +98,7 @@ assert_eq!(instance.get_double_clicked(), 0);
 ```
 
 ```rust
+// Test 1
 // Test interaction with inner mouse area
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 let instance = TestCase::new().unwrap();
@@ -231,6 +235,7 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 ```
 
 ```rust
+// Test 2
 // Test wheel events
 use slint::{LogicalPosition, platform::{WindowEvent, Key} };
 let instance = TestCase::new().unwrap();
@@ -250,6 +255,7 @@ if !cfg!(target_os = "macos") {
 ```
 
 ```rust
+// Test3
 // Test flicked-Callback behaviour
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
 let instance = TestCase::new().unwrap();
@@ -263,9 +269,10 @@ instance.set_flicked(0);
 
 // test dragging bevaviour
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 slint_testing::mock_elapsed_time(300);
 assert_eq!(instance.get_flicked(), 0); //flicked didn't get called by just pressing
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) }); // At least two moves are required to determine the velocity
 slint_testing::mock_elapsed_time(10000);
 assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
 instance.set_flicked(0);

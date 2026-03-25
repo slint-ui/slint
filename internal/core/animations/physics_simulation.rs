@@ -9,7 +9,7 @@
 //! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
 
 use crate::animations::Instant;
-#[cfg(all(not(feature = "std"), test))]
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 /// The direction the simulation is running
@@ -36,18 +36,21 @@ pub trait Parameter {
 }
 
 /// Input parameters for the `ConstantDeceleration` simulation
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationParameters {
     pub initial_velocity: f32,
     pub deceleration: f32,
 }
 
+#[cfg(test)]
 impl ConstantDecelerationParameters {
     pub fn new(initial_velocity: f32, deceleration: f32) -> Self {
         Self { initial_velocity, deceleration }
     }
 }
 
+#[cfg(test)]
 impl Parameter for ConstantDecelerationParameters {
     type Output = ConstantDeceleration;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
@@ -57,6 +60,7 @@ impl Parameter for ConstantDecelerationParameters {
 
 /// This simulation simulates a constant deceleration of a point starting at position `start_value` with
 /// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` it stops there
+#[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDeceleration {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -69,6 +73,7 @@ pub struct ConstantDeceleration {
     start_time: Instant,
 }
 
+#[cfg(test)]
 impl ConstantDeceleration {
     /// Create a new ConstantDeceleration simulation
     ///
@@ -76,6 +81,7 @@ impl ConstantDeceleration {
     /// * `limit_value` - value at which the simulation ends if the velocity did not get zero before
     /// * `initial_velocity` - the initial velocity of the point
     /// * `data` - the properties of this simulation
+    #[allow(dead_code)]
     pub fn new(start_value: f32, limit_value: f32, data: ConstantDecelerationParameters) -> Self {
         Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
     }
@@ -155,6 +161,7 @@ impl ConstantDeceleration {
     }
 }
 
+#[cfg(test)]
 impl Simulation for ConstantDeceleration {
     fn curr_value(&self) -> f32 {
         self.curr_val
@@ -176,10 +183,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 10.;
         const INITIAL_VELOCITY: f32 = 50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let time = Instant::now();
         let mut simulation =
@@ -198,10 +202,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 2000.;
         const INITIAL_VELOCITY: f32 = 50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -241,10 +242,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 20.;
         const INITIAL_VELOCITY: f32 = 50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -267,10 +265,7 @@ mod tests {
         const INITIAL_VELOCITY: f32 = -50.;
         const DECELERATION: f32 = 20.;
 
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -312,10 +307,7 @@ mod tests {
         const LIMIT_VALUE: f32 = 10.;
         const INITIAL_VELOCITY: f32 = -50.;
         const DECELERATION: f32 = 20.;
-        let parameters = ConstantDecelerationParameters {
-            initial_velocity: INITIAL_VELOCITY,
-            deceleration: DECELERATION,
-        };
+        let parameters = ConstantDecelerationParameters::new(INITIAL_VELOCITY, DECELERATION);
 
         let mut time = Instant::now();
         let mut simulation =
@@ -332,7 +324,6 @@ mod tests {
 
 /// Input parameters for the `ConstantDecelerationSpringDamper` simulation
 /// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
-#[cfg(test)]
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationSpringDamperParameters {
     pub initial_velocity: f32,
@@ -342,7 +333,6 @@ pub struct ConstantDecelerationSpringDamperParameters {
     pub damping_coefficient: f32, // [1] parameter c
 }
 
-#[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
     /// Creates a new `ConstantDecelerationSpringDamperParameters` parameter object
     /// It is more comfortable to use than specifiying the parameters manually because here the parameter calculation
@@ -369,7 +359,6 @@ impl ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[cfg(test)]
 impl Parameter for ConstantDecelerationSpringDamperParameters {
     type Output = ConstantDecelerationSpringDamper;
     fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
@@ -377,7 +366,6 @@ impl Parameter for ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[cfg(test)]
 #[derive(Debug, PartialEq)]
 enum State {
     Deceleration,
@@ -389,7 +377,6 @@ enum State {
 /// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` before
 /// the velocity reaches zero, the system simulates a spring damper system to go shortly beyond the limit
 /// value and returning then back
-#[cfg(test)]
 #[derive(Debug)]
 pub struct ConstantDecelerationSpringDamper {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
@@ -411,7 +398,6 @@ pub struct ConstantDecelerationSpringDamper {
     constant_phi: f32,
 }
 
-#[cfg(test)]
 impl ConstantDecelerationSpringDamper {
     pub fn new(
         start_value: f32,
@@ -528,7 +514,7 @@ impl ConstantDecelerationSpringDamper {
                     (self.velocity + root) / self.data.deceleration,
                 );
 
-                self.velocity = self.velocity - dt * self.data.deceleration; // Velocity at limit value point. Solved `new_val` equation for new_velocity
+                self.velocity -= dt * self.data.deceleration; // Velocity at limit value point. Solved `new_val` equation for new_velocity
                 self.curr_val_zeroed = 0.;
                 self.curr_val = self.limit_value;
 
@@ -541,16 +527,16 @@ impl ConstantDecelerationSpringDamper {
                     );
                 self.constant_phi =
                     f32::atan(self.w_d * X0 / (self.velocity + self.damping_ratio * self.w_n * X0));
-                return self.state_spring_damper(
+                self.state_spring_damper(
                     new_tick
                         + (duration_unlimited
                             - core::time::Duration::from_millis((dt * 1000.) as u64)),
-                );
+                )
             }
             S::VelocityZero => {
                 self.velocity = 0.;
                 self.curr_val = new_val;
-                return (self.curr_val, true);
+                (self.curr_val, true)
             }
             S::None => {
                 self.velocity = new_velocity;
@@ -575,11 +561,11 @@ impl ConstantDecelerationSpringDamper {
         let finished = match self.direction {
             Direction::Increasing => {
                 // We are comming back from a value higher than the limit
-                if current_val < self.limit_value || t > max_time { true } else { false }
+                current_val < self.limit_value || t > max_time
             }
             Direction::Decreasing => {
                 // We are comming back from a value lower than the limit
-                if current_val > self.limit_value || t > max_time { true } else { false }
+                current_val > self.limit_value || t > max_time
             }
         };
         if finished {
@@ -592,7 +578,6 @@ impl ConstantDecelerationSpringDamper {
     }
 }
 
-#[cfg(test)]
 impl Simulation for ConstantDecelerationSpringDamper {
     fn curr_value(&self) -> f32 {
         self.curr_val + self.curr_val_zeroed

@@ -37,11 +37,16 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
+mod data_ringbuffer;
+use data_ringbuffer::PositionTimeRingBuffer;
 
 /// Deceleration during the animation. It slows down the initial velocity of the simulation
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
+/// Time of the animation until it returned back to the limit when it went beyond the limit
+/// The unit is seconds
+const SPRING_DAMPER_RETURN_TIME: f32 = 0.2;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -97,11 +102,14 @@ impl Item for Flickable {
                 let vpy = flick.viewport_y();
                 let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
 
-                if *x_out_of_bounds {
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                if *x_out_of_bounds && !x.has_binding() {
+                    x.set(p.x_length());
                 }
-                if *y_out_of_bounds {
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                if *y_out_of_bounds && !y.has_binding() {
+                    y.set(p.y_length());
                 }
             },
         );
@@ -375,6 +383,10 @@ struct FlickableDataInner {
     /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
+
+    /// Ringbuffer to store the last move events. From those data the velocity can be
+    /// calculated required for the animation after the release event
+    position_time_rb: PositionTimeRingBuffer<5>,
 }
 
 impl FlickableDataInner {
@@ -471,6 +483,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                inner.position_time_rb = PositionTimeRingBuffer::default();
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
@@ -599,6 +612,8 @@ impl FlickableData {
                         inner.pressed_pos = *position;
                     };
 
+                    inner.position_time_rb.push(crate::animations::current_tick(), *position);
+
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
 
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
@@ -656,13 +671,12 @@ impl FlickableData {
     fn mouse_released(
         inner: &mut FlickableDataInner,
         flick: Pin<&Flickable>,
-        event: &MouseEvent,
+        _event: &MouseEvent,
         flick_rc: &ItemRc,
     ) {
-        if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {
-            let dist = (pos - inner.pressed_pos).cast::<f32>();
-
-            let millis = (crate::animations::current_tick() - pressed_time).as_millis();
+        if !inner.position_time_rb.empty() {
+            let (time, dist) = inner.position_time_rb.diff();
+            let millis = time.as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 0
@@ -671,28 +685,34 @@ impl FlickableData {
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                 let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
                 let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                let limit_x = if dist.x < 0. { -vw } else { euclid::Length::new(Coord::default()) };
-                let limit_y = if dist.y < 0. { -vh } else { euclid::Length::new(Coord::default()) };
+                let limit_x =
+                    if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
+                let limit_y =
+                    if dist.y < 0 as Coord { -vh } else { euclid::Length::new(Coord::default()) };
 
                 let limit =
                     ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
                 {
-                    let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.x / (millis as f32 / 1000.),
-                        DECELERATION,
-                    );
+                    let simulation =
+                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                            dist.x as f32 / (millis as f32 / 1000.),
+                            DECELERATION,
+                            SPRING_DAMPER_RETURN_TIME,
+                        );
                     viewport_x.set_physic_animation_value(limit.x_length(), simulation);
                 }
 
                 {
-                    let animation_y = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.y / (millis as f32 / 1000.),
-                        DECELERATION,
-                    );
+                    let animation_y =
+                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
+                            dist.y as f32 / (millis as f32 / 1000.),
+                            DECELERATION,
+                            SPRING_DAMPER_RETURN_TIME,
+                        );
                     viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
                 }
 
-                if dist.x != 0. || dist.y != 0. {
+                if dist.x != 0 as Coord || dist.y != 0 as Coord {
                     (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                 }
             }
