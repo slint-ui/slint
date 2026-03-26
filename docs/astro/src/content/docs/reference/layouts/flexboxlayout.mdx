@@ -128,6 +128,28 @@ Set the alignment of individual items along the cross axis within each flex line
 The default value is `stretch`.
 </SlintProperty>
 
+## Per-Item Properties
+
+The following properties can be set on individual children of a `FlexBoxLayout`:
+
+### flex-grow
+<SlintProperty propName="flex-grow" typeName="float">
+Controls how much an item grows relative to other flex items when there is extra space along the main axis.
+A value of `0` (default) means the item does not grow. Items with higher values receive proportionally more extra space.
+</SlintProperty>
+
+### flex-shrink
+<SlintProperty propName="flex-shrink" typeName="float">
+Controls how much an item shrinks relative to other flex items when items overflow the container along the main axis.
+A value of `0` (default) means the item does not shrink. Items with higher values shrink proportionally more.
+</SlintProperty>
+
+### flex-basis
+<SlintProperty propName="flex-basis" typeName="length">
+Sets the initial main size of a flex item before growing or shrinking is applied.
+If not set, the item's `preferred-width` (row) or `preferred-height` (column) is used.
+</SlintProperty>
+
 ## Layout Behavior
 
 The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>

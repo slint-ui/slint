@@ -388,8 +388,6 @@ fn flexbox_layout_data(
                 Orientation::Horizontal,
                 &expr_eval,
             );
-            cells_h.push(core_layout::LayoutItemInfo { constraint: layout_info_h });
-
             let mut layout_info_v = get_layout_info(
                 &layout_elem.element,
                 component,
@@ -402,7 +400,22 @@ fn flexbox_layout_data(
                 Orientation::Vertical,
                 &expr_eval,
             );
-            cells_v.push(core_layout::LayoutItemInfo { constraint: layout_info_v });
+            let flex_grow = layout_elem.flex_grow.as_ref().map(&expr_eval).unwrap_or(0.0);
+            let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(0.0);
+            let flex_basis = layout_elem.flex_basis.as_ref().map(&expr_eval).unwrap_or(-1.0);
+            let item_info = core_layout::LayoutItemInfo {
+                constraint: layout_info_h,
+                flex_grow,
+                flex_shrink,
+                flex_basis,
+            };
+            cells_h.push(item_info);
+            cells_v.push(core_layout::LayoutItemInfo {
+                constraint: layout_info_v,
+                flex_grow,
+                flex_shrink,
+                flex_basis,
+            });
         }
     }
 
@@ -694,8 +707,10 @@ fn grid_layout_constraints(
                                     orientation,
                                     &expr_eval,
                                 );
-                                constraints
-                                    .push(core_layout::LayoutItemInfo { constraint: layout_info });
+                                constraints.push(core_layout::LayoutItemInfo {
+                                    constraint: layout_info,
+                                    ..Default::default()
+                                });
                             }
                             i_slint_compiler::layout::RowChildTemplate::Repeated {
                                 item: child_item,
@@ -740,9 +755,7 @@ fn grid_layout_constraints(
                     // inner repeaters have different lengths across outer Row instances).
                     let pushed = constraints.len() - per_instance_start;
                     for _ in pushed..step {
-                        constraints.push(core_layout::LayoutItemInfo {
-                            constraint: core_layout::LayoutInfo::default(),
-                        });
+                        constraints.push(core_layout::LayoutItemInfo::default());
                     }
                 }
             } else {
@@ -767,7 +780,10 @@ fn grid_layout_constraints(
                 orientation,
                 &expr_eval,
             );
-            constraints.push(core_layout::LayoutItemInfo { constraint: layout_info });
+            constraints.push(core_layout::LayoutItemInfo {
+                constraint: layout_info,
+                ..Default::default()
+            });
         }
     }
     constraints
@@ -806,7 +822,10 @@ fn box_layout_data(
                 orientation,
                 &expr_eval,
             );
-            cells.push(core_layout::LayoutItemInfo { constraint: layout_info });
+            cells.push(core_layout::LayoutItemInfo {
+                constraint: layout_info,
+                ..Default::default()
+            });
         }
     }
     let alignment = box_layout

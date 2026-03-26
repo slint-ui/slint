@@ -1146,11 +1146,27 @@ pub struct FlexBoxLayoutData<'a> {
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 /// The information about a single item in a layout
-/// For now this only contains the LayoutInfo constraints, but could be extended in the future
 pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
+    /// Flex grow factor (0 = don't grow, default)
+    pub flex_grow: f32,
+    /// Flex shrink factor (0 = don't shrink, default)
+    pub flex_shrink: f32,
+    /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
+    pub flex_basis: Coord,
+}
+
+impl Default for LayoutItemInfo {
+    fn default() -> Self {
+        Self {
+            constraint: LayoutInfo::default(),
+            flex_grow: 0.0,
+            flex_shrink: 0.0,
+            flex_basis: -1 as _,
+        }
+    }
 }
 
 /// Solve a BoxLayout
@@ -1337,13 +1353,17 @@ mod flexbox_taffy {
                     let preferred_height =
                         v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0 as Coord);
 
-                    // flex_basis depends on direction
-                    let flex_basis = match params.flex_direction {
-                        TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                            Dimension::length(preferred_width as _)
-                        }
-                        TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
-                            Dimension::length(preferred_height as _)
+                    // flex_basis: use explicit value if set (>= 0), otherwise use preferred size
+                    let flex_basis = if cell_h.flex_basis >= 0 as Coord {
+                        Dimension::length(cell_h.flex_basis as _)
+                    } else {
+                        match params.flex_direction {
+                            TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                                Dimension::length(preferred_width as _)
+                            }
+                            TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
+                                Dimension::length(preferred_height as _)
+                            }
                         }
                     };
 
@@ -1395,8 +1415,8 @@ mod flexbox_taffy {
                                     Dimension::auto()
                                 },
                             },
-                            flex_grow: 0.0,
-                            flex_shrink: 0.0,
+                            flex_grow: cell_h.flex_grow,
+                            flex_shrink: cell_h.flex_shrink,
                             ..Default::default()
                         })
                         .unwrap() // cannot fail

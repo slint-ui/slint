@@ -20,11 +20,27 @@ component Cell inherits Rectangle {
     in property <string> cell_text;
 }
 
+component FlexCell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #555;
+    VerticalLayout {
+        padding: 5phx;
+        Text {
+            color: white;
+            text: cell_text;
+            font-size: 14px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
 export component MainWindow inherits Window {
     title: "FlexBox Layout - Direction Test";
     default-font-size: 20px;
 
-    property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
     property <[FlexDirection]> direction_values: [
         FlexDirection.row,
@@ -136,10 +152,63 @@ export component MainWindow inherits Window {
                 padding: 10phx;
                 spacing: 10phx;
 
-                for text in names: Cell {
+                // flex-grow: blue items grow to fill extra space (1× and 2× ratio)
+                FlexCell {
+                    cell_text: "grow:1";
+                    flex-grow: 1;
+                    flex-basis: 60phx;
+                    min-height: 40phx;
+                    background: #4a90d9;
+                }
+                FlexCell {
+                    cell_text: "grow:2";
+                    flex-grow: 2;
+                    flex-basis: 60phx;
+                    min-height: 40phx;
+                    background: #2e6da4;
+                }
+                for text in ["C", "D", "E"]: Cell {
                     cell_text: text;
-                    width: 120phx;
-                    height: 60phx;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-basis: these two have different starting sizes
+                FlexCell {
+                    cell_text: "basis:40";
+                    flex-basis: 40phx;
+                    min-height: 40phx;
+                    background: #27ae60;
+                }
+                FlexCell {
+                    cell_text: "basis:160";
+                    flex-basis: 160phx;
+                    min-height: 40phx;
+                    background: #1e8449;
+                }
+                for text in ["H", "I", "J", "K", "L"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-shrink: red items shrink when space is tight (try no-wrap with a narrow window)
+                FlexCell {
+                    cell_text: "shrink:1";
+                    flex-basis: 150phx;
+                    flex-shrink: 1;
+                    min-height: 40phx;
+                    background: #d94a4a;
+                }
+                FlexCell {
+                    cell_text: "shrink:3";
+                    flex-basis: 150phx;
+                    flex-shrink: 3;
+                    min-height: 40phx;
+                    background: #a93226;
+                }
+                for text in ["P", "Q", "R", "S", "T", "U"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
                 }
             }
         }
