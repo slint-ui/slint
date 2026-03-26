@@ -62,6 +62,7 @@ pub mod textlayout;
 pub mod timers;
 pub mod translations;
 pub mod window;
+pub mod custom_shaders;
 
 #[doc(inline)]
 pub use string::SharedString;
