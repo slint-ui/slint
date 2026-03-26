@@ -55,6 +55,10 @@ impl Layout {
 pub struct LayoutItem {
     pub element: ElementRc,
     pub constraints: LayoutConstraints,
+    /// Per-item flex properties (only used by FlexBoxLayout)
+    pub flex_grow: Option<NamedReference>,
+    pub flex_shrink: Option<NamedReference>,
+    pub flex_basis: Option<NamedReference>,
 }
 
 /// A child within a repeated Row in a GridLayout.
@@ -602,6 +606,15 @@ impl FlexBoxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.flex_grow.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.flex_shrink.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.flex_basis.as_mut() {
+                visitor(&mut *e)
+            }
         }
         self.geometry.visit_named_references(visitor);
         if let Some(e) = self.direction.as_mut() {

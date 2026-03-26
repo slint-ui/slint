@@ -1312,8 +1312,17 @@ fn create_layout_item(
     };
 
     let constraints = LayoutConstraints::new(&actual_elem, diag, DiagnosticLevel::Error);
+    let flex_grow = crate::layout::binding_reference(&actual_elem, "flex-grow");
+    let flex_shrink = crate::layout::binding_reference(&actual_elem, "flex-shrink");
+    let flex_basis = crate::layout::binding_reference(&actual_elem, "flex-basis");
     CreateLayoutItemResult {
-        item: LayoutItem { element: item_element.clone(), constraints },
+        item: LayoutItem {
+            element: item_element.clone(),
+            constraints,
+            flex_grow,
+            flex_shrink,
+            flex_basis,
+        },
         elem: actual_elem,
         repeater_index,
     }

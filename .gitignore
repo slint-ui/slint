@@ -25,6 +25,7 @@ global-structs-enums.mdx
 /.mise.local.toml
 /.mise/tasks/local/
 
+.claude
 
 *.node
 *.d.ts
