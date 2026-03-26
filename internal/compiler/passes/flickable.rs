@@ -78,8 +78,8 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
                 ),
             );
             inner_elem.borrow_mut().geometry_props.as_mut().unwrap().y = new_y;
-            listview.viewport_height.mark_as_set();
         }
+        listview.viewport_height.mark_as_set();
     }
 
     let viewport = Element::make_rc(Element {
