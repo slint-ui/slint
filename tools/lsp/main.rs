@@ -421,8 +421,9 @@ async fn main_loop(
     let connection = Arc::new(connection);
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let inner_connection = connection.clone();
-    let receiver_task = std::thread::spawn(move || {
+    std::thread::spawn(move || {
         crossbeam_tokio_adapter(inner_connection, from_lsp_sender);
+        tracing::debug!("crossbeam -> tokio adapter exited");
     });
 
     let inner_ctx = ctx.clone();
@@ -440,8 +441,6 @@ async fn main_loop(
                     Some(Message::Request(req)) => {
                         // ignore errors when shutdown
                         if connection.handle_shutdown(&req).unwrap_or(false) {
-                            from_lsp_receiver.close();
-                            let _ = receiver_task.join();
                             return Ok(());
                         }
                         rh.handle_request(req, &ctx).await?;
@@ -449,14 +448,10 @@ async fn main_loop(
                     Some(Message::Response(resp)) => {
                         let mut request_queue = request_queue.lock().unwrap();
                         let Some(q) = request_queue.get_mut(&resp.id) else {
-                            from_lsp_receiver.close();
-                            let _ = receiver_task.join();
                             return Err("Response to unknown request".into());
                         };
                         match q {
                             OutgoingRequest::Done(_) => {
-                                from_lsp_receiver.close();
-                                let _ = receiver_task.join();
                                 return Err("Response to unknown request".into())
                             }
                             OutgoingRequest::Start => { /* nothing to do */ }
@@ -468,8 +463,6 @@ async fn main_loop(
                         handle_notification(notification, &ctx).await?;
                     }
                     None => {
-                        from_lsp_receiver.close();
-                        let _ = receiver_task.join();
                         return Err("LSP connection closed".into());
                     }
                 }
@@ -480,8 +473,6 @@ async fn main_loop(
                 {
                     let ctx = ctx.clone();
                     let Some(msg) = _msg else {
-                        from_lsp_receiver.close();
-                        let _ = receiver_task.join();
                         return Err("Preview to LSP connection closed".into());
                     };
                     tokio::task::spawn_local(async move {
@@ -639,7 +630,6 @@ async fn handle_preview_to_lsp_message(
     ctx: &Rc<RwLock<Context>>,
 ) -> Result<()> {
     use crate::common::PreviewToLspMessage as M;
-    let ctx = ctx.read().await;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
             if diagnostics.is_empty() {
@@ -649,47 +639,54 @@ async fn handle_preview_to_lsp_message(
                 tracing::debug!("Preview: {} diagnostics for {}", diagnostics.len(), uri);
             }
             crate::common::lsp_to_editor::notify_lsp_diagnostics(
-                &ctx.server_notifier,
+                &ctx.read().await.server_notifier,
                 uri,
                 version,
                 diagnostics,
             );
         }
         M::ShowDocument { file, selection, take_focus } => {
+            let sn = ctx.read().await.server_notifier.clone();
             crate::common::lsp_to_editor::send_show_document_to_editor(
-                ctx.server_notifier.clone(),
-                file,
-                selection,
-                take_focus,
+                sn, file, selection, take_focus,
             )
             .await;
         }
         M::PreviewTypeChanged { is_external } => {
             tracing::debug!("Preview type changed: is_external={}", is_external);
             if is_external {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
+                ctx.read()
+                    .await
+                    .to_preview
+                    .set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
             } else {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::ChildProcess)?;
+                ctx.read()
+                    .await
+                    .to_preview
+                    .set_preview_target(common::PreviewTarget::ChildProcess)?;
             }
         }
         M::RequestState { .. } => {
             tracing::debug!("Preview requested state");
-            crate::language::send_state_to_preview(&ctx);
+            crate::language::send_state_to_preview(&*ctx.read().await);
         }
         M::SendWorkspaceEdit { label, edit } => {
-            let sn = ctx.server_notifier.clone();
-            drop(ctx); // don't keep lock over await point
+            let sn = ctx.read().await.server_notifier.clone();
             let _ = send_workspace_edit(sn, label, Ok(edit)).await;
         }
         M::SendShowMessage { message } => {
-            ctx.server_notifier
+            ctx.read()
+                .await
+                .server_notifier
                 .send_notification::<lsp_types::notification::ShowMessage>(message)?;
         }
-        M::TelemetryEvent(object) => {
-            ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
-                lsp_types::OneOf::Left(object),
-            )?
-        }
+        M::TelemetryEvent(object) => ctx
+            .read()
+            .await
+            .server_notifier
+            .send_notification::<lsp_types::notification::TelemetryEvent>(
+            lsp_types::OneOf::Left(object),
+        )?,
     }
     Ok(())
 }
