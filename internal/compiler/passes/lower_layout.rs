@@ -950,11 +950,15 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
         let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
         let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
+        let align_self = crate::layout::binding_reference(actual_elem, "align-self");
+        let order = crate::layout::binding_reference(actual_elem, "order");
         layout.elems.push(crate::layout::FlexBoxLayoutItem {
             item: item.item,
             flex_grow,
             flex_shrink,
             flex_basis,
+            align_self,
+            order,
         });
     }
     layout_element.borrow_mut().children = layout_children;

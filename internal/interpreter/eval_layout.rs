@@ -403,11 +403,24 @@ fn flexbox_layout_data(
             let flex_grow = layout_elem.flex_grow.as_ref().map(&expr_eval).unwrap_or(0.0);
             let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(0.0);
             let flex_basis = layout_elem.flex_basis.as_ref().map(&expr_eval).unwrap_or(-1.0);
+            let align_self = layout_elem
+                .align_self
+                .as_ref()
+                .map(|nr| {
+                    eval::load_property(component, &nr.element(), nr.name())
+                        .unwrap()
+                        .try_into()
+                        .unwrap()
+                })
+                .unwrap_or(i_slint_core::items::FlexAlignSelf::default());
+            let order = layout_elem.order.as_ref().map(&expr_eval).unwrap_or(0.0) as i32;
             let item_info = core_layout::LayoutItemInfo {
                 constraint: layout_info_h,
                 flex_grow,
                 flex_shrink,
                 flex_basis,
+                align_self,
+                order,
             };
             cells_h.push(item_info);
             cells_v.push(core_layout::LayoutItemInfo {
@@ -415,6 +428,8 @@ fn flexbox_layout_data(
                 flex_grow,
                 flex_shrink,
                 flex_basis,
+                align_self,
+                order,
             });
         }
     }

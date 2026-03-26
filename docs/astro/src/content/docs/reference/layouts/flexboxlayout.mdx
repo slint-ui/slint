@@ -150,6 +150,19 @@ Sets the initial main size of a flex item before growing or shrinking is applied
 If not set, the item's `preferred-width` (row) or `preferred-height` (column) is used.
 </SlintProperty>
 
+### align-self
+<SlintProperty propName="align-self" typeName="enum" enumName="FlexAlignSelf">
+Overrides the container's `align-items` for this specific item.
+The default value is `auto`, which inherits the container's `align-items` setting.
+</SlintProperty>
+
+### order
+<SlintProperty propName="order" typeName="int">
+Controls the visual order of flex items. Items with lower values appear first.
+Items with the same order value preserve their declaration order.
+The default value is `0`.
+</SlintProperty>
+
 ## Layout Behavior
 
 The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
