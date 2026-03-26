@@ -264,18 +264,18 @@ macro_rules! for_each_enums {
                 //zoom_out,
             }
 
-            /// This enum defines how the source image shall fit into an `Image` element.
+            /// This enum defines how the source image or path shall fit into an `Image` or `Path` element.
             #[non_exhaustive]
             enum ImageFit {
-                /// Scales and stretches the source image to fit the width and height of the `Image` element.
+                /// Scales and stretches the source to fit the width and height of the element.
                 Fill,
-                /// The source image is scaled to fit into the `Image` element's dimension while preserving the aspect ratio.
+                /// The source is scaled to fit into the element's dimensions while preserving the aspect ratio.
                 Contain,
-                /// The source image is scaled to cover into the `Image` element's dimension while preserving the aspect ratio.
-                /// If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
+                /// The source is scaled to cover the element's dimensions while preserving the aspect ratio.
+                /// If the aspect ratios don't match, the source will be clipped to fit.
                 Cover,
-                /// Preserves the size of the source image in logical pixels.
-                /// The source image will still be scaled by the scale factor that applies to all elements in the window.
+                /// Preserves the size of the source in logical pixels.
+                /// The source will still be scaled by the scale factor that applies to all elements in the window.
                 /// Any extra space will be left blank.
                 Preserve,
             }
