@@ -330,8 +330,7 @@ impl SlintServer {
         let guard = self.reentry_guard.clone();
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
-            let mut ctx = ctx.write().await;
-            language::startup_lsp(&mut ctx).await.map_err(|e| JsError::new(&e.to_string()))?;
+            language::startup_lsp(ctx).await.map_err(|e| JsError::new(&e.to_string()))?;
             Ok(JsValue::UNDEFINED)
         })
     }
@@ -414,8 +413,7 @@ impl SlintServer {
     pub async fn reload_config(&self) -> JsResult<()> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
-        let mut ctx = self.ctx.write().await;
-        language::load_configuration(&mut ctx).await.map_err(|e| JsError::new(&e.to_string()))
+        language::load_configuration(&self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
     }
 }
 
