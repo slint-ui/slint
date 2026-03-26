@@ -1,9 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::os::fd::{AsFd, AsRawFd};
-
-use i_slint_core::graphics::wgpu_28::wgpu;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_femtovg::FemtoVGRendererExt;
@@ -26,22 +23,7 @@ impl FemtoVGWgpuRendererAdapter {
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-
-        let plane = drm_output.find_compatible_plane()?;
-        let (width, height) = drm_output.size();
-        let refresh_rate_mhz = drm_output.refresh_rate_millihertz();
-
-        let surface_target =
-            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
-                fd: drm_output.drm_device.as_fd().as_raw_fd(),
-                plane: plane.handle().into(),
-                connector_id: drm_output.connector.handle().into(),
-                width,
-                height,
-                refresh_rate: refresh_rate_mhz,
-            });
-
-        let size = i_slint_core::api::PhysicalSize::new(width, height);
+        let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
 
         let renderer = i_slint_renderer_femtovg::FemtoVGRenderer::new_suspended();
         renderer

@@ -66,25 +66,27 @@ impl SkiaRendererAdapter {
         device_opener: &crate::DeviceOpener,
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        use std::os::fd::{AsFd, AsRawFd};
-
         let drm_output = DrmOutput::new(device_opener)?;
 
-        let plane = drm_output.find_compatible_plane()?;
-        let (width, height) = drm_output.size();
-        let refresh_rate_mhz = drm_output.refresh_rate_millihertz();
-        let size = PhysicalWindowSize::new(width, height);
+        #[cfg(feature = "unstable-wgpu-28")]
+        let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
+        #[cfg(not(feature = "unstable-wgpu-28"))]
+        let (surface_target, size) = drm_output.wgpu_27_surface_target()?;
 
-        let skia_wgpu_surface = Self::create_wgpu_surface(
-            drm_output.drm_device.as_fd().as_raw_fd(),
-            plane.handle().into(),
-            drm_output.connector.handle().into(),
-            width,
-            height,
-            refresh_rate_mhz,
-            size,
-            requested_graphics_api.cloned(),
-        )?;
+        #[cfg(feature = "unstable-wgpu-28")]
+        let skia_wgpu_surface =
+            Box::new(i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
+                surface_target,
+                size,
+                requested_graphics_api.cloned(),
+            )?);
+        #[cfg(not(feature = "unstable-wgpu-28"))]
+        let skia_wgpu_surface =
+            Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
+                surface_target,
+                size,
+                requested_graphics_api.cloned(),
+            )?);
 
         let renderer = Box::new(Self {
             renderer: SkiaRenderer::new_with_surface(
@@ -100,66 +102,6 @@ impl SkiaRendererAdapter {
         eprintln!("Using Skia Vulkan renderer with wgpu");
 
         Ok(renderer)
-    }
-
-    #[cfg(all(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
-    fn create_wgpu_surface(
-        fd: i32,
-        plane: u32,
-        connector_id: u32,
-        width: u32,
-        height: u32,
-        refresh_rate: u32,
-        size: PhysicalWindowSize,
-        requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
-    ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
-        use i_slint_core::graphics::wgpu_28::wgpu;
-
-        let surface_target =
-            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
-                fd,
-                plane,
-                connector_id,
-                width,
-                height,
-                refresh_rate,
-            });
-
-        Ok(Box::new(i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
-            surface_target,
-            size,
-            requested_graphics_api,
-        )?))
-    }
-
-    #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
-    fn create_wgpu_surface(
-        fd: i32,
-        plane: u32,
-        connector_id: u32,
-        width: u32,
-        height: u32,
-        refresh_rate: u32,
-        size: PhysicalWindowSize,
-        requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
-    ) -> Result<Box<dyn i_slint_renderer_skia::Surface>, PlatformError> {
-        use i_slint_core::graphics::wgpu_27::wgpu;
-
-        let surface_target =
-            i_slint_core::graphics::wgpu_27::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
-                fd,
-                plane,
-                connector_id,
-                width,
-                height,
-                refresh_rate,
-            });
-
-        Ok(Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
-            surface_target,
-            size,
-            requested_graphics_api,
-        )?))
     }
 
     #[cfg(feature = "renderer-skia-opengl")]
