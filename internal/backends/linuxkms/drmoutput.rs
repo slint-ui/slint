@@ -311,6 +311,54 @@ impl DrmOutput {
         ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
     }
 
+    #[cfg(any(feature = "unstable-wgpu-28", feature = "renderer-femtovg-wgpu"))]
+    /// Creates a wgpu-28 DRM surface target from this output.
+    pub fn wgpu_28_surface_target(
+        &self,
+    ) -> Result<
+        (i_slint_core::graphics::wgpu_28::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        PlatformError,
+    > {
+        use i_slint_core::graphics::wgpu_28::wgpu;
+        use std::os::fd::AsRawFd;
+        let plane = self.find_compatible_plane()?;
+        let (width, height) = self.size();
+        let target =
+            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd: self.drm_device.as_fd().as_raw_fd(),
+                plane: plane.handle().into(),
+                connector_id: self.connector.handle().into(),
+                width,
+                height,
+                refresh_rate: self.refresh_rate_millihertz(),
+            });
+        Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
+    }
+
+    #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
+    /// Creates a wgpu-27 DRM surface target from this output.
+    pub fn wgpu_27_surface_target(
+        &self,
+    ) -> Result<
+        (i_slint_core::graphics::wgpu_27::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        PlatformError,
+    > {
+        use i_slint_core::graphics::wgpu_27::wgpu;
+        use std::os::fd::AsRawFd;
+        let plane = self.find_compatible_plane()?;
+        let (width, height) = self.size();
+        let target =
+            i_slint_core::graphics::wgpu_27::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd: self.drm_device.as_fd().as_raw_fd(),
+                plane: plane.handle().into(),
+                connector_id: self.connector.handle().into(),
+                width,
+                height,
+                refresh_rate: self.refresh_rate_millihertz(),
+            });
+        Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
+    }
+
     // Iterate through all planes and collect formats from compatible ones
     pub fn find_compatible_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
         let plane_handles = self
