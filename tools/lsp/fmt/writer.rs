@@ -24,11 +24,12 @@ pub trait TokenWriter {
 }
 
 /// Just write the token stream to a file
-#[cfg_attr(target_arch = "wasm32", allow(unused))]
+#[cfg(not(target_arch = "wasm32"))]
 pub struct FileWriter<'a, W> {
     pub file: &'a mut W,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<W: Write> TokenWriter for FileWriter<'_, W> {
     fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
         self.file.write_all(token.text().as_bytes())
