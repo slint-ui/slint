@@ -17,7 +17,7 @@ packages:
   - ui-libraries/material/docs
 
 catalog:
-  knip: 6.0.2
+  knip: 6.0.6
   '@astrojs/check': 0.9.8
   '@astrojs/starlight': 0.38.2
   '@biomejs/biome': 2.4.8
