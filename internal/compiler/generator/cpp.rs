@@ -3037,7 +3037,7 @@ fn generate_functions<'a>(
                 f.args
                     .iter()
                     .enumerate()
-                    .map(|(i, ty)| format!("{} arg_{}", ty.cpp_type().unwrap(), i))
+                    .map(|(i, ty)| format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap(), i))
                     .join(", "),
                 f.ret_ty.cpp_type().unwrap()
             ),
