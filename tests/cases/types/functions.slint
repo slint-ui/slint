@@ -13,6 +13,9 @@ TestCase := TouchArea {
       return { b: foo2.a.member+1 };
     }
     public function fn2() { fn1({a:{member:456}}); }
+
+    // Test for #11148
+    public function unused_arg(arg: string, arg2: length) { }
 }
 
 
