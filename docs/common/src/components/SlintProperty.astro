@@ -74,6 +74,12 @@ const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
 if (!defaultValue_) {
     console.error("No defaultValue for:", propName);
 }
+
+if ((enumName || structName) && !Astro.slots.has("default")) {
+    throw new Error(
+        `SlintProperty "${propName}": enum/struct property has no slot content. Place the property description inside <SlintProperty>...</SlintProperty> tags so it renders before the inlined enum/struct docs.`,
+    );
+}
 ---
 
 
@@ -88,8 +94,8 @@ if (!defaultValue_) {
     )}
     {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
     <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span><br>
-    {enumName && <Fragment set:html={enumContent}/>}
-    {structContent && <Fragment set:html={structContent}/>}
   </p>
    <slot/>
+   {enumName && <Fragment set:html={enumContent}/>}
+   {structContent && <Fragment set:html={structContent}/>}
 </div>
