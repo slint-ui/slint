@@ -4,6 +4,7 @@
 
 set -eu
 unset CDPATH
+export RUSTFLAGS='-D warnings'
 
 usage() {
   echo "Usage: $0 <rust|cpp|interpreter|python|nodejs> [<filter>] [<cargo test args>...]" >&2
@@ -52,8 +53,18 @@ if [ "$driver" = "rust" ] && [ -n "$filter" ]; then
   fi
 fi
 
+# Match CI, which runs the whole tests workspace with --all-features. That matters:
+# - interpreter: `inject-debug-hooks` runs every test a second time with debug hooks
+#   injected, and that second run catches failures the plain run does not.
+# - rust: `build-time` (generate code rather than expand the macro; shows warnings and
+#   lets you read the generated code) and `deterministic-output` (compile each testcase
+#   twice and compare).
+# Note that --all-features therefore never exercises the `slint!` macro path; for that,
+# run the rust driver by hand without --all-features.
+features_flag="--all-features"
+
 # The integration tests are their own workspace; select it explicitly so the
 # script works regardless of the current directory.
 manifest="$(cd "$(dirname "$0")" && pwd)/Cargo.toml"
 
-SLINT_TEST_FILTER="$filter" cargo test --manifest-path "$manifest" -p "test-driver-$driver" $test_bin_flag "$@"
+SLINT_TEST_FILTER="$filter" cargo test --manifest-path "$manifest" -p "test-driver-$driver" $features_flag $test_bin_flag "$@"
