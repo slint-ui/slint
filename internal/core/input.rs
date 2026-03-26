@@ -1734,6 +1734,7 @@ impl TouchState {
     ) {
         // Check gesture membership *before* removing from the map.
         let is_gesture_finger = self.is_gesture_finger(id);
+        let midpoint = self.gesture_midpoint().unwrap_or(position);
         self.active_touches.remove(id);
 
         match self.gesture_state {
@@ -1774,7 +1775,6 @@ impl TouchState {
                 }
             }
             GestureRecognitionState::Pinching { .. } if is_gesture_finger => {
-                let midpoint = self.gesture_midpoint().unwrap_or(position);
                 self.gesture_state = GestureRecognitionState::Idle;
 
                 let gesture_phase =

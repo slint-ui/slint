@@ -66,16 +66,17 @@ When disabled, the `PinchGestureHandler` doesn't recognize any gestures and any 
 </SlintProperty>
 
 ### scale
-<SlintProperty propName="scale" typeName="float" propertyVisibility="out">
+<SlintProperty propName="scale" typeName="float" propertyVisibility="out" defaultValue="1.0">
 The cumulative scale factor of the gesture. Always starts at `1.0` when the gesture begins.
 A value greater than `1.0` means zooming in, less than `1.0` means zooming out.
+When the gesture is not active, the value is `1.0`.
 </SlintProperty>
 
 ### rotation
 <SlintProperty propName="rotation" typeName="angle" propertyVisibility="out">
 The cumulative rotation angle of the gesture. Always starts at `0deg` when the gesture begins.
 Positive values indicate clockwise rotation, negative values indicate counter-clockwise rotation.
-On platforms that don't support rotation gestures yet, this property remains `0deg`.
+When the gesture is not active, the value is `0deg`.
 </SlintProperty>
 
 ### center
