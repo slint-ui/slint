@@ -1,6 +1,9 @@
-use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use std::thread::JoinHandle;
+use std::{
+    rc::{Rc, Weak},
+    sync::Arc,
+};
 
 use futures_util::{
     SinkExt as _,
@@ -8,9 +11,10 @@ use futures_util::{
     stream::{SplitSink, SplitStream, StreamExt as _},
 };
 use i_slint_preview_protocol::PreviewTarget;
+use tokio::sync::RwLock;
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
-use crate::ServerNotifier;
+use crate::language::Context;
 
 struct RemoteLspConnection {
     sender: SplitSink<WebSocketStream, Message>,
@@ -19,15 +23,14 @@ struct RemoteLspConnection {
 
 pub struct RemoteLspToPreview {
     #[cfg(not(target_arch = "wasm32"))]
-    browse_task: Option<JoinHandle<()>>,
+    browse_task: RwLock<Option<JoinHandle<()>>>,
     #[cfg(not(target_arch = "wasm32"))]
     mdns: Option<mdns_sd::ServiceDaemon>,
     connection: Arc<Mutex<Option<RemoteLspConnection>>>,
-    server_notifier: ServerNotifier,
 }
 
 impl RemoteLspToPreview {
-    pub fn new(server_notifier: ServerNotifier) -> Self {
+    pub fn new() -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let mdns = mdns_sd::ServiceDaemon::new()
             .inspect_err(|err| tracing::error!("Failed creating MDNS service daemon: {err}"))
@@ -35,13 +38,18 @@ impl RemoteLspToPreview {
 
         Self {
             #[cfg(not(target_arch = "wasm32"))]
-            browse_task: mdns
-                .as_ref()
-                .and_then(|mdns| Self::browse_task(mdns, server_notifier.clone())),
+            browse_task: RwLock::new(None),
             #[cfg(not(target_arch = "wasm32"))]
             mdns,
             connection: Arc::default(),
-            server_notifier,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn start_browsing(&self) {
+        if let Some(mdns) = &self.mdns {
+            let server_notifier = ctx.server_notifier.clone();
+            *self.browse_task.write().await = Self::browse_task(mdns, server_notifier);
         }
     }
 
@@ -55,7 +63,6 @@ impl RemoteLspToPreview {
             .inspect_err(|err| tracing::error!("Failed to start mDNS browsing: {err}"))
             .ok()?;
 
-        let server_notifier = server_notifier.clone();
         Some(std::thread::spawn(move || {
             while let Ok(event) = receiver.recv() {
                 match event {
@@ -113,48 +120,48 @@ impl RemoteLspToPreview {
         port: u16,
     ) -> crate::common::Result<()> {
         tracing::debug!("RemoteLspToPreview::connect");
-        let mut addresses = addresses.into_iter();
-        let stream = loop {
-            let Some(address) = addresses.next() else {
-                return Err("Unable to connect to remote viewer".into());
+        if let Some(ctx) = self.ctx.upgrade() {
+            let mut addresses = addresses.into_iter();
+            let stream = loop {
+                let Some(address) = addresses.next() else {
+                    return Err("Unable to connect to remote viewer".into());
+                };
+                tracing::info!(
+                    "Attempting to connect to remote preview server at {address}:{port}"
+                );
+                // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
+                let connect_future =
+                    tokio_tungstenite_wasm::connect(format!("ws://{address}:{port}"));
+                match connect_future.await {
+                    Ok(stream) => {
+                        tracing::info!("Connected to remote preview server at {address}:{port}");
+                        break stream;
+                    }
+                    Err(err) => {
+                        tracing::debug!(
+                            "Failed connecting to remote viewer, trying next address: {err}"
+                        );
+                    }
+                }
             };
-            tracing::info!("Attempting to connect to remote preview server at {address}:{port}");
-            // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
-            let connect_future = tokio_tungstenite_wasm::connect(format!("ws://{address}:{port}"));
-            match connect_future.await {
-                Ok(stream) => {
-                    tracing::info!("Connected to remote preview server at {address}:{port}");
-                    break stream;
-                }
-                Err(err) => {
-                    tracing::debug!(
-                        "Failed connecting to remote viewer, trying next address: {err}"
-                    );
-                }
-            }
-        };
 
-        let (socket_sender, socket_receiver) = stream.split();
+            let (socket_sender, socket_receiver) = stream.split();
 
-        let receive_task_future = Self::receive_task(socket_receiver, self.server_notifier.clone());
+            let Some(old) = self.connection.lock().await.replace(RemoteLspConnection {
+                sender: socket_sender,
+                task: tokio::task::spawn_local(Self::receive_task(socket_receiver, ctx)),
+            }) else {
+                return Ok(());
+            };
 
-        let Some(old) = self.connection.lock().await.replace(RemoteLspConnection {
-            sender: socket_sender,
-            task: tokio::task::spawn_local(receive_task_future),
-        }) else {
-            return Ok(());
-        };
-
-        tracing::info!("Closing previous connection to remote preview server");
-        old.task.abort();
+            tracing::info!("Closing previous connection to remote preview server");
+            old.task.abort();
+        }
 
         Ok(())
     }
 
-    async fn receive_task(
-        mut socket_receiver: SplitStream<WebSocketStream>,
-        server_notifier: ServerNotifier,
-    ) {
+    async fn receive_task(mut socket_receiver: SplitStream<WebSocketStream>, ctx: &mut Context) {
         // TODO: implement a timer to send a ping every once in a while, and close the connection if we don't receive a pong in time
         while let Some(msg) = socket_receiver.next().await {
             match msg {
@@ -171,7 +178,9 @@ impl RemoteLspToPreview {
                                 &bytes,
                             ) {
                                 Ok(msg) => {
-                                    if let Err(e) = server_notifier.send_event(msg) {
+                                    if let Err(e) =
+                                        crate::handle_preview_to_lsp_message(msg, &ctx).await
+                                    {
                                         tracing::error!(
                                             "Error sending message from remote preview server to LSP server: {e}"
                                         );
@@ -212,7 +221,7 @@ impl Drop for RemoteLspToPreview {
                     tracing::error!("Failed shutting down mDNS service daemon: {err}");
                 });
             }
-            if let Some(join_handle) = self.browse_task.take()
+            if let Some(join_handle) = self.browse_task.blocking_write().take()
                 && let Err(err) = join_handle.join()
             {
                 tracing::error!("Failed joining mDNS thread: {err:?}");

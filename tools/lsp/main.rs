@@ -41,6 +41,8 @@ use std::task::{Poll, Waker};
 use std::time::Duration;
 
 use crate::common::document_cache::CompilerConfiguration;
+#[cfg(feature = "preview-remote")]
+use crate::preview::connector::RemoteLspToPreview;
 
 #[cfg(not(any(
     target_os = "openbsd",
@@ -356,7 +358,7 @@ async fn main_loop(
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
         #[cfg(feature = "preview-remote")]
         let remote_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::RemoteLspToPreview::new(sn));
+            Box::new(preview::connector::RemoteLspToPreview::new(ctx.clone()));
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 std::collections::HashMap::from([
@@ -470,6 +472,13 @@ async fn run_main_loop(
     });
 
     startup_lsp(&mut ctx).await?;
+
+    #[cfg(feature = "preview-remote")]
+    ctx.to_preview
+        .with_preview_target_async::<RemoteLspToPreview, ()>(async |preview| {
+            preview.start_browsing().await;
+        })
+        .await;
 
     loop {
         let recompile_idle_timeout =
@@ -667,7 +676,7 @@ async fn send_workspace_edit(
     Ok(())
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 async fn handle_preview_to_lsp_message(
     message: i_slint_preview_protocol::PreviewToLspMessage,
     ctx: &Context,
