@@ -35,6 +35,7 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod custom_shaders;
 pub mod date_time;
 pub mod future;
 pub mod graphics;
@@ -62,7 +63,6 @@ pub mod textlayout;
 pub mod timers;
 pub mod translations;
 pub mod window;
-pub mod custom_shaders;
 
 #[doc(inline)]
 pub use string::SharedString;

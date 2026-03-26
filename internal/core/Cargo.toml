@@ -65,7 +65,7 @@ raw-window-handle-06 = ["dep:raw-window-handle-06"]
 experimental-rich-text = []
 
 unstable-wgpu-27 = ["dep:wgpu-27"]
-unstable-wgpu-28 = ["dep:wgpu-28"]
+unstable-wgpu-28 = ["dep:wgpu-28", "dep:bytemuck"]
 
 tr = ["dep:tr"]
 
@@ -130,7 +130,8 @@ skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale"] }
 
 wgpu-27 = { workspace = true, optional = true }
-wgpu-28 = { workspace = true, optional = true }
+wgpu-28 = { workspace = true, optional = true, features = ["wgsl"] }
+bytemuck = { workspace = true, optional = true, features = ["derive"] }
 
 tr = { workspace = true, optional = true }
 
