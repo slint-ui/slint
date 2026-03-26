@@ -11,3 +11,8 @@ impl Renderer {
 
     }
 }
+
+struct Uniforms {
+    resolution: [u32, 2],
+    time: f32,
+}
