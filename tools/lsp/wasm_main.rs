@@ -13,7 +13,7 @@ pub mod util;
 
 use common::{DocumentCache, LspToPreview, LspToPreviewMessage, Result, VersionedUrl};
 use js_sys::Function;
-pub use language::{Context, ContextOrDocumentCache, RequestHandler};
+pub use language::{Context, RequestHandler};
 use lsp_types::Url;
 use std::cell::RefCell;
 use std::future::Future;

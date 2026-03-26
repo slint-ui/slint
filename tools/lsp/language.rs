@@ -732,24 +732,8 @@ pub async fn populate_command(
     Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
 }
 
-pub enum ContextOrDocumentCache<'a> {
-    Context(&'a mut Context),
-    // This is only used for tests
-    #[allow(unused)]
-    DocumentCache(&'a mut common::DocumentCache),
-}
-
-impl<'a> ContextOrDocumentCache<'a> {
-    pub fn document_cache(&mut self) -> &mut common::DocumentCache {
-        match self {
-            ContextOrDocumentCache::Context(context) => &mut context.document_cache,
-            ContextOrDocumentCache::DocumentCache(document_cache) => document_cache,
-        }
-    }
-}
-
-pub(crate) async fn load_document_impl<'a>(
-    ctx_or_document_cache: &mut ContextOrDocumentCache<'a>,
+pub(crate) async fn load_document_impl(
+    ctx: &mut Context,
     content: String,
     url: lsp_types::Url,
     version: Option<i32>,
@@ -771,7 +755,7 @@ pub(crate) async fn load_document_impl<'a>(
             Some(content) => FileAction::ProcessContent(content),
             // A rust file without a rust macro, just ignore it
             None => {
-                if ctx_or_document_cache.document_cache().get_document(&url).is_some() {
+                if ctx.document_cache.get_document(&url).is_some() {
                     // This had contents before: Continue so we can invalidate it!
                     FileAction::InvalidateFile
                 } else {
@@ -787,34 +771,24 @@ pub(crate) async fn load_document_impl<'a>(
 
     let dependencies = match action {
         FileAction::ProcessContent(content) => {
-            if let ContextOrDocumentCache::Context(ctx) = &ctx_or_document_cache {
-                ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-                    url: common::VersionedUrl::new(url.clone(), version),
-                    contents: content.clone(),
-                });
-            }
-            let dependencies: HashSet<Url> =
-                ctx_or_document_cache.document_cache().invalidate_url(&url);
-            let _ = ctx_or_document_cache
-                .document_cache()
-                .load_url(&url, version, content, &mut diag)
-                .await;
+            ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
+                url: common::VersionedUrl::new(url.clone(), version),
+                contents: content.clone(),
+            });
+            let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
+            let _ = ctx.document_cache.load_url(&url, version, content, &mut diag).await;
             dependencies
         }
         FileAction::IgnoreFile => return Default::default(),
         FileAction::InvalidateFile => {
-            if let ContextOrDocumentCache::Context(ctx) = &ctx_or_document_cache {
-                ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
-            }
-            ctx_or_document_cache.document_cache().invalidate_url(&url)
+            ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.document_cache.invalidate_url(&url)
         }
     };
 
-    if let ContextOrDocumentCache::Context(ctx) = ctx_or_document_cache {
-        for dep in &dependencies {
-            if ctx.open_urls.contains(dep) {
-                ctx.document_cache.reload_cached_file(dep, &mut diag).await;
-            }
+    for dep in &dependencies {
+        if ctx.open_urls.contains(dep) {
+            ctx.document_cache.reload_cached_file(dep, &mut diag).await;
         }
     }
 
@@ -848,13 +822,7 @@ pub async fn load_document(
     url: lsp_types::Url,
     version: Option<i32>,
 ) -> common::Result<()> {
-    let (extra_files, diag) = load_document_impl(
-        &mut ContextOrDocumentCache::Context(ctx),
-        content,
-        url.clone(),
-        version,
-    )
-    .await;
+    let (extra_files, diag) = load_document_impl(ctx, content, url.clone(), version).await;
 
     tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
 
