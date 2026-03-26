@@ -995,7 +995,9 @@ pub struct PinchGestureHandler {
 }
 
 impl Item for PinchGestureHandler {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+        self.scale.set(1.0);
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -1045,37 +1047,26 @@ impl Item for PinchGestureHandler {
                     }
                     return InputEventResult::EventIgnored;
                 }
+                let new_scale = self.scale() * (1.0 + delta);
+                Self::FIELD_OFFSETS.scale.apply_pin(self).set(new_scale);
                 let center = crate::lengths::logical_position_to_api(*position);
+                Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
                 match phase {
                     TouchPhase::Started => {
-                        if self.active() {
-                            self.cancel_impl();
+                        if !self.active() {
+                            Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
+                            Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
                         }
-                        Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
-                        Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
-                        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
-                        Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
-                        Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
                     TouchPhase::Moved => {
                         if !self.active() {
                             return InputEventResult::EventIgnored;
                         }
-                        let new_scale = self.scale() * (1.0 + delta);
-                        Self::FIELD_OFFSETS.scale.apply_pin(self).set(new_scale);
-                        Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
                         Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
-                    TouchPhase::Ended => {
-                        if !self.active() {
-                            return InputEventResult::EventIgnored;
-                        }
-                        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
-                        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
-                        InputEventResult::EventAccepted
-                    }
+                    TouchPhase::Ended => self.end_impl(),
                     TouchPhase::Cancelled => {
                         self.cancel_impl();
                         InputEventResult::EventAccepted
@@ -1087,16 +1078,13 @@ impl Item for PinchGestureHandler {
                     return InputEventResult::EventIgnored;
                 }
                 let center = crate::lengths::logical_position_to_api(*position);
+                Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                let new_rotation = self.rotation() + delta;
+                Self::FIELD_OFFSETS.rotation.apply_pin(self).set(new_rotation);
                 match phase {
                     TouchPhase::Started => {
-                        // Rotation often arrives alongside pinch. If we're
-                        // already active (pinch started first), just accept.
-                        // If not active yet, start the gesture from rotation.
                         if !self.active() {
                             Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
-                            Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
-                            Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
-                            Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
                             Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
                         }
                         InputEventResult::GrabMouse
@@ -1105,24 +1093,10 @@ impl Item for PinchGestureHandler {
                         if !self.active() {
                             return InputEventResult::EventIgnored;
                         }
-                        let new_rotation = self.rotation() + delta;
-                        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(new_rotation);
-                        Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
                         Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
-                    TouchPhase::Ended => {
-                        // On macOS/iOS, both PinchGesture::Ended and
-                        // RotationGesture::Ended arrive for the same physical
-                        // gesture. Whichever arrives second will see active=false
-                        // and return early.
-                        if !self.active() {
-                            return InputEventResult::EventIgnored;
-                        }
-                        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
-                        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
-                        InputEventResult::EventAccepted
-                    }
+                    TouchPhase::Ended => self.end_impl(),
                     TouchPhase::Cancelled => {
                         self.cancel_impl();
                         InputEventResult::EventAccepted
@@ -1210,5 +1184,16 @@ impl PinchGestureHandler {
         // scale/rotation at their final values.
         Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
         Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
+    }
+
+    fn end_impl(self: Pin<&Self>) -> InputEventResult {
+        if !self.active() {
+            return InputEventResult::EventIgnored;
+        }
+        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
+        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
+        InputEventResult::EventAccepted
     }
 }

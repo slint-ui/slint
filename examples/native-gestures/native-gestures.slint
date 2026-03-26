@@ -94,17 +94,11 @@ component GestureArea inherits Rectangle {
             set-status("active");
         }
 
-        // We only need that because in `ended`, the `active` property is already set to false
-        property <Point> next-transform;
-        updated => {
-            next-transform = {
+        ended => {
+            TransformData.transform-position = {
                 x: inner.absolute-position.x - root.absolute-position.x,
                 y: inner.absolute-position.y - root.absolute-position.y,
             };
-        }
-
-        ended => {
-            TransformData.transform-position = next-transform;
             TransformData.base-rotation += gesture.rotation;
             TransformData.base-scale *= gesture.scale;
             set-status("ended");
@@ -128,8 +122,8 @@ component GestureArea inherits Rectangle {
     visible-area := Rectangle {
         x: TransformData.transform-position.x + (pan-detection.pressed ? pan-detection.mouse-x - pan-detection.pressed-x : 0px);
         y: TransformData.transform-position.y + (pan-detection.pressed ? pan-detection.mouse-y - pan-detection.pressed-y : 0px);
-        transform-rotation: (gesture.active ? gesture.rotation : 0deg);
-        transform-scale: (gesture.active ? gesture.scale : 1.0);
+        transform-rotation: gesture.rotation;
+        transform-scale: gesture.scale;
         transform-origin: {
             x: gesture.center.x - visible-area.x,
             y: gesture.center.y - visible-area.y,
