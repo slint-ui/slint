@@ -947,7 +947,15 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        layout.elems.push(item.item);
+        let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
+        let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
+        let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
+        layout.elems.push(crate::layout::FlexBoxLayoutItem {
+            item: item.item,
+            flex_grow,
+            flex_shrink,
+            flex_basis,
+        });
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
@@ -1312,17 +1320,8 @@ fn create_layout_item(
     };
 
     let constraints = LayoutConstraints::new(&actual_elem, diag, DiagnosticLevel::Error);
-    let flex_grow = crate::layout::binding_reference(&actual_elem, "flex-grow");
-    let flex_shrink = crate::layout::binding_reference(&actual_elem, "flex-shrink");
-    let flex_basis = crate::layout::binding_reference(&actual_elem, "flex-basis");
     CreateLayoutItemResult {
-        item: LayoutItem {
-            element: item_element.clone(),
-            constraints,
-            flex_grow,
-            flex_shrink,
-            flex_basis,
-        },
+        item: LayoutItem { element: item_element.clone(), constraints },
         elem: actual_elem,
         repeater_index,
     }

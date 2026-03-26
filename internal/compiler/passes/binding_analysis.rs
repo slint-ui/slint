@@ -572,8 +572,16 @@ fn recurse_expression(
                     vis(&nr.clone().into(), P);
                 }*/
                 // Visit item dependencies for relevant orientations
-                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Horizontal, vis);
-                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Vertical, vis);
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Horizontal,
+                    vis,
+                );
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Vertical,
+                    vis,
+                );
             }
             let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
