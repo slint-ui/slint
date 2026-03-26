@@ -51,6 +51,7 @@ pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("flex-grow", Type::Float32),
     ("flex-shrink", Type::Float32),
     ("flex-basis", Type::LogicalLength),
+    ("order", Type::Int32),
 ];
 
 macro_rules! declare_enums {
@@ -112,8 +113,10 @@ impl BuiltinTypes {
                 .collect(),
             name: BuiltinPrivateStruct::LayoutInfo.into(),
         });
+        let enums = BuiltinEnums::new();
+        let flex_align_self_type = Type::Enumeration(enums.FlexAlignSelf.clone());
         Self {
-            enums: BuiltinEnums::new(),
+            enums,
             logical_point_type: Rc::new(Struct {
                 fields: IntoIterator::into_iter([
                     (SmolStr::new_static("x"), Type::LogicalLength),
@@ -170,6 +173,8 @@ impl BuiltinTypes {
                     ("flex-grow".into(), Type::Float32),
                     ("flex-shrink".into(), Type::Float32),
                     ("flex-basis".into(), Type::Float32),
+                    ("align-self".into(), flex_align_self_type),
+                    ("order".into(), Type::Int32),
                 ])
                 .collect(),
                 name: BuiltinPrivateStruct::LayoutItemInfo.into(),
@@ -284,6 +289,13 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
+        // align-self is a flexbox-layout property but can't be in the const array
+        // because Type::Enumeration requires a runtime Rc allocation.
+        .chain(std::iter::once((
+            "align-self",
+            Type::Enumeration(BUILTIN.with(|e| e.enums.FlexAlignSelf.clone())),
+            PropertyVisibility::Input,
+        )))
         .chain(IntoIterator::into_iter([
             ("absolute-position", logical_point_type().into(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),

@@ -2560,7 +2560,7 @@ fn generate_layout_item_info_decl(
         return Declaration::Function(Function {
             name: "layout_item_info".into(),
             signature: SIGNATURE.to_owned(),
-            statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), 0.0f, 0.0f, -1.0f };".into()]),
+            statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 };".into()]),
             ..Function::default()
         });
     }
@@ -2588,7 +2588,7 @@ fn generate_layout_item_info_decl(
                 write!(
                     body,
                     "if (count == index) {{\n\
-                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}), 0.0f, 0.0f, -1.0f }};\n\
+                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}), 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 }};\n\
                      }}\n\
                      {advance}",
                 )
@@ -2605,7 +2605,7 @@ fn generate_layout_item_info_decl(
                      if (index >= count && index - count < inner_len) {{\n\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
                              auto vref = vrc->borrow();\n\
-                             return {{ vref.vtable->layout_info(vref, o), 0.0f, 0.0f, -1.0f }};\n\
+                             return {{ vref.vtable->layout_info(vref, o), 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 }};\n\
                          }}\n\
                      }}\n\
                      {advance}}}\n",
@@ -2617,9 +2617,9 @@ fn generate_layout_item_info_decl(
     body.push_str(
         // Phantom cell: return "unconstrained" info (matches Rust's LayoutInfo::default()).
         // field order: max, max_percent, min, min_percent, preferred, stretch
-        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, 0.0f, 0.0f, -1.0f };\n\
+        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 };\n\
          }\n\
-         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), 0.0f, 0.0f, -1.0f };",
+         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 };",
     );
     Declaration::Function(Function {
         name: "layout_item_info".into(),

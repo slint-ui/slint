@@ -6,7 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexDirection, FlexWrap, LayoutAlignment,
+    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexDirection, FlexWrap,
+    LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1156,6 +1157,10 @@ pub struct LayoutItemInfo {
     pub flex_shrink: f32,
     /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
     pub flex_basis: Coord,
+    /// Per-item cross-axis alignment override (Auto = use container's align-items)
+    pub align_self: FlexAlignSelf,
+    /// Visual ordering of flex items (lower values appear first, default 0)
+    pub order: i32,
 }
 
 impl Default for LayoutItemInfo {
@@ -1165,6 +1170,8 @@ impl Default for LayoutItemInfo {
             flex_grow: 0.0,
             flex_shrink: 0.0,
             flex_basis: -1 as _,
+            align_self: FlexAlignSelf::Auto,
+            order: 0,
         }
     }
 }
@@ -1302,8 +1309,8 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, FlexWrap as SlintFlexWrap, LayoutAlignment,
-        LayoutItemInfo, Padding, Slice,
+        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexWrap as SlintFlexWrap,
+        LayoutAlignment, LayoutItemInfo, Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1331,6 +1338,8 @@ mod flexbox_taffy {
         pub taffy: TaffyTree<()>,
         pub children: Vec<NodeId>,
         pub container: NodeId,
+        /// Maps taffy child position -> original cell index (empty if no reordering needed)
+        pub order_map: Vec<usize>,
     }
 
     impl FlexboxTaffyBuilder {
@@ -1339,7 +1348,7 @@ mod flexbox_taffy {
             let mut taffy = TaffyTree::<()>::new();
 
             // Create child nodes from Slint constraints
-            let children: Vec<NodeId> = params
+            let mut children: Vec<NodeId> = params
                 .cells_h
                 .iter()
                 .enumerate()
@@ -1417,11 +1426,32 @@ mod flexbox_taffy {
                             },
                             flex_grow: cell_h.flex_grow,
                             flex_shrink: cell_h.flex_shrink,
+                            align_self: match cell_h.align_self {
+                                FlexAlignSelf::Auto => None,
+                                FlexAlignSelf::Stretch => Some(AlignSelf::Stretch),
+                                FlexAlignSelf::Start => Some(AlignSelf::FlexStart),
+                                FlexAlignSelf::End => Some(AlignSelf::FlexEnd),
+                                FlexAlignSelf::Center => Some(AlignSelf::Center),
+                            },
                             ..Default::default()
                         })
                         .unwrap() // cannot fail
                 })
                 .collect();
+
+            // Sort children by CSS `order` property if any item has a non-zero order.
+            // Build a mapping from sorted position -> original index.
+            let has_order = params.cells_h.iter().any(|c| c.order != 0);
+            let order_map: Vec<usize> = if has_order {
+                let mut indices: Vec<usize> = (0..children.len()).collect();
+                // sort_by_key is a stable sort, as required by CSS
+                indices.sort_by_key(|&i| params.cells_h.get(i).map_or(0, |c| c.order));
+                let sorted_children: Vec<NodeId> = indices.iter().map(|&i| children[i]).collect();
+                children = sorted_children;
+                indices
+            } else {
+                Vec::new()
+            };
 
             // Create container node
             let container = taffy
@@ -1486,7 +1516,7 @@ mod flexbox_taffy {
                 )
                 .unwrap(); // cannot fail
 
-            Self { taffy, children, container }
+            Self { taffy, children, container, order_map }
         }
 
         /// Compute the layout with the given available space
@@ -1527,6 +1557,11 @@ mod flexbox_taffy {
                 layout.size.width as Coord,
                 layout.size.height as Coord,
             )
+        }
+
+        /// Map a taffy child index to the original cell index (accounting for `order` sorting).
+        pub fn original_index(&self, taffy_idx: usize) -> usize {
+            if self.order_map.is_empty() { taffy_idx } else { self.order_map[taffy_idx] }
         }
     }
 }
@@ -1647,11 +1682,26 @@ pub fn solve_flexbox_layout(
 
     builder.compute_layout(available_width, available_height);
 
-    // Extract results using the cache generator to handle repeaters
-    let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
-    for idx in 0..data.cells_h.len() {
-        let (x, y, w, h) = builder.child_geometry(idx);
-        generator.add(x, y, w, h);
+    // Extract results using the cache generator to handle repeaters.
+    // If `order` sorting was applied, we need to collect results by original index first,
+    // because the cache generator expects items in their original declaration order.
+    if builder.order_map.is_empty() {
+        let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        for idx in 0..data.cells_h.len() {
+            let (x, y, w, h) = builder.child_geometry(idx);
+            generator.add(x, y, w, h);
+        }
+    } else {
+        let count = data.cells_h.len();
+        let mut geom = alloc::vec![(0 as Coord, 0 as Coord, 0 as Coord, 0 as Coord); count];
+        for taffy_idx in 0..count {
+            let orig_idx = builder.original_index(taffy_idx);
+            geom[orig_idx] = builder.child_geometry(taffy_idx);
+        }
+        let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        for (x, y, w, h) in geom {
+            generator.add(x, y, w, h);
+        }
     }
 
     result

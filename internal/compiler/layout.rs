@@ -64,6 +64,8 @@ pub struct FlexBoxLayoutItem {
     pub flex_grow: Option<NamedReference>,
     pub flex_shrink: Option<NamedReference>,
     pub flex_basis: Option<NamedReference>,
+    pub align_self: Option<NamedReference>,
+    pub order: Option<NamedReference>,
 }
 
 /// A child within a repeated Row in a GridLayout.
@@ -618,6 +620,12 @@ impl FlexBoxLayout {
                 visitor(&mut *e)
             }
             if let Some(e) = cell.flex_basis.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.align_self.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.order.as_mut() {
                 visitor(&mut *e)
             }
         }

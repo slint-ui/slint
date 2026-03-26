@@ -407,6 +407,21 @@ macro_rules! for_each_enums {
                 Center,
             }
 
+            /// Overrides the container's `align-items` for a specific flex item.
+            #[non_exhaustive]
+            enum FlexAlignSelf {
+                /// Use the container's `align-items` value (default).
+                Auto,
+                /// The item is stretched to fill the line along the cross axis.
+                Stretch,
+                /// The item is placed at the start of the cross axis.
+                Start,
+                /// The item is placed at the end of the cross axis.
+                End,
+                /// The item is centered along the cross axis.
+                Center,
+            }
+
             /// Controls whether flex items wrap onto multiple lines.
             #[non_exhaustive]
             enum FlexWrap {

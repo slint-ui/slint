@@ -642,26 +642,36 @@ fn flexbox_layout_data(
 
     let element_ty = crate::typeregister::layout_item_info_type();
 
-    let flex_prop = |li: &crate::layout::FlexBoxLayoutItem,
-                     ctx: &mut ExpressionLoweringCtx|
-     -> (llr_Expression, llr_Expression, llr_Expression) {
-        let grow = li
-            .flex_grow
-            .as_ref()
-            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-            .unwrap_or(llr_Expression::NumberLiteral(0.0));
-        let shrink = li
-            .flex_shrink
-            .as_ref()
-            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-            .unwrap_or(llr_Expression::NumberLiteral(0.0));
-        let basis = li
-            .flex_basis
-            .as_ref()
-            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-            .unwrap_or(llr_Expression::NumberLiteral(-1.0));
-        (grow, shrink, basis)
-    };
+    let flex_prop =
+        |li: &crate::layout::FlexBoxLayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
+            FlexItemProps {
+                grow: li
+                    .flex_grow
+                    .as_ref()
+                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+                    .unwrap_or(llr_Expression::NumberLiteral(0.0)),
+                shrink: li
+                    .flex_shrink
+                    .as_ref()
+                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+                    .unwrap_or(llr_Expression::NumberLiteral(0.0)),
+                basis: li
+                    .flex_basis
+                    .as_ref()
+                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+                    .unwrap_or(llr_Expression::NumberLiteral(-1.0)),
+                align_self: li
+                    .align_self
+                    .as_ref()
+                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+                    .unwrap_or(default_align_self().1),
+                order: li
+                    .order
+                    .as_ref()
+                    .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+                    .unwrap_or(llr_Expression::NumberLiteral(0.0)),
+            }
+        };
 
     if repeater_count == 0 {
         let cells_h = llr_Expression::Array {
@@ -675,8 +685,8 @@ fn flexbox_layout_data(
                         &li.item.constraints,
                         Orientation::Horizontal,
                     );
-                    let (grow, shrink, basis) = flex_prop(li, ctx);
-                    make_flexbox_cell_data_struct(layout_info_h, grow, shrink, basis)
+                    let flex_props = flex_prop(li, ctx);
+                    make_flexbox_cell_data_struct(layout_info_h, flex_props)
                 })
                 .collect(),
             element_ty: element_ty.clone(),
@@ -693,8 +703,8 @@ fn flexbox_layout_data(
                         &li.item.constraints,
                         Orientation::Vertical,
                     );
-                    let (grow, shrink, basis) = flex_prop(li, ctx);
-                    make_flexbox_cell_data_struct(layout_info_v, grow, shrink, basis)
+                    let flex_props = flex_prop(li, ctx);
+                    make_flexbox_cell_data_struct(layout_info_v, flex_props)
                 })
                 .collect(),
             element_ty,
@@ -741,15 +751,10 @@ fn flexbox_layout_data(
                     &item.item.constraints,
                     Orientation::Vertical,
                 );
-                let (grow, shrink, basis) = flex_prop(item, ctx);
+                let flex_props = flex_prop(item, ctx);
                 elements.push(Either::Left((
-                    make_flexbox_cell_data_struct(
-                        layout_info_h,
-                        grow.clone(),
-                        shrink.clone(),
-                        basis.clone(),
-                    ),
-                    make_flexbox_cell_data_struct(layout_info_v, grow, shrink, basis),
+                    make_flexbox_cell_data_struct(layout_info_h, flex_props.clone()),
+                    make_flexbox_cell_data_struct(layout_info_v, flex_props),
                 )));
             }
         }
@@ -782,7 +787,19 @@ struct BoxLayoutDataResult {
     compute_cells: Option<(String, Vec<Either<llr_Expression, LayoutRepeatedElement>>)>,
 }
 
+fn default_align_self() -> (Type, llr_Expression) {
+    let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexAlignSelf.clone());
+    (
+        Type::Enumeration(e.clone()),
+        llr_Expression::EnumerationValue(EnumerationValue {
+            value: e.default_value,
+            enumeration: e,
+        }),
+    )
+}
+
 fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
+    let (align_self_ty, align_self_default) = default_align_self();
     make_struct(
         BuiltinPrivateStruct::LayoutItemInfo,
         [
@@ -790,23 +807,32 @@ fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
             ("flex-grow", Type::Float32, llr_Expression::NumberLiteral(0.0)),
             ("flex-shrink", Type::Float32, llr_Expression::NumberLiteral(0.0)),
             ("flex-basis", Type::Float32, llr_Expression::NumberLiteral(-1.0)),
+            ("align-self", align_self_ty, align_self_default),
+            ("order", Type::Int32, llr_Expression::NumberLiteral(0.0)),
         ],
     )
 }
 
-fn make_flexbox_cell_data_struct(
-    layout_info: llr_Expression,
-    flex_grow: llr_Expression,
-    flex_shrink: llr_Expression,
-    flex_basis: llr_Expression,
-) -> llr_Expression {
+#[derive(Clone)]
+struct FlexItemProps {
+    grow: llr_Expression,
+    shrink: llr_Expression,
+    basis: llr_Expression,
+    align_self: llr_Expression,
+    order: llr_Expression,
+}
+
+fn make_flexbox_cell_data_struct(layout_info: llr_Expression, fp: FlexItemProps) -> llr_Expression {
+    let (align_self_ty, _) = default_align_self();
     make_struct(
         BuiltinPrivateStruct::LayoutItemInfo,
         [
             ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
-            ("flex-grow", Type::Float32, flex_grow),
-            ("flex-shrink", Type::Float32, flex_shrink),
-            ("flex-basis", Type::Float32, flex_basis),
+            ("flex-grow", Type::Float32, fp.grow),
+            ("flex-shrink", Type::Float32, fp.shrink),
+            ("flex-basis", Type::Float32, fp.basis),
+            ("align-self", align_self_ty, fp.align_self),
+            ("order", Type::Int32, fp.order),
         ],
     )
 }
