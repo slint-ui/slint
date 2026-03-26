@@ -363,8 +363,8 @@ fn flexbox_layout_data(
     let mut repeated_indices = Vec::new();
 
     for layout_elem in &flexbox_layout.elems {
-        if layout_elem.element.borrow().repeated.is_some() {
-            let component_vec = repeater_instances(component, &layout_elem.element);
+        if layout_elem.item.element.borrow().repeated.is_some() {
+            let component_vec = repeater_instances(component, &layout_elem.item.element);
             repeated_indices.push(cells_h.len() as u32);
             repeated_indices.push(component_vec.len() as u32);
             cells_h.extend(component_vec.iter().map(|x| {
@@ -377,26 +377,26 @@ fn flexbox_layout_data(
             );
         } else {
             let mut layout_info_h = get_layout_info(
-                &layout_elem.element,
+                &layout_elem.item.element,
                 component,
                 &window_adapter,
                 Orientation::Horizontal,
             );
             fill_layout_info_constraints(
                 &mut layout_info_h,
-                &layout_elem.constraints,
+                &layout_elem.item.constraints,
                 Orientation::Horizontal,
                 &expr_eval,
             );
             let mut layout_info_v = get_layout_info(
-                &layout_elem.element,
+                &layout_elem.item.element,
                 component,
                 &window_adapter,
                 Orientation::Vertical,
             );
             fill_layout_info_constraints(
                 &mut layout_info_v,
-                &layout_elem.constraints,
+                &layout_elem.item.constraints,
                 Orientation::Vertical,
                 &expr_eval,
             );
