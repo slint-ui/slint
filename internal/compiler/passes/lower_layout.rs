@@ -950,8 +950,8 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
         let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
         let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
-        let align_self = crate::layout::binding_reference(actual_elem, "align-self");
-        let order = crate::layout::binding_reference(actual_elem, "order");
+        let align_self = crate::layout::binding_reference(actual_elem, "flex-align-self");
+        let order = crate::layout::binding_reference(actual_elem, "flex-order");
         layout.elems.push(crate::layout::FlexBoxLayoutItem {
             item: item.item,
             flex_grow,
@@ -1603,7 +1603,7 @@ fn check_no_layout_properties(
         if parent_layout_type.as_deref() != Some("FlexBoxLayout")
             && matches!(
                 prop.as_ref(),
-                "flex-grow" | "flex-shrink" | "flex-basis" | "align-self" | "order"
+                "flex-grow" | "flex-shrink" | "flex-basis" | "flex-align-self" | "flex-order"
             )
         {
             diag.push_error(format!("{prop} used outside of a FlexBoxLayout"), &*expr.borrow());

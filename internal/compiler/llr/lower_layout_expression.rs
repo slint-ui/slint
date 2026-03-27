@@ -807,8 +807,8 @@ fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
             ("flex-grow", Type::Float32, llr_Expression::NumberLiteral(0.0)),
             ("flex-shrink", Type::Float32, llr_Expression::NumberLiteral(0.0)),
             ("flex-basis", Type::Float32, llr_Expression::NumberLiteral(-1.0)),
-            ("align-self", align_self_ty, align_self_default),
-            ("order", Type::Int32, llr_Expression::NumberLiteral(0.0)),
+            ("flex-align-self", align_self_ty, align_self_default),
+            ("flex-order", Type::Int32, llr_Expression::NumberLiteral(0.0)),
         ],
     )
 }
@@ -831,8 +831,8 @@ fn make_flexbox_cell_data_struct(layout_info: llr_Expression, fp: FlexItemProps)
             ("flex-grow", Type::Float32, fp.grow),
             ("flex-shrink", Type::Float32, fp.shrink),
             ("flex-basis", Type::Float32, fp.basis),
-            ("align-self", align_self_ty, fp.align_self),
-            ("order", Type::Int32, fp.order),
+            ("flex-align-self", align_self_ty, fp.align_self),
+            ("flex-order", Type::Int32, fp.order),
         ],
     )
 }

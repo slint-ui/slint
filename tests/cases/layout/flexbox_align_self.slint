@@ -20,7 +20,7 @@ component TestAlignSelfOverride inherits Rectangle {
         r2 := Rectangle {
             width: 80px;
             height: 30px;
-            align-self: end;
+            flex-align-self: end;
             background: green;
         }
         r3 := Rectangle {
@@ -31,14 +31,14 @@ component TestAlignSelfOverride inherits Rectangle {
     }
 
     // r1 and r3: align-items: start → y=0
-    // r2: align-self: end → y=70 (100-30)
+    // r2: flex-align-self: end → y=70 (100-30)
     out property <bool> test_r1: r1.y == 0px;
     out property <bool> test_r2: r2.y == 70px;
     out property <bool> test_r3: r3.y == 0px;
     out property <bool> test: test_r1 && test_r2 && test_r3;
 }
 
-// Test 2: align-self: center
+// Test 2: flex-align-self: center
 component TestAlignSelfCenter inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -54,7 +54,7 @@ component TestAlignSelfCenter inherits Rectangle {
         r2 := Rectangle {
             width: 80px;
             height: 30px;
-            align-self: center;
+            flex-align-self: center;
             background: green;
         }
     }
@@ -66,7 +66,7 @@ component TestAlignSelfCenter inherits Rectangle {
     out property <bool> test: test_r1 && test_r2;
 }
 
-// Test 3: align-self: stretch overrides container's start
+// Test 3: flex-align-self: stretch overrides container's start
 component TestAlignSelfStretch inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -81,7 +81,7 @@ component TestAlignSelfStretch inherits Rectangle {
         }
         r2 := Rectangle {
             width: 80px;
-            align-self: stretch;
+            flex-align-self: stretch;
             background: green;
         }
     }
@@ -93,7 +93,7 @@ component TestAlignSelfStretch inherits Rectangle {
     out property <bool> test: test_r1 && test_r2;
 }
 
-// Test 4: align-self: auto (default) inherits from container
+// Test 4: flex-align-self: auto (default) inherits from container
 component TestAlignSelfAuto inherits Rectangle {
     width: 300px;
     height: 100px;
@@ -104,7 +104,7 @@ component TestAlignSelfAuto inherits Rectangle {
         r1 := Rectangle {
             width: 80px;
             height: 30px;
-            align-self: auto;
+            flex-align-self: auto;
             background: red;
         }
         r2 := Rectangle {

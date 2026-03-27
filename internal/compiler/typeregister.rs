@@ -47,11 +47,13 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
+// Note: flex-align-self is also a flexbox property but is added in reserved_properties()
+// because Type::Enumeration requires a runtime Rc allocation.
 pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("flex-grow", Type::Float32),
     ("flex-shrink", Type::Float32),
     ("flex-basis", Type::LogicalLength),
-    ("order", Type::Int32),
+    ("flex-order", Type::Int32),
 ];
 
 macro_rules! declare_enums {
@@ -173,8 +175,8 @@ impl BuiltinTypes {
                     ("flex-grow".into(), Type::Float32),
                     ("flex-shrink".into(), Type::Float32),
                     ("flex-basis".into(), Type::Float32),
-                    ("align-self".into(), flex_align_self_type),
-                    ("order".into(), Type::Int32),
+                    ("flex-align-self".into(), flex_align_self_type),
+                    ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
                 name: BuiltinPrivateStruct::LayoutItemInfo.into(),
@@ -289,10 +291,10 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
-        // align-self is a flexbox-layout property but can't be in the const array
+        // flex-align-self is a flexbox-layout property but can't be in the const array
         // because Type::Enumeration requires a runtime Rc allocation.
         .chain(std::iter::once((
-            "align-self",
+            "flex-align-self",
             Type::Enumeration(BUILTIN.with(|e| e.enums.FlexAlignSelf.clone())),
             PropertyVisibility::Input,
         )))
