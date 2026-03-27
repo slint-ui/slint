@@ -1242,6 +1242,20 @@ fn generate_sub_component(
             }
         });
 
+    let flexbox_layout_item_info_for_repeated_fn =
+        component.flexbox_layout_item_info_for_repeated.as_ref().map(|expr| {
+            let expr = compile_expression(&expr.borrow(), &ctx);
+            quote! {
+                fn flexbox_layout_item_info_for_repeated(
+                    self: ::core::pin::Pin<&Self>,
+                ) -> sp::FlexBoxLayoutItemInfo {
+                    #![allow(unused)]
+                    let _self = self;
+                    #expr
+                }
+            }
+        });
+
     // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
     let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
@@ -1353,6 +1367,8 @@ fn generate_sub_component(
             }
 
             #grid_layout_input_for_repeated_fn
+
+            #flexbox_layout_item_info_for_repeated_fn
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
@@ -2161,8 +2177,23 @@ fn generate_repeated_component(
                 }
             }
         });
+        let flexbox_layout_item_info_fn =
+            root_sc.flexbox_layout_item_info_for_repeated.as_ref().map(|_| {
+                quote! {
+                    fn flexbox_layout_item_info(
+                        self: ::core::pin::Pin<&Self>,
+                        o: sp::Orientation,
+                        child_index: sp::Option<usize>,
+                    ) -> sp::FlexBoxLayoutItemInfo {
+                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        info.constraint = self.layout_item_info(o, child_index).constraint;
+                        info
+                    }
+                }
+            });
         quote! {
             #layout_item_info_fn
+            #flexbox_layout_item_info_fn
             #grid_layout_input_data_fn
         }
     };
@@ -4222,10 +4253,10 @@ fn generate_with_flexbox_layout_item_info(
                 let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                         items_vec_h.push(
-                            sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Horizontal, None).into(),
+                            sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None),
                         );
                         items_vec_v.push(
-                            sub_comp.as_pin_ref().layout_item_info(sp::Orientation::Vertical, None).into(),
+                            sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
                         );
                     }
                 });

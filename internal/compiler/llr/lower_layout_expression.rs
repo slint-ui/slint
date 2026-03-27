@@ -1244,3 +1244,42 @@ fn get_row_child_templates(
     let comp = outer_element.borrow().base_type.as_component().clone();
     ctx.state.row_child_templates(&comp)
 }
+
+/// Generate an expression that builds a FlexBoxLayoutItemInfo for a repeated element
+/// in a FlexBoxLayout, reading flex properties from the component instance.
+pub fn get_flexbox_layout_item_info_for_repeated(
+    ctx: &mut ExpressionLoweringCtx,
+    element: &ElementRc,
+) -> llr_Expression {
+    let prop_ref = |name: &'static str| -> Option<llr_Expression> {
+        crate::layout::binding_reference(element, name)
+            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(&nr)))
+    };
+
+    let (align_self_ty, align_self_default) = default_align_self();
+
+    let grow = prop_ref("flex-grow").unwrap_or(llr_Expression::NumberLiteral(0.0));
+    let shrink = prop_ref("flex-shrink").unwrap_or(llr_Expression::NumberLiteral(0.0));
+    let basis = prop_ref("flex-basis").unwrap_or(llr_Expression::NumberLiteral(-1.0));
+    let align_self = prop_ref("flex-align-self").unwrap_or(align_self_default);
+    let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
+
+    make_struct(
+        BuiltinPrivateStruct::FlexBoxLayoutItemInfo,
+        [
+            (
+                "constraint",
+                crate::typeregister::layout_info_type().into(),
+                llr_Expression::default_value_for_type(
+                    &crate::typeregister::layout_info_type().into(),
+                )
+                .unwrap(),
+            ),
+            ("flex-grow", Type::Float32, grow),
+            ("flex-shrink", Type::Float32, shrink),
+            ("flex-basis", Type::Float32, basis),
+            ("flex-align-self", align_self_ty, align_self),
+            ("flex-order", Type::Int32, order),
+        ],
+    )
+}

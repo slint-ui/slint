@@ -368,10 +368,10 @@ fn flexbox_layout_data(
             repeated_indices.push(cells_h.len() as u32);
             repeated_indices.push(component_vec.len() as u32);
             cells_h.extend(component_vec.iter().map(|x| {
-                x.as_pin_ref().layout_item_info(to_runtime(Orientation::Horizontal), None).into()
+                x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Horizontal), None)
             }));
             cells_v.extend(component_vec.iter().map(|x| {
-                x.as_pin_ref().layout_item_info(to_runtime(Orientation::Vertical), None).into()
+                x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
             }));
         } else {
             let mut layout_info_h = get_layout_info(

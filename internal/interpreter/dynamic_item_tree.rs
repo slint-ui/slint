@@ -206,6 +206,46 @@ impl RepeatedItemTree for ErasedItemTreeBox {
 
         LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
     }
+
+    fn flexbox_layout_item_info(
+        self: Pin<&Self>,
+        o: Orientation,
+        child_index: Option<usize>,
+    ) -> i_slint_core::layout::FlexBoxLayoutItemInfo {
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+        let instance_ref = s.borrow_instance();
+        let root_element = &s.description.original.root_element;
+
+        let load_f32 = |name: &str| -> f32 {
+            eval::load_property(instance_ref, root_element, name)
+                .ok()
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(0.0)
+        };
+
+        let flex_grow = load_f32("flex-grow");
+        let flex_shrink = load_f32("flex-shrink");
+        let flex_basis = if root_element.borrow().bindings.contains_key("flex-basis") {
+            load_f32("flex-basis")
+        } else {
+            -1.0
+        };
+        let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
+            .ok()
+            .and_then(|v| v.try_into().ok())
+            .unwrap_or(i_slint_core::items::FlexAlignSelf::Auto);
+        let flex_order = load_f32("flex-order") as i32;
+
+        i_slint_core::layout::FlexBoxLayoutItemInfo {
+            constraint: self.layout_item_info(o, child_index).constraint,
+            flex_grow,
+            flex_shrink,
+            flex_basis,
+            flex_align_self,
+            flex_order,
+        }
+    }
 }
 
 impl ItemTree for ErasedItemTreeBox {

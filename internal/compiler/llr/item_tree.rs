@@ -411,6 +411,9 @@ pub struct SubComponent {
     pub layout_info_v: MutExpression,
     pub child_of_layout: bool,
     pub grid_layout_input_for_repeated: Option<MutExpression>,
+    /// Expression that builds a FlexBoxLayoutItemInfo for a repeated element in a FlexBoxLayout.
+    /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
+    pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -576,6 +579,9 @@ impl CompilationUnit {
             visitor(&sc.layout_info_h, ctx);
             visitor(&sc.layout_info_v, ctx);
             if let Some(e) = &sc.grid_layout_input_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {
