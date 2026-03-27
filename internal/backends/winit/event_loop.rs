@@ -210,6 +210,12 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::RedrawRequested => {
                 self.loop_error = window.draw().err();
             }
+            WindowEvent::Moved(_) => {
+                #[cfg(target_os = "windows")]
+                {
+                    self.loop_error = window.handle_partial_visibility_change().err();
+                }
+            }
             WindowEvent::Resized(size) => {
                 self.loop_error = window.resize_event(size).err();
 
@@ -226,6 +232,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 {
                     if size.width == 0 || size.height == 0 {
                         window.renderer.occluded(true);
+                        window.note_zero_sized_occlusion();
+                    } else if self.loop_error.is_none() {
+                        self.loop_error = window.handle_partial_visibility_change().err();
                     }
                 }
             }
@@ -427,6 +436,10 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         .err();
                     // TODO: send a resize event or try to keep the logical size the same.
                     //window.resize_event(inner_size_writer.???)?;
+                }
+                #[cfg(target_os = "windows")]
+                if self.loop_error.is_none() {
+                    self.loop_error = window.handle_partial_visibility_change().err();
                 }
             }
             WindowEvent::ThemeChanged(theme) => window.set_color_scheme(match theme {

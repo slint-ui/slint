@@ -175,6 +175,34 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         self.renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
     }
 
+    #[cfg(target_os = "windows")]
+    fn present_existing_buffer(&self) -> Result<(), PlatformError> {
+        let mut borrowed_surface = self.surface.borrow_mut();
+        let Some(surface) = borrowed_surface.as_mut() else {
+            return Ok(());
+        };
+
+        let winit_window = surface.window().clone();
+
+        let target_buffer = surface
+            .buffer_mut()
+            .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
+
+        let Some((width, height)) = Option::zip(
+            NonZeroU32::new(target_buffer.width().get()),
+            NonZeroU32::new(target_buffer.height().get()),
+        ) else {
+            return Ok(());
+        };
+
+        winit_window.pre_present_notify();
+        target_buffer
+            .present_with_damage(&[softbuffer::Rect { x: 0, y: 0, width, height }])
+            .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
+
+        Ok(())
+    }
+
     fn resume(
         &self,
         active_event_loop: &ActiveEventLoop,

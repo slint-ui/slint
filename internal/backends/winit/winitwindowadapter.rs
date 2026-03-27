@@ -25,6 +25,11 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(muda)]
 use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
+#[cfg(target_os = "windows")]
+use crate::partial_visibility::{
+    MonitorRect, VisibilityRecoveryAction, VisibilityRecoveryController, VisibilitySnapshot,
+    WindowRect,
+};
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
@@ -322,6 +327,8 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    #[cfg(target_os = "windows")]
+    partial_visibility_recovery: Cell<VisibilityRecoveryController>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -390,6 +397,8 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
+            #[cfg(target_os = "windows")]
+            partial_visibility_recovery: Cell::default(),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
             window_existence_wakers: RefCell::new(Vec::default()),
             size: Cell::default(),
@@ -653,6 +662,8 @@ impl WinitWindowAdapter {
 
         let renderer = self.renderer();
         renderer.render(self.window())?;
+        #[cfg(target_os = "windows")]
+        self.note_partial_visibility_after_draw();
 
         Ok(())
     }
@@ -855,6 +866,33 @@ impl WinitWindowAdapter {
         let fullscreen = winit_window.fullscreen().is_some();
         if fullscreen != self.window().is_fullscreen() {
             self.window().set_fullscreen(fullscreen);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn note_zero_sized_occlusion(&self) {
+        let mut recovery = self.partial_visibility_recovery.get();
+        recovery.note_zero_sized_occlusion();
+        self.partial_visibility_recovery.set(recovery);
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn handle_partial_visibility_change(&self) -> Result<(), PlatformError> {
+        let Some(winit_window) = self.winit_window() else {
+            return Ok(());
+        };
+
+        let mut recovery = self.partial_visibility_recovery.get();
+        let action = recovery.on_visibility_changed(current_visibility_snapshot(&winit_window));
+        self.partial_visibility_recovery.set(recovery);
+
+        match action {
+            VisibilityRecoveryAction::None => Ok(()),
+            VisibilityRecoveryAction::RequestRedraw => {
+                self.request_redraw();
+                Ok(())
+            }
+            VisibilityRecoveryAction::PresentExistingBuffer => self.renderer.present_existing_buffer(),
         }
     }
 
@@ -1077,6 +1115,40 @@ impl WinitWindowAdapter {
         })
         .await
     }
+}
+
+#[cfg(target_os = "windows")]
+impl WinitWindowAdapter {
+    fn note_partial_visibility_after_draw(&self) {
+        let Some(winit_window) = self.winit_window() else {
+            return;
+        };
+
+        let mut recovery = self.partial_visibility_recovery.get();
+        recovery.note_rendered_frame(current_visibility_snapshot(&winit_window));
+        self.partial_visibility_recovery.set(recovery);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn current_visibility_snapshot(window: &winit::window::Window) -> VisibilitySnapshot {
+    let position = window
+        .outer_position()
+        .unwrap_or(winit::dpi::PhysicalPosition::new(0, 0));
+    let size = window.outer_size();
+    let monitors: Vec<_> = window
+        .available_monitors()
+        .map(|monitor| {
+            let position = monitor.position();
+            let size = monitor.size();
+            MonitorRect::new(position.x, position.y, size.width, size.height)
+        })
+        .collect();
+
+    VisibilitySnapshot::from_rects(
+        WindowRect::new(position.x, position.y, size.width, size.height),
+        &monitors,
+    )
 }
 
 impl WindowAdapter for WinitWindowAdapter {

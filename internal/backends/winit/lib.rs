@@ -26,6 +26,8 @@ use winit::event_loop::ActiveEventLoop;
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
 mod drag_resize_window;
+#[cfg(target_os = "windows")]
+mod partial_visibility;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
@@ -71,6 +73,11 @@ mod renderer {
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
+
+        #[cfg(target_os = "windows")]
+        fn present_existing_buffer(&self) -> Result<(), PlatformError> {
+            Ok(())
+        }
 
         fn suspend(&self) -> Result<(), PlatformError>;
 
