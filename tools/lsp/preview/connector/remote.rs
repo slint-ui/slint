@@ -1,9 +1,4 @@
-#[cfg(not(target_arch = "wasm32"))]
-use std::thread::JoinHandle;
-use std::{
-    rc::{Rc, Weak},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use futures_util::{
     SinkExt as _,
@@ -11,7 +6,7 @@ use futures_util::{
     stream::{SplitSink, SplitStream, StreamExt as _},
 };
 use i_slint_preview_protocol::PreviewTarget;
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinHandle};
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
 use crate::language::Context;
@@ -63,11 +58,11 @@ impl RemoteLspToPreview {
             .inspect_err(|err| tracing::error!("Failed to start mDNS browsing: {err}"))
             .ok()?;
 
-        Some(std::thread::spawn(move || {
-            while let Ok(event) = receiver.recv() {
+        Some(tokio::task::spawn_local(async move {
+            while let Ok(event) = receiver.recv_async().await {
                 match event {
                     mdns_sd::ServiceEvent::SearchStarted(_) => {
-                        tracing::debug!("mDNS browsing started");
+                        // tracing::debug!("mDNS browsing started");
                     }
                     mdns_sd::ServiceEvent::ServiceFound(_, fullname) => {
                         tracing::debug!("mDNS service found: {fullname}");
@@ -221,11 +216,14 @@ impl Drop for RemoteLspToPreview {
                     tracing::error!("Failed shutting down mDNS service daemon: {err}");
                 });
             }
-            if let Some(join_handle) = self.browse_task.blocking_write().take()
-                && let Err(err) = join_handle.join()
-            {
-                tracing::error!("Failed joining mDNS thread: {err:?}");
-            }
+            let browse_task = std::mem::take(&mut self.browse_task);
+            tokio::task::spawn_local(async move {
+                if let Some(join_handle) = browse_task.write().await.take()
+                    && let Err(err) = join_handle.await
+                {
+                    tracing::error!("Failed joining mDNS thread: {err:?}");
+                }
+            });
         }
         if let Some(connection) = self.connection.try_lock().unwrap().take() {
             tracing::info!("Closing connection to remote preview server");

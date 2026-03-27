@@ -6,6 +6,7 @@ use lsp_types::Url;
 use crate::SourceFileVersion;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {
     #[allow(dead_code)]
     ChildProcess,
