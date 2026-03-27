@@ -51,6 +51,12 @@ figma_inspector:
 material_components:
  - 'ui-libraries/material/**'
 
+safety_docs:
+ - 'docs/safety/**'
+ - 'docs/common/**'
+ - *js_config
+ - *ci_config
+
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
  - 'internal/!({renderers,backends}/**)'
