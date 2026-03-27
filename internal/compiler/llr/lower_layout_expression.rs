@@ -787,9 +787,9 @@ fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
         BuiltinPrivateStruct::LayoutItemInfo,
         [
             ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
-            ("flex_grow", Type::Float32, llr_Expression::NumberLiteral(0.0)),
-            ("flex_shrink", Type::Float32, llr_Expression::NumberLiteral(0.0)),
-            ("flex_basis", Type::Float32, llr_Expression::NumberLiteral(-1.0)),
+            ("flex-grow", Type::Float32, llr_Expression::NumberLiteral(0.0)),
+            ("flex-shrink", Type::Float32, llr_Expression::NumberLiteral(0.0)),
+            ("flex-basis", Type::Float32, llr_Expression::NumberLiteral(-1.0)),
         ],
     )
 }
@@ -804,9 +804,9 @@ fn make_flexbox_cell_data_struct(
         BuiltinPrivateStruct::LayoutItemInfo,
         [
             ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
-            ("flex_grow", Type::Float32, flex_grow),
-            ("flex_shrink", Type::Float32, flex_shrink),
-            ("flex_basis", Type::Float32, flex_basis),
+            ("flex-grow", Type::Float32, flex_grow),
+            ("flex-shrink", Type::Float32, flex_shrink),
+            ("flex-basis", Type::Float32, flex_basis),
         ],
     )
 }
