@@ -492,7 +492,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
         return Err(StyledTextError::NotEmpty);
     }
 
-    Ok((&paragraphs[..]).into())
+    Ok(paragraphs)
 }
 
 #[cfg(feature = "markdown")]
