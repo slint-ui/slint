@@ -36,6 +36,7 @@ jobs:
         slint: ${{ steps.filter.outputs.slint }}
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
+        safety_docs : ${{ steps.filter.outputs.safety_docs }}
         internal : ${{ steps.filter.outputs.internal }}
         api_cpp : ${{ steps.filter.outputs.api_cpp }}
         api_python : ${{ steps.filter.outputs.api_python }}
@@ -679,6 +680,11 @@ jobs:
         CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+    safety-docs:
+      needs: files-changed
+      if: needs.files-changed.outputs.safety_docs == 'true'
+      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed
