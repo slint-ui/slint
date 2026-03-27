@@ -9,7 +9,7 @@
 //! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
 
 use crate::animations::Instant;
-#[cfg(not(feature = "std"))]
+#[cfg(all(test, not(feature = "std")))]
 use num_traits::Float;
 
 /// The direction the simulation is running
