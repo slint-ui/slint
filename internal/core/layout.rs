@@ -1158,9 +1158,9 @@ pub struct LayoutItemInfo {
     /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
     pub flex_basis: Coord,
     /// Per-item cross-axis alignment override (Auto = use container's align-items)
-    pub align_self: FlexAlignSelf,
+    pub flex_align_self: FlexAlignSelf,
     /// Visual ordering of flex items (lower values appear first, default 0)
-    pub order: i32,
+    pub flex_order: i32,
 }
 
 impl Default for LayoutItemInfo {
@@ -1170,8 +1170,8 @@ impl Default for LayoutItemInfo {
             flex_grow: 0.0,
             flex_shrink: 0.0,
             flex_basis: -1 as _,
-            align_self: FlexAlignSelf::Auto,
-            order: 0,
+            flex_align_self: FlexAlignSelf::Auto,
+            flex_order: 0,
         }
     }
 }
@@ -1426,7 +1426,7 @@ mod flexbox_taffy {
                             },
                             flex_grow: cell_h.flex_grow,
                             flex_shrink: cell_h.flex_shrink,
-                            align_self: match cell_h.align_self {
+                            align_self: match cell_h.flex_align_self {
                                 FlexAlignSelf::Auto => None,
                                 FlexAlignSelf::Stretch => Some(AlignSelf::Stretch),
                                 FlexAlignSelf::Start => Some(AlignSelf::FlexStart),
@@ -1441,11 +1441,11 @@ mod flexbox_taffy {
 
             // Sort children by CSS `order` property if any item has a non-zero order.
             // Build a mapping from sorted position -> original index.
-            let has_order = params.cells_h.iter().any(|c| c.order != 0);
+            let has_order = params.cells_h.iter().any(|c| c.flex_order != 0);
             let order_map: Vec<usize> = if has_order {
                 let mut indices: Vec<usize> = (0..children.len()).collect();
                 // sort_by_key is a stable sort, as required by CSS
-                indices.sort_by_key(|&i| params.cells_h.get(i).map_or(0, |c| c.order));
+                indices.sort_by_key(|&i| params.cells_h.get(i).map_or(0, |c| c.flex_order));
                 let sorted_children: Vec<NodeId> = indices.iter().map(|&i| children[i]).collect();
                 children = sorted_children;
                 indices

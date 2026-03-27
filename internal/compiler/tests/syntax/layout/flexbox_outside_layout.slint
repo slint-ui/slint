@@ -8,8 +8,8 @@ export component X inherits Rectangle {
             flex-grow: 1;
             flex-shrink: 2;
             flex-basis: 100px;
-            align-self: center;
-            order: 3;
+            flex-align-self: center;
+            flex-order: 3;
         }
         Rectangle {
             Text {
@@ -19,10 +19,10 @@ export component X inherits Rectangle {
 //                           ><error{flex-shrink used outside of a FlexBoxLayout}
                 flex-basis: 100px;
 //                          >    <error{flex-basis used outside of a FlexBoxLayout}
-                align-self: center;
-//                          >     <error{align-self used outside of a FlexBoxLayout}
-                order: 3;
-//                     ><error{order used outside of a FlexBoxLayout}
+                flex-align-self: center;
+//                               >     <error{flex-align-self used outside of a FlexBoxLayout}
+                flex-order: 3;
+//                          ><error{flex-order used outside of a FlexBoxLayout}
             }
         }
     }
@@ -35,10 +35,10 @@ export component X inherits Rectangle {
 //                   ><error{flex-shrink used outside of a FlexBoxLayout}
         flex-basis: 100px;
 //                  >    <error{flex-basis used outside of a FlexBoxLayout}
-        align-self: center;
-//                  >     <error{align-self used outside of a FlexBoxLayout}
-        order: 3;
-//             ><error{order used outside of a FlexBoxLayout}
+        flex-align-self: center;
+//                       >     <error{flex-align-self used outside of a FlexBoxLayout}
+        flex-order: 3;
+//                  ><error{flex-order used outside of a FlexBoxLayout}
     }
 
     GridLayout {
@@ -52,8 +52,8 @@ export component X inherits Rectangle {
         Text {
             flex-grow: 1;
 //                     ><error{flex-grow used outside of a FlexBoxLayout}
-            order: 5;
-//                 ><error{order used outside of a FlexBoxLayout}
+            flex-order: 5;
+//                      ><error{flex-order used outside of a FlexBoxLayout}
         }
     }
 }

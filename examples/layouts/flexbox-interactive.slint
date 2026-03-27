@@ -210,30 +210,30 @@ export component MainWindow inherits Window {
                     width: 80phx;
                     height: 40phx;
                 }
-                // align-self: orange item overrides the container's align-items
+                // flex-align-self: orange item overrides the container's align-items
                 FlexCell {
                     cell_text: "S self:end";
-                    align-self: end;
+                    flex-align-self: end;
                     height: 30phx;
                     background: #e67e22;
                 }
                 FlexCell {
                     cell_text: "T self:center";
-                    align-self: center;
+                    flex-align-self: center;
                     height: 30phx;
                     background: #d35400;
                 }
-                // order: these items appear before/after others despite declaration order
+                // flex-order: these items appear before/after others despite declaration order
                 FlexCell {
-                    cell_text: "U order:-1";
-                    order: -1;
+                    cell_text: "U flex-order:-1";
+                    flex-order: -1;
                     width: 80phx;
                     min-height: 40phx;
                     background: #8e44ad;
                 }
                 FlexCell {
-                    cell_text: "V order:99";
-                    order: 99;
+                    cell_text: "V flex-order:99";
+                    flex-order: 99;
                     width: 80phx;
                     min-height: 40phx;
                     background: #6c3483;

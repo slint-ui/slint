@@ -419,8 +419,8 @@ fn flexbox_layout_data(
                 flex_grow,
                 flex_shrink,
                 flex_basis,
-                align_self,
-                order,
+                flex_align_self: align_self,
+                flex_order: order,
             };
             cells_h.push(item_info);
             cells_v.push(core_layout::LayoutItemInfo {
@@ -428,8 +428,8 @@ fn flexbox_layout_data(
                 flex_grow,
                 flex_shrink,
                 flex_basis,
-                align_self,
-                order,
+                flex_align_self: align_self,
+                flex_order: order,
             });
         }
     }

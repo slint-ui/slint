@@ -4,7 +4,7 @@
 // Test FlexBoxLayout order per-item property
 
 // Test 1: order changes visual placement (row direction)
-// Items declared A, B, C but ordered C(order:-1), A(0), B(1)
+// Items declared A, B, C but ordered C(flex-order:-1), A(0), B(1)
 component TestOrderRow inherits Rectangle {
     width: 300px;
     height: 50px;
@@ -14,19 +14,19 @@ component TestOrderRow inherits Rectangle {
         r_a := Rectangle {
             width: 100px;
             height: 50px;
-            order: 0;
+            flex-order: 0;
             background: red;
         }
         r_b := Rectangle {
             width: 100px;
             height: 50px;
-            order: 1;
+            flex-order: 1;
             background: green;
         }
         r_c := Rectangle {
             width: 100px;
             height: 50px;
-            order: -1;
+            flex-order: -1;
             background: blue;
         }
     }
@@ -62,7 +62,7 @@ component TestOrderDefault inherits Rectangle {
         }
     }
 
-    // All order=0 → declaration order: r1 at x=0, r2 at x=100, r3 at x=200
+    // All flex-order=0 → declaration order: r1 at x=0, r2 at x=100, r3 at x=200
     out property <bool> test_r1: r1.x == 0px;
     out property <bool> test_r2: r2.x == 100px;
     out property <bool> test_r3: r3.x == 200px;
@@ -80,19 +80,19 @@ component TestOrderColumn inherits Rectangle {
         r_a := Rectangle {
             width: 50px;
             height: 100px;
-            order: 2;
+            flex-order: 2;
             background: red;
         }
         r_b := Rectangle {
             width: 50px;
             height: 100px;
-            order: 0;
+            flex-order: 0;
             background: green;
         }
         r_c := Rectangle {
             width: 50px;
             height: 100px;
-            order: 1;
+            flex-order: 1;
             background: blue;
         }
     }
