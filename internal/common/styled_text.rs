@@ -112,6 +112,7 @@ pub struct StyledText {
     pub paragraphs: alloc::vec::Vec<StyledTextParagraph>,
 }
 
+#[cfg(feature = "markdown")]
 pub fn paragraphs_from_plain_text(
     text: alloc::string::String,
 ) -> alloc::vec::Vec<StyledTextParagraph> {
@@ -122,6 +123,7 @@ pub fn paragraphs_from_plain_text(
     }]
 }
 
+#[cfg(feature = "markdown")]
 pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     format_string: &str,
     args: &[S],
