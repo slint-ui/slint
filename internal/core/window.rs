@@ -11,9 +11,8 @@ use crate::api::{
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyEvent, InternalKeyboardModifierState,
-    KeyEventType, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
-    TouchState, key_codes,
+    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventType, MouseEvent,
+    MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -447,7 +446,6 @@ pub struct WindowInner {
     strong_component_ref: RefCell<Option<ItemTreeRc>>,
     mouse_input_state: Cell<MouseInputState>,
     touch_state: RefCell<TouchState>,
-    pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -508,7 +506,6 @@ impl WindowInner {
             strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
             touch_state: Default::default(),
-            modifiers: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
                 window_properties_tracker,
@@ -541,7 +538,6 @@ impl WindowInner {
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.touch_state.replace(Default::default());
-        self.modifiers.replace(Default::default());
         self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
@@ -807,15 +803,15 @@ impl WindowInner {
             }
         }
 
-        if let Some(updated_modifier) = self.modifiers.get().state_update(
+        if let Some(updated_modifier) = self.context().0.modifiers.get().state_update(
             internal_key_event.event_type == KeyEventType::KeyPressed,
             &internal_key_event.key_event.text,
         ) {
             // Updates the key modifiers depending on the key code and pressed state.
-            self.modifiers.set(updated_modifier);
+            self.context().0.modifiers.set(updated_modifier);
         }
 
-        internal_key_event.key_event.modifiers = self.modifiers.get().into();
+        internal_key_event.key_event.modifiers = self.context().0.modifiers.get().into();
 
         let mut item = self.focus_item.borrow().clone().upgrade();
 
@@ -1121,7 +1117,7 @@ impl WindowInner {
         // If we lost focus due to for example a global shortcut, then when we regain focus
         // should not assume that the modifiers are in the same state.
         if !have_focus {
-            self.modifiers.take();
+            self.context().0.modifiers.take();
         }
     }
 

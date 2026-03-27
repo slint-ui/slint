@@ -461,7 +461,9 @@ impl FlickableData {
         delta_x: Coord,
         delta_y: Coord,
     ) -> LogicalVector {
-        if window_adapter.window().0.modifiers.get().shift() && !cfg!(target_os = "macos") {
+        if window_adapter.window().0.context().0.modifiers.get().shift()
+            && !cfg!(target_os = "macos")
+        {
             // Shift invert coordinate for the purpose of scrolling.
             // But not on macOs because there the OS already take care of the change
             LogicalVector::new(delta_y, delta_x)
