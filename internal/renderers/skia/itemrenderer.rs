@@ -112,7 +112,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
 
-                paint.set_dither(true);
+                paint.set_dither(false);
 
                 skia_safe::gradient_shader::linear(
                     (skia_safe::Point::new(start.x, start.y), skia_safe::Point::new(end.x, end.y)),
@@ -129,7 +129,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 let circle_scale =
                     0.5 * (width.get() * width.get() + height.get() * height.get()).sqrt();
 
-                paint.set_dither(true);
+                paint.set_dither(false);
 
                 skia_safe::gradient_shader::radial(
                     skia_safe::Point::new(0., 0.),
@@ -147,7 +147,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
 
-                paint.set_dither(true);
+                paint.set_dither(false);
 
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
@@ -515,7 +515,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         ) {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
             if !background_rect.is_rect() {
-                fill_paint.set_anti_alias(true);
+                fill_paint.set_anti_alias(false);
             }
             self.canvas.draw_rrect(background_rect, &fill_paint);
         }
@@ -527,7 +527,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 border_paint.set_style(skia_safe::PaintStyle::Stroke);
                 border_paint.set_stroke_width(border_width.get());
                 if !border_rect.is_rect() {
-                    border_paint.set_anti_alias(true);
+                    border_paint.set_anti_alias(false);
                 }
                 self.canvas.draw_rrect(border_rect, &border_paint);
             }
@@ -646,7 +646,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
         self.canvas.translate((physical_offset.x, physical_offset.y));
 
-        let anti_alias = path.anti_alias();
+        let anti_alias = false;
 
         // For Path elements with conic gradients, we need to handle the viewbox transformation
         let viewbox_width = path.viewbox_width();
@@ -745,7 +745,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
                 let mut paint = skia_safe::Paint::default();
                 paint.set_color(to_skia_color(&shadow_options.color));
-                paint.set_anti_alias(true);
+                paint.set_anti_alias(false);
                 paint.set_mask_filter(skia_safe::MaskFilter::blur(
                     skia_safe::BlurStyle::Normal,
                     shadow_options.blur.get() / 2.,
