@@ -1141,15 +1141,22 @@ pub struct FlexBoxLayoutData<'a> {
     pub align_items: FlexAlignItems,
     pub flex_wrap: FlexWrap,
     /// Horizontal constraints (width) for each cell
-    pub cells_h: Slice<'a, LayoutItemInfo>,
+    pub cells_h: Slice<'a, FlexBoxLayoutItemInfo>,
     /// Vertical constraints (height) for each cell
-    pub cells_v: Slice<'a, LayoutItemInfo>,
+    pub cells_v: Slice<'a, FlexBoxLayoutItemInfo>,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Default)]
+/// The information about a single item in a box or grid layout
+pub struct LayoutItemInfo {
+    pub constraint: LayoutInfo,
 }
 
 #[repr(C)]
 #[derive(Debug, Clone)]
-/// The information about a single item in a layout
-pub struct LayoutItemInfo {
+/// The information about a single item in a flexbox layout
+pub struct FlexBoxLayoutItemInfo {
     pub constraint: LayoutInfo,
     /// Flex grow factor (0 = don't grow, default)
     pub flex_grow: f32,
@@ -1163,7 +1170,7 @@ pub struct LayoutItemInfo {
     pub flex_order: i32,
 }
 
-impl Default for LayoutItemInfo {
+impl Default for FlexBoxLayoutItemInfo {
     fn default() -> Self {
         Self {
             constraint: LayoutInfo::default(),
@@ -1173,6 +1180,12 @@ impl Default for LayoutItemInfo {
             flex_align_self: FlexAlignSelf::Auto,
             flex_order: 0,
         }
+    }
+}
+
+impl From<LayoutItemInfo> for FlexBoxLayoutItemInfo {
+    fn from(info: LayoutItemInfo) -> Self {
+        Self { constraint: info.constraint, ..Default::default() }
     }
 }
 
@@ -1309,8 +1322,8 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexWrap as SlintFlexWrap,
-        LayoutAlignment, LayoutItemInfo, Padding, Slice,
+        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexBoxLayoutItemInfo,
+        FlexWrap as SlintFlexWrap, LayoutAlignment, Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1318,8 +1331,8 @@ mod flexbox_taffy {
 
     /// Parameters for FlexboxTaffyBuilder::new
     pub struct FlexBoxLayoutParams<'a> {
-        pub cells_h: &'a Slice<'a, LayoutItemInfo>,
-        pub cells_v: &'a Slice<'a, LayoutItemInfo>,
+        pub cells_h: &'a Slice<'a, FlexBoxLayoutItemInfo>,
+        pub cells_v: &'a Slice<'a, FlexBoxLayoutItemInfo>,
         pub spacing_h: Coord,
         pub spacing_v: Coord,
         pub padding_h: &'a Padding,
@@ -1715,8 +1728,8 @@ pub fn solve_flexbox_layout(
 ///
 /// The constraint_size is ignored for main-axis calculation.
 pub fn flexbox_layout_info(
-    cells_h: Slice<LayoutItemInfo>,
-    cells_v: Slice<LayoutItemInfo>,
+    cells_h: Slice<FlexBoxLayoutItemInfo>,
+    cells_v: Slice<FlexBoxLayoutItemInfo>,
     spacing_h: Coord,
     spacing_v: Coord,
     padding_h: &Padding,
@@ -1960,8 +1973,8 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     /// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
     pub extern "C" fn slint_flexbox_layout_info(
-        cells_h: Slice<LayoutItemInfo>,
-        cells_v: Slice<LayoutItemInfo>,
+        cells_h: Slice<FlexBoxLayoutItemInfo>,
+        cells_v: Slice<FlexBoxLayoutItemInfo>,
         spacing_h: Coord,
         spacing_v: Coord,
         padding_h: &Padding,

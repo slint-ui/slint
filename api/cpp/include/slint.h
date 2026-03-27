@@ -206,8 +206,8 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxL
 }
 
 inline cbindgen_private::LayoutInfo
-flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
-                    cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::FlexBoxLayoutItemInfo> cells_h,
+                    cbindgen_private::Slice<cbindgen_private::FlexBoxLayoutItemInfo> cells_v,
                     float spacing_h, float spacing_v, const cbindgen_private::Padding &padding_h,
                     const cbindgen_private::Padding &padding_v,
                     cbindgen_private::Orientation orientation,

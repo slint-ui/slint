@@ -664,6 +664,7 @@ pub enum BuiltinPrivateStruct {
     BoxLayoutData,
     FlexBoxLayoutData,
     LayoutItemInfo,
+    FlexBoxLayoutItemInfo,
     Padding,
     LayoutInfo,
     FontMetrics,

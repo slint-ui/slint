@@ -356,7 +356,7 @@ fn flexbox_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     _local_context: &mut EvalLocalContext,
-) -> (Vec<core_layout::LayoutItemInfo>, Vec<core_layout::LayoutItemInfo>, Vec<u32>) {
+) -> (Vec<core_layout::FlexBoxLayoutItemInfo>, Vec<core_layout::FlexBoxLayoutItemInfo>, Vec<u32>) {
     let window_adapter = component.window_adapter();
     let mut cells_h = Vec::with_capacity(flexbox_layout.elems.len());
     let mut cells_v = Vec::with_capacity(flexbox_layout.elems.len());
@@ -368,13 +368,11 @@ fn flexbox_layout_data(
             repeated_indices.push(cells_h.len() as u32);
             repeated_indices.push(component_vec.len() as u32);
             cells_h.extend(component_vec.iter().map(|x| {
-                x.as_pin_ref().layout_item_info(to_runtime(Orientation::Horizontal), None)
+                x.as_pin_ref().layout_item_info(to_runtime(Orientation::Horizontal), None).into()
             }));
-            cells_v.extend(
-                component_vec.iter().map(|x| {
-                    x.as_pin_ref().layout_item_info(to_runtime(Orientation::Vertical), None)
-                }),
-            );
+            cells_v.extend(component_vec.iter().map(|x| {
+                x.as_pin_ref().layout_item_info(to_runtime(Orientation::Vertical), None).into()
+            }));
         } else {
             let mut layout_info_h = get_layout_info(
                 &layout_elem.item.element,
@@ -414,7 +412,7 @@ fn flexbox_layout_data(
                 })
                 .unwrap_or(i_slint_core::items::FlexAlignSelf::default());
             let order = layout_elem.order.as_ref().map(&expr_eval).unwrap_or(0.0) as i32;
-            let item_info = core_layout::LayoutItemInfo {
+            let item_info = core_layout::FlexBoxLayoutItemInfo {
                 constraint: layout_info_h,
                 flex_grow,
                 flex_shrink,
@@ -423,7 +421,7 @@ fn flexbox_layout_data(
                 flex_order: order,
             };
             cells_h.push(item_info);
-            cells_v.push(core_layout::LayoutItemInfo {
+            cells_v.push(core_layout::FlexBoxLayoutItemInfo {
                 constraint: layout_info_v,
                 flex_grow,
                 flex_shrink,
@@ -722,10 +720,8 @@ fn grid_layout_constraints(
                                     orientation,
                                     &expr_eval,
                                 );
-                                constraints.push(core_layout::LayoutItemInfo {
-                                    constraint: layout_info,
-                                    ..Default::default()
-                                });
+                                constraints
+                                    .push(core_layout::LayoutItemInfo { constraint: layout_info });
                             }
                             i_slint_compiler::layout::RowChildTemplate::Repeated {
                                 item: child_item,
@@ -795,10 +791,7 @@ fn grid_layout_constraints(
                 orientation,
                 &expr_eval,
             );
-            constraints.push(core_layout::LayoutItemInfo {
-                constraint: layout_info,
-                ..Default::default()
-            });
+            constraints.push(core_layout::LayoutItemInfo { constraint: layout_info });
         }
     }
     constraints
@@ -837,10 +830,7 @@ fn box_layout_data(
                 orientation,
                 &expr_eval,
             );
-            cells.push(core_layout::LayoutItemInfo {
-                constraint: layout_info,
-                ..Default::default()
-            });
+            cells.push(core_layout::LayoutItemInfo { constraint: layout_info });
         }
     }
     let alignment = box_layout

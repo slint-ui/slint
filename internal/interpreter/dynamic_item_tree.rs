@@ -194,7 +194,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
                     &instance_ref.window_adapter(),
                     crate::eval_layout::from_runtime(o),
                 );
-                return LayoutItemInfo { constraint: layout_info, ..Default::default() };
+                return LayoutItemInfo { constraint: layout_info };
             } else {
                 panic!(
                     "child_index {} out of bounds for repeated item {}",
@@ -204,7 +204,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
             }
         }
 
-        LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o), ..Default::default() }
+        LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
     }
 }
 

@@ -640,7 +640,7 @@ fn flexbox_layout_data(
     let repeater_count =
         layout.elems.iter().filter(|i| i.item.element.borrow().repeated.is_some()).count();
 
-    let element_ty = crate::typeregister::layout_item_info_type();
+    let element_ty = crate::typeregister::flexbox_layout_item_info_type();
 
     let flex_prop =
         |li: &crate::layout::FlexBoxLayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
@@ -760,11 +760,11 @@ fn flexbox_layout_data(
         }
         let cells_h = llr_Expression::ReadLocalVariable {
             name: "cells_h".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
+            ty: Type::Array(Rc::new(crate::typeregister::flexbox_layout_item_info_type())),
         };
         let cells_v = llr_Expression::ReadLocalVariable {
             name: "cells_v".into(),
-            ty: Type::Array(Rc::new(crate::typeregister::layout_info_type().into())),
+            ty: Type::Array(Rc::new(crate::typeregister::flexbox_layout_item_info_type())),
         };
         FlexBoxLayoutDataResult {
             alignment,
@@ -799,17 +799,9 @@ fn default_align_self() -> (Type, llr_Expression) {
 }
 
 fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
-    let (align_self_ty, align_self_default) = default_align_self();
     make_struct(
         BuiltinPrivateStruct::LayoutItemInfo,
-        [
-            ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
-            ("flex-grow", Type::Float32, llr_Expression::NumberLiteral(0.0)),
-            ("flex-shrink", Type::Float32, llr_Expression::NumberLiteral(0.0)),
-            ("flex-basis", Type::Float32, llr_Expression::NumberLiteral(-1.0)),
-            ("flex-align-self", align_self_ty, align_self_default),
-            ("flex-order", Type::Int32, llr_Expression::NumberLiteral(0.0)),
-        ],
+        [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
     )
 }
 
@@ -825,7 +817,7 @@ struct FlexItemProps {
 fn make_flexbox_cell_data_struct(layout_info: llr_Expression, fp: FlexItemProps) -> llr_Expression {
     let (align_self_ty, _) = default_align_self();
     make_struct(
-        BuiltinPrivateStruct::LayoutItemInfo,
+        BuiltinPrivateStruct::FlexBoxLayoutItemInfo,
         [
             ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
             ("flex-grow", Type::Float32, fp.grow),
