@@ -456,7 +456,13 @@ impl LookupObject for ElementRc {
                 return Some(r);
             }
         }
-        if !(matches!(self.borrow().base_type, ElementType::Global)) {
+
+        let is_global = match &self.borrow().base_type {
+            ElementType::Global => true,
+            ElementType::Builtin(b) => b.is_global,
+            _ => false,
+        };
+        if !is_global {
             for (name, ty, _) in crate::typeregister::reserved_properties() {
                 let name = SmolStr::new_static(name);
                 let e =
@@ -849,7 +855,6 @@ impl LookupObject for BuiltinFunctionLookup {
             .or_else(|| {
                 f(&SmolStr::new_static("animation-tick"), BuiltinFunction::AnimationTick.into())
             })
-            .or_else(|| f(&SmolStr::new_static("open-url"), BuiltinFunction::OpenUrl.into()))
     }
 }
 

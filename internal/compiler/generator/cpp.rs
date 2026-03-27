@@ -6,9 +6,9 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
+use crate::fileaccess;
 use std::collections::HashSet;
 use std::fmt::Write;
-use std::io::BufWriter;
 use std::sync::OnceLock;
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
@@ -900,10 +900,9 @@ pub fn generate(
     let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
 
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
-        use std::io::Write;
-        let mut cpp_writer = BufWriter::new(std::fs::File::create(cpp_file_name)?);
-        write!(&mut cpp_writer, "{cpp_file}")?;
-        cpp_writer.flush()?;
+        // Important: Write without unnecessary mtime modification to avoid
+        // build systems to always detect the generated file as modified.
+        fileaccess::write_file_if_changed(cpp_file_name, cpp_file.to_string().as_bytes())?;
     }
 
     Ok(file)
@@ -3038,7 +3037,7 @@ fn generate_functions<'a>(
                 f.args
                     .iter()
                     .enumerate()
-                    .map(|(i, ty)| format!("{} arg_{}", ty.cpp_type().unwrap(), i))
+                    .map(|(i, ty)| format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap(), i))
                     .join(", "),
                 f.ret_ty.cpp_type().unwrap()
             ),
@@ -4604,7 +4603,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);
-            format!("slint::cbindgen_private::slint_open_url(&{}, &{}.handle())", url, window)
+            format!("slint::private_api::open_url({url}, {window})")
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

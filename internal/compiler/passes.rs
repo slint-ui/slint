@@ -122,7 +122,7 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, &doc.local_registry, diag);
+        lower_states::lower_states(component, diag);
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::compile_paths(
             component,

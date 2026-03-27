@@ -86,6 +86,7 @@ Whether or not the font face should be drawn italicized or not.
 
 ### horizontal-alignment
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' >
+The horizontal alignment of the text.
 </SlintProperty>
 
 ### letter-spacing
@@ -94,7 +95,9 @@ The letter spacing allows changing the spacing between the glyphs. A positive va
 </SlintProperty>
 
 ### overflow
-<SlintProperty propName="overflow" typeName="enum" enumName="TextOverflow"/>
+<SlintProperty propName="overflow" typeName="enum" enumName="TextOverflow">
+How the text should behave when it exceeds the available space.
+</SlintProperty>
 
 ### text
 <SlintProperty propName="text" typeName="styled-text" defaultValue='""' >
@@ -103,10 +106,14 @@ The styled text rendered, using CommonMark markup with additional HTML tags for 
 </SlintProperty>
 
 ### vertical-alignment
-<SlintProperty propName="vertical-alignment" typeName="enum" enumName="TextVerticalAlignment"/>
+<SlintProperty propName="vertical-alignment" typeName="enum" enumName="TextVerticalAlignment">
+The vertical alignment of the text.
+</SlintProperty>
 
 ### wrap
-<SlintProperty propName="wrap" typeName="enum" enumName="TextWrap"/>
+<SlintProperty propName="wrap" typeName="enum" enumName="TextWrap">
+How the text should wrap when it exceeds the available width.
+</SlintProperty>
 
 ### stroke
 <SlintProperty propName="stroke" typeName="brush">
@@ -119,7 +126,9 @@ The width of the text outline. If the width is zero, then a hairline stroke (1 p
 </SlintProperty>
 
 ###  stroke-style
-<SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle"/>
+<SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle">
+The style of the text outline.
+</SlintProperty>
 
 ### link-clicked
 <SlintProperty propName="link-clicked" typeName="callback" >

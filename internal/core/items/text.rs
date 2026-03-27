@@ -280,36 +280,46 @@ impl Item for StyledTextItem {
         InputEventFilterResult::ForwardEvent
     }
 
-    #[cfg_attr(not(feature = "std"), allow(unused))]
+    #[cfg_attr(not(feature = "shared-parley"), allow(unused))]
     fn input_event(
         self: Pin<&Self>,
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut super::MouseCursor,
+        cursor: &mut super::MouseCursor,
     ) -> InputEventResult {
+        #[cfg(feature = "shared-parley")]
+        let find_link = |position: &LogicalPoint| {
+            let window_inner = WindowInner::from_pub(window_adapter.window());
+            let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
+            crate::textlayout::sharedparley::link_under_cursor(
+                &mut window_inner.context().font_context().borrow_mut(),
+                scale_factor,
+                self,
+                self_rc,
+                LogicalSize::from_lengths(self.width(), self.height()),
+                *position * scale_factor,
+                None,
+            )
+        };
         match event {
-            #[cfg(feature = "std")]
+            #[cfg(feature = "shared-parley")]
+            MouseEvent::Moved { position, .. } => {
+                if find_link(position).is_some() {
+                    *cursor = super::MouseCursor::Pointer;
+                }
+                InputEventResult::EventIgnored
+            }
+            #[cfg(feature = "shared-parley")]
             MouseEvent::Pressed {
                 position,
                 button: PointerEventButton::Left,
                 click_count: _,
                 is_touch: _,
             } => {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-                let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
-                if let Some(link) = crate::textlayout::sharedparley::link_under_cursor(
-                    &mut window_inner.context().font_context().borrow_mut(),
-                    scale_factor,
-                    self,
-                    self_rc,
-                    LogicalSize::from_lengths(self.width(), self.height()),
-                    *position * scale_factor,
-                    None, // No cache available from item event handler
-                ) {
+                if let Some(link) = find_link(position) {
                     Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
                 }
-
                 InputEventResult::EventAccepted
             }
             _ => InputEventResult::EventIgnored,
