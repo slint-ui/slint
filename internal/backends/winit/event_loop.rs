@@ -458,11 +458,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     phase: winit_touch_phase(phase),
                 });
             }
-            WindowEvent::DoubleTapGesture { .. } => {
-                runtime_window.process_mouse_input(corelib::input::MouseEvent::DoubleTapGesture {
-                    position: self.cursor_pos,
-                });
-            }
+
             _ => {}
         }
 

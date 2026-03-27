@@ -210,9 +210,9 @@ impl Item for TouchArea {
                     }
                 }
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -784,9 +784,9 @@ impl Item for SwipeGestureHandler {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventFilterResult::ForwardAndIgnore,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -834,9 +834,9 @@ impl Item for SwipeGestureHandler {
                 if swiping { InputEventResult::GrabMouse } else { InputEventResult::EventAccepted }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -1016,9 +1016,7 @@ impl Item for ScaleRotateGestureHandler {
     ) -> InputEventFilterResult {
         match event {
             // Forward gesture events so inner handlers get first shot
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. }
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. }
                 if self.enabled() =>
             {
                 InputEventFilterResult::ForwardEvent

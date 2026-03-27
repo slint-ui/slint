@@ -558,9 +558,9 @@ impl FlickableData {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventFilterResult::ForwardEvent,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventFilterResult::ForwardEvent
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -660,9 +660,9 @@ impl FlickableData {
 
                 inner.process_wheel_event(flick, delta, *position, flick_rc)
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
