@@ -99,6 +99,7 @@ pub struct BuiltinTypes {
     pub gridlayout_input_data_type: Type,
     pub path_element_type: Type,
     pub layout_item_info_type: Type,
+    pub flexbox_layout_item_info_type: Type,
 }
 
 impl BuiltinTypes {
@@ -170,6 +171,14 @@ impl BuiltinTypes {
                 name: BuiltinPrivateStruct::PathElement.into(),
             })),
             layout_item_info_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([(
+                    "constraint".into(),
+                    layout_info_type.clone().into(),
+                )])
+                .collect(),
+                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
+            })),
+            flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
                     ("constraint".into(), layout_info_type.into()),
                     ("flex-grow".into(), Type::Float32),
@@ -179,7 +188,7 @@ impl BuiltinTypes {
                     ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
+                name: BuiltinPrivateStruct::FlexBoxLayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -871,4 +880,9 @@ pub fn path_element_type() -> Type {
 /// The [`Type`] for a runtime LayoutItemInfo structure
 pub fn layout_item_info_type() -> Type {
     BUILTIN.with(|types| types.layout_item_info_type.clone())
+}
+
+/// The [`Type`] for a runtime FlexBoxLayoutItemInfo structure
+pub fn flexbox_layout_item_info_type() -> Type {
+    BUILTIN.with(|types| types.flexbox_layout_item_info_type.clone())
 }
