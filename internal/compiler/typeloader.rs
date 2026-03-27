@@ -912,7 +912,7 @@ impl TypeLoader {
             .style
             .clone()
             .or_else(|| std::env::var("SLINT_STYLE").ok())
-            .unwrap_or_else(|| "native".into());
+            .unwrap_or_else(|| "fluent".into());
 
         if style == "native" {
             style = get_native_style(&mut diag.all_loaded_files);
