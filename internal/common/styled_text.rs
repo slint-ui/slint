@@ -248,10 +248,9 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
             match event {
                 pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                    if let Some(paragraph) = std::mem::replace(
-                        &mut current_paragraph,
-                        Some(begin_paragraph(indentation, None)),
-                    ) {
+                    if let Some(paragraph) =
+                        current_paragraph.replace(begin_paragraph(indentation, None))
+                    {
                         return Some(Ok(paragraph));
                     }
                 }
@@ -266,25 +265,21 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                 pulldown_cmark::Event::Start(tag) => {
                     let style = match tag {
                         pulldown_cmark::Tag::Paragraph => {
-                            if let Some(paragraph) = std::mem::replace(
-                                &mut current_paragraph,
-                                Some(begin_paragraph(indentation, None)),
-                            ) {
+                            if let Some(paragraph) =
+                                current_paragraph.replace(begin_paragraph(indentation, None))
+                            {
                                 return Some(Ok(paragraph));
                             }
                             continue;
                         }
                         pulldown_cmark::Tag::Item => {
-                            let old_paragraph = std::mem::replace(
-                                &mut current_paragraph,
-                                Some(begin_paragraph(
-                                    indentation,
-                                    Some(match list_state_stack.last().copied() {
-                                        Some(Some(index)) => ListItemType::Ordered(index),
-                                        _ => ListItemType::Unordered,
-                                    }),
-                                )),
-                            );
+                            let old_paragraph = current_paragraph.replace(begin_paragraph(
+                                indentation,
+                                Some(match list_state_stack.last().copied() {
+                                    Some(Some(index)) => ListItemType::Ordered(index),
+                                    _ => ListItemType::Unordered,
+                                }),
+                            ));
                             if let Some(state) = list_state_stack.last_mut() {
                                 *state = state.map(|state| state + 1);
                             }
