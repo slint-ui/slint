@@ -14,6 +14,7 @@ packages:
   - examples/memory
   - docs/astro
   - docs/common
+  - docs/safety
   - ui-libraries/material/docs
 
 catalog:
