@@ -988,7 +988,6 @@ pub struct ScaleRotateGestureHandler {
     pub updated: Callback<VoidArg>,
     pub ended: Callback<VoidArg>,
     pub cancelled: Callback<VoidArg>,
-    pub smart_magnify: Callback<VoidArg>,
 
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -1102,13 +1101,6 @@ impl Item for ScaleRotateGestureHandler {
                         InputEventResult::EventAccepted
                     }
                 }
-            }
-            MouseEvent::DoubleTapGesture { .. } => {
-                if !self.enabled() {
-                    return InputEventResult::EventIgnored;
-                }
-                Self::FIELD_OFFSETS.smart_magnify.apply_pin(self).call(&());
-                InputEventResult::EventAccepted
             }
             // Grab mouse during active gesture to maintain exclusivity.
             _ if self.active() => InputEventResult::GrabMouse,

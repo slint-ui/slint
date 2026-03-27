@@ -107,16 +107,6 @@ component GestureArea inherits Rectangle {
         cancelled => {
             set-status("cancelled");
         }
-
-        smart-magnify => {
-            if TransformData.base-scale > 1.5 {
-                TransformData.base-scale = 1.0;
-                TransformData.base-rotation = 0deg;
-            } else {
-                TransformData.base-scale = 2.5;
-            }
-            set-status("smart magnify");
-        }
     }
 
     visible-area := Rectangle {
@@ -211,7 +201,7 @@ export component MainWindow inherits Window {
             }
 
             Text {
-                text: "Pinch • Rotate • Double-tap";
+                text: "Pinch • Rotate";
                 color: #606080;
                 font-size: 12px;
                 vertical-alignment: center;
@@ -238,7 +228,7 @@ export component MainWindow inherits Window {
         }
 
         if root.orientation == Orientation.portrait: Text {
-            text: "Pinch to zoom  •  Rotate with two fingers  •  Double-tap to toggle zoom";
+            text: "Pinch to zoom  •  Rotate with two fingers";
             color: #606080;
             font-size: 12px;
             horizontal-alignment: center;

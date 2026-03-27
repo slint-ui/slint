@@ -5,7 +5,7 @@ description: ScaleRotateGestureHandler element api.
 import SlintProperty  from '@slint/common-files/src/components/SlintProperty.astro';
 
 
-Use the `ScaleRotateGestureHandler` to handle pinch, rotation, and smart-magnify gestures from trackpads or touchscreens.
+Use the `ScaleRotateGestureHandler` to handle pinch and rotation gestures from trackpads or touchscreens.
 Recognition is limited to the element's geometry.
 
 ```slint playground
@@ -50,7 +50,7 @@ The `scale` property provides a cumulative scale factor relative to the start of
 The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
 Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
 
-On macOS and iOS, the handler responds to trackpad pinch, rotation, and smart-magnify gestures (platform gesture events).
+On macOS and iOS, the handler responds to trackpad pinch and rotation gestures (platform gesture events).
 On other platforms, it processes raw two-finger touch input for pinch and rotation.
 
 ## Properties
@@ -92,4 +92,3 @@ For trackpad gestures, this is the mouse cursor position.
 -   **`updated()`**: Invoked whenever the `scale`, `rotation`, or `center` changes during the gesture.
 -   **`ended()`**: Invoked when the gesture completes normally (fingers lifted).
 -   **`cancelled()`**: Invoked when the gesture is cancelled, for example when the handler is disabled during an active gesture or the window loses focus.
--   **`smart-magnify()`**: Invoked on a platform "smart magnify" gesture (two-finger double-tap on macOS/iOS trackpads). This does not activate the gesture or change `scale`/`rotation`.
