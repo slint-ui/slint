@@ -173,6 +173,32 @@ jobs:
             - name: Run tests
               run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
 
+    cpp_test_driver_32bit:
+        needs: files-changed
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
+        runs-on: ubuntu-22.04
+        env:
+            SLINT_NO_QT: 1
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
+            PKG_CONFIG_ALLOW_CROSS: 1
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install 32-bit build dependencies
+              run: |
+                  sudo dpkg --add-architecture i386
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-unknown-linux-gnu
+            - name: Run tests
+              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+
     cpp_cmake:
         needs: files-changed
         if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true'
