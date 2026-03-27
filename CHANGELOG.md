@@ -27,7 +27,7 @@ All notable changes to this project are documented in this file.
  - Added support for styled text with `StyledText` element, `styled-text` type, and `@markdown(...)` macro.
  - Added `PinchGestureHandler` element for handling multi-touch pinch gestures.
  - Fixed compiler panic when accessing model data from repeated menu. (#10927)
- - Added `Path::fit-style` property.
+ - Added `Path::fit` property.
  - `TextHorizontalAlignment`: Added `start` and `end` variants.
 
 ### Widgets

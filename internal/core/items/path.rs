@@ -49,7 +49,7 @@ pub struct Path {
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,
     pub viewbox_height: Property<f32>,
-    pub fit_style: Property<ImageFit>,
+    pub fit: Property<ImageFit>,
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -183,7 +183,7 @@ impl Path {
             bounds_width.get() as _,
             bounds_height.get() as _,
             maybe_viewbox,
-            self.fit_style(),
+            self.fit(),
         );
         (offset, elements_iter).into()
     }
