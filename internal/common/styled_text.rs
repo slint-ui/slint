@@ -118,13 +118,6 @@ pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParag
 }
 
 #[cfg(feature = "markdown")]
-pub fn paragraphs_from_plain_text(
-    text: alloc::string::String,
-) -> alloc::vec::Vec<StyledTextParagraph> {
-    alloc::vec![paragraph_from_plain_text(text)]
-}
-
-#[cfg(feature = "markdown")]
 pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     format_string: &str,
     args: &[S],
@@ -724,7 +717,7 @@ new *line*
 #[test]
 fn markdown_parsing_interpolated() {
     assert_eq!(
-        parse_interpolated("Text: *{}*", &[paragraphs_from_plain_text("italic".into())])
+        parse_interpolated("Text: *{}*", &[&[paragraph_from_plain_text("italic".into())]])
             .collect::<Result<Vec<_>, _>>()
             .unwrap(),
         [StyledTextParagraph {
@@ -734,7 +727,7 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        parse_interpolated("Escaped text: {}", &[paragraphs_from_plain_text("*bold*".into())])
+        parse_interpolated("Escaped text: {}", &[&[paragraph_from_plain_text("*bold*".into())]])
             .collect::<Result<Vec<_>, _>>()
             .unwrap(),
         [StyledTextParagraph {
@@ -744,9 +737,12 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        parse_interpolated("Code block text: `{}`", &[paragraphs_from_plain_text("*bold*".into())])
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap(),
+        parse_interpolated(
+            "Code block text: `{}`",
+            &[&[paragraph_from_plain_text("*bold*".into())]]
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [StyledTextParagraph {
             text: "Code block text: *bold*".into(),
             formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
@@ -757,7 +753,7 @@ fn markdown_parsing_interpolated() {
         parse_interpolated(
             "**{}** {}",
             &[
-                paragraphs_from_plain_text("Hello".into()),
+                alloc::vec![paragraph_from_plain_text("Hello".into())],
                 parse_interpolated::<&[_]>("*World*", &[]).collect::<Result<_, _>>().unwrap()
             ]
         )
