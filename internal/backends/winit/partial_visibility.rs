@@ -62,10 +62,7 @@ pub(crate) struct VisibilitySnapshot {
 
 impl VisibilitySnapshot {
     pub(crate) fn from_rects(window: WindowRect, monitors: &[MonitorRect]) -> Self {
-        let visible_area = monitors
-            .iter()
-            .map(|monitor| intersection_area(window, *monitor))
-            .sum();
+        let visible_area = monitors.iter().map(|monitor| intersection_area(window, *monitor)).sum();
 
         Self { total_area: window.area(), visible_area }
     }

@@ -24,12 +24,12 @@ use winit::platform::windows::WindowExtWindows;
 
 #[cfg(muda)]
 use crate::muda::MudaType;
-use crate::renderer::WinitCompatibleRenderer;
 #[cfg(target_os = "windows")]
 use crate::partial_visibility::{
     MonitorRect, VisibilityRecoveryAction, VisibilityRecoveryController, VisibilitySnapshot,
     WindowRect,
 };
+use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
@@ -892,7 +892,9 @@ impl WinitWindowAdapter {
                 self.request_redraw();
                 Ok(())
             }
-            VisibilityRecoveryAction::PresentExistingBuffer => self.renderer.present_existing_buffer(),
+            VisibilityRecoveryAction::PresentExistingBuffer => {
+                self.renderer.present_existing_buffer()
+            }
         }
     }
 
@@ -1132,9 +1134,7 @@ impl WinitWindowAdapter {
 
 #[cfg(target_os = "windows")]
 fn current_visibility_snapshot(window: &winit::window::Window) -> VisibilitySnapshot {
-    let position = window
-        .outer_position()
-        .unwrap_or(winit::dpi::PhysicalPosition::new(0, 0));
+    let position = window.outer_position().unwrap_or(winit::dpi::PhysicalPosition::new(0, 0));
     let size = window.outer_size();
     let monitors: Vec<_> = window
         .available_monitors()
