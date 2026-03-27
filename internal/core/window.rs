@@ -11,9 +11,8 @@ use crate::api::{
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyEvent, InternalKeyboardModifierState,
-    KeyEventType, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
-    key_codes,
+    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventType, MouseEvent,
+    MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
