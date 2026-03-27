@@ -175,6 +175,36 @@ importers:
         specifier: 'catalog:'
         version: 2.4.8
 
+  docs/safety:
+    dependencies:
+      '@astrojs/check':
+        specifier: 'catalog:'
+        version: 0.9.8(prettier@3.8.1)(typescript@5.9.3)
+      '@astrojs/starlight':
+        specifier: 'catalog:'
+        version: 0.38.2(astro@6.0.8(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.0)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.3))
+      '@slint/common-files':
+        specifier: workspace:*
+        version: link:../common
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.0
+      astro:
+        specifier: 'catalog:'
+        version: 6.0.8(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.0)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.3)
+      rehype-external-links:
+        specifier: 'catalog:'
+        version: 3.0.0
+      sharp:
+        specifier: 'catalog:'
+        version: 0.34.5
+      starlight-links-validator:
+        specifier: 'catalog:'
+        version: 0.20.1(@astrojs/starlight@0.38.2(astro@6.0.8(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.0)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.3)))(astro@6.0.8(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.0)(terser@5.46.0)(typescript@5.9.3)(yaml@2.8.3))
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   editors/vscode:
     dependencies:
       fs-extra:
