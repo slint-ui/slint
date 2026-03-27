@@ -167,9 +167,9 @@ impl BuiltinTypes {
             layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
                     ("constraint".into(), layout_info_type.into()),
-                    ("flex_grow".into(), Type::Float32),
-                    ("flex_shrink".into(), Type::Float32),
-                    ("flex_basis".into(), Type::Float32),
+                    ("flex-grow".into(), Type::Float32),
+                    ("flex-shrink".into(), Type::Float32),
+                    ("flex-basis".into(), Type::Float32),
                 ])
                 .collect(),
                 name: BuiltinPrivateStruct::LayoutItemInfo.into(),
