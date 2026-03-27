@@ -6,7 +6,7 @@ Content lives in `src/content/docs/`.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
+- [Node.js](https://nodejs.org/) (v22+)
 - [pnpm](https://pnpm.io/)
 
 Run `pnpm install` from the repository root first.
