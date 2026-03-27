@@ -1,13 +1,13 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-// Material docs header: same as common but without VersionSelector.
 
 import LanguageSelect from "@astrojs/starlight/components/LanguageSelect.astro";
 import Search from "@astrojs/starlight/components/Search.astro";
 import SiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
 import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
 import ThemeSelect from "@slint/common-files/src/components/ThemeSelect.astro";
+import VersionSelector from "@slint/common-files/src/components/VersionSelector.astro";
 ---
 
 <div class="header sl-flex">
@@ -18,6 +18,9 @@ import ThemeSelect from "@slint/common-files/src/components/ThemeSelect.astro";
 		<Search />
 	</div>
 	<div class="sl-hidden md:sl-flex right-group">
+	<div class="sl-flex social-icons">
+			<VersionSelector {...Astro.locals.starlightRoute} />
+	</div>
 		<div class="sl-flex social-icons">
 			<SocialIcons />
 		</div>
