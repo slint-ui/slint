@@ -786,10 +786,10 @@ impl Expression {
             .collect();
 
         let dummy_value =
-            i_slint_common::styled_text::StyledText::from_plain_text("dummy value".into());
+            i_slint_common::styled_text::paragraphs_from_plain_text("dummy value".into());
 
         // Validate the markdown format string with dummy values
-        if let Err(e) = i_slint_common::styled_text::StyledText::parse_interpolated(
+        if let Err(e) = i_slint_common::styled_text::parse_interpolated(
             &string,
             &vec![&dummy_value; values.len()],
         ) {
