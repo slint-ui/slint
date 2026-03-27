@@ -12,7 +12,7 @@ use crate::api::{
 };
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventType, MouseEvent,
-    MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, key_codes,
+    MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
