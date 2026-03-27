@@ -50,39 +50,39 @@ export default defineConfig({
                             slug: "requirements",
                         },
                         {
-                            label: "Safe Rust Coding Standards",
+                            label: "SR_SAFE_RUST_CODING_STANDARDS",
                             slug: "requirements/coding-standards",
                         },
                         {
-                            label: "Static Memory Allocation",
+                            label: "SR_STATIC_MEMORY_ALLOCATION",
                             slug: "requirements/memory-allocation",
                         },
                         {
-                            label: "Bounded Execution Time",
+                            label: "SR_BOUNDED_EXECUTION_TIME",
                             slug: "requirements/bounded-execution",
                         },
                         {
-                            label: "State Machine Determinism",
+                            label: "SR_STATE_MACHINE_DETERMINISM",
                             slug: "requirements/state-machine",
                         },
                         {
-                            label: "Resource Fallback",
+                            label: "SR_RESOURCE_FALLBACK",
                             slug: "requirements/resource-fallback",
                         },
                         {
-                            label: "Code Generation",
+                            label: "SR_CODE_GENERATION",
                             slug: "requirements/code-generation",
                         },
                         {
-                            label: "Test Coverage",
+                            label: "SR_TEST_COVERAGE",
                             slug: "requirements/test-coverage",
                         },
                         {
-                            label: "Separation of Concerns",
+                            label: "SR_SEPARATION_OF_CONCERNS",
                             slug: "requirements/separation-of-concerns",
                         },
                         {
-                            label: "Concurrency Control",
+                            label: "SR_CONCURRENCY_CONTROL",
                             slug: "requirements/concurrency-control",
                         },
                     ],
