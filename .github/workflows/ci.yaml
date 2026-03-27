@@ -147,7 +147,13 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
+                include:
+                    - os: ubuntu-22.04
+                      rust_version: "1.88"
+                    - os: macos-14
+                      rust_version: beta
+                    - os: windows-2022
+                      rust_version: stable
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -170,13 +176,15 @@ jobs:
                   echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
                   echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ matrix.rust_version }}
             - name: Run tests
               run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
 
     cpp_test_driver_32bit:
         needs: files-changed
         if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
