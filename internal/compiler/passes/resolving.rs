@@ -792,7 +792,9 @@ impl Expression {
         if let Err(e) = i_slint_common::styled_text::parse_interpolated(
             &string,
             &vec![&dummy_value; values.len()],
-        ) {
+        )
+        .collect::<Result<Vec<_>, _>>()
+        {
             ctx.diag.push_error(e.to_string(), &node);
         }
 

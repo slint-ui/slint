@@ -15,19 +15,16 @@ impl StyledText {
         format_string: &str,
         args: &[S],
     ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
-        Ok(i_slint_common::styled_text::parse_interpolated(format_string, args)?.into())
+        Ok(Self {
+            paragraphs: i_slint_common::styled_text::parse_interpolated(format_string, args)
+                .collect::<Result<crate::SharedVector<_>, _>>()?,
+        })
     }
 }
 
 impl AsRef<[i_slint_common::styled_text::StyledTextParagraph]> for StyledText {
     fn as_ref(&self) -> &[i_slint_common::styled_text::StyledTextParagraph] {
         &self.paragraphs
-    }
-}
-
-impl From<alloc::vec::Vec<i_slint_common::styled_text::StyledTextParagraph>> for StyledText {
-    fn from(paragraphs: alloc::vec::Vec<i_slint_common::styled_text::StyledTextParagraph>) -> Self {
-        Self { paragraphs: (&paragraphs[..]).into() }
     }
 }
 
@@ -99,7 +96,9 @@ pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph
 pub fn string_to_styled_text(_string: alloc::string::String) -> StyledText {
     #[cfg(feature = "std")]
     {
-        i_slint_common::styled_text::paragraphs_from_plain_text(_string).into()
+        StyledText {
+            paragraphs: [i_slint_common::styled_text::paragraph_from_plain_text(_string)].into(),
+        }
     }
     #[cfg(not(feature = "std"))]
     Default::default()
