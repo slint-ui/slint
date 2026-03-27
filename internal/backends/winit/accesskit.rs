@@ -53,7 +53,7 @@ impl AccessKitAdapter {
         window_adapter_weak: Weak<WinitWindowAdapter>,
         active_event_loop: &ActiveEventLoop,
         winit_window: &winit::window::Window,
-        proxy: EventLoopProxy<SlintEvent>,
+        proxy: EventLoopProxy,
     ) -> Self {
         Self {
             inner: accesskit_winit::Adapter::with_event_loop_proxy(
