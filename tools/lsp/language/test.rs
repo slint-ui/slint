@@ -143,7 +143,7 @@ component MainWindow inherits Window {
             "#.to_string())
 }
 
-pub fn load<'a>(
+pub fn load(
     ctx: &mut Context,
     path: &Path,
     content: &str,
@@ -183,6 +183,9 @@ fn accurate_diagnostics_in_dependencies() {
 
     assert!(diag[&foo_url][0].message.contains("hello"));
     assert_eq!(diag.len(), 1);
+
+    ctx.open_urls.insert(foo_url.clone());
+    ctx.open_urls.insert(bar_url.clone());
 
     let (bar_url, diag) = load(
         &mut ctx,
