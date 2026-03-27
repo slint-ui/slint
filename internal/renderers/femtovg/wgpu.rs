@@ -268,7 +268,7 @@ impl FemtoVGWGPURenderer {
     /// Creates a new FemtoVGWGPURenderer.
     ///
     /// The `instance`, `device` and `queue` are the WGPU resources used for rendering.
-    /// These are also provided to `RenderingNotifier` callbacks via `GraphicsAPI::WGPU28`.
+    /// These are also provided to [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier) callbacks via [`GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28).
     pub fn new(
         instance: wgpu::Instance,
         device: wgpu::Device,
