@@ -768,8 +768,7 @@ impl WindowInner {
     /// scale factor). Passing physical coordinates will produce incorrect gesture
     /// geometry and hit-testing.
     pub fn process_touch_input(&self, id: u64, position: LogicalPoint, phase: TouchPhase) {
-        let click_interval = self.context().platform().click_interval();
-        let events = self.touch_state.borrow_mut().process(id, position, phase, click_interval);
+        let events = self.touch_state.borrow_mut().process(id, position, phase);
         for event in events.into_iter() {
             self.process_mouse_input(event);
         }
