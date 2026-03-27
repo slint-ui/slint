@@ -7,7 +7,6 @@ import Search from "@astrojs/starlight/components/Search.astro";
 import SiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
 import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
 import ThemeSelect from "./ThemeSelect.astro";
-import VersionSelector from "./VersionSelector.astro";
 ---
 
 <div class="header sl-flex">
@@ -18,9 +17,6 @@ import VersionSelector from "./VersionSelector.astro";
 		<Search />
 	</div>
 	<div class="sl-hidden md:sl-flex right-group">
-	<div class="sl-flex social-icons">
-			<VersionSelector {...Astro.locals.starlightRoute} />
-	</div>
 		<div class="sl-flex social-icons">
 			<SocialIcons />
 		</div>
@@ -71,7 +67,7 @@ import VersionSelector from "./VersionSelector.astro";
 			);
 			display: grid;
 			grid-template-columns:
-        /* 1 (site title): runs up until the main content column’s left edge or the width of the title, whichever is the largest  */
+        /* 1 (site title): runs up until the main content column's left edge or the width of the title, whichever is the largest  */
 				minmax(
 					calc(var(--__sidebar-width) + max(0rem, var(--__main-column-fr) - var(--sl-nav-gap))),
 					auto
