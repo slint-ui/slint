@@ -9,7 +9,7 @@ export component TestCase inherits Window {
     out property <bool> outer-active <=> outer.active;
     out property <bool> inner-active <=> inner.active;
 
-    outer := PinchGestureHandler {
+    outer := ScaleRotateGestureHandler {
         started => { r += "outer-started;"; }
         updated => { r += "outer-updated;"; }
         ended => { r += "outer-ended;"; }
@@ -21,7 +21,7 @@ export component TestCase inherits Window {
             width: 200px;
             height: 200px;
 
-            inner := PinchGestureHandler {
+            inner := ScaleRotateGestureHandler {
                 started => { r += "inner-started;"; }
                 updated => { r += "inner-updated;"; }
                 ended => { r += "inner-ended;"; }

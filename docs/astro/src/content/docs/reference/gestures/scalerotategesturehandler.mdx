@@ -1,11 +1,11 @@
 ---
-title: PinchGestureHandler
-description: PinchGestureHandler element api.
+title: ScaleRotateGestureHandler
+description: ScaleRotateGestureHandler element api.
 ---
 import SlintProperty  from '@slint/common-files/src/components/SlintProperty.astro';
 
 
-Use the `PinchGestureHandler` to handle pinch, rotation, and smart-magnify gestures from trackpads or touchscreens.
+Use the `ScaleRotateGestureHandler` to handle pinch, rotation, and smart-magnify gestures from trackpads or touchscreens.
 Recognition is limited to the element's geometry.
 
 ```slint playground
@@ -16,7 +16,7 @@ export component Example inherits Window {
     property <float> start-scale;
     property <angle> start-rotation;
 
-    pinch := PinchGestureHandler {
+    gesture := ScaleRotateGestureHandler {
         started => {
             start-scale = rect.current-scale;
             start-rotation = rect.current-rotation;
@@ -57,7 +57,7 @@ On other platforms, it processes raw two-finger touch input for pinch and rotati
 
 ### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
-When disabled, the `PinchGestureHandler` doesn't recognize any gestures and any on-going gesture is cancelled.
+When disabled, the `ScaleRotateGestureHandler` doesn't recognize any gestures and any on-going gesture is cancelled.
 </SlintProperty>
 
 ### active
@@ -81,7 +81,7 @@ When the gesture is not active, the value is `0deg`.
 
 ### center
 <SlintProperty propName="center" typeName="struct" structName="Point" propertyVisibility="out">
-The center point of the gesture, in the coordinate system of the `PinchGestureHandler`.
+The center point of the gesture, in the coordinate system of the `ScaleRotateGestureHandler`.
 For two-finger touch input, this is the midpoint between the two fingers.
 For trackpad gestures, this is the mouse cursor position.
 </SlintProperty>

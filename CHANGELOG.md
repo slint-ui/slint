@@ -25,7 +25,7 @@ All notable changes to this project are documented in this file.
  - Added printable keys in the `Key` namespace.
  - Added `FlexBoxLayout`.
  - Added support for styled text with `StyledText` element, `styled-text` type, and `@markdown(...)` macro.
- - Added `PinchGestureHandler` element for handling multi-touch pinch gestures.
+ - Added `ScaleRotateGestureHandler` element for handling multi-touch pinch gestures.
  - Fixed compiler panic when accessing model data from repeated menu. (#10927)
  - Added `Path::fit-style` property.
  - `TextHorizontalAlignment`: Added `start` and `end` variants.

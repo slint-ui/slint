@@ -961,7 +961,7 @@ mod ffi {
     }
 }
 
-/// The implementation of the `PinchGestureHandler` element.
+/// The implementation of the `ScaleRotateGestureHandler` element.
 ///
 /// Provides an API surface for platform-recognized pinch gesture events.
 /// Receives `MouseEvent::PinchGesture` events via the normal mouse event
@@ -969,7 +969,7 @@ mod ffi {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct PinchGestureHandler {
+pub struct ScaleRotateGestureHandler {
     pub enabled: Property<bool>,
 
     // Output properties
@@ -994,7 +994,7 @@ pub struct PinchGestureHandler {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for PinchGestureHandler {
+impl Item for ScaleRotateGestureHandler {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
         self.scale.set(1.0);
     }
@@ -1167,12 +1167,12 @@ impl Item for PinchGestureHandler {
     }
 }
 
-impl ItemConsts for PinchGestureHandler {
+impl ItemConsts for ScaleRotateGestureHandler {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl PinchGestureHandler {
+impl ScaleRotateGestureHandler {
     fn cancel_impl(self: Pin<&Self>) {
         if !self.active() {
             return;

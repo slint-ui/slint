@@ -53,7 +53,7 @@ pub enum MouseEvent {
     /// The mouse is released while dragging over this item.
     Drop(DropEvent),
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
-    /// `delta` is the incremental scale change; PinchGestureHandler accumulates it.
+    /// `delta` is the incremental scale change; ScaleRotateGestureHandler accumulates it.
     PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
     /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt).
     /// `delta` is the incremental rotation in degrees using the Slint convention:

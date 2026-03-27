@@ -1036,7 +1036,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
-            rtti_for::<PinchGestureHandler>(),
+            rtti_for::<ScaleRotateGestureHandler>(),
             rtti_for::<Path>(),
             rtti_for::<Flickable>(),
             rtti_for::<WindowItem>(),
