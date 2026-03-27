@@ -89,7 +89,7 @@ component GestureArea inherits Rectangle {
         }
     }
 
-    gesture := PinchGestureHandler {
+    gesture := ScaleRotateGestureHandler {
         started => {
             set-status("active");
         }
@@ -203,7 +203,7 @@ export component MainWindow inherits Window {
             alignment: center;
 
             Text {
-                text: "PinchGestureHandler Demo";
+                text: "ScaleRotateGestureHandler Demo";
                 color: #e0e0f0;
                 font-size: 14px;
                 font-weight: 700;
@@ -230,7 +230,7 @@ export component MainWindow inherits Window {
         }
 
         if root.orientation == Orientation.portrait: Text {
-            text: "PinchGestureHandler Demo";
+            text: "ScaleRotateGestureHandler Demo";
             color: #e0e0f0;
             font-size: 18px;
             font-weight: 700;

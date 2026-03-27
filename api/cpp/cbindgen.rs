@@ -304,7 +304,7 @@ fn gen_corelib(
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
-        "PinchGestureHandler",
+        "ScaleRotateGestureHandler",
         "Flickable",
         "SimpleText",
         "StyledTextItem",

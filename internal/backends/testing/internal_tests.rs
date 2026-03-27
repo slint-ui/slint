@@ -120,7 +120,7 @@ pub fn set_window_scale_factor<
 /// Send a platform pinch gesture event to the component's window.
 ///
 /// `delta` is the incremental scale change (e.g. 0.0 for start, 0.5 for 50% increase).
-/// The PinchGestureHandler accumulates deltas: `scale *= (1.0 + delta)`.
+/// The ScaleRotateGestureHandler accumulates deltas: `scale *= (1.0 + delta)`.
 pub fn send_pinch_gesture<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,

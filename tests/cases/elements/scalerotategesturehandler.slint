@@ -13,7 +13,7 @@ export component TestCase inherits Window {
     out property <Point> center <=> pinch.center;
     out property <bool> smart-magnified: false;
 
-    pinch := PinchGestureHandler {
+    pinch := ScaleRotateGestureHandler {
         started => {
             r += "started;";
         }
