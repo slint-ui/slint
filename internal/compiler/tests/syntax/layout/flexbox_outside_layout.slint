@@ -1,0 +1,47 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+
+    FlexBoxLayout {
+        Text {
+            flex-grow: 1;
+            flex-shrink: 2;
+            flex-basis: 100px;
+        }
+        Rectangle {
+            Text {
+                flex-grow: 1;
+//                         ><error{flex-grow used outside of a FlexBoxLayout}
+                flex-shrink: 2;
+//                           ><error{flex-shrink used outside of a FlexBoxLayout}
+                flex-basis: 100px;
+//                          >    <error{flex-basis used outside of a FlexBoxLayout}
+            }
+        }
+    }
+
+    // flex properties used outside of FlexBoxLayout should error
+    Text {
+        flex-grow: 1;
+//                 ><error{flex-grow used outside of a FlexBoxLayout}
+        flex-shrink: 2;
+//                   ><error{flex-shrink used outside of a FlexBoxLayout}
+        flex-basis: 100px;
+//                  >    <error{flex-basis used outside of a FlexBoxLayout}
+    }
+
+    GridLayout {
+        Text {
+            flex-grow: 1;
+//                     ><error{flex-grow used outside of a FlexBoxLayout}
+        }
+    }
+
+    HorizontalLayout {
+        Text {
+            flex-grow: 1;
+//                     ><error{flex-grow used outside of a FlexBoxLayout}
+        }
+    }
+}

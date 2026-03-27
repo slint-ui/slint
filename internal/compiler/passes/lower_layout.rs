@@ -1596,6 +1596,14 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
+        if parent_layout_type.as_deref() != Some("FlexBoxLayout")
+            && matches!(
+                prop.as_ref(),
+                "flex-grow" | "flex-shrink" | "flex-basis" | "align-self" | "order"
+            )
+        {
+            diag.push_error(format!("{prop} used outside of a FlexBoxLayout"), &*expr.borrow());
+        }
         if parent_layout_type.as_deref() != Some("Dialog")
             && matches!(prop.as_ref(), "dialog-button-role")
         {
