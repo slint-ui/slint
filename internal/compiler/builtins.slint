@@ -535,9 +535,9 @@ export component Path {
     in property <FillRule> fill-rule;
     in property <brush> stroke;
     in property <length> stroke-width;
-    in property <LineCap> stroke-line-cap: butt;
-    in property <LineJoin> stroke-line-join: miter;
-    in property <float> stroke-miter-limit: 4;
+    in property <LineCap> stroke-line-cap;
+    in property <LineJoin> stroke-line-join;
+    in property <float> stroke-miter-limit: 4; // SVG default is 4
     in property <string> commands;  // 'fake' hardcoded in typeregister.rs
     in property <float> viewbox-x;
     in property <float> viewbox-y;

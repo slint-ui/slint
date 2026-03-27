@@ -176,7 +176,7 @@ pub fn render_stroked_path<T: TargetPixel>(
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
     let mut stroke = Stroke::new(stroke_width);
-    _ = stroke
+    stroke
         .cap(match stroke_line_cap {
             i_slint_core::items::LineCap::Round => Cap::Round,
             i_slint_core::items::LineCap::Square => Cap::Square,
