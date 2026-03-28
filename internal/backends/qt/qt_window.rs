@@ -1168,12 +1168,14 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
         _normalized_coords: &[i16],
-        _synthesis: &fontique::Synthesis,
+        synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
-        let Some(mut raw_font) = FONT_CACHE.with(|cache| cache.borrow_mut().font(font)) else {
+        let Some(mut raw_font) = FONT_CACHE.with(|cache| {
+            cache.borrow_mut().font_with_variations(font, font_size.get(), synthesis)
+        }) else {
             return;
         };
 
@@ -1289,10 +1291,66 @@ impl QRawFont {
     }
 }
 
+/// Register font data with QFontDatabase and return the registration id.
+/// Returns -1 on failure.
+fn register_font_with_database(data: &[u8]) -> i32 {
+    let font_data = qttypes::QByteArray::from(data);
+    cpp! { unsafe [font_data as "QByteArray"] -> i32 as "int" {
+        return QFontDatabase::addApplicationFontFromData(font_data);
+    }}
+}
+
+/// Get the family name for a registered font. Returns empty string on failure.
+fn font_family_for_registration(id: i32) -> String {
+    let qstring = cpp! { unsafe [id as "int"] -> qttypes::QString as "QString" {
+        auto families = QFontDatabase::applicationFontFamilies(id);
+        if (families.isEmpty()) return QString();
+        return families.first();
+    }};
+    qstring.to_string()
+}
+
+/// Create a QRawFont with variable font axes applied via QFont (Qt 6.7+).
+/// `tags` and `values` are parallel arrays of OpenType axis tags (as big-endian u32) and
+/// design-space values. Returns a default (invalid) QRawFont if Qt < 6.7 or on failure.
+fn raw_font_with_variations(
+    family: &str,
+    pixel_size: f32,
+    tags: &[u32],
+    values: &[f32],
+) -> QRawFont {
+    let family = qttypes::QString::from(family);
+    let tags_ptr = tags.as_ptr();
+    let values_ptr = values.as_ptr();
+    let count: i32 = tags.len() as i32;
+    cpp! { unsafe [family as "QString", pixel_size as "float",
+                   tags_ptr as "const quint32*", values_ptr as "const float*",
+                   count as "int"] -> QRawFont as "QRawFont" {
+        #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+        QFont font(family, -1);
+        font.setPixelSize(pixel_size);
+        font.setHintingPreference(QFont::PreferNoHinting);
+        for (int i = 0; i < count; i++) {
+            auto tag = QFont::Tag::fromValue(tags_ptr[i]);
+            if (tag)
+                font.setVariableAxis(*tag, values_ptr[i]);
+        }
+        return QRawFont::fromFont(font);
+        #else
+        Q_UNUSED(family); Q_UNUSED(pixel_size);
+        Q_UNUSED(tags_ptr); Q_UNUSED(values_ptr); Q_UNUSED(count);
+        return QRawFont();
+        #endif
+    }}
+}
+
 #[derive(Default)]
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
     fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
+    /// Font registration ids for QFontDatabase, keyed by blob.
+    /// Used for variable font support via QFont (Qt 6.7+).
+    registrations: HashMap<HashedBlob, (i32, String)>,
 }
 
 impl FontCache {
@@ -1305,6 +1363,47 @@ impl FontCache {
                 if raw_font.is_valid() { Some(raw_font) } else { None }
             })
             .clone()
+    }
+
+    /// Get or create a QFontDatabase registration for the given font data.
+    /// Returns the family name if registration succeeded.
+    fn ensure_registered(&mut self, font: &parley::FontData) -> Option<String> {
+        let blob_key: HashedBlob = font.data.clone().into();
+        if let Some((_id, family)) = self.registrations.get(&blob_key) {
+            if !family.is_empty() {
+                return Some(family.clone());
+            }
+            return None;
+        }
+        let id = register_font_with_database(font.data.as_ref());
+        let family = if id >= 0 { font_family_for_registration(id) } else { String::new() };
+        let result = if !family.is_empty() { Some(family.clone()) } else { None };
+        self.registrations.insert(blob_key, (id, family));
+        result
+    }
+
+    /// Create a QRawFont with variable font axes applied.
+    /// Falls back to the base font if Qt < 6.7 or registration fails.
+    pub fn font_with_variations(
+        &mut self,
+        font: &parley::FontData,
+        pixel_size: f32,
+        synthesis: &fontique::Synthesis,
+    ) -> Option<QRawFont> {
+        let variation_settings = synthesis.variation_settings();
+        if variation_settings.is_empty() {
+            return self.font(font);
+        }
+        let family = self.ensure_registered(font)?;
+        let (tags, values): (Vec<u32>, Vec<f32>) = variation_settings
+            .iter()
+            .map(|&(tag, value)| {
+                let bytes = tag.to_be_bytes();
+                (u32::from_be_bytes(bytes), value)
+            })
+            .unzip();
+        let raw_font = raw_font_with_variations(&family, pixel_size, &tags, &values);
+        if raw_font.is_valid() { Some(raw_font) } else { self.font(font) }
     }
 }
 
