@@ -109,3 +109,8 @@ jobs:
                   git add -u .
                   git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Update versions.json"
                   git push
+            - name: Trigger www-releases deploy
+              run: |
+                  gh workflow run deploy-releases.yaml --repo slint-ui/www-releases
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}

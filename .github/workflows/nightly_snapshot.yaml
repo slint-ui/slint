@@ -563,6 +563,18 @@ jobs:
                 git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
                 git push
 
+            - name: Trigger www-releases deploy
+              if: ${{ steps.www-releases.outputs.has-diff == 'yes' }}
+              env:
+                GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                RELEASE_INPUT: ${{ github.event.inputs.release }}
+              run: |
+                if [ "$RELEASE_INPUT" = "true" ]; then
+                  gh workflow run deploy-releases.yaml --repo slint-ui/www-releases
+                else
+                  gh workflow run deploy-snapshots.yaml --repo slint-ui/www-releases
+                fi
+
     prepare_release:
         if: github.event.inputs.private != 'true'
         needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
