@@ -318,21 +318,29 @@ fn analyze_binding(
     if context.currently_analyzing.contains(current) {
         let mut loop_description = String::new();
         let mut has_window_layout = false;
+
+        fn push_prop(prop: &PropertyPath, out: &mut String) {
+            if !out.is_empty() {
+                out.push_str(" -> ");
+            }
+            match prop.prop.element().borrow().id.as_str() {
+                "" => out.push_str(prop.prop.name()),
+                id => {
+                    out.push_str(id);
+                    out.push('.');
+                    out.push_str(prop.prop.name());
+                }
+            }
+        }
+
+        // Build description by iterating in reverse (trigger direction: "A triggers B")
+        // and close the loop by prepending `current` at the start.
+        push_prop(current, &mut loop_description);
         for it in context.currently_analyzing.iter().rev() {
             if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
                 has_window_layout = true;
             }
-            if !loop_description.is_empty() {
-                loop_description.push_str(" -> ");
-            }
-            match it.prop.element().borrow().id.as_str() {
-                "" => loop_description.push_str(it.prop.name()),
-                id => {
-                    loop_description.push_str(id);
-                    loop_description.push('.');
-                    loop_description.push_str(it.prop.name());
-                }
-            }
+            push_prop(it, &mut loop_description);
             if it == current {
                 break;
             }
