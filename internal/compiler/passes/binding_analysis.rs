@@ -199,11 +199,7 @@ fn analyze_element(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
-    // Process properties tracked by changed callbacks so their bindings are analyzed.
-    // The ChangeTracker evaluates the property during initialization to get its initial value,
-    // so the property is effectively "read" even if nothing else references it.
-    // This ensures binding loops involving changed-callback-tracked properties are detected
-    // (e.g., a root component with `changed a => {}` where `a` is part of a binding loop).
+    // ChangeTracker evaluates tracked properties during init, so treat them as read.
     for prop_name in elem.borrow().change_callbacks.keys() {
         process_property(
             &PropertyPath::from(NamedReference::new(elem, prop_name.clone())),
@@ -399,7 +395,6 @@ fn analyze_binding(
     context.currently_analyzing.insert(current.clone());
 
     let b = binding.borrow();
-
     for twb in &b.two_way_bindings {
         if twb.property != current.prop {
             depends_on_external |= process_property(
@@ -467,7 +462,7 @@ fn analyze_binding(
     depends_on_external
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum ReadType {
     // Read from the native code
     NativeRead,
@@ -753,39 +748,22 @@ fn visit_layout_items_dependencies<'a>(
     }
 }
 
-/// Visit dependencies from init callbacks and changed callbacks of a repeated component.
-///
-/// This is important because instantiating repeater items (via ensure_updated) during
-/// layout computation will:
-/// 1. Run init callbacks which may read layout-dependent properties
-/// 2. Initialize change trackers which evaluate their tracked properties
-///
-/// For changed callbacks, the key insight is that the ChangeTracker initialization
-/// evaluates the property to get its initial value. If that property depends on layout,
-/// and layout depends on the repeater, we have a recursion cycle.
-///
-/// See: https://github.com/slint-ui/slint/issues/7402 and #7849
+/// Visit dependencies from init and changed callbacks of a repeated component.
+/// Instantiating repeater items runs these callbacks, which may read layout-dependent
+/// properties. See https://github.com/slint-ui/slint/issues/7402 and #7849.
 fn visit_component_init_and_changed_callbacks(
     component: &Rc<crate::object_tree::Component>,
     vis: &mut dyn FnMut(&PropertyPath, ReadType),
 ) {
-    // Visit init code (constructor_code contains collected init callbacks)
-    // Init callbacks may read properties that depend on layout
     for expr in &component.init_code.borrow().constructor_code {
         recurse_expression(&component.root_element, expr, vis);
     }
-
-    // Visit inlined init code from inlined components
     for expr in component.init_code.borrow().inlined_init_code.values() {
         recurse_expression(&component.root_element, expr, vis);
     }
-
-    // For changed callbacks, visit the PROPERTY being tracked (not the callback body).
-    // The ChangeTracker evaluates the property during initialization, so if the property
-    // depends on layout, it will trigger layout computation.
+    // Visit tracked properties (not callback bodies) — ChangeTracker evaluates them during init.
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         for prop_name in elem.borrow().change_callbacks.keys() {
-            // The property being tracked is evaluated during ChangeTracker::init()
             let nr = NamedReference::new(elem, prop_name.clone());
             vis(&nr.into(), ReadType::PropertyRead);
         }
