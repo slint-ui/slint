@@ -592,9 +592,10 @@ fn lower_sub_component(
     // For repeated elements in a FlexBoxLayout, generate code to read flex properties
     if sub_component.child_of_layout {
         let root_elem = &component.root_element;
-        let has_flex_binding = ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"]
-            .iter()
-            .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
+        let has_flex_binding =
+            ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"]
+                .iter()
+                .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         if has_flex_binding {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
