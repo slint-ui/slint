@@ -867,6 +867,16 @@ pub trait RepeatedItemTree:
         crate::layout::LayoutItemInfo::default()
     }
 
+    /// Returns what's needed to perform a flexbox layout if this ItemTree is in a FlexBoxLayout.
+    /// Includes flex-specific properties (flex-grow, flex-shrink, flex-basis, align-self, order).
+    fn flexbox_layout_item_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        child_index: Option<usize>,
+    ) -> crate::layout::FlexBoxLayoutItemInfo {
+        self.layout_item_info(orientation, child_index).into()
+    }
+
     /// Fills in the grid layout input data for this ItemTree if it is in a grid layout.
     /// This will be a single GridLayoutInputData if the repeated item is a single cell,
     /// or multiple GridLayoutInputData if the repeated item is a full Row.

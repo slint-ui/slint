@@ -2629,6 +2629,34 @@ fn generate_layout_item_info_decl(
     })
 }
 
+fn generate_flexbox_layout_item_info_decl(
+    root_sc: &llr::SubComponent,
+    ctx: &EvaluationContext,
+) -> Declaration {
+    const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::FlexBoxLayoutItemInfo";
+
+    let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
+        let compiled = compile_expression(&expr.borrow(), ctx);
+        format!(
+            "[[maybe_unused]] auto self = this; \
+             auto info = {compiled}; \
+             info.constraint = layout_item_info(o, child_index).constraint; \
+             return info;"
+        )
+    } else {
+        "auto base = layout_item_info(o, child_index); \
+         return { base.constraint, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 };"
+            .to_owned()
+    };
+
+    Declaration::Function(Function {
+        name: "flexbox_layout_item_info".into(),
+        signature: SIGNATURE.to_owned(),
+        statements: Some(vec![body]),
+        ..Function::default()
+    })
+}
+
 /// Generates the `grid_layout_input_for_repeated` member function for a repeated component struct,
 /// or returns `None` if the sub-component doesn't participate in a grid layout as a repeated row.
 fn generate_grid_layout_input_decl(
@@ -2819,6 +2847,9 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             generate_layout_item_info_decl(root_sc, &ctx),
         ));
+        repeater_struct
+            .members
+            .push((Access::Public, generate_flexbox_layout_item_info_decl(root_sc, &ctx)));
         if let Some(decl) = generate_grid_layout_input_decl(root_sc, &ctx) {
             repeater_struct.members.push((Access::Public, decl));
         }
@@ -4824,10 +4855,8 @@ fn generate_with_flexbox_layout_item_info(
                 write!(
                     push_code,
                     "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
-                     auto info_h = sub_comp->layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt); \
-                     cells_vector_h.push_back({{ info_h.constraint, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 }}); \
-                     auto info_v = sub_comp->layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt); \
-                     cells_vector_v.push_back({{ info_v.constraint, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 }}); }});"
+                     cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
+                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }});"
                 )
                 .unwrap();
             }
