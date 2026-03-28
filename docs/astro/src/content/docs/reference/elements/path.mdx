@@ -51,6 +51,12 @@ The appearance of the ends of the path's outline.
 The appearance of the joins between segments of stroked paths.
 </SlintProperty>
 
+### stroke-miter-limit
+<SlintProperty propName="stroke-miter-limit" typeName="float" defaultValue='4'>
+The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
+When the limit is exceeded, the join is rendered as a bevel instead.
+</SlintProperty>
+
 ### width
 <SlintProperty propName="width" typeName="length">
 If non-zero, the path will be scaled to fit into the specified width.

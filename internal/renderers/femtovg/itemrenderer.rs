@@ -470,6 +470,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
                 items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
             });
+            paint.set_miter_limit(path.stroke_miter_limit());
             paint.set_anti_alias(anti_alias);
             paint
         });
