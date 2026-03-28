@@ -199,6 +199,11 @@ fn analyze_element(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
+    // Process properties tracked by changed callbacks so their bindings are analyzed.
+    // The ChangeTracker evaluates the property during initialization to get its initial value,
+    // so the property is effectively "read" even if nothing else references it.
+    // This ensures binding loops involving changed-callback-tracked properties are detected
+    // (e.g., a root component with `changed a => {}` where `a` is part of a binding loop).
     for prop_name in elem.borrow().change_callbacks.keys() {
         process_property(
             &PropertyPath::from(NamedReference::new(elem, prop_name.clone())),
