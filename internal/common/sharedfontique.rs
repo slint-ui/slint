@@ -4,6 +4,9 @@
 pub use fontique;
 pub use ttf_parser;
 
+#[cfg(any(target_family = "wasm", target_os = "nto"))]
+use fontique::ScriptExt;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 

@@ -45,6 +45,8 @@ All notable changes to this project are documented in this file.
  - Added `KeyboardModifiers`, `KeyEvent`, and `StandardListViewItem` to the `slint::language` module.
  - Added support for multiple `@rust-attr` per struct or enum.
  - Added `open_url` methd to the `Platform` trait. (#11035)
+ - Upgraded fontique and parley dependencies: The `unstable-fontique-07` Cargo feature replaces the old `unstable-fontique-07` feature, along with
+   `slint::fontique_08` replacing `slint::fontique_07`.
 
 ### Python
 
