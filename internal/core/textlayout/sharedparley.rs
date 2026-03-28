@@ -1408,13 +1408,17 @@ pub fn font_metrics(
         return crate::items::FontMetrics::default();
     };
 
-    let metrics = sharedfontique::DesignFontMetrics::new(&font);
+    let face = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
+    let location = face.axes().location(font.synthesis.variation_settings());
+    let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
+
+    let units_per_em = metrics.units_per_em as f32;
 
     crate::items::FontMetrics {
-        ascent: metrics.ascent * logical_pixel_size / metrics.units_per_em,
-        descent: metrics.descent * logical_pixel_size / metrics.units_per_em,
-        x_height: metrics.x_height * logical_pixel_size / metrics.units_per_em,
-        cap_height: metrics.cap_height * logical_pixel_size / metrics.units_per_em,
+        ascent: metrics.ascent * logical_pixel_size / units_per_em,
+        descent: metrics.descent * logical_pixel_size / units_per_em,
+        x_height: metrics.x_height.unwrap_or_default() * logical_pixel_size / units_per_em,
+        cap_height: metrics.cap_height.unwrap_or_default() * logical_pixel_size / units_per_em,
     }
 }
 

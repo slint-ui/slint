@@ -312,17 +312,21 @@ fn embed_font(
     character_map.sort_by_key(|entry| entry.code_point);
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
-    let metrics = sharedfontique::DesignFontMetrics::new_from_font_ref(&font_ref);
+    let metrics = skrifa::metrics::Metrics::new(
+        &font_ref,
+        skrifa::instance::Size::unscaled(),
+        skrifa::instance::LocationRef::default(),
+    );
     let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
     BitmapFont {
         family_name,
         character_map,
-        units_per_em: metrics.units_per_em,
+        units_per_em: metrics.units_per_em as f32,
         ascent: metrics.ascent,
         descent: metrics.descent,
-        x_height: metrics.x_height,
-        cap_height: metrics.cap_height,
+        x_height: metrics.x_height.unwrap_or_default(),
+        cap_height: metrics.cap_height.unwrap_or_default(),
         glyphs,
         weight: attrs.weight.value() as u16,
         italic: attrs.style != skrifa::attribute::Style::Normal,
@@ -459,7 +463,12 @@ fn generate_sdf_for_glyph(
         fdsm_ttf_parser::ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
 
-    let metrics = sharedfontique::DesignFontMetrics::new(&font.font);
+    let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
+    let metrics = skrifa::metrics::Metrics::new(
+        &font_ref,
+        skrifa::instance::Size::unscaled(),
+        skrifa::instance::LocationRef::default(),
+    );
     let target_pixel_size = target_pixel_size as f64;
     let scale = target_pixel_size / metrics.units_per_em as f64;
 
