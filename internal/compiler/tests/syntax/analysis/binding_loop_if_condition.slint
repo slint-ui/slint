@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that binding loop detection works for `if` conditions (not just `for` loops).
+// Issue #7849 also mentions `if` conditions causing the same recursion pattern.
+
+component MyBox inherits Rectangle {
+    preferred-height: 100px;
+    changed height => {}
+}
+
+export component TestIfConditionLoop inherits Window {
+//                                            >     <warning{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache -> height).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+    VerticalLayout {
+//  >             <warning{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache -> height).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >             <^warning{The binding for the property 'height' is part of a binding loop (layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache -> height).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >             <^^warning{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache -> height).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >             <^^^warning{The binding for the property 'height' is part of a binding loop (layoutinfo-v -> root.layoutinfo-v -> height -> layout-cache -> height).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+        if true: MyBox {}
+    }
+}
