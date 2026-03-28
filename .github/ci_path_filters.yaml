@@ -83,6 +83,10 @@ api_node:
  - *js_config
  - *ci_config
 
+api_swift:
+ - 'api/swift/**'
+ - *ci_config
+
 api_rs:
  - 'api/rs/**'
  - 'Cargo.toml'

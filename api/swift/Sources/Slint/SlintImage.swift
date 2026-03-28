@@ -11,6 +11,11 @@
 public final class SlintImage: @unchecked Sendable {
     var handle: OpaquePointer
 
+    /// Creates a default, empty image with no pixel data.
+    public init() {
+        handle = slint_swift_image_new()
+    }
+
     /// Creates an image by loading from a file path.
     ///
     /// - Parameter path: The file system path to the image file.

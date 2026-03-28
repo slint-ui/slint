@@ -1,0 +1,35 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Swift Test (Reusable)
+
+on:
+    workflow_call:
+      inputs:
+        name:
+            description: 'Name of the job'
+            required: true
+            type: string
+        os:
+            description: 'Operating system to run on'
+            required: true
+            type: string
+
+env:
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: full
+
+jobs:
+    swift_test:
+        name: ${{ inputs.name }}
+        runs-on: ${{ inputs.os }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+            - name: Build Rust static library
+              run: cargo build --lib -p slint-swift
+            - name: Run Swift tests
+              working-directory: api/swift
+              run: swift test
