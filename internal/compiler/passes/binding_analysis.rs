@@ -357,8 +357,7 @@ fn analyze_binding(
             }
         }
 
-        let is_warning =
-            !context.error_on_binding_loop_with_window_layout && has_window_layout;
+        let is_warning = !context.error_on_binding_loop_with_window_layout && has_window_layout;
 
         for it in context.currently_analyzing.iter().rev() {
             let p = &it.prop;
