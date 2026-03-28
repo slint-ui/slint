@@ -30,7 +30,7 @@ use i_slint_core::lengths::{
     PhysicalPx, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
-use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, parley};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use i_slint_core::{ImageInner, Property, SharedString};
 
@@ -1167,6 +1167,8 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         &mut self,
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
+        _normalized_coords: &[i16],
+        _synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,

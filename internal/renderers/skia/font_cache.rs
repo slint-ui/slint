@@ -3,7 +3,7 @@
 
 use clru::CLruCache;
 use i_slint_common::sharedfontique::HashedBlob;
-use i_slint_core::textlayout::sharedparley::parley;
+use i_slint_core::textlayout::sharedparley::{fontique, parley};
 use std::cell::RefCell;
 use std::num::NonZeroUsize;
 
@@ -35,6 +35,33 @@ impl FontCache {
         self.fonts.put(key, typeface.clone());
 
         typeface
+    }
+
+    pub fn font_with_variations(
+        &mut self,
+        font: &parley::FontData,
+        synthesis: &fontique::Synthesis,
+    ) -> Option<skia_safe::Typeface> {
+        let base_typeface = self.font(font)?;
+        let variation_settings = synthesis.variation_settings();
+        if variation_settings.is_empty() {
+            return Some(base_typeface);
+        }
+        let coords: Vec<skia_safe::font_arguments::variation_position::Coordinate> =
+            variation_settings
+                .iter()
+                .map(|&(tag, value)| {
+                    let bytes = tag.to_be_bytes();
+                    let tag_u32 = u32::from_be_bytes(bytes);
+                    skia_safe::font_arguments::variation_position::Coordinate {
+                        axis: skia_safe::FourByteTag::new(tag_u32),
+                        value,
+                    }
+                })
+                .collect();
+        let position = skia_safe::font_arguments::VariationPosition { coordinates: &coords };
+        let args = skia_safe::FontArguments::new().set_variation_design_position(position);
+        base_typeface.clone_with_arguments(&args).or(Some(base_typeface))
     }
 
     fn load_typeface_internal(&self, font: &parley::FontData) -> Option<skia_safe::Typeface> {

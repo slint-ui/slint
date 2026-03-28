@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub use parley;
+pub use parley::fontique;
 
 use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
 use euclid::num::Zero;
+use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
 
 use crate::{
@@ -96,11 +98,15 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     ) -> Option<Self::PlatformBrush>;
 
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
-    /// given y offset.
+    /// given y offset. The `normalized_coords` are F2Dot14 values in fvar axis order for variable
+    /// font rendering. The `synthesis` contains design-space variation settings and faux
+    /// bold/italic hints from fontique.
     fn draw_glyph_run(
         &mut self,
         font: &parley::FontData,
         font_size: PhysicalLength,
+        normalized_coords: &[i16],
+        synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -579,6 +585,8 @@ impl TextParagraph {
             &mut R,
             &parley::FontData,
             PhysicalLength,
+            &[i16],               // normalized variation coords
+            &fontique::Synthesis, // design-space variation settings
             <R as GlyphRenderer>::PlatformBrush,
             PhysicalLength, // y offset for paragraph
             &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -640,6 +648,8 @@ impl TextParagraph {
                                 item_renderer,
                                 &elipsis_font,
                                 font_size,
+                                &[],
+                                &Default::default(),
                                 default_fill_brush.clone(),
                                 para_y,
                                 &mut core::iter::once(elipsis_glyph),
@@ -663,12 +673,16 @@ impl TextParagraph {
             &mut R,
             &parley::FontData,
             PhysicalLength,
+            &[i16],               // normalized variation coords
+            &fontique::Synthesis, // design-space variation settings
             <R as GlyphRenderer>::PlatformBrush,
             PhysicalLength,
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
         let run = glyph_run.run();
+        let normalized_coords = run.normalized_coords();
+        let synthesis = run.synthesis();
         let brush = &glyph_run.style().brush;
 
         let (fill_brush, stroke_style) = match (brush.override_fill_color, brush.link_color) {
@@ -696,6 +710,8 @@ impl TextParagraph {
                         item_renderer,
                         run.font(),
                         PhysicalLength::new(run.font_size()),
+                        normalized_coords,
+                        &synthesis,
                         stroke_brush,
                         para_y,
                         &mut glyphs.iter().cloned(),
@@ -706,6 +722,8 @@ impl TextParagraph {
                     item_renderer,
                     run.font(),
                     PhysicalLength::new(run.font_size()),
+                    normalized_coords,
+                    &synthesis,
                     fill_brush.clone(),
                     para_y,
                     &mut glyphs.into_iter(),
@@ -718,6 +736,8 @@ impl TextParagraph {
                     item_renderer,
                     run.font(),
                     PhysicalLength::new(run.font_size()),
+                    normalized_coords,
+                    &synthesis,
                     fill_brush.clone(),
                     para_y,
                     &mut glyphs.iter().cloned(),
@@ -728,6 +748,8 @@ impl TextParagraph {
                         item_renderer,
                         run.font(),
                         PhysicalLength::new(run.font_size()),
+                        normalized_coords,
+                        &synthesis,
                         stroke_brush,
                         para_y,
                         &mut glyphs.into_iter(),
@@ -739,6 +761,8 @@ impl TextParagraph {
                     item_renderer,
                     run.font(),
                     PhysicalLength::new(run.font_size()),
+                    normalized_coords,
+                    &synthesis,
                     fill_brush.clone(),
                     para_y,
                     glyphs_it,
@@ -957,6 +981,8 @@ impl Layout {
             &mut R,
             &parley::FontData,
             PhysicalLength,
+            &[i16],               // normalized variation coords
+            &fontique::Synthesis, // design-space variation settings
             <R as GlyphRenderer>::PlatformBrush,
             PhysicalLength, // y offset for paragraph
             &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -1064,8 +1090,23 @@ pub fn draw_text(
             item_renderer,
             platform_fill_brush,
             platform_stroke_brush,
-            &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
-                item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
+            &mut |item_renderer: &mut _,
+                  font,
+                  font_size,
+                  normalized_coords,
+                  synthesis,
+                  brush,
+                  y_offset,
+                  glyphs_it| {
+                item_renderer.draw_glyph_run(
+                    font,
+                    font_size,
+                    normalized_coords,
+                    synthesis,
+                    brush,
+                    y_offset,
+                    glyphs_it,
+                );
             },
         );
     }
@@ -1242,8 +1283,23 @@ pub fn draw_text_input(
             item_renderer,
             platform_fill_brush,
             None,
-            &mut |item_renderer, font, font_size, brush, y_offset, glyphs_it| {
-                item_renderer.draw_glyph_run(font, font_size, brush, y_offset, glyphs_it);
+            &mut |item_renderer: &mut _,
+                  font,
+                  font_size,
+                  normalized_coords,
+                  synthesis,
+                  brush,
+                  y_offset,
+                  glyphs_it| {
+                item_renderer.draw_glyph_run(
+                    font,
+                    font_size,
+                    normalized_coords,
+                    synthesis,
+                    brush,
+                    y_offset,
+                    glyphs_it,
+                );
             },
         );
 
@@ -1318,10 +1374,12 @@ pub fn char_size(
 
     let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
 
+    let location = face.axes().location(font.synthesis.variation_settings());
+
     let glyph_metrics = skrifa::metrics::GlyphMetrics::new(
         &face,
         skrifa::instance::Size::new(pixel_size.get()),
-        skrifa::instance::LocationRef::new(&[]),
+        &location,
     );
 
     let advance_width = LogicalLength::new(glyph_metrics.advance_width(glyph_index.into())?);
@@ -1329,7 +1387,7 @@ pub fn char_size(
     let font_metrics = skrifa::metrics::Metrics::new(
         &face,
         skrifa::instance::Size::new(pixel_size.get()),
-        skrifa::instance::LocationRef::new(&[]),
+        &location,
     );
 
     Some(LogicalSize::from_lengths(

@@ -18,7 +18,7 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
 };
-use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique};
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, SharedString};
 use skia_safe::{Matrix, TileMode};
@@ -1008,12 +1008,14 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         &mut self,
         font: &sharedparley::parley::FontData,
         font_size: PhysicalLength,
+        _normalized_coords: &[i16],
+        synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
-        let Some(type_face) =
-            crate::font_cache::FONT_CACHE.with_borrow_mut(|font_cache| font_cache.font(font))
+        let Some(type_face) = crate::font_cache::FONT_CACHE
+            .with_borrow_mut(|font_cache| font_cache.font_with_variations(font, synthesis))
         else {
             return;
         };

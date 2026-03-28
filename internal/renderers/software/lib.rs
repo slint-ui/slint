@@ -3236,7 +3236,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRendererFeatures for Sce
 }
 
 #[cfg(feature = "systemfonts")]
-use i_slint_core::textlayout::sharedparley;
+use i_slint_core::textlayout::sharedparley::{self, fontique};
 
 #[cfg(feature = "systemfonts")]
 impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
@@ -3285,6 +3285,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         &mut self,
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
+        _normalized_coords: &[i16],
+        _synthesis: &fontique::Synthesis,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
