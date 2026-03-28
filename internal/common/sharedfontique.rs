@@ -137,39 +137,6 @@ impl std::ops::DerefMut for Collection {
     }
 }
 
-/// Font metrics in design space. Scale with desired pixel size and divided by units_per_em
-/// to obtain pixel metrics.
-#[derive(Clone)]
-pub struct DesignFontMetrics {
-    pub ascent: f32,
-    pub descent: f32,
-    pub x_height: f32,
-    pub cap_height: f32,
-    pub units_per_em: f32,
-}
-
-impl DesignFontMetrics {
-    pub fn new(font: &fontique::QueryFont) -> Self {
-        let font_ref = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
-        Self::new_from_font_ref(&font_ref)
-    }
-
-    pub fn new_from_font_ref(font_ref: &skrifa::FontRef) -> Self {
-        let metrics = skrifa::metrics::Metrics::new(
-            font_ref,
-            skrifa::instance::Size::unscaled(),
-            skrifa::instance::LocationRef::default(),
-        );
-        Self {
-            ascent: metrics.ascent,
-            descent: metrics.descent,
-            x_height: metrics.x_height.unwrap_or_default(),
-            cap_height: metrics.cap_height.unwrap_or_default(),
-            units_per_em: metrics.units_per_em as f32,
-        }
-    }
-}
-
 pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] = [
     // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
     fontique::GenericFamily::SansSerif,

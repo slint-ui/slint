@@ -5,6 +5,8 @@ use clru::CLruCache;
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::textlayout::sharedparley::{fontique, parley};
 use std::cell::RefCell;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
 const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(64).unwrap();
@@ -12,8 +14,9 @@ const FONT_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::new(64).unwrap();
 pub struct FontCache {
     font_mgr: skia_safe::FontMgr,
     // Use HashedBlob in key to keep strong reference to font data blob,
-    // preventing eviction from fontique's shared cache (see commit 30a03cf)
-    fonts: CLruCache<(HashedBlob, u32), Option<skia_safe::Typeface>>,
+    // preventing eviction from fontique's shared cache (see commit 30a03cf).
+    // The u64 is a hash of variation settings (0 for base typefaces).
+    fonts: CLruCache<(HashedBlob, u32, u64), Option<skia_safe::Typeface>>,
 }
 
 impl Default for FontCache {
@@ -23,45 +26,54 @@ impl Default for FontCache {
 }
 
 impl FontCache {
-    pub fn font(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
-        let key = (font.data.clone().into(), font.index);
-
-        if let Some(cached_option) = self.fonts.peek(&key) {
-            return cached_option.clone();
-        }
-
-        let typeface = self.load_typeface_internal(font);
-
-        self.fonts.put(key, typeface.clone());
-
-        typeface
-    }
-
     pub fn font_with_variations(
         &mut self,
         font: &parley::FontData,
         synthesis: &fontique::Synthesis,
     ) -> Option<skia_safe::Typeface> {
-        let base_typeface = self.font(font)?;
         let variation_settings = synthesis.variation_settings();
-        if variation_settings.is_empty() {
-            return Some(base_typeface);
+
+        let mut variations_hash = 0u64;
+        if !variation_settings.is_empty() {
+            let mut hasher = DefaultHasher::new();
+            for &(tag, value) in variation_settings {
+                tag.to_be_bytes().hash(&mut hasher);
+                value.to_bits().hash(&mut hasher);
+            }
+            variations_hash = hasher.finish();
         }
-        let coords: Vec<skia_safe::font_arguments::variation_position::Coordinate> =
-            variation_settings
-                .iter()
-                .map(|&(tag, value)| {
-                    let bytes = tag.to_be_bytes();
-                    let tag_u32 = u32::from_be_bytes(bytes);
-                    skia_safe::font_arguments::variation_position::Coordinate {
-                        axis: skia_safe::FourByteTag::new(tag_u32),
-                        value,
-                    }
-                })
-                .collect();
-        let position = skia_safe::font_arguments::VariationPosition { coordinates: &coords };
-        let args = skia_safe::FontArguments::new().set_variation_design_position(position);
-        base_typeface.clone_with_arguments(&args).or(Some(base_typeface))
+
+        let key = (font.data.clone().into(), font.index, variations_hash);
+
+        if let Some(cached) = self.fonts.get(&key) {
+            return cached.clone();
+        }
+
+        let mut typeface = self.load_typeface_internal(font);
+
+        if !variation_settings.is_empty() {
+            typeface = typeface.and_then(|base| {
+                let coords: Vec<skia_safe::font_arguments::variation_position::Coordinate> =
+                    variation_settings
+                        .iter()
+                        .map(|&(tag, value)| {
+                            skia_safe::font_arguments::variation_position::Coordinate {
+                                axis: skia_safe::FourByteTag::new(u32::from_be_bytes(
+                                    tag.to_be_bytes(),
+                                )),
+                                value,
+                            }
+                        })
+                        .collect();
+                let position =
+                    skia_safe::font_arguments::VariationPosition { coordinates: &coords };
+                let args = skia_safe::FontArguments::new().set_variation_design_position(position);
+                base.clone_with_arguments(&args).or(Some(base))
+            });
+        }
+
+        self.fonts.put(key, typeface.clone());
+        typeface
     }
 
     fn load_typeface_internal(&self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
