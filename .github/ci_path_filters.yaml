@@ -50,6 +50,9 @@ figma_inspector:
 
 material_components:
  - 'ui-libraries/material/**'
+ - 'docs/common/**'
+ - *js_config
+ - *ci_config
 
 safety_docs:
  - 'docs/safety/**'
