@@ -644,12 +644,13 @@ impl TextParagraph {
                         };
 
                         if let Some((elipsis_glyph, elipsis_font, font_size)) = elipsis {
+                            let run = glyph_run.run();
                             draw_glyphs(
                                 item_renderer,
                                 &elipsis_font,
                                 font_size,
-                                &[],
-                                &Default::default(),
+                                run.normalized_coords(),
+                                &run.synthesis(),
                                 default_fill_brush.clone(),
                                 para_y,
                                 &mut core::iter::once(elipsis_glyph),
