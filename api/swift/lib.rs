@@ -59,9 +59,7 @@ pub unsafe extern "C" fn slint_swift_image_clone(image: *const Image) -> *mut Im
 /// Returns a pointer to the new Image.
 #[cfg(feature = "std")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_swift_image_load_from_path(
-    path: &SharedString,
-) -> *mut Image {
+pub unsafe extern "C" fn slint_swift_image_load_from_path(path: &SharedString) -> *mut Image {
     let img = Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or_default();
     Box::into_raw(Box::new(img))
 }
