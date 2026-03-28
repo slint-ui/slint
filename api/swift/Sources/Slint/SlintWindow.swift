@@ -42,39 +42,54 @@ public final class SlintWindow {
 
     /// The window size in physical pixels.
     public var size: (width: UInt32, height: UInt32) {
-        let s = slint_windowrc_size(&handle)
-        return (width: s.width, height: s.height)
+        get {
+            let s = slint_windowrc_size(&handle)
+            return (width: s.width, height: s.height)
+        }
+        set {
+            var s = SlintIntSize(width: newValue.width, height: newValue.height)
+            slint_windowrc_set_physical_size(&handle, &s)
+        }
     }
 
-    /// Sets the window size in physical pixels.
-    public func setSize(width: UInt32, height: UInt32) {
-        var s = SlintIntSize(width: width, height: height)
-        slint_windowrc_set_physical_size(&handle, &s)
-    }
-
-    /// Sets the window size in logical pixels.
-    public func setLogicalSize(width: Float, height: Float) {
-        var s = SlintSizeF32(width: width, height: height)
-        slint_windowrc_set_logical_size(&handle, &s)
+    /// The window size in logical pixels.
+    public var logicalSize: (width: Float, height: Float) {
+        get {
+            let s = slint_windowrc_size(&handle)
+            let scale = slint_windowrc_get_scale_factor(&handle)
+            return (width: Float(s.width) / scale, height: Float(s.height) / scale)
+        }
+        set {
+            var s = SlintSizeF32(width: newValue.width, height: newValue.height)
+            slint_windowrc_set_logical_size(&handle, &s)
+        }
     }
 
     /// The window position in physical pixels.
     public var position: (x: Int32, y: Int32) {
-        var pos = SlintPoint2DI32(x: 0, y: 0)
-        slint_windowrc_position(&handle, &pos)
-        return (x: pos.x, y: pos.y)
+        get {
+            var pos = SlintPoint2DI32(x: 0, y: 0)
+            slint_windowrc_position(&handle, &pos)
+            return (x: pos.x, y: pos.y)
+        }
+        set {
+            var pos = SlintPoint2DI32(x: newValue.x, y: newValue.y)
+            slint_windowrc_set_physical_position(&handle, &pos)
+        }
     }
 
-    /// Sets the window position in physical pixels.
-    public func setPosition(x: Int32, y: Int32) {
-        var pos = SlintPoint2DI32(x: x, y: y)
-        slint_windowrc_set_physical_position(&handle, &pos)
-    }
-
-    /// Sets the window position in logical pixels.
-    public func setLogicalPosition(x: Float, y: Float) {
-        var pos = SlintPoint2DF32(x: x, y: y)
-        slint_windowrc_set_logical_position(&handle, &pos)
+    /// The window position in logical pixels.
+    public var logicalPosition: (x: Float, y: Float) {
+        get {
+            var pos = SlintPoint2DI32(x: 0, y: 0)
+            slint_windowrc_position(&handle, &pos)
+            let scale = slint_windowrc_get_scale_factor(&handle)
+            return (x: Float(pos.x) / scale, y: Float(pos.y) / scale)
+        }
+        set {
+            var pos = SlintPoint2DF32(x: newValue.x, y: newValue.y)
+            slint_windowrc_set_logical_position(&handle, &pos)
+        }
     }
 
     /// Whether the window is in fullscreen mode.

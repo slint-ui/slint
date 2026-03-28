@@ -59,3 +59,10 @@ extension SlintString: Hashable {
         hasher.combine(stringValue)
     }
 }
+
+extension String {
+    /// Creates a Swift `String` from a `SlintString`.
+    public init(_ slintString: SlintString) {
+        self = slintString.stringValue
+    }
+}
