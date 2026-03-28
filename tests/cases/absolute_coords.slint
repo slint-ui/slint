@@ -57,17 +57,12 @@ export component TestCase {
                             Rectangle {
                                 x: -5phx;
                                 y: -5phx;
-                                init => { debug(vl.preferred-height) }
-                                vl:=VerticalLayout {
-                                    if true: Rectangle {
-                                        Rectangle {
-                                            x: 200phx;
-                                            y: -200phx;
-                                            Rectangle {
-                                                init => {
-                                                    inner-popup = "x=" + (self.absolute-position.x/1px) + " y=" + (self.absolute-position.y/1px);
-                                                }
-                                            }
+                                Rectangle {
+                                    x: 200phx;
+                                    y: -200phx;
+                                    Rectangle {
+                                        init => {
+                                            inner-popup = "x=" + (self.absolute-position.x/1px) + " y=" + (self.absolute-position.y/1px);
                                         }
                                     }
                                 }
