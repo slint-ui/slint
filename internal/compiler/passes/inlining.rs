@@ -605,7 +605,7 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
         Expression::SolveFlexBoxLayout(layout)
         | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
             for e in &mut layout.elems {
-                fxe(&mut e.element);
+                fxe(&mut e.item.element);
             }
         }
         Expression::RepeaterModelReference { element }

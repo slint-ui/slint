@@ -13,6 +13,7 @@ from typing import Any, List
 from collections.abc import Callable, Buffer, Coroutine
 from enum import Enum, auto
 import gettext
+from . import language as language
 
 class RgbColor:
     red: int

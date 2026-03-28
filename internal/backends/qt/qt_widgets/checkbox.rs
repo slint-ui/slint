@@ -104,7 +104,6 @@ impl Item for NativeCheckBox {
             | MouseEvent::Wheel { .. }
             | MouseEvent::PinchGesture { .. }
             | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. }
             | MouseEvent::DragMove(_) => InputEventResult::EventIgnored,
             // Make sure that generally mouse events are accepted, so that the hover state is
             // correctly updated

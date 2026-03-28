@@ -194,7 +194,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
                     &instance_ref.window_adapter(),
                     crate::eval_layout::from_runtime(o),
                 );
-                return LayoutItemInfo { constraint: layout_info };
+                return LayoutItemInfo { constraint: layout_info, ..Default::default() };
             } else {
                 panic!(
                     "child_index {} out of bounds for repeated item {}",
@@ -204,7 +204,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
             }
         }
 
-        LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
+        LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o), ..Default::default() }
     }
 }
 
@@ -1036,7 +1036,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
-            rtti_for::<PinchGestureHandler>(),
+            rtti_for::<ScaleRotateGestureHandler>(),
             rtti_for::<Path>(),
             rtti_for::<Flickable>(),
             rtti_for::<WindowItem>(),

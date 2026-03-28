@@ -259,8 +259,7 @@ public:
     }
 
 private:
-    // Ensure that the alignment (8 bytes) is the same as the Rust struct.
-    void *inner alignas(8);
+    void *inner;
 };
 
 template<typename T>

@@ -2097,6 +2097,7 @@ fn generate_repeated_component(
                                                 sp::Orientation::Horizontal => #layout_info_h_code,
                                                 sp::Orientation::Vertical => #layout_info_v_code,
                                             },
+                                            ..sp::LayoutItemInfo::default()
                                         };
                                     }
                                     #advance
@@ -2113,6 +2114,7 @@ fn generate_repeated_component(
                                             if let Some(inner) = _self.#inner_rep_id.instance_at(index - count) {
                                                 return sp::LayoutItemInfo {
                                                     constraint: inner.as_pin_ref().layout_info(o),
+                                                    ..sp::LayoutItemInfo::default()
                                                 };
                                             }
                                         }
@@ -2129,14 +2131,14 @@ fn generate_repeated_component(
                             let _self = self.as_ref();
                             let mut count = 0usize;
                             #(#scan_steps)*
-                            sp::LayoutItemInfo { constraint: sp::LayoutInfo::default() }
+                            sp::LayoutItemInfo::default()
                         } else {
-                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                            sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), ..sp::LayoutItemInfo::default() }
                         }
                     }
                 } else {
                     quote! {
-                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), ..sp::LayoutItemInfo::default() }
                     }
                 };
 
@@ -2156,7 +2158,7 @@ fn generate_repeated_component(
                         o: sp::Orientation,
                         _child_index: sp::Option<usize>,
                     ) -> sp::LayoutItemInfo {
-                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o) }
+                        sp::LayoutItemInfo { constraint: self.as_ref().layout_info(o), ..sp::LayoutItemInfo::default() }
                     }
                 }
             }

@@ -947,7 +947,15 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 diag,
             );
         }
-        layout.elems.push(item.item);
+        let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
+        let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
+        let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
+        layout.elems.push(crate::layout::FlexBoxLayoutItem {
+            item: item.item,
+            flex_grow,
+            flex_shrink,
+            flex_basis,
+        });
     }
     layout_element.borrow_mut().children = layout_children;
     let span = layout_element.borrow().to_source_location();
@@ -1587,6 +1595,14 @@ fn check_no_layout_properties(
             && matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan")
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
+        }
+        if parent_layout_type.as_deref() != Some("FlexBoxLayout")
+            && matches!(
+                prop.as_ref(),
+                "flex-grow" | "flex-shrink" | "flex-basis" | "align-self" | "order"
+            )
+        {
+            diag.push_error(format!("{prop} used outside of a FlexBoxLayout"), &*expr.borrow());
         }
         if parent_layout_type.as_deref() != Some("Dialog")
             && matches!(prop.as_ref(), "dialog-button-role")

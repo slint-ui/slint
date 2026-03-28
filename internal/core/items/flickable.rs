@@ -44,9 +44,6 @@ use data_ringbuffer::PositionTimeRingBuffer;
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
-/// Time of the animation until it returned back to the limit when it went beyond the limit
-/// The unit is seconds
-const SPRING_DAMPER_RETURN_TIME: f32 = 0.2;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -464,7 +461,9 @@ impl FlickableData {
         delta_x: Coord,
         delta_y: Coord,
     ) -> LogicalVector {
-        if window_adapter.window().0.modifiers.get().shift() && !cfg!(target_os = "macos") {
+        if window_adapter.window().0.context().0.modifiers.get().shift()
+            && !cfg!(target_os = "macos")
+        {
             // Shift invert coordinate for the purpose of scrolling.
             // But not on macOs because there the OS already take care of the change
             LogicalVector::new(delta_y, delta_x)
@@ -559,9 +558,9 @@ impl FlickableData {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventFilterResult::ForwardEvent,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventFilterResult::ForwardEvent
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -661,9 +660,9 @@ impl FlickableData {
 
                 inner.process_wheel_event(flick, delta, *position, flick_rc)
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
@@ -693,22 +692,18 @@ impl FlickableData {
                 let limit =
                     ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
                 {
-                    let simulation =
-                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                            dist.x as f32 / (millis as f32 / 1000.),
-                            DECELERATION,
-                            SPRING_DAMPER_RETURN_TIME,
-                        );
+                    let simulation = physics_simulation::ConstantDecelerationParameters::new(
+                        dist.x as f32 / (millis as f32 / 1000.),
+                        DECELERATION,
+                    );
                     viewport_x.set_physic_animation_value(limit.x_length(), simulation);
                 }
 
                 {
-                    let animation_y =
-                        physics_simulation::ConstantDecelerationSpringDamperParameters::new(
-                            dist.y as f32 / (millis as f32 / 1000.),
-                            DECELERATION,
-                            SPRING_DAMPER_RETURN_TIME,
-                        );
+                    let animation_y = physics_simulation::ConstantDecelerationParameters::new(
+                        dist.y as f32 / (millis as f32 / 1000.),
+                        DECELERATION,
+                    );
                     viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
                 }
 

@@ -18,12 +18,41 @@ use i_slint_core::platform::PlatformError;
 
 use crate::SkiaSharedContext;
 
+/// Wraps a [`glutin::context::PossiblyCurrentContext`] and makes it not-current on drop,
+/// so that no stale thread-local state remains after the context is destroyed.
+struct GlutinContext(Option<glutin::context::PossiblyCurrentContext>);
+
+impl GlutinContext {
+    fn new(context: glutin::context::PossiblyCurrentContext) -> Self {
+        Self(Some(context))
+    }
+}
+
+impl std::ops::Deref for GlutinContext {
+    type Target = glutin::context::PossiblyCurrentContext;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().unwrap()
+    }
+}
+
+impl Drop for GlutinContext {
+    fn drop(&mut self) {
+        if let Some(context) = self.0.take()
+            && let Err(e) = context.make_not_current()
+        {
+            i_slint_core::debug_log!(
+                "Skia OpenGL Renderer: Failed to make context not current: {e}"
+            );
+        }
+    }
+}
+
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    glutin_context: glutin::context::PossiblyCurrentContext,
+    glutin_context: GlutinContext,
     glutin_surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
 }
 
@@ -271,7 +300,7 @@ impl OpenGLSurface {
             fb_info,
             surface,
             gr_context: RefCell::new(gr_context),
-            glutin_context: current_glutin_context,
+            glutin_context: GlutinContext::new(current_glutin_context),
             glutin_surface,
         })
     }

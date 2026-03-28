@@ -696,7 +696,6 @@ version = "1.16.0"
 dependencies = [
  "bevy 0.19.0-dev",
  "bevy_image 0.19.0-dev",
- "femtovg",
  "slint",
  "spin_on",
  "wgpu 28.0.0",
@@ -4316,26 +4315,20 @@ dependencies = [
 
 [[package]]
 name = "femtovg"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "798c7ede43463c7e67dd1cf12ea5637610bef392708ae21b2eb10a3ad49204fa"
+checksum = "e51acc7027a6fa8e3b5daf3b914fb52cf147a6c5f0648bd2682f03c0d221352f"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
  "fnv",
  "glow 0.17.0",
- "image",
  "imgref",
  "itertools 0.14.0",
  "log",
- "lru",
  "rgb",
- "rustybuzz",
  "slotmap",
  "swash",
- "ttf-parser",
- "unicode-bidi",
- "unicode-segmentation",
  "wasm-bindgen",
  "web-sys",
  "wgpu 28.0.0",
@@ -6132,12 +6125,6 @@ name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
-
-[[package]]
-name = "lru"
-version = "0.16.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
 
 [[package]]
 name = "lyon_algorithms"

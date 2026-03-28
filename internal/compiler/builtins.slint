@@ -229,7 +229,7 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export component PinchGestureHandler {
+export component ScaleRotateGestureHandler {
     in property <bool> enabled: true;
 
     out property <bool> active;
@@ -241,7 +241,6 @@ export component PinchGestureHandler {
     callback updated();
     callback ended();
     callback cancelled();
-    callback smart-magnify();
 
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -542,7 +541,7 @@ export component Path {
     in property <float> viewbox-y;
     in property <float> viewbox-width;
     in property <float> viewbox-height;
-    in property <ImageFit> fit-style: contain;
+    in property <ImageFit> fit: contain;
     in property <bool> clip;
     in property <bool> anti-alias: true;
 

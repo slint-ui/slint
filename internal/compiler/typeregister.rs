@@ -47,6 +47,12 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
+pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
+    ("flex-grow", Type::Float32),
+    ("flex-shrink", Type::Float32),
+    ("flex-basis", Type::LogicalLength),
+];
+
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         #[allow(non_snake_case)]
@@ -159,8 +165,13 @@ impl BuiltinTypes {
                 name: BuiltinPrivateStruct::PathElement.into(),
             })),
             layout_item_info_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
-                    .collect(),
+                fields: IntoIterator::into_iter([
+                    ("constraint".into(), layout_info_type.into()),
+                    ("flex-grow".into(), Type::Float32),
+                    ("flex-shrink".into(), Type::Float32),
+                    ("flex-basis".into(), Type::Float32),
+                ])
+                .collect(),
                 name: BuiltinPrivateStruct::LayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
@@ -265,6 +276,11 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::Input)))
         .chain(
             RESERVED_GRIDLAYOUT_PROPERTIES
+                .iter()
+                .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
+        )
+        .chain(
+            RESERVED_FLEXBOXLAYOUT_PROPERTIES
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )

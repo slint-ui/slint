@@ -890,7 +890,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self.canvas.borrow_mut().rotate(angle_in_radians);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         // Compute the bounding box of the rotated rectangle
-        let (sin, cos) = angle_in_radians.sin_cos();
+        let (sin, cos) = (-angle_in_radians).sin_cos();
         let rotate_point = |p: LogicalPoint| (p.x * cos - p.y * sin, p.x * sin + p.y * cos);
         let corners = [
             rotate_point(clip.origin),

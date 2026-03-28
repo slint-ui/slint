@@ -7,7 +7,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 
-use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface, wgpu::wgpu::Texture};
+use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
 use wgpu_28 as wgpu;
 
@@ -24,7 +24,7 @@ pub struct WGPUWindowSurface {
 }
 
 impl WindowSurface<femtovg::renderer::WGPURenderer> for WGPUWindowSurface {
-    fn render_surface(&self) -> &Texture {
+    fn render_output(&self) -> impl Into<femtovg::renderer::WGPURenderOutput> {
         &self.surface_texture.texture
     }
 }
@@ -72,7 +72,7 @@ impl GraphicsBackend for WGPUBackend {
     }
 
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {
-        self.queue.borrow().as_ref().unwrap().submit(Some(commands));
+        self.queue.borrow().as_ref().unwrap().submit(commands);
     }
 
     fn present_surface(
@@ -181,12 +181,12 @@ impl FemtoVGRenderer<WGPUBackend> {
 }
 
 struct TextureWindowSurface {
-    texture: wgpu::Texture,
+    render_output: femtovg::renderer::WGPURenderOutput,
 }
 
 impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
-    fn render_surface(&self) -> &wgpu::Texture {
-        &self.texture
+    fn render_output(&self) -> impl Into<femtovg::renderer::WGPURenderOutput> {
+        self.render_output.clone()
     }
 }
 
@@ -194,7 +194,7 @@ struct WgpuTextureBackend {
     instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    current_texture: RefCell<Option<wgpu::Texture>>,
+    render_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
 }
 
 impl GraphicsBackend for WgpuTextureBackend {
@@ -213,13 +213,13 @@ impl GraphicsBackend for WgpuTextureBackend {
     fn begin_surface_rendering(
         &self,
     ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
-        let texture =
-            self.current_texture.borrow().clone().ok_or("No texture set for rendering")?;
-        Ok(TextureWindowSurface { texture })
+        let render_output =
+            self.render_output.borrow().clone().ok_or("No texture set for rendering")?;
+        Ok(TextureWindowSurface { render_output })
     }
 
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {
-        self.queue.submit(Some(commands));
+        self.queue.submit(commands);
     }
 
     fn present_surface(
@@ -268,7 +268,7 @@ impl FemtoVGWGPURenderer {
     /// Creates a new FemtoVGWGPURenderer.
     ///
     /// The `instance`, `device` and `queue` are the WGPU resources used for rendering.
-    /// These are also provided to `RenderingNotifier` callbacks via `GraphicsAPI::WGPU28`.
+    /// These are also provided to [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier) callbacks via [`GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28).
     pub fn new(
         instance: wgpu::Instance,
         device: wgpu::Device,
@@ -278,7 +278,7 @@ impl FemtoVGWGPURenderer {
             instance,
             device: device.clone(),
             queue: queue.clone(),
-            current_texture: RefCell::new(None),
+            render_output: RefCell::new(None),
         };
         let renderer = FemtoVGRenderer::new_internal(backend);
 
@@ -294,14 +294,36 @@ impl FemtoVGWGPURenderer {
         Ok(Self(renderer))
     }
 
-    /// Render the scene to the given texture.
-    ///
-    /// The texture must be a valid WGPU texture.
-    pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
-        *self.0.graphics_backend.current_texture.borrow_mut() = Some(texture.clone());
+    /// Render the scene to the given texture view, with the specified size and format.
+    pub fn render_to_texture_view(
+        &self,
+        texture_view: &wgpu::TextureView,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+    ) -> Result<(), PlatformError> {
+        *self.0.graphics_backend.render_output.borrow_mut() =
+            Some(femtovg::renderer::WGPURenderOutput {
+                view: texture_view.clone(),
+                width,
+                height,
+                format,
+            });
         let result = self.0.render();
-        *self.0.graphics_backend.current_texture.borrow_mut() = None;
+        *self.0.graphics_backend.render_output.borrow_mut() = None;
         result
+    }
+
+    /// Render the scene to the given texture.
+    /// This is a convenience method that creates a texture view for the entire texture and calls `render_to_texture_view`.
+    pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+        let size = texture.size();
+        self.render_to_texture_view(
+            &texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            size.width,
+            size.height,
+            texture.format(),
+        )
     }
 }
 

@@ -638,9 +638,30 @@ fn flexbox_layout_data(
     };
 
     let repeater_count =
-        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
+        layout.elems.iter().filter(|i| i.item.element.borrow().repeated.is_some()).count();
 
     let element_ty = crate::typeregister::layout_item_info_type();
+
+    let flex_prop = |li: &crate::layout::FlexBoxLayoutItem,
+                     ctx: &mut ExpressionLoweringCtx|
+     -> (llr_Expression, llr_Expression, llr_Expression) {
+        let grow = li
+            .flex_grow
+            .as_ref()
+            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+            .unwrap_or(llr_Expression::NumberLiteral(0.0));
+        let shrink = li
+            .flex_shrink
+            .as_ref()
+            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+            .unwrap_or(llr_Expression::NumberLiteral(0.0));
+        let basis = li
+            .flex_basis
+            .as_ref()
+            .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
+            .unwrap_or(llr_Expression::NumberLiteral(-1.0));
+        (grow, shrink, basis)
+    };
 
     if repeater_count == 0 {
         let cells_h = llr_Expression::Array {
@@ -648,9 +669,14 @@ fn flexbox_layout_data(
                 .elems
                 .iter()
                 .map(|li| {
-                    let layout_info_h =
-                        get_layout_info(&li.element, ctx, &li.constraints, Orientation::Horizontal);
-                    make_layout_cell_data_struct(layout_info_h)
+                    let layout_info_h = get_layout_info(
+                        &li.item.element,
+                        ctx,
+                        &li.item.constraints,
+                        Orientation::Horizontal,
+                    );
+                    let (grow, shrink, basis) = flex_prop(li, ctx);
+                    make_flexbox_cell_data_struct(layout_info_h, grow, shrink, basis)
                 })
                 .collect(),
             element_ty: element_ty.clone(),
@@ -661,9 +687,14 @@ fn flexbox_layout_data(
                 .elems
                 .iter()
                 .map(|li| {
-                    let layout_info_v =
-                        get_layout_info(&li.element, ctx, &li.constraints, Orientation::Vertical);
-                    make_layout_cell_data_struct(layout_info_v)
+                    let layout_info_v = get_layout_info(
+                        &li.item.element,
+                        ctx,
+                        &li.item.constraints,
+                        Orientation::Vertical,
+                    );
+                    let (grow, shrink, basis) = flex_prop(li, ctx);
+                    make_flexbox_cell_data_struct(layout_info_v, grow, shrink, basis)
                 })
                 .collect(),
             element_ty,
@@ -682,25 +713,43 @@ fn flexbox_layout_data(
     } else {
         let mut elements = Vec::new();
         for item in &layout.elems {
-            if item.element.borrow().repeated.is_some() {
-                let repeater_index =
-                    match ctx.mapping.element_mapping.get(&item.element.clone().into()).unwrap() {
-                        LoweredElement::Repeated { repeated_index } => *repeated_index,
-                        _ => panic!(),
-                    };
+            if item.item.element.borrow().repeated.is_some() {
+                let repeater_index = match ctx
+                    .mapping
+                    .element_mapping
+                    .get(&item.item.element.clone().into())
+                    .unwrap()
+                {
+                    LoweredElement::Repeated { repeated_index } => *repeated_index,
+                    _ => panic!(),
+                };
                 elements.push(Either::Right(LayoutRepeatedElement {
                     repeater_index,
                     row_child_templates: None,
                 }))
             } else {
                 // For static elements, we need both orientations
-                let layout_info_h =
-                    get_layout_info(&item.element, ctx, &item.constraints, Orientation::Horizontal);
-                let layout_info_v =
-                    get_layout_info(&item.element, ctx, &item.constraints, Orientation::Vertical);
+                let layout_info_h = get_layout_info(
+                    &item.item.element,
+                    ctx,
+                    &item.item.constraints,
+                    Orientation::Horizontal,
+                );
+                let layout_info_v = get_layout_info(
+                    &item.item.element,
+                    ctx,
+                    &item.item.constraints,
+                    Orientation::Vertical,
+                );
+                let (grow, shrink, basis) = flex_prop(item, ctx);
                 elements.push(Either::Left((
-                    make_layout_cell_data_struct(layout_info_h),
-                    make_layout_cell_data_struct(layout_info_v),
+                    make_flexbox_cell_data_struct(
+                        layout_info_h,
+                        grow.clone(),
+                        shrink.clone(),
+                        basis.clone(),
+                    ),
+                    make_flexbox_cell_data_struct(layout_info_v, grow, shrink, basis),
                 )));
             }
         }
@@ -736,7 +785,29 @@ struct BoxLayoutDataResult {
 fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
     make_struct(
         BuiltinPrivateStruct::LayoutItemInfo,
-        [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
+        [
+            ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
+            ("flex-grow", Type::Float32, llr_Expression::NumberLiteral(0.0)),
+            ("flex-shrink", Type::Float32, llr_Expression::NumberLiteral(0.0)),
+            ("flex-basis", Type::Float32, llr_Expression::NumberLiteral(-1.0)),
+        ],
+    )
+}
+
+fn make_flexbox_cell_data_struct(
+    layout_info: llr_Expression,
+    flex_grow: llr_Expression,
+    flex_shrink: llr_Expression,
+    flex_basis: llr_Expression,
+) -> llr_Expression {
+    make_struct(
+        BuiltinPrivateStruct::LayoutItemInfo,
+        [
+            ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
+            ("flex-grow", Type::Float32, flex_grow),
+            ("flex-shrink", Type::Float32, flex_shrink),
+            ("flex-basis", Type::Float32, flex_basis),
+        ],
     )
 }
 

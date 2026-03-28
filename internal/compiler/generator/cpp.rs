@@ -2560,7 +2560,7 @@ fn generate_layout_item_info_decl(
         return Declaration::Function(Function {
             name: "layout_item_info".into(),
             signature: SIGNATURE.to_owned(),
-            statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
+            statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), 0.0f, 0.0f, -1.0f };".into()]),
             ..Function::default()
         });
     }
@@ -2588,7 +2588,7 @@ fn generate_layout_item_info_decl(
                 write!(
                     body,
                     "if (count == index) {{\n\
-                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}) }};\n\
+                         return {{ (o == slint::cbindgen_private::Orientation::Horizontal) ? ({layout_info_h_code}) : ({layout_info_v_code}), 0.0f, 0.0f, -1.0f }};\n\
                      }}\n\
                      {advance}",
                 )
@@ -2605,7 +2605,7 @@ fn generate_layout_item_info_decl(
                      if (index >= count && index - count < inner_len) {{\n\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
                              auto vref = vrc->borrow();\n\
-                             return {{ vref.vtable->layout_info(vref, o) }};\n\
+                             return {{ vref.vtable->layout_info(vref, o), 0.0f, 0.0f, -1.0f }};\n\
                          }}\n\
                      }}\n\
                      {advance}}}\n",
@@ -2617,9 +2617,9 @@ fn generate_layout_item_info_decl(
     body.push_str(
         // Phantom cell: return "unconstrained" info (matches Rust's LayoutInfo::default()).
         // field order: max, max_percent, min, min_percent, preferred, stretch
-        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 } };\n\
+        "return { slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, 0.0f, 0.0f, -1.0f };\n\
          }\n\
-         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };",
+         return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), 0.0f, 0.0f, -1.0f };",
     );
     Declaration::Function(Function {
         name: "layout_item_info".into(),
@@ -3037,7 +3037,7 @@ fn generate_functions<'a>(
                 f.args
                     .iter()
                     .enumerate()
-                    .map(|(i, ty)| format!("{} arg_{}", ty.cpp_type().unwrap(), i))
+                    .map(|(i, ty)| format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap(), i))
                     .join(", "),
                 f.ret_ty.cpp_type().unwrap()
             ),

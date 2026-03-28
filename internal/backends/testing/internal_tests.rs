@@ -120,7 +120,7 @@ pub fn set_window_scale_factor<
 /// Send a platform pinch gesture event to the component's window.
 ///
 /// `delta` is the incremental scale change (e.g. 0.0 for start, 0.5 for 50% increase).
-/// The PinchGestureHandler accumulates deltas: `scale *= (1.0 + delta)`.
+/// The ScaleRotateGestureHandler accumulates deltas: `scale *= (1.0 + delta)`.
 pub fn send_pinch_gesture<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
     Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
@@ -162,23 +162,6 @@ pub fn send_rotation_gesture<
         ),
         delta,
         phase,
-    });
-}
-
-/// Send a platform double-tap gesture ("smart magnify") event to the component's window.
-pub fn send_double_tap_gesture<
-    X: vtable::HasStaticVTable<ItemTreeVTable>,
-    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
->(
-    component: &Component,
-    center_x: f32,
-    center_y: f32,
-) {
-    let inner = WindowInner::from_pub(component.window());
-    inner.process_mouse_input(i_slint_core::input::MouseEvent::DoubleTapGesture {
-        position: i_slint_core::lengths::logical_point_from_api(
-            i_slint_core::api::LogicalPosition::new(center_x, center_y),
-        ),
     });
 }
 

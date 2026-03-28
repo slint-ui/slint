@@ -57,6 +57,15 @@ pub struct LayoutItem {
     pub constraints: LayoutConstraints,
 }
 
+/// A FlexBoxLayout child item, wrapping a LayoutItem with flex-specific properties.
+#[derive(Debug, Clone)]
+pub struct FlexBoxLayoutItem {
+    pub item: LayoutItem,
+    pub flex_grow: Option<NamedReference>,
+    pub flex_shrink: Option<NamedReference>,
+    pub flex_basis: Option<NamedReference>,
+}
+
 /// A child within a repeated Row in a GridLayout.
 /// Can be either a static item or a nested repeater (`for y in model: ...`).
 #[derive(Debug, Clone)]
@@ -590,7 +599,7 @@ impl BoxLayout {
 /// Internal representation of a FlexBoxLayout (row or column direction with wrapping)
 #[derive(Debug, Clone)]
 pub struct FlexBoxLayout {
-    pub elems: Vec<LayoutItem>,
+    pub elems: Vec<FlexBoxLayoutItem>,
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
@@ -601,7 +610,16 @@ pub struct FlexBoxLayout {
 impl FlexBoxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.constraints.visit_named_references(visitor);
+            cell.item.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.flex_grow.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.flex_shrink.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.flex_basis.as_mut() {
+                visitor(&mut *e)
+            }
         }
         self.geometry.visit_named_references(visitor);
         if let Some(e) = self.direction.as_mut() {

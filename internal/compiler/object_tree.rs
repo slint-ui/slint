@@ -1776,8 +1776,16 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let e = Element::from_sub_element_node(
+            node.SubElement(),
+            parent.borrow().base_type.clone(),
+            component_child_insertion_point,
+            is_in_legacy_component,
+            diag,
+            tr,
+        );
         let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
-            Some(ListViewInfo {
+            let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
                     parent,
@@ -1786,7 +1794,12 @@ impl Element {
                 viewport_width: NamedReference::new(parent, SmolStr::new_static("viewport-width")),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
-            })
+            };
+            // these properties are set by the ListView layouting code
+            lvi.viewport_height.mark_as_set();
+            lvi.viewport_width.mark_as_set();
+            e.borrow().geometry_props.as_ref().unwrap().y.mark_as_set();
+            Some(lvi)
         } else {
             None
         };
@@ -1803,14 +1816,6 @@ impl Element {
             is_conditional_element: false,
             is_listview,
         };
-        let e = Element::from_sub_element_node(
-            node.SubElement(),
-            parent.borrow().base_type.clone(),
-            component_child_insertion_point,
-            is_in_legacy_component,
-            diag,
-            tr,
-        );
         e.borrow_mut().repeated = Some(rei);
         e
     }
