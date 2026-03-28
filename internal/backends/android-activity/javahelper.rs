@@ -4,12 +4,14 @@
 use super::*;
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
-use i_slint_core::unicode_utils::{byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;
+use i_slint_core::unicode_utils::{
+    byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
+};
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
 use jni::sys::jint;
 use jni::{Env, JavaVM, bind_java_type};
@@ -537,9 +539,6 @@ fn callback_update_text<'local>(
     .unwrap();
     Ok(())
 }
-
-
-
 
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
