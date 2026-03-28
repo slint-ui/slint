@@ -21,17 +21,17 @@ component RepeatedItem {
 }
 
 export component TestInitCallbackLoop inherits Window {
-//                                             >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+//                                             >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
     property <[int]> model: [1, 2, 3];
 
     HorizontalLayout {
-//  >               <warning{The binding for the property 'width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
-//  >               <^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+//  >               <warning{The binding for the property 'width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//  >               <^warning{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         for item in model: RepeatedItem {
             // This creates a loop: layout computes width -> repeater instantiates ->
             // init callback reads item-width -> which may depend on layout
             item-width: parent.width / 3;
-//                      >               <warning{The binding for the property 'item-width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This could cause unexpected behavior at runtime}
+//                      >               <warning{The binding for the property 'item-width' is part of a binding loop (width -> item-width -> layoutinfo-h -> root.layoutinfo-h).↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
         }
     }
 }
