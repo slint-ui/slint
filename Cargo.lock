@@ -5067,8 +5067,8 @@ dependencies = [
  "fontique",
  "htmlparser",
  "pulldown-cmark",
+ "skrifa",
  "thiserror 2.0.18",
- "ttf-parser 0.25.1",
 ]
 
 [[package]]

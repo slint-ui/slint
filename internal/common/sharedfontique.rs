@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub use fontique;
-pub use ttf_parser;
+pub use skrifa;
 
 #[cfg(any(target_family = "wasm", target_os = "nto"))]
 use fontique::ScriptExt;
@@ -150,17 +150,22 @@ pub struct DesignFontMetrics {
 
 impl DesignFontMetrics {
     pub fn new(font: &fontique::QueryFont) -> Self {
-        let face = ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
-        Self::new_from_face(&face)
+        let font_ref = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
+        Self::new_from_font_ref(&font_ref)
     }
 
-    pub fn new_from_face(face: &ttf_parser::Face) -> Self {
+    pub fn new_from_font_ref(font_ref: &skrifa::FontRef) -> Self {
+        let metrics = skrifa::metrics::Metrics::new(
+            font_ref,
+            skrifa::instance::Size::unscaled(),
+            skrifa::instance::LocationRef::default(),
+        );
         Self {
-            ascent: face.ascender() as f32,
-            descent: face.descender() as f32,
-            x_height: face.x_height().unwrap_or_default() as f32,
-            cap_height: face.capital_height().unwrap_or_default() as f32,
-            units_per_em: face.units_per_em() as f32,
+            ascent: metrics.ascent,
+            descent: metrics.descent,
+            x_height: metrics.x_height.unwrap_or_default(),
+            cap_height: metrics.cap_height.unwrap_or_default(),
+            units_per_em: metrics.units_per_em as f32,
         }
     }
 }

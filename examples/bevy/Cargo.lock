@@ -5413,8 +5413,8 @@ dependencies = [
  "fontique 0.8.0",
  "htmlparser",
  "pulldown-cmark",
+ "skrifa 0.40.0",
  "thiserror 2.0.18",
- "ttf-parser",
 ]
 
 [[package]]

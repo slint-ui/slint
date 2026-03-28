@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use i_slint_common::sharedfontique::{self, fontique, ttf_parser};
+use i_slint_common::sharedfontique::{self, fontique, skrifa};
 
 #[derive(Clone)]
 struct Font {
@@ -311,9 +311,9 @@ fn embed_font(
 
     character_map.sort_by_key(|entry| entry.code_point);
 
-    let face_info = ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
-
-    let metrics = sharedfontique::DesignFontMetrics::new_from_face(&face_info);
+    let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
+    let metrics = sharedfontique::DesignFontMetrics::new_from_font_ref(&font_ref);
+    let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
     BitmapFont {
         family_name,
@@ -324,8 +324,8 @@ fn embed_font(
         x_height: metrics.x_height,
         cap_height: metrics.cap_height,
         glyphs,
-        weight: face_info.weight().to_number(),
-        italic: face_info.style() != ttf_parser::Style::Normal,
+        weight: attrs.weight.value() as u16,
+        italic: attrs.style != skrifa::attribute::Style::Normal,
         #[cfg(feature = "sdf-fonts")]
         sdf: _compiler_config.use_sdf_fonts,
         #[cfg(not(feature = "sdf-fonts"))]
