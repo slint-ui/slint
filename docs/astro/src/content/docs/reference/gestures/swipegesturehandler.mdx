@@ -55,6 +55,93 @@ Specify the different swipe directions you'd like to handle by setting the `hand
 Pointer press events on the recognizer's area are forwarded to the children with a small delay.
 If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
 
+To prevent the `SwipeGestureHandler` from being positioned in a way that does not handle swipes as expected, it is recommended that
+it always **wraps** the controls that it should handle swipes on. Adding a `SwipeGestureHandler` beneath other controls will pretty likely
+lead to small gesture recognizing areas resulting in unexpected behaviour feeling laggy or too insensitive.
+
+```slint
+sgr := SwipeGestureHandler {
+    width:root.width;
+    height:root.height;
+    swiped => {
+        // ...
+    }
+
+    // controls go here
+    VerticalBox {
+
+    }
+}
+
+// NOT here
+```
+
+Currently there is a known issue [#6781](https://github.com/slint-ui/slint/issues/6781) describing that the `SwipeGestureHandler`
+is interfering with other "swipeable" controls like the `Slider` making it unusable under specific circumstances.
+
+A workaround for this is shown in the example below using a `global`.
+This example also includes handling of both horizontal and vertical swipes at the same time.
+
+```slint
+
+export global SwipeGestureHandlerWorkaround {
+    in-out property <bool> enable-gestures: true;
+}
+
+export component Example inherits Window {
+    width: 270px;
+    height: 100px;
+
+
+    sgr := SwipeGestureHandler {
+        x: 0;
+        y: 0;
+        width:root.width;
+        height:root.height;
+        handle-swipe-right: SwipeGestureHandlerWorkaround.enable-gestures;
+        handle-swipe-left: SwipeGestureHandlerWorkaround.enable-gestures;
+        handle-swipe-down: SwipeGestureHandlerWorkaround.enable-gestures;
+        handle-swipe-up: SwipeGestureHandlerWorkaround.enable-gestures;
+        swiped => {
+            let xdiff = self.current-position.x - self.pressed-position.x;
+            let ydiff = self.current-position.y - self.pressed-position.y;
+            let is-horizontal-swipe = xdiff * xdiff > ydiff * ydiff;
+
+            if (is-horizontal-swipe) {
+                if (self.current-position.x > self.pressed-position.x) {
+                    debug("swipe: right");
+                } else if (self.current-position.x < self.pressed-position.x) {
+                    debug("swipe: left");
+                }
+            } else if(!is-horizontal-swipe) {
+                if (self.current-position.y > self.pressed-position.y) {
+                    debug("swipe: down");
+                } else if (self.current-position.y < self.pressed-position.y) {
+                    debug("swipe: up");
+                }
+            }
+        }
+
+        VerticalBox {
+            Slider {
+                changed value => {
+                    // disable gestures while slider is actively used
+                    SwipeGestureHandlerWorkaround.enable-gestures = false;
+                }
+                released(value) => {
+                    // restore gestures after release
+                    SwipeGestureHandlerWorkaround.enable-gestures = true;
+                }
+            }
+        }
+    }
+}
+```
+
+
+
+
+
 ## Properties
 
 ### enabled
