@@ -27,6 +27,10 @@ jobs:
         runs-on: ${{ inputs.os }}
         steps:
             - uses: actions/checkout@v6
+            - name: Install Swift 6.2.0
+              uses: mikehardy/setup-swift@v3
+              with:
+                  swift-version: "6.2.0"
             - uses: ./.github/actions/setup-rust
             - name: Build Rust static library
               run: cargo build --lib -p slint-swift
