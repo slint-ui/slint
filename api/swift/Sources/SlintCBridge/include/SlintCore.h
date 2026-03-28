@@ -17,19 +17,22 @@
 
 /// Opaque type matching `SharedString` in Rust.
 /// SharedString contains a SharedVector<u8>, which is a NonNull pointer.
-typedef struct {
+typedef struct
+{
     void *_0;
 } SlintSharedStringOpaque;
 
 /// Opaque type matching `WindowAdapterRcOpaque` in Rust (two pointers for Rc<dyn WindowAdapter>).
-typedef struct {
+typedef struct
+{
     void *_0;
     void *_1;
 } SlintWindowAdapterRcOpaque;
 
 /// Color represented as 4 bytes: red, green, blue, alpha.
 /// Matches `Color` in Rust which is #[repr(C)] with 4 u8 fields.
-typedef struct {
+typedef struct
+{
     uint8_t red;
     uint8_t green;
     uint8_t blue;
@@ -38,27 +41,31 @@ typedef struct {
 
 /// Size with unsigned 32-bit width and height.
 /// Matches `euclid::default::Size2D<u32>`.
-typedef struct {
+typedef struct
+{
     uint32_t width;
     uint32_t height;
 } SlintIntSize;
 
 /// 2D point with signed 32-bit coordinates.
 /// Matches `euclid::default::Point2D<i32>`.
-typedef struct {
+typedef struct
+{
     int32_t x;
     int32_t y;
 } SlintPoint2DI32;
 
 /// 2D point with float coordinates.
 /// Matches `euclid::default::Point2D<f32>`.
-typedef struct {
+typedef struct
+{
     float x;
     float y;
 } SlintPoint2DF32;
 
 /// 2D size with float coordinates.
-typedef struct {
+typedef struct
+{
     float width;
     float height;
 } SlintSizeF32;
@@ -163,9 +170,8 @@ const SlintSharedStringOpaque *slint_image_path(const SlintImageOpaque *image);
 bool slint_image_compare_equal(const SlintImageOpaque *image1, const SlintImageOpaque *image2);
 
 /// Sets the nine-slice edges on an image.
-void slint_image_set_nine_slice_edges(SlintImageOpaque *image,
-                                       uint16_t top, uint16_t right,
-                                       uint16_t bottom, uint16_t left);
+void slint_image_set_nine_slice_edges(SlintImageOpaque *image, uint16_t top, uint16_t right,
+                                      uint16_t bottom, uint16_t left);
 
 // ---------------------------------------------------------------------------
 // Window functions (from internal/core/window.rs + api/swift/lib.rs)
@@ -179,7 +185,7 @@ void slint_windowrc_drop(SlintWindowAdapterRcOpaque *handle);
 
 /// Clones a window adapter (increments reference count).
 void slint_windowrc_clone(const SlintWindowAdapterRcOpaque *source,
-                           SlintWindowAdapterRcOpaque *target);
+                          SlintWindowAdapterRcOpaque *target);
 
 /// Shows the window.
 void slint_windowrc_show(const SlintWindowAdapterRcOpaque *handle);
@@ -195,23 +201,22 @@ SlintIntSize slint_windowrc_size(const SlintWindowAdapterRcOpaque *handle);
 
 /// Sets the window size in physical pixels.
 void slint_windowrc_set_physical_size(const SlintWindowAdapterRcOpaque *handle,
-                                       const SlintIntSize *size);
+                                      const SlintIntSize *size);
 
 /// Sets the window size in logical pixels.
 void slint_windowrc_set_logical_size(const SlintWindowAdapterRcOpaque *handle,
-                                      const SlintSizeF32 *size);
+                                     const SlintSizeF32 *size);
 
 /// Gets the window position in physical pixels.
-void slint_windowrc_position(const SlintWindowAdapterRcOpaque *handle,
-                              SlintPoint2DI32 *pos);
+void slint_windowrc_position(const SlintWindowAdapterRcOpaque *handle, SlintPoint2DI32 *pos);
 
 /// Sets the window position in physical pixels.
 void slint_windowrc_set_physical_position(const SlintWindowAdapterRcOpaque *handle,
-                                            const SlintPoint2DI32 *pos);
+                                          const SlintPoint2DI32 *pos);
 
 /// Sets the window position in logical pixels.
 void slint_windowrc_set_logical_position(const SlintWindowAdapterRcOpaque *handle,
-                                           const SlintPoint2DF32 *pos);
+                                         const SlintPoint2DF32 *pos);
 
 /// Returns whether the window is in fullscreen mode.
 bool slint_windowrc_is_fullscreen(const SlintWindowAdapterRcOpaque *handle);
@@ -243,18 +248,13 @@ void slint_windowrc_request_redraw(const SlintWindowAdapterRcOpaque *handle);
 
 /// Starts or restarts a timer.
 /// `id` should be 0 for a new timer. Returns the timer ID.
-uintptr_t slint_timer_start(uintptr_t id,
-                              SlintTimerMode mode,
-                              uint64_t duration,
-                              void (*callback)(void *user_data),
-                              void *user_data,
-                              void (*drop_user_data)(void *));
+uintptr_t slint_timer_start(uintptr_t id, SlintTimerMode mode, uint64_t duration,
+                            void (*callback)(void *user_data), void *user_data,
+                            void (*drop_user_data)(void *));
 
 /// Fires a single-shot timer after `delay` milliseconds.
-void slint_timer_singleshot(uint64_t delay,
-                              void (*callback)(void *user_data),
-                              void *user_data,
-                              void (*drop_user_data)(void *));
+void slint_timer_singleshot(uint64_t delay, void (*callback)(void *user_data), void *user_data,
+                            void (*drop_user_data)(void *));
 
 /// Destroys a timer by ID.
 void slint_timer_destroy(uintptr_t id);
@@ -286,9 +286,8 @@ void slint_run_event_loop(bool quit_on_last_window_closed);
 void slint_quit_event_loop(void);
 
 /// Posts an event to be executed on the main thread.
-void slint_post_event(void (*event)(void *user_data),
-                       void *user_data,
-                       void (*drop_user_data)(void *));
+void slint_post_event(void (*event)(void *user_data), void *user_data,
+                      void (*drop_user_data)(void *));
 
 // ---------------------------------------------------------------------------
 // String utility functions (from api/swift/lib.rs)
