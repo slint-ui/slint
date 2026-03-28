@@ -37,6 +37,11 @@ pub extern "C" fn slint_swift_image_new() -> *mut Image {
 
 /// Drops a heap-allocated Image previously created by `slint_swift_image_new`
 /// or `slint_swift_image_clone`.
+///
+/// # Safety
+///
+/// `image` must be a pointer returned by `slint_swift_image_new` or
+/// `slint_swift_image_clone`, and must not be used after this call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_swift_image_drop(image: *mut Image) {
     if !image.is_null() {
@@ -47,6 +52,11 @@ pub unsafe extern "C" fn slint_swift_image_drop(image: *mut Image) {
 }
 
 /// Clones a heap-allocated Image. Returns a new heap-allocated Image.
+///
+/// # Safety
+///
+/// `image` must be either null or a valid pointer to an `Image` previously
+/// returned by `slint_swift_image_new` or `slint_swift_image_clone`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_swift_image_clone(image: *const Image) -> *mut Image {
     if image.is_null() {
@@ -57,6 +67,12 @@ pub unsafe extern "C" fn slint_swift_image_clone(image: *const Image) -> *mut Im
 
 /// Loads an image from a file path into a heap-allocated Image.
 /// Returns a pointer to the new Image.
+///
+/// # Safety
+///
+/// `path` must be a valid reference to a `SharedString` for the duration of
+/// this call. The returned pointer must eventually be freed with
+/// `slint_swift_image_drop`.
 #[cfg(feature = "std")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_swift_image_load_from_path(
@@ -66,6 +82,14 @@ pub unsafe extern "C" fn slint_swift_image_load_from_path(
     Box::into_raw(Box::new(img))
 }
 
+/// Initializes a `WindowAdapterRcOpaque` at `out` by writing a newly created
+/// window adapter into it.
+///
+/// # Safety
+///
+/// `out` must point to a valid, properly aligned, writable location for a
+/// `WindowAdapterRcOpaque`. The value at `out` must not be initialized prior
+/// to this call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
     assert_eq!(
@@ -100,7 +124,14 @@ pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
     .unwrap();
 }
 
-/// Will execute the given functor in the main thread
+/// Schedules `event` to be called with `user_data` on the main event loop thread.
+/// When `user_data` is no longer needed, `drop_user_data` is called to free it.
+///
+/// # Safety
+///
+/// `event` must be a valid function pointer. `user_data` must remain valid
+/// until `event` is invoked. If provided, `drop_user_data` must be safe to
+/// call with `user_data` exactly once after `event` has run.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_post_event(
     event: extern "C" fn(user_data: *mut c_void),
