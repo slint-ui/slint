@@ -746,9 +746,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-07")]
-pub mod fontique_07 {
-    //! Fontique 0.7 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-08")]
+pub mod fontique_08 {
+    //! Fontique 0.8 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -771,25 +771,25 @@ pub mod fontique_07 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.16", features = ["unstable-fontique-07"] }
+    /// slint = { version = "~1.16", features = ["unstable-fontique-08"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_07::fontique;
+    /// use slint::fontique_08::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_07::shared_collection();
+    ///     let mut collection = slint::fontique_08::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new("Hira", None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new("Kana", None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Kana"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new("Hani", None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hani"), None), fonts.iter().map(|x| x.0));
     ///     // ...
     /// }
     /// ```

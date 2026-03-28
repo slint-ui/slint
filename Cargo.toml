@@ -190,9 +190,11 @@ wgpu-27 = { package = "wgpu", version = "27", default-features = false }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
-fontique = { version = "0.7.0" }
-read-fonts = { version = "0.38" }
-skrifa = { version = "0.41" }
+fontique = { version = "0.8.0" }
+# Pinned to match parley's version
+read-fonts = { version = "0.37" }
+# Pinned to match parley's version
+skrifa = { version = "0.40" }
 windows = { version = "0.62" }
 windows-core = { version = "0.62.0" }
 lyon_path = { version = "1.0", default-features = false }

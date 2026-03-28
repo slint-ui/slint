@@ -189,13 +189,13 @@ impl LayoutWithoutLineBreaksBuilder {
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
                 .into_iter()
-                .map(parley::style::FontFamily::Generic);
+                .map(parley::style::FontFamilyName::Generic);
 
-            let font_stack: &[parley::style::FontFamily] = if let Some(family) =
+            let font_families: &[parley::style::FontFamilyName] = if let Some(family) =
                 &font_request.family
             {
                 let mut iter =
-                    core::iter::once(parley::style::FontFamily::Named(family.as_str().into()))
+                    core::iter::once(parley::style::FontFamilyName::named(family.as_str()))
                         .chain(fallback_family_iter);
                 &core::array::from_fn::<
                     _,
@@ -208,8 +208,8 @@ impl LayoutWithoutLineBreaksBuilder {
                 )
             };
 
-            builder.push_default(parley::style::FontStack::List(std::borrow::Cow::Borrowed(
-                font_stack,
+            builder.push_default(parley::style::FontFamily::List(std::borrow::Cow::Borrowed(
+                font_families,
             )));
 
             if let Some(weight) = font_request.weight {
@@ -228,9 +228,9 @@ impl LayoutWithoutLineBreaksBuilder {
         }
         builder.push_default(parley::StyleProperty::FontSize(self.pixel_size.get()));
         builder.push_default(parley::StyleProperty::WordBreak(match self.text_wrap {
-            TextWrap::NoWrap => parley::style::WordBreakStrength::KeepAll,
-            TextWrap::WordWrap => parley::style::WordBreakStrength::Normal,
-            TextWrap::CharWrap => parley::style::WordBreakStrength::BreakAll,
+            TextWrap::NoWrap => parley::style::WordBreak::KeepAll,
+            TextWrap::WordWrap => parley::style::WordBreak::Normal,
+            TextWrap::CharWrap => parley::style::WordBreak::BreakAll,
         }));
         builder.push_default(parley::StyleProperty::OverflowWrap(match self.text_wrap {
             TextWrap::NoWrap => parley::style::OverflowWrap::Normal,
@@ -291,8 +291,8 @@ impl LayoutWithoutLineBreaksBuilder {
                     }
                     Style::Code => {
                         builder.push(
-                            parley::StyleProperty::FontStack(parley::style::FontStack::Single(
-                                parley::style::FontFamily::Generic(
+                            parley::StyleProperty::FontFamily(parley::style::FontFamily::Single(
+                                parley::style::FontFamilyName::Generic(
                                     parley::style::GenericFamily::Monospace,
                                 ),
                             )),
