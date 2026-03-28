@@ -4,6 +4,7 @@
 use core::num::NonZeroU16;
 
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use skrifa::MetadataProvider;
 
 use crate::PhysicalLength;
@@ -19,7 +20,9 @@ struct FontUnit;
 type FontLength = euclid::Length<i32, FontUnit>;
 type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 
-type GlyphCacheKey = (u64, u32, PhysicalLength, core::num::NonZeroU16);
+/// Cache key includes blob id, font index, pixel size, glyph id, and a hash of normalized
+/// variation coordinates so that different variable font instances produce distinct cache entries.
+type GlyphCacheKey = (u64, u32, PhysicalLength, core::num::NonZeroU16, u64);
 
 struct RenderableGlyphWeightScale;
 
@@ -56,6 +59,17 @@ pub struct VectorFont {
     pixel_size: PhysicalLength,
     x_height: PhysicalLength,
     cap_height: PhysicalLength,
+    /// Normalized variation coordinates (F2Dot14, fvar axis order) for variable font rendering.
+    normalized_coords: Vec<i16>,
+    /// Hash of normalized_coords for use in the glyph cache key.
+    coords_hash: u64,
+}
+
+fn hash_coords(coords: &[i16]) -> u64 {
+    use core::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    coords.hash(&mut hasher);
+    hasher.finish()
 }
 
 impl VectorFont {
@@ -83,10 +97,33 @@ impl VectorFont {
         swash_offset: u32,
         pixel_size: PhysicalLength,
     ) -> Self {
+        Self::new_from_blob_and_index_with_coords(
+            font_blob,
+            font_index,
+            swash_key,
+            swash_offset,
+            pixel_size,
+            &[],
+        )
+    }
+
+    pub fn new_from_blob_and_index_with_coords(
+        font_blob: fontique::Blob<u8>,
+        font_index: u32,
+        swash_key: swash::CacheKey,
+        swash_offset: u32,
+        pixel_size: PhysicalLength,
+        normalized_coords: &[i16],
+    ) -> Self {
         let face = skrifa::FontRef::from_index(font_blob.data(), font_index).unwrap();
 
-        let metrics = face
-            .metrics(skrifa::instance::Size::unscaled(), skrifa::instance::LocationRef::new(&[]));
+        let skrifa_coords: Vec<skrifa::instance::NormalizedCoord> = normalized_coords
+            .iter()
+            .map(|&c| skrifa::instance::NormalizedCoord::from_bits(c))
+            .collect();
+        let location = skrifa::instance::LocationRef::new(&skrifa_coords);
+
+        let metrics = face.metrics(skrifa::instance::Size::unscaled(), location);
 
         let ascender = FontLength::new(metrics.ascent as _);
         let descender = FontLength::new(metrics.descent as _);
@@ -95,6 +132,7 @@ impl VectorFont {
         let cap_height = FontLength::new(metrics.cap_height.unwrap_or_default() as _);
         let units_per_em = metrics.units_per_em;
         let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
+        let coords_hash = hash_coords(normalized_coords);
         Self {
             font_index,
             font_blob,
@@ -106,6 +144,8 @@ impl VectorFont {
             pixel_size,
             x_height: (x_height.cast() * scale).cast(),
             cap_height: (cap_height.cast() * scale).cast(),
+            normalized_coords: normalized_coords.to_vec(),
+            coords_hash,
         }
     }
 
@@ -117,7 +157,8 @@ impl VectorFont {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
-            let cache_key = (self.font_blob.id(), self.font_index, self.pixel_size, glyph_id);
+            let cache_key =
+                (self.font_blob.id(), self.font_index, self.pixel_size, glyph_id, self.coords_hash);
 
             if let Some(entry) = cache.get(&cache_key) {
                 return Some(entry.clone());
@@ -126,7 +167,11 @@ impl VectorFont {
             let glyph = {
                 let font_ref = self.swash_font_ref();
                 let mut ctx = slint_context.swash_scale_context().borrow_mut();
-                let mut scaler = ctx.builder(font_ref).size(self.pixel_size.get() as f32).build();
+                let mut scaler = ctx
+                    .builder(font_ref)
+                    .size(self.pixel_size.get() as f32)
+                    .normalized_coords(&self.normalized_coords)
+                    .build();
                 let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
                     .format(swash::zeno::Format::Alpha)
                     .render(&mut scaler, glyph_id.get())?;
