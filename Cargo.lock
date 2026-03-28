@@ -9979,6 +9979,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-swift"
+version = "1.16.0"
+dependencies = [
+ "i-slint-backend-selector",
+ "i-slint-core",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "slint-tr-extractor"
 version = "1.16.0"
 dependencies = [

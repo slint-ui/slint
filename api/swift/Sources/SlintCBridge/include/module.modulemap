@@ -1,0 +1,4 @@
+module SlintCBridge {
+    header "SlintCore.h"
+    export *
+}
