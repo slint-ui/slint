@@ -3285,7 +3285,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         &mut self,
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
-        _normalized_coords: &[i16],
+        normalized_coords: &[i16],
         _synthesis: &fontique::Synthesis,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
@@ -3294,12 +3294,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         let slint_context = self.window.context();
         let (swash_key, swash_offset) =
             fonts::systemfonts::get_swash_font_info(&font.data, font.index);
-        let font = fonts::vectorfont::VectorFont::new_from_blob_and_index(
+        let font = fonts::vectorfont::VectorFont::new_from_blob_and_index_with_coords(
             font.data.clone(),
             font.index,
             swash_key,
             swash_offset,
             font_size.cast(),
+            normalized_coords,
         );
 
         let global_offset =
