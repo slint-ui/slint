@@ -27,13 +27,9 @@ jobs:
         runs-on: ${{ inputs.os }}
         steps:
             - uses: actions/checkout@v6
-            - name: Install Swift 6.2.0
-              run: |
-                  curl -fsSL https://download.swift.org/swift-6.2.0-release/xcode/swift-6.2.0-RELEASE/swift-6.2.0-RELEASE-osx.pkg \
-                    -o swift-6.2.0.pkg
-                  sudo installer -pkg swift-6.2.0.pkg -target /
-                  rm swift-6.2.0.pkg
-                  swift --version
+            - uses: swift-actions/setup-swift@v3
+              with:
+                  swift-version: "6.2"
             - uses: ./.github/actions/setup-rust
             - name: Build Rust static library
               run: cargo build --lib -p slint-swift
