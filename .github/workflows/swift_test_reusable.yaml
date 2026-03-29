@@ -27,7 +27,7 @@ jobs:
         runs-on: ${{ inputs.os }}
         steps:
             - uses: actions/checkout@v6
-            - uses: swift-actions/setup-swift@v3
+            - uses: swift-actions/setup-swift@v2.4.0
               with:
                   swift-version: "6.2"
             - uses: ./.github/actions/setup-rust
