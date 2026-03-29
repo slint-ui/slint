@@ -213,6 +213,8 @@ compile_error!(
 pub use slint_macros::slint;
 
 pub use i_slint_backend_selector::api::*;
+#[cfg(feature = "std")]
+pub use i_slint_common::styled_text::StyledTextError;
 pub use i_slint_core::api::*;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
@@ -224,10 +226,36 @@ pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
     ReverseModel, SortModel, VecModel,
 };
+pub use i_slint_core::styled_text::StyledText;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 
 pub mod private_unstable_api;
+
+/// Parses markdown into [`StyledText`], which can then be assigned to a `styled-text` property.
+///
+/// Use [`parse_markdown_with_arguments()`] if you need placeholder interpolation with existing
+/// styled text values.
+#[cfg(feature = "std")]
+pub fn parse_markdown(markdown: &str) -> Result<StyledText, StyledTextError<'static>> {
+    StyledText::parse(markdown)
+}
+
+/// Parses markdown into [`StyledText`] and substitutes `{}` or `{n}` placeholders with existing
+/// styled text arguments.
+#[cfg(feature = "std")]
+pub fn parse_markdown_with_arguments(
+    format_string: &str,
+    arguments: &[StyledText],
+) -> Result<StyledText, StyledTextError<'static>> {
+    StyledText::parse_interpolated(format_string, arguments)
+}
+
+/// Converts plain text into [`StyledText`] without applying markdown parsing.
+#[cfg(feature = "std")]
+pub fn string_to_styled_text(text: impl Into<String>) -> StyledText {
+    StyledText::from_plain_text(text.into())
+}
 
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system for rendering to the screen
