@@ -548,6 +548,14 @@ pub struct GridLayout {
 }
 
 impl GridLayout {
+    /// Clone each element's cell into a new Rc, breaking any Rc sharing with the original.
+    pub fn clone_cells(&mut self) {
+        for e in &mut self.elems {
+            let cloned = Rc::new(RefCell::new(e.cell.borrow().clone()));
+            e.cell = cloned;
+        }
+    }
+
     pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for elem in &mut self.elems {
             let mut cell = elem.cell.borrow_mut();
