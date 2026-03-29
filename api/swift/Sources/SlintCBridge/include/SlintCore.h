@@ -324,13 +324,12 @@ void slint_property_set_changed(const SlintPropertyHandleOpaque *handle, const v
 /// Sets a binding on the property. `binding(user_data, pointer_to_value)` is called to recompute
 /// the value; it must write the new value into `pointer_to_value`. `drop_user_data` is called when
 /// the binding is removed. `intercept_set` and `intercept_set_binding` may be NULL.
-void slint_property_set_binding(
-    const SlintPropertyHandleOpaque *handle,
-    void (*binding)(void *user_data, void *pointer_to_value),
-    void *user_data,
-    void (*drop_user_data)(void *),
-    bool (*intercept_set)(void *user_data, const void *pointer_to_value),
-    bool (*intercept_set_binding)(void *user_data, void *new_binding));
+void slint_property_set_binding(const SlintPropertyHandleOpaque *handle,
+                                void (*binding)(void *user_data, void *pointer_to_value),
+                                void *user_data, void (*drop_user_data)(void *),
+                                bool (*intercept_set)(void *user_data,
+                                                      const void *pointer_to_value),
+                                bool (*intercept_set_binding)(void *user_data, void *new_binding));
 
 // ---------------------------------------------------------------------------
 // Callback functions (from internal/core/callbacks.rs)
