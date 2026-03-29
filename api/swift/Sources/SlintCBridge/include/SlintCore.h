@@ -86,6 +86,20 @@ typedef enum {
 /// freed by `slint_swift_image_drop`.
 typedef struct SlintImageOpaque SlintImageOpaque;
 
+/// Opaque handle to a property. Matches `PropertyHandle` in Rust (Cell<usize> = one pointer-sized
+/// word).
+typedef struct
+{
+    uintptr_t _0;
+} SlintPropertyHandleOpaque;
+
+/// Opaque handle to a callback. Matches `Callback<()>` in Rust (two pointers).
+typedef struct
+{
+    void *_0;
+    void *_1;
+} SlintCallbackOpaque;
+
 // ---------------------------------------------------------------------------
 // SharedString functions (from internal/core/string.rs)
 // ---------------------------------------------------------------------------
@@ -288,6 +302,55 @@ void slint_quit_event_loop(void);
 /// Posts an event to be executed on the main thread.
 void slint_post_event(void (*event)(void *user_data), void *user_data,
                       void (*drop_user_data)(void *));
+
+// ---------------------------------------------------------------------------
+// Property functions (from internal/core/properties/ffi.rs)
+// ---------------------------------------------------------------------------
+
+/// Initialises a property handle. `out` must point to uninitialised memory.
+void slint_property_init(SlintPropertyHandleOpaque *out);
+
+/// Destroys a property handle.
+void slint_property_drop(SlintPropertyHandleOpaque *handle);
+
+/// Must be called before reading the value. If a binding is set it is evaluated and the result
+/// written into `val`. Also registers the current evaluation context as a dependent.
+void slint_property_update(const SlintPropertyHandleOpaque *handle, void *val);
+
+/// Notifies the property system that the value at `value` has changed, removes any active binding,
+/// and marks dependents as dirty.
+void slint_property_set_changed(const SlintPropertyHandleOpaque *handle, const void *value);
+
+/// Sets a binding on the property. `binding(user_data, pointer_to_value)` is called to recompute
+/// the value; it must write the new value into `pointer_to_value`. `drop_user_data` is called when
+/// the binding is removed. `intercept_set` and `intercept_set_binding` may be NULL.
+void slint_property_set_binding(
+    const SlintPropertyHandleOpaque *handle,
+    void (*binding)(void *user_data, void *pointer_to_value),
+    void *user_data,
+    void (*drop_user_data)(void *),
+    bool (*intercept_set)(void *user_data, const void *pointer_to_value),
+    bool (*intercept_set_binding)(void *user_data, void *new_binding));
+
+// ---------------------------------------------------------------------------
+// Callback functions (from internal/core/callbacks.rs)
+// ---------------------------------------------------------------------------
+
+/// Initialises a callback. `out` must point to uninitialised memory.
+void slint_callback_init(SlintCallbackOpaque *out);
+
+/// Destroys a callback.
+void slint_callback_drop(SlintCallbackOpaque *handle);
+
+/// Sets the handler for the callback. `handler(user_data, arg, ret)` is called when the callback
+/// is invoked. `drop_user_data` is called when the handler is replaced or the callback is
+/// destroyed. `arg` and `ret` are opaque pointers to the argument and return value.
+void slint_callback_set_handler(const SlintCallbackOpaque *handle,
+                                void (*handler)(void *user_data, const void *arg, void *ret),
+                                void *user_data, void (*drop_user_data)(void *));
+
+/// Invokes the callback, passing `arg` and writing the return value into `ret`.
+void slint_callback_call(const SlintCallbackOpaque *handle, const void *arg, void *ret);
 
 // ---------------------------------------------------------------------------
 // String utility functions (from api/swift/lib.rs)

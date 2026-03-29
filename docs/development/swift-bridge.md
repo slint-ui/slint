@@ -1433,3 +1433,126 @@ Note: `swift build` compiles the Swift wrapper types against the C bridging
 header but does not link against the Rust static library. Full end-to-end
 linking requires either an XCFramework (Apple platforms) or direct linker flags
 pointing to `libslint_swift.a` plus its transitive dependencies.
+
+### Phase 2: Properties, Callbacks, and Models
+
+Phase 2 adds reactive properties, callbacks, and the model protocol — the three
+primitives needed to connect Swift data to a Slint UI.
+
+#### File Structure (additions to Phase 1)
+
+```
+api/swift/Sources/Slint/
+├── SlintProperty.swift      # SlintProperty<T> — reactive property with binding support
+├── SlintCallback.swift      # SlintCallback — parameter-less callback
+└── SlintModel.swift         # SlintModel protocol + SlintArrayModel<T>
+```
+
+#### SlintProperty\<T\> — Non-generic FFI thunks
+
+`SlintProperty<T>` is generic over the value type `T`, but the Rust FFI uses raw
+`*mut c_void` for values. The challenge is that `@convention(c)` function pointers
+cannot capture generic type parameters, so the binding trampoline cannot be a
+generic function.
+
+The solution is a **type-erased box** at file scope:
+
+```swift
+// File-scope @convention(c) trampoline — not generic, so it compiles to a
+// single C function pointer shared by all SlintProperty<T> instances.
+private let propertyBindingInvoke: @convention(c) (
+    UnsafeMutableRawPointer?, UnsafeMutableRawPointer?
+) -> Void = { userData, retPtr in
+    Unmanaged<PropertyBindingBox>.fromOpaque(userData!)
+        .takeUnretainedValue()
+        .invoke(retPtr!)   // PropertyBindingBox.invoke captures T at construction time
+}
+
+private final class PropertyBindingBox {
+    let invoke: (UnsafeMutableRawPointer) -> Void
+    init(_ invoke: @escaping (UnsafeMutableRawPointer) -> Void) {
+        self.invoke = invoke
+    }
+}
+```
+
+Inside `SlintProperty<T>.setBinding`, the generic type is captured in the closure
+passed to `PropertyBindingBox.init`:
+
+```swift
+let box = PropertyBindingBox { retPtr in
+    let result: T = binding()                         // T is captured here
+    retPtr.assumingMemoryBound(to: T.self).pointee = result
+}
+```
+
+This pattern avoids generic `@convention(c)` closures entirely while keeping full
+type safety inside Swift.
+
+#### Value Storage Stability
+
+The property FFI requires a stable memory address for the value buffer — Rust
+stores a pointer to the value and dereferences it on each `slint_property_update`
+call. `SlintProperty<T>` is a `final class`, so its stored properties live on the
+heap. The backing store is named `storage` (to avoid collision with the public
+`value` computed property) and its address remains constant for the object's
+lifetime.
+
+#### SlintCallback — Void Args and Return
+
+The Rust callback FFI takes `arg: *const c_void` and `ret: *mut c_void`.
+For a parameter-less, void-returning callback the caller must still pass valid
+(non-null) pointers because the generated trampoline dereferences them. Two
+separate single-byte dummy variables are used:
+
+```swift
+var argDummy: UInt8 = 0
+var retDummy: UInt8 = 0
+slint_callback_call(&handle, &argDummy, &retDummy)
+```
+
+Using the same variable for both `arg` and `ret` causes a Swift exclusivity
+violation (`&dummy` passed to two inout parameters simultaneously), so separate
+variables are required.
+
+#### SlintModel Protocol — Subscript API
+
+`SlintModel` exposes element access via a single subscript rather than separate
+`rowData(at:)` / `setRowData(at:data:)` methods, which is idiomatic Swift:
+
+```swift
+public protocol SlintModel<Element>: AnyObject {
+    subscript(index: Int) -> Element? { get set }
+    // ...
+}
+```
+
+Out-of-bounds reads return `nil`; out-of-bounds writes and `nil` assignments are
+silently ignored. This matches Swift's convention for optional-returning
+subscripts on containers.
+
+The notification methods (`notifyRowChanged`, `notifyRowAdded`,
+`notifyRowRemoved`, `notifyReset`) have default no-op implementations in a
+protocol extension so that custom `SlintModel` implementations only need to
+override them when they are wired to the Slint runtime in Phase 3.
+
+#### Opaque Type Sizes (Phase 2 additions)
+
+| C Type                        | Rust Type              | Size (64-bit) |
+|-------------------------------|------------------------|---------------|
+| `SlintPropertyHandleOpaque`   | `PropertyHandle` (= `Cell<usize>`) | 1 pointer |
+| `SlintCallbackOpaque`         | `Callback<()>`         | 2 pointers    |
+
+Both types are behind `#[cfg(feature = "ffi")]` in `i-slint-core`, which is
+already enabled by the `slint-swift` crate's `i-slint-core = { features = ["ffi"] }`
+dependency.
+
+#### Build Verification
+
+```sh
+# Build Rust static library (required before swift test)
+cargo build --lib -p slint-swift
+
+# Run all Swift tests (83 tests across 7 suites)
+cd api/swift && swift test
+```
