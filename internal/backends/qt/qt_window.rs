@@ -408,9 +408,7 @@ cpp! {{
                     float scale_delta = pinch->scaleFactor() - 1.0f;
 
                     // rotationAngle() is cumulative; compute incremental delta.
-                    // Negate to match Slint convention (positive = clockwise),
-                    // same as the winit backend does for macOS.
-                    float rotation_delta = -(pinch->rotationAngle() - pinch->lastRotationAngle());
+                    float rotation_delta = pinch->rotationAngle() - pinch->lastRotationAngle();
 
                     // centerPoint() is in widget-local coordinates when delivered
                     // via QWidget::event() (not scene coordinates as the QGraphicsObject
