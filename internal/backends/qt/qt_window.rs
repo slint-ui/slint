@@ -65,6 +65,7 @@ cpp! {{
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
     #include <QtGui/QWindow>
+    #include <QtWidgets/QGesture>
     #include <QtWidgets/QCheckBox>
     #include <QtWidgets/QComboBox>
     #include <QtWidgets/QGraphicsBlurEffect>
