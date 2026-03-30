@@ -129,7 +129,7 @@ impl Backend {
             if seat.dispatch(5000).map_err(|e| format!("Error waiting for seat activation: {e}"))?
                 == 0
             {
-                return Err(format!("Timeout while waiting to activate session").into());
+                return Err("Timeout while waiting to activate session".to_string().into());
             }
         }
 
@@ -220,9 +220,9 @@ impl i_slint_core::platform::Platform for Backend {
         )?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
-            return Err(
-                format!("Re-entering the linuxkms event loop is currently not supported").into()
-            );
+            return Err("Re-entering the linuxkms event loop is currently not supported"
+                .to_string()
+                .into());
         };
 
         let callbacks_to_invoke_per_iteration = Rc::new(RefCell::new(Vec::new()));

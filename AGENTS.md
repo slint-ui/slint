@@ -166,16 +166,16 @@ brew install pkg-config ffmpeg
 
 For tasks requiring deeper architectural understanding, see:
 
-- **`docs/agents/compiler-internals.md`** - Compiler pipeline, passes, LLR, code generation. Load when working on `internal/compiler/`.
-- **`docs/agents/type-system.md`** - Type definitions, unit types, type conversions, name resolution, type register. Load when working on `langtype.rs`, `lookup.rs`, or type checking.
-- **`docs/agents/property-binding-deep-dive.md`** - Reactive property system, dependency tracking, two-way bindings, PropertyTracker, ChangeTracker. Load when working on `internal/core/properties.rs` or debugging binding issues.
-- **`docs/agents/custom-renderer.md`** - Renderer traits, drawing API, backend integration, testing. Load when working on `internal/renderers/` or fixing drawing bugs.
-- **`docs/agents/animation-internals.md`** - Animation timing, easing curves, performance, debugging. Load when working on `internal/core/animations.rs` or animation-related issues.
-- **`docs/agents/layout-system.md`** - Layout solving, constraints, GridLayout/BoxLayout, compile-time lowering. Load when working on `internal/core/layout.rs` or sizing/positioning bugs.
-- **`docs/agents/item-tree.md`** - Item tree structure, component instantiation, traversal, focus. Load when working on `internal/core/item_tree.rs`, event handling, or runtime component model.
-- **`docs/agents/model-repeater-system.md`** - Model trait, VecModel, adapters (map/filter/sort), Repeater, ListView virtualization. Load when working on `internal/core/model.rs` or data binding in `for` loops.
-- **`docs/agents/input-event-system.md`** - Mouse/touch/keyboard events, event routing, focus management, drag-drop, shortcuts. Load when working on `internal/core/input.rs` or event handling.
-- **`docs/agents/text-layout.md`** - Text shaping, line breaking, paragraph layout, styled text parsing. Load when working on `internal/core/textlayout/` or text rendering.
-- **`docs/agents/window-backend-integration.md`** - WindowAdapter trait, Platform trait, WindowEvent, popup management, backend implementations. Load when working on `internal/core/window.rs` or `internal/backends/`.
-- **`docs/agents/lsp-architecture.md`** - LSP server, code completion, hover, semantic tokens, live preview. Load when working on `tools/lsp/` or IDE tooling.
-- **`docs/agents/ffi-language-bindings.md`** - C++/Node.js/Python bindings, cbindgen, FFI patterns, adding new cross-language APIs. Load when working on `api/` or internal FFI modules.
+- **`docs/development/compiler-internals.md`** - Compiler pipeline, passes, LLR, code generation. Load when working on `internal/compiler/`.
+- **`docs/development/type-system.md`** - Type definitions, unit types, type conversions, name resolution, type register. Load when working on `langtype.rs`, `lookup.rs`, or type checking.
+- **`docs/development/property-binding-deep-dive.md`** - Reactive property system, dependency tracking, two-way bindings, PropertyTracker, ChangeTracker. Load when working on `internal/core/properties.rs` or debugging binding issues.
+- **`docs/development/custom-renderer.md`** - Renderer traits, drawing API, backend integration, testing. Load when working on `internal/renderers/` or fixing drawing bugs.
+- **`docs/development/animation-internals.md`** - Animation timing, easing curves, performance, debugging. Load when working on `internal/core/animations.rs` or animation-related issues.
+- **`docs/development/layout-system.md`** - Layout solving, constraints, GridLayout/BoxLayout, compile-time lowering. Load when working on `internal/core/layout.rs` or sizing/positioning bugs.
+- **`docs/development/item-tree.md`** - Item tree structure, component instantiation, traversal, focus. Load when working on `internal/core/item_tree.rs`, event handling, or runtime component model.
+- **`docs/development/model-repeater-system.md`** - Model trait, VecModel, adapters (map/filter/sort), Repeater, ListView virtualization. Load when working on `internal/core/model.rs` or data binding in `for` loops.
+- **`docs/development/input-event-system.md`** - Mouse/touch/keyboard events, event routing, focus management, drag-drop, shortcuts. Load when working on `internal/core/input.rs` or event handling.
+- **`docs/development/text-layout.md`** - Text shaping, line breaking, paragraph layout, styled text parsing. Load when working on `internal/core/textlayout/` or text rendering.
+- **`docs/development/window-backend-integration.md`** - WindowAdapter trait, Platform trait, WindowEvent, popup management, backend implementations. Load when working on `internal/core/window.rs` or `internal/backends/`.
+- **`docs/development/lsp-architecture.md`** - LSP server, code completion, hover, semantic tokens, live preview. Load when working on `tools/lsp/` or IDE tooling.
+- **`docs/development/ffi-language-bindings.md`** - C++/Node.js/Python bindings, cbindgen, FFI patterns, adding new cross-language APIs. Load when working on `api/` or internal FFI modules.

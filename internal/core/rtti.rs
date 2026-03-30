@@ -40,8 +40,8 @@ macro_rules! declare_ValueType_2 {
             crate::Color,
             crate::PathData,
             crate::animations::EasingCurve,
-            crate::model::StandardListViewItem,
-            crate::model::TableColumn,
+            crate::items::StandardListViewItem,
+            crate::items::TableColumn,
             crate::input::KeyEvent,
             crate::Brush,
             crate::graphics::Point,
@@ -58,6 +58,7 @@ macro_rules! declare_ValueType_2 {
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
+            crate::input::Keys,
             $(crate::items::$Name,)*
         ];
     };
@@ -203,10 +204,9 @@ where
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
         if let Some(self_) =
             (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>()
+            && let Some(p) = Property::check_common_property(self_.apply_pin(item))
         {
-            if let Some(p) = Property::check_common_property(self_.apply_pin(item)) {
-                return p;
-            }
+            return p;
         }
 
         let p1 = self.apply_pin(item);

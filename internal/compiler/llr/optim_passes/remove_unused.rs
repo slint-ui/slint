@@ -298,10 +298,12 @@ mod visitor {
             layout_info_v,
             child_of_layout: _,
             grid_layout_input_for_repeated,
+            flexbox_layout_item_info_for_repeated,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
             element_infos: _,
+            row_child_templates: _,
             prop_analysis,
         }: &mut SubComponent,
         state: &VisitorState,
@@ -384,6 +386,9 @@ mod visitor {
         visit_expression(layout_info_h.get_mut(), &scope, state, visitor);
         visit_expression(layout_info_v.get_mut(), &scope, state, visitor);
         if let Some(e) = grid_layout_input_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = flexbox_layout_item_info_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {
@@ -495,6 +500,7 @@ mod visitor {
                 Expression::CallBackCall { callback, .. } => callback,
                 Expression::PropertyAssignment { property, .. } => property,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
+                Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 _ => return,
             };
             visit_member_reference(p, scope, state, visitor);

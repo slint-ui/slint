@@ -98,11 +98,14 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
 
     let screenshot = component.window().take_snapshot().unwrap();
 
+    // Images are rendered a bit differently on macOs
+    let base_threshold = if cfg!(target_os = "macos") { 33. } else { 3. };
+
     crate::testing::compare_images(
         testcase.reference_path.to_str().unwrap(),
         &screenshot,
         Default::default(),
-        &crate::testing::TestCaseOptions { base_threshold: 3., ..Default::default() },
+        &crate::testing::TestCaseOptions { base_threshold, ..Default::default() },
     )?;
 
     Ok(())

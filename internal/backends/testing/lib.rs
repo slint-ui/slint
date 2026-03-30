@@ -67,4 +67,39 @@ pub fn mock_elapsed_time(duration: std::time::Duration) {
     i_slint_core::tests::slint_mock_elapsed_time(duration.as_millis() as _);
 }
 
+/// Replace the font collection with embedded NotoSans fonts for deterministic test results.
+/// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
+#[cfg(feature = "internal")]
+pub fn configure_test_fonts() {
+    use i_slint_common::sharedfontique::{FALLBACK_FAMILIES, fontique};
+    use include_dir::{Dir, include_dir};
+
+    static FONTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../../tests/screenshots/fonts");
+
+    i_slint_core::with_global_context(
+        || panic!("platform not set, initialize the testing backend first"),
+        |ctx| {
+            let mut font_context = ctx.font_context().borrow_mut();
+            font_context.collection = fontique::Collection::new(fontique::CollectionOptions {
+                shared: true,
+                system_fonts: false,
+            });
+            font_context.source_cache = fontique::SourceCache::new_shared();
+            for file in
+                FONTS_DIR.files().filter(|f| f.path().extension().is_some_and(|ext| ext == "ttf"))
+            {
+                let fonts =
+                    font_context.collection.register_fonts(file.contents().to_vec().into(), None);
+                for generic_family in FALLBACK_FAMILIES {
+                    font_context.collection.set_generic_families(
+                        generic_family,
+                        fonts.iter().map(|(family_id, _)| *family_id),
+                    );
+                }
+            }
+        },
+    )
+    .unwrap();
+}
+
 pub use i_slint_core::items::AccessibleRole;

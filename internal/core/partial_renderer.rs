@@ -21,7 +21,7 @@ use crate::item_rendering::{
     RenderText,
 };
 use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
-#[cfg(feature = "std")]
+#[cfg(feature = "path")]
 use crate::items::Path;
 use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Opacity, RenderingResult, TextInput};
 use crate::lengths::{
@@ -572,12 +572,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
             return;
         }
 
-        if !rect.is_empty() {
-            if let Some(rect) =
+        if !rect.is_empty()
+            && let Some(rect) =
                 transform.outer_transformed_rect(&rect.cast()).cast().intersection(clip_rect)
-            {
-                self.dirty_region.add_rect(rect);
-            }
+        {
+            self.dirty_region.add_rect(rect);
         }
     }
 
@@ -668,7 +667,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     forward_rendering_call2!(fn draw_image(dyn RenderImage));
     forward_rendering_call2!(fn draw_text(dyn RenderText));
     forward_rendering_call!(fn draw_text_input(TextInput));
-    #[cfg(feature = "std")]
+    #[cfg(feature = "path")]
     forward_rendering_call!(fn draw_path(Path));
     forward_rendering_call!(fn draw_box_shadow(BoxShadow));
 

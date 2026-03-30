@@ -12,9 +12,9 @@ pub fn create_frame_throttle(
     _is_wayland: bool,
 ) -> Box<dyn FrameThrottle> {
     if _is_wayland {
-        WinitBasedFrameThrottle::new(window_adapter)
+        WinitBasedFrameThrottle::create(window_adapter)
     } else {
-        TimerBasedFrameThrottle::new(window_adapter)
+        TimerBasedFrameThrottle::create(window_adapter)
     }
 }
 
@@ -28,7 +28,7 @@ struct TimerBasedFrameThrottle {
 }
 
 impl TimerBasedFrameThrottle {
-    fn new(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
+    fn create(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
         Box::new(Self { window_adapter, timer: Rc::new(Timer::default()) })
     }
 }
@@ -62,10 +62,8 @@ impl FrameThrottle for TimerBasedFrameThrottle {
                 if !keep_running {
                     timer.stop();
                 }
-            } else {
-                if keep_running {
-                    timer.restart();
-                }
+            } else if keep_running {
+                timer.restart();
             }
         });
     }
@@ -84,7 +82,7 @@ struct WinitBasedFrameThrottle {
 }
 
 impl WinitBasedFrameThrottle {
-    fn new(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
+    fn create(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
         Box::new(Self { window_adapter })
     }
 }

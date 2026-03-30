@@ -82,7 +82,7 @@ export component HomePage inherits Page {
     }
 
 
-    gl := GridLayout {
+    flex := FlexBoxLayout {
         x: DemoPalette.default-margin;
         y: parent.height - DemoPalette.default-margin - self.preferred-height;
         width: self.preferred-width;
@@ -123,8 +123,6 @@ export component HomePage inherits Page {
                 text-color: DemoPalette.usb-button-text-color,
             },
         ]: ActionButton {
-            col: index.mod(2);
-            row: index / 2;
             icon: action.icon;
             text: action.name;
             background: action.background;
@@ -142,7 +140,7 @@ export component HomePage inherits Page {
         }
 
         x: parent.width - self.width;
-        width: root.width - (DemoPalette.default-margin * 2) - gl.width;
+        width: root.width - (DemoPalette.default-margin * 2) - flex.width;
     }
 
     PrintPage {

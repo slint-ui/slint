@@ -11,6 +11,10 @@ on:
           required: true
         CLOUDFLARE_ACCOUNT_ID:
           required: true
+        CLOUDFLARE_API_TOKEN_2:
+          required: true
+        CLOUDFLARE_ACCOUNT_ID_2:
+          required: true
         ANDROID_KEYSTORE_PASSWORD:
           required: true
         ANDROID_KEYSTORE_BASE64:
@@ -32,6 +36,7 @@ jobs:
         slint: ${{ steps.filter.outputs.slint }}
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
+        safety_docs : ${{ steps.filter.outputs.safety_docs }}
         internal : ${{ steps.filter.outputs.internal }}
         api_cpp : ${{ steps.filter.outputs.api_cpp }}
         api_python : ${{ steps.filter.outputs.api_python }}
@@ -45,9 +50,10 @@ jobs:
         updater_test : ${{ steps.filter.outputs.updater_test }}
         servo_example : ${{ steps.filter.outputs.servo_example }}
         bevy_examples : ${{ steps.filter.outputs.bevy_examples }}
+        rust_files : ${{ steps.filter.outputs.rust_files }}
       steps:
         - uses: actions/checkout@v6
-        - uses: dorny/paths-filter@v3
+        - uses: dorny/paths-filter@v4
           id: filter
           with:
             token: ${{ github.token }}
@@ -142,7 +148,13 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
+                include:
+                    - os: ubuntu-22.04
+                      rust_version: "1.88"
+                    - os: macos-14
+                      rust_version: beta
+                    - os: windows-2022
+                      rust_version: stable
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -165,8 +177,36 @@ jobs:
                   echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
                   echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ matrix.rust_version }}
             - name: Run tests
               run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
+
+    cpp_test_driver_32bit:
+        needs: files-changed
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
+        runs-on: ubuntu-24.04
+        env:
+            SLINT_NO_QT: 1
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
+            PKG_CONFIG_ALLOW_CROSS: 1
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install 32-bit build dependencies
+              run: |
+                  sudo dpkg --add-architecture i386
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-unknown-linux-gnu
+            - name: Run tests
+              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
 
     cpp_cmake:
         needs: files-changed
@@ -224,7 +264,7 @@ jobs:
               working-directory: ${{ runner.workspace }}/cppbuild
               run: cmake --build . --config Debug --target package
             - name: "Create C++ packages artifact"
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: cpp_bin-${{ matrix.os }}
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -246,7 +286,7 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
-            - uses: actions/download-artifact@v7
+            - uses: actions/download-artifact@v8
               with:
                   name: cpp_bin-ubuntu-22.04
                   path: cpp-package
@@ -271,16 +311,16 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v5.0.0
               with:
-                version: 10.18.2
+                version: 10.29.3
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
             - uses: ./.github/actions/install-linux-dependencies
             - uses: actions/setup-node@v6
               with:
-                  node-version: 20
+                  node-version: 24
                   package-manager-cache: false
             - name: Install wasm-pack
               run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -320,6 +360,8 @@ jobs:
                     - feature: pico-st7789
                       target: thumbv6m-none-eabi
                     - feature: pico2-st7789
+                      target: thumbv8m.main-none-eabihf
+                    - feature: pico2-touch-lcd-2-8
                       target: thumbv8m.main-none-eabihf
                     - feature: stm32h735g
                       target: thumbv7em-none-eabihf
@@ -485,6 +527,7 @@ jobs:
                             --skip example_grid_with_repeated_rows \
                             --skip example_vector_as_grid \
                             --skip example_vlayout \
+                            --skip example_flexbox_interactive \
                             --skip test_interpreter_elements_path_fit \
                             --skip test_interpreter_layout_path \
                             --skip test_interpreter_7guis_booker \
@@ -596,12 +639,12 @@ jobs:
             - uses: actions/checkout@v6
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v5.0.0
               with:
-                version: 10.18.2
+                version: 10.29.3
             - name: Run pnpm install
               working-directory: tools/figma-inspector
               run: pnpm install --frozen-lockfile
@@ -618,23 +661,30 @@ jobs:
               working-directory: tools/figma-inspector
               run: pnpm zip
             - name: Archive zip
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: figma-plugin
                   path: tools/figma-inspector/zip
 
     material-components:
-        needs: files-changed
-        if: needs.files-changed.outputs.material_components == 'true'
-        permissions:
-            contents: read
-            deployments: write
-        uses: ./.github/workflows/material.yaml
-        secrets:
-            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      needs: files-changed
+      if: needs.files-changed.outputs.material_components == 'true'
+      permissions:
+        contents: read
+        deployments: write
+      uses: ./.github/workflows/material.yaml
+      secrets:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+    safety-docs:
+      needs: files-changed
+      if: needs.files-changed.outputs.safety_docs == 'true'
+      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed
@@ -646,3 +696,21 @@ jobs:
         if: needs.files-changed.outputs.bevy_examples == 'true'
         uses: ./.github/workflows/bevy_examples.yaml
 
+    clippy:
+        needs: files-changed
+        if: needs.files-changed.outputs.rust_files == 'true'
+        env:
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install ffmpeg and alsa (Linux)
+              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+            - name: Install gstreamer and libunwind (Linux)
+              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - uses: ./.github/actions/setup-rust
+            - name: Run Clippy
+              run: ./scripts/run_clippy.sh

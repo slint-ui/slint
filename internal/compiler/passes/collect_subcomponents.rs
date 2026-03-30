@@ -3,6 +3,8 @@
 
 //! This pass fills the root component used_types.sub_components
 
+#![allow(clippy::mutable_key_type)] // Component identity keys intentionally wrap interior mutability
+
 use by_address::ByAddress;
 
 use crate::langtype::ElementType;
@@ -37,7 +39,7 @@ fn collect_subcomponents_recursive(
             _ => return,
         };
         collect_subcomponents_recursive(&base_comp, result, hash);
-        if base_comp.parent_element.upgrade().is_some() {
+        if base_comp.parent_element().is_some() {
             // This is not a sub-component, but is a repeated component
             return;
         }

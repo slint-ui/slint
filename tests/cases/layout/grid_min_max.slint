@@ -7,7 +7,7 @@ export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
 
-    GridLayout {
+    grid := GridLayout {
         padding: 0phx;
         spacing: 1phx;
         Row {
@@ -26,6 +26,7 @@ export component TestCase inherits Rectangle {
         Row {
             rect3 := Rectangle {
                 background: green;
+                preferred_width: 60phx;
                 max_width: 60phx;
             }
             rect4 := Rectangle {
@@ -41,7 +42,8 @@ export component TestCase inherits Rectangle {
     out property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == 60phx && rect1.height == 20phx;
     out property <bool> rect2_pos_ok: rect2.x == 61phx && rect2.y == 0phx && rect2.width == 138phx && rect2.height == 20phx;
     out property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == 21phx && rect3.width == 60phx && rect3.height == 279phx;
-    out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok;
+    out property <bool> grid_minmax_ok: grid.min-width == 52phx && grid.preferred-width == 62phx && grid.max-width > 300phx;
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok && rect3_pos_ok && grid_minmax_ok;
 }
 
 /*
@@ -52,6 +54,7 @@ const TestCase &instance = *handle;
 assert(instance.get_rect1_pos_ok());
 assert(instance.get_rect2_pos_ok());
 assert(instance.get_rect3_pos_ok());
+assert(instance.get_grid_minmax_ok());
 ```
 
 
@@ -60,6 +63,7 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());
 assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_grid_minmax_ok());
 ```
 
 */

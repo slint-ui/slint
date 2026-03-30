@@ -28,7 +28,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v6
-            - uses: jdx/mise-action@v3
+            - uses: jdx/mise-action@v4
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -44,7 +44,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v6
-            - uses: jdx/mise-action@v3
+            - uses: jdx/mise-action@v4
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -65,4 +65,21 @@ jobs:
             ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
             CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
             CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+            CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
             READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+
+    done:
+        # Note: We use `needs` + `if: always()` here to ensure the "done"
+        # task is never just "skipped", which would count as success().
+        # Instead, make the task fail depending on whether there is any failure
+        # in the ci workflow.
+        needs: [ci, format_fix, lint_typecheck]
+        if: ${{ always() }}
+        name: done
+        runs-on: ubuntu-latest
+        steps:
+            - if: ${{ contains(needs.*.result, 'failure') }}
+              run: echo "A required check failed! 🌋" && false
+            - if: ${{ !contains(needs.*.result, 'failure') }}
+              run: echo "All checks passed. 🎉"

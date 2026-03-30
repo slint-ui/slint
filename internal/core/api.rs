@@ -7,7 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::input::{KeyEventType, MouseEvent};
+use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -91,7 +91,7 @@ impl PhysicalPosition {
     }
 
     #[cfg(feature = "ffi")]
-    pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Point2D<i32> {
+    pub(crate) fn to_euclid(self) -> crate::graphics::euclid::default::Point2D<i32> {
         [self.x, self.y].into()
     }
 
@@ -198,7 +198,7 @@ impl PhysicalSize {
     }
 
     #[cfg(feature = "ffi")]
-    pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Size2D<u32> {
+    pub(crate) fn to_euclid(self) -> crate::graphics::euclid::default::Size2D<u32> {
         [self.width, self.height].into()
     }
 }
@@ -676,25 +676,23 @@ impl Window {
             }
 
             crate::platform::WindowEvent::KeyPressed { text } => {
-                self.0.process_key_input(crate::input::KeyEvent {
-                    text,
-                    repeat: false,
+                self.0.process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
+                    key_event: crate::input::KeyEvent { text, ..Default::default() },
                     ..Default::default()
                 });
             }
             crate::platform::WindowEvent::KeyPressRepeated { text } => {
-                self.0.process_key_input(crate::input::KeyEvent {
-                    text,
-                    repeat: true,
+                self.0.process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
+                    key_event: crate::input::KeyEvent { text, repeat: true, ..Default::default() },
                     ..Default::default()
                 });
             }
             crate::platform::WindowEvent::KeyReleased { text } => {
-                self.0.process_key_input(crate::input::KeyEvent {
-                    text,
+                self.0.process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyReleased,
+                    key_event: crate::input::KeyEvent { text, ..Default::default() },
                     ..Default::default()
                 });
             }

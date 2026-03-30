@@ -20,10 +20,9 @@ pub fn main() {
             move |new_frame| {
                 // TODO: use OpenGL bridge
 
-                let rebuild_rescaler =
-                    to_rgba_rescaler.as_ref().map_or(true, |existing_rescaler| {
-                        existing_rescaler.input().format != new_frame.format()
-                    });
+                let rebuild_rescaler = to_rgba_rescaler.as_ref().is_none_or(|existing_rescaler| {
+                    existing_rescaler.input().format != new_frame.format()
+                });
 
                 if rebuild_rescaler {
                     to_rgba_rescaler = Some(rgba_rescaler_for_frame(new_frame));
@@ -32,7 +31,7 @@ pub fn main() {
                 let rescaler = to_rgba_rescaler.as_mut().unwrap();
 
                 let mut rgb_frame = ffmpeg_next::util::frame::Video::empty();
-                rescaler.run(&new_frame, &mut rgb_frame).unwrap();
+                rescaler.run(new_frame, &mut rgb_frame).unwrap();
 
                 let pixel_buffer = video_frame_to_pixel_buffer(&rgb_frame);
                 app_weak

@@ -47,7 +47,7 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
             Value::EnumerationValue(enum_name, enum_value) => {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
-            Value::KeyboardShortcut(shortcut) => shortcut.to_string().into_bound_py_any(py),
+            Value::Keys(keys) => format!("{keys:?}").into_bound_py_any(py),
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
@@ -341,7 +341,20 @@ impl TypeCollection {
                 })
             })
             .or_else(|_| {
-                let dict = ob.cast::<PyDict>()?;
+                // Try NamedTuple conversion first, then fall back to direct PyDict cast.
+                // NamedTuples (e.g. StandardListViewItem) are tuple subclasses registered
+                // as `typing.NamedTuple` in language.rs. We guard with an isinstance(ob, tuple)
+                // check to avoid false positives from unrelated types that also have `_asdict`.
+                let dict = if ob.is_instance_of::<pyo3::types::PyTuple>()
+                    && ob.hasattr(pyo3::intern!(ob.py(), "_fields")).unwrap_or(false)
+                {
+                    let asdict = ob.call_method0(pyo3::intern!(ob.py(), "_asdict"))?;
+                    asdict.cast::<PyDict>().cloned().map_err(|e| -> PyErr { e.into() })
+                } else {
+                    ob.cast::<PyDict>().cloned().map_err(|_| {
+                        pyo3::exceptions::PyTypeError::new_err("Object is not a dict or NamedTuple")
+                    })
+                }?;
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {

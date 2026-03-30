@@ -4,7 +4,7 @@
 import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Jimp } from "jimp";
+import { read, ImageColorModel } from "image-js";
 import { captureAsyncStderr } from "./helpers/utils.js";
 import {
     private_api,
@@ -16,44 +16,55 @@ import {
 const filename = fileURLToPath(import.meta.url).replace("build", "__test__");
 const dirname = path.dirname(filename);
 
+function createNonNullInstance(definition: {
+    App?: { create(): private_api.ComponentInstance | null };
+}): private_api.ComponentInstance {
+    const app = definition.App;
+    if (!app) {
+        throw new Error("Expected App to be defined");
+    }
+    const instance = app.create();
+    if (!instance) {
+        throw new Error("Expected non-null instance from App.create()");
+    }
+    return instance;
+}
+
 test("get/set string properties", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
         `export component App { in-out property <string> name: "Initial"; }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    expect(instance.getProperty("name")).toBe("Initial");
 
-    expect(instance!.getProperty("name")).toBe("Initial");
-
-    instance!.setProperty("name", "Hello");
-    expect(instance!.getProperty("name")).toBe("Hello");
+    instance.setProperty("name", "Hello");
+    expect(instance.getProperty("name")).toBe("Hello");
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("name", 42);
+            instance.setProperty("name", 42);
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Number");
+        expect(thrownError.code).toBe("StringExpected");
+        expect(thrownError.message).toContain("String");
     }
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("name", { blah: "foo" });
+            instance.setProperty("name", { blah: "foo" });
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Object");
+        expect(thrownError.code).toBe("StringExpected");
+        expect(thrownError.message).toContain("String");
     }
 });
 
@@ -66,38 +77,35 @@ test("get/set number properties", () => {
     }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    expect(instance.getProperty("age")).toBe(42);
 
-    expect(instance!.getProperty("age")).toBe(42);
-
-    instance!.setProperty("age", 100);
-    expect(instance!.getProperty("age")).toBe(100);
+    instance.setProperty("age", 100);
+    expect(instance.getProperty("age")).toBe(100);
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("age", "Hello");
+            instance.setProperty("age", "Hello");
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Number, got: String");
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toContain("Number");
     }
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("age", { blah: "foo" });
+            instance.setProperty("age", { blah: "foo" });
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Number, got: Object");
+        expect(thrownError.code).toBe("NumberExpected");
+        expect(thrownError.message).toContain("Number");
     }
 });
 
@@ -107,38 +115,35 @@ test("get/set bool properties", () => {
         `export component App { in-out property <bool> ready: true; }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    expect(instance.getProperty("ready")).toBe(true);
 
-    expect(instance!.getProperty("ready")).toBe(true);
-
-    instance!.setProperty("ready", false);
-    expect(instance!.getProperty("ready")).toBe(false);
+    instance.setProperty("ready", false);
+    expect(instance.getProperty("ready")).toBe(false);
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("ready", "Hello");
+            instance.setProperty("ready", "Hello");
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Boolean, got: String");
+        expect(thrownError.code).toBe("BooleanExpected");
+        expect(thrownError.message).toContain("Boolean");
     }
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("ready", { blah: "foo" });
+            instance.setProperty("ready", { blah: "foo" });
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect Boolean, got: Object");
+        expect(thrownError.code).toBe("BooleanExpected");
+        expect(thrownError.message).toContain("Boolean");
     }
 });
 
@@ -161,45 +166,42 @@ test("set struct properties", () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
-
-    expect(instance!.getProperty("player")).toStrictEqual({
+    expect(instance.getProperty("player")).toStrictEqual({
         name: "Florian",
         age: 20,
         energy_level: 0.4,
     });
 
-    instance!.setProperty("player", {
+    instance.setProperty("player", {
         name: "Simon",
         age: 22,
         energy_level: 0.8,
     });
 
-    expect(instance!.getProperty("player")).toStrictEqual({
+    expect(instance.getProperty("player")).toStrictEqual({
         name: "Simon",
         age: 22,
         energy_level: 0.8,
     });
 
     // Extra properties are thrown away
-    instance!.setProperty("player", {
+    instance.setProperty("player", {
         name: "Excessive Player",
         age: 100,
         energy_level: 0.8,
         weight: 200,
     });
-    expect(instance!.getProperty("player")).toStrictEqual({
+    expect(instance.getProperty("player")).toStrictEqual({
         name: "Excessive Player",
         age: 100,
         energy_level: 0.8,
     });
 
     // Missing properties are defaulted
-    instance!.setProperty("player", { age: 39 });
-    expect(instance!.getProperty("player")).toStrictEqual({
+    instance.setProperty("player", { age: 39 });
+    expect(instance.getProperty("player")).toStrictEqual({
         name: "",
         age: 39,
         energy_level: 0.0,
@@ -217,12 +219,9 @@ test("get/set image properties", async () => {
   }`,
         filename,
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
-
-    const slintImage = instance!.getProperty("image");
+    const slintImage = instance.getProperty("image");
     if (slintImage instanceof private_api.SlintImageData) {
         expect((slintImage as private_api.SlintImageData).width).toStrictEqual(
             64,
@@ -232,13 +231,18 @@ test("get/set image properties", async () => {
         );
         expect((slintImage as ImageData).path.endsWith("rgb.png")).toBe(true);
 
-        const image = await Jimp.read(path.join(dirname, "resources/rgb.png"));
+        const image = await read(path.join(dirname, "resources/rgb.png"));
+        const rgbaImage =
+            image.colorModel === ImageColorModel.RGBA
+                ? image
+                : image.convertColor(ImageColorModel.RGBA);
+        const raw = rgbaImage.getRawImage();
 
         // Sanity check: setProperty fails when passed definitely a non-image
         {
             let thrownError: any;
             try {
-                instance!.setProperty("external-image", 42);
+                instance.setProperty("external-image", 42);
             } catch (error) {
                 thrownError = error;
             }
@@ -250,7 +254,7 @@ test("get/set image properties", async () => {
         {
             let thrownError: any;
             try {
-                instance!.setProperty("external-image", { garbage: true });
+                instance.setProperty("external-image", { garbage: true });
             } catch (error) {
                 thrownError = error;
             }
@@ -262,7 +266,7 @@ test("get/set image properties", async () => {
         {
             let thrownError: any;
             try {
-                instance!.setProperty("external-image", { width: [1, 2, 3] });
+                instance.setProperty("external-image", { width: [1, 2, 3] });
             } catch (error) {
                 thrownError = error;
             }
@@ -274,7 +278,7 @@ test("get/set image properties", async () => {
         {
             let thrownError: any;
             try {
-                instance!.setProperty("external-image", {
+                instance.setProperty("external-image", {
                     width: 1,
                     height: 1,
                     data: new Uint8ClampedArray(1),
@@ -288,20 +292,20 @@ test("get/set image properties", async () => {
             );
         }
 
-        expect(image.bitmap.width).toBe(64);
-        expect(image.bitmap.height).toBe(64);
-        // Duck typing: The `image.bitmap` object that Jump returns, has the shape of the official ImageData, so
+        expect(raw.width).toBe(64);
+        expect(raw.height).toBe(64);
+        // Duck typing: object with width, height, data has the shape of ImageData, so
         // it should be possible to use it with Slint:
-        instance!.setProperty("external-image", image.bitmap);
-        expect(instance!.getProperty("external-image-ok")).toBe(true);
+        instance.setProperty("external-image", raw);
+        expect(instance.getProperty("external-image-ok")).toBe(true);
 
-        expect(image.bitmap.data.length).toBe(
-            (slintImage as ImageData).data.length,
+        expect(raw.data.length).toBe((slintImage as ImageData).data.length);
+        expect(Buffer.from(raw.data as Uint8Array)).toStrictEqual(
+            (slintImage as ImageData).data,
         );
-        expect(image.bitmap.data).toStrictEqual((slintImage as ImageData).data);
 
         expect(
-            (instance!.getProperty("external-image") as ImageData).path,
+            (instance.getProperty("external-image") as ImageData).path,
         ).toStrictEqual(undefined);
     }
 });
@@ -321,12 +325,9 @@ test("get/set brush properties", () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
-
-    const black = instance!.getProperty("black");
+    const black = instance.getProperty("black");
 
     expect((black as private_api.SlintBrush).toString()).toBe("#000000");
 
@@ -337,8 +338,8 @@ test("get/set brush properties", () => {
         expect(blackSlintRgbaColor.blue).toStrictEqual(0);
     }
 
-    instance?.setProperty("black", "#ffffff");
-    const white = instance!.getProperty("black");
+    instance.setProperty("black", "#ffffff");
+    const white = instance.getProperty("black");
 
     if (white instanceof private_api.SlintBrush) {
         const whiteSlintRgbaColor = (white as private_api.SlintBrush).color;
@@ -347,7 +348,7 @@ test("get/set brush properties", () => {
         expect(whiteSlintRgbaColor.blue).toStrictEqual(255);
     }
 
-    const transparent = instance!.getProperty("trans");
+    const transparent = instance.getProperty("trans");
 
     if (black instanceof private_api.SlintBrush) {
         expect((transparent as private_api.SlintBrush).isTransparent).toBe(
@@ -361,9 +362,9 @@ test("get/set brush properties", () => {
         blue: 120,
         alpha: 255,
     });
-    instance!.setProperty("ref", ref);
+    instance.setProperty("ref", ref);
 
-    let instance_ref = instance!.getProperty("ref");
+    let instance_ref = instance.getProperty("ref");
 
     if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
@@ -373,11 +374,11 @@ test("get/set brush properties", () => {
         expect(ref_color.alpha).toStrictEqual(255);
     }
 
-    instance!.setProperty("ref", {
+    instance.setProperty("ref", {
         color: { red: 110, green: 120, blue: 125, alpha: 255 },
     });
 
-    instance_ref = instance!.getProperty("ref");
+    instance_ref = instance.getProperty("ref");
 
     if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
@@ -387,14 +388,14 @@ test("get/set brush properties", () => {
         expect(ref_color.alpha).toStrictEqual(255);
     }
 
-    instance!.setProperty("ref", {
+    instance.setProperty("ref", {
         red: 110,
         green: 120,
         blue: 125,
         alpha: 255,
     });
 
-    instance_ref = instance!.getProperty("ref");
+    instance_ref = instance.getProperty("ref");
 
     if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
@@ -404,9 +405,9 @@ test("get/set brush properties", () => {
         expect(ref_color.alpha).toStrictEqual(255);
     }
 
-    instance!.setProperty("ref", {});
+    instance.setProperty("ref", {});
 
-    instance_ref = instance!.getProperty("ref");
+    instance_ref = instance.getProperty("ref");
 
     if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
@@ -416,7 +417,7 @@ test("get/set brush properties", () => {
         expect(ref_color.alpha).toStrictEqual(0);
     }
 
-    const radialGradient = instance!.getProperty("radial-gradient");
+    const radialGradient = instance.getProperty("radial-gradient");
 
     if (radialGradient instanceof private_api.SlintBrush) {
         expect((radialGradient as private_api.SlintBrush).toString()).toBe(
@@ -424,7 +425,7 @@ test("get/set brush properties", () => {
         );
     }
 
-    const linearGradient = instance!.getProperty("linear-gradient");
+    const linearGradient = instance.getProperty("linear-gradient");
 
     if (linearGradient instanceof private_api.SlintBrush) {
         expect((linearGradient as private_api.SlintBrush).toString()).toBe(
@@ -533,7 +534,7 @@ test("get/set brush properties", () => {
     }
 
     instance.setProperty("ref-color", { red: 0, green: 0, blue: 0 });
-    instance_ref = instance!.getProperty("ref-color");
+    instance_ref = instance.getProperty("ref-color");
 
     if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
@@ -544,8 +545,8 @@ test("get/set brush properties", () => {
     }
 
     // ref is a brush, but setting to a color should not throw, but take the brush's color.
-    instance!.setProperty("ref-color", ref);
-    instance_ref = instance!.getProperty("ref-color");
+    instance.setProperty("ref-color", ref);
+    instance_ref = instance.getProperty("ref-color");
     if (instance_ref instanceof private_api.SlintBrush) {
         const ref_color = (instance_ref as private_api.SlintBrush).color;
         expect(ref_color.red).toStrictEqual(ref.color.red);
@@ -562,44 +563,43 @@ test("get/set enum properties", () => {
          export component App { in-out property <Direction> direction: up; }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    expect(instance.getProperty("direction")).toBe("up");
 
-    expect(instance!.getProperty("direction")).toBe("up");
-
-    instance!.setProperty("direction", "down");
-    expect(instance!.getProperty("direction")).toBe("down");
+    instance.setProperty("direction", "down");
+    expect(instance.getProperty("direction")).toBe("down");
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("direction", 42);
+            instance.setProperty("direction", 42);
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Number");
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe("42 is not a value of enum Direction");
     }
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("direction", { blah: "foo" });
+            instance.setProperty("direction", { blah: "foo" });
         } catch (error) {
             thrownError = error;
         }
         expect(thrownError).toBeDefined();
-        expect(thrownError.code).toBe("InvalidArg");
-        expect(thrownError.message).toBe("expect String, got: Object");
+        expect(thrownError.code).toBe("GenericFailure");
+        expect(thrownError.message).toBe(
+            "[object Object] is not a value of enum Direction",
+        );
     }
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("direction", "left");
+            instance.setProperty("direction", "left");
         } catch (error) {
             thrownError = error;
         }
@@ -627,16 +627,13 @@ test("ArrayModel", () => {
   }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
     expect(Array.from(new ArrayModel([3, 2, 1]))).toStrictEqual([3, 2, 1]);
 
-    instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
+    instance.setProperty("int-model", new ArrayModel([10, 9, 8]));
 
-    const intArrayModel = instance!.getProperty(
+    const intArrayModel = instance.getProperty(
         "int-model",
     ) as ArrayModel<number>;
     expect(intArrayModel.rowCount()).toStrictEqual(3);
@@ -644,12 +641,12 @@ test("ArrayModel", () => {
         new ArrayModel([10, 9, 8]).values(),
     );
 
-    instance!.setProperty(
+    instance.setProperty(
         "string-model",
         new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]),
     );
 
-    const stringArrayModel = instance!.getProperty(
+    const stringArrayModel = instance.getProperty(
         "string-model",
     ) as ArrayModel<number>;
     expect(stringArrayModel.values()).toStrictEqual(
@@ -662,7 +659,7 @@ test("ArrayModel", () => {
         ]).values(),
     );
 
-    instance!.setProperty(
+    instance.setProperty(
         "struct-model",
         new ArrayModel([
             { name: "simon", age: 22 },
@@ -670,7 +667,7 @@ test("ArrayModel", () => {
         ]),
     );
 
-    const structArrayModel = instance!.getProperty(
+    const structArrayModel = instance.getProperty(
         "struct-model",
     ) as ArrayModel<object>;
     expect(structArrayModel.values()).toStrictEqual(
@@ -690,10 +687,7 @@ test("MapModel", () => {
     }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
     interface Name {
         first: string;
@@ -710,12 +704,12 @@ test("MapModel", () => {
         return data.last + ", " + data.first;
     });
 
-    instance!.setProperty("model", mapModel);
+    instance.setProperty("model", mapModel);
 
     nameModel.setRowData(0, { first: "Simon", last: "Hausmann" });
     nameModel.setRowData(1, { first: "Olivier", last: "Goffart" });
 
-    const checkModel = instance!.getProperty("model") as Model<string>;
+    const checkModel = instance.getProperty("model") as Model<string>;
     expect(checkModel.rowData(0)).toBe("Hausmann, Simon");
     expect(checkModel.rowData(1)).toBe("Goffart, Olivier");
     expect(checkModel.rowData(2)).toBe("Tisch, Roman");
@@ -754,16 +748,13 @@ test("ArrayModel rowCount", () => {
   }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
     const model = new ArrayModel([10, 9, 8]);
 
-    instance!.setProperty("model", model);
+    instance.setProperty("model", model);
     expect(model.rowCount()).toBe(3);
-    expect(instance?.getProperty("model-length") as number).toBe(3);
+    expect(instance.getProperty("model-length") as number).toBe(3);
 });
 
 test("ArrayModel rowData/setRowData", () => {
@@ -781,20 +772,17 @@ test("ArrayModel rowData/setRowData", () => {
   }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
     const model = new ArrayModel([10, 9, 8]);
 
-    instance!.setProperty("model", model);
+    instance.setProperty("model", model);
     expect(model.rowData(1)).toBe(9);
-    expect(instance!.invoke("data", [1])).toStrictEqual(9);
+    expect(instance.invoke("data", [1])).toStrictEqual(9);
 
     model.setRowData(1, 4);
     expect(model.rowData(1)).toBe(4);
-    expect(instance!.invoke("data", [1])).toStrictEqual(4);
+    expect(instance.invoke("data", [1])).toStrictEqual(4);
 });
 
 test("Model notify", () => {
@@ -822,21 +810,18 @@ test("Model notify", () => {
   }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
     const model = new ArrayModel([100, 0]);
 
-    instance!.setProperty("fixed-height-model", model);
-    expect(instance!.getProperty("layout-height") as number).toBe(100);
+    instance.setProperty("fixed-height-model", model);
+    expect(instance.getProperty("layout-height") as number).toBe(100);
     model.setRowData(1, 50);
-    expect(instance!.getProperty("layout-height") as number).toBe(150);
+    expect(instance.getProperty("layout-height") as number).toBe(150);
     model.push(75);
-    expect(instance!.getProperty("layout-height") as number).toBe(225);
+    expect(instance.getProperty("layout-height") as number).toBe(225);
     model.remove(1, 2);
-    expect(instance!.getProperty("layout-height") as number).toBe(100);
+    expect(instance.getProperty("layout-height") as number).toBe(100);
 });
 
 test("model from array", () => {
@@ -849,13 +834,13 @@ test("model from array", () => {
   }`,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
+    if (!instance) {
+        throw new Error("Expected non-null instance from App.create()");
+    }
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
-
-    instance!.setProperty("int-array", [10, 9, 8]);
-    const wrapped_int_model = instance!.getProperty(
+    instance.setProperty("int-array", [10, 9, 8]);
+    const wrapped_int_model = instance.getProperty(
         "int-array",
     ) as Model<number>;
     expect(Array.from(wrapped_int_model)).toStrictEqual([10, 9, 8]);
@@ -865,14 +850,14 @@ test("model from array", () => {
     expect(wrapped_int_model.rowData(2)).toStrictEqual(8);
     expect(Array.from(wrapped_int_model)).toStrictEqual([10, 9, 8]);
 
-    instance!.setProperty("string-array", [
+    instance.setProperty("string-array", [
         "Simon",
         "Olivier",
         "Auri",
         "Tobias",
         "Florian",
     ]);
-    const wrapped_string_model = instance!.getProperty(
+    const wrapped_string_model = instance.getProperty(
         "string-array",
     ) as Model<string>;
     expect(wrapped_string_model.rowCount()).toStrictEqual(5);
@@ -909,13 +894,10 @@ test("invoke callback", () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
     let speakTest: string;
 
-    instance!.setCallback(
+    instance.setCallback(
         "great",
         (a: string, b: string, c: string, d: string, e: string) => {
             speakTest =
@@ -923,29 +905,23 @@ test("invoke callback", () => {
         },
     );
 
-    instance!.invoke("great", [
-        "simon",
-        "olivier",
-        "auri",
-        "tobias",
-        "florian",
-    ]);
+    instance.invoke("great", ["simon", "olivier", "auri", "tobias", "florian"]);
     expect(speakTest).toStrictEqual(
         "hello simon, olivier, auri, tobias and florian",
     );
 
-    instance!.setCallback("great-person", (p: any) => {
+    instance.setCallback("great-person", (p: any) => {
         speakTest = "hello " + p.name;
     });
 
-    instance!.invoke("great-person", [{ name: "simon" }]);
+    instance.invoke("great-person", [{ name: "simon" }]);
     expect(speakTest).toStrictEqual("hello simon");
 
-    instance!.invoke("great-person", [{ hello: "simon" }]);
+    instance.invoke("great-person", [{ hello: "simon" }]);
     expect(speakTest).toStrictEqual("hello ");
 
-    expect(instance!.invoke("get-string", [])).toStrictEqual("string");
-    expect(instance!.invoke("person", [])).toStrictEqual({ name: "florian" });
+    expect(instance.invoke("get-string", [])).toStrictEqual("string");
+    expect(instance.invoke("person", [])).toStrictEqual({ name: "florian" });
 });
 
 test("wrong callback return type ", () => {
@@ -966,38 +942,35 @@ test("wrong callback return type ", () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
     let speakTest: string;
 
-    instance!.setCallback("get-string", () => {
+    instance.setCallback("get-string", () => {
         return 20;
     });
 
-    const string = instance!.invoke("get-string", []);
+    const string = instance.invoke("get-string", []);
     expect(string).toStrictEqual("");
 
-    instance!.setCallback("get-int", () => {
+    instance.setCallback("get-int", () => {
         return "string";
     });
 
-    const int = instance!.invoke("get-int", []);
+    const int = instance.invoke("get-int", []);
     expect(int).toStrictEqual(0);
 
-    instance!.setCallback("get-bool", () => {
+    instance.setCallback("get-bool", () => {
         return "string";
     });
 
-    const bool = instance!.invoke("get-bool", []);
+    const bool = instance.invoke("get-bool", []);
     expect(bool).toStrictEqual(false);
 
-    instance!.setCallback("get-person", () => {
+    instance.setCallback("get-person", () => {
         return "string";
     });
 
-    const person = instance!.invoke("get-person", []);
+    const person = instance.invoke("get-person", []);
     expect(person).toStrictEqual({ name: "", age: 0 });
 });
 
@@ -1020,31 +993,28 @@ test("wrong global callback return type ", () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
     let speakTest: string;
 
-    instance!.setGlobalCallback("Global", "get-string", () => {
+    instance.setGlobalCallback("Global", "get-string", () => {
         return 20;
     });
 
-    const string = instance!.invokeGlobal("Global", "get-string", []);
+    const string = instance.invokeGlobal("Global", "get-string", []);
     expect(string).toStrictEqual("");
 
-    instance!.setGlobalCallback("Global", "get-bool", () => {
+    instance.setGlobalCallback("Global", "get-bool", () => {
         return "string";
     });
 
-    const bool = instance!.invokeGlobal("Global", "get-bool", []);
+    const bool = instance.invokeGlobal("Global", "get-bool", []);
     expect(bool).toStrictEqual(false);
 
-    instance!.setGlobalCallback("Global", "get-person", () => {
+    instance.setGlobalCallback("Global", "get-person", () => {
         return "string";
     });
 
-    const person = instance!.invokeGlobal("Global", "get-person", []);
+    const person = instance.invokeGlobal("Global", "get-person", []);
     expect(person).toStrictEqual({ name: "", age: 0 });
 });
 
@@ -1058,18 +1028,15 @@ test("throw exception in callback", async () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
-
-    instance!.setCallback("throw-something", () => {
+    instance.setCallback("throw-something", () => {
         throw new Error("I'm an error");
     });
 
     const stderrCapture = captureAsyncStderr();
     try {
-        instance!.invoke("throw-something", []);
+        instance.invoke("throw-something", []);
         // Vitest runs these tests in workers and the native binding writes to
         // stderr on the next macrotask, so yield once before restoring writers.
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -1093,15 +1060,12 @@ test("throw exception set color", () => {
   `,
         "",
     );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create();
-    expect(instance).not.toBeNull();
+    const instance = createNonNullInstance(definition);
 
     {
         let thrownError: any;
         try {
-            instance!.setProperty("test", { garbage: true });
+            instance.setProperty("test", { garbage: true });
         } catch (error) {
             thrownError = error;
         }

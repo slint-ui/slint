@@ -25,12 +25,18 @@ pub fn lsp_to_preview(message: common::LspToPreviewMessage) {
             preview::config_changed(config);
         }
         M::ShowPreview(pc) => {
+            tracing::debug!(
+                "Preview: ShowPreview for url={}, component={:?}",
+                pc.url,
+                pc.component
+            );
             preview::load_preview(pc, preview::LoadBehavior::BringWindowToFront);
         }
         M::HighlightFromEditor { url, offset } => {
             preview::highlight(url, offset.into());
         }
         M::Quit => {
+            tracing::debug!("Preview: Quit requested");
             #[cfg(not(target_arch = "wasm32"))]
             let _ = slint::quit_event_loop();
         }

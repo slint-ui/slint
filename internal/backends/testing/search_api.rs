@@ -6,8 +6,12 @@ use i_slint_core::SharedString;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
 use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
-use i_slint_core::items::{ItemRc, Opacity};
+use i_slint_core::items::{ItemRc, Opacity, PointerEventButton};
+use i_slint_core::platform::WindowEvent;
+use i_slint_core::tests::slint_mock_elapsed_time;
 use i_slint_core::window::WindowInner;
+use std::rc::Rc;
+use std::time::Duration;
 
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!(
@@ -20,6 +24,33 @@ mod internal {
     pub trait Sealed {}
 }
 
+/// Describes the kind of layout an element represents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+#[non_exhaustive]
+pub enum LayoutKind {
+    /// A `HorizontalLayout`.
+    HorizontalLayout,
+    /// A `VerticalLayout`.
+    VerticalLayout,
+    /// A `GridLayout`.
+    GridLayout,
+    /// A flex box layout.
+    FlexBox,
+}
+
+impl LayoutKind {
+    fn from_encoded(s: &str) -> Option<Self> {
+        match s {
+            "h-box" => Some(Self::HorizontalLayout),
+            "v-box" => Some(Self::VerticalLayout),
+            "grid" => Some(Self::GridLayout),
+            "flex-box" => Some(Self::FlexBox),
+            _ => None,
+        }
+    }
+}
+
 pub(crate) use internal::Sealed;
 
 /// Trait for type that can be searched for element. This is implemented for everything that implements [`ComponentHandle`]
@@ -28,7 +59,7 @@ pub trait ElementRoot: Sealed {
     fn item_tree(&self) -> ItemTreeRc;
     /// Returns the root of the element tree.
     fn root_element(&self) -> ElementHandle {
-        let item_rc = ItemRc::new(self.item_tree(), 0);
+        let item_rc = ItemRc::new_root(self.item_tree());
         ElementHandle { item: item_rc.downgrade(), element_index: 0 }
     }
 }
@@ -41,6 +72,7 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
+#[allow(clippy::enum_variant_names)]
 enum SingleElementMatch {
     MatchById { id: String, root_base: Option<String> },
     MatchByTypeName(String),
@@ -278,15 +310,14 @@ impl ElementHandle {
         let visit_attached_popups =
             |item_rc: &ItemRc, visitor: &mut dyn FnMut(ElementHandle) -> ControlFlow<R>| {
                 for (popup_elem, popup_item_tree) in active_popups {
-                    if popup_elem == item_rc {
-                        if let Some(result) = (ElementHandle {
-                            item: ItemRc::new(popup_item_tree.clone(), 0).downgrade(),
+                    if popup_elem == item_rc
+                        && let Some(result) = (ElementHandle {
+                            item: ItemRc::new_root(popup_item_tree.clone()).downgrade(),
                             element_index: 0,
                         })
                         .visit_descendants_impl(visitor, active_popups)
-                        {
-                            return Some(result);
-                        }
+                    {
+                        return Some(result);
                     }
                 }
                 None
@@ -492,6 +523,15 @@ impl ElementHandle {
                         if !type_name.is_empty() { Some(type_name) } else { None }
                     },
                 )
+        })
+    }
+
+    /// Returns the layout kind if this element is a layout container;
+    /// None if the element is not a layout or is not valid anymore.
+    pub fn layout_kind(&self) -> Option<LayoutKind> {
+        self.item.upgrade().and_then(|item| {
+            item.element_layout_kind(self.element_index)
+                .and_then(|s| LayoutKind::from_encoded(s.as_str()))
         })
     }
 
@@ -814,35 +854,60 @@ impl ElementHandle {
         }
     }
 
+    fn window_adapter(&self) -> Option<Rc<dyn i_slint_core::window::WindowAdapter>> {
+        self.item.upgrade().and_then(|item| item.window_adapter())
+    }
+
+    /// Move the mouse to the element center and press the pointer.
+    fn pointer_pressed(&self, button: PointerEventButton) {
+        let Some(window_adapter) = self.window_adapter() else {
+            return;
+        };
+        let window = window_adapter.window();
+        let position = self.absolute_center();
+
+        window.dispatch_event(WindowEvent::PointerMoved { position });
+        window.dispatch_event(WindowEvent::PointerPressed { position, button });
+    }
+
+    /// Move the mouse to the element center and release the pointer.
+    fn pointer_released(&self, button: PointerEventButton) {
+        let Some(window_adapter) = self.window_adapter() else {
+            return;
+        };
+        let window = window_adapter.window();
+        let position = self.absolute_center();
+
+        window.dispatch_event(WindowEvent::PointerMoved { position });
+        window.dispatch_event(WindowEvent::PointerReleased { position, button });
+    }
+
     /// Simulates a single click (or touch tap) on the element at its center point with the
     /// specified button.
-    pub async fn single_click(&self, button: i_slint_core::platform::PointerEventButton) {
-        let Some(item) = self.item.upgrade() else { return };
-        let Some(window_adapter) = item.window_adapter() else { return };
-        let window = window_adapter.window();
+    pub async fn single_click(&self, button: PointerEventButton) {
+        self.pointer_pressed(button);
 
-        let item_pos = self.absolute_position();
-        let item_size = self.size();
-        let position = LogicalPosition::new(
-            item_pos.x + item_size.width / 2.,
-            item_pos.y + item_size.height / 2.,
-        );
+        wait_for(Duration::from_millis(50)).await;
 
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
-            position,
-            button,
-        });
+        self.pointer_released(button);
+    }
 
-        wait_for(std::time::Duration::from_millis(50)).await;
+    /// Simulates a single click (or touch tap) on the element at its center point with the
+    /// specified button.
+    ///
+    /// Compared to [Self::single_click()], this function uses slint_mock_elapsed_time instead
+    /// of an actual timer, so that it can be used in our internal tests that do not have an event
+    /// loop.
+    pub fn mock_single_click(&self, button: PointerEventButton) {
+        self.pointer_pressed(button);
 
-        window_adapter.window().dispatch_event(
-            i_slint_core::platform::WindowEvent::PointerReleased { position, button },
-        );
+        slint_mock_elapsed_time(50);
+
+        self.pointer_released(button);
     }
 
     /// Simulates a double click (or touch tap) on the element at its center point.
-    pub async fn double_click(&self, button: i_slint_core::platform::PointerEventButton) {
+    pub async fn double_click(&self, button: PointerEventButton) {
         let Ok(click_interval) = i_slint_core::with_global_context(
             || Err(i_slint_core::platform::PlatformError::NoPlatform),
             |ctx| ctx.platform().click_interval(),
@@ -859,39 +924,33 @@ impl ElementHandle {
             return;
         };
 
-        let Some(item) = self.item.upgrade() else { return };
-        let Some(window_adapter) = item.window_adapter() else { return };
-        let window = window_adapter.window();
+        self.pointer_pressed(button);
 
+        wait_for(single_click_duration).await;
+
+        self.pointer_released(button);
+        self.pointer_pressed(button);
+
+        wait_for(single_click_duration).await;
+
+        self.pointer_released(button);
+    }
+
+    fn absolute_center(&self) -> LogicalPosition {
         let item_pos = self.absolute_position();
         let item_size = self.size();
-        let position = LogicalPosition::new(
-            item_pos.x + item_size.width / 2.,
-            item_pos.y + item_size.height / 2.,
-        );
+        LogicalPosition::new(item_pos.x + item_size.width / 2., item_pos.y + item_size.height / 2.)
+    }
 
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
-            position,
-            button,
-        });
+    pub fn scroll(&self, delta_x: f32, delta_y: f32) {
+        let Some(window_adapter) = self.item.upgrade().and_then(|item| item.window_adapter())
+        else {
+            return;
+        };
+        let window = window_adapter.window();
 
-        wait_for(single_click_duration).await;
-
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerReleased {
-            position,
-            button,
-        });
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
-            position,
-            button,
-        });
-
-        wait_for(single_click_duration).await;
-
-        window_adapter.window().dispatch_event(
-            i_slint_core::platform::WindowEvent::PointerReleased { position, button },
-        );
+        let center = self.absolute_center();
+        window.dispatch_event(WindowEvent::PointerScrolled { position: center, delta_x, delta_y });
     }
 
     fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {

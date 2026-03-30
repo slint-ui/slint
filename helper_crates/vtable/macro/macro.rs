@@ -16,16 +16,16 @@ use syn::*;
 
 /// Returns true if the type `ty` is  "Container<Containee>"
 fn match_generic_type(ty: &Type, container: &str, containee: &Ident) -> bool {
-    if let Type::Path(pat) = ty {
-        if let Some(seg) = pat.path.segments.last() {
-            if seg.ident != container {
-                return false;
-            }
-            if let PathArguments::AngleBracketed(args) = &seg.arguments {
-                if let Some(GenericArgument::Type(Type::Path(arg))) = args.args.last() {
-                    return Some(containee) == arg.path.get_ident();
-                }
-            }
+    if let Type::Path(pat) = ty
+        && let Some(seg) = pat.path.segments.last()
+    {
+        if seg.ident != container {
+            return false;
+        }
+        if let PathArguments::AngleBracketed(args) = &seg.arguments
+            && let Some(GenericArgument::Type(Type::Path(arg))) = args.args.last()
+        {
+            return Some(containee) == arg.path.get_ident();
         }
     }
     false
@@ -33,16 +33,16 @@ fn match_generic_type(ty: &Type, container: &str, containee: &Ident) -> bool {
 
 /// Returns Some(type) if the type is `Pin<type>`
 fn is_pin(ty: &Type) -> Option<&Type> {
-    if let Type::Path(pat) = ty {
-        if let Some(seg) = pat.path.segments.last() {
-            if seg.ident != "Pin" {
-                return None;
-            }
-            if let PathArguments::AngleBracketed(args) = &seg.arguments {
-                if let Some(GenericArgument::Type(t)) = args.args.last() {
-                    return Some(t);
-                }
-            }
+    if let Type::Path(pat) = ty
+        && let Some(seg) = pat.path.segments.last()
+    {
+        if seg.ident != "Pin" {
+            return None;
+        }
+        if let PathArguments::AngleBracketed(args) = &seg.arguments
+            && let Some(GenericArgument::Type(t)) = args.args.last()
+        {
+            return Some(t);
         }
     }
     None
@@ -74,12 +74,12 @@ For function type fields:
  - If a field is called `drop`, then it is understood that this is the destructor for a VBox.
    It must have the type `fn(VRefMut<MyVTable>)`
  - If two fields called `drop_in_place` and `dealloc` are present, then they are understood to be
-    in-place destructors and deallocation functions. `drop_in_place` must have the signature
-    `fn(VRefMut<MyVTable> -> Layout`, and `dealloc` must have the signature
-    `fn(&MyVTable, ptr: *mut u8, layout: Layout)`.
-    `drop_in_place` is responsible for destructing the object and returning the memory layout that
-    was used for the initial allocation. It will be passed to `dealloc`, which is responsible for releasing
-    the memory. These two functions are used to enable the use of `VRc` and `VWeak`.
+   in-place destructors and deallocation functions. `drop_in_place` must have the signature
+   `fn(VRefMut<MyVTable> -> Layout`, and `dealloc` must have the signature
+   `fn(&MyVTable, ptr: *mut u8, layout: Layout)`.
+   `drop_in_place` is responsible for destructing the object and returning the memory layout that
+   was used for the initial allocation. It will be passed to `dealloc`, which is responsible for releasing
+   the memory. These two functions are used to enable the use of `VRc` and `VWeak`.
  - If the first argument of the function is `VRef<MyVTable>` or `VRefMut<MyVTable>`, then it is
    understood as a `&self` or `&mut self` argument in the trait.
  - Similarly, if it is a `Pin<VRef<MyVTable>>` or `Pin<VRefMut<MyVTable>>`, self is mapped
@@ -299,28 +299,22 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 // check for the vtable
                 if let Type::Ptr(TypePtr { mutability, elem, .. })
                 | Type::Reference(TypeReference { mutability, elem, .. }) = &param.ty
+                    && let Type::Path(p) = &**elem
+                    && let Some(pointer_to) = p.path.get_ident()
+                    && pointer_to == &vtable_name
                 {
-                    if let Type::Path(p) = &**elem {
-                        if let Some(pointer_to) = p.path.get_ident() {
-                            if pointer_to == &vtable_name {
-                                if mutability.is_some() {
-                                    return Error::new(p.span(), "VTable cannot be mutable")
-                                        .to_compile_error()
-                                        .into();
-                                }
-                                if call_code.is_some() || !sig.inputs.is_empty() {
-                                    return Error::new(
-                                        p.span(),
-                                        "VTable pointer need to be the first",
-                                    )
-                                    .to_compile_error()
-                                    .into();
-                                }
-                                call_code = Some(quote!(vtable as _,));
-                                continue;
-                            }
-                        }
+                    if mutability.is_some() {
+                        return Error::new(p.span(), "VTable cannot be mutable")
+                            .to_compile_error()
+                            .into();
                     }
+                    if call_code.is_some() || !sig.inputs.is_empty() {
+                        return Error::new(p.span(), "VTable pointer need to be the first")
+                            .to_compile_error()
+                            .into();
+                    }
+                    call_code = Some(quote!(vtable as _,));
+                    continue;
                 }
 
                 let (is_pin, self_ty) = match is_pin(&param.ty) {
@@ -393,19 +387,19 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 };
 
                 // Check if this is a constructor functions
-                if let ReturnType::Type(_, ret) = &f.output {
-                    if match_generic_type(ret, "VBox", &vtable_name) {
-                        // Change VBox<VTable> to Self
-                        sig.output = parse_str("-> Self").unwrap();
-                        wrap_trait_call = Some(quote! {
-                            let wrap_trait_call = |x| unsafe {
-                                // Put the object on the heap and get a pointer to it
-                                let ptr = ::core::ptr::NonNull::from(Box::leak(Box::new(x)));
-                                VBox::<#vtable_name>::from_raw(vtable, ptr.cast())
-                            };
-                            wrap_trait_call
-                        });
-                    }
+                if let ReturnType::Type(_, ret) = &f.output
+                    && match_generic_type(ret, "VBox", &vtable_name)
+                {
+                    // Change VBox<VTable> to Self
+                    sig.output = parse_str("-> Self").unwrap();
+                    wrap_trait_call = Some(quote! {
+                        let wrap_trait_call = |x| unsafe {
+                            // Put the object on the heap and get a pointer to it
+                            let ptr = ::core::ptr::NonNull::from(Box::leak(Box::new(x)));
+                            VBox::<#vtable_name>::from_raw(vtable, ptr.cast())
+                        };
+                        wrap_trait_call
+                    });
                 }
             }
 

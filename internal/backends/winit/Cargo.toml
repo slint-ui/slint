@@ -72,7 +72,7 @@ i-slint-common = { workspace = true, features = ["default"] }
 
 cfg-if = "1"
 derive_more = { workspace = true }
-lyon_path = "1.0"
+lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
@@ -94,6 +94,7 @@ softbuffer = { workspace = true, optional = true, default-features = false }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
+webbrowser = "1.2.0"
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
 muda = { version = "0.17.0", optional = true, default-features = false }

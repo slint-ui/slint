@@ -108,6 +108,7 @@ fn make_c_function_binding(
 /// The current implementation will do usually two memory allocation:
 ///  1. the allocation from the calling code to allocate user_data
 ///  2. the box allocation within this binding
+///
 /// It might be possible to reduce that by passing something with a
 /// vtable, so there is the need for less memory allocation.
 #[unsafe(no_mangle)]
@@ -135,7 +136,7 @@ pub unsafe extern "C" fn slint_property_set_binding(
 
 /// Set a binding using an already allocated building holder
 ///
-//// (take ownership of the binding)
+/// (take ownership of the binding)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_property_set_binding_internal(
     handle: &PropertyHandleOpaque,
@@ -528,7 +529,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         BindingResult::KeepBinding
     }
 
-    const VT: &'static BindingVTable = &BindingVTable {
+    const VT: &BindingVTable = &BindingVTable {
         drop,
         evaluate,
         mark_dirty: ChangeTracker::mark_dirty,

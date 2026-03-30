@@ -41,6 +41,7 @@ pub struct SkiaItemRenderer<'a> {
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
     layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
 }
 
@@ -52,6 +53,7 @@ impl<'a> SkiaItemRenderer<'a> {
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
         layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+        text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
         Self {
@@ -64,6 +66,7 @@ impl<'a> SkiaItemRenderer<'a> {
             image_cache,
             layer_cache,
             path_cache,
+            text_layout_cache,
             box_shadow_cache,
         }
     }
@@ -239,7 +242,9 @@ impl<'a> SkiaItemRenderer<'a> {
             // source size.
             return;
         }
-        let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&source).into() {
+        let fits = if let i_slint_core::ImageInner::NineSlice(nine) =
+            <&i_slint_core::ImageInner>::from(&source)
+        {
             i_slint_core::graphics::fit9slice(
                 source_size.cast(),
                 nine.1,
@@ -295,7 +300,7 @@ impl<'a> SkiaItemRenderer<'a> {
                             .recording_context()
                             .as_mut()
                             .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
-                        &src,
+                        src,
                         skia_safe::image::RequiredProperties::default(),
                     )
                     .and_then(|i| {
@@ -375,6 +380,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 self.image_cache,
                 self.layer_cache,
                 self.path_cache,
+                self.text_layout_cache,
                 self.box_shadow_cache,
             );
             sub_renderer.translate(-bounding_rect.origin.to_vector());
@@ -417,9 +423,7 @@ impl<'a> SkiaItemRenderer<'a> {
         if !local_to_device.is_translate() || local_to_device.is_identity() {
             return None;
         }
-        let Some(device_to_local) = local_to_device.invert() else {
-            return None;
-        };
+        let device_to_local = local_to_device.invert()?;
         let mut target_point = local_to_device.map_point(skia_safe::Point::default());
 
         target_point.x = target_point.x.round();
@@ -493,7 +497,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
             let rounded_rect = to_skia_rrect(&geometry, &stroke_border_radius);
 
-            (rounded_rect.clone(), rounded_rect)
+            (rounded_rect, rounded_rect)
         } else {
             let background_rect = to_skia_rrect(&geometry, &fill_radius);
 
@@ -520,17 +524,16 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self.canvas.draw_rrect(background_rect, &fill_paint);
         }
 
-        if border_width.get() > 0.0 {
-            if let Some(mut border_paint) =
+        if border_width.get() > 0.0
+            && let Some(mut border_paint) =
                 self.brush_to_paint(border_color, geometry.width_length(), geometry.height_length())
-            {
-                border_paint.set_style(skia_safe::PaintStyle::Stroke);
-                border_paint.set_stroke_width(border_width.get());
-                if !border_rect.is_rect() {
-                    border_paint.set_anti_alias(true);
-                }
-                self.canvas.draw_rrect(border_rect, &border_paint);
+        {
+            border_paint.set_style(skia_safe::PaintStyle::Stroke);
+            border_paint.set_stroke_width(border_width.get());
+            if !border_rect.is_rect() {
+                border_paint.set_anti_alias(true);
             }
+            self.canvas.draw_rrect(border_rect, &border_paint);
         }
     }
 
@@ -566,7 +569,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         _cache: &CachedRenderingData,
     ) {
         let restore = self.save_canvas_and_pixel_align_origin();
-        sharedparley::draw_text(self, text, Some(self_rc), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         if restore {
             self.canvas.restore();
         }
@@ -695,6 +698,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 i_slint_core::items::LineJoin::Bevel => skia_safe::PaintJoin::Bevel,
                 i_slint_core::items::LineJoin::Miter | _ => skia_safe::PaintJoin::Miter,
             });
+            border_paint.set_stroke_miter(path.stroke_miter_limit());
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
         }
@@ -869,6 +873,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
             logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            None,
         );
     }
 
@@ -970,7 +975,7 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
             None
         } else {
             let mut paint = self.default_paint().unwrap_or_default();
-            paint.set_shader(skia_safe::shaders::color(to_skia_color(&color)));
+            paint.set_shader(skia_safe::shaders::color(to_skia_color(color)));
             Some(paint)
         }
     }
@@ -1012,7 +1017,8 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         else {
             return;
         };
-        let font = skia_safe::Font::from_typeface(type_face, font_size.get());
+        let mut font = skia_safe::Font::from_typeface(type_face, font_size.get());
+        font.set_subpixel(true);
 
         let (glyph_ids, glyph_positions): (Vec<_>, Vec<_>) = glyphs_it
             .into_iter()

@@ -88,6 +88,7 @@ impl SkiaRendererAdapter {
     }
 
     #[cfg(feature = "renderer-skia-opengl")]
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new_opengl(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
@@ -159,7 +160,7 @@ impl SkiaRendererAdapter {
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         #[allow(unused_assignments)]
-        let mut result = Err(format!("No skia renderer available").into());
+        let mut result = Err("No skia renderer available".to_string().into());
 
         #[cfg(feature = "renderer-skia-vulkan")]
         {
@@ -290,7 +291,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
                     .into()),
                 },
                 age,
-                pixels.as_mut(),
+                pixels,
             )?;
             Ok(())
         })

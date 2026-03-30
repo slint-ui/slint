@@ -21,12 +21,19 @@ export component Example inherits Window {
             }
             accept
         }
+
+        KeyBinding {
+            keys: @keys(Control + X);
+            activated => {
+                debug("Control + X pressed")
+            }
+        }
     }
 }
 ```
 
-The `FocusScope` exposes callbacks to handle key events. Note that `FocusScope`
-will only invoke them when it `has-focus`.
+The `FocusScope` can react to <Link type="KeyBindingOverview" label="keyboard shortcuts"/> using the <Link type="KeyBinding" label="KeyBinding element"/>, and exposes callbacks to handle key events manually.
+Note that `FocusScope` will only handle key events when it either `has-focus`, or when it surrounds another FocusScope that `has-focus` (see [Key Event Delivery](#key-event-delivery))
 
 The <Link type="KeyEvent" /> has a text property, which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
@@ -107,3 +114,29 @@ Invoked when the `FocusScope` gains focus. The argument is a a <Link type="Focus
 
 ### focus-lost(FocusReason)
 Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
+
+## `KeyBinding`
+
+Place `KeyBinding` elements inside a `FocusScope` to declare keyboard shortcuts.
+KeyBindings use **logical keys**, based on the character a key produces, not physical key positions.
+
+See <Link type="KeyBindingOverview" label="Key Bindings"/> for details.
+
+### Properties of `KeyBinding`
+
+#### keys
+
+<SlintProperty propName="keys" typeName="keys">
+The <Link type="keys" label="keys" /> to match against incoming key events.
+</SlintProperty>
+
+#### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether this KeyBinding is currently enabled. Disabled KeyBinding elements don't consume key events and never invoke their `activated()` callback.
+</SlintProperty>
+
+### Callbacks of `KeyBinding`
+
+#### activated()
+
+Invoked when the parent `FocusScope` receives a key event that matches the `keys` of this `KeyBinding`.

@@ -88,6 +88,7 @@ pub mod api {
     /// This enum describes the different ways to configure WGPU for rendering.
     #[derive(Clone, Debug)]
     #[non_exhaustive]
+    #[allow(clippy::large_enum_variant)]
     pub enum WGPUConfiguration {
         /// Use `Manual` if you've initialized WGPU and want to supply the instance, adapter,
         /// device, and queue for use.

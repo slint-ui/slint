@@ -19,6 +19,7 @@ pub struct DumbBufferDisplay {
 }
 
 impl DumbBufferDisplay {
+    #[allow(clippy::new_ret_no_self, clippy::arc_with_non_send_sync)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
         renderer_formats: &[drm::buffer::DrmFourcc],
@@ -30,7 +31,7 @@ impl DumbBufferDisplay {
         let format = super::negotiate_format(renderer_formats, &available_formats)
             .ok_or_else(|| PlatformError::Other(
                 format!("No compatible format found for DumbBuffer. Renderer supports: {:?}, FB supports: {:?}",
-                        renderer_formats, available_formats).into()))?;
+                        renderer_formats, available_formats)))?;
 
         let (depth, bpp) = pixel_format_params(format)
             .ok_or_else(|| format!("Cannot get depth and bpp for pixel format: {format:?}"))?;
@@ -80,7 +81,7 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
         self.drm_output
             .drm_device
             .map_dumb_buffer(&mut back_buffer.buffer_handle)
-            .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}").into()))
+            .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}")))
             .and_then(|mut buffer| callback(buffer.as_mut(), age, format))
     }
 

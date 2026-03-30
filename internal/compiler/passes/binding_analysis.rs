@@ -107,7 +107,7 @@ impl PropertyPath {
         let mut elements = self.elements.clone();
         loop {
             let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
-            if enclosing.parent_element.upgrade().is_some()
+            if enclosing.parent_element().is_some()
                 || !Rc::ptr_eq(&element, &enclosing.root_element)
             {
                 break;
@@ -123,6 +123,7 @@ impl PropertyPath {
                     Rc::ptr_eq(c, &enclosing)
                         || enclosing
                             .parent_element
+                            .borrow()
                             .upgrade()
                             .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
                 }
@@ -317,21 +318,29 @@ fn analyze_binding(
     if context.currently_analyzing.contains(current) {
         let mut loop_description = String::new();
         let mut has_window_layout = false;
+
+        fn push_prop(prop: &PropertyPath, out: &mut String) {
+            if !out.is_empty() {
+                out.push_str(" -> ");
+            }
+            match prop.prop.element().borrow().id.as_str() {
+                "" => out.push_str(prop.prop.name()),
+                id => {
+                    out.push_str(id);
+                    out.push('.');
+                    out.push_str(prop.prop.name());
+                }
+            }
+        }
+
+        // Build description by iterating in reverse (trigger direction: "A triggers B")
+        // and close the loop by prepending `current` at the start.
+        push_prop(current, &mut loop_description);
         for it in context.currently_analyzing.iter().rev() {
             if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
                 has_window_layout = true;
             }
-            if !loop_description.is_empty() {
-                loop_description.push_str(" -> ");
-            }
-            match it.prop.element().borrow().id.as_str() {
-                "" => loop_description.push_str(it.prop.name()),
-                id => {
-                    loop_description.push_str(id);
-                    loop_description.push('.');
-                    loop_description.push_str(it.prop.name());
-                }
-            }
+            push_prop(it, &mut loop_description);
             if it == current {
                 break;
             }
@@ -523,6 +532,9 @@ fn recurse_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }
+        Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => {
+            vis(&layout_cache_prop.clone().into(), P)
+        }
         Expression::SolveBoxLayout(l, o) | Expression::ComputeBoxLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveBoxLayout(..))
@@ -533,6 +545,53 @@ fn recurse_expression(
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
             let mut g = l.geometry.clone();
+            g.rect = Default::default(); // already visited;
+            g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
+        }
+        Expression::SolveFlexBoxLayout(layout)
+        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+            if let Some(nr) = layout.direction.as_ref() {
+                vis(&nr.clone().into(), P);
+            }
+            // Visit all layout geometry dependencies
+            if matches!(expr, Expression::SolveFlexBoxLayout(..)) {
+                // FlexBoxLayout needs both width and height
+                if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
+                if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
+                }
+            } else if let Expression::ComputeFlexBoxLayoutInfo(_, _orientation) = expr {
+                // Technically, due to wrapping, there's a dependency on width for the vertical orientation (for Rows/RowsReverse)
+                // or a dependency on height for the horizontal orientation (for Columns/ColumnsReverse).
+                // But since the flex direction, which can be changed at runtime, we don't know which one will apply.
+                // And doing both leads to binding loops...
+                // We could detect the case of a constant flex direction (like in lower_layout_expression.rs) but
+                // that still wouldn't fix the case of runtime direction changes...
+                /*if *orientation == Orientation::Vertical
+                    && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                {
+                    vis(&nr.clone().into(), P);
+                }
+                if *orientation == Orientation::Horizontal
+                    && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                {
+                    vis(&nr.clone().into(), P);
+                }*/
+                // Visit item dependencies for relevant orientations
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Horizontal,
+                    vis,
+                );
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Vertical,
+                    vis,
+                );
+            }
+            let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }

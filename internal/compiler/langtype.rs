@@ -54,7 +54,7 @@ pub enum Type {
     Array(Rc<Type>),
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
-    KeyboardShortcutType,
+    Keys,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -106,7 +106,7 @@ impl core::cmp::PartialEq for Type {
                 matches!(other, Type::Struct(rhs) if lhs.fields == rhs.fields && lhs.name == rhs.name)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
-            Type::KeyboardShortcutType => matches!(other, Type::KeyboardShortcutType),
+            Type::Keys => matches!(other, Type::Keys),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
@@ -168,7 +168,7 @@ impl Display for Type {
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
-            Type::KeyboardShortcutType => write!(f, "keyboard-shortcut"),
+            Type::Keys => write!(f, "keys"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -219,7 +219,7 @@ impl Type {
                 | Self::Bool
                 | Self::Easing
                 | Self::Enumeration(_)
-                | Self::KeyboardShortcutType
+                | Self::Keys
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -324,7 +324,7 @@ impl Type {
             Type::Array(_) => None,
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
-            Type::KeyboardShortcutType => None,
+            Type::Keys => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -446,7 +446,7 @@ impl ElementType {
                     };
                 match b.properties.get(resolved_name.as_ref()) {
                     None => {
-                        if b.is_non_item_type {
+                        if b.is_non_item_type || b.is_global {
                             PropertyLookupResult::invalid(resolved_name)
                         } else {
                             crate::typeregister::reserved_property(resolved_name)
@@ -662,24 +662,31 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
+    FlexBoxLayoutData,
     LayoutItemInfo,
+    FlexBoxLayoutItemInfo,
     Padding,
     LayoutInfo,
     FontMetrics,
     PathElement,
-    KeyboardModifiers,
     PointerEvent,
     PointerScrollEvent,
-    KeyEvent,
     DropEvent,
     TableColumn,
     MenuEntry,
     Edges,
+    InternalKeyEvent,
 }
 
 impl BuiltinPrivateStruct {
     pub fn is_layout_data(&self) -> bool {
-        matches!(self, Self::GridLayoutInputData | Self::GridLayoutData | Self::BoxLayoutData)
+        matches!(
+            self,
+            Self::GridLayoutInputData
+                | Self::GridLayoutData
+                | Self::BoxLayoutData
+                | Self::FlexBoxLayoutData
+        )
     }
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {
@@ -688,9 +695,8 @@ impl BuiltinPrivateStruct {
             | Self::FontMetrics
             | Self::TableColumn
             | Self::MenuEntry
-            | Self::KeyEvent
-            | Self::KeyboardModifiers
             | Self::PointerEvent
+            | Self::InternalKeyEvent
             | Self::PointerScrollEvent
             | Self::Edges => {
                 let name: &'static str = self.into();
@@ -707,7 +713,9 @@ pub enum BuiltinPublicStruct {
     LogicalPosition,
     LogicalSize,
     StandardListViewItem,
-    KeyboardShortcut,
+    Keys,
+    KeyEvent,
+    KeyboardModifiers,
 }
 
 impl BuiltinPublicStruct {
@@ -717,7 +725,9 @@ impl BuiltinPublicStruct {
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
-            Self::KeyboardShortcut => Some(SmolStr::new_static("KeyboardShortcut")),
+            Self::Keys => Some(SmolStr::new_static("Keys")),
+            Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
+            Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
         }
     }
 }
@@ -1010,7 +1020,7 @@ impl Enumeration {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct KeyboardModifiers {
     pub alt: bool,
     pub control: bool,
@@ -1018,21 +1028,15 @@ pub struct KeyboardModifiers {
     pub shift: bool,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct KeyboardShortcut {
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct Keys {
     pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
     pub ignore_shift: bool,
     pub ignore_alt: bool,
 }
 
-impl PartialEq for KeyboardShortcut {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
-}
-
-impl std::fmt::Display for KeyboardShortcut {
+impl std::fmt::Display for Keys {
     // Make sure to keep this in sync with the implemenation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
@@ -1040,14 +1044,14 @@ impl std::fmt::Display for KeyboardShortcut {
         } else {
             let alt = self
                 .ignore_alt
-                .then_some("IgnoreAlt+")
+                .then_some("Alt?+")
                 .or(self.modifiers.alt.then_some("Alt+"))
                 .unwrap_or_default();
             let ctrl = if self.modifiers.control { "Control+" } else { "" };
             let meta = if self.modifiers.meta { "Meta+" } else { "" };
             let shift = self
                 .ignore_shift
-                .then_some("IgnoreShift+")
+                .then_some("Shift?+")
                 .or(self.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
             let keycode: String = self

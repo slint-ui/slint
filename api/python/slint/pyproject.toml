@@ -50,5 +50,11 @@ cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "**
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
 
+[tool.cibuildwheel.ios]
+# Expose Rust toolchain to the restricted iOS build environment
+xbuild-tools = ["rustc", "cargo", "rustup", "cc", "ar"]
+
 [tool.maturin]
 editable-profile = "dev"
+# added so it includes in wheel build to overrite the default behavior of not including untracked files
+include = ["slint/language.pyi"]

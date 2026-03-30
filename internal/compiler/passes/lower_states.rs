@@ -15,13 +15,8 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
-pub fn lower_states(
-    component: &Rc<Component>,
-    tr: &crate::typeregister::TypeRegister,
-    diag: &mut BuildDiagnostics,
-) {
-    let state_info_type = tr.lookup("StateInfo");
-    assert!(matches!(state_info_type, Type::Struct(ref s) if s.name.is_some()));
+pub fn lower_states(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    let state_info_type = crate::typeregister::BUILTIN.with(|b| b.state_info_type.clone().into());
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         lower_state_in_element(elem, &state_info_type, diag)
     });

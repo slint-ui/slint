@@ -146,10 +146,10 @@ fn map_property_to_ui(
                 value.code = SharedString::from(tr_node.text().to_string());
             }
         }
-        if value.value_kind == ui::PropertyValueKind::String {
-            if let Some(tr) = &expression.AtTr() {
-                extract_tr_data(tr, &mut value);
-            }
+        if value.value_kind == ui::PropertyValueKind::String
+            && let Some(tr) = &expression.AtTr()
+        {
+            extract_tr_data(tr, &mut value);
         }
 
         if value.value_kind == ui::PropertyValueKind::Float {

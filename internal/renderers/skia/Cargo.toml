@@ -56,7 +56,7 @@ vtable = { workspace = true }
 
 cfg-if = "1"
 derive_more = { workspace = true }
-lyon_path = "1.0"
+lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.6", features = ["std"] }
@@ -108,7 +108,8 @@ wgpu-27 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-28 = { workspace = true, optional = true, features = ["metal"] }
 
 read-fonts = { workspace = true }
-write-fonts = { version = "0.43" }
+# Pinned to 0.45 to align with read-fonts from parley and avoid duplicated dependencies
+write-fonts = { version = "0.45" }
 
 [target.'cfg(not(any(target_vendor = "apple", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.90", features = ["gl", "vulkan"] }

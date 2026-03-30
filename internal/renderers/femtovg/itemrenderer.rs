@@ -56,7 +56,7 @@ impl<R: femtovg::Renderer + TextureImporter> Clone for ItemGraphicsCacheEntry<R>
         match self {
             Self::Texture(arg0) => Self::Texture(arg0.clone()),
             Self::TextureWithOrigin { texture, origin } => {
-                Self::TextureWithOrigin { texture: texture.clone(), origin: origin.clone() }
+                Self::TextureWithOrigin { texture: texture.clone(), origin: *origin }
             }
             Self::ColorizedImage { _original_image, colorized_image } => Self::ColorizedImage {
                 _original_image: _original_image.clone(),
@@ -101,6 +101,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     textures_to_delete_after_flush: RefCell<Vec<Rc<super::images::Texture<R>>>>,
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
     metrics: RenderingMetrics,
@@ -346,7 +347,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             return;
         }
 
-        sharedparley::draw_text(self, text, Some(self_rc), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
     }
 
     fn draw_text_input(
@@ -469,6 +470,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
                 items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
             });
+            paint.set_miter_limit(path.stroke_miter_limit());
             paint.set_anti_alias(anti_alias);
             paint
         });
@@ -803,6 +805,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
             logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            None,
         );
     }
 
@@ -888,7 +891,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self.canvas.borrow_mut().rotate(angle_in_radians);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         // Compute the bounding box of the rotated rectangle
-        let (sin, cos) = angle_in_radians.sin_cos();
+        let (sin, cos) = (-angle_in_radians).sin_cos();
         let rotate_point = |p: LogicalPoint| (p.x * cos - p.y * sin, p.x * sin + p.y * cos);
         let corners = [
             rotate_point(clip.origin),
@@ -912,6 +915,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
         self.canvas.borrow_mut().scale(x_factor, y_factor);
         let clip = &mut self.state.last_mut().unwrap().scissor;
+        clip.origin.x /= x_factor;
+        clip.origin.y /= y_factor;
         clip.size.width /= x_factor;
         clip.size.height /= y_factor;
     }
@@ -948,7 +953,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         if color.alpha() == 0 {
             None
         } else {
-            Some(GlyphBrush::Fill(femtovg::Paint::color(to_femtovg_color(&color))))
+            Some(GlyphBrush::Fill(femtovg::Paint::color(to_femtovg_color(color))))
         }
     }
 
@@ -989,11 +994,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         match &mut brush {
             GlyphBrush::Fill(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.fill_glyph_run(font_id, glyphs_it, &paint).unwrap();
+                canvas.fill_glyph_run(font_id, glyphs_it, paint).unwrap();
             }
             GlyphBrush::Stroke(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.stroke_glyph_run(font_id, glyphs_it, &paint).unwrap();
+                canvas.stroke_glyph_run(font_id, glyphs_it, paint).unwrap();
             }
         }
     }
@@ -1025,6 +1030,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         canvas: &CanvasRc<R>,
         graphics_cache: &'a ItemGraphicsCache<R>,
         texture_cache: &'a RefCell<super::images::TextureCache<R>>,
+        text_layout_cache: &'a sharedparley::TextLayoutCache,
         window: &'a i_slint_core::api::Window,
         width: u32,
         height: u32,
@@ -1038,6 +1044,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             textures_to_delete_after_flush: Default::default(),
             window,
             scale_factor,
+            text_layout_cache,
             state: vec![State {
                 scissor: LogicalRect::new(
                     LogicalPoint::default(),
@@ -1469,10 +1476,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     .collect();
 
                 // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned() {
-                    if last_stop.0 != 1.0 {
-                        stops.push((1.0, last_stop.1));
-                    }
+                if let Some(last_stop) = stops.last().cloned()
+                    && last_stop.0 != 1.0
+                {
+                    stops.push((1.0, last_stop.1));
                 }
 
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, stops)
@@ -1489,10 +1496,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     .collect();
 
                 // Add an extra stop at 1.0 with the same color as the last stop
-                if let Some(last_stop) = stops.last().cloned() {
-                    if last_stop.0 != 1.0 {
-                        stops.push((1.0, last_stop.1));
-                    }
+                if let Some(last_stop) = stops.last().cloned()
+                    && last_stop.0 != 1.0
+                {
+                    stops.push((1.0, last_stop.1));
                 }
 
                 femtovg::Paint::radial_gradient_stops(

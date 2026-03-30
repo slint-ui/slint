@@ -90,7 +90,9 @@
                 "tschüß",
                 "TSCHÜSS",
                 "ὈΔΥΣΣΕΎΣ",
-                "ὀδυσσεύς"
+                "ὀδυσσεύς",
+                "commonmark",
+                "strikethroughs"
             ],
         }
     ],
@@ -113,6 +115,7 @@
         "distros",
         "Femto",
         "femtovg",
+        "flexboxlayout",
         "flickable",
         "focusable",
         "frameless",
@@ -127,6 +130,7 @@
         "Helvetica",
         "imagefilter",
         "inout",
+        "knip",
         "layouting",
         "linebreak",
         "lineedit",
@@ -176,6 +180,8 @@
         "toolchain",
         "toolkit",
         "touchpad",
+        "trackpad",
+        "trackpads",
         "tronical",
         "typeloader",
         "uefi",

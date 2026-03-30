@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::{input::FocusEventResult, items::SortOrder};
+use i_slint_core::{
+    input::{FocusEventResult, InternalKeyEvent},
+    items::SortOrder,
+};
 
 use super::*;
 
@@ -9,7 +12,7 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTableHeaderSection {
-    pub item: Property<i_slint_core::model::TableColumn>,
+    pub item: Property<i_slint_core::items::TableColumn>,
     pub index: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,
@@ -64,6 +67,7 @@ impl Item for NativeTableHeaderSection {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -73,13 +77,14 @@ impl Item for NativeTableHeaderSection {
         _event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -88,7 +93,7 @@ impl Item for NativeTableHeaderSection {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

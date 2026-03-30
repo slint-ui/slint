@@ -15,38 +15,36 @@ pub(crate) fn fold_node(
     args: &Cli,
 ) -> std::io::Result<bool> {
     let kind = node.kind();
-    if kind == SyntaxKind::Element {
-        if state.lookup_change.scope.len() >= 2 {
-            let elem = &state.lookup_change.scope[state.lookup_change.scope.len() - 1];
-            let parent = &state.lookup_change.scope[state.lookup_change.scope.len() - 2];
+    if kind == SyntaxKind::Element && state.lookup_change.scope.len() >= 2 {
+        let elem = &state.lookup_change.scope[state.lookup_change.scope.len() - 1];
+        let parent = &state.lookup_change.scope[state.lookup_change.scope.len() - 2];
 
-            if !is_layout_base(parent) && !is_path(elem) && elem.borrow().is_legacy_syntax {
-                let extend = elem.borrow().builtin_type().is_some_and(|b| {
-                    b.default_size_binding
-                        != i_slint_compiler::langtype::DefaultSizeBinding::ImplicitSize
-                });
+        if !is_layout_base(parent) && !is_path(elem) && elem.borrow().is_legacy_syntax {
+            let extend = elem.borrow().builtin_type().is_some_and(|b| {
+                b.default_size_binding
+                    != i_slint_compiler::langtype::DefaultSizeBinding::ImplicitSize
+            });
 
-                let new_props = format!(
-                    "{}{}",
-                    new_geometry_binding(elem, "x", "width", extend),
-                    new_geometry_binding(elem, "y", "height", extend)
-                );
-                if !new_props.is_empty() {
-                    let mut seen_brace = false;
-                    for c in node.children_with_tokens() {
-                        if seen_brace {
-                            if c.kind() == SyntaxKind::Whitespace {
-                                crate::visit_node_or_token(c.clone(), file, state, args)?;
-                            }
-                            write!(file, "{new_props}")?;
-                            seen_brace = false;
-                        } else if c.kind() == SyntaxKind::LBrace {
-                            seen_brace = true;
+            let new_props = format!(
+                "{}{}",
+                new_geometry_binding(elem, "x", "width", extend),
+                new_geometry_binding(elem, "y", "height", extend)
+            );
+            if !new_props.is_empty() {
+                let mut seen_brace = false;
+                for c in node.children_with_tokens() {
+                    if seen_brace {
+                        if c.kind() == SyntaxKind::Whitespace {
+                            crate::visit_node_or_token(c.clone(), file, state, args)?;
                         }
-                        crate::visit_node_or_token(c, file, state, args)?;
+                        write!(file, "{new_props}")?;
+                        seen_brace = false;
+                    } else if c.kind() == SyntaxKind::LBrace {
+                        seen_brace = true;
                     }
-                    return Ok(true);
+                    crate::visit_node_or_token(c, file, state, args)?;
                 }
+                return Ok(true);
             }
         }
     }
@@ -63,12 +61,12 @@ fn new_geometry_binding(elem: &ElementRc, pos_prop: &str, size_prop: &str, exten
     if extend && !elem.borrow().is_binding_set(size_prop, false) {
         return String::default();
     }
-    if let Some(b) = elem.borrow().bindings.get(size_prop) {
-        if let Expression::Uncompiled(x) = &b.borrow().expression {
-            let s = x.to_string();
-            if s.trim() == "100%;" || s.trim() == format!("parent.{size_prop};") {
-                return String::default();
-            }
+    if let Some(b) = elem.borrow().bindings.get(size_prop)
+        && let Expression::Uncompiled(x) = &b.borrow().expression
+    {
+        let s = x.to_string();
+        if s.trim() == "100%;" || s.trim() == format!("parent.{size_prop};") {
+            return String::default();
         }
     }
 

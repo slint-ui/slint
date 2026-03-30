@@ -47,7 +47,7 @@ export default defineConfig({
 
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
-                Header: "@slint/common-files/src/components/Header.astro",
+                Header: "./src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
@@ -288,6 +288,10 @@ export default defineConfig({
                                             {
                                                 label: "VerticalLayout",
                                                 slug: "reference/layouts/verticallayout",
+                                            },
+                                            {
+                                                label: "FlexBoxLayout",
+                                                slug: "reference/layouts/flexboxlayout",
                                             },
                                         ],
                                     },

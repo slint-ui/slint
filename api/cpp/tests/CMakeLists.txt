@@ -1,6 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-
+include(FetchContent)
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
@@ -38,6 +38,10 @@ slint_test(datastructures)
 if(SLINT_FEATURE_INTERPRETER)
     slint_test(interpreter)
     slint_test(window)
+endif()
+
+if(SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_EXPERIMENTAL)
+    slint_test(translator)
 endif()
 
 slint_test(properties)

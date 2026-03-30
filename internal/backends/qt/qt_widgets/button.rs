@@ -94,7 +94,7 @@ mod standard_button {
 }
 
 use i_slint_core::{
-    input::{FocusEventResult, KeyEventType},
+    input::{FocusEventResult, InternalKeyEvent, KeyEventType},
     items::StandardButtonKind,
     platform::PointerEventButton,
 };
@@ -257,6 +257,7 @@ impl Item for NativeButton {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardEvent
@@ -267,6 +268,7 @@ impl Item for NativeButton {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
@@ -289,6 +291,9 @@ impl Item for NativeButton {
                 };
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                return InputEventResult::EventIgnored;
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 return InputEventResult::EventIgnored;
             }
@@ -308,7 +313,7 @@ impl Item for NativeButton {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -317,17 +322,21 @@ impl Item for NativeButton {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         match event.event_type {
-            KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
+            KeyEventType::KeyPressed
+                if event.key_event.text == " " || event.key_event.text == "\n" =>
+            {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
-            KeyEventType::KeyReleased if event.text == " " || event.text == "\n" => {
+            KeyEventType::KeyReleased
+                if event.key_event.text == " " || event.key_event.text == "\n" =>
+            {
                 self.activate();
                 KeyEventResult::EventAccepted
             }

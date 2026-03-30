@@ -16,6 +16,7 @@ export component ComboBox {
     callback selected <=> base.selected;
 
     property <length> popup-padding: 4px;
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * FluentSizeSettings.item-height;
     property <int> visible-items: min(6, model.length);
 
     min-width: max(160px, layout.min-height);
@@ -107,18 +108,23 @@ export component ComboBox {
         // Ideally it should be so that the current element is over the popup.
         y: -4px;
         width: root.width;
-        height: root.visible-items * FluentSizeSettings.item-height +  2 * root.popup-padding;
+        height: root.visible-items * FluentSizeSettings.item-height + 2 * root.popup-padding;
+        close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
         inner-fs := FocusScope {
             focus-changed-event => {
                 base.popup-has-focus = self.has-focus;
             }
+
             key-pressed(event) => {
                 return base.popup-key-handler(event);
             }
+
             MenuBorder {
                 ScrollView {
+                    viewport-y: root.popup-scroll-y;
+
                     VerticalLayout {
                         alignment: start;
                         padding: root.popup-padding;
@@ -132,6 +138,7 @@ export component ComboBox {
                             touch-area := TouchArea {
                                 clicked => {
                                     base.select(index);
+                                    popup.close();
                                 }
                             }
                         }

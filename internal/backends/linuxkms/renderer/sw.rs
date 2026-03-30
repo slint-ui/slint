@@ -72,7 +72,7 @@ impl From<DumbBufferPixelXrgb888> for PremultipliedRgbaColor {
         PremultipliedRgbaColor {
             red: (v >> 16) as u8,
             green: (v >> 8) as u8,
-            blue: (v >> 0) as u8,
+            blue: v as u8,
             alpha: (v >> 24) as u8,
         }
     }
@@ -95,10 +95,10 @@ impl From<DumbBufferPixelBgra8888> for PremultipliedRgbaColor {
     fn from(pixel: DumbBufferPixelBgra8888) -> Self {
         let v = pixel.0;
         PremultipliedRgbaColor {
-            red: (v >> 0) as u8,
-            green: (v >> 8) as u8,
-            blue: (v >> 16) as u8,
-            alpha: (v >> 24) as u8,
+            red: (v >> 8) as u8,
+            green: (v >> 16) as u8,
+            blue: (v >> 24) as u8,
+            alpha: v as u8,
         }
     }
 }
@@ -107,10 +107,10 @@ impl From<PremultipliedRgbaColor> for DumbBufferPixelBgra8888 {
     #[inline]
     fn from(pixel: PremultipliedRgbaColor) -> Self {
         Self(
-            (pixel.alpha as u32) << 24
-                | ((pixel.blue as u32) << 16) // B and R swapped
-                | ((pixel.green as u32) << 8)
-                | (pixel.red as u32),
+            pixel.alpha as u32
+                | ((pixel.red as u32) << 8)
+                | ((pixel.green as u32) << 16)
+                | ((pixel.blue as u32) << 24),
         )
     }
 }
@@ -138,7 +138,7 @@ impl TargetPixel for DumbBufferPixelBgra8888 {
         *self = x.into();
     }
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(0xff000000 | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32))
+        Self(0x000000ff | ((r as u32) << 8) | ((g as u32) << 16) | ((b as u32) << 24))
     }
     fn background() -> Self {
         Self(0)
@@ -146,6 +146,7 @@ impl TargetPixel for DumbBufferPixelBgra8888 {
 }
 
 impl SoftwareRendererAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
@@ -204,19 +205,17 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
 
             match format {
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
-                    let buffer: &mut [DumbBufferPixelXrgb888] =
-                        bytemuck::cast_slice_mut(pixels.as_mut());
+                    let buffer: &mut [DumbBufferPixelXrgb888] = bytemuck::cast_slice_mut(pixels);
                     self.renderer.render(buffer, self.size.width as usize);
                 }
 
                 drm::buffer::DrmFourcc::Bgra8888 => {
-                    let buffer: &mut [DumbBufferPixelBgra8888] =
-                        bytemuck::cast_slice_mut(pixels.as_mut());
+                    let buffer: &mut [DumbBufferPixelBgra8888] = bytemuck::cast_slice_mut(pixels);
                     self.renderer.render(buffer, self.size.width as usize);
                 }
                 drm::buffer::DrmFourcc::Rgb565 => {
                     let buffer: &mut [i_slint_renderer_software::Rgb565Pixel] =
-                        bytemuck::cast_slice_mut(pixels.as_mut());
+                        bytemuck::cast_slice_mut(pixels);
                     self.renderer.render(buffer, self.size.width as usize);
                 }
                 _ => {

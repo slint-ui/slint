@@ -35,7 +35,7 @@ impl From<SoftBufferPixel> for PremultipliedRgbaColor {
         PremultipliedRgbaColor {
             red: (v >> 16) as u8,
             green: (v >> 8) as u8,
-            blue: (v >> 0) as u8,
+            blue: v as u8,
             alpha: (v >> 24) as u8,
         }
     }

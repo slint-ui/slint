@@ -176,6 +176,15 @@ export component FocusScope {
     callback focus_lost(reason: FocusReason);
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
+
+    KeyBinding { }
+}
+
+component KeyBinding {
+    in property <bool> enabled: true;
+    in property <keys> keys;
+    callback activated();
+    //-is_non_item_type
 }
 
 export component Flickable inherits Empty {
@@ -216,6 +225,22 @@ export component SwipeGestureHandler {
     // clears state, invokes swipe-cancelled()
     function cancel() {
     }
+
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+export component ScaleRotateGestureHandler {
+    in property <bool> enabled: true;
+
+    out property <bool> active;
+    out property <float> scale;       // Cumulative factor: 1.0 = no change
+    out property <angle> rotation;    // Cumulative rotation: 0deg = no change
+    out property <Point> center;
+
+    callback started();
+    callback updated();
+    callback ended();
+    callback cancelled();
 
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -437,6 +462,17 @@ export component HorizontalLayout {
     in property <LayoutAlignment> alignment;
 }
 
+export component FlexBoxLayout {
+    in property <length> spacing-horizontal;
+    in property <length> spacing-vertical;
+    in property <length> spacing;
+    in property <LayoutAlignment> alignment: LayoutAlignment.start;  // CSS default is flex-start
+    in property <FlexDirection> flex-direction;
+    in property <FlexAlignContent> align-content;
+    in property <FlexAlignItems> align-items;
+    in property <FlexWrap> flex-wrap;
+}
+
 component MoveTo {
     in property <float> x;
     in property <float> y;
@@ -500,11 +536,13 @@ export component Path {
     in property <length> stroke-width;
     in property <LineCap> stroke-line-cap;
     in property <LineJoin> stroke-line-join;
+    in property <float> stroke-miter-limit: 4; // SVG default is 4
     in property <string> commands;  // 'fake' hardcoded in typeregister.rs
     in property <float> viewbox-x;
     in property <float> viewbox-y;
     in property <float> viewbox-width;
     in property <float> viewbox-height;
+    in property <ImageFit> fit: contain;
     in property <bool> clip;
     in property <bool> anti-alias: true;
 
@@ -587,6 +625,7 @@ export global TextInputInterface {
 export global Platform {
     out property <OperatingSystemType> os;
     out property <string> style-name;
+    function open-url(url: string) {}
 }
 
 export component NativeButton {

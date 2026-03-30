@@ -22,7 +22,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core as corelib;
-use i_slint_core::items::KeyEvent;
+use i_slint_core::api::ToSharedString;
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -335,20 +335,35 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = std::path::Path::new(path);
-                    if path.starts_with("builtin:/") {
-                        i_slint_compiler::fileaccess::load_file(path)
-                            .and_then(|virtual_file| virtual_file.builtin_contents)
-                            .map(|virtual_file| {
-                                let extension = path.extension().unwrap().to_str().unwrap();
-                                corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(virtual_file),
-                                    corelib::slice::Slice::from_slice(extension.as_bytes()),
-                                )
-                            })
-                            .ok_or_else(Default::default)
+                    if path.starts_with("data:") {
+                        match i_slint_compiler::data_uri::decode_data_uri(path) {
+                            Ok((data, extension)) => {
+                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
+                                let ext_bytes: &'static [u8] =
+                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
+                                Ok(corelib::graphics::load_image_from_embedded_data(
+                                    corelib::slice::Slice::from_slice(data),
+                                    corelib::slice::Slice::from_slice(ext_bytes),
+                                ))
+                            }
+                            Err(_) => Err(Default::default()),
+                        }
                     } else {
-                        corelib::graphics::Image::load_from_path(path)
+                        let path = std::path::Path::new(path);
+                        if path.starts_with("builtin:/") {
+                            i_slint_compiler::fileaccess::load_file(path)
+                                .and_then(|virtual_file| virtual_file.builtin_contents)
+                                .map(|virtual_file| {
+                                    let extension = path.extension().unwrap().to_str().unwrap();
+                                    corelib::graphics::load_image_from_embedded_data(
+                                        corelib::slice::Slice::from_slice(virtual_file),
+                                        corelib::slice::Slice::from_slice(extension.as_bytes()),
+                                    )
+                                })
+                                .ok_or_else(Default::default)
+                        } else {
+                            corelib::graphics::Image::load_from_path(path)
+                        }
                     }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
@@ -444,19 +459,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
-        Expression::KeyboardShortcut(ks) => {
-            Value::KeyboardShortcut(i_slint_core::input::make_keyboard_shortcut(
-                SharedString::from(&*ks.key),
-                i_slint_core::input::KeyboardModifiers {
-                    alt: ks.modifiers.alt,
-                    control: ks.modifiers.control,
-                    shift: ks.modifiers.shift,
-                    meta: ks.modifiers.meta,
-                },
-                ks.ignore_shift,
-                ks.ignore_alt,
-            ))
-        }
+        Expression::Keys(ks) => Value::Keys(i_slint_core::input::make_keys(
+            SharedString::from(&*ks.key),
+            i_slint_core::input::KeyboardModifiers {
+                alt: ks.modifiers.alt,
+                control: ks.modifiers.control,
+                shift: ks.modifiers.shift,
+                meta: ks.modifiers.meta,
+            },
+            ks.ignore_shift,
+            ks.ignore_alt,
+        )),
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -477,6 +490,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             )
             .unwrap();
             if let Value::LayoutCache(cache) = cache {
+                // Coordinate cache
                 if let Some(ri) = repeater_index {
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
@@ -490,6 +504,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     Value::Number(cache[*index].into())
                 }
             } else if let Value::ArrayOfU16(cache) = cache {
+                // Organized Data cache
                 if let Some(ri) = repeater_index {
                     let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
                     Value::Number(
@@ -501,6 +516,63 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     )
                 } else {
                     Value::Number(cache[*index].into())
+                }
+            } else {
+                panic!("invalid layout cache")
+            }
+        }
+        Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => {
+            let cache = load_property_helper(
+                &ComponentInstance::InstanceRef(local_context.component_instance),
+                &layout_cache_prop.element(),
+                layout_cache_prop.name(),
+            )
+            .unwrap();
+            if let Value::LayoutCache(cache) = cache {
+                // Coordinate cache
+                let row_idx: usize =
+                    eval_expression(repeater_index, local_context).try_into().unwrap();
+                let stride_val: usize = eval_expression(stride, local_context).try_into().unwrap();
+                if let Some(inner_ri) = inner_repeater_index {
+                    let inner_offset: usize =
+                        eval_expression(inner_ri, local_context).try_into().unwrap();
+                    let base = cache[*index] as usize;
+                    let data_idx = base
+                        + row_idx * stride_val
+                        + *child_offset
+                        + inner_offset * *entries_per_item;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0.).into())
+                } else {
+                    let base = cache[*index] as usize;
+                    let data_idx = base + row_idx * stride_val + *child_offset;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0.).into())
+                }
+            } else if let Value::ArrayOfU16(cache) = cache {
+                // Organized Data cache
+                let row_idx: usize =
+                    eval_expression(repeater_index, local_context).try_into().unwrap();
+                let stride_val: usize = eval_expression(stride, local_context).try_into().unwrap();
+                if let Some(inner_ri) = inner_repeater_index {
+                    let inner_offset: usize =
+                        eval_expression(inner_ri, local_context).try_into().unwrap();
+                    let base = cache[*index] as usize;
+                    let data_idx = base
+                        + row_idx * stride_val
+                        + *child_offset
+                        + inner_offset * *entries_per_item;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0).into())
+                } else {
+                    let base = cache[*index] as usize;
+                    let data_idx = base + row_idx * stride_val + *child_offset;
+                    Value::Number(cache.get(data_idx).copied().unwrap_or(0).into())
                 }
             } else {
                 panic!("invalid layout cache")
@@ -550,6 +622,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             } else {
                 panic!("invalid layout organized data cache")
             }
+        }
+        Expression::SolveFlexBoxLayout(layout) => {
+            crate::eval_layout::solve_flexbox_layout(layout, local_context)
+        }
+        Expression::ComputeFlexBoxLayoutInfo(layout, orientation) => {
+            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
@@ -750,25 +828,6 @@ fn call_builtin_function(
                 panic!("internal error: argument to ClearFocusItem must be an element")
             }
         }
-        BuiltinFunction::KeyboardShortcutMatches => {
-            let [shortcut, event] = arguments else {
-                panic!(
-                    "internal error: Incorrect number of arguments to KeyboardShortcut::matches"
-                );
-            };
-            let Value::KeyboardShortcut(shortcut) = eval_expression(shortcut, local_context) else {
-                panic!(
-                    "internal error: first argument to KeyboardShortcut::matches is not a keyboard shortcut"
-                );
-            };
-            let Ok(key_event) = KeyEvent::try_from(eval_expression(event, local_context)) else {
-                panic!(
-                    "internal error: second argument to KeyboardShortcut::matches is not a KeyEvent"
-                );
-            };
-
-            Value::from(shortcut.matches(&key_event))
-        }
         BuiltinFunction::ShowPopupWindow => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ShowPopupWindow")
@@ -777,14 +836,10 @@ fn call_builtin_function(
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let parent_component = pop_comp
-                    .parent_element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .enclosing_component
-                    .upgrade()
-                    .unwrap();
+                let parent_component = {
+                    let parent_elem = pop_comp.parent_element().unwrap();
+                    parent_elem.borrow().enclosing_component.upgrade().unwrap()
+                };
                 let popup_list = parent_component.popup_windows.borrow();
                 let popup =
                     popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
@@ -838,14 +893,10 @@ fn call_builtin_function(
             if let Expression::ElementReference(popup_window) = &arguments[0] {
                 let popup_window = popup_window.upgrade().unwrap();
                 let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let parent_component = pop_comp
-                    .parent_element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .enclosing_component
-                    .upgrade()
-                    .unwrap();
+                let parent_component = {
+                    let parent_elem = pop_comp.parent_element().unwrap();
+                    parent_elem.borrow().enclosing_component.upgrade().unwrap()
+                };
                 let popup_list = parent_component.popup_windows.borrow();
                 let popup =
                     popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
@@ -1142,6 +1193,15 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::KeysToString => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to KeysToString")
+            }
+            let Value::Keys(keys) = eval_expression(&arguments[0], local_context) else {
+                panic!("Argument is not of type keys");
+            };
+            Value::String(ToSharedString::to_shared_string(&keys))
+        }
         BuiltinFunction::ColorRgbaStruct => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ColorRGBAComponents")
@@ -1308,7 +1368,7 @@ fn call_builtin_function(
                     Value::Number(model.row_count() as f64)
                 }
                 _ => {
-                    panic!("First argument not an array");
+                    panic!("First argument not an array: {:?}", arguments[0]);
                 }
             }
         }
@@ -1580,15 +1640,27 @@ fn call_builtin_function(
                 panic!("internal error: argument to RestartTimer must be an element")
             }
         }
-        BuiltinFunction::EscapeMarkdown => {
-            let text: SharedString =
+        BuiltinFunction::OpenUrl => {
+            let url: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::String(corelib::styled_text::escape_markdown(&text).into())
+            let window_adapter = local_context.component_instance.window_adapter();
+            corelib::open_url(&url, window_adapter.window());
+            Value::Void
         }
         BuiltinFunction::ParseMarkdown => {
-            let text: SharedString =
+            let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::styled_text::parse_markdown(&text))
+            let args: ModelRc<corelib::styled_text::StyledText> =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::parse_markdown(
+                &format_string,
+                &args.iter().collect::<Vec<_>>(),
+            ))
+        }
+        BuiltinFunction::StringToStyledText => {
+            let string: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::string_to_styled_text(string.to_string()))
         }
     }
 }
@@ -1925,7 +1997,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::Enumeration(en) => {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
-        Type::KeyboardShortcutType => matches!(value, Value::KeyboardShortcut(_)),
+        Type::Keys => matches!(value, Value::Keys(_)),
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
@@ -2220,7 +2292,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.name.to_string(),
             e.values.get(e.default_value).unwrap().to_string(),
         ),
-        Type::KeyboardShortcutType => Value::KeyboardShortcut(Default::default()),
+        Type::Keys => Value::Keys(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

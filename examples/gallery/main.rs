@@ -11,11 +11,11 @@ slint::include_modules!();
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Result<(), JsValue> {
-    use slint::fontique_07::fontique;
+    use slint::fontique_08::fontique;
 
     let font_data = font_data.to_vec();
     let blob = fontique::Blob::new(std::sync::Arc::new(font_data));
-    let mut collection = slint::fontique_07::shared_collection();
+    let mut collection = slint::fontique_08::shared_collection();
     let fonts = collection.register_fonts(blob, None);
 
     scripts_for_locale(locale, |script| {
@@ -29,9 +29,9 @@ pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Resu
 #[cfg(target_arch = "wasm32")]
 fn scripts_for_locale(
     locale: &str,
-    mut callback: impl FnMut(&slint::fontique_07::fontique::Script),
+    mut callback: impl FnMut(&slint::fontique_08::fontique::Script),
 ) {
-    use slint::fontique_07::fontique;
+    use slint::fontique_08::fontique;
 
     let Ok(locale) = icu_locale_core::Locale::try_from_str(locale) else {
         return;
@@ -39,15 +39,18 @@ fn scripts_for_locale(
 
     let scripts: &[fontique::Script] = match locale.id.language.as_str() {
         "ja" => &[
-            fontique::Script::from("Hira"),
-            fontique::Script::from("Kana"),
-            fontique::Script::from("Hani"),
+            fontique::Script::from_str_unchecked("Hira"),
+            fontique::Script::from_str_unchecked("Kana"),
+            fontique::Script::from_str_unchecked("Hani"),
         ],
-        "ko" => &[fontique::Script::from("Hang"), fontique::Script::from("Hani")],
-        "zh" => &[fontique::Script::from("Hani")],
+        "ko" => &[
+            fontique::Script::from_str_unchecked("Hang"),
+            fontique::Script::from_str_unchecked("Hani"),
+        ],
+        "zh" => &[fontique::Script::from_str_unchecked("Hani")],
         _ => {
             if let Some(script) = locale.id.script {
-                &[fontique::Script::from(script.into_raw())]
+                &[fontique::Script::from_bytes(script.into_raw())]
             } else {
                 &[]
             }

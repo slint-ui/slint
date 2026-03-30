@@ -9,12 +9,13 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
     VoidArg,
 };
-use crate::animations::{EasingCurve, Instant};
+use crate::animations::Instant;
+use crate::animations::physics_simulation;
+use crate::input::InternalKeyEvent;
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::PropertyAnimation;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -36,6 +37,13 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
+mod data_ringbuffer;
+use data_ringbuffer::PositionTimeRingBuffer;
+
+/// Deceleration during the animation. It slows down the initial velocity of the simulation
+/// so that the simulation stops at some point if it didn't reach the limit
+/// The unit is: LogicalPixel/s^2
+const DECELERATION: f32 = 2000.;
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -63,33 +71,42 @@ impl Item for Flickable {
             self_rc.downgrade(),
             // Binding that returns if the Flickable is out of bounds:
             |self_weak| {
-                let Some(flick_rc) = self_weak.upgrade() else { return false };
-                let Some(flick) = flick_rc.downcast::<Flickable>() else { return false };
+                let Some(flick_rc) = self_weak.upgrade() else {
+                    return (false, false);
+                };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else {
+                    return (false, false);
+                };
                 let flick = flick.as_pin_ref();
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
 
                 let zero = LogicalLength::zero();
                 let vpx = flick.viewport_x();
-                if vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero) {
-                    return true;
-                }
                 let vpy = flick.viewport_y();
-                if vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero) {
-                    return true;
-                }
-                false
+                let x_out_of_bounds =
+                    vpx > zero || vpx < (geo.width_length() - flick.viewport_width()).min(zero);
+                let y_out_of_bounds =
+                    vpy > zero || vpy < (geo.height_length() - flick.viewport_height()).min(zero);
+
+                (x_out_of_bounds, y_out_of_bounds)
             },
             // Change event handler that puts the Flickable in bounds if it's not already
-            |self_weak, out_of_bound| {
+            |self_weak, (x_out_of_bounds, y_out_of_bounds)| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
                 let flick = flick.as_pin_ref();
-                if *out_of_bound {
-                    let vpx = flick.viewport_x();
-                    let vpy = flick.viewport_y();
-                    let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(p.x_length());
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(p.y_length());
+                let vpx = flick.viewport_x();
+                let vpy = flick.viewport_y();
+                let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
+
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                if *x_out_of_bounds && !x.has_binding() {
+                    x.set(p.x_length());
+                }
+
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                if *y_out_of_bounds && !y.has_binding() {
+                    y.set(p.y_length());
                 }
             },
         );
@@ -107,8 +124,9 @@ impl Item for Flickable {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
+        _: &mut super::MouseCursor,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
             let geometry = Self::geometry_without_virtual_keyboard(self_rc);
@@ -125,7 +143,7 @@ impl Item for Flickable {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
             return InputEventFilterResult::ForwardAndIgnore;
         }
-        self.data.handle_mouse_filter(self, event, self_rc)
+        self.data.handle_mouse_filter(self, event, window_adapter, self_rc)
     }
 
     fn input_event(
@@ -133,6 +151,7 @@ impl Item for Flickable {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
+        _: &mut super::MouseCursor,
     ) -> InputEventResult {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
             return InputEventResult::EventIgnored;
@@ -154,7 +173,7 @@ impl Item for Flickable {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -163,7 +182,7 @@ impl Item for Flickable {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -334,6 +353,17 @@ pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
 pub(super) const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 /// The delay to which press are forwarded to the inner item
 pub(super) const FORWARD_DELAY: Duration = Duration::from_millis(100);
+/// Duration to filter scroll events from children after receiving a scroll event
+/// Note: This needs to be rather long, as that makes it more intuitive when scrolling with the
+/// mouse in concrete steps.
+/// The user can always override this by moving the mouse
+/// The value was tuned by hand, could be adjusted with further user feedback
+pub(super) const SCROLL_FILTER_DURATION: Duration = Duration::from_millis(800);
+/// Short duration for scroll event filtering, used when the end of the flickable is reached.
+pub(super) const SHORT_SCROLL_FILTER_DURATION: Duration =
+    Duration::from_millis(SCROLL_FILTER_DURATION.as_millis() as u64 / 2);
+/// How far the user has to move the mouse to stop filtering scroll event from children after receiving a scroll event
+pub(super) const SCROLL_FILTER_DISTANCE_SQUARED: LogicalLength = LogicalLength::new(4 as _);
 
 #[derive(Default, Debug)]
 struct FlickableDataInner {
@@ -344,6 +374,78 @@ struct FlickableDataInner {
     pressed_viewport_size: LogicalSize,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: bool,
+    /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
+    /// We want to filter those to prevent the case where the user scrolls with the mouse wheel,
+    /// but the mouse now moves over a child item, and that item captures the scroll event.
+    /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
+    /// stop filtering scroll event until the next scroll event.
+    last_scroll_event: Option<(Instant, LogicalPoint)>,
+
+    /// Ringbuffer to store the last move events. From those data the velocity can be
+    /// calculated required for the animation after the release event
+    position_time_rb: PositionTimeRingBuffer<5>,
+}
+
+impl FlickableDataInner {
+    fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
+        self.last_scroll_event.is_some_and(|(last_time, last_position)| {
+            // Note: Squared length for MCU support, which use i32 coords.
+            crate::animations::current_tick() - last_time < timeout
+                && LogicalLength::new((last_position - position).square_length().abs())
+                    < SCROLL_FILTER_DISTANCE_SQUARED
+        })
+    }
+
+    /// Whether the delta is a scroll in a orthogonal direction than what is allowed by the Flickable
+    #[allow(clippy::nonminimal_bool)] // more readable this way
+    fn is_allowed_scroll_direction(
+        flick: Pin<&Flickable>,
+        delta: LogicalVector,
+        flick_rc: &ItemRc,
+    ) -> bool {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        !(delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
+            && !(delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
+    }
+
+    fn process_wheel_event(
+        &mut self,
+        flick: Pin<&Flickable>,
+        delta: LogicalVector,
+        position: LogicalPoint,
+        flick_rc: &ItemRc,
+    ) -> InputEventResult {
+        if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+            // Release the capture immediately, this event is not meant for this Flickable.
+            self.last_scroll_event = None;
+            return InputEventResult::EventIgnored;
+        }
+
+        let old_pos = LogicalPoint::from_lengths(
+            (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
+            (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+        );
+        let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
+
+        let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+        let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+        let old_pos = (viewport_x.get(), viewport_y.get());
+        viewport_x.set(new_pos.x_length());
+        viewport_y.set(new_pos.y_length());
+        let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
+        if flicked {
+            (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+            self.last_scroll_event = Some((crate::animations::current_tick(), position));
+            InputEventResult::EventAccepted
+        } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
+            // After reaching the end, keep accepting the input event for a while longer, then time
+            // out (by not updating the last_scroll_event)
+            InputEventResult::EventAccepted
+        } else {
+            self.last_scroll_event = None;
+            InputEventResult::EventIgnored
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -354,15 +456,33 @@ pub struct FlickableData {
 }
 
 impl FlickableData {
+    fn scroll_delta(
+        window_adapter: &Rc<dyn WindowAdapter>,
+        delta_x: Coord,
+        delta_y: Coord,
+    ) -> LogicalVector {
+        if window_adapter.window().0.context().0.modifiers.get().shift()
+            && !cfg!(target_os = "macos")
+        {
+            // Shift invert coordinate for the purpose of scrolling.
+            // But not on macOs because there the OS already take care of the change
+            LogicalVector::new(delta_y, delta_x)
+        } else {
+            LogicalVector::new(delta_x, delta_y)
+        }
+    }
+
     fn handle_mouse_filter(
         &self,
         flick: Pin<&Flickable>,
         event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                inner.position_time_rb = PositionTimeRingBuffer::default();
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
@@ -373,6 +493,11 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
                     (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
                 );
+                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                x.set(x.get()); // Stop animation by removing the binding
+                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                y.set(y.get()); // Stop animation by removing the binding
+
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
@@ -416,10 +541,25 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardEvent,
+            MouseEvent::Wheel { position, delta_x, delta_y } => {
+                // If we recently handled a wheel event, intercept it to prevent children from grabbing
+                // the scroll event
+                let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
+                if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
+                    && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                {
+                    InputEventFilterResult::Intercept
+                } else {
+                    inner.last_scroll_event = None;
+                    InputEventFilterResult::ForwardEvent
+                }
+            }
             // Not the left button
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
+            }
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventFilterResult::ForwardEvent
             }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
@@ -471,6 +611,8 @@ impl FlickableData {
                         inner.pressed_pos = *position;
                     };
 
+                    inner.position_time_rb.push(crate::animations::current_tick(), *position);
+
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
 
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
@@ -513,40 +655,13 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let delta = if window_adapter.window().0.modifiers.get().shift()
-                    && !cfg!(target_os = "macos")
-                {
-                    // Shift invert coordinate for the purpose of scrolling. But not on macOs because there the OS already take care of the change
-                    LogicalVector::new(*delta_y, *delta_x)
-                } else {
-                    LogicalVector::new(*delta_x, *delta_y)
-                };
+            MouseEvent::Wheel { delta_x, delta_y, position } => {
+                let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
 
-                let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-
-                if (delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
-                    || (delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
-                {
-                    // Scroll in a orthogonal direction than what is allowed by the flickable
-                    return InputEventResult::EventIgnored;
-                }
-
-                let old_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
-                );
-                let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
-
-                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let old_pos = (viewport_x.get(), viewport_y.get());
-                viewport_x.set(new_pos.x_length());
-                viewport_y.set(new_pos.y_length());
-                if old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length() {
-                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
-                }
-                InputEventResult::EventAccepted
+                inner.process_wheel_event(flick, delta, *position, flick_rc)
+            }
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
             }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
@@ -555,37 +670,44 @@ impl FlickableData {
     fn mouse_released(
         inner: &mut FlickableDataInner,
         flick: Pin<&Flickable>,
-        event: &MouseEvent,
+        _event: &MouseEvent,
         flick_rc: &ItemRc,
     ) {
-        if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {
-            let dist = (pos - inner.pressed_pos).cast::<f32>();
-
-            let millis = (crate::animations::current_tick() - pressed_time).as_millis();
+        if !inner.position_time_rb.empty() {
+            let (time, dist) = inner.position_time_rb.diff();
+            let millis = time.as_millis();
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
-                && millis > 1
+                && millis > 0
             {
-                let speed = dist / (millis as f32);
-
-                let duration = 250;
-                let final_pos = ensure_in_bound(
-                    flick,
-                    (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
-                    flick_rc,
-                );
-                let anim = PropertyAnimation {
-                    duration,
-                    easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
-                    ..PropertyAnimation::default()
-                };
-
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let old_pos = (viewport_x.get(), viewport_y.get());
-                viewport_x.set_animated_value(final_pos.x_length(), anim.clone());
-                viewport_y.set_animated_value(final_pos.y_length(), anim);
-                if old_pos.0 != final_pos.x_length() || old_pos.1 != final_pos.y_length() {
+                let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                let limit_x =
+                    if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
+                let limit_y =
+                    if dist.y < 0 as Coord { -vh } else { euclid::Length::new(Coord::default()) };
+
+                let limit =
+                    ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
+                {
+                    let simulation = physics_simulation::ConstantDecelerationParameters::new(
+                        dist.x as f32 / (millis as f32 / 1000.),
+                        DECELERATION,
+                    );
+                    viewport_x.set_physic_animation_value(limit.x_length(), simulation);
+                }
+
+                {
+                    let animation_y = physics_simulation::ConstantDecelerationParameters::new(
+                        dist.y as f32 / (millis as f32 / 1000.),
+                        DECELERATION,
+                    );
+                    viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
+                }
+
+                if dist.x != 0 as Coord || dist.y != 0 as Coord {
                     (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                 }
             }

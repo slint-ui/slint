@@ -56,7 +56,7 @@ impl DemoRenderer {
             cache: None,
         });
 
-        let texture = Self::create_texture(&device, 320, 200);
+        let texture = Self::create_texture(device, 320, 200);
 
         Self {
             device: device.clone(),
@@ -148,12 +148,9 @@ pub fn main() {
 
             match state {
                 slint::RenderingState::RenderingSetup => {
-                    match graphics_api {
-                        slint::GraphicsAPI::WGPU28 { device, queue, .. } => {
-                            renderer = Some(DemoRenderer::new(device, queue));
-                        }
-                        _ => return,
-                    };
+                    if let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api {
+                        renderer = Some(DemoRenderer::new(device, queue));
+                    }
                 }
                 slint::RenderingState::BeforeRendering => {
                     if let (Some(renderer), Some(app)) = (renderer.as_mut(), app_weak.upgrade()) {

@@ -28,24 +28,20 @@ std = [
   "euclid/std",
   "once_cell/std",
   "dep:scoped-tls-hkt",
-  "dep:lyon_path",
-  "dep:lyon_algorithms",
-  "dep:lyon_geom",
-  "dep:lyon_extra",
-  "dep:auto_enums",
   "dep:web-time",
+  "dep:lyon_extra",
   "image-decoders",
   "svg",
+  "path",
   "raw-window-handle-06?/std",
   "chrono/std",
   "chrono/wasmbind",
   "chrono/clock",
   "dep:sys-locale",
   "shared-fontique",
-  "dep:pulldown-cmark",
-  "dep:thiserror",
-  "dep:htmlparser",
   "i-slint-common/color-parsing",
+  "i-slint-common/markdown",
+  "taffy/std",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -59,6 +55,8 @@ image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg"]
 
 box-shadow-cache = []
+
+testing = []
 
 shared-fontique = ["i-slint-common/shared-fontique"]
 
@@ -74,7 +72,11 @@ tr = ["dep:tr"]
 32-bit-color = []
 default = ["std", "unicode", "shared-parley"]
 
-shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa"]
+shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
+
+shared-swash = ["dep:swash"]
+
+path = ["dep:auto_enums", "dep:lyon_path", "dep:lyon_geom", "dep:lyon_algorithms"]
 
 [dependencies]
 i-slint-common = { workspace = true, features = ["default"] }
@@ -88,10 +90,10 @@ auto_enums = { version = "0.8.0", optional = true }
 cfg-if = "1"
 derive_more = { workspace = true, features = ["error"] }
 euclid = { workspace = true }
-lyon_algorithms = { version = "1.0", optional = true }
-lyon_geom = { version = "1.0", optional = true }
-lyon_path = { version = "1.0", optional = true }
-lyon_extra = { version = "1.0.1", optional = true }
+lyon_algorithms = { version = "1.0", optional = true, default-features = false }
+lyon_geom = { version = "1.0", optional = true, default-features = false }
+lyon_path = { workspace = true, optional = true, default-features = false }
+lyon_extra = { version = "1.0.1", optional = true, default-features = false }
 num-traits = { version = "0.2", default-features = false }
 once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 pin-project = "1"
@@ -103,12 +105,16 @@ scopeguard = { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }
 static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
+
+# Note: We're migrating our unicode handling over to the icu family of crates.
+# Prefer using icu crates over adding more unicode-* dependencies
+# parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { workspace = true }
 unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
+icu_normalizer = { workspace = true, optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
-parley = { version = "0.7.0", optional = true }
-pulldown-cmark = { version = "0.13.0", optional = true }
+parley = { version = "0.8.0", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }
@@ -121,14 +127,14 @@ bitflags = { version = "2.4.2" }
 
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
+swash = { workspace = true, optional = true, features = ["scale"] }
 
 wgpu-27 = { workspace = true, optional = true }
 wgpu-28 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
-htmlparser = { version = "0.2.1", optional = true }
-thiserror = { version = "2.0.17", optional = true }
+taffy = { version = "0.9", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
@@ -145,7 +151,7 @@ i-slint-backend-testing = { path = "../backends/testing" }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }
 serde_json = { workspace = true }
-tiny-skia = "0.11.0"
+tiny-skia = "0.12.0"
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "net", "io-util"] }
 async-compat = { version = "0.2.4" }
 tempfile = { version = "3.12.0" }

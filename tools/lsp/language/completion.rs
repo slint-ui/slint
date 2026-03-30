@@ -118,12 +118,12 @@ pub(crate) fn completion_at(
             r
         });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
-        if let Some(colon) = n.child_token(SyntaxKind::Colon) {
-            if offset >= colon.text_range().end() {
-                return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
-                    resolve_expression_scope(ctx, document_cache, snippet_support)
-                })?;
-            }
+        if let Some(colon) = n.child_token(SyntaxKind::Colon)
+            && offset >= colon.text_range().end()
+        {
+            return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
+                resolve_expression_scope(ctx, document_cache, snippet_support)
+            })?;
         }
         if token.kind() != SyntaxKind::Identifier {
             return None;
@@ -226,7 +226,7 @@ pub(crate) fn completion_at(
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
     } else if node.kind() == SyntaxKind::AtKeys {
-        return with_lookup_ctx(document_cache, node, Some(offset), |ctx| at_keys_completions(ctx));
+        return with_lookup_ctx(document_cache, node, Some(offset), at_keys_completions);
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
@@ -671,37 +671,37 @@ fn resolve_expression_scope(
         r.push(completion_item_from_expression(str, expr, snippet_support));
         None
     });
-    if snippet_support {
-        if let Some(token) = lookup_context.current_token.as_ref().and_then(|t| match t {
+    if snippet_support
+        && let Some(token) = lookup_context.current_token.as_ref().and_then(|t| match t {
             i_slint_compiler::parser::NodeOrToken::Node(n) => n.first_token(),
             i_slint_compiler::parser::NodeOrToken::Token(t) => Some(t.clone()),
-        }) {
-            let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
-            build_import_statements_edits(
-                &token,
-                document_cache,
-                &mut |ci: &common::ComponentInformation| {
-                    if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
-                        false
-                    } else {
-                        available_types.insert(ci.name.clone());
-                        true
-                    }
-                },
-                &mut |exported_name, file, the_import| {
-                    r.push(CompletionItem {
-                        label: format!("{exported_name} (import from \"{file}\")"),
-                        insert_text: Some(exported_name.to_string()),
-                        insert_text_format: Some(InsertTextFormat::SNIPPET),
-                        filter_text: Some(exported_name.to_string()),
-                        kind: Some(CompletionItemKind::CLASS),
-                        detail: Some(format!("(import from \"{file}\")")),
-                        additional_text_edits: Some(vec![the_import]),
-                        ..Default::default()
-                    });
-                },
-            );
-        }
+        })
+    {
+        let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
+        build_import_statements_edits(
+            &token,
+            document_cache,
+            &mut |ci: &common::ComponentInformation| {
+                if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
+                    false
+                } else {
+                    available_types.insert(ci.name.clone());
+                    true
+                }
+            },
+            &mut |exported_name, file, the_import| {
+                r.push(CompletionItem {
+                    label: format!("{exported_name} (import from \"{file}\")"),
+                    insert_text: Some(exported_name.to_string()),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
+                    filter_text: Some(exported_name.to_string()),
+                    kind: Some(CompletionItemKind::CLASS),
+                    detail: Some(format!("(import from \"{file}\")")),
+                    additional_text_edits: Some(vec![the_import]),
+                    ..Default::default()
+                });
+            },
+        );
     }
     Some(r)
 }
@@ -778,9 +778,11 @@ fn completion_item_from_expression(
             };
 
             let argument_list = argument_list_for_callable(&callable);
-            let insert_text = snippet_support
-                .then(|| snippet_for_callable(&name, &argument_list))
-                .unwrap_or_else(|| name.clone());
+            let insert_text = if snippet_support {
+                snippet_for_callable(&name, &argument_list)
+            } else {
+                name.clone()
+            };
             let insert_text_format = snippet_support.then_some(InsertTextFormat::SNIPPET);
             let label = match &argument_list {
                 // Only show that we have no arguments if we know for sure there are none
@@ -1140,7 +1142,7 @@ fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {
     for modifier in ["Shift", "Alt"] {
         completions.push(
             CompletionItem::new_simple(
-                format!("Ignore{modifier}"),
+                format!("{modifier}?"),
                 format!("Ignore the {modifier} modifier when matching this shortcut"),
             )
             .with_kind(CompletionItemKind::KEYWORD),
@@ -2073,5 +2075,22 @@ mod tests {
             res.iter().find(|ci| ci.label == "cb3").unwrap().insert_text,
             Some("cb3 => {$1}".into())
         );
+    }
+
+    #[test]
+    fn builtin_globals() {
+        let source = r#"
+            component Foo {
+                out property <string> test1: Platform.🔺;
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        dbg!(&res);
+        res.iter().find(|ci| ci.label == "os").unwrap();
+        res.iter().find(|ci| ci.label == "open-url(..)").unwrap();
+        assert!(!res.iter().any(|ci| ci.label == "width"));
+        assert!(!res.iter().any(|ci| ci.label == "opacity"));
+        assert!(!res.iter().any(|ci| ci.label == "absolute-position"));
+        assert!(!res.iter().any(|ci| ci.label == "accessible-action-default"));
     }
 }

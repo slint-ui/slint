@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "native-gestures"
+version = "1.16.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "native-gestures"
+path = "src/main.rs"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.14.1"
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+# Android settings
+[package.metadata.android]
+package = "dev.slint.examples.nativegestures"
+build_targets = ["aarch64-linux-android"]
+target_sdk_version = 33
+
+[package.metadata.android.application]
+label = "Native Gestures"

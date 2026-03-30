@@ -32,9 +32,11 @@ pub type Transform = euclid::default::Transform2D<Coord>;
 pub(crate) mod color;
 pub use color::*;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "shared-fontique")]
+use i_slint_common::sharedfontique::{self, fontique};
+#[cfg(feature = "path")]
 mod path;
-#[cfg(feature = "std")]
+#[cfg(feature = "path")]
 pub use path::*;
 
 mod brush;
@@ -103,12 +105,12 @@ pub struct FontRequest {
 #[cfg(feature = "shared-fontique")]
 impl FontRequest {
     /// Attempts to query the fontique font collection for a matching font.
-    pub fn query_fontique(&self) -> Option<i_slint_common::sharedfontique::fontique::QueryFont> {
-        use i_slint_common::sharedfontique::{self, fontique};
-
-        let mut collection = sharedfontique::get_collection();
-
-        let mut query = collection.query();
+    pub fn query_fontique(
+        &self,
+        collection: &mut fontique::Collection,
+        source_cache: &mut fontique::SourceCache,
+    ) -> Option<fontique::QueryFont> {
+        let mut query = collection.query(source_cache);
         query.set_families(
             self.family
                 .as_ref()
@@ -159,6 +161,7 @@ pub enum RequestedOpenGLVersion {
 /// Internal enum specify which graphics API should be used, when
 /// the backend selector requests that from a built-in backend.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum RequestedGraphicsAPI {
     /// OpenGL (ES)
     OpenGL(RequestedOpenGLVersion),

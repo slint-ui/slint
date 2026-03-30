@@ -8,6 +8,8 @@ r"""
 import os
 import sys
 from . import slint as native
+from . import language
+
 import types
 import logging
 import copy
@@ -23,6 +25,7 @@ import asyncio
 import gettext
 import gzip
 import base64
+
 
 Struct = native.PyStruct
 
@@ -324,6 +327,8 @@ def _load_file(
             for diag in diagnostics:
                 if diag.level == native.DiagnosticLevel.Warning:
                     logging.warning(diag)
+                if diag.level == native.DiagnosticLevel.Note:
+                    logging.debug(diag)
 
         errors = [
             diag for diag in diagnostics if diag.level == native.DiagnosticLevel.Error
@@ -471,7 +476,7 @@ def _callback_decorator(
 
         if inspect.iscoroutinefunction(callable):
 
-            def run_as_task(*args, **kwargs) -> None:  # type: ignore
+            def run_as_task(*args, **kwargs) -> None:
                 loop = asyncio.get_event_loop()
                 loop.create_task(callable(*args, **kwargs))
 
@@ -632,4 +637,5 @@ __all__ = [
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
+    "language",
 ]

@@ -1,0 +1,82 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout inside another layout
+
+export component TestCase inherits Window {
+    background: white;
+    width: 150px;
+    height: 300px;
+
+    VerticalLayout {
+
+        HorizontalLayout {
+
+            FlexBoxLayout {
+                flex-direction: column;
+                spacing: 10px;
+                vertical-stretch: 0;
+                horizontal-stretch: 0;
+
+                r1 := Rectangle {
+                    width: 100px;
+                    height: 50px;
+                    background: red;
+                }
+
+                r2 := Rectangle {
+                    width: 100px;
+                    height: 50px;
+                    background: green;
+                }
+
+                r3 := Rectangle {
+                    width: 100px;
+                    height: 50px;
+                    background: blue;
+                }
+            }
+
+            Text {
+                text: "This is on the right of the flow layout";
+                horizontal-stretch: 0;
+                vertical-stretch: 0;
+            }
+        }
+
+        Text {
+            text: "This is below the flow layout";
+            vertical-stretch: 0;
+        }
+    }
+
+    // flex-direction: column means items should stack vertically
+    // r1: y=0, r2: y=60 (50+10), r3: y=120 (50+10+50+10)
+    // All items should have same x position (0)
+    out property <length> r1_x: r1.x;
+    out property <length> r1_y: r1.y;
+    out property <length> r2_x: r2.x;
+    out property <length> r2_y: r2.y;
+    out property <length> r3_x: r3.x;
+    out property <length> r3_y: r3.y;
+    out property <bool> test: r1.x == r2.x && r2.x == r3.x &&  // same column
+                              r1.y == 0px && r2.y == 60px && r3.y == 120px;  // stacked vertically with spacing
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

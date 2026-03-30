@@ -104,6 +104,7 @@ define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based 
 define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_feature(renderer-software "Enable support for the software renderer" ON)
+define_cargo_feature(software-renderer-path "Enable support for Path element rendering with the software renderer. This is implicitly enabled when SLINT_FEATURE_FREESTANDING is OFF. Enable this in bare-metal environments if you need support for Path elements" OFF)
 
 set(SLINT_BACKEND_QT_DEFAULT OFF)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -370,36 +371,31 @@ if (SLINT_BUILD_RUNTIME)
     endforeach()
 
     set(generated_headers
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_platform_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_timer_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_events_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_brush_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_structs.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_structs_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_color_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_enums.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_enums_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_generated_public.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_image_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_pathdata_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_platform_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_properties_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_qt_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_sharedvector_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_string_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_timer_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_events_internal.h
     )
 
     if(SLINT_FEATURE_INTERPRETER)
         list(APPEND generated_headers
-            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
-            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
+            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_interpreter_internal.h
+            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_interpreter_generated_public.h
         )
     endif()
-
-
-    foreach(header IN LISTS generated_headers)
-        set_property(TARGET Slint APPEND PROPERTY PUBLIC_HEADER ${header})
-    endforeach()
 
     target_include_directories(Slint INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated_include>
@@ -418,6 +414,8 @@ if (SLINT_BUILD_RUNTIME)
     install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
     install(TARGETS Slint slint_cpp
         EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+    install(DIRECTORY include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
 
     install(FILES $<TARGET_FILE:${slint_cpp_impl}> TYPE LIB)
 

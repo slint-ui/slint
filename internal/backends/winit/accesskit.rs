@@ -43,7 +43,7 @@ pub struct AccessKitAdapter {
     inner: accesskit_winit::Adapter,
     window_adapter_weak: Weak<WinitWindowAdapter>,
     nodes: NodeCollection,
-    global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
+    global_property_tracker: Pin<Box<AccessibilityPropertyTracker>>,
     pending_update: bool,
     initial_tree_sent: bool,
 }
@@ -64,6 +64,7 @@ impl AccessKitAdapter {
             window_adapter_weak: window_adapter_weak.clone(),
             nodes: NodeCollection {
                 next_component_id: 1,
+                free_component_ids: Default::default(),
                 root_node_id: NodeId(0),
                 components_by_id: Default::default(),
                 component_ids: Default::default(),
@@ -75,7 +76,9 @@ impl AccessKitAdapter {
                 )),
             },
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
-                AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
+                AccessibilityPropertyDirtyHandler {
+                    window_adapter_weak: window_adapter_weak.clone(),
+                },
             )),
             pending_update: false,
             initial_tree_sent: false,
@@ -187,6 +190,7 @@ impl AccessKitAdapter {
         let component_ptr = ItemTreeRef::as_ptr(component);
         if let Some(component_id) = self.nodes.component_ids.remove(&component_ptr) {
             self.nodes.components_by_id.remove(&component_id);
+            self.nodes.free_component_ids.push(component_id);
         }
         self.reload_tree();
     }
@@ -266,13 +270,18 @@ fn accessible_parent_for_item_rc(mut item: ItemRc) -> ItemRc {
     item
 }
 
+const NODE_ID_INDEX_BITS: u32 = 16;
+const NODE_ID_INDEX_MASK: u64 = (1 << NODE_ID_INDEX_BITS) - 1; // 0xFFFF
+const NODE_ID_COMPONENT_MASK: u64 = (1 << 22) - 1; // 0x3FFFFF
+
 struct NodeCollection {
     next_component_id: u32,
+    free_component_ids: Vec<u32>,
     components_by_id: HashMap<u32, ItemTreeWeak>,
     component_ids: HashMap<NonNull<u8>, u32>,
     all_nodes: Vec<CachedNode>,
     root_node_id: NodeId,
-    focused_node_tracker: Pin<Box<PropertyTracker<DelegateFocusPropertyTracker>>>,
+    focused_node_tracker: Pin<Box<PropertyTracker<false, DelegateFocusPropertyTracker>>>,
 }
 
 impl NodeCollection {
@@ -303,19 +312,15 @@ impl NodeCollection {
                             })
                             .unwrap_or(parent)
                     })
-                    .or_else(|| {
-                        window_inner
-                            .try_component()
-                            .map(|component_rc| ItemRc::new(component_rc, 0))
-                    })
+                    .or_else(|| window_inner.try_component().map(ItemRc::new_root))
                     .map(|focus_item| self.find_node_id_by_item_rc(focus_item))
             })
             .unwrap_or(self.root_node_id)
     }
 
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
-        let component_id: u32 = (id.0 >> u32::BITS) as _;
-        let index: u32 = (id.0 & u32::MAX as u64) as _;
+        let component_id: u32 = ((id.0 >> NODE_ID_INDEX_BITS) & NODE_ID_COMPONENT_MASK) as _;
+        let index: u32 = (id.0 & NODE_ID_INDEX_MASK) as _;
         let component = self.components_by_id.get(&component_id)?.upgrade()?;
         Some(ItemRc::new(component, index))
     }
@@ -326,14 +331,21 @@ impl NodeCollection {
         self.encode_item_node_id(&item)
     }
 
+    fn alloc_component_id(&mut self) -> u32 {
+        self.free_component_ids.pop().unwrap_or_else(|| {
+            let id = self.next_component_id;
+            self.next_component_id += 1;
+            id
+        })
+    }
+
     fn encode_item_node_id(&mut self, item: &ItemRc) -> NodeId {
         let component = item.item_tree();
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
         let component_id = match self.component_ids.get(&component_ptr) {
             Some(&component_id) => component_id,
             None => {
-                let component_id = self.next_component_id;
-                self.next_component_id += 1;
+                let component_id = self.alloc_component_id();
                 self.component_ids.insert(component_ptr, component_id);
                 self.components_by_id.insert(component_id, ItemTreeRc::downgrade(component));
                 component_id
@@ -341,7 +353,7 @@ impl NodeCollection {
         };
 
         let index = item.index();
-        NodeId((component_id as u64) << u32::BITS | (index as u64 & u32::MAX as u64))
+        NodeId((component_id as u64) << NODE_ID_INDEX_BITS | (index as u64 & NODE_ID_INDEX_MASK))
     }
 
     fn build_node_for_item_recursively(
@@ -367,7 +379,7 @@ impl NodeCollection {
                     return None;
                 }
 
-                let popup_item = ItemRc::new(popup.component.clone(), 0);
+                let popup_item = ItemRc::new_root(popup.component.clone());
                 Some(self.build_node_for_item_recursively(
                     popup_item,
                     nodes,
@@ -410,7 +422,7 @@ impl NodeCollection {
     fn build_new_tree(
         &mut self,
         window_adapter_weak: &Weak<WinitWindowAdapter>,
-        property_tracker: Pin<&PropertyTracker<AccessibilitiesPropertyTracker>>,
+        property_tracker: Pin<&AccessibilityPropertyTracker>,
     ) -> TreeUpdate {
         let Some(window_adapter) = window_adapter_weak.upgrade() else {
             return TreeUpdate {
@@ -422,7 +434,7 @@ impl NodeCollection {
         let window = window_adapter.window();
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
 
-        let root_item = ItemRc::new(window_inner.component(), 0);
+        let root_item = ItemRc::new_root(window_inner.component());
 
         let popups = window_inner
             .active_popups()
@@ -694,11 +706,13 @@ impl NodeCollection {
     }
 }
 
-struct AccessibilitiesPropertyTracker {
+type AccessibilityPropertyTracker = PropertyTracker<true, AccessibilityPropertyDirtyHandler>;
+
+struct AccessibilityPropertyDirtyHandler {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 }
 
-impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyTracker {
+impl i_slint_core::properties::PropertyDirtyHandler for AccessibilityPropertyDirtyHandler {
     fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {

@@ -5,6 +5,7 @@
 #![allow(unsafe_code)]
 
 use crate::graphics::Image;
+use crate::input::InternalKeyEvent;
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
@@ -83,14 +84,14 @@ impl MenuFromItemTree {
     fn update_shadow_tree(&self) {
         self.tracker.as_ref().evaluate_if_dirty(|| {
             self.item_cache.replace(Default::default());
-            if let Some(condition) = &self.condition {
-                if !condition.as_ref().get() {
-                    self.root.replace(SharedVector::default());
-                    return;
-                }
+            if let Some(condition) = &self.condition
+                && !condition.as_ref().get()
+            {
+                self.root.replace(SharedVector::default());
+                return;
             }
             self.root.replace(
-                self.update_shadow_tree_recursive(&ItemRc::new(self.item_tree.clone(), 0)),
+                self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
             );
         });
     }
@@ -168,14 +169,13 @@ impl Menu for MenuFromItemTree {
     fn activate(&self, entry: &MenuEntry) {
         if let Some(menu_item) =
             self.item_cache.borrow().get(entry.id.as_str()).and_then(|e| e.item.upgrade())
+            && let Some(menu_item) = menu_item.downcast::<MenuItem>()
         {
-            if let Some(menu_item) = menu_item.downcast::<MenuItem>() {
-                if menu_item.as_pin_ref().checkable() {
-                    menu_item.checked.set(!menu_item.as_pin_ref().checked());
-                }
-
-                menu_item.activated.call(&());
+            if menu_item.as_pin_ref().checkable() {
+                menu_item.checked.set(!menu_item.as_pin_ref().checked());
             }
+
+            menu_item.activated.call(&());
         }
     }
 }
@@ -213,6 +213,7 @@ impl crate::items::Item for MenuItem {
         _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut crate::items::MouseCursor,
     ) -> crate::input::InputEventFilterResult {
         Default::default()
     }
@@ -222,13 +223,14 @@ impl crate::items::Item for MenuItem {
         _: &crate::input::MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut crate::items::MouseCursor,
     ) -> crate::input::InputEventResult {
         Default::default()
     }
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {
@@ -237,7 +239,7 @@ impl crate::items::Item for MenuItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &crate::input::KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::input::KeyEventResult {

@@ -23,7 +23,6 @@ struct FormatState {
     /// this contains the whitespace that was removed, so that it can be added again in case the next
     /// token is a comment
     last_removed_whitespace: Option<String>,
-
     /// The level of indentation
     indentation_level: u32,
 
@@ -74,6 +73,9 @@ fn format_node(
     match node.kind() {
         SyntaxKind::Component => {
             return format_component(node, writer, state);
+        }
+        SyntaxKind::Document => {
+            return format_document_node(node, writer, state);
         }
         SyntaxKind::Element => {
             return format_element(node, writer, state);
@@ -156,6 +158,15 @@ fn format_node(
         SyntaxKind::ObjectLiteral => {
             return format_object_literal(node, writer, state);
         }
+        SyntaxKind::StructDeclaration => {
+            return format_struct_declaration(node, writer, state);
+        }
+        SyntaxKind::ObjectType => {
+            return format_object_type(node, writer, state);
+        }
+        SyntaxKind::ObjectTypeMember => {
+            return format_object_type_member(node, writer, state);
+        }
         SyntaxKind::PropertyChangedCallback => {
             return format_property_changed_callback(node, writer, state);
         }
@@ -202,14 +213,14 @@ fn fold(
             } else {
                 state.after_comment = t.kind() == SyntaxKind::Comment;
                 state.skip_all_whitespace = false;
-                if let Some(ws) = state.last_removed_whitespace.take() {
-                    if state.after_comment {
-                        // restore the previously skipped spaces before comment.
-                        state.insertion_count += 1;
-                        writer.insert_before(t, &ws)?;
-                        state.whitespace_to_add = None;
-                        return Ok(());
-                    }
+                if let Some(ws) = state.last_removed_whitespace.take()
+                    && state.after_comment
+                {
+                    // restore the previously skipped spaces before comment.
+                    state.insertion_count += 1;
+                    writer.insert_before(t, &ws)?;
+                    state.whitespace_to_add = None;
+                    return Ok(());
                 }
                 if let Some(x) = state.whitespace_to_add.take() {
                     state.insertion_count += 1;
@@ -219,6 +230,48 @@ fn fold(
             }
             state.insertion_count += 1;
             writer.no_change(t)
+        }
+    }
+}
+
+fn whitespace_has_empty_line(text: &str) -> bool {
+    let mut newlines = 0;
+    for b in text.bytes() {
+        if b == b'\n' {
+            newlines += 1;
+            if newlines >= 2 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn next_non_trivia_token_kind(item: &NodeOrToken) -> Option<SyntaxKind> {
+    match item {
+        NodeOrToken::Node(node) => Some(node.kind()),
+        NodeOrToken::Token(token) => {
+            let mut current = token.clone();
+            loop {
+                match current.kind() {
+                    SyntaxKind::Whitespace | SyntaxKind::Comment => {
+                        current = current.next_token()?;
+                    }
+                    kind => return Some(kind),
+                }
+            }
+        }
+    }
+}
+
+fn prev_non_trivia_token_kind(token: i_slint_compiler::parser::SyntaxToken) -> Option<SyntaxKind> {
+    let mut current = token;
+    loop {
+        match current.kind() {
+            SyntaxKind::Whitespace | SyntaxKind::Comment => {
+                current = current.prev_token()?;
+            }
+            kind => return Some(kind),
         }
     }
 }
@@ -321,6 +374,37 @@ fn format_component(
     Ok(())
 }
 
+fn format_document_node(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for n in node.children_with_tokens() {
+        if let Some(t) = n.as_token()
+            && t.kind() == SyntaxKind::Whitespace
+            && whitespace_has_empty_line(t.text())
+            && next_non_trivia_token_kind(&n).is_some_and(|kind| kind != SyntaxKind::Eof)
+        {
+            // Preserve document-level blank lines as written and override any
+            // pending newline inserted by the preceding formatter branch.
+            state.skip_all_whitespace = false;
+            state.whitespace_to_add = None;
+            state.last_removed_whitespace = None;
+            state.after_comment = false;
+            state.insertion_count += 1;
+            writer.no_change(t.clone())?;
+            continue;
+        }
+        // Comments are tokens, but top-level items are nodes. Make sure a preceding
+        // comment does not suppress indentation inside the next formatted node.
+        if n.as_node().is_some() {
+            state.after_comment = false;
+        }
+        fold(n, writer, state)?;
+    }
+    Ok(())
+}
+
 fn format_element(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -346,16 +430,17 @@ fn format_element(
     let mut inserted_newline = false;
 
     for n in sub {
-        if n.kind() != SyntaxKind::Comment {
-            if let Some(last_removed_whitespace) = state.last_removed_whitespace.take() {
-                let is_empty_line = last_removed_whitespace.contains("\n\n");
-                if is_empty_line && !inserted_newline {
-                    state.new_line();
-                }
+        if n.kind() != SyntaxKind::Comment
+            && let Some(last_removed_whitespace) = state.last_removed_whitespace.take()
+        {
+            let is_empty_line = whitespace_has_empty_line(&last_removed_whitespace);
+            if is_empty_line && !inserted_newline {
+                state.new_line();
             }
         }
         if n.kind() == SyntaxKind::Whitespace && !state.after_comment {
-            let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
+            let is_empty_line =
+                n.as_token().map(|n| whitespace_has_empty_line(n.text())).unwrap_or(false);
             if is_empty_line {
                 if !inserted_newline {
                     state.new_line();
@@ -786,7 +871,8 @@ fn format_codeblock(
     for n in sub {
         state.skip_all_whitespace = true;
         if n.kind() == SyntaxKind::Whitespace {
-            let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
+            let is_empty_line =
+                n.as_token().map(|n| whitespace_has_empty_line(n.text())).unwrap_or(false);
             if is_empty_line {
                 state.new_line();
             }
@@ -931,13 +1017,8 @@ fn format_array(
     let has_trailing_comma = node
         .last_token()
         .and_then(|last| last.prev_token())
-        .map(|second_last| {
-            if second_last.kind() == SyntaxKind::Whitespace {
-                second_last.prev_token().map(|n| n.kind() == SyntaxKind::Comma).unwrap_or(false)
-            } else {
-                second_last.kind() == SyntaxKind::Comma
-            }
-        })
+        .and_then(prev_non_trivia_token_kind)
+        .map(|kind| kind == SyntaxKind::Comma)
         .unwrap_or(false);
     // len of all children
     let len = node.children().fold(0, |acc, e| {
@@ -1226,13 +1307,8 @@ fn format_object_literal(
     let has_trailing_comma = node
         .last_token()
         .and_then(|last| last.prev_token())
-        .map(|second_last| {
-            if second_last.kind() == SyntaxKind::Whitespace {
-                second_last.prev_token().map(|n| n.kind() == SyntaxKind::Comma).unwrap_or(false)
-            } else {
-                second_last.kind() == SyntaxKind::Comma
-            }
-        })
+        .and_then(prev_non_trivia_token_kind)
+        .map(|kind| kind == SyntaxKind::Comma)
         .unwrap_or(false);
     // len of all children
     let len = node.children().fold(0, |acc, e| {
@@ -1264,6 +1340,7 @@ fn format_object_literal(
 
         if let SyntaxMatch::Found(SyntaxKind::ObjectMember) = el {
             if indent_with_new_line {
+                state.after_comment = false;
                 state.new_line();
             } else {
                 state.insert_whitespace(" ");
@@ -1272,16 +1349,8 @@ fn format_object_literal(
             // are we at the end of literal?
             let at_end = sub
                 .peek()
-                .map(|next| {
-                    if next.kind() == SyntaxKind::Whitespace {
-                        next.as_token()
-                            .and_then(|ws| ws.next_token())
-                            .map(|n| n.kind() == SyntaxKind::RBrace)
-                            .unwrap_or(false)
-                    } else {
-                        next.kind() == SyntaxKind::RBrace
-                    }
-                })
+                .and_then(next_non_trivia_token_kind)
+                .map(|kind| kind == SyntaxKind::RBrace)
                 .unwrap_or(false);
 
             if at_end && indent_with_new_line {
@@ -1298,6 +1367,119 @@ fn format_object_literal(
             break;
         }
     }
+    Ok(())
+}
+
+fn format_struct_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::ObjectType, writer, state, " ")?;
+    finish_node(sub, writer, state)?;
+    state.new_line();
+    Ok(())
+}
+
+fn format_object_type(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // Mirror object literal formatting, but for type definitions
+    let has_trailing_comma = node
+        .last_token()
+        .and_then(|last| last.prev_token())
+        .and_then(prev_non_trivia_token_kind)
+        .map(|kind| kind == SyntaxKind::Comma)
+        .unwrap_or(false);
+    let len = node.children().fold(0, |acc, e| {
+        let mut len = 0;
+        e.text().for_each_chunk(|s| len += s.trim().len());
+        acc + len
+    });
+    let is_large_object = len >= 80;
+    let member_count = node.children().filter(|n| n.kind() == SyntaxKind::ObjectTypeMember).count();
+
+    let mut sub = node.children_with_tokens().peekable();
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?;
+    // Trailing commas or long content keep braces on separate lines
+    let indent_with_new_line = is_large_object || has_trailing_comma;
+
+    if indent_with_new_line {
+        state.indentation_level += 1;
+        state.new_line();
+    } else if member_count > 1 {
+        // Multi-field inline structs keep a space after `{`.
+        state.insert_whitespace(" ");
+    }
+
+    loop {
+        let el = whitespace_to_one_of(
+            &mut sub,
+            &[SyntaxKind::ObjectTypeMember, SyntaxKind::RBrace],
+            writer,
+            state,
+            "",
+        )?;
+
+        if let SyntaxMatch::Found(SyntaxKind::ObjectTypeMember) = el {
+            let at_end = sub
+                .peek()
+                .map(|next| {
+                    if next.kind() == SyntaxKind::Whitespace {
+                        next.as_token()
+                            .and_then(|ws| ws.next_token())
+                            .map(|n| n.kind() == SyntaxKind::RBrace)
+                            .unwrap_or(false)
+                    } else {
+                        next.kind() == SyntaxKind::RBrace
+                    }
+                })
+                .unwrap_or(false);
+
+            if indent_with_new_line {
+                state.new_line();
+            } else if !at_end {
+                state.insert_whitespace(" ");
+            }
+
+            if at_end && indent_with_new_line {
+                state.indentation_level -= 1;
+                state.whitespace_to_add = None;
+                state.new_line();
+            }
+
+            continue;
+        } else if let SyntaxMatch::Found(SyntaxKind::RBrace) = el {
+            break;
+        } else {
+            eprintln!("Inconsistency: unexpected syntax in object type.");
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn format_object_type_member(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // Format a single struct field: `name: Type` (comma handled if present).
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::Type, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Comma).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Comma, writer, state, "")?;
+    }
+    // Strip any trailing whitespace inside the member, so `}` can close tightly.
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -1371,11 +1553,8 @@ fn format_import_specifier(
     for n in node.children_with_tokens() {
         match n.kind() {
             SyntaxKind::ImportIdentifierList => {
-                match n {
-                    NodeOrToken::Node(n) => {
-                        format_import_identifier(&n, writer, state, is_too_long)?
-                    }
-                    _ => {}
+                if let NodeOrToken::Node(n) = n {
+                    format_import_identifier(&n, writer, state, is_too_long)?
                 };
             }
             _ => {
@@ -1442,7 +1621,7 @@ fn format_import_identifier(
                             }
                             SyntaxKind::ExternalName => {
                                 if stay_single_line {
-                                    state.insert_whitespace(" ".into());
+                                    state.insert_whitespace(" ");
                                 } else {
                                     state.new_line();
                                 }
@@ -2264,6 +2443,59 @@ export component MainWindow inherits Window {
     }
 
     #[test]
+    fn struct_declaration() {
+        assert_formatting(
+            r#"
+export struct ParsedMarkdown {  string :string , span:{start:int,end:int,}, }
+"#,
+            r#"
+export struct ParsedMarkdown {
+    string: string,
+    span: {
+        start: int,
+        end: int,
+    },
+}
+"#,
+        );
+
+        assert_formatting(
+            r#"
+struct ParsedMarkdown {  string :string , span:{start: int, end:int} , x: int }
+"#,
+            r#"
+struct ParsedMarkdown { string: string, span: { start: int, end: int}, x: int}
+"#,
+        );
+
+        // issue 10647
+        assert_formatting(
+            r#"
+struct PrinterQueueItem {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string}
+
+            "#,
+            r#"
+struct PrinterQueueItem {
+    status: string,
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .slint?
+    submission-date: string
+}
+"#,
+        );
+    }
+
+    #[test]
     fn preserve_empty_lines() {
         assert_formatting(
             r#"
@@ -2303,6 +2535,109 @@ export component MainWindow inherits Rectangle {
         y: 8px;
     }
 }
+"#,
+        );
+    }
+
+    #[test]
+    fn preserve_empty_lines_between_top_level_declarations() {
+        assert_formatting(
+            r#"
+struct Foo {}
+
+struct Bar {
+    dummy: int,
+}
+
+component HelloWorld {
+    // ...
+}
+"#,
+            r#"
+struct Foo {}
+
+struct Bar {
+    dummy: int,
+}
+
+component HelloWorld {
+    // ...
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn preserve_top_level_comment_spacing() {
+        assert_formatting(
+            r#"
+component RoundButton inherits Image {
+    property <int> x;
+}
+// From UpAndDownButton.cpp
+component UpAndDownButton inherits Rectangle {
+    callback changed(int);
+}
+"#,
+            r#"
+component RoundButton inherits Image {
+    property <int> x;
+}
+// From UpAndDownButton.cpp
+component UpAndDownButton inherits Rectangle {
+    callback changed(int);
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn preserve_blank_line_before_top_level_comment() {
+        assert_formatting(
+            r#"
+component RoundButton inherits Image {
+    callback clicked;
+}
+
+// From UpAndDownButton.cpp
+component UpAndDownButton inherits Rectangle {
+    callback changed(int);
+}
+"#,
+            r#"
+component RoundButton inherits Image {
+    callback clicked;
+}
+
+// From UpAndDownButton.cpp
+component UpAndDownButton inherits Rectangle {
+    callback changed(int);
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn preserve_blank_lines_between_top_level_items() {
+        assert_formatting(
+            r#"
+struct Palette {}
+
+global Skin {
+    // ...
+}
+
+export component Clock {
+}
+"#,
+            r#"
+struct Palette {}
+
+global Skin {
+    // ...
+}
+
+export component Clock { }
 "#,
         );
     }

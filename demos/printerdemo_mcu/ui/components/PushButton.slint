@@ -11,7 +11,7 @@ export component PushButton inherits Rectangle {
     out property <bool> pressed: touch-area.pressed;
     out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
 
-    callback clicked;
+    callback clicked <=> touch-area.clicked;
 
     height: 66px;
 
@@ -40,10 +40,10 @@ export component PushButton inherits Rectangle {
 
 
     touch-area := TouchArea {
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.down) {
-                root.clicked()
-            }
-        }
+        // pointer-event(ev) => {
+        //     if (ev.kind == PointerEventKind.down) {
+        //         root.clicked()
+        //     }
+        // }
     }
 }

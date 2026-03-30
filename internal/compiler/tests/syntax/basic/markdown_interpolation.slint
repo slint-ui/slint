@@ -4,13 +4,44 @@
 export component X {
     property <styled-text> t1: @markdown("{}", "test");
     property <styled-text> t2: @markdown("{} {}", "test");
-//                             >                        <error{Format string contains 2 placeholders, but 1 values were given}
+//                             >                        <error{Argument index 1 out of range: 1 arguments provided}
     property <styled-text> t3: @markdown("{}", "test", "test2");
-//                             >                              <error{Format string contains 1 placeholders, but 2 values were given}
+//                             >                              <error{Format string contains 1 placeholders, but 2 arguments were provided}
     property <styled-text> t4: @markdown("{0} {0}", "test");
     property <styled-text> t5: @markdown("{1} {1}", "test");
-//                             >                          <error{Format string contains 2 placeholders, but 1 values were given}
+//                             >                          <error{Argument index 1 out of range: 1 arguments provided}
     property <styled-text> t6: @markdown("{1} {1}", "test", "test2");
     property <styled-text> t7: @markdown("{1} {0}", "test", "test2");
-
+    property <styled-text> t8: @markdown("{} {0}", "test", "test2");
+//                             >                                  <error{Cannot mix positional and non-positional placeholder in format string}
+    property <styled-text> t9: @markdown("{");
+//                             >            <error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
+    property <styled-text> t10: @markdown("}");
+//                              >            <error{Unexpected '}' in format string. Escape '}' with '}}'}
+    property <styled-text> t11: @markdown("{abc}");
+//                              >                <error{Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{' and '}'}
+    property <styled-text> t12: @markdown("{0");
+//                              >             <error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
+    property <styled-text> t13: @markdown("> quote");
+//                              >                  <error{Unimplemented tag: BlockQuote(None)}
+    property <styled-text> t14: @markdown("![alt](image.png)");
+//                              >                            <error{Unimplemented tag: Image}
+    property <styled-text> t15: @markdown("---");
+//                              >              <error{Unimplemented event: Rule}
+    property <styled-text> t16: @markdown("<span>text</span>");
+//                              >                            <error{Unimplemented html tag: span}
+    property <styled-text> t17: @markdown("<div>text</div>");
+//                              >                          <error{Unimplemented tag: HtmlBlock}
+    property <styled-text> t18: @markdown("<u>unclosed");
+//                              >                      <error{Spans are unbalanced: stack contained items at end of function}
+    property <styled-text> t19: @markdown("<font color='red'>unclosed");
+//                              >                                     <error{Spans are unbalanced: stack contained items at end of function}
+    property <styled-text> t20: @markdown("<u>text</font>");
+//                              >                         <error{Closing html tag doesn't match the opening tag. Expected </u>, got </font>}
+    property <styled-text> t21: @markdown("<font>text</font>");
+//                              >                            <error{Missing color attribute in html <font>}
+    property <styled-text> t22: @markdown("<font size='12'>text</font>");
+//                              >                                      <error{Unexpected size attribute in html <font size='12'>}
+    property <styled-text> t23: @markdown("<u class='test'>text</u>");
+//                              >                                   <error{Unexpected class attribute in html <u class='test'>}
 }

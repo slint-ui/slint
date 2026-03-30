@@ -48,7 +48,8 @@ i_slint_core::thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache> 
 pub struct VectorFont {
     font_index: u32,
     font_blob: fontique::Blob<u8>,
-    fontdue_font: Rc<fontdue::Font>,
+    swash_key: swash::CacheKey,
+    swash_offset: u32,
     ascender: PhysicalLength,
     descender: PhysicalLength,
     height: PhysicalLength,
@@ -58,18 +59,28 @@ pub struct VectorFont {
 }
 
 impl VectorFont {
+    fn swash_font_ref(&self) -> swash::FontRef<'_> {
+        swash::FontRef {
+            data: self.font_blob.data(),
+            offset: self.swash_offset,
+            key: self.swash_key,
+        }
+    }
+
     pub fn new(
         font: fontique::QueryFont,
-        fontdue_font: Rc<fontdue::Font>,
+        swash_key: swash::CacheKey,
+        swash_offset: u32,
         pixel_size: PhysicalLength,
     ) -> Self {
-        Self::new_from_blob_and_index(font.blob, font.index, fontdue_font, pixel_size)
+        Self::new_from_blob_and_index(font.blob, font.index, swash_key, swash_offset, pixel_size)
     }
 
     pub fn new_from_blob_and_index(
         font_blob: fontique::Blob<u8>,
         font_index: u32,
-        fontdue_font: Rc<fontdue::Font>,
+        swash_key: swash::CacheKey,
+        swash_offset: u32,
         pixel_size: PhysicalLength,
     ) -> Self {
         let face = skrifa::FontRef::from_index(font_blob.data(), font_index).unwrap();
@@ -87,7 +98,8 @@ impl VectorFont {
         Self {
             font_index,
             font_blob,
-            fontdue_font,
+            swash_key,
+            swash_offset,
             ascender: (ascender.cast() * scale).cast(),
             descender: (descender.cast() * scale).cast(),
             height: (height.cast() * scale).cast(),
@@ -100,6 +112,7 @@ impl VectorFont {
     pub fn render_vector_glyph(
         &self,
         glyph_id: core::num::NonZeroU16,
+        slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableVectorGlyph> {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
@@ -107,26 +120,35 @@ impl VectorFont {
             let cache_key = (self.font_blob.id(), self.font_index, self.pixel_size, glyph_id);
 
             if let Some(entry) = cache.get(&cache_key) {
-                Some(entry.clone())
-            } else {
-                let (metrics, alpha_map) =
-                    self.fontdue_font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
-
-                let alpha_map: Rc<[u8]> = alpha_map.into();
-
-                let glyph = super::RenderableVectorGlyph {
-                    x: Fixed::from_integer(metrics.xmin),
-                    y: Fixed::from_integer(metrics.ymin),
-                    width: PhysicalLength::new(metrics.width.try_into().unwrap()),
-                    height: PhysicalLength::new(metrics.height.try_into().unwrap()),
-                    alpha_map,
-                    pixel_stride: metrics.width.try_into().unwrap(),
-                    bounds: metrics.bounds,
-                };
-
-                cache.put_with_weight(cache_key, glyph.clone()).ok();
-                Some(glyph)
+                return Some(entry.clone());
             }
+
+            let glyph = {
+                let font_ref = self.swash_font_ref();
+                let mut ctx = slint_context.swash_scale_context().borrow_mut();
+                let mut scaler = ctx.builder(font_ref).size(self.pixel_size.get() as f32).build();
+                let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
+                    .format(swash::zeno::Format::Alpha)
+                    .render(&mut scaler, glyph_id.get())?;
+
+                let placement = image.placement;
+                let alpha_map: Rc<[u8]> = image.data.into();
+
+                Some(RenderableVectorGlyph {
+                    x: Fixed::from_integer(placement.left),
+                    y: Fixed::from_integer(placement.top - placement.height as i32),
+                    width: PhysicalLength::new(placement.width.try_into().unwrap()),
+                    height: PhysicalLength::new(placement.height.try_into().unwrap()),
+                    alpha_map,
+                    pixel_stride: placement.width.try_into().unwrap(),
+                    glyph_origin_x: placement.left as f32,
+                })
+            };
+
+            if let Some(ref glyph) = glyph {
+                cache.put_with_weight(cache_key, glyph.clone()).ok();
+            }
+            glyph
         })
     }
 }
@@ -139,15 +161,17 @@ impl TextShaper for VectorFont {
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
+        let font_ref = self.swash_font_ref();
+        let charmap = font_ref.charmap();
+        let gm = font_ref.glyph_metrics(&[]);
+        let metrics = font_ref.metrics(&[]);
+        let scale = self.pixel_size.get() as f32 / metrics.units_per_em as f32;
+
         glyphs.extend(text.char_indices().map(|(byte_offset, char)| {
-            let glyph_id = NonZeroU16::try_from(self.fontdue_font.lookup_glyph_index(char)).ok();
+            let glyph_id = NonZeroU16::try_from(charmap.map(char)).ok();
             let x_advance = glyph_id.map_or_else(
                 || self.pixel_size.get(),
-                |id| {
-                    self.fontdue_font
-                        .metrics_indexed(id.get(), self.pixel_size.get() as _)
-                        .advance_width as _
-                },
+                |id| (gm.advance_width(id.get()) * scale) as _,
             );
 
             Glyph {
@@ -160,13 +184,15 @@ impl TextShaper for VectorFont {
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
-        NonZeroU16::try_from(self.fontdue_font.lookup_glyph_index(ch)).ok().map(|glyph_id| Glyph {
+        let font_ref = self.swash_font_ref();
+        let charmap = font_ref.charmap();
+        let gm = font_ref.glyph_metrics(&[]);
+        let metrics = font_ref.metrics(&[]);
+        let scale = self.pixel_size.get() as f32 / metrics.units_per_em as f32;
+
+        NonZeroU16::try_from(charmap.map(ch)).ok().map(|glyph_id| Glyph {
             glyph_id: Some(glyph_id),
-            advance: PhysicalLength::new(
-                self.fontdue_font
-                    .metrics_indexed(glyph_id.get(), self.pixel_size.get() as _)
-                    .advance_width as _,
-            ),
+            advance: PhysicalLength::new((gm.advance_width(glyph_id.get()) * scale) as _),
             ..Default::default()
         })
     }
@@ -199,8 +225,12 @@ impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for VectorFont {
 }
 
 impl super::GlyphRenderer for VectorFont {
-    fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> Option<super::RenderableGlyph> {
-        self.render_vector_glyph(glyph_id).map(|glyph| super::RenderableGlyph {
+    fn render_glyph(
+        &self,
+        glyph_id: core::num::NonZeroU16,
+        slint_context: &i_slint_core::SlintContext,
+    ) -> Option<super::RenderableGlyph> {
+        self.render_vector_glyph(glyph_id, slint_context).map(|glyph| super::RenderableGlyph {
             x: glyph.x,
             y: glyph.y,
             width: glyph.width,

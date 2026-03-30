@@ -13,7 +13,6 @@ import sitemap from "@astrojs/sitemap";
 import tailwind from "@astrojs/tailwind";
 import mdx from "@astrojs/mdx";
 import partytown from "@astrojs/partytown";
-import icon from "astro-icon";
 import compress from "astro-compress";
 import type { AstroIntegration } from "astro";
 
@@ -71,9 +70,9 @@ export default defineConfig({
                 "./src/assets/styles/theme.css",
             ],
             components: {
-                Footer: "./src/components/Footer.astro",
-                Header: "./src/components/Header.astro",
-                Banner: "./src/components/Banner.astro",
+                Footer: "@slint/common-files/src/components/Footer.astro",
+                Header: "@slint/common-files/src/components/Header.astro",
+                Banner: "@slint/common-files/src/components/Banner.astro",
             },
             sidebar: [
                 { label: "Getting Started", link: "getting-started" },
@@ -82,7 +81,11 @@ export default defineConfig({
                     autogenerate: { directory: "components" },
                 },
             ],
-            plugins: [starlightLinksValidator()],
+            plugins: [
+                starlightLinksValidator({
+                    exclude: ["/zip/**"],
+                }),
+            ],
             social: [
                 {
                     icon: "github",
@@ -170,22 +173,6 @@ export default defineConfig({
         }),
         sitemap(),
         mdx(),
-        icon({
-            include: {
-                tabler: ["*"],
-                "flat-color-icons": [
-                    "template",
-                    "gallery",
-                    "approval",
-                    "document",
-                    "advertising",
-                    "currency-exchange",
-                    "voice-presentation",
-                    "business-contact",
-                    "database",
-                ],
-            },
-        }),
 
         ...whenExternalScripts(() =>
             partytown({

@@ -488,8 +488,8 @@ fn parse_markdown(p: &mut impl Parser) {
 /// @keys("x")
 /// @keys(Control +Shift + Alt+Meta+"A")
 /// @keys(Control +Shift + Alt+Meta+Return)
-/// @keys(Control +IgnoreShift + Alt+Meta+Return)
-/// @keys(Control +Shift + IgnoreAlt+Meta+Return)
+/// @keys(Control +Shift? + Alt+Meta+Return)
+/// @keys(Control +Shift + Alt?+Meta+Return)
 /// ```
 fn parse_keys(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtKeys);
@@ -541,7 +541,10 @@ fn parse_keys(p: &mut impl Parser) {
                     state = State::NeedKey;
                     p.consume();
                 } else {
-                    bail(&mut p, "Unexpected '+' in keyboard shortcut");
+                    bail(
+                        &mut p,
+                        "Unexpected '+' in keyboard shortcut (use Plus to refer to the key)",
+                    );
                     break;
                 }
                 continue;
@@ -553,24 +556,42 @@ fn parse_keys(p: &mut impl Parser) {
                 }
 
                 let token = p.peek();
+                let mut consume_count = 1;
                 // Modifiers must be identifiers, not string literals
                 if token.kind() == SyntaxKind::Identifier {
                     let text = token.as_str();
 
+                    let mut try_consume_question = || -> bool {
+                        let next_token = p.nth(1);
+                        if next_token.kind() == SyntaxKind::Question {
+                            consume_count += 1;
+                            true
+                        } else {
+                            false
+                        }
+                    };
+
                     match text {
-                        "Alt" => alt_count += 1,
                         "Ctrl" => {
-                            bail(
-                                &mut p,
-                                "`Ctrl` is not in the Key namespace (Use `Control` instead)",
-                            );
+                            bail(&mut p, "Ctrl is not in the Key namespace (Use Control instead)");
                             break;
                         }
                         "Control" => control_count += 1,
                         "Meta" => meta_count += 1,
-                        "Shift" => shift_count += 1,
-                        "IgnoreShift" => ignore_shift_count += 1,
-                        "IgnoreAlt" => ignore_alt_count += 1,
+                        "Alt" => {
+                            if try_consume_question() {
+                                ignore_alt_count += 1;
+                            } else {
+                                alt_count += 1
+                            }
+                        }
+                        "Shift" => {
+                            if try_consume_question() {
+                                ignore_shift_count += 1;
+                            } else {
+                                shift_count += 1;
+                            }
+                        }
                         "AltR" | "ShiftR" | "MetaR" | "ControlR" => {
                             bail(&mut p, "Right-side modifiers are not supported");
                             break;
@@ -585,7 +606,7 @@ fn parse_keys(p: &mut impl Parser) {
                                 // \x20 equals to a space (needed to avoid the trailing \ eating
                                 // the indentation)
                                 &format!(
-                                    "`{text}` is not a cross-platform modifier\n\
+                                    "{text} is not a cross-platform modifier\n\
                                     Use cross-platform modifier names instead:\n\
                                     \x20   ⌘ command -> Control\n\
                                     \x20   ⌥ option -> Alt\n\
@@ -599,7 +620,7 @@ fn parse_keys(p: &mut impl Parser) {
                             bail(
                                 &mut p,
                                 &format!(
-                                    "`{text}` is not a cross-platform modifier (Use `Meta` instead)"
+                                    "{text} is not a cross-platform modifier (Use `Meta` instead)"
                                 ),
                             );
                             break;
@@ -629,11 +650,11 @@ fn parse_keys(p: &mut impl Parser) {
                     break;
                 }
                 if shift_count > 0 && ignore_shift_count > 0 {
-                    bail(&mut p, "Cannot use both Shift and IgnoreShift (remove one of them)");
+                    bail(&mut p, "Cannot use both Shift and Shift? (remove one of them)");
                     break;
                 }
                 if alt_count > 0 && ignore_alt_count > 0 {
-                    bail(&mut p, "Cannot use both Alt and IgnoreAlt (remove one of them)");
+                    bail(&mut p, "Cannot use both Alt and Alt? (remove one of them)");
                     break;
                 }
                 if key_count > 1 {
@@ -641,13 +662,22 @@ fn parse_keys(p: &mut impl Parser) {
                     break;
                 }
 
-                p.consume();
+                for _ in 0..consume_count {
+                    p.consume();
+                }
                 continue;
             }
             _ => {
+                let hint = if state == State::NeedKey {
+                    format!("\n(Consider using \"{}\")", p.peek().as_str())
+                } else {
+                    "".into()
+                };
                 bail(
                     &mut p,
-                    "Expected '+', a string literal, or an identifier in the Keys namespace",
+                    &format!(
+                        "Expected '+', a string literal, or an identifier in the Keys namespace{hint}"
+                    ),
                 );
                 break;
             }

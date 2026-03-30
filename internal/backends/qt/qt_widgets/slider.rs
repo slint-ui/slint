@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason, KeyEventType, key_codes},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType, key_codes},
     items::PointerEventButton,
 };
 
@@ -154,6 +154,7 @@ impl Item for NativeSlider {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -164,6 +165,7 @@ impl Item for NativeSlider {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();
@@ -258,16 +260,19 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let new_val = self.value() + delta_x + delta_y;
-                self.set_value(new_val);
-                InputEventResult::EventAccepted
-            }
             MouseEvent::Pressed { button, .. } | MouseEvent::Released { button, .. } => {
                 debug_assert_ne!(*button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            // Note: The Qt slider used to accept scroll events, however the other styles do not.
+            // As the scroll event handling is problematic when a slider is placed in a Flickable,
+            // ignore scroll events for now.
+            // Users can add a surrounding TouchArea that adds scrolling to the slider if they want to support that.
+            MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
         };
         data.active_controls = new_control;
 
@@ -277,7 +282,7 @@ impl Item for NativeSlider {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -286,12 +291,12 @@ impl Item for NativeSlider {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if self.enabled() {
-            let Some(keycode) = event.text.chars().next() else {
+            let Some(keycode) = event.key_event.text.chars().next() else {
                 return KeyEventResult::EventIgnored;
             };
             let vertical = self.orientation() == Orientation::Vertical;

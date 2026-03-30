@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #include "slint.h"
-#include "slint_testing_internal.h"
+#include "private/slint_testing_internal.h"
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -19,6 +19,7 @@
 namespace slint::testing {
 
 using slint::cbindgen_private::AccessibleRole;
+using slint::cbindgen_private::LayoutKind;
 
 /// Init the testing backend.
 /// Should be called before any other Slint function that can access the platform.
@@ -26,6 +27,12 @@ using slint::cbindgen_private::AccessibleRole;
 inline void init()
 {
     cbindgen_private::slint_testing_init_backend();
+}
+
+/// Replace the font collection with embedded NotoSans fonts for deterministic test results.
+inline void configure_test_fonts()
+{
+    cbindgen_private::slint_testing_configure_test_fonts();
 }
 
 /// A handle to an element for querying accessible properties, intended for testing purposes.
@@ -201,6 +208,18 @@ public:
         SharedVector<SharedString> bases;
         if (cbindgen_private::slint_testing_element_bases(&inner, &bases)) {
             return bases;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    /// Returns the layout kind if this element is a layout container;
+    /// std::nullopt if the element is not a layout or is not valid anymore.
+    std::optional<slint::testing::LayoutKind> layout_kind() const
+    {
+        LayoutKind kind {};
+        if (cbindgen_private::slint_testing_element_layout_kind(&inner, &kind)) {
+            return kind;
         } else {
             return std::nullopt;
         }

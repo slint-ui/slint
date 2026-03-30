@@ -1,0 +1,307 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Switch } from "std-widgets.slint";
+
+enum Orientation {
+    portrait,
+    landscape,
+}
+
+component InfoItem inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <brush> value-color: #e0e0f0;
+
+    alignment: center;
+    spacing: 2px;
+
+    Text {
+        text: root.label;
+        color: #606080;
+        font-size: 11px;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        text: root.value;
+        color: root.value-color;
+        font-size: 16px;
+        font-weight: 700;
+        horizontal-alignment: center;
+    }
+}
+
+component ResetButton inherits Rectangle {
+    callback clicked();
+
+    height: 28px;
+    width: layout.preferred-width;
+    background: ta.has-hover ? #0f3460 : #16213e;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #404060;
+
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    layout := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+
+        Text {
+            text: "Reset";
+            color: #a0a0b0;
+            font-size: 13px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+global TransformData {
+    in property <Point> transform-position: { x: 0px, y: 0px };
+    in property <float> base-scale: 1.0;
+    in property <angle> base-rotation: 0deg;
+    in property <bool> gesture-active: false;
+}
+
+component GestureArea inherits Rectangle {
+    in property <bool> gestures-enabled <=> gesture.enabled;
+    out property <bool> gesture-active <=> gesture.active;
+    callback set-status(string);
+
+    background: gesture.active ? #1e2a4a : #16213e;
+    border-radius: 8px;
+    border-width: gesture.active ? 2px : 0px;
+    border-color: #e94560;
+    clip: true;
+
+    pan-detection := TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.up {
+                TransformData.transform-position.x += self.mouse-x - self.pressed-x;
+                TransformData.transform-position.y += self.mouse-y - self.pressed-y;
+            }
+        }
+    }
+
+    gesture := ScaleRotateGestureHandler {
+        started => {
+            set-status("active");
+        }
+
+        ended => {
+            TransformData.transform-position = {
+                x: inner.absolute-position.x - root.absolute-position.x,
+                y: inner.absolute-position.y - root.absolute-position.y,
+            };
+            TransformData.base-rotation += gesture.rotation;
+            TransformData.base-scale *= gesture.scale;
+            set-status("ended");
+        }
+
+        cancelled => {
+            set-status("cancelled");
+        }
+    }
+
+    visible-area := Rectangle {
+        x: TransformData.transform-position.x + (pan-detection.pressed ? pan-detection.mouse-x - pan-detection.pressed-x : 0px);
+        y: TransformData.transform-position.y + (pan-detection.pressed ? pan-detection.mouse-y - pan-detection.pressed-y : 0px);
+        transform-rotation: gesture.rotation;
+        transform-scale: gesture.scale;
+        transform-origin: {
+            x: gesture.center.x - visible-area.x,
+            y: gesture.center.y - visible-area.y,
+        };
+
+        Rectangle {
+            transform-rotation: TransformData.base-rotation;
+            transform-scale: TransformData.base-scale;
+            transform-origin: {x: 0px, y: 0px};
+
+            inner := Rectangle { x: 0px; y: 0px; width: 0px; height: 0px; }
+
+            Image {
+                width: 200px;
+                height: 200px;
+                source: @image-url("../../logo/slint-logo-square-dark.png");
+            }
+        }
+    }
+}
+
+component InfoPanel inherits VerticalLayout {
+    in property <float> current-scale;
+    in property <angle> current-rotation;
+    in property <string> status-text;
+    in property <bool> gesture-active;
+
+    InfoItem {
+        label: "Scale";
+        value: round(root.current-scale * 100) + "%";
+    }
+
+    InfoItem {
+        label: "Rotation";
+        value: round(root.current-rotation / 1deg) + "°";
+    }
+
+    InfoItem {
+        label: "State";
+        value: root.status-text;
+        value-color: root.gesture-active ? #e94560 : #a0a0b0;
+    }
+
+}
+
+export component MainWindow inherits Window {
+    title: "Native Gestures Demo";
+    preferred-width: 800px;
+    preferred-height: 600px;
+    background: #1a1a2e;
+
+    property <string> status-text: "idle";
+    property <length> center-x;
+    property <length> center-y;
+    property <bool> gestures-enabled: true;
+    property <Orientation> orientation: root.width > root.height ? landscape : portrait;
+
+    function reset() {
+        TransformData.base-scale = 1.0;
+        TransformData.base-rotation = 0deg;
+        TransformData.transform-position = { x: 0px, y: 0px };
+        root.status-text = "idle";
+    }
+
+    // Safe-area inset container
+    VerticalLayout {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        padding: root.orientation == Orientation.landscape ? 12px : 16px;
+        spacing: 8px;
+
+        // Header + controls: single row in landscape, stacked in portrait
+        if root.orientation == Orientation.landscape: HorizontalLayout {
+            spacing: 12px;
+            alignment: center;
+
+            Text {
+                text: "ScaleRotateGestureHandler Demo";
+                color: #e0e0f0;
+                font-size: 14px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: "Pinch • Rotate";
+                color: #606080;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+
+            Switch {
+                text: "Enabled";
+                checked <=> root.gestures-enabled;
+            }
+
+            ResetButton {
+                clicked => {
+                    root.reset();
+                }
+            }
+        }
+
+        if root.orientation == Orientation.portrait: Text {
+            text: "ScaleRotateGestureHandler Demo";
+            color: #e0e0f0;
+            font-size: 18px;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+
+        if root.orientation == Orientation.portrait: Text {
+            text: "Pinch to zoom  •  Rotate with two fingers";
+            color: #606080;
+            font-size: 12px;
+            horizontal-alignment: center;
+        }
+
+        if root.orientation == Orientation.portrait: HorizontalLayout {
+            alignment: center;
+            spacing: 20px;
+
+            Switch {
+                text: "Enabled";
+                checked <=> root.gestures-enabled;
+            }
+
+            ResetButton {
+                clicked => {
+                    root.reset();
+                }
+            }
+        }
+
+        // Gesture area + info panel: side-by-side in landscape, stacked in portrait
+        if root.orientation == Orientation.landscape: HorizontalLayout {
+            spacing: 8px;
+
+            g1 := GestureArea {
+                horizontal-stretch: 1;
+                gestures-enabled: root.gestures-enabled;
+                set-status(s) => { root.status-text = s; }
+            }
+
+            Rectangle {
+                width: 100px;
+                background: #16213e;
+                border-radius: 6px;
+
+                VerticalLayout {
+                    alignment: space-around;
+                    padding: 8px;
+
+                    InfoPanel {
+                        current-scale: TransformData.base-scale;
+                        current-rotation: TransformData.base-rotation;
+                        status-text: root.status-text;
+                        gesture-active: g1.gesture-active;
+                    }
+                }
+            }
+        }
+
+        if root.orientation == Orientation.portrait: VerticalLayout {
+            vertical-stretch: 1;
+            g2 := GestureArea {
+                gestures-enabled: root.gestures-enabled;
+                set-status(s) => { root.status-text = s; }
+            }
+
+            Rectangle {
+                background: #16213e;
+                border-radius: 6px;
+
+                HorizontalLayout {
+                    alignment: space-around;
+                    padding: 8px;
+
+                    InfoPanel {
+                        current-scale: TransformData.base-scale;
+                        current-rotation: TransformData.base-rotation;
+                        status-text: root.status-text;
+                        gesture-active: g2.gesture-active;
+                    }
+                }
+            }
+        }
+    }
+}

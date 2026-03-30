@@ -218,9 +218,10 @@ pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
+pub use i_slint_core::items::{StandardListViewItem, TableColumn};
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
-    ReverseModel, SortModel, StandardListViewItem, TableColumn, VecModel,
+    ReverseModel, SortModel, VecModel,
 };
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
@@ -284,10 +285,10 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 ///
 /// * Tokio futures require entering the context of a global Tokio runtime.
 /// * Tokio futures aren't guaranteed to hand off their work to separate threads and may therefore not complete, because
-/// the Slint runtime can't drive the Tokio runtime.
+///   the Slint runtime can't drive the Tokio runtime.
 /// * Tokio futures require regular yielding to the Tokio runtime for fairness, a constraint that also can't be met by Slint.
 /// * Tokio's [current-thread schedule](https://docs.rs/tokio/latest/tokio/runtime/index.html#current-thread-scheduler)
-/// cannot be used in Slint main thread, because Slint cannot yield to it.
+///   cannot be used in Slint main thread, because Slint cannot yield to it.
 ///
 /// To address these constraints, use [async_compat](https://docs.rs/async-compat/latest/async_compat/index.html)'s [Compat::new()](https://docs.rs/async-compat/latest/async_compat/struct.Compat.html#method.new)
 /// to implicitly allocate a shared, multi-threaded Tokio runtime that will be used for Tokio futures.
@@ -435,6 +436,31 @@ pub mod platform {
 /// See also the list of [global structs and enums](slint:StructType)
 pub mod language {
     pub use i_slint_core::items::ColorScheme;
+
+    macro_rules! export_builtin_structs {
+        ($(
+            $(#[$attr:meta])*
+            struct $Name:ident {
+                @name = $NameTy:ident :: $NameVariant:ident,
+                export {
+                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
+                }
+                private {
+                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
+                }
+            }
+        )*) => {
+            $(
+                export_builtin_structs!(@export $NameTy $Name);
+            )*
+        };
+        (@export BuiltinPublicStruct $Name:ident) => {
+            pub use i_slint_core::items::$Name;
+        };
+        (@export BuiltinPrivateStruct $Name:ident) => {};
+    }
+
+    i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 }
 
 #[cfg(any(
@@ -719,9 +745,9 @@ pub mod winit_031 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-07")]
-pub mod fontique_07 {
-    //! Fontique 0.7 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-08")]
+pub mod fontique_08 {
+    //! Fontique 0.8 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -744,29 +770,33 @@ pub mod fontique_07 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.16", features = ["unstable-fontique-07"] }
+    /// slint = { version = "~1.16", features = ["unstable-fontique-08"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_07::fontique;
+    /// use slint::fontique_08::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_07::shared_collection();
+    ///     let mut collection = slint::fontique_08::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new("Hira", None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new("Kana", None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Kana"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new("Hani", None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hani"), None), fonts.iter().map(|x| x.0));
     ///     // ...
     /// }
     /// ```
     pub fn shared_collection() -> fontique::Collection {
-        i_slint_common::sharedfontique::COLLECTION.inner.clone()
+        i_slint_core::with_global_context(
+            || panic!("slint platform not initialized"),
+            |ctx| ctx.font_context().borrow().collection.clone(),
+        )
+        .unwrap()
     }
 }

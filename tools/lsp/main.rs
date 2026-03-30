@@ -43,6 +43,7 @@ use std::task::{Poll, Waker};
 use crate::common::document_cache::CompilerConfiguration;
 
 #[cfg(not(any(
+    target_os = "openbsd",
     target_os = "windows",
     target_arch = "wasm32",
     all(target_arch = "aarch64", target_os = "linux")
@@ -50,6 +51,7 @@ use crate::common::document_cache::CompilerConfiguration;
 use tikv_jemallocator::Jemalloc;
 
 #[cfg(not(any(
+    target_os = "openbsd",
     target_os = "windows",
     target_arch = "wasm32",
     all(target_arch = "aarch64", target_os = "linux")
@@ -603,6 +605,7 @@ async fn handle_preview_to_lsp_message(
             .await;
         }
         M::PreviewTypeChanged { is_external } => {
+            tracing::debug!("Preview type changed: is_external={}", is_external);
             if is_external {
                 ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
             } else {
@@ -610,6 +613,7 @@ async fn handle_preview_to_lsp_message(
             }
         }
         M::RequestState { .. } => {
+            tracing::debug!("Preview requested state");
             crate::language::send_state_to_preview(ctx);
         }
         M::SendWorkspaceEdit { label, edit } => {

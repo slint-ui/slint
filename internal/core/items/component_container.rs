@@ -10,7 +10,7 @@ Lookup the [`crate::items`] module documentation.
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
 use crate::component_factory::{ComponentFactory, FactoryContext};
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderRectangle};
@@ -185,6 +185,7 @@ impl Item for ComponentContainer {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut super::MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
     }
@@ -194,6 +195,7 @@ impl Item for ComponentContainer {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut super::MouseCursor,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -209,7 +211,7 @@ impl Item for ComponentContainer {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -218,7 +220,7 @@ impl Item for ComponentContainer {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {

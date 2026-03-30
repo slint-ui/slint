@@ -4,16 +4,20 @@
 pub use fontique;
 pub use ttf_parser;
 
+#[cfg(any(target_family = "wasm", target_os = "nto"))]
+use fontique::ScriptExt;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::new(|| {
-    let mut collection = fontique::Collection::new(fontique::CollectionOptions {
-        shared: true,
-        ..Default::default()
-    });
-
-    let mut source_cache = fontique::SourceCache::new_shared();
+/// Create a new fontique Collection.
+/// When `shared` is true, the collection uses `Arc`-based internal sharing,
+/// so that clones share the underlying data and mutations are visible across clones.
+pub fn create_collection(shared: bool) -> Collection {
+    let mut collection =
+        fontique::Collection::new(fontique::CollectionOptions { shared, system_fonts: true });
+    let mut source_cache =
+        if shared { fontique::SourceCache::new_shared() } else { fontique::SourceCache::default() };
 
     let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
 
@@ -56,7 +60,7 @@ pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::ne
             // just use the first font of the first family in the file.
             if let Some(font) = fonts.first().and_then(|(id, infos)| {
                 let info = infos.first()?;
-                get_font_for_info(&mut collection, &mut source_cache, *id, &info)
+                get_font_for_info(&mut collection, &mut source_cache, *id, info)
             }) {
                 default_fonts.insert(path, font);
             }
@@ -68,19 +72,13 @@ pub static COLLECTION: std::sync::LazyLock<Collection> = std::sync::LazyLock::ne
         if path.extension().is_some() {
             add_font_from_path(path.to_owned());
         } else if let Ok(dir) = std::fs::read_dir(path) {
-            for file in dir {
-                if let Ok(file) = file {
-                    add_font_from_path(file.path());
-                }
+            for file in dir.flatten() {
+                add_font_from_path(file.path());
             }
         }
     }
 
     Collection { inner: collection, source_cache, default_fonts: Arc::new(default_fonts) }
-});
-
-pub fn get_collection() -> Collection {
-    COLLECTION.clone()
 }
 
 #[derive(Clone)]

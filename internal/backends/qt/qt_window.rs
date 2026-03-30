@@ -4,7 +4,7 @@
 // cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz
 
 use cpp::*;
-use i_slint_common::sharedfontique::{self, HashedBlob};
+use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
     Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     euclid,
 };
-use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
     RenderRectangle, RenderText,
@@ -45,26 +45,40 @@ use i_slint_core::renderer::Renderer;
 use std::cell::OnceCell;
 
 cpp! {{
-    #include <QtWidgets/QtWidgets>
-    #include <QtWidgets/QGraphicsScene>
-    #include <QtWidgets/QGraphicsBlurEffect>
-    #include <QtWidgets/QGraphicsPixmapItem>
-    #include <QtGui/QAccessible>
-    #include <QtGui/QPainter>
-    #include <QtGui/QPaintEngine>
-    #include <QtGui/QPainterPath>
-    #include <QtGui/QWindow>
-    #include <QtGui/QResizeEvent>
-    #include <QtGui/QTextLayout>
-    #include <QtGui/QImageReader>
-    #include <QtGui/QCursor>
+    // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtCore/QBasicTimer>
-    #include <QtCore/QTimer>
-    #include <QtCore/QPointer>
     #include <QtCore/QBuffer>
     #include <QtCore/QEvent>
     #include <QtCore/QFileInfo>
+    #include <QtCore/QMutex>
+    #include <QtCore/QPointer>
+    #include <QtCore/QThread>
+    #include <QtCore/QTimer>
+    #include <QtGui/QAccessible>
+    #include <QtGui/QCursor>
+    #include <QtGui/QDesktopServices>
+    #include <QtGui/QIconEngine>
+    #include <QtGui/QImageReader>
+    #include <QtGui/QPaintEngine>
+    #include <QtGui/QPainter>
+    #include <QtGui/QPainterPath>
+    #include <QtGui/QResizeEvent>
+    #include <QtGui/QTextLayout>
+    #include <QtGui/QWindow>
+    #include <QtWidgets/QGesture>
+    #include <QtWidgets/QCheckBox>
+    #include <QtWidgets/QComboBox>
+    #include <QtWidgets/QGraphicsBlurEffect>
+    #include <QtWidgets/QGraphicsPixmapItem>
+    #include <QtWidgets/QGraphicsScene>
+    #include <QtWidgets/QGroupBox>
+    #include <QtWidgets/QLineEdit>
+    #include <QtWidgets/QProgressBar>
+    #include <QtWidgets/QPushButton>
+    #include <QtWidgets/QSpinBox>
 
+
+    #include <cmath>
     #include <memory>
 
     void ensure_initialized(bool from_qt_backend);
@@ -105,6 +119,7 @@ cpp! {{
             // to draw the window background which is set on the palette.
             // (But the window background might not be opaque)
             setAttribute(Qt::WA_NoSystemBackground, false);
+            grabGesture(Qt::PinchGesture);
         }
 
         void paintEvent(QPaintEvent *) override {
@@ -354,18 +369,83 @@ cpp! {{
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
-
-                    let event = KeyEvent {
+                    let event = InternalKeyEvent {
+                        key_event: KeyEvent {
+                            text: i_slint_core::format!("{}", commit_string),
+                            ..Default::default()
+                        },
                         event_type: KeyEventType::UpdateComposition,
-                        text: i_slint_core::format!("{}", commit_string),
                         preedit_text: i_slint_core::format!("{}", preedit_string),
                         preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
                         replacement_range: (!commit_string.is_empty() || !preedit_string.is_empty() || preedit_cursor >= 0)
-                            .then_some(replacement_start..replacement_start+replacement_length),
+                        .then_some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
                     runtime_window.process_key_input(event);
                 });
+        }
+        static int gesture_phase(Qt::GestureState state) {
+            // 0=Started, 1=Moved, 2=Ended, 3=Cancelled
+            switch (state) {
+                case Qt::GestureStarted:   return 0;
+                case Qt::GestureUpdated:   return 1;
+                case Qt::GestureFinished:  return 2;
+                case Qt::GestureCanceled:  return 3;
+                default:                   return 3;
+            }
+        }
+
+        bool event(QEvent *event) override {
+            if (event->type() == QEvent::Gesture) {
+                auto *ge = static_cast<QGestureEvent*>(event);
+                if (auto *pinch = static_cast<QPinchGesture*>(ge->gesture(Qt::PinchGesture))) {
+                    if (!rust_window) return true;
+
+                    int phase = gesture_phase(pinch->state());
+
+                    // scaleFactor() is the per-step multiplier (e.g. 1.02 = 2% growth
+                    // since last event). totalScaleFactor() is the cumulative product.
+                    // Subtract 1.0 to get an incremental delta matching winit semantics.
+                    float scale_delta = pinch->scaleFactor() - 1.0f;
+
+                    // rotationAngle() is cumulative; compute incremental delta.
+                    float rotation_delta = pinch->rotationAngle() - pinch->lastRotationAngle();
+
+                    // centerPoint() is in widget-local coordinates when delivered
+                    // via QWidget::event() (not scene coordinates as the QGraphicsObject
+                    // docs might suggest).
+                    QPointF center = pinch->centerPoint();
+
+                    rust!(Slint_pinchGesture [rust_window: &QtWindow as "void*",
+                            scale_delta: f32 as "float", rotation_delta: f32 as "float",
+                            center: qttypes::QPointF as "QPointF",
+                            phase: i32 as "int"] {
+                        let position = LogicalPoint::new(center.x as _, center.y as _);
+                        let phase = match phase {
+                            0 => i_slint_core::input::TouchPhase::Started,
+                            1 => i_slint_core::input::TouchPhase::Moved,
+                            2 => i_slint_core::input::TouchPhase::Ended,
+                            _ => i_slint_core::input::TouchPhase::Cancelled,
+                        };
+                        rust_window.mouse_event(MouseEvent::PinchGesture {
+                            position, delta: scale_delta, phase,
+                        });
+                        if rotation_delta != 0.0 || matches!(phase,
+                            i_slint_core::input::TouchPhase::Started
+                            | i_slint_core::input::TouchPhase::Ended
+                            | i_slint_core::input::TouchPhase::Cancelled)
+                        {
+                            rust_window.mouse_event(MouseEvent::RotationGesture {
+                                position, delta: rotation_delta, phase,
+                            });
+                        }
+                    });
+
+                    ge->accept();
+                    return true;
+                }
+            }
+            return QWidget::event(event);
         }
     };
 
@@ -621,6 +701,7 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_w
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
     cache: &'a ItemCache<qttypes::QPixmap>,
+    text_layout_cache: &'a sharedparley::TextLayoutCache,
     window: &'a i_slint_core::api::Window,
     metrics: RenderingMetrics,
 }
@@ -690,7 +771,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     ) {
         self.save_state();
         self.pixel_align_origin();
-        sharedparley::draw_text(self, text, Some(self_rc), size);
+        sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         self.restore_state();
     }
 
@@ -727,6 +808,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             LineJoin::Bevel => 0x40,
             _ => 0x00,
         };
+        let stroke_miter_limit = path.stroke_miter_limit();
 
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
@@ -775,11 +857,18 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 stroke_width as "float",
                 stroke_pen_cap_style as "int",
                 stroke_pen_join_style as "int",
+                stroke_miter_limit as "float",
                 anti_alias as "bool"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
-            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style)) : Qt::NoPen);
+            if (stroke_width > 0) {
+                QPen pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style));
+                pen.setMiterLimit(static_cast<qreal>(stroke_miter_limit));
+                (*painter)->setPen(pen);
+            } else {
+                (*painter)->setPen(Qt::NoPen);
+            }
             (*painter)->setBrush(fill_brush);
             (*painter)->setRenderHint(QPainter::Antialiasing, anti_alias);
             (*painter)->drawPath(painter_path);
@@ -984,6 +1073,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             std::pin::pin!((SharedString::from(string), Brush::from(color))),
             None,
             logical_size_from_api(self.window.size().to_logical(self.scale_factor())),
+            None,
         );
     }
 
@@ -1197,15 +1287,10 @@ impl QRawFont {
     }
 }
 
+#[derive(Default)]
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
     fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
-}
-
-impl Default for FontCache {
-    fn default() -> Self {
-        Self { fonts: Default::default() }
-    }
 }
 
 impl FontCache {
@@ -1329,7 +1414,7 @@ impl QtItemRenderer<'_> {
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
         let scale_factor = ScaleFactor::new(self.scale_factor());
 
-        let fit = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&image.source()).into() {
+        let fit = if let ImageInner::NineSlice(nine) = <&ImageInner>::from(&image.source()) {
             i_slint_core::graphics::fit9slice(
                 nine.0.size(),
                 nine.1,
@@ -1507,7 +1592,7 @@ impl QtItemRenderer<'_> {
 
             i_slint_core::item_rendering::render_item_children(
                 self,
-                &item_rc.item_tree(),
+                item_rc.item_tree(),
                 item_rc.index() as isize, &window_adapter
             );
 
@@ -1599,6 +1684,7 @@ pub struct QtWindow {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
     cache: ItemCache<qttypes::QPixmap>,
+    text_layout_cache: sharedparley::TextLayoutCache,
 
     tree_structure_changed: RefCell<bool>,
 
@@ -1638,6 +1724,7 @@ impl QtWindow {
                 self_weak: self_weak.clone(),
                 rendering_metrics_collector: Default::default(),
                 cache: Default::default(),
+                text_layout_cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
                 color_scheme: Default::default(),
                 window_icon_cache_key: Default::default(),
@@ -1662,15 +1749,18 @@ impl QtWindow {
         let window_adapter = runtime_window.window_adapter();
         runtime_window.draw_contents(|components| {
             i_slint_core::animations::update_animations();
+            self.text_layout_cache.clear_cache_if_scale_factor_changed(&self.window);
+
             let mut renderer = QtItemRenderer {
                 painter,
                 cache: &self.cache,
+                text_layout_cache: &self.text_layout_cache,
                 window: &self.window,
                 metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
             };
 
             for (component, origin) in components {
-                if let Some(component) = ItemTreeWeak::upgrade(&component) {
+                if let Some(component) = ItemTreeWeak::upgrade(component) {
                     i_slint_core::item_rendering::render_component_items(
                         &component,
                         &mut renderer,
@@ -2168,7 +2258,15 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         max_width: Option<LogicalLength>,
         text_wrap: TextWrap,
     ) -> LogicalSize {
-        sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap)
+        sharedparley::text_size(
+            self,
+            text_item,
+            item_rc,
+            max_width,
+            text_wrap,
+            Some(&self.text_layout_cache),
+        )
+        .unwrap_or_default()
     }
 
     fn char_size(
@@ -2177,14 +2275,24 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
-        sharedparley::char_size(text_item, item_rc, ch).unwrap_or_default()
+        self.slint_context()
+            .and_then(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+            })
+            .unwrap_or_default()
     }
 
     fn font_metrics(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
     ) -> i_slint_core::items::FontMetrics {
-        sharedparley::font_metrics(font_request)
+        self.slint_context()
+            .map(|ctx| {
+                let mut font_ctx = ctx.font_context().borrow_mut();
+                sharedparley::font_metrics(&mut font_ctx, font_request)
+            })
+            .unwrap_or_default()
     }
 
     fn text_input_byte_offset_for_position(
@@ -2209,7 +2317,8 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sharedfontique::get_collection().register_fonts(data.to_vec().into(), None);
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
         Ok(())
     }
 
@@ -2219,7 +2328,8 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
         let contents = std::fs::read(requested_path)?;
-        sharedfontique::get_collection().register_fonts(contents.into(), None);
+        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
+        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
         Ok(())
     }
 
@@ -2240,6 +2350,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         // Invalidate caches:
         self.cache.component_destroyed(component);
+        self.text_layout_cache.component_destroyed(component);
         Ok(())
     }
 

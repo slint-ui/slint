@@ -1,0 +1,249 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: MIT
+
+import { ComboBox } from "std-widgets.slint";
+
+component Cell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #888;
+    background: #f0f0f0;
+    HorizontalLayout {
+        padding: 10phx;
+        Text {
+            color: #000000;
+            text: cell_text;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
+component FlexCell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #555;
+    VerticalLayout {
+        padding: 5phx;
+        Text {
+            color: white;
+            text: cell_text;
+            font-size: 14px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
+export component MainWindow inherits Window {
+    title: "FlexBox Layout - Direction Test";
+    default-font-size: 20px;
+
+    property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
+    property <[FlexDirection]> direction_values: [
+        FlexDirection.row,
+        FlexDirection.row-reverse,
+        FlexDirection.column,
+        FlexDirection.column-reverse
+    ];
+    property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
+    property <[LayoutAlignment]> alignment_values: [
+        LayoutAlignment.start,
+        LayoutAlignment.end,
+        LayoutAlignment.center,
+        LayoutAlignment.space-between,
+        LayoutAlignment.space-around,
+        LayoutAlignment.space-evenly
+    ];
+    property <[string]> align_content_options: ["Stretch", "Start", "End", "Center", "Space Between", "Space Around", "Space Evenly"];
+    property <[FlexAlignContent]> align_content_values: [
+        FlexAlignContent.stretch,
+        FlexAlignContent.start,
+        FlexAlignContent.end,
+        FlexAlignContent.center,
+        FlexAlignContent.space-between,
+        FlexAlignContent.space-around,
+        FlexAlignContent.space-evenly
+    ];
+    property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
+    property <[FlexAlignItems]> align_items_values: [
+        FlexAlignItems.stretch,
+        FlexAlignItems.start,
+        FlexAlignItems.end,
+        FlexAlignItems.center
+    ];
+    property <[string]> flex_wrap_options: ["Wrap", "NoWrap", "WrapReverse"];
+    property <[FlexWrap]> flex_wrap_values: [FlexWrap.wrap, FlexWrap.no-wrap, FlexWrap.wrap-reverse];
+
+    VerticalLayout {
+        padding: 20phx;
+        spacing: 20phx;
+
+        HorizontalLayout {
+            spacing: 10phx;
+            Text {
+                text: "Flex Wrap:";
+                vertical-alignment: center;
+            }
+
+            flex_wrap_combo := ComboBox {
+                model: flex_wrap_options;
+                current-index: 0;
+            }
+
+            Text {
+                text: "Flex Direction:";
+                vertical-alignment: center;
+            }
+
+            direction_combo := ComboBox {
+                model: direction_options;
+                current-index: 0;
+            }
+
+            Text {
+                text: "Alignment:";
+                vertical-alignment: center;
+            }
+
+            alignment_combo := ComboBox {
+                model: alignment_options;
+                current-index: 0;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 10phx;
+            Text {
+                text: "Align Content:";
+                vertical-alignment: center;
+            }
+
+            align_content_combo := ComboBox {
+                model: align_content_options;
+                current-index: 0;
+            }
+
+            Text {
+                text: "Align Items:";
+                vertical-alignment: center;
+            }
+
+            align_items_combo := ComboBox {
+                model: align_items_options;
+                current-index: 0;
+            }
+        }
+
+        flex_container := Rectangle {
+            border-width: 2phx;
+            border-color: #333;
+            background: white;
+            vertical-stretch: 1;
+
+            FlexBoxLayout {
+                flex-direction: direction_values[direction_combo.current-index];
+                alignment: alignment_values[alignment_combo.current-index];
+                align-content: align_content_values[align_content_combo.current-index];
+                align-items: align_items_values[align_items_combo.current-index];
+                flex-wrap: flex_wrap_values[flex_wrap_combo.current-index];
+                padding: 10phx;
+                spacing: 10phx;
+
+                // flex-grow: blue items grow to fill extra space (1× and 2× ratio)
+                FlexCell {
+                    cell_text: "A grow:1";
+                    flex-grow: 1;
+                    flex-basis: 60phx;
+                    min-height: 40phx;
+                    background: #4a90d9;
+                }
+                FlexCell {
+                    cell_text: "B grow:2";
+                    flex-grow: 2;
+                    flex-basis: 60phx;
+                    min-height: 40phx;
+                    background: #2e6da4;
+                }
+                for text in ["C", "D", "E"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-basis: these two have different starting sizes
+                FlexCell {
+                    cell_text: "F basis:40";
+                    flex-basis: 40phx;
+                    min-height: 40phx;
+                    background: #27ae60;
+                }
+                FlexCell {
+                    cell_text: "G basis:160";
+                    flex-basis: 160phx;
+                    min-height: 40phx;
+                    background: #1e8449;
+                }
+                for text in ["H", "I", "J", "K", "L"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-shrink: red items shrink when space is tight (try no-wrap with a narrow window)
+                FlexCell {
+                    cell_text: "M shrink:1";
+                    flex-basis: 150phx;
+                    flex-shrink: 1;
+                    min-height: 40phx;
+                    background: #d94a4a;
+                }
+                FlexCell {
+                    cell_text: "N shrink:3";
+                    flex-basis: 150phx;
+                    flex-shrink: 3;
+                    min-height: 40phx;
+                    background: #a93226;
+                }
+                for text in ["P", "Q", "R"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-align-self: orange item overrides the container's align-items
+                FlexCell {
+                    cell_text: "S self:end";
+                    flex-align-self: end;
+                    height: 30phx;
+                    background: #e67e22;
+                }
+                FlexCell {
+                    cell_text: "T self:center";
+                    flex-align-self: center;
+                    height: 30phx;
+                    background: #d35400;
+                }
+                // flex-order: these items appear before/after others despite declaration order
+                FlexCell {
+                    cell_text: "U flex-order:-1";
+                    flex-order: -1;
+                    width: 80phx;
+                    min-height: 40phx;
+                    background: #8e44ad;
+                }
+                FlexCell {
+                    cell_text: "V flex-order:99";
+                    flex-order: 99;
+                    width: 80phx;
+                    min-height: 40phx;
+                    background: #6c3483;
+                }
+                for text in ["W", "X", "Y"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+            }
+        }
+    }
+}

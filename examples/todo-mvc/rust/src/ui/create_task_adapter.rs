@@ -69,9 +69,7 @@ pub fn connect(view_handle: &ui::MainWindow, controller: CreateTaskController) {
     connect_with_controller(view_handle, &controller, {
         move |adapter, controller| {
             adapter.on_time_stamp(move |date, time| {
-                controller
-                    .time_stamp(map_date_to_date_model(date), map_time_to_time_model(time))
-                    .into()
+                controller.time_stamp(map_date_to_date_model(date), map_time_to_time_model(time))
             })
         }
     });

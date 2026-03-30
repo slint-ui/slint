@@ -18,6 +18,7 @@ export component TestCase inherits Window {
                     x: 50px;
                     width: 50px;
                     clicked => { result += "InnerClicked;"; }
+                    mouse-cursor: crosshair;
                 }
             }
         }
@@ -43,30 +44,37 @@ export component TestCase inherits Window {
 /*
 ```rust
 use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+// FIXME: the drag has just started, but the previous event didn't yet try to drop, so the cursor didn't update in this event
+//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), true);
 assert_eq!(instance.get_result(), "");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Copy);
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "D[Hello World];");
 assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 
 // Test a click on a touch area (without dragging)
 instance.set_result("".into());
@@ -77,17 +85,21 @@ slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_inner_touch_area_has_hover(), true);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(52.0, 50.0) });
 assert_eq!(instance.get_inner_touch_area_has_hover(), true);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_inner_touch_area_has_hover(), true);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(52.0, 50.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "InnerClicked;");
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_inner_touch_area_has_hover(), true);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 
 // Dragging from the touch area should not result in a click
 instance.set_result("".into());
@@ -96,22 +108,29 @@ assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 40.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+// FIXME: the drag has just started, but the previous event didn't yet try to drop, so the cursor didn't update in this event
+//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 120.0) });
 assert_eq!(instance.get_contains_drag(), true);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Copy);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(58.0, 20.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_inner_touch_area_has_hover(), false); // FIXME: should be true without the need to make a move as well
+// FIXME: same as above
+//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 slint_testing::mock_elapsed_time(20);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(58.0, 20.0) });
 assert_eq!(instance.get_inner_touch_area_has_hover(), true);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Crosshair);
 
 
 // Dragging over the touch area shouldn't result in has-hover being true  (only after it is released)
@@ -119,24 +138,29 @@ instance.set_result("".into());
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(11.0, 15.0) });
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(11.0, 15.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 35.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+// FIXME: the drag has just started, but the previous event didn't yet try to drop, so the cursor didn't update in this event
+//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(125.0, 28.0) });
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(18.0, 20.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
-
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 ```
 
 */

@@ -87,6 +87,7 @@ fn create_populate_command(
 pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
+    let mut doc_count = 0;
     for (url, node) in document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
@@ -97,6 +98,7 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
             url: common::VersionedUrl::new(url, version),
             contents: node.text().to_string(),
         });
+        doc_count += 1;
     }
 
     ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration {
@@ -104,7 +106,13 @@ pub fn send_state_to_preview(ctx: &std::rc::Rc<Context>) {
     });
 
     if let Some(c) = ctx.to_show.borrow().clone() {
+        tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
         ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+    } else {
+        tracing::debug!(
+            "Sending state to preview: {} documents, showing default component",
+            doc_count
+        );
     }
 }
 
@@ -585,6 +593,7 @@ pub fn show_preview_command(
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
+    tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let c = common::PreviewComponent { url, component };
     ctx.to_show.replace(Some(c.clone()));
     ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
@@ -837,7 +846,7 @@ pub async fn reload_document(ctx: &Rc<Context>, url: lsp_types::Url) -> common::
         let mut extra_files = HashSet::new();
         extra_files.extend(uri_to_file(&url));
 
-        send_diagnostics(&ctx.server_notifier, &mut *document_cache, &extra_files, diagnostics);
+        send_diagnostics(&ctx.server_notifier, &document_cache, &extra_files, diagnostics);
     } else {
         tracing::trace!("Document not in cache, loading from disk: {url}");
 
@@ -1031,16 +1040,15 @@ fn get_code_actions(
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     {
-        if let Some(component) = &component {
-            if let Some(component_name) =
+        if let Some(component) = &component
+            && let Some(component_name) =
                 i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
-            {
-                result.push(CodeActionOrCommand::Command(create_show_preview_command(
-                    false,
-                    &uri,
-                    &component_name,
-                )))
-            }
+        {
+            result.push(CodeActionOrCommand::Command(create_show_preview_command(
+                false,
+                &uri,
+                &component_name,
+            )))
         }
     }
 
@@ -1436,15 +1444,16 @@ fn get_code_lenses(
         let has_non_ws_token = node
             .children_with_tokens()
             .any(|nt| nt.kind() != SyntaxKind::Whitespace && nt.kind() != SyntaxKind::Eof);
-        if !has_non_ws_token {
-            if let Some(range) = populate_command_range(node, document_cache.format) {
-                result.push(CodeLens {
-                    range,
-                    command: Some(create_populate_command(
-                        text_document.uri.clone(),
-                        version,
-                        "Start with Hello World!".to_string(),
-                        r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
+        if !has_non_ws_token
+            && let Some(range) = populate_command_range(node, document_cache.format)
+        {
+            result.push(CodeLens {
+                range,
+                command: Some(create_populate_command(
+                    text_document.uri.clone(),
+                    version,
+                    "Start with Hello World!".to_string(),
+                    r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     VerticalBox {
@@ -1457,11 +1466,10 @@ export component MainWindow inherits Window {
     }
 }
 "#
-                        .to_string(),
-                    )),
-                    data: None,
-                });
-            }
+                    .to_string(),
+                )),
+                data: None,
+            });
         }
     }
 
@@ -1491,33 +1499,29 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
-            if let Some(ip) = config_object.get("includePaths").and_then(|v| v.as_array()) {
-                if !ip.is_empty() {
-                    include_paths = Some(
-                        ip.iter()
-                            .filter_map(serde_json::Value::as_str)
-                            .map(PathBuf::from)
-                            .collect(),
-                    );
-                }
+            if let Some(ip) = config_object.get("includePaths").and_then(|v| v.as_array())
+                && !ip.is_empty()
+            {
+                include_paths = Some(
+                    ip.iter().filter_map(serde_json::Value::as_str).map(PathBuf::from).collect(),
+                );
             }
-            if let Some(lp) = config_object.get("libraryPaths").and_then(|v| v.as_object()) {
-                if !lp.is_empty() {
-                    library_paths = Some(
-                        lp.iter()
-                            .filter_map(|(key, value)| {
-                                value.as_str().map(|v| (key.to_string(), PathBuf::from(v)))
-                            })
-                            .collect(),
-                    );
-                }
+            if let Some(lp) = config_object.get("libraryPaths").and_then(|v| v.as_object())
+                && !lp.is_empty()
+            {
+                library_paths = Some(
+                    lp.iter()
+                        .filter_map(|(key, value)| {
+                            value.as_str().map(|v| (key.to_string(), PathBuf::from(v)))
+                        })
+                        .collect(),
+                );
             }
             if let Some(s) =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
+                && !s.is_empty()
             {
-                if !s.is_empty() {
-                    style = Some(s.to_string());
-                }
+                style = Some(s.to_string());
             }
             hide_ui =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());

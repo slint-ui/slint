@@ -11,8 +11,8 @@ use crate::api::{
     WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyboardModifierState, KeyEvent, KeyEventType,
-    MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, key_codes,
+    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventType, MouseEvent,
+    MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -426,10 +426,10 @@ pub struct PopupWindow {
 #[pin_project::pin_project]
 struct WindowPinnedFields {
     #[pin]
-    redraw_tracker: PropertyTracker<WindowRedrawTracker>,
+    redraw_tracker: PropertyTracker<false, WindowRedrawTracker>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     #[pin]
-    window_properties_tracker: PropertyTracker<WindowPropertiesTracker>,
+    window_properties_tracker: PropertyTracker<true, WindowPropertiesTracker>,
     #[pin]
     scale_factor: Property<f32>,
     #[pin]
@@ -445,7 +445,7 @@ pub struct WindowInner {
     /// When the window is visible, keep a strong reference
     strong_component_ref: RefCell<Option<ItemTreeRc>>,
     mouse_input_state: Cell<MouseInputState>,
-    pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
+    touch_state: RefCell<TouchState>,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -505,7 +505,7 @@ impl WindowInner {
             component: Default::default(),
             strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
-            modifiers: Default::default(),
+            touch_state: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
                 window_properties_tracker,
@@ -537,7 +537,7 @@ impl WindowInner {
         self.close_all_popups();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
-        self.modifiers.replace(Default::default());
+        self.touch_state.replace(Default::default());
         self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
@@ -579,26 +579,26 @@ impl WindowInner {
     pub fn process_mouse_input(&self, mut event: MouseEvent) {
         crate::animations::update_animations();
 
+        let Some(item_tree) = self.try_component() else { return };
+
         // handle multiple press release
         event = self.click_state.check_repeat(event, self.context().platform().click_interval());
 
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
+
+        let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
+
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::Default);
-                    }
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
                 }
                 MouseEvent::Moved { position, .. } => {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.set_mouse_cursor(MouseCursor::NoDrop);
-                    }
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
+                    mouse_input_state.cursor = MouseCursor::NoDrop;
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
@@ -616,8 +616,6 @@ impl WindowInner {
             mouse_input_state =
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
-
-        let Some(item_tree) = self.try_component() else { return };
 
         // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
         let mut root_adapter = None;
@@ -702,7 +700,7 @@ impl WindowInner {
             }
 
             let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new(item_tree.clone(), 0)),
+                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
                 Some(menubar_item) => {
                     event.translate(
                         menubar_item
@@ -743,6 +741,12 @@ impl WindowInner {
             self.click_state.check_repeat(event, self.context().platform().click_interval());
         }
 
+        if old_cursor != mouse_input_state.cursor
+            && let Some(window_adapter) = window_adapter.internal(crate::InternalToken)
+        {
+            window_adapter.set_mouse_cursor(mouse_input_state.cursor);
+        }
+
         self.mouse_input_state.set(mouse_input_state);
 
         if let Some(popup_id) = popup_to_close {
@@ -750,6 +754,20 @@ impl WindowInner {
         }
 
         crate::properties::ChangeTracker::run_change_handlers();
+    }
+
+    /// Receive a raw touch event from a backend and either forward it as a mouse
+    /// event (single finger) or synthesize `PinchGesture`/`RotationGesture` events
+    /// (two fingers), producing the same events as platform gesture recognition.
+    ///
+    /// `position` must be in **logical coordinates** (i.e., already divided by the
+    /// scale factor). Passing physical coordinates will produce incorrect gesture
+    /// geometry and hit-testing.
+    pub fn process_touch_input(&self, id: u64, position: LogicalPoint, phase: TouchPhase) {
+        let events = self.touch_state.borrow_mut().process(id, position, phase);
+        for event in events.into_iter() {
+            self.process_mouse_input(event);
+        }
     }
 
     /// Called by the input code's internal timer to send an event that was delayed
@@ -765,17 +783,34 @@ impl WindowInner {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    pub fn process_key_input(&self, mut event: KeyEvent) -> crate::input::KeyEventResult {
-        if let Some(updated_modifier) = self
-            .modifiers
-            .get()
-            .state_update(event.event_type == KeyEventType::KeyPressed, &event.text)
+    pub fn process_key_input(
+        &self,
+        mut internal_key_event: InternalKeyEvent,
+    ) -> crate::input::KeyEventResult {
+        // NFC-normalize the event text so that shortcut matching works consistently
+        // regardless of the composed/decomposed form the backend provides
+        // (e.g. é as U+00E9 vs e + U+0301).
+        // Note: icu_normalizer is currently only enabled if parley is enabled
+        #[cfg(feature = "shared-parley")]
         {
-            // Updates the key modifiers depending on the key code and pressed state.
-            self.modifiers.set(updated_modifier);
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let normalized = normalizer.normalize(&internal_key_event.key_event.text);
+            // Only replace the event text if normalization actually changed it,
+            // to avoid unnecessary allocations.
+            if let alloc::borrow::Cow::Owned(normalized) = normalized {
+                internal_key_event.key_event.text = normalized.into();
+            }
         }
 
-        event.modifiers = self.modifiers.get().into();
+        if let Some(updated_modifier) = self.context().0.modifiers.get().state_update(
+            internal_key_event.event_type == KeyEventType::KeyPressed,
+            &internal_key_event.key_event.text,
+        ) {
+            // Updates the key modifiers depending on the key code and pressed state.
+            self.context().0.modifiers.set(updated_modifier);
+        }
+
+        internal_key_event.key_event.modifiers = self.context().0.modifiers.get().into();
 
         let mut item = self.focus_item.borrow().clone().upgrade();
 
@@ -799,7 +834,7 @@ impl WindowInner {
 
         // Check capture_key_event (going from window to focused item):
         for i in item_list.iter().rev() {
-            if i.borrow().as_ref().capture_key_event(&event, &self.window_adapter(), i)
+            if i.borrow().as_ref().capture_key_event(&internal_key_event, &self.window_adapter(), i)
                 == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
@@ -811,8 +846,11 @@ impl WindowInner {
 
         // Deliver key_event (to focused item, going up towards the window):
         while let Some(focus_item) = item {
-            if focus_item.borrow().as_ref().key_event(&event, &self.window_adapter(), &focus_item)
-                == crate::input::KeyEventResult::EventAccepted
+            if focus_item.borrow().as_ref().key_event(
+                &internal_key_event,
+                &self.window_adapter(),
+                &focus_item,
+            ) == crate::input::KeyEventResult::EventAccepted
             {
                 crate::properties::ChangeTracker::run_change_handlers();
                 return crate::input::KeyEventResult::EventAccepted;
@@ -821,25 +859,28 @@ impl WindowInner {
         }
 
         // Make Tab/Backtab handle keyboard focus
-        let extra_mod = event.modifiers.control || event.modifiers.meta || event.modifiers.alt;
-        if event.text.starts_with(key_codes::Tab)
-            && !event.modifiers.shift
+        let extra_mod = internal_key_event.key_event.modifiers.control
+            || internal_key_event.key_event.modifiers.meta
+            || internal_key_event.key_event.modifiers.alt;
+        if internal_key_event.key_event.text.starts_with(key_codes::Tab)
+            && !internal_key_event.key_event.modifiers.shift
             && !extra_mod
-            && event.event_type == KeyEventType::KeyPressed
+            && internal_key_event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
             crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
-        } else if (event.text.starts_with(key_codes::Backtab)
-            || (event.text.starts_with(key_codes::Tab) && event.modifiers.shift))
-            && event.event_type == KeyEventType::KeyPressed
+        } else if (internal_key_event.key_event.text.starts_with(key_codes::Backtab)
+            || (internal_key_event.key_event.text.starts_with(key_codes::Tab)
+                && internal_key_event.key_event.modifiers.shift))
+            && internal_key_event.event_type == KeyEventType::KeyPressed
             && !extra_mod
         {
             self.focus_previous_item();
             crate::properties::ChangeTracker::run_change_handlers();
             return crate::input::KeyEventResult::EventAccepted;
-        } else if event.event_type == KeyEventType::KeyPressed
-            && event.text.starts_with(key_codes::Escape)
+        } else if internal_key_event.event_type == KeyEventType::KeyPressed
+            && internal_key_event.key_event.text.starts_with(key_codes::Escape)
         {
             // Closes top most popup on ESC key pressed when policy is not no-auto-close
 
@@ -989,7 +1030,12 @@ impl WindowInner {
         let mut visited = Vec::new();
 
         loop {
-            if (current_item.is_visible() || reason == FocusReason::Programmatic)
+            let can_receive_focus = match reason {
+                FocusReason::Programmatic => true,
+                FocusReason::TabNavigation => current_item.is_visible_or_clipped_by_flickable(),
+                _ => current_item.is_visible(),
+            };
+            if can_receive_focus
                 && self.publish_focus_item(&Some(current_item.clone()), reason)
                     == crate::input::FocusEventResult::FocusAccepted
             {
@@ -1070,7 +1116,7 @@ impl WindowInner {
         // If we lost focus due to for example a global shortcut, then when we regain focus
         // should not assume that the modifiers are in the same state.
         if !have_focus {
-            self.modifiers.take();
+            self.context().0.modifiers.take();
         }
     }
 
@@ -1118,6 +1164,9 @@ impl WindowInner {
                     let mut item_trees = Vec::with_capacity(borrow.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
                     for popup in borrow.iter() {
+                        // If the popup is not a real window and does not have its own coordinate system.
+                        // We have to draw the popup and consider the location for subelements because everything must
+                        // be rendered relative to the main window position
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
@@ -1207,36 +1256,7 @@ impl WindowInner {
         is_menu: bool,
     ) -> NonZeroU32 {
         let position = parent_item
-            .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
-        let root_of = |mut item_tree: ItemTreeRc| loop {
-            if ItemRc::new(item_tree.clone(), 0).downcast::<crate::items::WindowItem>().is_some() {
-                return item_tree;
-            }
-            let mut r = crate::item_tree::ItemWeak::default();
-            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
-            match r.upgrade() {
-                None => return item_tree,
-                Some(x) => item_tree = x.item_tree().clone(),
-            }
-        };
-
-        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
-        let (parent_window_adapter, position) = if let Some(parent_popup) = self
-            .active_popups
-            .borrow()
-            .iter()
-            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
-        {
-            match &parent_popup.location {
-                PopupWindowLocation::TopLevel(wa) => (wa.clone(), position),
-                PopupWindowLocation::ChildWindow(offset) => {
-                    (self.window_adapter(), position + offset.to_vector())
-                }
-            }
-        } else {
-            (self.window_adapter(), position)
-        };
-
+            .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -1289,6 +1309,37 @@ impl WindowInner {
             self.close_popup(sibling);
         }
 
+        let root_of = |mut item_tree: ItemTreeRc| loop {
+            if ItemRc::new_root(item_tree.clone()).downcast::<crate::items::WindowItem>().is_some()
+            {
+                return item_tree;
+            }
+            let mut r = crate::item_tree::ItemWeak::default();
+            ItemTreeRc::borrow_pin(&item_tree).as_ref().parent_node(&mut r);
+            match r.upgrade() {
+                None => return item_tree,
+                Some(x) => item_tree = x.item_tree().clone(),
+            }
+        };
+
+        let parent_root_item_tree = root_of(parent_item.item_tree().clone());
+        let parent_window_adapter = if let Some(parent_popup) = self
+            .active_popups
+            .borrow()
+            .iter()
+            .find(|p| ItemTreeRc::ptr_eq(&p.component, &parent_root_item_tree))
+        {
+            // Popup in a popup
+            match &parent_popup.location {
+                PopupWindowLocation::TopLevel(wa) => wa.clone(),
+                PopupWindowLocation::ChildWindow(_) => self.window_adapter(),
+            }
+        } else {
+            self.window_adapter()
+        };
+
+        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
+        // of the current window
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
@@ -1341,8 +1392,9 @@ impl WindowInner {
         parent_item: &ItemRc,
     ) -> bool {
         if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
-            let position = parent_item
-                .map_to_window(parent_item.geometry().origin + position.to_euclid().to_vector());
+            let position = parent_item.map_to_native_window(
+                parent_item.geometry().origin + position.to_euclid().to_vector(),
+            );
             let position = crate::lengths::logical_position_to_api(position);
             x.show_native_popup_menu(context_menu_item, position)
         } else {
@@ -1450,7 +1502,7 @@ impl WindowInner {
     /// is returned, it's guaranteed to be safe to downcast to `WindowItem`.
     pub fn window_item_rc(&self) -> Option<ItemRc> {
         self.try_component().and_then(|component_rc| {
-            let item_rc = ItemRc::new(component_rc, 0);
+            let item_rc = ItemRc::new_root(component_rc);
             if item_rc.downcast::<crate::items::WindowItem>().is_some() {
                 Some(item_rc)
             } else {
@@ -1462,7 +1514,7 @@ impl WindowInner {
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
-            ItemRc::new(component_rc, 0).downcast::<crate::items::WindowItem>()
+            ItemRc::new_root(component_rc).downcast::<crate::items::WindowItem>()
         })
     }
 
@@ -1593,8 +1645,7 @@ impl WindowInner {
 
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
-        &self
-            .ctx
+        self.ctx
             .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
     }
 
@@ -2079,10 +2130,13 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter.window().0.process_key_input(crate::items::KeyEvent {
-                text: text.clone(),
-                repeat,
+            window_adapter.window().0.process_key_input(InternalKeyEvent {
                 event_type,
+                key_event: crate::items::KeyEvent {
+                    text: text.clone(),
+                    repeat,
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         }

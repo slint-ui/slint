@@ -2,24 +2,33 @@
   "name": "slint_repository",
   "version": "1.16.0",
   "description": "",
-  "main": "index.js",
+  "devDependencies": {
+    "knip": "catalog:"
+  },
   "scripts": {
+    "knip": "knip",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",
     "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check",
-    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' -r type-check"
+    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' -r type-check"
   },
-  "packageManager": "pnpm@10.18.2",
+  "packageManager": "pnpm@10.29.3",
   "pnpm": {
     "onlyBuiltDependencies": [
       "@biomejs/biome",
       "esbuild",
-      "sharp"
+      "sharp",
+      "skia-canvas"
     ],
     "overrides": {
-      "lodash@>=4.0.0 <=4.17.22": ">=4.17.23"
+      "lodash@>=4.0.0 <=4.17.22": ">=4.17.23",
+      "svgo@=4.0.0": ">=4.0.1",
+      "devalue@<5.6.4": ">=5.6.4",
+      "devalue@<=5.6.3": ">=5.6.4",
+      "flatted@<3.4.0": ">=3.4.0",
+      "yaml@>=2.0.0 <2.8.3": ">=2.8.3"
     }
   }
 }

@@ -456,7 +456,13 @@ impl LookupObject for ElementRc {
                 return Some(r);
             }
         }
-        if !(matches!(self.borrow().base_type, ElementType::Global)) {
+
+        let is_global = match &self.borrow().base_type {
+            ElementType::Global => true,
+            ElementType::Builtin(b) => b.is_global,
+            _ => false,
+        };
+        if !is_global {
             for (name, ty, _) in crate::typeregister::reserved_properties() {
                 let name = SmolStr::new_static(name);
                 let e =
@@ -930,9 +936,7 @@ impl LookupObject for Expression {
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).for_each_entry(ctx, f)
                 }
-                Type::KeyboardShortcutType => {
-                    KeyboardShortcutExpression(self).for_each_entry(ctx, f)
-                }
+                Type::Keys => KeysExpression(self).for_each_entry(ctx, f),
                 ty if ty.as_unit_product().is_some() => {
                     NumberWithUnitExpression(self).for_each_entry(ctx, f)
                 }
@@ -958,7 +962,7 @@ impl LookupObject for Expression {
                 Type::Float32 | Type::Int32 | Type::Percent => {
                     NumberExpression(self).lookup(ctx, name)
                 }
-                Type::KeyboardShortcutType => KeyboardShortcutExpression(self).lookup(ctx, name),
+                Type::Keys => KeysExpression(self).lookup(ctx, name),
                 ty if ty.as_unit_product().is_some() => {
                     NumberWithUnitExpression(self).lookup(ctx, name)
                 }
@@ -975,7 +979,7 @@ impl LookupObject for StringExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
@@ -1097,7 +1101,7 @@ impl LookupObject for NumberExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
 
         let mut f2 = |s, res| f(&SmolStr::new_static(s), res);
@@ -1132,7 +1136,7 @@ fn builtin_member_function_generator<'a>(
     }
 }
 
-fn member_macro_generator<'a>(
+fn member_macro_generator(
     base: Expression,
     base_node: Option<NodeOrToken>,
 ) -> impl FnMut(BuiltinMacroFunction) -> LookupResult {
@@ -1154,7 +1158,7 @@ impl LookupObject for NumberWithUnitExpression<'_> {
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("mod", member_macro(BuiltinMacroFunction::Mod)))
             .or_else(|| f("clamp", member_macro(BuiltinMacroFunction::Clamp)))
@@ -1172,20 +1176,17 @@ impl LookupObject for NumberWithUnitExpression<'_> {
     }
 }
 
-struct KeyboardShortcutExpression<'a>(&'a Expression);
+struct KeysExpression<'a>(&'a Expression);
 
-impl LookupObject for KeyboardShortcutExpression<'_> {
+impl LookupObject for KeysExpression<'_> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = builtin_member_function_generator(&self.0, &ctx);
+        let member_function = builtin_member_function_generator(self.0, ctx);
         None.or_else(|| {
-            f(
-                &SmolStr::new_static("matches"),
-                member_function(BuiltinFunction::KeyboardShortcutMatches),
-            )
+            f(&SmolStr::new_static("to-string"), member_function(BuiltinFunction::KeysToString))
         })
     }
 }

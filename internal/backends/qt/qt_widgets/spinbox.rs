@@ -3,7 +3,7 @@
 
 use crate::key_generated;
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason, KeyEventType},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType},
     items::TextHorizontalAlignment,
     platform::PointerEventButton,
 };
@@ -132,6 +132,7 @@ impl Item for NativeSpinBox {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -141,6 +142,7 @@ impl Item for NativeSpinBox {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
+        _: &mut MouseCursor,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();
@@ -236,6 +238,7 @@ impl Item for NativeSpinBox {
                     }
                     true
                 }
+                MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => false,
                 MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
             };
         data.active_controls = new_control;
@@ -243,21 +246,22 @@ impl Item for NativeSpinBox {
             self.data.set(data);
         }
 
-        if let MouseEvent::Pressed { .. } = event {
-            if !self.has_focus() && !self.read_only() {
-                WindowInner::from_pub(window_adapter.window()).set_focus_item(
-                    self_rc,
-                    true,
-                    FocusReason::PointerClick,
-                );
-            }
+        if let MouseEvent::Pressed { .. } = event
+            && !self.has_focus()
+            && !self.read_only()
+        {
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                self_rc,
+                true,
+                FocusReason::PointerClick,
+            );
         }
         InputEventResult::EventAccepted
     }
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -266,21 +270,21 @@ impl Item for NativeSpinBox {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if !self.enabled() || self.read_only() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
-        if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
+        if event.key_event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
             && self.value() < self.maximum()
         {
             let new_val = self.value() + self.step_size();
             self.value.set(new_val);
             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
-        } else if event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
+        } else if event.key_event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
             && self.value() > self.minimum()
         {
             let new_val = self.value() - self.step_size();

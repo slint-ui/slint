@@ -9,7 +9,8 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
-use napi::{Env, JsFunction, JsObject};
+use napi::Env;
+use napi::bindgen_prelude::*;
 
 #[macro_use]
 extern crate napi_derive;
@@ -43,32 +44,27 @@ pub fn process_events() -> napi::Result<ProcessEventsResult> {
 }
 
 #[napi]
-pub fn invoke_from_event_loop(env: Env, callback: JsFunction) -> napi::Result<napi::JsUndefined> {
+pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Result<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    let function_ref = RefCountedReference::new(&env, callback)?;
-    let function_ref = send_wrapper::SendWrapper::new(function_ref);
+    let stored_fn = StoredFunction::new(&callback)?;
+    let env = *env;
+    let wrapper = send_wrapper::SendWrapper::new((stored_fn, env));
     i_slint_core::api::invoke_from_event_loop(move || {
-        let function_ref = function_ref.take();
-        let Ok(callback) = function_ref.get::<JsFunction>() else {
+        let (stored_fn, env) = wrapper.take();
+        if stored_fn.call(&env, vec![]).is_err() {
             eprintln!("Node.js: JavaScript invoke_from_event_loop threw an exception");
-            return;
-        };
-        callback.call_without_args(None).ok();
+        }
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
-    .and_then(|_| env.get_undefined())
 }
 
 #[napi]
-pub fn set_quit_on_last_window_closed(
-    env: Env,
-    quit_on_last_window_closed: bool,
-) -> napi::Result<napi::JsUndefined> {
+pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi::Result<()> {
     if !quit_on_last_window_closed {
         i_slint_backend_selector::with_platform(|b| {
             #[allow(deprecated)]
@@ -77,7 +73,7 @@ pub fn set_quit_on_last_window_closed(
         })
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
     }
-    env.get_undefined()
+    Ok(())
 }
 
 #[napi]
@@ -104,17 +100,20 @@ pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Argument
         return;
     };
 
-    let Ok(console_object) = global
-        .get_named_property::<JsObject>("console")
-        .and_then(|console| console.coerce_to_object())
-    else {
-        eprintln!("Unable to obtain console object for logging");
-        return;
+    let console_object: Object = match global.get_named_property("console") {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!("Unable to obtain console object for logging");
+            return;
+        }
     };
 
-    let Ok(Some(log_fn)) = console_object.get::<&str, JsFunction>(function) else {
-        eprintln!("Unable to obtain console.{function}");
-        return;
+    let log_fn: Function<Unknown, Unknown> = match console_object.get_named_property(function) {
+        Ok(f) => f,
+        Err(_) => {
+            eprintln!("Unable to obtain console.{function}");
+            return;
+        }
     };
 
     let message = arguments.to_string();
@@ -123,7 +122,12 @@ pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Argument
         return;
     };
 
-    if let Err(err) = log_fn.call(None, &[js_message.into_unknown()]) {
+    let Ok(js_message_unknown) = js_message.into_unknown(&env) else {
+        eprintln!("Unable to convert log message to unknown");
+        return;
+    };
+
+    if let Err(err) = log_fn.apply(console_object, js_message_unknown) {
         eprintln!("Unable to invoke console.{function}: {err}");
     }
 }

@@ -8,16 +8,15 @@ pub struct Visitor(serde_json::Value, pub bool);
 
 impl syn::visit_mut::VisitMut for Visitor {
     fn visit_attribute_mut(&mut self, i: &mut syn::Attribute) {
-        if i.meta.path().is_ident("doc") {
-            if let syn::Meta::NameValue(syn::MetaNameValue {
+        if i.meta.path().is_ident("doc")
+            && let syn::Meta::NameValue(syn::MetaNameValue {
                 value: syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(lit), .. }),
                 ..
             }) = &mut i.meta
-            {
-                let mut doc = lit.value();
-                self.process_string(&mut doc);
-                *lit = syn::LitStr::new(&doc, lit.span());
-            }
+        {
+            let mut doc = lit.value();
+            self.process_string(&mut doc);
+            *lit = syn::LitStr::new(&doc, lit.span());
         }
     }
 }

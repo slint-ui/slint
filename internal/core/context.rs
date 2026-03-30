@@ -3,9 +3,11 @@
 
 use crate::Property;
 use crate::api::PlatformError;
+use crate::input::InternalKeyboardModifierState;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use core::cell::Cell;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
@@ -27,6 +29,11 @@ pub(crate) struct SlintContextInner {
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
+    #[cfg(feature = "shared-parley")]
+    pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
+    #[cfg(feature = "shared-swash")]
+    pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
+    pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -38,6 +45,9 @@ pub struct SlintContext(pub(crate) Rc<SlintContextInner>);
 impl SlintContext {
     /// Create a new context with a given platform
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
+        #[cfg(feature = "shared-parley")]
+        let collection = i_slint_common::sharedfontique::create_collection(true);
+
         Self(Rc::new(SlintContextInner {
             platform,
             window_count: 0.into(),
@@ -48,12 +58,35 @@ impl SlintContext {
             xdg_app_id: Default::default(),
             #[cfg(feature = "tr")]
             external_translator: Default::default(),
+            #[cfg(feature = "shared-parley")]
+            font_context: {
+                let font_context = parley::FontContext {
+                    collection: collection.inner,
+                    source_cache: collection.source_cache,
+                };
+                core::cell::RefCell::new(font_context)
+            },
+            #[cfg(feature = "shared-swash")]
+            swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
+            modifiers: Cell::new(Default::default()),
         }))
     }
 
     /// Return a reference to the platform abstraction
     pub fn platform(&self) -> &dyn Platform {
         &*self.0.platform
+    }
+
+    /// Return a reference to the font context
+    #[cfg(feature = "shared-parley")]
+    pub fn font_context(&self) -> &core::cell::RefCell<parley::FontContext> {
+        &self.0.font_context
+    }
+
+    /// Return a reference to the swash scale context
+    #[cfg(feature = "shared-swash")]
+    pub fn swash_scale_context(&self) -> &core::cell::RefCell<swash::scale::ScaleContext> {
+        &self.0.swash_scale_context
     }
 
     /// Return an event proxy

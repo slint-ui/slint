@@ -5,15 +5,19 @@
 
 // cspell:ignore coord
 
-use crate::items::{DialogButtonRole, LayoutAlignment};
+use crate::items::{
+    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexDirection, FlexWrap,
+    LayoutAlignment,
+};
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use num_traits::Float;
 
 pub use crate::items::Orientation;
 
-/// The constraint that applies to an item
+/// The constraint that applies to a layout
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -461,7 +465,7 @@ pub struct GridLayoutData {
 /// The input data for a cell of a GridLayout, before row/col determination and before H/V split
 /// Used as input to organize_grid_layout()
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct GridLayoutInputData {
     /// whether this cell is the first one in a Row element
     pub new_row: bool,
@@ -474,6 +478,18 @@ pub struct GridLayoutInputData {
     /// Only the u16 range is valid, values outside of that will be clamped with a warning at runtime
     pub colspan: f32,
     pub rowspan: f32,
+}
+
+impl Default for GridLayoutInputData {
+    fn default() -> Self {
+        Self {
+            new_row: false,
+            col: i_slint_common::ROW_COL_AUTO,
+            row: i_slint_common::ROW_COL_AUTO,
+            colspan: 1.0,
+            rowspan: 1.0,
+        }
+    }
 }
 
 /// The organized layout data for a GridLayout, after row/col determination:
@@ -497,6 +513,12 @@ impl GridLayoutOrganizedData {
     ) -> (u16, u16) {
         // For every cell, we have 4 entries, each at their own index
         // But we also need to take into account indirections for repeated items
+
+        // Two-level indirection for repeated items:
+        //   jump_pos = (ri_start_cell - cell_nr_adj) * 4
+        //   data_base = self[jump_pos]        (base of this repeater's data)
+        //   stride    = self[jump_pos + 1]    (u16 entries per row = step * 4)
+        //   data_idx = data_base + row_in_rep * stride + col_in_rep * 4
         let mut final_idx = 0;
         let mut cell_nr_adj = 0i32; // needs to be signed in case we start with an empty repeater
         let cell_number = cell_number as i32;
@@ -514,13 +536,17 @@ impl GridLayoutOrganizedData {
                 && cell_number < ri_start_cell + cells_in_repeater
             {
                 let cell_in_rep = cell_number - ri_start_cell;
+                let row_in_rep = cell_in_rep / step;
+                let col_in_rep = cell_in_rep % step;
                 let jump_pos = (ri_start_cell - cell_nr_adj) as usize * 4;
-                final_idx = self[jump_pos] as usize + (cell_in_rep * 4) as usize;
+                let data_base = self[jump_pos] as usize;
+                let stride = self[jump_pos + 1] as usize;
+                final_idx = data_base + row_in_rep as usize * stride + col_in_rep as usize * 4;
                 break;
             }
-            // -1 is correct for an empty repeater (e.g. if false), which takes one position, for 0 real cells
-            // With step > 1, we have 'step' jump entries but cells_in_repeater actual cells
-            cell_nr_adj += cells_in_repeater - step;
+            // Each repeater occupies 1 jump cell in the static area but cells_in_repeater cells logically
+            // Note: -1 is correct for an empty repeater (e.g. if false), which occupies 1 jump cell, for 0 real cells
+            cell_nr_adj += cells_in_repeater - 1;
         }
         if final_idx == 0 {
             final_idx = ((cell_number - cell_nr_adj) * 4) as usize;
@@ -548,17 +574,23 @@ impl GridLayoutOrganizedData {
     }
 }
 
+/// Two-level indirection organized data generator for grid layouts with repeaters.
+/// Uses 2-level indirection: cache[cache[jump_pos] + ri * stride + col * 4]
+/// Each jump cell stores [data_base, stride, 0, 0] where stride = step * 4.
+///
+/// Layout: [static_cells (4 u16 each)] [jump_cells (4 u16 each, 1 per repeater)]
+///         [row_data (rep_count * step * 4 u16)] ... (repeated for each repeater)
 struct OrganizedDataGenerator<'a> {
     // Input
     repeater_indices: &'a [u32],
     repeater_steps: &'a [u32],
     // An always increasing counter, the index of the cell being added
     counter: usize,
-    // The index/4 in result in which we should add the next repeated item
-    repeat_offset: usize,
-    // The index/4 in repeater_indices
+    // The u16 position in result for the next repeater's data section
+    repeat_u16_offset: usize,
+    // The index/2 in repeater_indices (i.e. which repeater we're looking at next)
     next_rep: usize,
-    // The index/4 in result in which we should add the next non-repeated item
+    // The cell index in result for the next non-repeated item (each cell = 4 u16)
     current_offset: usize,
     // Output
     result: &'a mut GridLayoutOrganizedData,
@@ -568,25 +600,18 @@ impl<'a> OrganizedDataGenerator<'a> {
     fn new(
         repeater_indices: &'a [u32],
         repeater_steps: &'a [u32],
+        static_cells: usize,
+        num_repeaters: usize,
+        total_repeated_cells_count: usize,
         result: &'a mut GridLayoutOrganizedData,
     ) -> Self {
-        // Calculate total repeated cells (count * step for each repeater)
-        let total_repeated_cells: usize = repeater_indices
-            .chunks(2)
-            .enumerate()
-            .map(|(i, chunk)| {
-                let count = chunk.get(1).copied().unwrap_or(0) as usize;
-                let step = repeater_steps.get(i).copied().unwrap_or(1) as usize;
-                count * step
-            })
-            .sum();
-        assert!(result.len() >= total_repeated_cells * 4);
-        let repeat_offset = result.len() / 4 - total_repeated_cells;
+        result.resize((static_cells + num_repeaters + total_repeated_cells_count) * 4, 0 as _);
+        let repeat_u16_offset = (static_cells + num_repeaters) * 4;
         Self {
             repeater_indices,
             repeater_steps,
             counter: 0,
-            repeat_offset,
+            repeat_u16_offset,
             next_rep: 0,
             current_offset: 0,
             result,
@@ -594,45 +619,53 @@ impl<'a> OrganizedDataGenerator<'a> {
     }
     fn add(&mut self, col: u16, colspan: u16, row: u16, rowspan: u16) {
         let res = self.result.make_mut_slice();
-        let o = loop {
+        loop {
             if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
                 let nr = *nr as usize;
                 let step = self.repeater_steps.get(self.next_rep).copied().unwrap_or(1) as usize;
+                let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
+
                 if nr == self.counter {
-                    // Write jump entries for each element in the step
-                    for s in 0..step {
-                        for o in 0..4 {
-                            res[(self.current_offset + s) * 4 + o] =
-                                ((self.repeat_offset + s) * 4 + o) as _;
-                        }
-                    }
-                    self.current_offset += step;
+                    // First cell of this repeater
+                    let data_u16_start = self.repeat_u16_offset;
+                    let stride = step * 4;
+
+                    // Write jump cell: [data_base, stride, 0, 0]
+                    res[self.current_offset * 4] = data_u16_start as _;
+                    res[self.current_offset * 4 + 1] = stride as _;
+                    self.current_offset += 1;
                 }
                 if self.counter >= nr {
-                    let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
                     let cells_in_repeater = rep_count * step;
                     if self.counter - nr == cells_in_repeater {
-                        // Advance repeat_offset past this repeater's data before moving to next
-                        self.repeat_offset += cells_in_repeater;
+                        // Past the end of this repeater — advance past data
+                        self.repeat_u16_offset += cells_in_repeater * 4;
                         self.next_rep += 1;
                         continue;
                     }
-                    // Calculate offset using row-major ordering: step entries per row
+                    // Write data at the position determined by row/col within repeater
                     let cell_in_rep = self.counter - nr;
                     let row_in_rep = cell_in_rep / step;
                     let col_in_rep = cell_in_rep % step;
-                    let offset = self.repeat_offset + col_in_rep + row_in_rep * step;
-                    break offset;
+                    let data_u16_start = self.repeat_u16_offset;
+                    let u16_pos = data_u16_start + row_in_rep * step * 4 + col_in_rep * 4;
+                    res[u16_pos] = col;
+                    res[u16_pos + 1] = colspan;
+                    res[u16_pos + 2] = row;
+                    res[u16_pos + 3] = rowspan;
+                    self.counter += 1;
+                    return;
                 }
             }
+            // Non-repeated cell
+            res[self.current_offset * 4] = col;
+            res[self.current_offset * 4 + 1] = colspan;
+            res[self.current_offset * 4 + 2] = row;
+            res[self.current_offset * 4 + 3] = rowspan;
             self.current_offset += 1;
-            break self.current_offset - 1;
-        };
-        res[o * 4] = col;
-        res[o * 4 + 1] = colspan;
-        res[o * 4 + 2] = row;
-        res[o * 4 + 3] = rowspan;
-        self.counter += 1;
+            self.counter += 1;
+            return;
+        }
     }
 }
 
@@ -737,6 +770,19 @@ pub fn organize_dialog_button_layout(
     organized_data
 }
 
+// GridLayout-specific
+fn total_repeated_cells<'a>(repeater_indices: &'a [u32], repeater_steps: &'a [u32]) -> usize {
+    repeater_indices
+        .chunks(2)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let count = chunk.get(1).copied().unwrap_or(0) as usize;
+            let step = repeater_steps.get(i).copied().unwrap_or(1) as usize;
+            count * step
+        })
+        .sum()
+}
+
 type Errors = Vec<String>;
 
 pub fn organize_grid_layout(
@@ -759,15 +805,18 @@ fn organize_grid_layout_impl(
     repeater_steps: Slice<u32>,
 ) -> (GridLayoutOrganizedData, Errors) {
     let mut organized_data = GridLayoutOrganizedData::default();
-    // Calculate extra space needed for jump entries when step > 1
-    // Each repeater with step > 1 needs (step - 1) extra entries for the additional jump slots
-    let extra_jump_entries: usize =
-        repeater_steps.iter().map(|&s| (s as usize).saturating_sub(1)).sum();
-    organized_data
-        .resize(input_data.len() * 4 + repeater_indices.len() * 2 + extra_jump_entries * 4, 0 as _);
+    // Cache size: static_cells * 4 + num_repeaters * 4 (jump cells)
+    //              + per repeater: rep_count * step * 4 (data)
+    let num_repeaters = repeater_indices.len() / 2;
+    let total_repeated_cells =
+        total_repeated_cells(repeater_indices.as_slice(), repeater_steps.as_slice());
+    let static_cells = input_data.len() - total_repeated_cells;
     let mut generator = OrganizedDataGenerator::new(
         repeater_indices.as_slice(),
         repeater_steps.as_slice(),
+        static_cells,
+        num_repeaters,
+        total_repeated_cells,
         &mut organized_data,
     );
     let mut errors = Vec::new();
@@ -815,6 +864,7 @@ fn organize_grid_layout_impl(
     (organized_data, errors)
 }
 
+/// Layout cache generator for box layouts.
 /// The layout cache generator inserts the pos and size into the result array (which becomes the layout cache property),
 /// including the indirections for repeated items (so that the x,y,width,height properties for repeated items
 /// can point to indices known at compile time, those that contain the indirections)
@@ -824,7 +874,6 @@ fn organize_grid_layout_impl(
 struct LayoutCacheGenerator<'a> {
     // Input
     repeater_indices: &'a [u32],
-    repeater_steps: &'a [u32],
     // An always increasing counter, the index of the cell being added
     counter: usize,
     // The index/2 in result in which we should add the next repeated item
@@ -838,63 +887,35 @@ struct LayoutCacheGenerator<'a> {
 }
 
 impl<'a> LayoutCacheGenerator<'a> {
-    fn new(
-        repeater_indices: &'a [u32],
-        repeater_steps: &'a [u32],
-        result: &'a mut SharedVector<Coord>,
-    ) -> Self {
-        // Calculate total repeated cells (count * step for each repeater)
+    fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
         let total_repeated_cells: usize = repeater_indices
             .chunks(2)
-            .enumerate()
-            .map(|(i, chunk)| {
-                let count = chunk.get(1).copied().unwrap_or(0) as usize;
-                let step = repeater_steps.get(i).copied().unwrap_or(1) as usize;
-                count * step
-            })
+            .map(|chunk| chunk.get(1).copied().unwrap_or(0) as usize)
             .sum();
         assert!(result.len() >= total_repeated_cells * 2);
         let repeat_offset = result.len() / 2 - total_repeated_cells;
-        Self {
-            repeater_indices,
-            repeater_steps,
-            counter: 0,
-            repeat_offset,
-            next_rep: 0,
-            current_offset: 0,
-            result,
-        }
+        Self { repeater_indices, counter: 0, repeat_offset, next_rep: 0, current_offset: 0, result }
     }
     fn add(&mut self, pos: Coord, size: Coord) {
         let res = self.result.make_mut_slice();
         let o = loop {
             if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
                 let nr = *nr as usize;
-                let step = self.repeater_steps.get(self.next_rep).copied().unwrap_or(1) as usize;
                 if nr == self.counter {
-                    // Write jump entries for each element in the step
-                    for s in 0..step {
-                        for o in 0..2 {
-                            res[(self.current_offset + s) * 2 + o] =
-                                ((self.repeat_offset + s) * 2 + o) as _;
-                        }
+                    // Write jump entry
+                    for o in 0..2 {
+                        res[self.current_offset * 2 + o] = (self.repeat_offset * 2 + o) as _;
                     }
-                    self.current_offset += step;
+                    self.current_offset += 1;
                 }
                 if self.counter >= nr {
                     let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
-                    let cells_in_repeater = rep_count * step;
-                    if self.counter - nr == cells_in_repeater {
-                        // Advance repeat_offset past this repeater's data before moving to next
-                        self.repeat_offset += cells_in_repeater;
+                    if self.counter - nr == rep_count {
+                        self.repeat_offset += rep_count;
                         self.next_rep += 1;
                         continue;
                     }
-                    // Calculate offset using row-major ordering: step entries per row
-                    let cell_in_rep = self.counter - nr;
-                    let row_in_rep = cell_in_rep / step;
-                    let col_in_rep = cell_in_rep % step;
-                    let offset = self.repeat_offset + col_in_rep + row_in_rep * step;
+                    let offset = self.repeat_offset + (self.counter - nr);
                     break offset;
                 }
             }
@@ -904,6 +925,94 @@ impl<'a> LayoutCacheGenerator<'a> {
         res[o * 2] = pos;
         res[o * 2 + 1] = size;
         self.counter += 1;
+    }
+}
+
+/// Two-level indirection layout cache generator for grid layouts with repeaters.
+/// Uses 2-level indirection: cache[cache[jump] + ri * stride + child_offset]
+/// Each jump cell stores [data_base, stride] where stride = step * 2.
+struct GridLayoutCacheGenerator<'a> {
+    // Input
+    repeater_indices: &'a [u32],
+    repeater_steps: &'a [u32],
+    // An always increasing counter, the index of the cell being added
+    counter: usize,
+    // The f32 position in result for the next repeater's dynamic data section
+    repeat_f32_offset: usize,
+    // The index/2 in repeater_indices
+    next_rep: usize,
+    // The cell index (index/2) in result for the next non-repeated item
+    current_offset: usize,
+    // Output
+    result: &'a mut SharedVector<Coord>,
+}
+
+impl<'a> GridLayoutCacheGenerator<'a> {
+    fn new(
+        repeater_indices: &'a [u32],
+        repeater_steps: &'a [u32],
+        static_cells: usize,
+        num_repeaters: usize,
+        total_repeated_cells_count: usize,
+        result: &'a mut SharedVector<Coord>,
+    ) -> Self {
+        result.resize((static_cells + num_repeaters + total_repeated_cells_count) * 2, 0 as _);
+        let repeat_f32_offset = (static_cells + num_repeaters) * 2;
+        Self {
+            repeater_indices,
+            repeater_steps,
+            counter: 0,
+            repeat_f32_offset,
+            next_rep: 0,
+            current_offset: 0,
+            result,
+        }
+    }
+    fn add(&mut self, pos: Coord, size: Coord) {
+        let res = self.result.make_mut_slice();
+        loop {
+            if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
+                let nr = *nr as usize;
+                let step = self.repeater_steps.get(self.next_rep).copied().unwrap_or(1) as usize;
+                let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
+
+                if nr == self.counter {
+                    // First cell of this repeater
+                    let data_f32_start = self.repeat_f32_offset;
+                    let stride = step * 2;
+
+                    // Write 1 jump cell (2 f32): [data_base, stride]
+                    res[self.current_offset * 2] = data_f32_start as _;
+                    res[self.current_offset * 2 + 1] = stride as _;
+                    self.current_offset += 1;
+                }
+                if self.counter >= nr {
+                    let cells_in_repeater = rep_count * step;
+                    if self.counter - nr == cells_in_repeater {
+                        // Past the end of this repeater — advance past data
+                        self.repeat_f32_offset += cells_in_repeater * 2;
+                        self.next_rep += 1;
+                        continue;
+                    }
+                    // Write data at the position determined by row/col within repeater
+                    let cell_in_rep = self.counter - nr;
+                    let row_in_rep = cell_in_rep / step;
+                    let col_in_rep = cell_in_rep % step;
+                    let data_f32_start = self.repeat_f32_offset;
+                    let f32_pos = data_f32_start + row_in_rep * step * 2 + col_in_rep * 2;
+                    res[f32_pos] = pos;
+                    res[f32_pos + 1] = size;
+                    self.counter += 1;
+                    return;
+                }
+            }
+            // Non-repeated cell
+            res[self.current_offset * 2] = pos;
+            res[self.current_offset * 2 + 1] = size;
+            self.current_offset += 1;
+            self.counter += 1;
+            return;
+        }
     }
 }
 
@@ -938,12 +1047,18 @@ pub fn solve_grid_layout(
     );
 
     let mut result = SharedVector::<Coord>::default();
-    // Calculate extra space for jump entries when step > 1
-    // Each repeater with step > 1 needs (step - 1) extra entries for additional jump slots
-    let extra_jump_entries: usize =
-        repeater_steps.iter().map(|&s| (s as usize).saturating_sub(1)).sum();
-    result.resize(2 * constraints.len() + repeater_indices.len() + extra_jump_entries * 2, 0 as _);
-    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &repeater_steps, &mut result);
+    let num_repeaters = repeater_indices.len() / 2;
+    let total_repeated_cells =
+        total_repeated_cells(repeater_indices.as_slice(), repeater_steps.as_slice());
+    let static_cells = constraints.len() - total_repeated_cells;
+    let mut generator = GridLayoutCacheGenerator::new(
+        repeater_indices.as_slice(),
+        repeater_steps.as_slice(),
+        static_cells,
+        num_repeaters,
+        total_repeated_cells,
+        &mut result,
+    );
 
     for idx in 0..constraints.len() {
         let (col_or_row, span) = data.organized_data.col_or_row_and_span(
@@ -1011,28 +1126,89 @@ pub struct BoxLayoutData<'a> {
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
-/// The information about a single item in a layout
-/// For now this only contains the LayoutInfo constraints, but could be extended in the future
+#[derive(Debug)]
+/// The FlexBoxLayoutData is used for a flex layout.
+pub struct FlexBoxLayoutData<'a> {
+    pub width: Coord,
+    pub height: Coord,
+    pub spacing_h: Coord,
+    pub spacing_v: Coord,
+    pub padding_h: Padding,
+    pub padding_v: Padding,
+    pub alignment: LayoutAlignment,
+    pub direction: FlexDirection,
+    pub align_content: FlexAlignContent,
+    pub align_items: FlexAlignItems,
+    pub flex_wrap: FlexWrap,
+    /// Horizontal constraints (width) for each cell
+    pub cells_h: Slice<'a, FlexBoxLayoutItemInfo>,
+    /// Vertical constraints (height) for each cell
+    pub cells_v: Slice<'a, FlexBoxLayoutItemInfo>,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Default)]
+/// The information about a single item in a box or grid layout
 pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+/// The information about a single item in a flexbox layout
+pub struct FlexBoxLayoutItemInfo {
+    pub constraint: LayoutInfo,
+    /// Flex grow factor (0 = don't grow, default)
+    pub flex_grow: f32,
+    /// Flex shrink factor (0 = don't shrink, default)
+    pub flex_shrink: f32,
+    /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
+    pub flex_basis: Coord,
+    /// Per-item cross-axis alignment override (Auto = use container's align-items)
+    pub flex_align_self: FlexAlignSelf,
+    /// Visual ordering of flex items (lower values appear first, default 0)
+    pub flex_order: i32,
+}
+
+impl Default for FlexBoxLayoutItemInfo {
+    fn default() -> Self {
+        Self {
+            constraint: LayoutInfo::default(),
+            flex_grow: 0.0,
+            flex_shrink: 0.0,
+            flex_basis: -1 as _,
+            flex_align_self: FlexAlignSelf::Auto,
+            flex_order: 0,
+        }
+    }
+}
+
+impl From<LayoutItemInfo> for FlexBoxLayoutItemInfo {
+    fn from(info: LayoutItemInfo) -> Self {
+        Self { constraint: info.constraint, ..Default::default() }
+    }
 }
 
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
+    // One element results into two coordinates in the result vector. 1. Position, 2. Size
     result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
 
     if data.cells.is_empty() {
         return result;
     }
 
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let num_spacings = (data.cells.len() - 1) as Coord;
+    let spacings = data.spacing * num_spacings;
+    let content_size = size_without_padding - spacings; // The size the cells can occupy without going outside of the layout
     let mut layout_data: Vec<_> = data
         .cells
         .iter()
         .map(|c| {
-            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100 as Coord);
-            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100 as Coord);
+            let min = c.constraint.min.max(c.constraint.min_percent * content_size / 100 as Coord);
+            let max = c.constraint.max.min(c.constraint.max_percent * content_size / 100 as Coord);
             grid_internal::LayoutData {
                 min,
                 max,
@@ -1043,10 +1219,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         })
         .collect();
 
-    let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
-    let num_spacings = (layout_data.len() - 1) as Coord;
-    let spacings = data.spacing * num_spacings;
 
     let align = match data.alignment {
         LayoutAlignment::Stretch => {
@@ -1095,7 +1268,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         }
     }
 
-    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &[], &mut result);
+    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     for layout in layout_data.iter() {
         generator.add(layout.pos, layout.size);
     }
@@ -1121,12 +1294,12 @@ pub fn box_layout_info(
         return info;
     };
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
-    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
+    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w; // Minimum size of the complete layout
     let max = if is_stretch {
         (cells.iter().map(|c| c.constraint.max).fold(extra_w, Saturating::add)).max(min)
     } else {
         Coord::MAX
-    };
+    }; // Maximum size of the complete layout
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
@@ -1144,6 +1317,555 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
     fold.max = Saturating::add(fold.max, extra_w);
     fold.preferred += extra_w;
     fold
+}
+
+/// Helper module for taffy-based flexbox layout
+mod flexbox_taffy {
+    use super::{
+        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexBoxLayoutItemInfo,
+        FlexWrap as SlintFlexWrap, LayoutAlignment, Padding, Slice,
+    };
+    use alloc::vec::Vec;
+    pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
+    use taffy::prelude::*;
+
+    /// Parameters for FlexboxTaffyBuilder::new
+    pub struct FlexBoxLayoutParams<'a> {
+        pub cells_h: &'a Slice<'a, FlexBoxLayoutItemInfo>,
+        pub cells_v: &'a Slice<'a, FlexBoxLayoutItemInfo>,
+        pub spacing_h: Coord,
+        pub spacing_v: Coord,
+        pub padding_h: &'a Padding,
+        pub padding_v: &'a Padding,
+        pub alignment: LayoutAlignment,
+        pub align_content: FlexAlignContent,
+        pub align_items: FlexAlignItems,
+        pub flex_wrap: SlintFlexWrap,
+        pub flex_direction: TaffyFlexDirection,
+        pub container_width: Option<Coord>,
+        pub container_height: Option<Coord>,
+    }
+
+    /// Build a taffy tree from Slint layout constraints
+    pub struct FlexboxTaffyBuilder {
+        pub taffy: TaffyTree<()>,
+        pub children: Vec<NodeId>,
+        pub container: NodeId,
+        /// Maps taffy child position -> original cell index (empty if no reordering needed)
+        pub order_map: Vec<usize>,
+    }
+
+    impl FlexboxTaffyBuilder {
+        /// Create a new flexbox layout tree from item constraints
+        pub fn new(params: FlexBoxLayoutParams) -> Self {
+            let mut taffy = TaffyTree::<()>::new();
+
+            // Create child nodes from Slint constraints
+            let mut children: Vec<NodeId> = params
+                .cells_h
+                .iter()
+                .enumerate()
+                .map(|(idx, cell_h)| {
+                    let cell_v = params.cells_v.get(idx);
+                    let h_constraint = &cell_h.constraint;
+                    let v_constraint = cell_v.map(|c| &c.constraint);
+
+                    // Use preferred_bounded() which clamps preferred to min/max bounds
+                    let preferred_width = h_constraint.preferred_bounded();
+                    let preferred_height =
+                        v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0 as Coord);
+
+                    // flex_basis: use explicit value if set (>= 0), otherwise use preferred size
+                    let flex_basis = if cell_h.flex_basis >= 0 as Coord {
+                        Dimension::length(cell_h.flex_basis as _)
+                    } else {
+                        match params.flex_direction {
+                            TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                                Dimension::length(preferred_width as _)
+                            }
+                            TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
+                                Dimension::length(preferred_height as _)
+                            }
+                        }
+                    };
+
+                    taffy
+                        .new_leaf(Style {
+                            flex_basis,
+                            size: Size {
+                                width: match params.flex_direction {
+                                    TaffyFlexDirection::Column
+                                    | TaffyFlexDirection::ColumnReverse => {
+                                        if preferred_width > 0 as Coord {
+                                            Dimension::length(preferred_width as _)
+                                        } else {
+                                            Dimension::auto()
+                                        }
+                                    }
+                                    _ => Dimension::auto(),
+                                },
+                                height: match params.flex_direction {
+                                    TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                                        if preferred_height > 0 as Coord {
+                                            Dimension::length(preferred_height as _)
+                                        } else {
+                                            Dimension::auto()
+                                        }
+                                    }
+                                    _ => Dimension::auto(),
+                                },
+                            },
+                            min_size: Size {
+                                width: Dimension::length(h_constraint.min as _),
+                                height: Dimension::length(
+                                    v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
+                                ),
+                            },
+                            max_size: Size {
+                                width: if h_constraint.max < Coord::MAX {
+                                    Dimension::length(h_constraint.max as _)
+                                } else {
+                                    Dimension::auto()
+                                },
+                                height: if let Some(vc) = v_constraint {
+                                    if vc.max < Coord::MAX {
+                                        Dimension::length(vc.max as _)
+                                    } else {
+                                        Dimension::auto()
+                                    }
+                                } else {
+                                    Dimension::auto()
+                                },
+                            },
+                            flex_grow: cell_h.flex_grow,
+                            flex_shrink: cell_h.flex_shrink,
+                            align_self: match cell_h.flex_align_self {
+                                FlexAlignSelf::Auto => None,
+                                FlexAlignSelf::Stretch => Some(AlignSelf::Stretch),
+                                FlexAlignSelf::Start => Some(AlignSelf::FlexStart),
+                                FlexAlignSelf::End => Some(AlignSelf::FlexEnd),
+                                FlexAlignSelf::Center => Some(AlignSelf::Center),
+                            },
+                            ..Default::default()
+                        })
+                        .unwrap() // cannot fail
+                })
+                .collect();
+
+            // Sort children by CSS `order` property if any item has a non-zero order.
+            // Build a mapping from sorted position -> original index.
+            let has_order = params.cells_h.iter().any(|c| c.flex_order != 0);
+            let order_map: Vec<usize> = if has_order {
+                let mut indices: Vec<usize> = (0..children.len()).collect();
+                // sort_by_key is a stable sort, as required by CSS
+                indices.sort_by_key(|&i| params.cells_h.get(i).map_or(0, |c| c.flex_order));
+                let sorted_children: Vec<NodeId> = indices.iter().map(|&i| children[i]).collect();
+                children = sorted_children;
+                indices
+            } else {
+                Vec::new()
+            };
+
+            // Create container node
+            let container = taffy
+                .new_with_children(
+                    Style {
+                        display: Display::Flex,
+                        flex_direction: params.flex_direction,
+                        flex_wrap: match params.flex_wrap {
+                            SlintFlexWrap::Wrap => FlexWrap::Wrap,
+                            SlintFlexWrap::NoWrap => FlexWrap::NoWrap,
+                            SlintFlexWrap::WrapReverse => FlexWrap::WrapReverse,
+                        },
+                        justify_content: Some(match params.alignment {
+                            // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
+                            // AlignContent::Start/End would ignore direction and always use writing mode
+                            LayoutAlignment::Start => AlignContent::FlexStart,
+                            LayoutAlignment::End => AlignContent::FlexEnd,
+                            LayoutAlignment::Center => AlignContent::Center,
+                            LayoutAlignment::Stretch => AlignContent::Stretch,
+                            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
+                            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
+                            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
+                        }),
+                        align_items: Some(match params.align_items {
+                            FlexAlignItems::Stretch => AlignItems::Stretch,
+                            FlexAlignItems::Start => AlignItems::FlexStart,
+                            FlexAlignItems::End => AlignItems::FlexEnd,
+                            FlexAlignItems::Center => AlignItems::Center,
+                        }),
+                        align_content: Some(match params.align_content {
+                            FlexAlignContent::Stretch => AlignContent::Stretch,
+                            FlexAlignContent::Start => AlignContent::FlexStart,
+                            FlexAlignContent::End => AlignContent::FlexEnd,
+                            FlexAlignContent::Center => AlignContent::Center,
+                            FlexAlignContent::SpaceBetween => AlignContent::SpaceBetween,
+                            FlexAlignContent::SpaceAround => AlignContent::SpaceAround,
+                            FlexAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
+                        }),
+                        gap: Size {
+                            width: LengthPercentage::length(params.spacing_h as _),
+                            height: LengthPercentage::length(params.spacing_v as _),
+                        },
+                        padding: Rect {
+                            left: LengthPercentage::length(params.padding_h.begin as _),
+                            right: LengthPercentage::length(params.padding_h.end as _),
+                            top: LengthPercentage::length(params.padding_v.begin as _),
+                            bottom: LengthPercentage::length(params.padding_v.end as _),
+                        },
+                        size: Size {
+                            width: params
+                                .container_width
+                                .map(|w| Dimension::length(w as _))
+                                .unwrap_or(Dimension::auto()),
+                            height: params
+                                .container_height
+                                .map(|h| Dimension::length(h as _))
+                                .unwrap_or(Dimension::auto()),
+                        },
+                        ..Default::default()
+                    },
+                    &children,
+                )
+                .unwrap(); // cannot fail
+
+            Self { taffy, children, container, order_map }
+        }
+
+        /// Compute the layout with the given available space
+        pub fn compute_layout(&mut self, available_width: Coord, available_height: Coord) {
+            self.taffy
+                .compute_layout(
+                    self.container,
+                    taffy::prelude::Size {
+                        width: if available_width < Coord::MAX {
+                            AvailableSpace::Definite(available_width as _)
+                        } else {
+                            AvailableSpace::MaxContent
+                        },
+                        height: if available_height < Coord::MAX {
+                            AvailableSpace::Definite(available_height as _)
+                        } else {
+                            AvailableSpace::MaxContent
+                        },
+                    },
+                )
+                .unwrap_or_else(|e| {
+                    crate::debug_log!("FlexBox layout computation error: {}", e);
+                });
+        }
+
+        /// Get the computed container size
+        pub fn container_size(&self) -> (Coord, Coord) {
+            let layout = self.taffy.layout(self.container).unwrap();
+            (layout.size.width as Coord, layout.size.height as Coord)
+        }
+
+        /// Get the geometry for a specific child
+        pub fn child_geometry(&self, idx: usize) -> (Coord, Coord, Coord, Coord) {
+            let layout = self.taffy.layout(self.children[idx]).unwrap();
+            (
+                layout.location.x as Coord,
+                layout.location.y as Coord,
+                layout.size.width as Coord,
+                layout.size.height as Coord,
+            )
+        }
+
+        /// Map a taffy child index to the original cell index (accounting for `order` sorting).
+        pub fn original_index(&self, taffy_idx: usize) -> usize {
+            if self.order_map.is_empty() { taffy_idx } else { self.order_map[taffy_idx] }
+        }
+    }
+}
+
+/// A cache generator for FlexBoxLayout that handles 4 values per item (x, y, width, height)
+struct FlexBoxLayoutCacheGenerator<'a> {
+    // Input
+    repeater_indices: &'a [u32],
+    // An always increasing counter, the index of the cell being added
+    counter: usize,
+    // The index/4 in result in which we should add the next repeated item
+    repeat_offset: usize,
+    // The index/4 in repeater_indices
+    next_rep: usize,
+    // The index/4 in result in which we should add the next non-repeated item
+    current_offset: usize,
+    // Output
+    result: &'a mut SharedVector<Coord>,
+}
+
+impl<'a> FlexBoxLayoutCacheGenerator<'a> {
+    fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
+        // Calculate total repeated cells (count for each repeater)
+        let total_repeated_cells: usize = repeater_indices
+            .chunks(2)
+            .map(|chunk| chunk.get(1).copied().unwrap_or(0) as usize)
+            .sum();
+        assert!(result.len() >= total_repeated_cells * 4);
+        let repeat_offset = result.len() / 4 - total_repeated_cells;
+        Self { repeater_indices, counter: 0, repeat_offset, next_rep: 0, current_offset: 0, result }
+    }
+
+    fn add(&mut self, x: Coord, y: Coord, w: Coord, h: Coord) {
+        let res = self.result.make_mut_slice();
+        let o = loop {
+            if let Some(nr) = self.repeater_indices.get(self.next_rep * 2) {
+                let nr = *nr as usize;
+                if nr == self.counter {
+                    // Write jump entries for repeater start
+                    // Store the base offset (index into the repeated data region)
+                    res[self.current_offset * 4] = (self.repeat_offset * 4) as Coord;
+                    res[self.current_offset * 4 + 1] = (self.repeat_offset * 4 + 1) as Coord;
+                    res[self.current_offset * 4 + 2] = (self.repeat_offset * 4 + 2) as Coord;
+                    res[self.current_offset * 4 + 3] = (self.repeat_offset * 4 + 3) as Coord;
+                    self.current_offset += 1;
+                }
+                if self.counter >= nr {
+                    let rep_count = self.repeater_indices[self.next_rep * 2 + 1] as usize;
+                    if self.counter - nr == rep_count {
+                        // Advance repeat_offset past this repeater's data before moving to next
+                        self.repeat_offset += rep_count;
+                        self.next_rep += 1;
+                        continue;
+                    }
+                    // Calculate offset into repeated data
+                    let cell_in_rep = self.counter - nr;
+                    let offset = self.repeat_offset + cell_in_rep;
+                    break offset;
+                }
+            }
+            self.current_offset += 1;
+            break self.current_offset - 1;
+        };
+        res[o * 4] = x;
+        res[o * 4 + 1] = y;
+        res[o * 4 + 2] = w;
+        res[o * 4 + 3] = h;
+        self.counter += 1;
+    }
+}
+
+/// Solve a FlexBoxLayout using Taffy
+/// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
+pub fn solve_flexbox_layout(
+    data: &FlexBoxLayoutData,
+    repeater_indices: Slice<u32>,
+) -> SharedVector<Coord> {
+    // 4 values per item: x, y, width, height
+    let mut result = SharedVector::<Coord>::default();
+    result.resize(data.cells_h.len() * 4 + repeater_indices.len() * 2, 0 as _);
+
+    if data.cells_h.is_empty() {
+        return result;
+    }
+
+    let taffy_direction = match data.direction {
+        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+    };
+
+    let (container_width, container_height) = (
+        if data.width > 0 as Coord { Some(data.width) } else { None },
+        if data.height > 0 as Coord { Some(data.height) } else { None },
+    );
+
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+        cells_h: &data.cells_h,
+        cells_v: &data.cells_v,
+        spacing_h: data.spacing_h,
+        spacing_v: data.spacing_v,
+        padding_h: &data.padding_h,
+        padding_v: &data.padding_v,
+        alignment: data.alignment,
+        align_content: data.align_content,
+        align_items: data.align_items,
+        flex_wrap: data.flex_wrap,
+        flex_direction: taffy_direction,
+        container_width,
+        container_height,
+    });
+
+    let (available_width, available_height) = match data.direction {
+        FlexDirection::Row | FlexDirection::RowReverse => (data.width, Coord::MAX),
+        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, data.height),
+    };
+
+    builder.compute_layout(available_width, available_height);
+
+    // Extract results using the cache generator to handle repeaters.
+    // If `order` sorting was applied, we need to collect results by original index first,
+    // because the cache generator expects items in their original declaration order.
+    if builder.order_map.is_empty() {
+        let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        for idx in 0..data.cells_h.len() {
+            let (x, y, w, h) = builder.child_geometry(idx);
+            generator.add(x, y, w, h);
+        }
+    } else {
+        let count = data.cells_h.len();
+        let mut geom = alloc::vec![(0 as Coord, 0 as Coord, 0 as Coord, 0 as Coord); count];
+        for taffy_idx in 0..count {
+            let orig_idx = builder.original_index(taffy_idx);
+            geom[orig_idx] = builder.child_geometry(taffy_idx);
+        }
+        let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        for (x, y, w, h) in geom {
+            generator.add(x, y, w, h);
+        }
+    }
+
+    result
+}
+
+/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexBoxLayout
+/// This handles both main-axis (simple) and cross-axis (wrapping-aware) cases.
+/// The constraint_size is the perpendicular dimension to orientation:
+/// - For Horizontal orientation: constraint_size is height
+/// - For Vertical orientation: constraint_size is width
+///
+/// The constraint_size is ignored for main-axis calculation.
+pub fn flexbox_layout_info(
+    cells_h: Slice<FlexBoxLayoutItemInfo>,
+    cells_v: Slice<FlexBoxLayoutItemInfo>,
+    spacing_h: Coord,
+    spacing_v: Coord,
+    padding_h: &Padding,
+    padding_v: &Padding,
+    orientation: Orientation,
+    direction: FlexDirection,
+    constraint_size: Coord,
+    flex_wrap: FlexWrap,
+) -> LayoutInfo {
+    if cells_h.is_empty() {
+        assert!(cells_v.is_empty());
+        let padding = match orientation {
+            Orientation::Horizontal => padding_h,
+            Orientation::Vertical => padding_v,
+        };
+        let pad = padding.begin + padding.end;
+        return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
+    }
+
+    let (cells, padding, spacing) = match orientation {
+        Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
+        Orientation::Vertical => (&cells_v, padding_v, spacing_v),
+    };
+    let extra_pad = padding.begin + padding.end;
+
+    // Determine if we're asking for main-axis or cross-axis
+    let is_main_axis = matches!(
+        (direction, orientation),
+        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
+            | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
+    );
+
+    let min = if matches!(flex_wrap, FlexWrap::NoWrap) && is_main_axis {
+        // No wrapping: items must all fit in one line, min = sum of minimums + spacing
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>()
+            + spacing * (cells.len().saturating_sub(1)) as Coord
+            + extra_pad
+    } else {
+        // Wrapping (or cross-axis): the widest/tallest single item must fit
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+    };
+
+    // The main-axis constraint determines how items wrap.
+    let main_axis_constraint = if is_main_axis {
+        // Note that constraint_size is not used for the main axis
+        if matches!(flex_wrap, FlexWrap::NoWrap) {
+            // No wrapping: items won't wrap regardless of size, use max content
+            Coord::MAX
+        } else {
+            // Use sqrt of total item area as an approximation.
+            let total_area = cells_h
+                .iter()
+                .map(|c| c.constraint.preferred_bounded())
+                .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
+                .map(|(h, v)| h * v)
+                .sum::<Coord>();
+            let count = cells.len();
+            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+        }
+    } else {
+        // For cross-axis queries, use the provided constraint_size.
+        constraint_size
+    };
+
+    let taffy_direction = match direction {
+        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+    };
+
+    let (container_width, container_height) = match direction {
+        FlexDirection::Row | FlexDirection::RowReverse => (Some(main_axis_constraint), None),
+        FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(main_axis_constraint)),
+    };
+
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+        cells_h: &cells_h,
+        cells_v: &cells_v,
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        alignment: LayoutAlignment::Start,
+        align_content: FlexAlignContent::Stretch,
+        align_items: FlexAlignItems::Stretch,
+        flex_wrap,
+        flex_direction: taffy_direction,
+        container_width,
+        container_height,
+    });
+
+    let (available_width, available_height) = match direction {
+        FlexDirection::Row | FlexDirection::RowReverse => (main_axis_constraint, Coord::MAX),
+        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, main_axis_constraint),
+    };
+
+    builder.compute_layout(available_width, available_height);
+
+    let preferred = if is_main_axis {
+        // For main-axis, container_size() returns max(content, available_space) for
+        // multi-line layouts, giving back our approximation unchanged. Scan child
+        // positions to find the actual extent of the widest row.
+        let mut min_pos = Coord::MAX;
+        let mut max_end = 0.0 as Coord;
+        for i in 0..cells_h.len() {
+            let (x, y, w, h) = builder.child_geometry(i);
+            let (pos, size) = match orientation {
+                Orientation::Horizontal => (x, w),
+                Orientation::Vertical => (y, h),
+            };
+            min_pos = min_pos.min(pos);
+            max_end = max_end.max(pos + size);
+        }
+        (max_end - min_pos) + padding.begin + padding.end
+    } else {
+        // For cross-axis, the queried dimension is Auto so container_size() returns
+        // the content-based size directly.
+        let (total_width, total_height) = builder.container_size();
+        match orientation {
+            Orientation::Horizontal => total_width,
+            Orientation::Vertical => total_height,
+        }
+    };
+
+    let stretch =
+        if is_main_axis { cells.iter().map(|c| c.constraint.stretch).sum::<f32>() } else { 0.0 };
+
+    LayoutInfo {
+        min,
+        max: Coord::MAX, // TODO?
+        min_percent: 0 as _,
+        max_percent: 100 as _,
+        preferred,
+        stretch,
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -1238,6 +1960,43 @@ pub(crate) mod ffi {
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
     }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_solve_flexbox_layout(
+        data: &FlexBoxLayoutData,
+        repeater_indices: Slice<u32>,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_flexbox_layout(data, repeater_indices)
+    }
+
+    #[unsafe(no_mangle)]
+    /// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
+    pub extern "C" fn slint_flexbox_layout_info(
+        cells_h: Slice<FlexBoxLayoutItemInfo>,
+        cells_v: Slice<FlexBoxLayoutItemInfo>,
+        spacing_h: Coord,
+        spacing_v: Coord,
+        padding_h: &Padding,
+        padding_v: &Padding,
+        orientation: Orientation,
+        direction: FlexDirection,
+        constraint_size: Coord,
+        flex_wrap: FlexWrap,
+    ) -> LayoutInfo {
+        super::flexbox_layout_info(
+            cells_h,
+            cells_v,
+            spacing_h,
+            spacing_v,
+            padding_h,
+            padding_v,
+            orientation,
+            direction,
+            constraint_size,
+            flex_wrap,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -1274,8 +2033,7 @@ mod tests {
         // 2 fixed cells
         let mut result = GridLayoutOrganizedData::default();
         let num_cells = 2;
-        result.resize(num_cells * 4, 0 as _);
-        let mut generator = OrganizedDataGenerator::new(&[], &[], &mut result);
+        let mut generator = OrganizedDataGenerator::new(&[], &[], num_cells, 0, 0, &mut result);
         generator.add(0, 1, 0, 1);
         generator.add(1, 2, 0, 3);
         assert_eq!(result.as_slice(), &[0, 1, 0, 1, 1, 2, 0, 3]);
@@ -1302,8 +2060,8 @@ mod tests {
         let mut result = GridLayoutOrganizedData::default();
         let num_cells = 4;
         let repeater_indices = &[1u32, 3u32];
-        result.resize(num_cells * 4 + 2 * repeater_indices.len(), 0 as _);
-        let mut generator = OrganizedDataGenerator::new(repeater_indices, &[], &mut result);
+        let mut generator =
+            OrganizedDataGenerator::new(repeater_indices, &[], 1, 1, 3, &mut result);
         generator.add(0, 1, 0, 2); // fixed
         generator.add(1, 2, 1, 3); // repeated
         generator.add(1, 1, 2, 4);
@@ -1311,9 +2069,11 @@ mod tests {
         assert_eq!(
             result.as_slice(),
             &[
-                0, 1, 0, 2, // fixed
-                8, 9, 10, 11, // jump to repeater data
-                1, 2, 1, 3, 1, 1, 2, 4, 2, 2, 3, 5 // repeater data
+                0, 1, 0, 2, // fixed cell
+                8, 4, 0, 0, // jump cell: data_base=8, stride=4 (step=1, epi=4)
+                1, 2, 1, 3, // repeated cell 1
+                1, 1, 2, 4, // repeated cell 2
+                2, 2, 3, 5, // repeated cell 3
             ]
         );
         let repeater_indices = Slice::from_slice(repeater_indices);
@@ -1440,17 +2200,19 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                28, 29, 30, 31, // jump to first (empty) repeater (not used)
-                0, 1, 0, 1, // first row, first column
-                28, 29, 30, 31, // jump to first repeater data
-                5, 1, 0, 1, // fixed
-                44, 45, 46, 47, // jump to second repeater data
-                52, 53, 54, 55, // slot for jumping to 3rd repeater (out of bounds, not used)
-                8, 1, 0, 1, // final fixed element
-                1, 1, 0, 1, // first repeater data
-                2, 1, 0, 1, 3, 1, 0, 1, 4, 1, 0, 1, // end of first repeater
-                6, 1, 0, 1, // second repeater data
-                7, 1, 0, 1 // end of second repeater
+                28, 4, 0, 0, // rep0 jump: data at 28, stride=4 (empty)
+                0, 1, 0, 1, // fixed cell (col=0)
+                28, 4, 0, 0, // rep1 jump: data at 28, stride=4 (4 rows)
+                5, 1, 0, 1, // fixed cell (col=5)
+                44, 4, 0, 0, // rep2 jump: data at 44, stride=4 (2 rows)
+                52, 4, 0, 0, // rep3 jump: data at 52, stride=4 (empty)
+                8, 1, 0, 1, // fixed cell (col=8)
+                1, 1, 0, 1, // rep1 row 0
+                2, 1, 0, 1, // rep1 row 1
+                3, 1, 0, 1, // rep1 row 2
+                4, 1, 0, 1, // rep1 row 3
+                6, 1, 0, 1, // rep2 row 0
+                7, 1, 0, 1, // rep2 row 1
             ]
         );
         assert_eq!(errors.len(), 0);
@@ -1516,14 +2278,10 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                8, 9, 10, 11, // jump to repeater data for column 0 (offset 2)
-                12, 13, 14, 15, // jump to repeater data for column 1 (offset 3)
-                0, 1, 0, 1, // row 0, col 0 (offset 2)
-                1, 1, 0, 1, // row 0, col 1 (offset 3)
-                0, 1, 1, 1, // row 1, col 0 (offset 4)
-                1, 1, 1, 1, // row 1, col 1 (offset 5)
-                0, 1, 2, 1, // row 2, col 0 (offset 6)
-                1, 1, 2, 1, // row 2, col 1 (offset 7)
+                4, 8, 0, 0, // jump cell: data at u16 idx 4, stride=8 (=step*4=2*4)
+                0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
+                0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
+                0, 1, 2, 1, 1, 1, 2, 1, // row 2: col 0, col 1
             ]
         );
         assert_eq!(errors.len(), 0);
@@ -1557,13 +2315,14 @@ mod tests {
             3
         );
 
-        // Now test LayoutCacheGenerator
+        // Now test GridLayoutCacheGenerator
         let mut layout_cache_v = SharedVector::<Coord>::default();
-        // 2 jump entries (one per column) + 6 data entries (3 rows × 2 columns)
-        layout_cache_v.resize((num_columns * 2 + num_columns * num_rows * 2) as usize, 0 as _);
-        let mut generator = LayoutCacheGenerator::new(
+        let mut generator = GridLayoutCacheGenerator::new(
             repeater_indices.as_slice(),
             repeater_steps.as_slice(),
+            0, // static_cells
+            1, // num_repeaters
+            6, // total_repeated_cells (3 rows * 2 columns)
             &mut layout_cache_v,
         );
         // Row 0
@@ -1578,29 +2337,32 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                4., 5., 6., 7., // jump to repeater data
+                2., 4., // jump cell: data at pos 2, stride=4 (=step*2=2*2)
                 0., 50., 0., 50., // row 0
                 50., 50., 50., 50., // row 1
                 100., 50., 100., 50., // row 2
             ]
         );
 
-        let layout_cache_v_access = |index: usize, repeater_index: usize, step: usize| -> Coord {
-            let entries_per_item = 2usize;
-            let offset = repeater_index;
-            // same as the code generated for LayoutCacheAccess in rust.rs
-            *layout_cache_v
-                .get((layout_cache_v[index] as usize) + offset as usize * entries_per_item * step)
-                .unwrap()
+        // GridRepeaterCacheAccess: cache[cache[jump_index] + ri * stride + child_offset]
+        let layout_cache_v_access = |jump_index: usize,
+                                     repeater_index: usize,
+                                     stride: usize,
+                                     child_offset: usize|
+         -> Coord {
+            let base = layout_cache_v[jump_index] as usize;
+            let data_idx = base + repeater_index * stride + child_offset;
+            layout_cache_v[data_idx]
         };
-        // Y values for A
-        assert_eq!(layout_cache_v_access(0, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(0, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(0, 2, 2), 100.);
-        // Y values for B
-        assert_eq!(layout_cache_v_access(1 * 2, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(1 * 2, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(1 * 2, 2, 2), 100.);
+        // stride=4 (step=2, entries_per_item=2)
+        // Y pos for child 0 (child_offset=0)
+        assert_eq!(layout_cache_v_access(0, 0, 4, 0), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 0), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 0), 100.);
+        // Y pos for child 1 (child_offset=2)
+        assert_eq!(layout_cache_v_access(0, 0, 4, 2), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 2), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 2), 100.);
     }
 
     #[test]
@@ -1637,25 +2399,15 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                20, 21, 22, 23, // repeater 0: jump to repeater data for column 0 (offset 5)
-                24, 25, 26, 27, // repeater 0: jump to repeater data for column 1 (offset 6)
-                44, 45, 46, 47, // repeater 1: jump to repeater data for column 0 (offset 11)
-                48, 49, 50, 51, // repeater 1: jump to repeater data for column 1 (offset 12)
-                52, 53, 54, 55, // repeater 1: jump to repeater data for column 2 (offset 13)
-                // Repeater 0
-                0, 1, 0, 1, // row 0, col 0 (offset 5)
-                1, 1, 0, 1, // row 0, col 1 (offset 6)
-                0, 1, 1, 1, // row 1, col 0 (offset 7)
-                1, 1, 1, 1, // row 1, col 1 (offset 8)
-                0, 1, 2, 1, // row 2, col 0 (offset 9)
-                1, 1, 2, 1, // row 2, col 1 (offset 10)
-                // Repeater 1
-                0, 1, 3, 1, // row 3, col 0 (offset 11)
-                1, 1, 3, 1, // row 3, col 1 (offset 12)
-                2, 1, 3, 1, // row 3, col 2 (offset 13)
-                0, 1, 4, 1, // row 4, col 0 (offset 14)
-                1, 1, 4, 1, // row 4, col 1 (offset 15)
-                2, 1, 4, 1, // row 4, col 2 (offset 16)
+                8, 8, 0, 0, // repeater 0 jump: data at 8, stride=8 (=step*4=2*4)
+                32, 12, 0, 0, // repeater 1 jump: data at 32, stride=12 (=step*4=3*4)
+                // Repeater 0 data
+                0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
+                0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
+                0, 1, 2, 1, 1, 1, 2, 1, // row 2: col 0, col 1
+                // Repeater 1 data
+                0, 1, 3, 1, 1, 1, 3, 1, 2, 1, 3, 1, // row 0: col 0, col 1, col 2
+                0, 1, 4, 1, 1, 1, 4, 1, 2, 1, 4, 1, // row 1: col 0, col 1, col 2
             ]
         );
         assert_eq!(errors.len(), 0);
@@ -1702,13 +2454,14 @@ mod tests {
             num_rows as u16 // max row (4) + rowspan (1) = 5
         );
 
-        // Now test LayoutCacheGenerator
+        // Now test GridLayoutCacheGenerator
         let mut layout_cache_v = SharedVector::<Coord>::default();
-        // 5 jump entries, just like above + 12 data entries (3*2+2*3) - where each entry has 2 values (pos, size)
-        layout_cache_v.resize((5 * 2 + (3 * 2 + 2 * 3) * 2) as usize, 0 as _);
-        let mut generator = LayoutCacheGenerator::new(
+        let mut generator = GridLayoutCacheGenerator::new(
             repeater_indices.as_slice(),
             repeater_steps.as_slice(),
+            0,  // static_cells
+            2,  // num_repeaters
+            12, // total_repeated_cells (3*2 + 2*3)
             &mut layout_cache_v,
         );
         // Row 0
@@ -1731,32 +2484,40 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                10., 11., 12., 13., // repeater 0: jump to repeater data
-                22., 23., 24., 25., 26., 27., // repeater 1: jump to repeater data
-                0., 50., 0., 50., // row 0
-                50., 50., 50., 50., // row 1
-                100., 50., 100., 50., // row 2
-                150., 50., 150., 50., 150., 50., // row 3
-                200., 50., 200., 50., 200., 50., // row 4
+                4., 4., // repeater 0 jump: data at pos 4, stride=4 (=step*2=2*2)
+                16., 6., // repeater 1 jump: data at pos 16, stride=6 (=step*2=3*2)
+                0., 50., 0., 50., // repeater 0 row 0 data
+                50., 50., 50., 50., // repeater 0 row 1 data
+                100., 50., 100., 50., // repeater 0 row 2 data
+                150., 50., 150., 50., 150., 50., // repeater 1 row 3 data
+                200., 50., 200., 50., 200., 50., // repeater 1 row 4 data
             ]
         );
 
-        let layout_cache_v_access = |index: usize, repeater_index: usize, step: usize| -> Coord {
-            let entries_per_item = 2usize;
-            let offset = repeater_index;
-            // same as the code generated for LayoutCacheAccess in rust.rs
-            *layout_cache_v
-                .get((layout_cache_v[index] as usize) + offset as usize * entries_per_item * step)
-                .unwrap()
+        // GridRepeaterCacheAccess: cache[cache[jump_index] + ri * stride + child_offset]
+        let layout_cache_v_access = |jump_index: usize,
+                                     repeater_index: usize,
+                                     stride: usize,
+                                     child_offset: usize|
+         -> Coord {
+            let base = layout_cache_v[jump_index] as usize;
+            let data_idx = base + repeater_index * stride + child_offset;
+            layout_cache_v[data_idx]
         };
-        // Y values for A
-        assert_eq!(layout_cache_v_access(0, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(0, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(0, 2, 2), 100.);
-        // Y values for B
-        assert_eq!(layout_cache_v_access(1 * 2, 0, 2), 0.);
-        assert_eq!(layout_cache_v_access(1 * 2, 1, 2), 50.);
-        assert_eq!(layout_cache_v_access(1 * 2, 2, 2), 100.);
+        // Repeater 0: Y pos for child 0 (child_offset=0), stride=4
+        assert_eq!(layout_cache_v_access(0, 0, 4, 0), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 0), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 0), 100.);
+        // Repeater 0: Y pos for child 1 (child_offset=2), stride=4
+        assert_eq!(layout_cache_v_access(0, 0, 4, 2), 0.);
+        assert_eq!(layout_cache_v_access(0, 1, 4, 2), 50.);
+        assert_eq!(layout_cache_v_access(0, 2, 4, 2), 100.);
+        // Repeater 1: Y pos for child 0 (child_offset=0), jump at index 2, stride=6
+        assert_eq!(layout_cache_v_access(2, 0, 6, 0), 150.);
+        assert_eq!(layout_cache_v_access(2, 1, 6, 0), 200.);
+        // Repeater 1: Y pos for child 2 (child_offset=4), jump at index 2, stride=6
+        assert_eq!(layout_cache_v_access(2, 0, 6, 4), 150.);
+        assert_eq!(layout_cache_v_access(2, 1, 6, 4), 200.);
     }
 
     #[test]
@@ -1764,7 +2525,7 @@ mod tests {
         // 2 fixed cells
         let mut result = SharedVector::<Coord>::default();
         result.resize(2 * 2, 0 as _);
-        let mut generator = LayoutCacheGenerator::new(&[], &[], &mut result);
+        let mut generator = LayoutCacheGenerator::new(&[], &mut result);
         generator.add(0., 50.); // fixed
         generator.add(80., 50.); // fixed
         assert_eq!(result.as_slice(), &[0., 50., 80., 50.]);
@@ -1776,7 +2537,7 @@ mod tests {
         let mut result = SharedVector::<Coord>::default();
         let repeater_indices = &[1, 3];
         result.resize(4 * 2 + repeater_indices.len(), 0 as _);
-        let mut generator = LayoutCacheGenerator::new(repeater_indices, &[], &mut result);
+        let mut generator = LayoutCacheGenerator::new(repeater_indices, &mut result);
         generator.add(0., 50.); // fixed
         generator.add(80., 50.); // repeated
         generator.add(160., 50.);
@@ -1797,7 +2558,7 @@ mod tests {
         let mut result = SharedVector::<Coord>::default();
         let repeater_indices = &[1, 0, 1, 4, 6, 2, 8, 0];
         result.resize(8 * 2 + repeater_indices.len(), 0 as _);
-        let mut generator = LayoutCacheGenerator::new(repeater_indices, &[], &mut result);
+        let mut generator = LayoutCacheGenerator::new(repeater_indices, &mut result);
         generator.add(0., 50.); // fixed
         generator.add(80., 10.); // repeated
         generator.add(160., 10.);

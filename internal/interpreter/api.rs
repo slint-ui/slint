@@ -8,7 +8,7 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::input::KeyboardShortcut;
+use i_slint_core::input::Keys;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
@@ -138,8 +138,8 @@ pub enum Value {
     StyledText(StyledText) = 13,
     #[doc(hidden)]
     ArrayOfU16(SharedVector<u16>) = 14,
-    /// Correspond to the `keyboard-shortcut` type in .slint
-    KeyboardShortcut(KeyboardShortcut) = 15,
+    /// Correspond to the `keys` type in .slint
+    Keys(Keys) = 15,
 }
 
 impl Value {
@@ -189,8 +189,8 @@ impl PartialEq for Value {
             Value::StyledText(lhs) => {
                 matches!(other, Value::StyledText(rhs) if lhs == rhs)
             }
-            Value::KeyboardShortcut(lhs) => {
-                matches!(other, Value::KeyboardShortcut(rhs) if lhs == rhs)
+            Value::Keys(lhs) => {
+                matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
         }
     }
@@ -220,7 +220,7 @@ impl std::fmt::Debug for Value {
             Value::ArrayOfU16(data) => {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
-            Value::KeyboardShortcut(ks) => write!(f, "Value::KeyboardShortcut({ks})"),
+            Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
         }
     }
 }
@@ -265,7 +265,7 @@ declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
-declare_value_conversion!(KeyboardShortcut => [KeyboardShortcut]);
+declare_value_conversion!(Keys => [Keys]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -302,9 +302,7 @@ macro_rules! declare_value_struct_conversion {
             export {
                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
             }
-            private {
-                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-            }
+            private { $($pri:tt)* }
         }
     )*) => {
         $(
@@ -312,7 +310,6 @@ macro_rules! declare_value_struct_conversion {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
                     $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
-                    $(handle_private!(SET $Name $pri_field, struct_, item);)*
                     Value::Struct(struct_)
                 }
             }
@@ -326,7 +323,6 @@ macro_rules! declare_value_struct_conversion {
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
                             $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
-                            $(handle_private!(GET $Name $pri_field, x, res);)*
                             Ok(res)
                         }
                         _ => Err(()),
@@ -337,21 +333,10 @@ macro_rules! declare_value_struct_conversion {
     };
 }
 
-macro_rules! handle_private {
-    (SET StateInfo $field:ident, $struct_:ident, $item:ident) => {
-        $struct_.set_field(stringify!($field).into(), $item.$field.into())
-    };
-    (SET $_:ident $field:ident, $struct_:ident, $item:ident) => {{}};
-    (GET StateInfo $field:ident, $struct_:ident, $item:ident) => {
-        $item.$field =
-            $struct_.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_| ())?
-    };
-    (GET $_:ident $field:ident, $struct_:ident, $item:ident) => {{}};
-}
-
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
+declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 

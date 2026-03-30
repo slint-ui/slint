@@ -128,6 +128,12 @@ pub trait RendererSealed {
             .map(|window_adapter| ScaleFactor::new(window_adapter.window().scale_factor()))
     }
 
+    #[cfg(feature = "shared-parley")]
+    fn slint_context(&self) -> Option<crate::SlintContext> {
+        self.window_adapter()
+            .map(|wa| crate::window::WindowInner::from_pub(wa.window()).context().clone())
+    }
+
     fn default_font_size(&self) -> LogicalLength;
 
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {

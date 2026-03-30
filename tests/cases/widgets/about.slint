@@ -23,6 +23,12 @@ let image = image_search.next().unwrap();
 assert_eq!(image.accessible_role(), Some(AccessibleRole::Image));
 
 let _ = instance.global::<Palette<'_>>().get_color_scheme();
+
+// clicking on about slint should open slint.dev
+let pos = image.absolute_position();
+slint_testing::send_mouse_click(&instance, pos.x, pos.y);
+let url = slint_testing::access_testing_window(instance.window(), |window| window.open_url());
+assert_eq!(url, Some("https://slint.dev".into()));
 ```
 
 ```cpp

@@ -146,6 +146,11 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
                 href: linkMap.ImageType.href,
                 defaultValue: "the empty image",
             };
+        case "keys":
+            return {
+                href: linkMap["keys"].href,
+                defaultValue: "@keys()",
+            };
         case "int":
             return {
                 href: linkMap.int.href,
@@ -184,6 +189,16 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
         case "string":
             return {
                 href: linkMap.StringType.href,
+                defaultValue: '""',
+            };
+        case "styled-text":
+            return {
+                href: linkMap.styled_text.href,
+                defaultValue: '""',
+            };
+        case "callback":
+            return {
+                href: linkMap.callback.href,
                 defaultValue: '""',
             };
         case "struct":

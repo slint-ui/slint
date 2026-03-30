@@ -47,6 +47,15 @@ pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
+// Note: flex-align-self is also a flexbox property but is added in reserved_properties()
+// because Type::Enumeration requires a runtime Rc allocation.
+pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
+    ("flex-grow", Type::Float32),
+    ("flex-shrink", Type::Float32),
+    ("flex-basis", Type::LogicalLength),
+    ("flex-order", Type::Int32),
+];
+
 macro_rules! declare_enums {
     ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         #[allow(non_snake_case)]
@@ -86,9 +95,11 @@ pub struct BuiltinTypes {
     pub logical_size_type: Rc<Struct>,
     pub font_metrics_type: Type,
     pub layout_info_type: Rc<Struct>,
+    pub state_info_type: Rc<Struct>,
     pub gridlayout_input_data_type: Type,
     pub path_element_type: Type,
-    pub box_layout_cell_data_type: Type,
+    pub layout_item_info_type: Type,
+    pub flexbox_layout_item_info_type: Type,
 }
 
 impl BuiltinTypes {
@@ -105,8 +116,10 @@ impl BuiltinTypes {
                 .collect(),
             name: BuiltinPrivateStruct::LayoutInfo.into(),
         });
+        let enums = BuiltinEnums::new();
+        let flex_align_self_type = Type::Enumeration(enums.FlexAlignSelf.clone());
         Self {
-            enums: BuiltinEnums::new(),
+            enums,
             logical_point_type: Rc::new(Struct {
                 fields: IntoIterator::into_iter([
                     (SmolStr::new_static("x"), Type::LogicalLength),
@@ -144,14 +157,38 @@ impl BuiltinTypes {
                 arg_names: Vec::new(),
             })),
             layout_info_type: layout_info_type.clone(),
+            state_info_type: Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    (SmolStr::new_static("current-state"), Type::Int32),
+                    (SmolStr::new_static("previous-state"), Type::Int32),
+                    (SmolStr::new_static("change-time"), Type::Duration),
+                ])
+                .collect(),
+                name: BuiltinPrivateStruct::StateInfo.into(),
+            }),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
                 name: BuiltinPrivateStruct::PathElement.into(),
             })),
-            box_layout_cell_data_type: Type::Struct(Rc::new(Struct {
-                fields: IntoIterator::into_iter([("constraint".into(), layout_info_type.into())])
-                    .collect(),
+            layout_item_info_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([(
+                    "constraint".into(),
+                    layout_info_type.clone().into(),
+                )])
+                .collect(),
                 name: BuiltinPrivateStruct::LayoutItemInfo.into(),
+            })),
+            flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct {
+                fields: IntoIterator::into_iter([
+                    ("constraint".into(), layout_info_type.into()),
+                    ("flex-grow".into(), Type::Float32),
+                    ("flex-shrink".into(), Type::Float32),
+                    ("flex-basis".into(), Type::Float32),
+                    ("flex-align-self".into(), flex_align_self_type),
+                    ("flex-order".into(), Type::Int32),
+                ])
+                .collect(),
+                name: BuiltinPrivateStruct::FlexBoxLayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -258,6 +295,18 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 .iter()
                 .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
         )
+        .chain(
+            RESERVED_FLEXBOXLAYOUT_PROPERTIES
+                .iter()
+                .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input)),
+        )
+        // flex-align-self is a flexbox-layout property but can't be in the const array
+        // because Type::Enumeration requires a runtime Rc allocation.
+        .chain(std::iter::once((
+            "flex-align-self",
+            Type::Enumeration(BUILTIN.with(|e| e.enums.FlexAlignSelf.clone())),
+            PropertyVisibility::Input,
+        )))
         .chain(IntoIterator::into_iter([
             ("absolute-position", logical_point_type().into(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
@@ -414,7 +463,7 @@ impl TypeRegister {
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);
         register.insert_type(Type::StyledText);
-        register.insert_type(Type::KeyboardShortcutType);
+        register.insert_type(Type::Keys);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 
@@ -580,9 +629,6 @@ impl TypeRegister {
         register.elements.remove("DragArea").unwrap();
         register.elements.remove("DropArea").unwrap();
         register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
-
-        register.elements.remove("StyledText").unwrap();
-        register.types.remove("styled-text").unwrap();
 
         match register.elements.get_mut("Window").unwrap() {
             ElementType::Builtin(b) => {
@@ -792,6 +838,12 @@ pub mod builtin_structs {
                 }
             }
 
+            impl Default for BuiltinStructs {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
+
             $(
             #[allow(non_snake_case)]
             pub fn $Name() -> Rc<Struct> {
@@ -826,6 +878,11 @@ pub fn path_element_type() -> Type {
 }
 
 /// The [`Type`] for a runtime LayoutItemInfo structure
-pub fn box_layout_cell_data_type() -> Type {
-    BUILTIN.with(|types| types.box_layout_cell_data_type.clone())
+pub fn layout_item_info_type() -> Type {
+    BUILTIN.with(|types| types.layout_item_info_type.clone())
+}
+
+/// The [`Type`] for a runtime FlexBoxLayoutItemInfo structure
+pub fn flexbox_layout_item_info_type() -> Type {
+    BUILTIN.with(|types| types.flexbox_layout_item_info_type.clone())
 }

@@ -15,10 +15,18 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
-#[cfg(not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))]
+#[cfg(not(any(
+    target_os = "openbsd",
+    target_os = "windows",
+    all(target_arch = "aarch64", target_os = "linux")
+)))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(not(any(target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))]
+#[cfg(not(any(
+    target_os = "openbsd",
+    target_os = "windows",
+    all(target_arch = "aarch64", target_os = "linux")
+)))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
@@ -123,7 +131,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "gettext")]
     if let Some(dirname) = args.translation_dir.clone() {
         i_slint_core::translations::gettext_bindtextdomain(
-            args.translation_domain.as_ref().map(String::as_str).unwrap_or_default(),
+            args.translation_domain.as_deref().unwrap_or_default(),
             dirname,
         )?;
     };
@@ -174,6 +182,22 @@ fn main() -> Result<()> {
                 Err(e) => {
                     eprintln!("Failed to turn property {name} into JSON: {e}");
                 }
+            }
+        }
+        for global_name in c.globals() {
+            let mut g_obj = serde_json::Map::new();
+            for (name, _) in c.global_properties(&global_name).unwrap() {
+                match component.get_global_property(&global_name, &name).unwrap().to_json() {
+                    Ok(v) => {
+                        g_obj.insert(name, v);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to turn property {global_name}.{name} into JSON: {e}");
+                    }
+                }
+            }
+            if !g_obj.is_empty() {
+                obj.insert(global_name, serde_json::Value::Object(g_obj));
             }
         }
         if data_path == std::path::Path::new("-") {
@@ -264,7 +288,7 @@ fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>
 }
 
 /// Init dialog if `instance` is a Dialog
-/// - Initializing the callbacks for `ok`, `yes`, `close`, `cancel` or `no` to quit the event loop
+/// Initializes the callbacks for `ok`, `yes`, `close`, `cancel` or `no` to quit the event loop
 /// When one of those callbacks gets triggered the preview gets closed as well
 fn init_dialog(instance: &ComponentInstance) {
     for cb in instance.definition().callbacks() {
@@ -294,18 +318,17 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
     std::thread::spawn(move || {
         while let Ok(event) = rx.recv() {
             use notify::EventKind::*;
-            if let Ok(event) = event {
-                if (matches!(event.kind, Modify(_) | Remove(_) | Create(_)))
-                    && PENDING_EVENTS.load(Ordering::SeqCst) == 0
-                {
-                    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-                    let args = args.clone();
-                    let w2 = w2.clone();
-                    i_slint_core::api::invoke_from_event_loop(move || {
-                        slint_interpreter::spawn_local(reload(args, w2)).unwrap();
-                    })
-                    .unwrap();
-                }
+            if let Ok(event) = event
+                && (matches!(event.kind, Modify(_) | Remove(_) | Create(_)))
+                && PENDING_EVENTS.load(Ordering::SeqCst) == 0
+            {
+                PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
+                let args = args.clone();
+                let w2 = w2.clone();
+                i_slint_core::api::invoke_from_event_loop(move || {
+                    slint_interpreter::spawn_local(reload(args, w2)).unwrap();
+                })
+                .unwrap();
             }
         }
     });
@@ -357,6 +380,12 @@ fn load_data(
     };
 
     let types = c.properties_and_callbacks().collect::<HashMap<_, _>>();
+    let globals = c.globals();
+    let globals_types = globals
+        .filter_map(|g| {
+            c.global_properties_and_callbacks(&g).map(|iter| (g, iter.collect::<HashMap<_, _>>()))
+        })
+        .collect::<HashMap<_, _>>();
     let obj = json.as_object().ok_or("The data is not a JSON object")?;
     for (name, v) in obj {
         match types.get(name.as_str()) {
@@ -369,14 +398,70 @@ fn load_data(
                 },
                 Err(e) => eprintln!("Warning: cannot set property '{name}' from data file: {e}"),
             },
-            None => eprintln!("Warning: ignoring unknown property: {name}"),
+            None => match name.split_once('.') {
+                Some((global_name, prop_name)) => {
+                    match globals_types.get(global_name).and_then(|m| m.get(prop_name)) {
+                        Some((t, _)) => match slint_interpreter::Value::from_json(t, v) {
+                            Ok(v) => {
+                                match instance.set_global_property(global_name, prop_name, v) {
+                                    Ok(()) => (),
+                                    Err(e) => {
+                                        eprintln!(
+                                            "Warning: cannot set property '{name}' from data file: {e}"
+                                        )
+                                    }
+                                }
+                            }
+                            Err(e) => eprintln!(
+                                "Warning: cannot set property '{name}' from data file: {e}"
+                            ),
+                        },
+                        None => eprintln!("Warning: ignoring unknown property: {name}"),
+                    }
+                }
+                None => match globals_types.get(name.as_str()) {
+                    Some(global_types) => match v {
+                        serde_json::Value::Object(map) => {
+                            for (inner_name, v) in map {
+                                match global_types.get(inner_name.as_str()) {
+                                    Some((t, _)) => match slint_interpreter::Value::from_json(t, v)
+                                    {
+                                        Ok(v) => match instance
+                                            .set_global_property(name, inner_name, v)
+                                        {
+                                            Ok(()) => (),
+                                            Err(e) => {
+                                                eprintln!(
+                                                    "Warning: cannot set property '{name}.{inner_name}' from data file: {e}"
+                                                )
+                                            }
+                                        },
+                                        Err(e) => eprintln!(
+                                            "Warning: cannot set property '{name}.{inner_name}' from data file: {e}"
+                                        ),
+                                    },
+                                    None => eprintln!(
+                                        "Warning: ignoring unknown property: {name}.{inner_name}"
+                                    ),
+                                }
+                            }
+                        }
+                        _ => {
+                            eprintln!(
+                                "Warning: cannot set global '{name}' properties: The data is not a JSON object"
+                            )
+                        }
+                    },
+                    None => eprintln!("Warning: ignoring unknown property: {name}"),
+                },
+            },
         }
     }
     Ok(())
 }
 
 fn install_callbacks(instance: &ComponentInstance, callbacks: &[String]) {
-    assert!(callbacks.len() % 2 == 0);
+    assert!(callbacks.len().is_multiple_of(2));
     for chunk in callbacks.chunks(2) {
         if let [callback, cmd] = chunk {
             let cmd = cmd.clone();

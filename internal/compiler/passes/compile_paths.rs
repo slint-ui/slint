@@ -32,14 +32,6 @@ pub fn compile_paths(
             return;
         }
 
-        #[cfg(feature = "software-renderer")]
-        if _embed_resources == EmbedResourcesKind::EmbedTextures {
-            diag.push_warning(
-                "Path element is not supported with the software renderer".into(),
-                &*elem_.borrow(),
-            )
-        }
-
         let element_types = &path_type.additional_accepted_child_types;
 
         let commands_binding =
@@ -71,10 +63,20 @@ pub fn compile_paths(
                         }
                     }
                 }
-                expr if expr.ty() == Type::String => Expression::PathData(
-                    crate::expression_tree::Path::Commands(Box::new(commands_expr.expression)),
-                )
-                .into(),
+                expr if expr.ty() == Type::String => {
+                    #[cfg(feature = "software-renderer")]
+                    if _embed_resources == EmbedResourcesKind::EmbedTextures {
+                        diag.push_warning(
+                            "Bindings to the Path element's commands are not supported with the software renderer".into(),
+                            &*elem_.borrow(),
+                        )
+                    }
+
+                    Expression::PathData(crate::expression_tree::Path::Commands(Box::new(
+                        commands_expr.expression,
+                    )))
+                    .into()
+                }
                 _ => {
                     diag.push_error(
                         "The commands property only accepts strings".into(),

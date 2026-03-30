@@ -126,12 +126,7 @@ description: {0} content
             k, e.description
         )?;
         for v in &e.values {
-            write!(
-                file,
-                r#"* **`{}`**: {}
-"#,
-                v.key, v.description
-            )?;
+            writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
         }
 
         file.flush()?;
@@ -302,8 +297,6 @@ pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc
 
     i_slint_common::for_each_builtin_structs!(gen_structs);
 
-    // `StateInfo` should not be in the documentation, so remove it again
-    structs.remove("StateInfo");
     // Internal type
     structs.remove("MenuEntry");
     // Experimental type
@@ -344,12 +337,7 @@ description: {0} content
         )?;
 
         for f in &v.fields {
-            write!(
-                file,
-                r#"- **`{}`** (_{}_): {}
-"#,
-                f.key, f.type_name, f.description
-            )?;
+            writeln!(file, r#"- **`{}`** (_{}_): {}"#, f.key, f.type_name, f.description)?;
         }
 
         file.flush()?;
@@ -386,7 +374,7 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
 
-    let path = enums_dir.join(format!("keys.md"));
+    let path = enums_dir.join("keys.md");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 

@@ -42,6 +42,7 @@ renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-ski
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
+software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
@@ -53,15 +54,16 @@ std = [
   "i-slint-renderer-software?/std",
   "i-slint-core/raw-window-handle-06",
   "i-slint-backend-selector/raw-window-handle-06",
+  "i-slint-core/tr",
 ]
-freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
+freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true, optional = true }
-i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi"] }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["ffi", "internal"] }
 i-slint-renderer-skia = { workspace = true, features = ["default", "x11", "wayland"], optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }

@@ -9,7 +9,7 @@
 #    warning "slint-interpreter.h API only available when SLINT_FEATURE_INTERPRETER is activated"
 #else
 
-#    include "slint_interpreter_internal.h"
+#    include "private/slint_interpreter_internal.h"
 
 #    include <optional>
 

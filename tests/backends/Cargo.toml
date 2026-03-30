@@ -1,0 +1,37 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "test-backends"
+description = "Tests that are shared between the different backends"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+# This disables the default feature selection so that each test binary is forced to set up
+# the right backend and doesn't accidentally just use the default backend!
+slint = { workspace = true, default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+i-slint-backend-winit = { workspace = true, features = ["x11", "wayland", "renderer-software"] }
+i-slint-backend-qt = { workspace = true, features = ["default"] }
+
+# TODO: Add additional test for LinuxKMS, but that requires root permissions.
+# TODO: Add additional test for Android Activity, but that requires an Android device and the Android SDK setup.
+
+# Unfortunately we need to provide our own test harness, so that we can run each test in a separate process and on the main thread.
+# But with satchel + libtest-mimic, this is reasonably easy to do.
+satchel = "0.3"
+libtest-mimic = "0.8"
+linkme = "0.3"
+
+[[test]]
+name = "qt"
+harness = false
+
+[[test]]
+name = "winit"
+harness = false

@@ -40,9 +40,21 @@ int main()
     auto definition = compiler.build_from_path(SOURCE_DIR "/../ui/printerdemo.slint");
 
     for (auto diagnostic : compiler.diagnostics()) {
-        std::cerr << (diagnostic.level == slint::interpreter::DiagnosticLevel::Warning ? "warning: "
-                                                                                       : "error: ")
-                  << diagnostic.message << std::endl;
+        slint::SharedString level;
+        switch (diagnostic.level) {
+        case slint::interpreter::DiagnosticLevel::Warning:
+            level = "warning";
+            break;
+        case slint::interpreter::DiagnosticLevel::Error:
+            level = "error";
+            break;
+        case slint::interpreter::DiagnosticLevel::Note:
+            level = "note";
+            break;
+        default:
+            break;
+        }
+        std::cerr << level << ": " << diagnostic.message << std::endl;
         std::cerr << "location: " << diagnostic.source_file;
         if (diagnostic.line > 0)
             std::cerr << ":" << diagnostic.line;

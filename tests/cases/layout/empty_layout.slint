@@ -23,6 +23,8 @@ export component TestCase inherits Window {
     }
     empty7 := Rectangle { GridLayout { } }
     empty8 := Rectangle { GridLayout { spacing: 3px; padding: 5px; } }
+    empty9 := Rectangle { FlexBoxLayout { } }
+    empty10 := Rectangle { FlexBoxLayout { spacing: 5px; padding: 10px; } }
 
     out property <bool> t1: empty1.min-height == 0 && empty1.min-width == 0 && empty1.preferred-height == 0 && empty1.preferred-width == 0 && empty1.max-height > 10000px && empty1.max-width == 0;
     out property <bool> t2: empty2.min-height == 4px && empty2.min-width == 4px && empty2.preferred-height == 4px && empty2.preferred-width == 4px && empty2.max-height == 4px && empty2.max-width > 100000px;
@@ -32,7 +34,9 @@ export component TestCase inherits Window {
     out property <bool> t6: empty6.min-height == 70phx && empty6.min-width == 80phx && empty6.preferred-height == 70phx && empty6.preferred-width == 80phx && empty6.max-height > 10000px && empty6.max-width == 80phx;
     out property <bool> t7: empty7.min-height == 0 && empty7.min-width == 0 && empty7.preferred-height == 0 && empty7.preferred-width == 0 && empty7.max-height == 0 && empty7.max-width == 0;
     out property <bool> t8: empty8.min-height == 10px && empty8.min-width == 10px && empty8.preferred-height == 10px && empty8.preferred-width == 10px && empty8.max-height == 10px && empty8.max-width == 10px;
-    out property <bool> test: t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8;
+    out property <bool> t9: empty9.min-height == 0 && empty9.min-width == 0 && empty9.preferred-height == 0 && empty9.preferred-width == 0 && empty9.max-height == 0 && empty9.max-width == 0;
+    out property <bool> t10: empty10.min-height == 20px && empty10.min-width == 20px && empty10.preferred-height == 20px && empty10.preferred-width == 20px && empty10.max-height == 20px && empty10.max-width == 20px;
+    out property <bool> test: t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8 && t9 && t10;
 }
 
 /*

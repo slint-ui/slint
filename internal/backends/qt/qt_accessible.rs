@@ -163,15 +163,15 @@ impl PropertyDirtyHandler for FocusDelegationPropertyTracker {
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
-    state_tracker: PropertyTracker<AccessibleItemPropertiesTracker>,
+    state_tracker: PropertyTracker<false, AccessibleItemPropertiesTracker>,
     #[pin]
-    value_tracker: PropertyTracker<ValuePropertyTracker>,
+    value_tracker: PropertyTracker<false, ValuePropertyTracker>,
     #[pin]
-    label_tracker: PropertyTracker<LabelPropertyTracker>,
+    label_tracker: PropertyTracker<false, LabelPropertyTracker>,
     #[pin]
-    description_tracker: PropertyTracker<DescriptionPropertyTracker>,
+    description_tracker: PropertyTracker<false, DescriptionPropertyTracker>,
     #[pin]
-    focus_delegation_tracker: PropertyTracker<FocusDelegationPropertyTracker>,
+    focus_delegation_tracker: PropertyTracker<false, FocusDelegationPropertyTracker>,
     item: ItemWeak,
 }
 
@@ -263,6 +263,7 @@ impl SlintAccessibleItemData {
 }
 
 cpp! {{
+    // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtGui/QAccessible>
     #include <QtWidgets/QWidget>
 
@@ -354,7 +355,7 @@ cpp! {{
     void *root_item_for_window(void *rustWindow) {
         return rust!(root_item_for_window_ [rustWindow: &crate::qt_window::QtWindow as "void*"]
                 -> *mut c_void as "void*" {
-            let root_item = Box::new(ItemRc::new(WindowInner::from_pub(&rustWindow.window).component(), 0).downgrade());
+            let root_item = Box::new(ItemRc::new_root(WindowInner::from_pub(&rustWindow.window).component()).downgrade());
             Box::into_raw(root_item) as _
         });
     }

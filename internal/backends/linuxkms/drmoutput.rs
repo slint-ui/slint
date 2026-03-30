@@ -112,9 +112,9 @@ impl DrmOutput {
                 .find_map(|handle| {
                     let connector = drm_device.get_connector(*handle, false).ok()?;
                     (connector.state() == drm::control::connector::State::Connected)
-                        .then(|| connector)
+                        .then_some(connector)
                 })
-                .ok_or_else(|| format!("No connected display connector found"))?
+                .ok_or_else(|| "No connected display connector found".to_string())?
         };
 
         let mode = std::env::var("SLINT_DRM_MODE").map_or_else(
@@ -137,7 +137,7 @@ impl DrmOutput {
                         current.cmp(&next)
                     })
                     .cloned()
-                    .ok_or_else(|| format!("No preferred or non-zero size display mode found"))
+                    .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
             },
             |mode_str| {
                 let mut modes_and_index = connector.modes().iter().cloned().enumerate();
@@ -168,11 +168,11 @@ impl DrmOutput {
 
         let encoder = connector
             .current_encoder()
-            .filter(|current| connector.encoders().iter().any(|h| *h == *current))
+            .filter(|current| connector.encoders().contains(current))
             .and_then(|current| drm_device.get_encoder(current).ok());
 
         let crtc = if let Some(encoder) = encoder {
-            encoder.crtc().ok_or_else(|| format!("no crtc for encoder"))?
+            encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?
         } else {
             // No crtc found for current encoder? Pick the first possible crtc
             // as described in https://manpages.debian.org/testing/libdrm-dev/drm-kms.7.en.html#CRTC/Encoder_Selection
@@ -246,12 +246,11 @@ impl DrmOutput {
                 return;
             };
 
-            if event_it.any(|event| matches!(event, drm::control::Event::PageFlip(..))) {
-                if let PageFlipState::WaitingForPageFlip { .. } =
+            if event_it.any(|event| matches!(event, drm::control::Event::PageFlip(..)))
+                && let PageFlipState::WaitingForPageFlip { .. } =
                     self.page_flip_state.replace(PageFlipState::ReadyForNextBuffer)
-                {
-                    return;
-                }
+            {
+                return;
             }
         }
     }
@@ -265,13 +264,13 @@ impl DrmOutput {
         // Iterate through all planes and collect formats from compatible ones
         if let Ok(plane_handles) = self.drm_device.plane_handles() {
             for &plane_handle in &plane_handles {
-                if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
-                    if plane.crtc() == Some(self.crtc) {
-                        // Collect formats from this compatible plane
-                        for &format_u32 in plane.formats() {
-                            if let Ok(format) = drm::buffer::DrmFourcc::try_from(format_u32) {
-                                all_formats.insert(format);
-                            }
+                if let Ok(plane) = self.drm_device.get_plane(plane_handle)
+                    && plane.crtc() == Some(self.crtc)
+                {
+                    // Collect formats from this compatible plane
+                    for &format_u32 in plane.formats() {
+                        if let Ok(format) = drm::buffer::DrmFourcc::try_from(format_u32) {
+                            all_formats.insert(format);
                         }
                     }
                 }

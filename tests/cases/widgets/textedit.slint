@@ -4,6 +4,8 @@
 
 import { TextEdit } from "std-widgets.slint";
 export component TestCase inherits Window {
+    default-font-size: 10px;
+    default-font-family: "FixedTestFont";
     width: 100px;
     height: 100px;
     edit := TextEdit {
@@ -20,6 +22,12 @@ export component TestCase inherits Window {
     in-out property <bool> font-italic <=> edit.font-italic;
     public function paste() {
         edit.paste();
+    }
+    public function cut() {
+        edit.cut();
+    }
+    public function select_all() {
+        edit.select_all();
     }
 }
 
@@ -123,11 +131,16 @@ instance.set_enabled(false);
 ctrl_key(&instance, "v");
 assert_eq!(instance.get_text(), "XxxHello👋Hello👋");
 instance.invoke_paste();
+
 assert_eq!(instance.get_text(), "XxxHello👋Hello👋Hello👋");
 
 assert_eq!(instance.get_font_italic(), false);
 instance.set_font_italic(true);
 assert_eq!(instance.get_font_italic(), true);
+
+instance.invoke_select_all();
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "");
 ```
 
 */

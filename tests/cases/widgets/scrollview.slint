@@ -35,38 +35,45 @@ instance.on_scrolled({
 
 assert_eq!(*scrolled_emitted.borrow(), false);
 
-let position = LogicalPosition::new(15.0, 95.0);
+// Pre-set viewport so the slider sits in the middle of the groove. This avoids any buttons that the
+// style might include in the slider.
+instance.set_viewport_x(-200.0);
+instance.set_viewport_y(-200.0);
+
+let position = LogicalPosition::new(40.0, 95.0);
 
 // Scroll horizontally by pressing on the handle
 let button = slint::platform::PointerEventButton::Left;
 instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
 
 // then drag it
-let position = LogicalPosition::new(50.0, 95.0);
+let position = LogicalPosition::new(55.0, 95.0);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position });
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
 
 assert_eq!(*scrolled_emitted.borrow(), true);
-assert!(instance.get_viewport_x() != 0.0);
-assert_eq!(instance.get_viewport_y(), 0.0);
+assert!(instance.get_viewport_x() != -200.0);
+assert_eq!(instance.get_viewport_y(), -200.0);
+
+let viewport_x_after_h = instance.get_viewport_x();
 
 *scrolled_emitted.borrow_mut() = false;
 
 // Scroll vertically by pressing on the handle
-let position = LogicalPosition::new(95.0, 15.0);
+let position = LogicalPosition::new(95.0, 40.0);
 
 let button = slint::platform::PointerEventButton::Left;
 instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
 
 // ...then drag it
-let position = LogicalPosition::new(95.0, 50.0);
+let position = LogicalPosition::new(95.0, 55.0);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position });
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
 assert_eq!(*scrolled_emitted.borrow(), true);
-assert!(instance.get_viewport_x() != 0.0);
-assert!(instance.get_viewport_y() != 0.0);
+assert_eq!(instance.get_viewport_x(), viewport_x_after_h);
+assert!(instance.get_viewport_y() != -200.0);
 
 *scrolled_emitted.borrow_mut() = false;
 ```

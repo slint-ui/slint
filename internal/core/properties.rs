@@ -67,6 +67,11 @@ mod single_linked_list_pin {
             }
             I(&self.0)
         }
+
+        /// Returns true if the list is empty
+        pub fn is_empty(&self) -> bool {
+            self.0.is_none()
+        }
     }
 
     #[test]
@@ -224,13 +229,11 @@ pub(crate) mod dependency_tracker {
         pub fn debug_assert_valid(&self) {
             unsafe {
                 debug_assert!(
-                    self.prev.get().is_null()
-                        || (*self.prev.get()).get() == self as *const DependencyNode<T>
+                    self.prev.get().is_null() || core::ptr::eq((*self.prev.get()).get(), self)
                 );
                 debug_assert!(
                     self.next.get().is_null()
-                        || (*self.next.get()).prev.get()
-                            == (&self.next) as *const Cell<*const DependencyNode<T>>
+                        || core::ptr::eq((*self.next.get()).prev.get(), &self.next)
                 );
                 // infinite loop?
                 debug_assert_ne!(self.next.get(), self as *const DependencyNode<T>);
@@ -583,11 +586,8 @@ impl PropertyHandle {
             self.set_lock_flag(true);
             scopeguard::defer! { self.set_lock_flag(false); }
             let handle = self.handle.get();
-            let binding = if let Some(pointer) = Self::pointer_to_binding(handle) {
-                Some(Pin::new_unchecked(&mut *(pointer)))
-            } else {
-                None
-            };
+            let binding =
+                Self::pointer_to_binding(handle).map(|pointer| Pin::new_unchecked(&mut *(pointer)));
             f(binding)
         }
     }
@@ -678,28 +678,27 @@ impl PropertyHandle {
     // handle is not locked. (Upholding the requirements of UnsafeCell)
     unsafe fn update<T>(&self, value: *mut T) {
         let remove = self.access(|binding| {
-            if let Some(binding) = binding {
-                if binding.dirty.get() {
-                    unsafe fn evaluate_as_current_binding(
-                        value: *mut (),
-                        binding: Pin<&BindingHolder>,
-                    ) -> BindingResult {
-                        CURRENT_BINDING.set(Some(binding), || unsafe {
-                            (binding.vtable.evaluate)(
-                                binding.get_ref() as *const BindingHolder,
-                                value as *mut (),
-                            )
-                        })
-                    }
+            if let Some(binding) = binding
+                && binding.dirty.get()
+            {
+                unsafe fn evaluate_as_current_binding(
+                    value: *mut (),
+                    binding: Pin<&BindingHolder>,
+                ) -> BindingResult {
+                    CURRENT_BINDING.set(Some(binding), || unsafe {
+                        (binding.vtable.evaluate)(
+                            binding.get_ref() as *const BindingHolder,
+                            value as *mut (),
+                        )
+                    })
+                }
 
-                    // clear all the nodes so that we can start from scratch
-                    binding.dep_nodes.set(Default::default());
-                    let r =
-                        unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
-                    binding.dirty.set(false);
-                    if r == BindingResult::RemoveBinding {
-                        return true;
-                    }
+                // clear all the nodes so that we can start from scratch
+                binding.dep_nodes.set(Default::default());
+                let r = unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
+                binding.dirty.set(false);
+                if r == BindingResult::RemoveBinding {
+                    return true;
                 }
             }
             false
@@ -777,7 +776,7 @@ impl Drop for PropertyHandle {
     fn drop(&mut self) {
         self.remove_binding();
         debug_assert!(Self::has_no_binding_or_lock(self.handle.get()));
-        if self.handle.get() as *const u32 != (&CONSTANT_PROPERTY_SENTINEL) as *const u32 {
+        if !core::ptr::eq(self.handle.get() as *const u32, &CONSTANT_PROPERTY_SENTINEL) {
             unsafe {
                 DependencyListHead::drop(self.handle.as_ptr() as *mut _);
             }
@@ -1025,6 +1024,11 @@ impl<T: Clone> Property<T> {
         );
     }
 
+    /// Returns true if the property has currently a binding (like an animation, ...), otherwise false
+    pub fn has_binding(&self) -> bool {
+        PropertyHandle::pointer_to_binding(self.handle.handle.get()).is_some()
+    }
+
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is potentially dirty.
     pub fn is_dirty(&self) -> bool {
@@ -1116,7 +1120,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         let handle_val = self.handle.handle.get();
         if let Some(holder) = PropertyHandle::pointer_to_binding(handle_val) {
             // Safety: the handle is a pointer to a binding
-            if unsafe { *&raw const (*holder).is_two_way_binding } {
+            if unsafe { (*holder).is_two_way_binding } {
                 // Safety: the handle is a pointer to a binding whose B is a TwoWayBinding<T>
                 return Some(unsafe {
                     (*(holder as *const BindingHolder<TwoWayBinding<T>>))
@@ -1626,8 +1630,20 @@ fn test_two_way_with_map() {
 mod change_tracker;
 pub use change_tracker::*;
 mod properties_animations;
-pub use crate::items::StateInfo;
 pub use properties_animations::*;
+
+/// Value of the state property
+/// A state is just the current state, but also has information about the previous state and the moment it changed
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[repr(C)]
+pub struct StateInfo {
+    /// The current state value
+    pub current_state: i32,
+    /// The previous state
+    pub previous_state: i32,
+    /// The instant in which the state changed last
+    pub change_time: crate::animations::Instant,
+}
 
 struct StateInfoBinding<F> {
     dirty_time: Cell<Option<crate::animations::Instant>>,
@@ -1681,13 +1697,19 @@ impl<F: Fn()> PropertyDirtyHandler for F {
     }
 }
 
-/// This structure allow to run a closure that queries properties, and can report
-/// if any property we accessed have become dirty
-pub struct PropertyTracker<DirtyHandler = ()> {
+/// A PropertyTracker tracks which properties are accessed during evaluation,
+/// and can notify when those properties change.
+///
+/// The `NEEDS_SET_DIRTY` const parameter controls whether this tracker
+/// supports being dirtied externally via [`PropertyTracker::set_dirty`].
+/// When `false` (the default), the tracker can be more efficient: it will
+/// skip registering itself as a dependency of outer bindings if it has no
+/// tracked dependencies of its own, since there is no external way to dirty it.
+pub struct PropertyTracker<const NEEDS_SET_DIRTY: bool = false, DirtyHandler = ()> {
     holder: BindingHolder<DirtyHandler>,
 }
 
-impl Default for PropertyTracker<()> {
+impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, ()> {
     fn default() -> Self {
         static VT: &BindingVTable = &BindingVTable {
             drop: |_| (),
@@ -1712,7 +1734,9 @@ impl Default for PropertyTracker<()> {
     }
 }
 
-impl<DirtyHandler> Drop for PropertyTracker<DirtyHandler> {
+impl<const NEEDS_SET_DIRTY: bool, DirtyHandler> Drop
+    for PropertyTracker<NEEDS_SET_DIRTY, DirtyHandler>
+{
     fn drop(&mut self) {
         unsafe {
             DependencyListHead::drop(self.holder.dependencies.as_ptr() as *mut DependencyListHead);
@@ -1720,7 +1744,9 @@ impl<DirtyHandler> Drop for PropertyTracker<DirtyHandler> {
     }
 }
 
-impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
+impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
+    PropertyTracker<NEEDS_SET_DIRTY, DirtyHandler>
+{
     #[cfg(slint_debug_property)]
     /// set the debug name when `cfg(slint_debug_property`
     pub fn set_debug_name(&mut self, debug_name: alloc::string::String) {
@@ -1729,6 +1755,12 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
 
     /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
     pub fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
+        let dep_nodes = self.holder.dep_nodes.take();
+        if !NEEDS_SET_DIRTY && dep_nodes.is_empty() {
+            // No need to register dependency if we have no dependency ourselves (we can never become dirty)
+            return;
+        }
+        self.holder.dep_nodes.set(dep_nodes);
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 if let Some(cur_binding) = cur_binding {
@@ -1756,8 +1788,9 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will also mark the other binding/tracker dirty.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
+        let r = self.evaluate_as_dependency_root(f);
         self.register_as_dependency_to_current_binding();
-        self.evaluate_as_dependency_root(f)
+        r
     }
 
     /// Evaluate the function, and record dependencies of properties accessed within this function.
@@ -1781,14 +1814,9 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// Call [`Self::evaluate`] if and only if it is dirty.
     /// But register a dependency in any case.
     pub fn evaluate_if_dirty<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> Option<R> {
+        let r = self.is_dirty().then(|| self.evaluate_as_dependency_root(f));
         self.register_as_dependency_to_current_binding();
-        self.is_dirty().then(|| self.evaluate_as_dependency_root(f))
-    }
-
-    /// Mark this PropertyTracker as dirty
-    pub fn set_dirty(&self) {
-        self.holder.dirty.set(true);
-        unsafe { mark_dependencies_dirty(self.holder.dependencies.as_ptr() as *mut _) };
+        r
     }
 
     /// Sets the specified callback handler function, which will be called if any
@@ -1842,6 +1870,14 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     }
 }
 
+impl<DirtyHandler> PropertyTracker<true, DirtyHandler> {
+    /// Mark this PropertyTracker as dirty
+    pub fn set_dirty(&self) {
+        self.holder.dirty.set(true);
+        unsafe { mark_dependencies_dirty(self.holder.dependencies.as_ptr() as *mut _) };
+    }
+}
+
 #[test]
 fn test_property_handler_binding() {
     assert_eq!(PropertyHandle::has_no_binding_or_lock(BINDING_BORROWED), false);
@@ -1881,8 +1917,8 @@ fn test_property_listener_scope() {
 
 #[test]
 fn test_nested_property_trackers() {
-    let tracker1 = Box::pin(PropertyTracker::default());
-    let tracker2 = Box::pin(PropertyTracker::default());
+    let tracker1 = Box::pin(<PropertyTracker>::default());
+    let tracker2 = Box::pin(<PropertyTracker>::default());
     let prop = Box::pin(Property::new(42));
 
     let r = tracker1.as_ref().evaluate(|| tracker2.as_ref().evaluate(|| prop.as_ref().get()));
@@ -1904,7 +1940,7 @@ fn test_nested_property_trackers() {
 #[test]
 fn test_property_dirty_handler() {
     let call_flag = Rc::new(Cell::new(false));
-    let tracker = Box::pin(PropertyTracker::new_with_dirty_handler({
+    let tracker = Box::pin(PropertyTracker::<false, _>::new_with_dirty_handler({
         let call_flag = call_flag.clone();
         move || {
             (*call_flag).set(true);
@@ -1932,8 +1968,8 @@ fn test_property_dirty_handler() {
 
 #[test]
 fn test_property_tracker_drop() {
-    let outer_tracker = Box::pin(PropertyTracker::default());
-    let inner_tracker = Box::pin(PropertyTracker::default());
+    let outer_tracker = Box::pin(<PropertyTracker>::default());
+    let inner_tracker = Box::pin(<PropertyTracker>::default());
     let prop = Box::pin(Property::new(42));
 
     let r =
@@ -1946,8 +1982,8 @@ fn test_property_tracker_drop() {
 
 #[test]
 fn test_nested_property_tracker_dirty() {
-    let outer_tracker = Box::pin(PropertyTracker::default());
-    let inner_tracker = Box::pin(PropertyTracker::default());
+    let outer_tracker = Box::pin(PropertyTracker::<true, ()>::default());
+    let inner_tracker = Box::pin(PropertyTracker::<true, ()>::default());
     let prop = Box::pin(Property::new(42));
 
     let r =
@@ -1966,8 +2002,8 @@ fn test_nested_property_tracker_dirty() {
 #[test]
 #[allow(clippy::redundant_closure)]
 fn test_nested_property_tracker_evaluate_if_dirty() {
-    let outer_tracker = Box::pin(PropertyTracker::default());
-    let inner_tracker = Box::pin(PropertyTracker::default());
+    let outer_tracker = Box::pin(<PropertyTracker>::default());
+    let inner_tracker = Box::pin(<PropertyTracker>::default());
     let prop = Box::pin(Property::new(42));
 
     let mut cache = 0;

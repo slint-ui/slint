@@ -64,15 +64,11 @@ fn syntax_tests() -> std::io::Result<()> {
             for test_entry in path.read_dir()? {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
-                if let Some(ext) = path.extension() {
-                    if (ext == "60" || ext == "slint")
-                        && pattern
-                            .as_ref()
-                            .map(|p| p.is_match(&path.to_string_lossy()))
-                            .unwrap_or(true)
-                    {
-                        test_entries.push(path);
-                    }
+                if let Some(ext) = path.extension()
+                    && (ext == "60" || ext == "slint")
+                    && pattern.as_ref().map(|p| p.is_match(&path.to_string_lossy())).unwrap_or(true)
+                {
+                    test_entries.push(path);
                 }
             }
         }
@@ -124,10 +120,10 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(
-        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning)\{([^\n]*)\}",
+        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note)\{([^\n]*)\}",
     )
     .unwrap();
-    //      regex::Regex::new(r"\n *//[^\n\^<>]*(\^|>|<)(\^*)(error|warning)\{([^\n]*)\}").unwrap();
+
     for m in re.captures_iter(source) {
         let line_begin_offset = m.get(0).unwrap().start();
         let start_column = m.get(1).unwrap().start()
@@ -183,15 +179,16 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
 
         // Windows edge-case, if the end falls on a newline, it should span the entire
         // newline character, which is two characters, not one.
-        if let Some(end_offset) = end {
-            if source.get(end_offset..=(end_offset + 1)) == Some("\r\n") {
-                end = Some(end_offset + 1)
-            };
+        if let Some(end_offset) = end
+            && source.get(end_offset..=(end_offset + 1)) == Some("\r\n")
+        {
+            end = Some(end_offset + 1);
         }
 
         let expected_diag_level = match warning_or_error {
             "warning" => DiagnosticLevel::Warning,
             "error" => DiagnosticLevel::Error,
+            "note" => DiagnosticLevel::Note,
             _ => panic!("Unsupported diagnostic level {warning_or_error}"),
         };
 
@@ -355,20 +352,24 @@ fn update(
         let mut insert_range_at = |range: &str, l, c: usize| {
             let column_adjust = if c < 3 { "<".repeat(3 - c) } else { "".to_string() };
             let byte_offset = lines[l - 1] + 1;
+            let level = match d.level() {
+                DiagnosticLevel::Error => "error",
+                DiagnosticLevel::Warning => "warning",
+                DiagnosticLevel::Note => "note",
+                _ => todo!(),
+            };
             let to_insert = format!(
-                "//{indent}{range}{adjust}{column_adjust}{error_or_warning}{{{message}}}\n",
+                "//{indent}{range}{adjust}{column_adjust}{level}{{{message}}}\n",
                 indent = " ".repeat(c.max(3) - 3),
                 adjust = "^".repeat(last_line_adjust[l - 1]),
-                error_or_warning =
-                    if d.level() == DiagnosticLevel::Error { "error" } else { "warning" },
                 message = d.message().replace('\n', "↵").replace(env!("CARGO_MANIFEST_DIR"), "📂")
             );
             if byte_offset > source.len() {
                 source.push('\n');
             }
             source.insert_str(byte_offset, &to_insert);
-            for line in (l - 1)..lines.len() {
-                lines[line] += to_insert.len();
+            for line_offset in lines.iter_mut().skip(l - 1) {
+                *line_offset += to_insert.len();
             }
             last_line_adjust[l - 1] += 1;
         };

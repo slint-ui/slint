@@ -1,0 +1,40 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout column direction with a for repeater
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 300px;
+
+    property <[int]> items: [1, 2, 3];
+
+    FlexBoxLayout {
+        spacing: 10px;
+        padding: 5px;
+        flex-direction: column;
+
+        for item in root.items: Rectangle {
+            width: 40px;
+            height: 50px;
+            background: item == 1 ? red : (item == 2 ? green : blue);
+        }
+    }
+
+    // First item: x=5 (padding), y=5
+    // Second item: x=5, y=65 (5 + 50 + 10)
+    // Third item: x=5, y=125 (5 + 50 + 10 + 50 + 10)
+    out property <bool> test: true;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

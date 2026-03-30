@@ -113,14 +113,14 @@ impl VulkanSurface {
             },
         )
         .map_err(|dev_err| format!("Failed to create suitable logical Vulkan device: {dev_err}"))?;
-        let queue = queues.next().ok_or_else(|| format!("Not Vulkan device queue found"))?;
+        let queue = queues.next().ok_or_else(|| "Not Vulkan device queue found".to_string())?;
 
         let (swapchain, swapchain_images) = {
             let surface_capabilities = device
                 .physical_device()
                 .surface_capabilities(&surface, Default::default())
                 .map_err(|vke| format!("Error matching Vulkan surface capabilities: {vke}"))?;
-            let image_format = vulkano::format::Format::B8G8R8A8_UNORM.into();
+            let image_format = vulkano::format::Format::B8G8R8A8_UNORM;
 
             Swapchain::new(
                 device.clone(),
@@ -134,7 +134,10 @@ impl VulkanSurface {
                         .supported_composite_alpha
                         .into_iter()
                         .next()
-                        .ok_or_else(|| format!("fatal: Vulkan surface capabilities missing composite alpha descriptor"))?,
+                        .ok_or_else(|| {
+                            "fatal: Vulkan surface capabilities missing composite alpha descriptor"
+                                .to_string()
+                        })?,
                     ..Default::default()
                 },
             )
@@ -185,7 +188,7 @@ impl VulkanSurface {
         };
 
         let gr_context = skia_safe::gpu::direct_contexts::make_vulkan(&backend_context, None)
-            .ok_or_else(|| format!("Error creating Skia Vulkan context"))?;
+            .ok_or_else(|| "Error creating Skia Vulkan context".to_string())?;
 
         let previous_frame_end = RefCell::new(Some(sync::now(device.clone()).boxed()));
 
@@ -215,9 +218,8 @@ impl super::Surface for VulkanSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
-        if requested_graphics_api.map_or(false, |api| !matches!(api, RequestedGraphicsAPI::Vulkan))
-        {
-            return Err(format!("Requested non-Vulkan rendering with Vulkan renderer").into());
+        if requested_graphics_api.is_some_and(|api| !matches!(api, RequestedGraphicsAPI::Vulkan)) {
+            return Err("Requested non-Vulkan rendering with Vulkan renderer".into());
         }
 
         let instance = shared_context.0.shared_vulkan_context()?.instance.clone();
@@ -256,7 +258,7 @@ impl super::Surface for VulkanSurface {
                 PhysicalDeviceType::Other => 4,
                 _ => 5,
             })
-            .ok_or_else(|| format!("Vulkan: Failed to find suitable physical device"))?;
+            .ok_or_else(|| "Vulkan: Failed to find suitable physical device".to_string())?;
 
         Self::from_surface(physical_device, queue_family_index, surface, size)
     }
@@ -377,7 +379,7 @@ impl super::Surface for VulkanSurface {
             None,
             None,
         )
-        .ok_or_else(|| format!("Error creating Skia Vulkan surface"))?;
+        .ok_or_else(|| "Error creating Skia Vulkan surface".to_string())?;
 
         callback(skia_surface.canvas(), Some(gr_context), 0);
 
@@ -423,7 +425,7 @@ impl super::Surface for VulkanSurface {
         #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         Ok(match self.swapchain.borrow().image_format() {
             vulkano::format::Format::B8G8R8A8_UNORM => 32,
-            fmt @ _ => {
+            fmt => {
                 return Err(format!(
                     "Skia Vulkan Renderer: Unsupported swapchain image format found {fmt:?}"
                 )

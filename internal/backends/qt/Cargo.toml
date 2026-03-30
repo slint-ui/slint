@@ -30,7 +30,7 @@ const-field-offset = { version = "0.1", path = "../../../helper_crates/const-fie
 vtable = { workspace = true }
 
 cpp = { version = "0.5.5", optional = true }
-lyon_path = { version = "1", optional = true }
+lyon_path = { workspace = true, optional = true }
 pin-project = { version = "1", optional = true }
 pin-weak = { version = "1", optional = true }
 qttypes = { version = "0.2.7", default-features = false, optional = true }

@@ -109,8 +109,8 @@ pub fn contains(data: &str, search_text: &str) -> bool {
         let mut cloned = it.clone();
         if search_text.chars().all(|a| {
             cloned.next().is_some_and(|b| {
-                nucleo_matcher::chars::normalize(a).to_ascii_lowercase()
-                    == nucleo_matcher::chars::normalize(b).to_ascii_lowercase()
+                nucleo_matcher::chars::normalize(a)
+                    .eq_ignore_ascii_case(&nucleo_matcher::chars::normalize(b))
             })
         }) {
             return true;

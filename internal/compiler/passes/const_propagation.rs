@@ -378,7 +378,7 @@ export component Foo {
         Expression::CodeBlock(stmts) => match &stmts[1] {
             Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
             {
-                Expression::BoolLiteral(b) => assert_eq!(*b, true),
+                Expression::BoolLiteral(b) => assert!(*b),
                 _ => panic!("false_expr not optimized in : {out3_binding:?}"),
             },
             _ => panic!("not condition:  {out3_binding:?}"),

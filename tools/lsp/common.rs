@@ -302,7 +302,7 @@ impl ElementRcNode {
             let component = self.element.borrow().enclosing_component.upgrade().unwrap();
             let current_root = component.root_element.clone();
             let root_element = if std::rc::Rc::ptr_eq(&current_root, &self.element) {
-                component.parent_element.upgrade().map_or(current_root, |parent| {
+                component.parent_element().map_or(current_root, |parent| {
                     parent.borrow().enclosing_component.upgrade().unwrap().root_element.clone()
                 })
             } else {

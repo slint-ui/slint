@@ -1,0 +1,10 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+    FlexBoxLayout {
+        alignment: stretch;
+//                 >      <warning{alignment: stretch has no effect on FlexBoxLayout}
+        Rectangle {}
+    }
+}

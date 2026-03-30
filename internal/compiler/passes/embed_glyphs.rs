@@ -12,15 +12,16 @@ use crate::object_tree::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use i_slint_common::sharedfontique::{self, fontique, ttf_parser};
 
-#[derive(Clone, derive_more::Deref)]
+#[derive(Clone)]
 struct Font {
     font: fontique::QueryFont,
-    #[deref]
-    fontdue_font: Arc<fontdue::Font>,
+}
+
+fn swash_font_ref(font: &Font) -> swash::FontRef<'_> {
+    swash::FontRef::from_index(font.font.blob.data(), font.font.index as usize).unwrap()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -82,16 +83,16 @@ pub fn embed_glyphs<'a>(
         }
     }
 
-    let fallback_fonts = get_fallback_fonts(compiler_config);
+    let fallback_fonts = get_fallback_fonts();
 
     let mut custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
     let mut font_paths: HashMap<fontique::FamilyId, std::path::PathBuf> = Default::default();
 
-    let mut collection = sharedfontique::get_collection();
+    let mut collection = sharedfontique::create_collection(false);
 
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
-            match std::fs::read(&font_path) {
+            match std::fs::read(font_path) {
                 Err(e) => {
                     diag.push_error(format!("Error loading font: {e}"), import_token);
                 }
@@ -206,17 +207,6 @@ pub fn embed_glyphs<'a>(
     }
 
     let mut embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
-        let fontdue_font = match compiler_config.load_font_by_id(font) {
-            Ok(font) => font,
-            Err(msg) => {
-                diag.push_error(
-                    format!("error loading font for embedding {}: {msg}", path.display()),
-                    &generic_diag_location,
-                );
-                return;
-            }
-        };
-
         let Some(family_name) = collection.family_name(font.family.0).to_owned() else {
             diag.push_error(
                 format!(
@@ -230,7 +220,7 @@ pub fn embed_glyphs<'a>(
 
         let embedded_bitmap_font = embed_font(
             family_name.to_owned(),
-            Font { font: font.clone(), fontdue_font },
+            Font { font: font.clone() },
             &pixel_sizes,
             characters_seen.iter().cloned(),
             &fallback_fonts,
@@ -258,8 +248,8 @@ pub fn embed_glyphs<'a>(
     };
 
     for (path, font) in default_fonts.iter() {
-        custom_fonts.remove(&path.to_owned());
-        embed_font_by_path(&path, &font);
+        custom_fonts.remove(path);
+        embed_font_by_path(path, font);
     }
 
     for (path, font) in custom_fonts {
@@ -268,10 +258,10 @@ pub fn embed_glyphs<'a>(
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts(compiler_config: &CompilerConfiguration) -> Vec<Font> {
+fn get_fallback_fonts() -> Vec<Font> {
     let mut fallback_fonts = Vec::new();
 
-    let mut collection = sharedfontique::get_collection();
+    let mut collection = sharedfontique::create_collection(false);
     let mut query = collection.query();
     query.set_families(
         sharedfontique::FALLBACK_FAMILIES.into_iter().map(fontique::QueryFamily::Generic).chain(
@@ -280,14 +270,7 @@ fn get_fallback_fonts(compiler_config: &CompilerConfiguration) -> Vec<Font> {
     );
 
     query.matches_with(|query_font| {
-        if let Some(font) = compiler_config
-            .load_font_by_id(&query_font)
-            .ok()
-            .map(|fontdue_font| Font { font: query_font.clone(), fontdue_font })
-        {
-            fallback_fonts.push(font);
-        }
-
+        fallback_fonts.push(Font { font: query_font.clone() });
         fontique::QueryStatus::Continue
     });
 
@@ -307,7 +290,7 @@ fn embed_font(
         .filter(|code_point| {
             core::iter::once(&font)
                 .chain(fallback_fonts.iter())
-                .any(|font| font.fontdue_font.lookup_glyph_index(*code_point) != 0)
+                .any(|font| swash_font_ref(font).charmap().map(*code_point) != 0)
         })
         .enumerate()
         .map(|(glyph_index, code_point)| CharacterMapEntry {
@@ -350,7 +333,7 @@ fn embed_font(
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32")))]
+#[cfg(not(target_arch = "wasm32"))]
 fn embed_alpha_map_glyphs(
     pixel_sizes: &[i16],
     character_map: &Vec<CharacterMapEntry>,
@@ -358,38 +341,71 @@ fn embed_alpha_map_glyphs(
     fallback_fonts: &[Font],
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
+    use std::cell::RefCell;
 
-    let glyphs = pixel_sizes
+    thread_local! {
+        static SCALE_CONTEXT: RefCell<swash::scale::ScaleContext> =
+            RefCell::new(swash::scale::ScaleContext::new());
+    }
+
+    pixel_sizes
         .par_iter()
         .map(|pixel_size| {
             let glyph_data = character_map
                 .par_iter()
                 .map(|CharacterMapEntry { code_point, .. }| {
-                    let (metrics, bitmap) = core::iter::once(font)
+                    let font_to_use = core::iter::once(font)
                         .chain(fallback_fonts.iter())
-                        .find_map(|font| {
-                            font.chars()
-                                .contains_key(code_point)
-                                .then(|| font.rasterize(*code_point, *pixel_size as _))
-                        })
-                        .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
+                        .find(|f| swash_font_ref(f).charmap().map(*code_point) != 0)
+                        .unwrap_or(font);
 
-                    BitmapGlyph {
-                        x: i16::try_from(metrics.xmin * 64).expect("large glyph x coordinate"),
-                        y: i16::try_from(metrics.ymin * 64).expect("large glyph y coordinate"),
-                        width: i16::try_from(metrics.width).expect("large width"),
-                        height: i16::try_from(metrics.height).expect("large height"),
-                        x_advance: i16::try_from((metrics.advance_width * 64.) as i64)
-                            .expect("large advance width"),
-                        data: bitmap,
-                    }
+                    let font_ref = swash_font_ref(font_to_use);
+                    let glyph_id = font_ref.charmap().map(*code_point);
+                    let gm = font_ref.glyph_metrics(&[]);
+                    let fm = font_ref.metrics(&[]);
+                    let scale = *pixel_size as f32 / fm.units_per_em as f32;
+                    let advance_width = gm.advance_width(glyph_id) * scale;
+
+                    SCALE_CONTEXT.with(|ctx| {
+                        let font_ref = swash_font_ref(font_to_use);
+                        let mut ctx = ctx.borrow_mut();
+                        let mut scaler = ctx.builder(font_ref).size(*pixel_size as f32).build();
+                        let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
+                            .format(swash::zeno::Format::Alpha)
+                            .render(&mut scaler, glyph_id);
+
+                        match image {
+                            Some(image) => {
+                                let p = image.placement;
+                                BitmapGlyph {
+                                    x: i16::try_from(p.left * 64)
+                                        .expect("large glyph x coordinate"),
+                                    y: i16::try_from((p.top - p.height as i32) * 64)
+                                        .expect("large glyph y coordinate"),
+                                    width: i16::try_from(p.width).expect("large width"),
+                                    height: i16::try_from(p.height).expect("large height"),
+                                    x_advance: i16::try_from((advance_width * 64.) as i64)
+                                        .expect("large advance width"),
+                                    data: image.data,
+                                }
+                            }
+                            None => BitmapGlyph {
+                                x: 0,
+                                y: 0,
+                                width: 0,
+                                height: 0,
+                                x_advance: i16::try_from((advance_width * 64.) as i64)
+                                    .expect("large advance width"),
+                                data: vec![],
+                            },
+                        }
+                    })
                 })
                 .collect();
 
             BitmapGlyphs { pixel_size: *pixel_size, glyph_data }
         })
-        .collect();
-    glyphs
+        .collect()
 }
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "sdf-fonts"))]
@@ -415,7 +431,7 @@ fn embed_sdf_glyphs(
             core::iter::once(font)
                 .chain(fallback_fonts.iter())
                 .find_map(|font| {
-                    (font.lookup_glyph_index(*code_point) != 0).then(|| {
+                    (swash_font_ref(font).charmap().map(*code_point) != 0).then(|| {
                         generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE)
                     })
                 })
@@ -442,7 +458,6 @@ fn generate_sdf_for_glyph(
     let face =
         fdsm_ttf_parser::ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
-    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id)?;
 
     let metrics = sharedfontique::DesignFontMetrics::new(&font.font);
     let target_pixel_size = target_pixel_size as f64;
@@ -456,6 +471,8 @@ fn generate_sdf_for_glyph(
             ..Default::default()
         });
     };
+
+    let mut shape = fdsm_ttf_parser::load_shape_from_face(&face, glyph_id)?;
 
     let width = ((bbox.x_max as f64 - bbox.x_min as f64) * scale + 2.).ceil() as u32;
     let height = ((bbox.y_max as f64 - bbox.y_min as f64) * scale + 2.).ceil() as u32;

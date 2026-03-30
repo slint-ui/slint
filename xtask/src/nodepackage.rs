@@ -17,7 +17,7 @@ fn cp_r(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if src.is_dir() {
         if !dst.exists() {
-            sh.create_dir(&dst).unwrap();
+            sh.create_dir(dst).unwrap();
         } else {
             assert!(dst.is_dir());
         }
@@ -119,14 +119,12 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
 
         deps.iter().for_each(|name| {
             if let Some(dep_config) = dep_table[name].as_inline_table_mut() {
-                if name.contains("slint") {
-                    if let Some(sha1) = &sha1 {
-                        dep_config.insert(
-                            "git",
-                            toml_edit::Value::from("https://github.com/slint-ui/slint"),
-                        );
-                        dep_config.insert("rev", toml_edit::Value::from(sha1));
-                    }
+                if name.contains("slint")
+                    && let Some(sha1) = &sha1
+                {
+                    dep_config
+                        .insert("git", toml_edit::Value::from("https://github.com/slint-ui/slint"));
+                    dep_config.insert("rev", toml_edit::Value::from(sha1));
                 }
                 if dep_config.remove("workspace").is_some() {
                     let workspace_config = &workspace_dependency_fields[name];
@@ -157,7 +155,7 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
     cp_r(&sh, &root.join("LICENSES"), &node_dir.join("LICENSES"))?;
 
     let package_json_source =
-        sh.read_file(&node_dir.join("package.json")).context("Error reading package.json")?;
+        sh.read_file(node_dir.join("package.json")).context("Error reading package.json")?;
 
     let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
 

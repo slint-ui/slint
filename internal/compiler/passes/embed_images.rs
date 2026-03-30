@@ -91,6 +91,19 @@ fn embed_images_from_expression(
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
+        if path.starts_with("data:") {
+            let image_ref = embed_data_uri(
+                global_embedded_resources,
+                path,
+                embed_files,
+                scale_factor,
+                diag,
+                source_location,
+            );
+            *resource_ref = image_ref;
+            return;
+        }
+
         // used mapped path:
         let mapped_path =
             urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
@@ -143,33 +156,38 @@ fn embed_image(
                 // Really do nothing with the image!
                 e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::ListOnly });
                 return ImageReference::None;
-            } else if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
-                #[allow(unused_mut)]
-                let mut kind = EmbeddedResourcesKind::RawData;
-                #[cfg(feature = "software-renderer")]
-                if embed_files == EmbedResourcesKind::EmbedTextures {
-                    match load_image(_file, _scale_factor) {
-                        Ok((img, source_format, original_size)) => {
-                            kind = EmbeddedResourcesKind::TextureData(generate_texture(
+            }
+
+            let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) else {
+                diag.push_error(format!("Cannot find image file {path}"), source_location);
+                return ImageReference::None;
+            };
+
+            #[cfg(feature = "software-renderer")]
+            if embed_files == EmbedResourcesKind::EmbedTextures {
+                match load_image(_file, _scale_factor) {
+                    Ok((img, source_format, original_size)) => {
+                        e.insert(EmbeddedResources {
+                            id: maybe_id,
+                            kind: EmbeddedResourcesKind::TextureData(generate_texture(
                                 img,
                                 source_format,
                                 original_size,
-                            ))
-                        }
-                        Err(err) => {
-                            diag.push_error(
-                                format!("Cannot load image file {path}: {err}"),
-                                source_location,
-                            );
-                            return ImageReference::None;
-                        }
+                            )),
+                        });
+                        return ImageReference::EmbeddedTexture { resource_id: maybe_id };
+                    }
+                    Err(err) => {
+                        diag.push_error(
+                            format!("Cannot load image file {path}: {err}"),
+                            source_location,
+                        );
+                        return ImageReference::None;
                     }
                 }
-                e.insert(EmbeddedResources { id: maybe_id, kind })
-            } else {
-                diag.push_error(format!("Cannot find image file {path}"), source_location);
-                return ImageReference::None;
             }
+
+            e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::FileData })
         }
     };
 
@@ -282,11 +300,8 @@ fn generate_texture(
                     }
                 }
                 ColorState::Rgb([a, b, c]) => {
-                    let abs_diff = |t, u| {
-                        if t < u { u - t } else { t - u }
-                    };
                     let px = get_pixel();
-                    if abs_diff(a, px[0]) > 2 || abs_diff(b, px[1]) > 2 || abs_diff(c, px[2]) > 2 {
+                    if a.abs_diff(px[0]) > 2 || b.abs_diff(px[1]) > 2 || c.abs_diff(px[2]) > 2 {
                         color = ColorState::Different
                     }
                 }
@@ -359,70 +374,63 @@ enum SourceFormat {
 }
 
 #[cfg(feature = "software-renderer")]
-fn load_image(
-    file: crate::fileaccess::VirtualFile,
+fn load_image_from_bytes(
+    data: &[u8],
+    extension: Option<&str>,
     scale_factor: f32,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
     use resvg::{tiny_skia, usvg};
-    use std::ffi::OsStr;
-    if file.canon_path.extension() == Some(OsStr::new("svg"))
-        || file.canon_path.extension() == Some(OsStr::new("svgz"))
-    {
+
+    let is_svg = matches!(extension, Some("svg") | Some("svgz"));
+
+    if is_svg {
         let tree = {
             let option = usvg::Options::default();
-            match file.builtin_contents {
-                Some(data) => usvg::Tree::from_data(data, &option),
-                None => usvg::Tree::from_data(
-                    std::fs::read(&file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
-                    &option,
-                ),
-            }
-            .map_err(|e| {
+            usvg::Tree::from_data(data, &option).map_err(|e| {
                 image::ImageError::Decoding(image::error::DecodingError::new(
                     image::error::ImageFormatHint::Name("svg".into()),
                     e,
                 ))
-            })
-        }?;
-        let scale_factor = scale_factor as f32;
-        // TODO: ideally we should find the size used for that `Image`
+            })?
+        };
+
         let original_size = tree.size();
-        let width = original_size.width() * scale_factor;
-        let height = original_size.height() * scale_factor;
+        let width = (original_size.width() * scale_factor) as u32;
+        let height = (original_size.height() * scale_factor) as u32;
 
         let mut buffer = vec![0u8; width as usize * height as usize * 4];
+
         let size_error = || {
             image::ImageError::Limits(image::error::LimitError::from_kind(
                 image::error::LimitErrorKind::DimensionError,
             ))
         };
+
         let mut skia_buffer =
-            tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width as u32, height as u32)
+            tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width, height)
                 .ok_or_else(size_error)?;
+
         resvg::render(
             &tree,
-            tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
+            tiny_skia::Transform::from_scale(scale_factor, scale_factor),
             &mut skia_buffer,
         );
-        return image::RgbaImage::from_raw(width as u32, height as u32, buffer)
-            .ok_or_else(size_error)
-            .map(|img| {
+
+        return image::RgbaImage::from_raw(width, height, buffer).ok_or_else(size_error).map(
+            |img| {
                 (
                     img,
                     SourceFormat::RgbaPremultiplied,
                     Size { width: original_size.width() as _, height: original_size.height() as _ },
                 )
-            });
+            },
+        );
     }
-    if let Some(buffer) = file.builtin_contents {
-        image::load_from_memory(buffer)
-    } else {
-        image::open(file.canon_path)
-    }
-    .map(|mut image| {
+
+    image::load_from_memory(data).map(|mut image| {
         let (original_width, original_height) = image.dimensions();
 
-        if scale_factor < 1. {
+        if scale_factor < 1.0 {
             image = image.resize_exact(
                 (original_width as f32 * scale_factor) as u32,
                 (original_height as f32 * scale_factor) as u32,
@@ -436,4 +444,90 @@ fn load_image(
             Size { width: original_width, height: original_height },
         )
     })
+}
+
+#[cfg(feature = "software-renderer")]
+fn load_image(
+    file: crate::fileaccess::VirtualFile,
+    scale_factor: f32,
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
+    use std::ffi::OsStr;
+
+    let extension = file.canon_path.extension().and_then(OsStr::to_str);
+
+    let data = if let Some(buffer) = file.builtin_contents {
+        buffer.to_vec()
+    } else {
+        std::fs::read(&file.canon_path)?
+    };
+
+    load_image_from_bytes(&data, extension, scale_factor)
+}
+
+#[cfg(feature = "software-renderer")]
+fn load_image_from_data_uri(
+    decoded_data: &[u8],
+    extension: &str,
+    scale_factor: f32,
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
+    load_image_from_bytes(decoded_data, Some(extension), scale_factor)
+}
+
+fn embed_data_uri(
+    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
+    data_uri: &str,
+    _embed_files: EmbedResourcesKind,
+    _scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    source_location: &Option<crate::diagnostics::SourceLocation>,
+) -> ImageReference {
+    let (decoded_data, extension) = match crate::data_uri::decode_data_uri(data_uri) {
+        Ok(result) => result,
+        Err(e) => {
+            diag.push_error(e, source_location);
+            return ImageReference::None;
+        }
+    };
+
+    let mut resources = global_embedded_resources.borrow_mut();
+    let resource_id = resources.len();
+
+    let unique_key: SmolStr = format!("data:{}:{}", resource_id, extension).into();
+
+    #[cfg(feature = "software-renderer")]
+    if _embed_files == EmbedResourcesKind::EmbedTextures {
+        let data_buffer = decoded_data.clone();
+        match load_image_from_data_uri(&data_buffer, &extension, _scale_factor)
+            .map_err(|e| e.to_string())
+        {
+            Ok((img, source_format, original_size)) => {
+                resources.insert(
+                    unique_key,
+                    EmbeddedResources {
+                        id: resource_id,
+                        kind: EmbeddedResourcesKind::TextureData(generate_texture(
+                            img,
+                            source_format,
+                            original_size,
+                        )),
+                    },
+                );
+                return ImageReference::EmbeddedTexture { resource_id };
+            }
+            Err(err) => {
+                diag.push_error(format!("Cannot load data URI image: {err}"), source_location);
+                return ImageReference::None;
+            }
+        }
+    }
+
+    resources.insert(
+        unique_key,
+        EmbeddedResources {
+            id: resource_id,
+            kind: EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()),
+        },
+    );
+
+    ImageReference::EmbeddedData { resource_id, extension }
 }

@@ -1,0 +1,152 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexBoxLayout align-self per-item property
+
+// Test 1: align-self overrides container align-items
+// Container has align-items: start, but r2 overrides to end
+component TestAlignSelfOverride inherits Rectangle {
+    width: 300px;
+    height: 100px;
+    FlexBoxLayout {
+        flex-wrap: no-wrap;
+        align-items: start;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            flex-align-self: end;
+            background: green;
+        }
+        r3 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: blue;
+        }
+    }
+
+    // r1 and r3: align-items: start → y=0
+    // r2: flex-align-self: end → y=70 (100-30)
+    out property <bool> test_r1: r1.y == 0px;
+    out property <bool> test_r2: r2.y == 70px;
+    out property <bool> test_r3: r3.y == 0px;
+    out property <bool> test: test_r1 && test_r2 && test_r3;
+}
+
+// Test 2: flex-align-self: center
+component TestAlignSelfCenter inherits Rectangle {
+    width: 300px;
+    height: 100px;
+    FlexBoxLayout {
+        flex-wrap: no-wrap;
+        align-items: start;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            flex-align-self: center;
+            background: green;
+        }
+    }
+
+    // r1: start → y=0
+    // r2: center → y=35 ((100-30)/2)
+    out property <bool> test_r1: r1.y == 0px;
+    out property <bool> test_r2: r2.y == 35px;
+    out property <bool> test: test_r1 && test_r2;
+}
+
+// Test 3: flex-align-self: stretch overrides container's start
+component TestAlignSelfStretch inherits Rectangle {
+    width: 300px;
+    height: 100px;
+    FlexBoxLayout {
+        flex-wrap: no-wrap;
+        align-items: start;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+        r2 := Rectangle {
+            width: 80px;
+            flex-align-self: stretch;
+            background: green;
+        }
+    }
+
+    // r1: start, height=30 → stays at 30px tall
+    // r2: stretch, no explicit height → should stretch to 100px
+    out property <bool> test_r1: r1.height == 30px;
+    out property <bool> test_r2: r2.height == 100px;
+    out property <bool> test: test_r1 && test_r2;
+}
+
+// Test 4: flex-align-self: auto (default) inherits from container
+component TestAlignSelfAuto inherits Rectangle {
+    width: 300px;
+    height: 100px;
+    FlexBoxLayout {
+        flex-wrap: no-wrap;
+        align-items: end;
+
+        r1 := Rectangle {
+            width: 80px;
+            height: 30px;
+            flex-align-self: auto;
+            background: red;
+        }
+        r2 := Rectangle {
+            width: 80px;
+            height: 30px;
+            background: green;
+        }
+    }
+
+    // Both should inherit end from container → y=70
+    out property <bool> test_r1: r1.y == 70px;
+    out property <bool> test_r2: r2.y == 70px;
+    out property <bool> test: test_r1 && test_r2;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 500px;
+
+    VerticalLayout {
+        t1 := TestAlignSelfOverride { }
+        t2 := TestAlignSelfCenter { }
+        t3 := TestAlignSelfStretch { }
+        t4 := TestAlignSelfAuto { }
+    }
+
+    out property <bool> test: t1.test && t2.test && t3.test && t4.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

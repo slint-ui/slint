@@ -17,7 +17,7 @@ pub fn generate(
 ) -> std::io::Result<File> {
     let mut file = super::cpp::generate_types(&doc.used_types.borrow().structs_and_enums, &config);
 
-    file.includes.push("<slint_live_preview.h>".into());
+    file.includes.push("<private/slint_live_preview.h>".into());
 
     generate_value_conversions(&mut file, &doc.used_types.borrow().structs_and_enums);
 
@@ -52,7 +52,7 @@ pub fn generate(
     let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
         use std::io::Write;
-        let mut cpp_writer = BufWriter::new(std::fs::File::create(&cpp_file_name)?);
+        let mut cpp_writer = BufWriter::new(std::fs::File::create(cpp_file_name)?);
         write!(&mut cpp_writer, "{cpp_file}")?;
         cpp_writer.flush()?;
     }
@@ -470,7 +470,7 @@ fn convert_to_value_fn(ty: &Type) -> String {
         }
         // Array of anonymous struct
         Type::Array(a) if matches!(a.as_ref(), Type::Struct(s) if s.name.is_none()) => {
-            let conf_fn = convert_to_value_fn(&a);
+            let conf_fn = convert_to_value_fn(a);
             let aty = a.cpp_type().unwrap();
             format!(
                 "([](const auto &model) {{ return slint::interpreter::Value(std::make_shared<slint::MapModel<{aty}, slint::interpreter::Value>>(model, {conf_fn})); }})"
@@ -505,7 +505,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                 let StructName::User { name: struct_name, .. } = &s.name else {
                     return;
                 };
-                let name = ident(&struct_name);
+                let name = ident(struct_name);
                 let mut to_statements = vec![
                     "using slint::private_api::live_preview::into_slint_value;".into(),
                     "slint::interpreter::Struct s;".into(),

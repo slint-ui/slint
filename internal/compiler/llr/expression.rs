@@ -7,7 +7,7 @@ use super::{
     SubComponentInstanceIdx,
 };
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
-use crate::langtype::{KeyboardShortcut, Type};
+use crate::langtype::{Keys, Type};
 use crate::layout::Orientation;
 use itertools::Either;
 use smol_str::SmolStr;
@@ -30,8 +30,8 @@ pub enum Expression {
     /// Bool
     BoolLiteral(bool),
 
-    // KeyboardShortcut
-    KeyboardShortcutLiteral(KeyboardShortcut),
+    // Keys
+    KeysLiteral(Keys),
 
     /// Reference to a property (which can also be a callback) or an element (property name is empty then).
     PropertyReference(MemberReference),
@@ -186,11 +186,23 @@ pub enum Expression {
 
     EnumerationValue(crate::langtype::EnumerationValue),
 
+    /// Standard cache access (box layouts and static grid cells).
     /// See LayoutCacheAccess in expression_tree.rs
     LayoutCacheAccess {
         layout_cache_prop: MemberReference,
         index: usize,
         repeater_index: Option<Box<Expression>>,
+        entries_per_item: usize,
+    },
+    /// Two-level indirection cache access for grid layouts with repeaters.
+    /// See GridRepeaterCacheAccess in expression_tree.rs
+    GridRepeaterCacheAccess {
+        layout_cache_prop: MemberReference,
+        index: usize,
+        repeater_index: Box<Expression>,
+        stride: Box<Expression>,
+        child_offset: usize,
+        inner_repeater_index: Option<Box<Expression>>,
         entries_per_item: usize,
     },
     /// Will call the sub_expression, with the cells variable set to the
@@ -205,6 +217,19 @@ pub enum Expression {
         /// Either an expression of type LayoutItemInfo, or information about the repeater
         elements: Vec<Either<Expression, LayoutRepeatedElement>>,
         orientation: Orientation,
+        sub_expression: Box<Expression>,
+    },
+    /// Will call the sub_expression, with two cells variables (horizontal and vertical)
+    /// set to the arrays of LayoutItemInfo from the elements for FlexBoxLayout
+    WithFlexBoxLayoutItemInfo {
+        /// The local variable for horizontal cells
+        cells_h_variable: String,
+        /// The local variable for vertical cells
+        cells_v_variable: String,
+        /// The name for the local variable that contains the repeater indices
+        repeater_indices_var_name: Option<SmolStr>,
+        /// Either an expression pair of type (LayoutItemInfo, LayoutItemInfo), or information about the repeater
+        elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
         sub_expression: Box<Expression>,
     },
     /// Will call the sub_expression, with the cells variable set to the
@@ -293,9 +318,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::KeyboardShortcutType => {
-                Expression::KeyboardShortcutLiteral(KeyboardShortcut::default())
-            }
+            Type::Keys => Expression::KeysLiteral(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => return None,
         })
@@ -352,9 +375,11 @@ impl Expression {
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
-            Self::KeyboardShortcutLiteral(_) => Type::KeyboardShortcutType,
+            Self::KeysLiteral(_) => Type::Keys,
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
+            Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithFlexBoxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
@@ -434,15 +459,34 @@ macro_rules! visit_impl {
                 }
             }
             Expression::EnumerationValue(_) => {}
-            Expression::KeyboardShortcutLiteral(_) => {}
+            Expression::KeysLiteral(_) => {}
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 if let Some(repeater_index) = repeater_index {
                     $visitor(repeater_index);
                 }
             }
+            Expression::GridRepeaterCacheAccess {
+                repeater_index,
+                stride,
+                inner_repeater_index,
+                ..
+            } => {
+                $visitor(repeater_index);
+                $visitor(stride);
+                if let Some(inner_repeater_index) = inner_repeater_index {
+                    $visitor(inner_repeater_index);
+                }
+            }
             Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
+            }
+            Expression::WithFlexBoxLayoutItemInfo { elements, sub_expression, .. } => {
+                $visitor(sub_expression);
+                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                    $visitor(h);
+                    $visitor(v);
+                });
             }
             Expression::WithGridInputData { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
@@ -505,6 +549,7 @@ impl Expression {
                 // FIXME  (should be fine anyway because we mark these as not optimizable)
                 Expression::ModelDataAssignment { .. } => return,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
+                Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 _ => return,
             };
             visitor(p, ctx)
@@ -878,7 +923,8 @@ impl ContextMap {
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
             | Expression::PropertyAssignment { property: p, .. }
-            | Expression::LayoutCacheAccess { layout_cache_prop: p, .. } => {
+            | Expression::LayoutCacheAccess { layout_cache_prop: p, .. }
+            | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
                 *p = self.map_property_reference(p);
             }
             _ => (),

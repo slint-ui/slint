@@ -7,9 +7,8 @@
 
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
-pub use crate::items::PointerEventButton;
-use crate::items::{DropEvent, ItemRef, TextCursorDirection};
-pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers};
+use crate::items::{DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection};
+pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -53,6 +52,14 @@ pub enum MouseEvent {
     DragMove(DropEvent),
     /// The mouse is released while dragging over this item.
     Drop(DropEvent),
+    /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
+    /// `delta` is the incremental scale change; ScaleRotateGestureHandler accumulates it.
+    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt).
+    /// `delta` is the incremental rotation in degrees using the Slint convention:
+    /// positive = clockwise. Backends must convert from their platform convention
+    /// before constructing this event.
+    RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
     /// The mouse exited the item or component
     Exit,
 }
@@ -65,6 +72,7 @@ impl MouseEvent {
             MouseEvent::Released { is_touch, .. } => Some(*is_touch),
             MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
             MouseEvent::Wheel { .. } => None,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => Some(true),
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
             MouseEvent::Exit => None,
         }
@@ -77,6 +85,8 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(*position),
             MouseEvent::Moved { position, .. } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
+            MouseEvent::PinchGesture { position, .. } => Some(*position),
+            MouseEvent::RotationGesture { position, .. } => Some(*position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 Some(crate::lengths::logical_point_from_api(e.position))
             }
@@ -91,6 +101,8 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::PinchGesture { position, .. } => Some(position),
+            MouseEvent::RotationGesture { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     crate::lengths::logical_point_from_api(e.position) + vec,
@@ -111,6 +123,8 @@ impl MouseEvent {
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, .. } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
+            MouseEvent::PinchGesture { position, .. } => Some(position),
+            MouseEvent::RotationGesture { position, .. } => Some(position),
             MouseEvent::DragMove(e) | MouseEvent::Drop(e) => {
                 e.position = crate::api::LogicalPosition::from_euclid(
                     transform
@@ -135,6 +149,20 @@ impl MouseEvent {
             _ => (),
         }
     }
+}
+
+/// Phase of a touch or gesture event.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TouchPhase {
+    /// The gesture began (e.g., first finger touched or platform gesture started).
+    Started,
+    /// The gesture is ongoing (e.g., fingers moved or platform gesture updated).
+    Moved,
+    /// The gesture completed normally.
+    Ended,
+    /// The gesture was cancelled (e.g., interrupted by the system).
+    Cancelled,
 }
 
 /// This value is returned by the `input_event` function of an Item
@@ -313,13 +341,11 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
-/// A `KeyboardShortcut` is created by the `@keys(...)` macro and
-/// defines which key events match the given shortcuts.
-///
-/// See [`Self::matches()`] for details
+/// A `Keys` is created by the `@keys(...)` macro and
+/// defines which key event(s) activate a KeyBinding.
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
-pub struct KeyboardShortcut {
+pub struct Keys {
     /// The `key` used to trigger the shortcut
     ///
     /// Note: This is currently converted to lowercase when the shortcut is created!
@@ -332,23 +358,25 @@ pub struct KeyboardShortcut {
     ignore_alt: bool,
 }
 
-/// Re-exported in private_unstable_api to create a KeyboardShortcut struct.
-pub fn make_keyboard_shortcut(
+/// Re-exported in private_unstable_api to create a Keys struct.
+pub fn make_keys(
     key: SharedString,
     modifiers: KeyboardModifiers,
     ignore_shift: bool,
     ignore_alt: bool,
-) -> KeyboardShortcut {
-    KeyboardShortcut { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
+) -> Keys {
+    Keys { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
 }
 
 #[cfg(feature = "ffi")]
 #[allow(unsafe_code)]
 pub(crate) mod ffi {
+    use crate::api::ToSharedString as _;
+
     use super::*;
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut(
+    pub unsafe extern "C" fn slint_keys(
         key: &SharedString,
         alt: bool,
         control: bool,
@@ -356,9 +384,9 @@ pub(crate) mod ffi {
         meta: bool,
         ignore_shift: bool,
         ignore_alt: bool,
-        out: &mut KeyboardShortcut,
+        out: &mut Keys,
     ) {
-        *out = make_keyboard_shortcut(
+        *out = make_keys(
             key.clone(),
             KeyboardModifiers { alt, control, shift, meta },
             ignore_shift,
@@ -367,40 +395,36 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_to_string(
-        shortcut: &KeyboardShortcut,
-        out: &mut SharedString,
-    ) {
-        *out = crate::format!("{shortcut}")
+    pub unsafe extern "C" fn slint_keys_debug_string(shortcut: &Keys, out: &mut SharedString) {
+        *out = crate::format!("{shortcut:?}");
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keyboard_shortcut_matches(
-        shortcut: &KeyboardShortcut,
-        key_event: &KeyEvent,
-    ) -> bool {
-        shortcut.matches(key_event)
+    pub unsafe extern "C" fn slint_keys_to_string(shortcut: &Keys, out: &mut SharedString) {
+        *out = shortcut.to_shared_string();
     }
 }
 
-impl KeyboardShortcut {
-    /// Check whether a `KeyboardShortcut` can be triggered by the given `KeyEvent`
-    pub fn matches(&self, key_event: &KeyEvent) -> bool {
-        // An empty KeyboardShortcut is never triggered, even if the modifiers match.
+impl Keys {
+    /// Check whether a `Keys` can be triggered by the given `KeyEvent`
+    pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
+        // An empty Keys is never triggered, even if the modifiers match.
         if self.key.is_empty() {
             return false;
         }
 
         // TODO: Should this check the event_type and only match on KeyReleased?
-        let mut expected_modifiers = self.modifiers.clone();
+        let mut expected_modifiers = self.modifiers;
         if self.ignore_shift {
             expected_modifiers.shift = key_event.modifiers.shift;
         }
         if self.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
-        // Note: The constructor of KeyboardShortcut ensures that the shortcut's key is already
-        // in lowercase, so we can just compare it to the lowercased event text.
+        // Note: The shortcut's key is already in lowercase and NFC-normalized
+        // (by the compiler and backends respectively), so we only need to
+        // lowercase the event text. Backends are expected to NFC-normalize
+        // key event text before dispatching.
         //
         // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
         // if caps lock is active, even if shift is not pressed.
@@ -408,9 +432,112 @@ impl KeyboardShortcut {
 
         event_text.eq(self.key.chars()) && key_event.modifiers == expected_modifiers
     }
+
+    fn format_key_for_display(&self) -> crate::SharedString {
+        let key_str = self.key.as_str();
+        let first_char = key_str.chars().next();
+
+        if let Some(first_char) = first_char {
+            macro_rules! check_special_key {
+                ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+                    match first_char {
+                    $($(
+                        // Use $qt as a marker - if it exists, generate the check
+                        $char => {
+                            let _ = stringify!($($qt)|*); // Use $qt to enable this branch
+                            return stringify!($name).into();
+                        }
+                    )?)*
+                        _ => ()
+                    }
+                };
+            }
+            i_slint_common::for_each_keys!(check_special_key);
+        }
+
+        if key_str.chars().count() == 1 {
+            return key_str.to_uppercase().into();
+        }
+
+        key_str.into()
+    }
 }
 
-impl Display for KeyboardShortcut {
+impl Display for Keys {
+    /// Converts the keyboard shortcut to a string that looks native on the current platform.
+    ///
+    /// For example, the shortcut created with @keys(Meta + Control + A)
+    /// will be converted like this:
+    /// - **macOS**: `⌃⌘A`
+    /// - **Windows**: `Win+Ctrl+A`
+    /// - **Linux**: `Super+Ctrl+A`
+    ///
+    /// Note that this functions output is best-effort and may be adjusted/improved at any time,
+    /// do not rely on this output to be stable!
+    //
+    // References for implementation
+    // - macOS: <https://developer.apple.com/design/human-interface-guidelines/keyboards>
+    // - Windows: <https://learn.microsoft.com/en-us/windows/apps/design/input/keyboard-accelerators>
+    // - Linux: <https://developer.gnome.org/hig/guidelines/keyboard.html>
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        if self.key.is_empty() {
+            return Ok(());
+        }
+
+        if crate::is_apple_platform() {
+            // Slint remaps modifiers on macOS: control → Command, meta → Control
+            // From Apple's documentation:
+            //
+            // List modifier keys in the correct order.
+            // If you use more than one modifier key in a custom shortcut, always list them in this order:
+            //  Control, Option, Shift, Command
+            if self.modifiers.meta {
+                f.write_str("⌃")?;
+            }
+            if !self.ignore_alt && self.modifiers.alt {
+                f.write_str("⌥")?;
+            }
+            if !self.ignore_shift && self.modifiers.shift {
+                f.write_str("⇧")?;
+            }
+            if self.modifiers.control {
+                f.write_str("⌘")?;
+            }
+        } else {
+            let separator = "+";
+
+            // TODO: These should probably be translated, but better to have at least
+            // platform-local names than nothing.
+            let (ctrl_str, alt_str, shift_str, meta_str) =
+                if crate::detect_operating_system() == OperatingSystemType::Windows {
+                    ("Ctrl", "Alt", "Shift", "Win")
+                } else {
+                    ("Ctrl", "Alt", "Shift", "Super")
+                };
+
+            if self.modifiers.meta {
+                f.write_str(meta_str)?;
+                f.write_str(separator)?;
+            }
+            if self.modifiers.control {
+                f.write_str(ctrl_str)?;
+                f.write_str(separator)?;
+            }
+            if !self.ignore_alt && self.modifiers.alt {
+                f.write_str(alt_str)?;
+                f.write_str(separator)?;
+            }
+            if !self.ignore_shift && self.modifiers.shift {
+                f.write_str(shift_str)?;
+                f.write_str(separator)?;
+            }
+        }
+        f.write_str(&self.format_key_for_display())
+    }
+}
+
+impl core::fmt::Debug for Keys {
+    /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
         if self.key.is_empty() {
@@ -418,14 +545,14 @@ impl Display for KeyboardShortcut {
         } else {
             let alt = self
                 .ignore_alt
-                .then_some("IgnoreAlt+")
+                .then_some("Alt?+")
                 .or(self.modifiers.alt.then_some("Alt+"))
                 .unwrap_or_default();
             let ctrl = if self.modifiers.control { "Control+" } else { "" };
             let meta = if self.modifiers.meta { "Meta+" } else { "" };
             let shift = self
                 .ignore_shift
-                .then_some("IgnoreShift+")
+                .then_some("Shift?+")
                 .or(self.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
             let keycode: SharedString = self
@@ -460,6 +587,27 @@ pub enum KeyEventType {
     UpdateComposition = 2,
     /// The input method replaces the currently composed text with the final result of the composition.
     CommitComposition = 3,
+}
+
+#[derive(Default)]
+/// This struct is used to pass key events to the runtime.
+pub struct InternalKeyEvent {
+    /// That's the public type with only public fields
+    pub key_event: KeyEvent,
+    /// Indicates whether the key was pressed or released
+    pub event_type: KeyEventType,
+    /// If the event type is KeyEventType::UpdateComposition or KeyEventType::CommitComposition,
+    /// then this field specifies what part of the current text to replace.
+    /// Relative to the offset of the pre-edit text within the text input element's text.
+    pub replacement_range: Option<core::ops::Range<i32>>,
+    /// If the event type is KeyEventType::UpdateComposition, this is the new pre-edit text
+    pub preedit_text: SharedString,
+    /// The selection within the preedit_text
+    pub preedit_selection: Option<core::ops::Range<i32>>,
+    /// The new cursor position, when None, the cursor is put after the text that was just inserted
+    pub cursor_position: Option<i32>,
+    /// The anchor position, when None, the cursor is put after the text that was just inserted
+    pub anchor_position: Option<i32>,
 }
 
 impl KeyEvent {
@@ -736,6 +884,7 @@ pub struct MouseInputState {
     pub(crate) drag_data: Option<DropEvent>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
+    pub(crate) cursor: MouseCursor,
 }
 
 impl MouseInputState {
@@ -778,15 +927,20 @@ pub(crate) fn handle_mouse_grab(
             return false;
         };
         if intercept {
-            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+            item.borrow().as_ref().input_event(
+                &MouseEvent::Exit,
+                window_adapter,
+                &item,
+                &mut mouse_input_state.cursor,
+            );
             return false;
         }
         let g = item.geometry();
         event.translate(-g.origin.to_vector());
-        if window_adapter.renderer().supports_transformations() {
-            if let Some(inverse_transform) = item.inverse_children_transform() {
-                event.transform(inverse_transform);
-            }
+        if window_adapter.renderer().supports_transformations()
+            && let Some(inverse_transform) = item.inverse_children_transform()
+        {
+            event.transform(inverse_transform);
         }
 
         let interested = matches!(
@@ -800,6 +954,7 @@ pub(crate) fn handle_mouse_grab(
                 &event,
                 window_adapter,
                 &item,
+                &mut mouse_input_state.cursor,
             ) == InputEventFilterResult::Intercept
         {
             intercept = true;
@@ -811,7 +966,12 @@ pub(crate) fn handle_mouse_grab(
     }
 
     let grabber = mouse_input_state.top_item().unwrap();
-    let input_result = grabber.borrow().as_ref().input_event(&event, window_adapter, &grabber);
+    let input_result = grabber.borrow().as_ref().input_event(
+        &event,
+        window_adapter,
+        &grabber,
+        &mut mouse_input_state.cursor,
+    );
     match input_result {
         InputEventResult::GrabMouse => None,
         InputEventResult::StartDrag => {
@@ -841,9 +1001,12 @@ pub(crate) fn send_exit_events(
     mut pos: Option<LogicalPoint>,
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
+    // Note that exit events can't actually change the cursor from default so we'll ignore the result
+    let cursor = &mut MouseCursor::Default;
+
     for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
         let Some(item) = it.upgrade() else { continue };
-        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
     }
 
     let mut clipped = false;
@@ -853,23 +1016,28 @@ pub(crate) fn send_exit_events(
         let contains = pos.is_some_and(|p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
-            if window_adapter.renderer().supports_transformations() {
-                if let Some(inverse_transform) = item.inverse_children_transform() {
-                    *p = inverse_transform.transform_point(p.cast()).cast();
-                }
+            if window_adapter.renderer().supports_transformations()
+                && let Some(inverse_transform) = item.inverse_children_transform()
+            {
+                *p = inverse_transform.transform_point(p.cast()).cast();
             }
         }
         if !contains || clipped {
             if item.borrow().as_ref().clips_children() {
                 clipped = true;
             }
-            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
         } else if new_input_state.item_stack.get(idx).is_none_or(|(x, _)| *x != it.0) {
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
             } else {
-                item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item);
+                item.borrow().as_ref().input_event(
+                    &MouseEvent::Exit,
+                    window_adapter,
+                    &item,
+                    cursor,
+                );
             }
         }
     }
@@ -884,8 +1052,11 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    let mut result =
-        MouseInputState { drag_data: mouse_input_state.drag_data.clone(), ..Default::default() };
+    let mut result = MouseInputState {
+        drag_data: mouse_input_state.drag_data.clone(),
+        cursor: mouse_input_state.cursor,
+        ..Default::default()
+    };
     let r = send_mouse_event_to_item(
         mouse_event,
         root.clone(),
@@ -904,16 +1075,16 @@ pub fn process_mouse_input(
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
-    if let MouseEvent::Wheel { position, .. } = mouse_event {
-        if r.has_aborted() {
-            // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
-            return process_mouse_input(
-                root,
-                &MouseEvent::Moved { position: *position, is_touch: false },
-                window_adapter,
-                result,
-            );
-        }
+    if let MouseEvent::Wheel { position, .. } = mouse_event
+        && r.has_aborted()
+    {
+        // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
+        return process_mouse_input(
+            root,
+            &MouseEvent::Moved { position: *position, is_touch: false },
+            window_adapter,
+            result,
+        );
     }
 
     result
@@ -982,6 +1153,7 @@ fn send_mouse_event_to_item(
             &event_for_children,
             window_adapter,
             &item_rc,
+            &mut result.cursor,
         )
     } else {
         InputEventFilterResult::ForwardAndIgnore
@@ -1045,7 +1217,7 @@ fn send_mouse_event_to_item(
         if last_top_item.is_none_or(|x| *x != item_rc) {
             event.set_click_count(0);
         }
-        item.as_ref().input_event(&event, window_adapter, &item_rc)
+        item.as_ref().input_event(&event, window_adapter, &item_rc, &mut result.cursor)
     };
     match r {
         InputEventResult::EventAccepted => VisitChildrenResult::abort(item_rc.index(), 0),
@@ -1149,5 +1321,998 @@ impl TextCursorBlinker {
     /// text editable elements looses the focus or is hidden.
     pub fn stop(&self) {
         self.cursor_blink_timer.stop()
+    }
+}
+
+/// A single active touch point.
+#[derive(Clone, Copy, Default)]
+struct TouchPoint {
+    id: u64,
+    position: LogicalPoint,
+}
+
+/// Fixed-capacity map of touch IDs to touch points.
+///
+/// Touchscreens rarely report more than 5 simultaneous contacts, and gesture
+/// recognition only uses the first two. A linear-scan array avoids the heap
+/// allocation and pointer-chasing overhead of `BTreeMap` for this tiny collection.
+const MAX_TRACKED_TOUCHES: usize = 5;
+
+#[derive(Clone)]
+struct TouchMap {
+    entries: [TouchPoint; MAX_TRACKED_TOUCHES],
+    len: usize,
+}
+
+impl Default for TouchMap {
+    fn default() -> Self {
+        Self { entries: [TouchPoint::default(); MAX_TRACKED_TOUCHES], len: 0 }
+    }
+}
+
+impl TouchMap {
+    fn get(&self, id: u64) -> Option<&TouchPoint> {
+        self.entries[..self.len].iter().find(|tp| tp.id == id)
+    }
+
+    fn get_mut(&mut self, id: u64) -> Option<&mut TouchPoint> {
+        self.entries[..self.len].iter_mut().find(|tp| tp.id == id)
+    }
+
+    fn insert(&mut self, point: TouchPoint) {
+        if let Some(existing) = self.entries[..self.len].iter_mut().find(|tp| tp.id == point.id) {
+            *existing = point;
+        } else if self.len < MAX_TRACKED_TOUCHES {
+            self.entries[self.len] = point;
+            self.len += 1;
+        }
+    }
+
+    fn remove(&mut self, id: u64) {
+        if let Some(idx) = self.entries[..self.len].iter().position(|tp| tp.id == id) {
+            self.len -= 1;
+            self.entries[idx] = self.entries[self.len];
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns the first two distinct IDs, or `None` if fewer than 2 entries.
+    fn first_two_ids(&self) -> Option<(u64, u64)> {
+        if self.len >= 2 { Some((self.entries[0].id, self.entries[1].id)) } else { None }
+    }
+
+    /// Returns the first entry, if any.
+    fn first(&self) -> Option<&TouchPoint> {
+        if self.len > 0 { Some(&self.entries[0]) } else { None }
+    }
+}
+
+/// Fixed-capacity buffer for [`MouseEvent`]s produced by the touch state machine.
+///
+/// No branch in [`TouchState::process`] emits more than 3 events (gesture end
+/// produces PinchEnded + RotationEnded + Pressed/Exit). Capacity 4 provides a
+/// margin without heap allocation.
+const MAX_TOUCH_EVENTS: usize = 4;
+
+#[derive(Clone)]
+pub(crate) struct TouchEventBuffer {
+    events: [Option<MouseEvent>; MAX_TOUCH_EVENTS],
+    len: usize,
+}
+
+impl TouchEventBuffer {
+    fn new() -> Self {
+        Self { events: [None, None, None, None], len: 0 }
+    }
+
+    fn push(&mut self, event: MouseEvent) {
+        debug_assert!(self.len < MAX_TOUCH_EVENTS, "TouchEventBuffer overflow");
+        if self.len < MAX_TOUCH_EVENTS {
+            self.events[self.len] = Some(event);
+            self.len += 1;
+        }
+    }
+
+    /// Returns an iterator over the buffered events.
+    pub(crate) fn into_iter(self) -> impl Iterator<Item = MouseEvent> {
+        let len = self.len;
+        self.events.into_iter().take(len).flatten()
+    }
+}
+
+/// State of the multi-touch gesture recognizer.
+#[derive(Default, Debug, Clone, Copy)]
+enum GestureRecognitionState {
+    /// 0-1 fingers; forwarding as mouse events.
+    #[default]
+    Idle,
+    /// 2 fingers down, waiting for movement to exceed threshold.
+    TwoFingersDown { finger_ids: (u64, u64), initial_distance: f32, last_angle: euclid::Angle<f32> },
+    /// Actively synthesizing PinchGesture/RotationGesture events.
+    Pinching {
+        finger_ids: (u64, u64),
+        initial_distance: f32,
+        last_scale: f32,
+        last_angle: euclid::Angle<f32>,
+    },
+}
+
+/// Tracks all active touch points and recognizes pinch/rotation gestures.
+///
+/// When only one finger is down, touch events are forwarded as mouse events.
+/// When two fingers are down and move beyond a threshold, synthesized
+/// `PinchGesture` and `RotationGesture` events are emitted — the same events
+/// that platform gesture recognition (e.g. macOS trackpad) produces.
+pub(crate) struct TouchState {
+    active_touches: TouchMap,
+    /// The finger forwarded as mouse events during single-touch.
+    primary_touch_id: Option<u64>,
+    gesture_state: GestureRecognitionState,
+}
+
+impl Default for TouchState {
+    fn default() -> Self {
+        Self {
+            active_touches: TouchMap::default(),
+            primary_touch_id: None,
+            gesture_state: GestureRecognitionState::Idle,
+        }
+    }
+}
+
+impl TouchState {
+    /// Minimum movement (in logical pixels) before two fingers are recognized as a pinch.
+    const PINCH_THRESHOLD: f32 = 8.0;
+
+    /// Minimum angular change (in degrees) before two fingers are recognized as a rotation.
+    const ROTATION_THRESHOLD: f32 = 5.0;
+
+    /// Returns the finger IDs from the current gesture state, if any.
+    fn gesture_finger_ids(&self) -> Option<(u64, u64)> {
+        match self.gesture_state {
+            GestureRecognitionState::TwoFingersDown { finger_ids, .. }
+            | GestureRecognitionState::Pinching { finger_ids, .. } => Some(finger_ids),
+            GestureRecognitionState::Idle => None,
+        }
+    }
+
+    /// Returns (distance, angle) between two specific touch points.
+    fn geometry_for(&self, (id_a, id_b): (u64, u64)) -> Option<(f32, euclid::Angle<f32>)> {
+        let a = self.active_touches.get(id_a)?;
+        let b = self.active_touches.get(id_b)?;
+        let delta = (b.position - a.position).cast::<f32>();
+        Some((delta.length(), delta.angle_from_x_axis()))
+    }
+
+    /// Returns the positions of the two gesture fingers, or `None` if not available.
+    fn gesture_finger_positions(&self) -> Option<(&TouchPoint, &TouchPoint)> {
+        let (id_a, id_b) = self.gesture_finger_ids()?;
+        let a = self.active_touches.get(id_a)?;
+        let b = self.active_touches.get(id_b)?;
+        Some((a, b))
+    }
+
+    /// Returns the midpoint between the two gesture fingers, or `None`.
+    fn gesture_midpoint(&self) -> Option<LogicalPoint> {
+        let (a, b) = self.gesture_finger_positions()?;
+        let mid = a.position.cast::<f32>().lerp(b.position.cast::<f32>(), 0.5);
+        Some(mid.cast())
+    }
+
+    /// Returns (distance, angle) between the two gesture fingers.
+    fn gesture_geometry(&self) -> Option<(f32, euclid::Angle<f32>)> {
+        let (a, b) = self.gesture_finger_positions()?;
+        let delta = (b.position - a.position).cast::<f32>();
+        Some((delta.length(), delta.angle_from_x_axis()))
+    }
+
+    /// Returns true if the given touch ID is one of the two gesture fingers.
+    fn is_gesture_finger(&self, id: u64) -> bool {
+        self.gesture_finger_ids().is_some_and(|(a, b)| id == a || id == b)
+    }
+
+    /// Run the touch state machine for a single event and return the
+    /// [`MouseEvent`]s to dispatch.
+    ///
+    /// This is intentionally separated from [`crate::window::WindowInner::process_touch_input`]
+    /// so that the `RefCell` borrow can be dropped *once* before dispatching,
+    /// rather than requiring a manual `drop` at every branch.
+    pub(crate) fn process(
+        &mut self,
+        id: u64,
+        position: LogicalPoint,
+        phase: TouchPhase,
+    ) -> TouchEventBuffer {
+        let mut events = TouchEventBuffer::new();
+        match phase {
+            TouchPhase::Started => self.process_started(id, position, &mut events),
+            TouchPhase::Moved => self.process_moved(id, position, &mut events),
+            TouchPhase::Ended => self.process_ended(id, position, false, &mut events),
+            TouchPhase::Cancelled => self.process_ended(id, position, true, &mut events),
+        }
+        events
+    }
+
+    fn process_started(&mut self, id: u64, position: LogicalPoint, events: &mut TouchEventBuffer) {
+        self.active_touches.insert(TouchPoint { id, position });
+
+        let total = self.active_touches.len();
+        if total == 1 {
+            // First finger: become primary, forward as mouse press.
+            self.primary_touch_id = Some(id);
+            self.gesture_state = GestureRecognitionState::Idle;
+            events.push(MouseEvent::Pressed {
+                position,
+                button: PointerEventButton::Left,
+                click_count: 0,
+                is_touch: true,
+            });
+        } else if total == 2 {
+            // Second finger: transition Idle → TwoFingersDown.
+            let finger_ids = self.active_touches.first_two_ids().unwrap_or((0, 0));
+
+            // Synthesize a Release for the primary finger to clear any
+            // Flickable grab / delay state.
+            let primary_pos = self
+                .primary_touch_id
+                .and_then(|pid| self.active_touches.get(pid))
+                .map(|tp| tp.position)
+                .unwrap_or(position);
+
+            // Compute initial geometry for threshold detection.
+            let (initial_distance, last_angle) =
+                self.geometry_for(finger_ids).unwrap_or((0.0, euclid::Angle::zero()));
+            self.gesture_state = GestureRecognitionState::TwoFingersDown {
+                finger_ids,
+                initial_distance,
+                last_angle,
+            };
+
+            events.push(MouseEvent::Released {
+                position: primary_pos,
+                button: PointerEventButton::Left,
+                click_count: 0,
+                is_touch: true,
+            });
+        }
+        // 3+ fingers: tracked in active_touches but ignored for gesture.
+    }
+
+    fn process_moved(&mut self, id: u64, position: LogicalPoint, events: &mut TouchEventBuffer) {
+        if let Some(tp) = self.active_touches.get_mut(id) {
+            tp.position = position;
+        }
+
+        let is_gesture_finger = self.is_gesture_finger(id);
+
+        match self.gesture_state {
+            GestureRecognitionState::Idle => {
+                if self.primary_touch_id == Some(id) {
+                    events.push(MouseEvent::Moved { position, is_touch: true });
+                }
+            }
+            GestureRecognitionState::TwoFingersDown {
+                finger_ids,
+                initial_distance,
+                last_angle,
+            } if is_gesture_finger => {
+                if let Some((dist, angle)) = self.gesture_geometry() {
+                    let delta_dist = (dist - initial_distance).abs();
+                    let delta_angle = (angle - last_angle).signed().to_degrees().abs();
+                    if delta_dist > Self::PINCH_THRESHOLD || delta_angle > Self::ROTATION_THRESHOLD
+                    {
+                        // Re-snapshot so the first gesture event starts from
+                        // the current geometry rather than accumulating the
+                        // threshold movement.
+                        self.gesture_state = GestureRecognitionState::Pinching {
+                            finger_ids,
+                            initial_distance: dist,
+                            last_scale: 1.0,
+                            last_angle: angle,
+                        };
+
+                        let midpoint = self.gesture_midpoint().unwrap_or(position);
+
+                        events.push(MouseEvent::PinchGesture {
+                            position: midpoint,
+                            delta: 0.0,
+                            phase: TouchPhase::Started,
+                        });
+                        events.push(MouseEvent::RotationGesture {
+                            position: midpoint,
+                            delta: 0.0,
+                            phase: TouchPhase::Started,
+                        });
+                    }
+                }
+            }
+            GestureRecognitionState::Pinching {
+                initial_distance, last_scale, last_angle, ..
+            } if is_gesture_finger => {
+                if let Some((dist, angle)) = self.gesture_geometry() {
+                    let midpoint = self.gesture_midpoint().unwrap_or(position);
+
+                    let current_scale =
+                        if initial_distance > 0.0 { dist / initial_distance } else { 1.0 };
+                    let scale_delta = current_scale - last_scale;
+
+                    // `.signed()` wraps to [-pi, pi] so crossing the ±180°
+                    // atan2 boundary doesn't produce a full-revolution jump.
+                    let rotation_delta = (angle - last_angle).signed().to_degrees();
+
+                    // Update the mutable state for next frame.
+                    if let GestureRecognitionState::Pinching {
+                        last_scale: ref mut ls,
+                        last_angle: ref mut la,
+                        ..
+                    } = self.gesture_state
+                    {
+                        *ls = current_scale;
+                        *la = angle;
+                    }
+
+                    events.push(MouseEvent::PinchGesture {
+                        position: midpoint,
+                        delta: scale_delta,
+                        phase: TouchPhase::Moved,
+                    });
+                    events.push(MouseEvent::RotationGesture {
+                        position: midpoint,
+                        delta: rotation_delta,
+                        phase: TouchPhase::Moved,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn process_ended(
+        &mut self,
+        id: u64,
+        position: LogicalPoint,
+        is_cancelled: bool,
+        events: &mut TouchEventBuffer,
+    ) {
+        // Check gesture membership *before* removing from the map.
+        let is_gesture_finger = self.is_gesture_finger(id);
+        let midpoint = self.gesture_midpoint().unwrap_or(position);
+        self.active_touches.remove(id);
+
+        match self.gesture_state {
+            GestureRecognitionState::Idle => {
+                if self.primary_touch_id == Some(id) {
+                    self.primary_touch_id = None;
+                    events.push(MouseEvent::Released {
+                        position,
+                        button: PointerEventButton::Left,
+                        click_count: 0,
+                        is_touch: true,
+                    });
+                    events.push(MouseEvent::Exit);
+                }
+            }
+            GestureRecognitionState::TwoFingersDown { .. } if is_gesture_finger => {
+                self.gesture_state = GestureRecognitionState::Idle;
+                if !is_cancelled {
+                    if let Some(remaining) = self.active_touches.first() {
+                        let remaining_pos = remaining.position;
+                        self.primary_touch_id = Some(remaining.id);
+                        events.push(MouseEvent::Pressed {
+                            position: remaining_pos,
+                            button: PointerEventButton::Left,
+                            click_count: 0,
+                            is_touch: true,
+                        });
+                    } else {
+                        self.primary_touch_id = None;
+                        events.push(MouseEvent::Exit);
+                    }
+                } else {
+                    self.primary_touch_id = None;
+                    events.push(MouseEvent::Exit);
+                }
+            }
+            GestureRecognitionState::Pinching { .. } if is_gesture_finger => {
+                self.gesture_state = GestureRecognitionState::Idle;
+
+                let gesture_phase =
+                    if is_cancelled { TouchPhase::Cancelled } else { TouchPhase::Ended };
+
+                let remaining = if !is_cancelled {
+                    self.active_touches.first().map(|tp| (tp.id, tp.position))
+                } else {
+                    None
+                };
+                if let Some((rid, _)) = remaining {
+                    self.primary_touch_id = Some(rid);
+                } else {
+                    self.primary_touch_id = None;
+                }
+
+                events.push(MouseEvent::PinchGesture {
+                    position: midpoint,
+                    delta: 0.0,
+                    phase: gesture_phase,
+                });
+                events.push(MouseEvent::RotationGesture {
+                    position: midpoint,
+                    delta: 0.0,
+                    phase: gesture_phase,
+                });
+
+                if let Some((_, rpos)) = remaining {
+                    events.push(MouseEvent::Pressed {
+                        position: rpos,
+                        button: PointerEventButton::Left,
+                        click_count: 0,
+                        is_touch: true,
+                    });
+                } else {
+                    events.push(MouseEvent::Exit);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod touch_tests {
+    extern crate alloc;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use super::*;
+    use crate::lengths::LogicalPoint;
+
+    fn pt(x: f32, y: f32) -> LogicalPoint {
+        euclid::point2(x, y)
+    }
+
+    // -----------------------------------------------------------------------
+    // TouchMap tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn touch_map_insert_and_get() {
+        let mut map = TouchMap::default();
+        assert_eq!(map.len(), 0);
+        map.insert(TouchPoint { id: 1, position: pt(10.0, 20.0) });
+        assert_eq!(map.len(), 1);
+        assert!(map.get(1).is_some());
+        assert!((map.get(1).unwrap().position.x - 10.0).abs() < f32::EPSILON);
+        assert!(map.get(2).is_none());
+    }
+
+    #[test]
+    fn touch_map_update_existing() {
+        let mut map = TouchMap::default();
+        map.insert(TouchPoint { id: 1, position: pt(10.0, 20.0) });
+        map.insert(TouchPoint { id: 1, position: pt(30.0, 40.0) });
+        assert_eq!(map.len(), 1);
+        assert!((map.get(1).unwrap().position.x - 30.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn touch_map_remove() {
+        let mut map = TouchMap::default();
+        map.insert(TouchPoint { id: 1, position: pt(10.0, 20.0) });
+        map.insert(TouchPoint { id: 2, position: pt(30.0, 40.0) });
+        assert_eq!(map.len(), 2);
+        map.remove(1);
+        assert_eq!(map.len(), 1);
+        assert!(map.get(1).is_none());
+        assert!(map.get(2).is_some());
+    }
+
+    #[test]
+    fn touch_map_remove_nonexistent() {
+        let mut map = TouchMap::default();
+        map.insert(TouchPoint { id: 1, position: pt(10.0, 20.0) });
+        map.remove(99);
+        assert_eq!(map.len(), 1);
+    }
+
+    #[test]
+    fn touch_map_capacity() {
+        let mut map = TouchMap::default();
+        for i in 0..MAX_TRACKED_TOUCHES {
+            map.insert(TouchPoint { id: i as u64, position: pt(i as f32, 0.0) });
+        }
+        assert_eq!(map.len(), MAX_TRACKED_TOUCHES);
+        // Inserting beyond capacity is silently ignored.
+        map.insert(TouchPoint { id: 99, position: pt(99.0, 0.0) });
+        assert_eq!(map.len(), MAX_TRACKED_TOUCHES);
+        assert!(map.get(99).is_none());
+    }
+
+    #[test]
+    fn touch_map_first_two_ids() {
+        let mut map = TouchMap::default();
+        assert!(map.first_two_ids().is_none());
+        map.insert(TouchPoint { id: 5, position: pt(0.0, 0.0) });
+        assert!(map.first_two_ids().is_none());
+        map.insert(TouchPoint { id: 10, position: pt(0.0, 0.0) });
+        assert_eq!(map.first_two_ids(), Some((5, 10)));
+    }
+
+    #[test]
+    fn touch_map_first() {
+        let mut map = TouchMap::default();
+        assert!(map.first().is_none());
+        map.insert(TouchPoint { id: 7, position: pt(1.0, 2.0) });
+        let tp = map.first().unwrap();
+        assert_eq!(tp.id, 7);
+        assert!((tp.position.x - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn touch_map_get_mut() {
+        let mut map = TouchMap::default();
+        map.insert(TouchPoint { id: 1, position: pt(0.0, 0.0) });
+        map.get_mut(1).unwrap().position = pt(5.0, 6.0);
+        assert!((map.get(1).unwrap().position.x - 5.0).abs() < f32::EPSILON);
+    }
+
+    // -----------------------------------------------------------------------
+    // Helper: extract event types for readable assertions
+    // -----------------------------------------------------------------------
+
+    #[derive(Debug, PartialEq)]
+    enum Ev {
+        Pressed(f32, f32),
+        Released(f32, f32),
+        Moved(f32, f32),
+        Exit,
+        PinchStarted,
+        PinchMoved(f32),
+        PinchEnded,
+        PinchCancelled,
+        RotationStarted,
+        RotationMoved(f32),
+        RotationEnded,
+        RotationCancelled,
+    }
+
+    fn classify(events: &TouchEventBuffer) -> Vec<Ev> {
+        events
+            .clone()
+            .into_iter()
+            .map(|e| match e {
+                MouseEvent::Pressed { position, .. } => Ev::Pressed(position.x, position.y),
+                MouseEvent::Released { position, .. } => Ev::Released(position.x, position.y),
+                MouseEvent::Moved { position, .. } => Ev::Moved(position.x, position.y),
+                MouseEvent::Exit => Ev::Exit,
+                MouseEvent::PinchGesture { delta, phase, .. } => match phase {
+                    TouchPhase::Started => Ev::PinchStarted,
+                    TouchPhase::Moved => Ev::PinchMoved(delta),
+                    TouchPhase::Ended => Ev::PinchEnded,
+                    TouchPhase::Cancelled => Ev::PinchCancelled,
+                },
+                MouseEvent::RotationGesture { delta, phase, .. } => match phase {
+                    TouchPhase::Started => Ev::RotationStarted,
+                    TouchPhase::Moved => Ev::RotationMoved(delta),
+                    TouchPhase::Ended => Ev::RotationEnded,
+                    TouchPhase::Cancelled => Ev::RotationCancelled,
+                },
+                _ => panic!("unexpected event: {:?}", e),
+            })
+            .collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // TouchState: single-finger forwarding
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn single_finger_press_move_release() {
+        let mut state = TouchState::default();
+
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+        assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
+
+        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Moved);
+        assert_eq!(classify(&evs), vec![Ev::Moved(110.0, 200.0)]);
+
+        let evs = state.process(1, pt(110.0, 200.0), TouchPhase::Ended);
+        assert_eq!(classify(&evs), vec![Ev::Released(110.0, 200.0), Ev::Exit]);
+    }
+
+    #[test]
+    fn single_finger_cancel() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled);
+        assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0), Ev::Exit]);
+    }
+
+    #[test]
+    fn non_primary_move_ignored() {
+        let mut state = TouchState::default();
+        // Touch 1 is primary.
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+
+        // Move for a different ID that was never started (edge case).
+        let evs = state.process(99, pt(50.0, 50.0), TouchPhase::Moved);
+        assert!(classify(&evs).is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // TouchState: two-finger → gesture transition
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn two_fingers_synthesize_release_then_gesture() {
+        let mut state = TouchState::default();
+
+        // Finger 1 down.
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+        assert_eq!(classify(&evs), vec![Ev::Pressed(100.0, 200.0)]);
+
+        // Finger 2 down → synthesized release for finger 1.
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Started);
+        assert_eq!(classify(&evs), vec![Ev::Released(100.0, 200.0)]);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
+
+        // Move finger 2 far enough to trigger pinch (> 8px threshold).
+        let evs = state.process(2, pt(220.0, 200.0), TouchPhase::Moved);
+        assert_eq!(classify(&evs), vec![Ev::PinchStarted, Ev::RotationStarted]);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
+    }
+
+    #[test]
+    fn two_fingers_below_threshold_no_gesture() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started);
+
+        // Small movement within threshold.
+        let evs = state.process(2, pt(202.0, 200.0), TouchPhase::Moved);
+        assert!(classify(&evs).is_empty());
+        assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
+    }
+
+    #[test]
+    fn pinch_produces_scale_deltas() {
+        let mut state = TouchState::default();
+
+        // Set up: finger 1 at (0, 0), finger 2 at (100, 0) → distance = 100.
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started);
+
+        // Move finger 2 to (120, 0) to exceed threshold and start pinching.
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
+
+        // Now move finger 2 further to (180, 0).
+        // New distance = 180, initial distance (re-snapshotted) = 120.
+        // Scale = 180/120 = 1.5, delta = 1.5 - 1.0 = 0.5.
+        let evs = state.process(2, pt(180.0, 0.0), TouchPhase::Moved);
+        let classified = classify(&evs);
+        assert_eq!(classified.len(), 2);
+        if let Ev::PinchMoved(delta) = classified[0] {
+            assert!((delta - 0.5).abs() < 0.01, "expected ~0.5, got {}", delta);
+        } else {
+            panic!("expected PinchMoved, got {:?}", classified[0]);
+        }
+    }
+
+    #[test]
+    fn rotation_produces_correct_deltas() {
+        let mut state = TouchState::default();
+
+        // Finger 1 at origin, finger 2 on the X axis at (100, 0).
+        // Initial angle = atan2(0, 100) = 0°.
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started);
+
+        // Move finger 2 far enough to trigger gesture.
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
+
+        // Rotate ~45° clockwise: move finger 2 from (120, 0) to roughly
+        // (70.7, 70.7) which is at 45° from origin.
+        // atan2(70.7, 70.7) ≈ 45°. Delta from re-snapshotted 0° = +45°.
+        // Slint convention: positive = clockwise → delta ≈ +45°.
+        let evs = state.process(2, pt(70.7, 70.7), TouchPhase::Moved);
+        let classified = classify(&evs);
+        assert_eq!(classified.len(), 2);
+        if let Ev::RotationMoved(delta) = classified[1] {
+            assert!((delta - 45.0).abs() < 1.0, "expected ~45.0 (clockwise), got {}", delta);
+        } else {
+            panic!("expected RotationMoved, got {:?}", classified[1]);
+        }
+    }
+
+    #[test]
+    fn rotation_across_180_degree_boundary() {
+        let mut state = TouchState::default();
+
+        // Finger 1 at origin, finger 2 at (-100, -10).
+        // angle = atan2(-10, -100) ≈ -174.3°.
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(-100.0, -10.0), TouchPhase::Started);
+
+        // Trigger gesture by moving far enough.
+        state.process(2, pt(-120.0, -10.0), TouchPhase::Moved);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
+
+        // Rotate across the ±180° boundary: move finger 2 to (-100, 10).
+        // New angle = atan2(10, -100) ≈ 174.3°.
+        // Raw angular change crosses ±180°, but per-frame delta should be
+        // small (~11.4° which is 2 * 5.7°), NOT a ~349° jump.
+        let evs = state.process(2, pt(-100.0, 10.0), TouchPhase::Moved);
+        let classified = classify(&evs);
+        if let Ev::RotationMoved(delta) = classified[1] {
+            assert!(
+                delta.abs() < 20.0,
+                "rotation should be a small delta (~11°), got {} (discontinuity!)",
+                delta
+            );
+        } else {
+            panic!("expected RotationMoved, got {:?}", classified[1]);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // TouchState: gesture end transitions
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn pinch_end_with_remaining_finger() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started);
+        // Trigger pinch.
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved);
+
+        // Lift finger 2 → gesture ends, finger 1 gets re-pressed.
+        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Ended);
+        let classified = classify(&evs);
+        assert_eq!(classified, vec![Ev::PinchEnded, Ev::RotationEnded, Ev::Pressed(0.0, 0.0)]);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Idle));
+        assert_eq!(state.primary_touch_id, Some(1));
+    }
+
+    #[test]
+    fn pinch_cancel_emits_cancelled_and_exit() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(120.0, 0.0), TouchPhase::Moved);
+
+        // Cancel finger 2.
+        let evs = state.process(2, pt(120.0, 0.0), TouchPhase::Cancelled);
+        let classified = classify(&evs);
+        assert_eq!(classified, vec![Ev::PinchCancelled, Ev::RotationCancelled, Ev::Exit]);
+        assert!(state.primary_touch_id.is_none());
+    }
+
+    #[test]
+    fn two_fingers_down_lift_before_threshold_returns_to_idle() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
+
+        // Lift finger 2 without exceeding movement threshold.
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Ended);
+        let classified = classify(&evs);
+        // Remaining finger 1 gets re-pressed.
+        assert_eq!(classified, vec![Ev::Pressed(100.0, 200.0)]);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Idle));
+        assert_eq!(state.primary_touch_id, Some(1));
+    }
+
+    #[test]
+    fn two_fingers_down_cancel_both_emits_exit() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(100.0, 200.0), TouchPhase::Started);
+        state.process(2, pt(200.0, 200.0), TouchPhase::Started);
+
+        // Cancel finger 2 (gesture finger, no remaining → Exit).
+        let evs = state.process(2, pt(200.0, 200.0), TouchPhase::Cancelled);
+        assert_eq!(classify(&evs), vec![Ev::Exit]);
+
+        // Cancel finger 1 (now in Idle, but not primary since cancel cleared it).
+        let evs = state.process(1, pt(100.0, 200.0), TouchPhase::Cancelled);
+        assert!(classify(&evs).is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // TouchState: 3+ fingers
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn third_finger_ignored_for_gesture() {
+        let mut state = TouchState::default();
+
+        state.process(1, pt(0.0, 0.0), TouchPhase::Started);
+        state.process(2, pt(100.0, 0.0), TouchPhase::Started);
+
+        // Third finger: no additional events.
+        let evs = state.process(3, pt(50.0, 50.0), TouchPhase::Started);
+        assert!(classify(&evs).is_empty());
+        assert_eq!(state.active_touches.len(), 3);
+    }
+
+    // -----------------------------------------------------------------------
+    // Angle wrapping via Euclid
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn euclid_angle_signed_wrapping() {
+        use euclid::Angle;
+        let wrap = |deg: f32| Angle::degrees(deg).signed().to_degrees();
+        assert!(wrap(0.0).abs() < f32::EPSILON);
+        assert!((wrap(180.0) - 180.0).abs() < 0.01);
+        assert!((wrap(181.0) - (-179.0)).abs() < 0.01);
+        assert!((wrap(-181.0) - 179.0).abs() < 0.01);
+        assert!(wrap(360.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn zero_distance_fingers_no_division_by_zero() {
+        let mut state = TouchState::default();
+
+        // Two fingers at the exact same position → distance = 0.
+        state.process(1, pt(100.0, 100.0), TouchPhase::Started);
+        state.process(2, pt(100.0, 100.0), TouchPhase::Started);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::TwoFingersDown { .. }));
+
+        // Move one finger far enough to trigger gesture.
+        let evs = state.process(2, pt(120.0, 100.0), TouchPhase::Moved);
+        assert!(matches!(state.gesture_state, GestureRecognitionState::Pinching { .. }));
+        let classified = classify(&evs);
+        assert_eq!(classified.len(), 2);
+        assert_eq!(classified[0], Ev::PinchStarted);
+
+        // Move further — scale should not be inf/NaN despite initial_distance
+        // having been 0 (re-snapshotted to 20.0 at threshold crossing).
+        let evs = state.process(2, pt(140.0, 100.0), TouchPhase::Moved);
+        let classified = classify(&evs);
+        if let Ev::PinchMoved(delta) = classified[0] {
+            assert!(delta.is_finite(), "scale delta should be finite, got {}", delta);
+        } else {
+            panic!("expected PinchMoved, got {:?}", classified[0]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    extern crate alloc;
+
+    #[test]
+    fn test_to_string() {
+        let test_cases = [
+            (
+                "a",
+                KeyboardModifiers { alt: false, control: true, shift: false, meta: false },
+                false,
+                false,
+                "⌘A",
+                "Ctrl+A",
+                "Ctrl+A",
+            ),
+            (
+                "a",
+                KeyboardModifiers { alt: true, control: true, shift: true, meta: true },
+                false,
+                false,
+                "⌃⌥⇧⌘A",
+                "Win+Ctrl+Alt+Shift+A",
+                "Super+Ctrl+Alt+Shift+A",
+            ),
+            (
+                "\u{001b}",
+                KeyboardModifiers { alt: false, control: true, shift: true, meta: false },
+                false,
+                false,
+                "⇧⌘Escape",
+                "Ctrl+Shift+Escape",
+                "Ctrl+Shift+Escape",
+            ),
+            (
+                "+",
+                KeyboardModifiers { alt: false, control: true, shift: false, meta: false },
+                true,
+                false,
+                "⌘+",
+                "Ctrl++",
+                "Ctrl++",
+            ),
+            (
+                "a",
+                KeyboardModifiers { alt: true, control: true, shift: false, meta: false },
+                false,
+                true,
+                "⌘A",
+                "Ctrl+A",
+                "Ctrl+A",
+            ),
+            (
+                "",
+                KeyboardModifiers { alt: false, control: true, shift: false, meta: false },
+                false,
+                false,
+                "",
+                "",
+                "",
+            ),
+            (
+                "\u{000a}",
+                KeyboardModifiers { alt: false, control: false, shift: false, meta: false },
+                false,
+                false,
+                "Return",
+                "Return",
+                "Return",
+            ),
+            (
+                "\u{0009}",
+                KeyboardModifiers { alt: false, control: false, shift: false, meta: false },
+                false,
+                false,
+                "Tab",
+                "Tab",
+                "Tab",
+            ),
+            (
+                "\u{0020}",
+                KeyboardModifiers { alt: false, control: false, shift: false, meta: false },
+                false,
+                false,
+                "Space",
+                "Space",
+                "Space",
+            ),
+            (
+                "\u{0008}",
+                KeyboardModifiers { alt: false, control: false, shift: false, meta: false },
+                false,
+                false,
+                "Backspace",
+                "Backspace",
+                "Backspace",
+            ),
+        ];
+
+        for (
+            key,
+            modifiers,
+            ignore_shift,
+            ignore_alt,
+            _expected_macos,
+            _expected_windows,
+            _expected_linux,
+        ) in test_cases
+        {
+            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt);
+
+            use crate::alloc::string::ToString;
+            let result = shortcut.to_string();
+
+            #[cfg(target_os = "macos")]
+            assert_eq!(result.as_str(), _expected_macos, "Failed for key: {:?}", key);
+
+            #[cfg(target_os = "windows")]
+            assert_eq!(result.as_str(), _expected_windows, "Failed for key: {:?}", key);
+
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            assert_eq!(result.as_str(), _expected_linux, "Failed for key: {:?}", key);
+        }
     }
 }

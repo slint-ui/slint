@@ -56,6 +56,9 @@
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
+    "FlexBoxLayout": {
+        "href": "reference/layouts/flexboxlayout/"
+    },
     "float": {
         "href": "reference/primitive-types/#float"
     },
@@ -72,7 +75,7 @@
         "href": "reference/layouts/gridlayout/"
     },
     "Globals": {
-        "href": "reference/global-structs-enums/"
+        "href": "guide/language/coding/globals/"
     },
     "HorizontalBox": {
         "href": "reference/std-widgets/layouts/horizontalbox/"
@@ -95,8 +98,14 @@
     "KeyboardInput": {
         "href": "reference/keyboard-input/overview/"
     },
-    "keyboard-shortcut": {
-        "href": "reference/primitive-types/#keyboard-shortcut"
+    "KeyBindingOverview": {
+        "href": "reference/keyboard-input/overview/#key-bindings"
+    },
+    "KeyBinding": {
+        "href": "reference/keyboard-input/focusscope/#keybinding"
+    },
+    "keys": {
+        "href": "reference/primitive-types/#keys"
     },
     "length": {
         "href": "reference/primitive-types/#length"
@@ -163,6 +172,15 @@
     },
     "ScrollView": {
         "href": "reference/std-widgets/views/scrollview/"
+    },
+    "StyledText": {
+        "href": "reference/elements/styled-text/"
+    },
+    "styled_text": {
+        "href": "reference/primitive-types/#styled-text"
+    },
+    "callback": {
+        "href": "guide/language/coding/functions-and-callbacks/#callbacks"
     },
     "Flickable": {
         "href": "reference/gestures/flickable/"

@@ -20,9 +20,15 @@
 macro_rules! for_each_enums {
     ($macro:ident) => {
         $macro![
-            /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` element.
+            /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
+                /// The text will be aligned with the start edge of the containing box.
+                /// This could be left or right depending on the direction of the text.
+                Start,
+                /// The text will be aligned with the end edge of the containing box.
+                /// This could be left or right depending on the direction of the text.
+                End,
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
                 /// The text will be horizontally centered within the containing box.
@@ -31,7 +37,7 @@ macro_rules! for_each_enums {
                 Right,
             }
 
-            /// This enum describes the different types of alignment of text along the vertical axis of a `Text` element.
+            /// This enum describes the different types of alignment of text along the vertical axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextVerticalAlignment {
                 /// The text will be aligned to the top of the containing box.
@@ -42,7 +48,7 @@ macro_rules! for_each_enums {
                 Bottom,
             }
 
-            /// This enum describes the how the text wrap if it is too wide to fit in the `Text` width.
+            /// This enum describes the how the text wraps if it is too wide to fit in the width of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextWrap {
                 /// The text won't wrap, but instead will overflow.
@@ -53,7 +59,7 @@ macro_rules! for_each_enums {
                 CharWrap,
             }
 
-            /// This enum describes the how the text appear if it is too wide to fit in the `Text` width.
+            /// This enum describes the how the text appears if it is too wide to fit in the width of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextOverflow {
                 /// The text will simply be clipped.
@@ -62,7 +68,7 @@ macro_rules! for_each_enums {
                 Elide,
             }
 
-            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text`.
+            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextStrokeStyle {
                 /// The inside edge of the stroke is at the outer edge of the text.
@@ -258,18 +264,18 @@ macro_rules! for_each_enums {
                 //zoom_out,
             }
 
-            /// This enum defines how the source image shall fit into an `Image` element.
+            /// This enum defines how the source image or path shall fit into an `Image` or `Path` element.
             #[non_exhaustive]
             enum ImageFit {
-                /// Scales and stretches the source image to fit the width and height of the `Image` element.
+                /// Scales and stretches the source to fit the width and height of the element.
                 Fill,
-                /// The source image is scaled to fit into the `Image` element's dimension while preserving the aspect ratio.
+                /// The source is scaled to fit into the element's dimensions while preserving the aspect ratio.
                 Contain,
-                /// The source image is scaled to cover into the `Image` element's dimension while preserving the aspect ratio.
-                /// If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
+                /// The source is scaled to cover the element's dimensions while preserving the aspect ratio.
+                /// If the aspect ratios don't match, the source will be clipped to fit.
                 Cover,
-                /// Preserves the size of the source image in logical pixels.
-                /// The source image will still be scaled by the scale factor that applies to all elements in the window.
+                /// Preserves the size of the source in logical pixels.
+                /// The source will still be scaled by the scale factor that applies to all elements in the window.
                 /// Any extra space will be left blank.
                 Preserve,
             }
@@ -354,6 +360,77 @@ macro_rules! for_each_enums {
                 /// Use the preferred size for all elements, distribute remaining space evenly before the
                 /// first element, after the last element and between elements.
                 SpaceEvenly,
+            }
+
+            /// The direction in which flex items are placed in a flex container.
+            #[non_exhaustive]
+            enum FlexDirection {
+                /// Items are placed in a row, from left to right.
+                Row,
+                /// Items are placed in a row in reverse order, from right to left.
+                RowReverse,
+                /// Items are placed in a column, from top to bottom.
+                Column,
+                /// Items are placed in a column in reverse order, from bottom to top.
+                ColumnReverse,
+            }
+
+            /// Controls the distribution of flex lines along the cross axis in a flex container.
+            #[non_exhaustive]
+            enum FlexAlignContent {
+                /// Lines are stretched to fill the container along the cross axis.
+                Stretch,
+                /// Lines are placed at the start of the cross axis.
+                Start,
+                /// Lines are placed at the end of the cross axis.
+                End,
+                /// Lines are centered along the cross axis.
+                Center,
+                /// Equal gaps between lines, no gap at the edges.
+                SpaceBetween,
+                /// Equal gaps around each line (half-size at edges).
+                SpaceAround,
+                /// Equal gaps between lines and at the edges.
+                SpaceEvenly,
+            }
+
+            /// Controls the alignment of individual items along the cross axis within each flex line.
+            #[non_exhaustive]
+            enum FlexAlignItems {
+                /// Items are stretched to fill the line along the cross axis.
+                Stretch,
+                /// Items are placed at the start of the cross axis.
+                Start,
+                /// Items are placed at the end of the cross axis.
+                End,
+                /// Items are centered along the cross axis.
+                Center,
+            }
+
+            /// Overrides the container's `align-items` for a specific flex item.
+            #[non_exhaustive]
+            enum FlexAlignSelf {
+                /// Use the container's `align-items` value (default).
+                Auto,
+                /// The item is stretched to fill the line along the cross axis.
+                Stretch,
+                /// The item is placed at the start of the cross axis.
+                Start,
+                /// The item is placed at the end of the cross axis.
+                End,
+                /// The item is centered along the cross axis.
+                Center,
+            }
+
+            /// Controls whether flex items wrap onto multiple lines.
+            #[non_exhaustive]
+            enum FlexWrap {
+                /// Flex items wrap onto multiple lines, from top to bottom (for row direction) or left to right (for column direction).
+                Wrap,
+                /// All flex items are laid out on a single line (default for CSS, but Slint defaults to `wrap`).
+                NoWrap,
+                /// Flex items wrap onto multiple lines in the reverse direction.
+                WrapReverse,
             }
 
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is

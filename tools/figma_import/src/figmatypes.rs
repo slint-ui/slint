@@ -279,6 +279,7 @@ pub struct VectorNode {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum Node {
     DOCUMENT(NodeCommon),
     CANVAS {

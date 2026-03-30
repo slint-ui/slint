@@ -56,6 +56,10 @@ serde = ["i-slint-core/serde"]
 # Deprecated feature, this is now automatically enabled when the `renderer-software` and `std` features are enabled
 software-renderer-systemfonts = ["renderer-software"]
 
+# Enable support for Path element rendering with the software renderer. This is implicitly enabled by the
+# `std` feature, but can be enabled without `std` if you want to use the software renderer in a `#![no_std]` environment and need support for Path elements.
+software-renderer-path = ["i-slint-renderer-software/path"]
+
 ## Slint uses internally some `thread_local` state.
 ##
 ## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`
@@ -255,7 +259,7 @@ unstable-winit-031 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.7.0/fontique/) related APIs.
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.8.0/fontique/) related APIs.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
 ## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
@@ -264,9 +268,9 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-fontique-07"] }
+## slint = { version = "~1.16", features = ["unstable-fontique-08"] }
 ## ```
-unstable-fontique-07 = ["i-slint-common/shared-fontique"]
+unstable-fontique-08 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -314,6 +318,7 @@ serde = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util"] }
 async-compat = { version = "0.2.4" }
 bytemuck = { workspace = true }
+i-slint-renderer-software = { path = "../../../internal/renderers/software", features = ["testing"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux
@@ -330,6 +335,6 @@ features = [
   "unstable-wgpu-28",
   "unstable-winit-031",
   "unstable-libinput-09",
-  "unstable-fontique-07",
+  "unstable-fontique-08",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

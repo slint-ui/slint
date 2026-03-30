@@ -104,6 +104,7 @@ impl PyDiagnostic {
         match self.0.level() {
             slint_interpreter::DiagnosticLevel::Error => PyDiagnosticLevel::Error,
             slint_interpreter::DiagnosticLevel::Warning => PyDiagnosticLevel::Warning,
+            slint_interpreter::DiagnosticLevel::Note => PyDiagnosticLevel::Note,
             _ => unimplemented!(),
         }
     }
@@ -139,6 +140,7 @@ impl PyDiagnostic {
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
+    Note,
 }
 
 #[gen_stub_pyclass]
@@ -379,7 +381,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::Color => PyValueType::Brush,
             Type::Image => PyValueType::Image,
             Type::Enumeration(..) => PyValueType::Enumeration,
-            Type::KeyboardShortcutType => PyValueType::String,
+            Type::Keys => PyValueType::String,
             _ => unimplemented!(),
         }
     }

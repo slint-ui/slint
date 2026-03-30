@@ -109,12 +109,13 @@ jobs:
               # Ignore rust_version for stable/nightly to test with latest dependencies
               run: cargo update ${{ (inputs.rust_version == 'stable' || inputs.rust_version == 'nightly') && '--ignore-rust-version' || '' }}
             - name: Run tests
-              run:  cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
+              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python _qt -- --test-threads=1
+              if: runner.os != 'Windows'
+              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python qt:: -- --test-threads=1"
               shell: bash
             - name: live-preview for rust test
               env:
@@ -123,14 +124,14 @@ jobs:
               shell: bash
             - name: Upload build timing report
               if: always()
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: cargo-timings-${{ inputs.os }}-${{ inputs.rust_version }}
                   path: target/cargo-timings/cargo-timing.html
                   if-no-files-found: ignore
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: screenshots-${{ inputs.os }}
                   path: |

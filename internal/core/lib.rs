@@ -7,6 +7,7 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(unsafe_code)]
+#![allow(clippy::missing_safety_doc)] // FFI surface has many exported unsafe entry points
 #![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
 #![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 #![no_std]
@@ -165,4 +166,8 @@ pub fn detect_operating_system() -> OperatingSystemType {
 /// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
 pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
+}
+
+pub fn open_url(url: &str, window: &crate::api::Window) {
+    crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }

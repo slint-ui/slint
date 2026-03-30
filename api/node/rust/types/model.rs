@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
-use napi::{Env, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
-use napi::{JsSymbol, bindgen_prelude::*};
+use napi::bindgen_prelude::*;
+use napi::{Env, JsValue, Result, ValueType};
 
 use crate::{RefCountedReference, to_js_unknown, to_value};
 
@@ -24,21 +24,12 @@ impl core::ops::Deref for SharedModelNotify {
 
 pub(crate) fn js_into_rust_model(
     env: &Env,
-    maybe_js_impl: &JsObject,
+    maybe_js_impl: &Object,
     row_data_type: &Type,
 ) -> Result<ModelRc<slint_interpreter::Value>> {
-    let shared_model_notify = maybe_js_impl
-        .get("modelNotify")
-        .and_then(|prop| {
-            prop.ok_or_else(|| {
-                napi::Error::from_reason(
-                    "Could not convert value to slint model: missing modelNotify property",
-                )
-            })
-        })
-        .map(|shared_model_notify: External<SharedModelNotify>| {
-            shared_model_notify.as_ref().clone()
-        })?;
+    let shared_model_notify: ExternalRef<SharedModelNotify> =
+        maybe_js_impl.get_named_property("modelNotify")?;
+    let shared_model_notify: SharedModelNotify = (*shared_model_notify).clone();
     Ok(Rc::new(JsModel {
         shared_model_notify,
         env: *env,
@@ -48,10 +39,14 @@ pub(crate) fn js_into_rust_model(
     .into())
 }
 
-pub(crate) fn rust_into_js_model(
+pub(crate) fn rust_into_js_model<'a>(
+    env: &'a Env,
     model: &ModelRc<slint_interpreter::Value>,
-) -> Option<Result<JsUnknown>> {
-    model.as_any().downcast_ref::<JsModel>().map(|rust_model| rust_model.js_impl.get())
+) -> Option<Result<Unknown<'a>>> {
+    model
+        .as_any()
+        .downcast_ref::<JsModel>()
+        .map(|rust_model| rust_model.js_impl.get_unknown()?.into_unknown(env))
 }
 
 struct JsModel {
@@ -67,22 +62,22 @@ pub fn js_model_notify_new() -> Result<External<SharedModelNotify>> {
 }
 
 #[napi]
-pub fn js_model_notify_row_data_changed(notify: External<SharedModelNotify>, row: u32) {
+pub fn js_model_notify_row_data_changed(notify: ExternalRef<SharedModelNotify>, row: u32) {
     notify.row_changed(row as usize);
 }
 
 #[napi]
-pub fn js_model_notify_row_added(notify: External<SharedModelNotify>, row: u32, count: u32) {
+pub fn js_model_notify_row_added(notify: ExternalRef<SharedModelNotify>, row: u32, count: u32) {
     notify.row_added(row as usize, count as usize);
 }
 
 #[napi]
-pub fn js_model_notify_row_removed(notify: External<SharedModelNotify>, row: u32, count: u32) {
+pub fn js_model_notify_row_removed(notify: ExternalRef<SharedModelNotify>, row: u32, count: u32) {
     notify.row_removed(row as usize, count as usize);
 }
 
 #[napi]
-pub fn js_model_notify_reset(notify: External<SharedModelNotify>) {
+pub fn js_model_notify_reset(notify: ExternalRef<SharedModelNotify>) {
     notify.reset();
 }
 
@@ -90,24 +85,27 @@ impl Model for JsModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        let Ok(model) = self.js_impl.get::<Object>() else {
+        let Ok(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s rowCount threw an exception");
             return 0;
         };
 
-        let Ok(row_count_property) = model.get::<&str, JsFunction>("rowCount") else {
-            eprintln!("Node.js: JavaScript Model<T> implementation is missing rowCount property");
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
             return 0;
         };
 
-        let Some(row_count_property_fn) = row_count_property else {
-            eprintln!(
-                "Node.js: JavaScript Model<T> implementation's rowCount property is not a callable function"
-            );
-            return 0;
+        let row_count_fn: Function<(), Unknown> = match model.get_named_property("rowCount") {
+            Ok(f) => f,
+            Err(_) => {
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing rowCount property"
+                );
+                return 0;
+            }
         };
 
-        let Ok(row_count_result) = row_count_property_fn.call_without_args(Some(&model)) else {
+        let Ok(row_count_result) = row_count_fn.apply(model, ()) else {
             eprintln!("Node.js: JavaScript Model<T>'s rowCount implementation call failed");
             return 0;
         };
@@ -130,24 +128,27 @@ impl Model for JsModel {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        let Ok(model) = self.js_impl.get::<Object>() else {
+        let Ok(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s rowData threw an exception");
             return None;
         };
 
-        let Ok(row_data_property) = model.get::<&str, JsFunction>("rowData") else {
-            eprintln!("Node.js: JavaScript Model<T> implementation is missing rowData property");
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
             return None;
         };
 
-        let Some(row_data_fn) = row_data_property else {
-            eprintln!("Node.js: Model<T> implementation's rowData property is not a function");
-            return None;
+        let row_data_fn: Function<f64, Unknown> = match model.get_named_property("rowData") {
+            Ok(f) => f,
+            Err(_) => {
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing rowData property"
+                );
+                return None;
+            }
         };
 
-        let Ok(row_data) = row_data_fn
-            .call::<JsNumber>(Some(&model), &[self.env.create_double(row as f64).unwrap()])
-        else {
+        let Ok(row_data) = row_data_fn.apply(model, row as f64) else {
             eprintln!("Node.js: JavaScript Model<T>'s rowData function threw an exception");
             return None;
         };
@@ -167,20 +168,26 @@ impl Model for JsModel {
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        let Ok(model) = self.js_impl.get::<Object>() else {
+        let Ok(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s setRowData threw an exception");
             return;
         };
 
-        let Ok(set_row_data_property) = model.get::<&str, JsFunction>("setRowData") else {
-            eprintln!("Node.js: JavaScript Model<T> implementation is missing setRowData property");
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
             return;
         };
 
-        let Some(set_row_data_fn) = set_row_data_property else {
-            eprintln!("Node.js: Model<T> implementation's setRowData property is not a function");
-            return;
-        };
+        let set_row_data_fn: Function<FnArgs<(f64, Unknown<'_>)>, Unknown> =
+            match model.get_named_property("setRowData") {
+                Ok(f) => f,
+                Err(_) => {
+                    eprintln!(
+                        "Node.js: JavaScript Model<T> implementation is missing setRowData property"
+                    );
+                    return;
+                }
+            };
 
         let Ok(js_data) = to_js_unknown(&self.env, &data) else {
             eprintln!(
@@ -189,10 +196,7 @@ impl Model for JsModel {
             return;
         };
 
-        if let Err(exception) = set_row_data_fn.call::<JsUnknown>(
-            Some(&model),
-            &[self.env.create_double(row as f64).unwrap().into_unknown(), js_data],
-        ) {
+        if let Err(exception) = set_row_data_fn.apply(model, FnArgs::from((row as f64, js_data))) {
             eprintln!(
                 "Node.js: JavaScript Model<T>'s setRowData function threw an exception: {exception}"
             );
@@ -221,49 +225,45 @@ impl From<ModelRc<slint_interpreter::Value>> for ReadOnlyRustModel {
 #[napi]
 impl ReadOnlyRustModel {
     #[napi]
-    pub fn row_count(&self, env: Env) -> Result<JsNumber> {
-        env.create_uint32(self.0.row_count() as u32)
+    pub fn row_count(&self) -> u32 {
+        self.0.row_count() as u32
     }
 
     #[napi]
-    pub fn row_data(&self, env: Env, row: u32) -> Result<JsUnknown> {
+    pub fn row_data<'a>(&self, env: &'a Env, row: u32) -> Result<Unknown<'a>> {
         let Some(data) = self.0.row_data(row as usize) else {
-            return env.get_undefined().map(|v| v.into_unknown());
+            return ().into_unknown(env);
         };
-        to_js_unknown(&env, &data)
+        crate::to_js_unknown(env, &data)
     }
 
     #[napi]
-    pub fn set_row_data(&self, _env: Env, _row: u32, _data: JsUnknown) {
+    pub fn set_row_data(&self, _env: &Env, _row: u32, _data: Unknown<'_>) {
         eprintln!(
             "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
         )
     }
 
-    pub fn into_js(self, env: &Env) -> Result<JsUnknown> {
+    pub fn into_js<'a>(self, env: &'a Env) -> Result<Unknown<'a>> {
         let model = self.0.clone();
-        let iterator_env = *env;
 
-        let mut obj = self.into_instance(*env)?.as_object(*env);
+        let mut obj = self.into_instance(env)?.as_object(env);
 
         // Implement Iterator protocol by hand until it's stable in napi-rs
-        let iterator_symbol = env
-            .get_global()
-            .and_then(|global| global.get_named_property::<JsFunction>("Symbol"))
-            .and_then(|symbol_function| symbol_function.coerce_to_object())
-            .and_then(|symbol_obj| symbol_obj.get::<&str, JsSymbol>("iterator"))?
-            .expect("fatal: Unable to find Symbol.iterator");
+        let global = env.get_global()?;
+        let symbol_function: Unknown = global.get_named_property("Symbol")?;
+        let symbol_obj = symbol_function.coerce_to_object()?;
+        let iterator_symbol: napi::JsSymbol = symbol_obj.get_named_property("iterator")?;
 
         obj.set_property(
             iterator_symbol,
-            env.create_function_from_closure("rust model iterator", move |_| {
-                Ok(ModelIterator { model: model.clone(), row: 0, env: iterator_env }
-                    .into_instance(iterator_env)?
-                    .as_object(iterator_env))
-            })?,
+            env.create_function_from_closure::<(), ModelIterator, _>(
+                "rust model iterator",
+                move |ctx| Ok(ModelIterator { model: model.clone(), row: 0, env: *ctx.env }),
+            )?,
         )?;
 
-        Ok(obj.into_unknown())
+        obj.into_unknown(env)
     }
 }
 
@@ -276,9 +276,11 @@ pub struct ModelIterator {
 
 #[napi]
 impl ModelIterator {
+    // Implements the JS iterator protocol — name must be `next`.
+    #[allow(clippy::should_implement_trait)]
     #[napi]
-    pub fn next(&mut self) -> Result<JsUnknown> {
-        let mut result = self.env.create_object()?;
+    pub fn next(&mut self) -> Result<Unknown<'_>> {
+        let mut result = Object::new(&self.env)?;
         if self.row >= self.model.row_count() {
             result.set_named_property("done", true)?;
         } else {
@@ -289,6 +291,6 @@ impl ModelIterator {
                 self.model.row_data(row).and_then(|value| to_js_unknown(&self.env, &value).ok()),
             )?
         }
-        Ok(result.into_unknown())
+        result.into_unknown(&self.env)
     }
 }

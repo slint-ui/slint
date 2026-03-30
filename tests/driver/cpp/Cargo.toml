@@ -31,3 +31,7 @@ test_driver_lib = { path = "../driverlib" }
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }
+
+[features]
+default = ["backend-qt"]
+backend-qt = ["slint-cpp/backend-qt"]

@@ -111,11 +111,11 @@ fn main() -> Result<()> {
                 let path = entry.path();
                 let ext = path.extension();
 
-                if ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx")) {
-                    if let Err(e) = process_doc_file(path, &project_root, &args) {
-                        print_error(&mut stderr, &format!("{e:?}"));
-                        error_count += 1;
-                    }
+                if (ext == Some(&OsString::from("md")) || ext == Some(&OsString::from("mdx")))
+                    && let Err(e) = process_doc_file(path, &project_root, &args)
+                {
+                    print_error(&mut stderr, &format!("{e:?}"));
+                    error_count += 1;
                 }
             }
         }
@@ -528,11 +528,12 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler.set_style(style.clone());
     }
 
-    compiler.compiler_configuration(i_slint_core::InternalToken).components_to_generate =
-        match &args.component {
-            Some(component) => ComponentSelection::Named(component.clone()),
-            None => ComponentSelection::LastExported,
-        };
+    let config = compiler.compiler_configuration(i_slint_core::InternalToken);
+    config.components_to_generate = match &args.component {
+        Some(component) => ComponentSelection::Named(component.clone()),
+        None => ComponentSelection::LastExported,
+    };
+    config.enable_experimental = true;
 
     compiler
 }

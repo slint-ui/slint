@@ -55,6 +55,30 @@ pico2-st7789 = [
   "embedded-graphics",
   "euclid/libm",
 ]
+pico2-touch-lcd-2-8 = [
+  "slint/unsafe-single-threaded",
+  "dep:embassy-executor",
+  "embassy-executor/arch-cortex-m",
+  "embassy-executor/executor-thread",
+  "dep:embassy-time",
+  "embassy-time/tick-hz-1_000_000",
+  "dep:embassy-futures",
+  "dep:embassy-rp",
+  "dep:static_cell",
+  "dep:mipidsi",
+  "dep:defmt-serial",
+  "embedded-hal",
+  "embedded-hal-bus",
+  "embedded-alloc",
+  "cortex-m-rt",
+  "cortex-m",
+  "defmt",
+  "panic-probe",
+  "embedded-graphics",
+  "slint/libm",
+  "euclid/libm",
+  "i-slint-renderer-software/experimental",
+]
 stm32h735g = [
   "slint/unsafe-single-threaded",
   "cortex-m/critical-section-single-core",
@@ -191,7 +215,7 @@ stm32u5g9j-dk2 = [
   "cortex-m/inline-asm",
   "cortex-m/critical-section-single-core",
   "gt911/defmt",
-  "embassy-futures",
+  "dep:embassy-futures",
   "i-slint-renderer-software/experimental",
 ]
 
@@ -218,7 +242,7 @@ embedded-hal-nb = { version = "1.0.0", optional = true }
 embedded-hal-bus = { version = "0.3.0", optional = true }
 embedded-dma = { version = "0.2.0", optional = true }
 rp-pico = { version = "0.9.0", optional = true }
-rp235x-hal = { version = "0.2.0", default-features = false, optional = true }
+rp235x-hal = { version = "0.3.0", default-features = false, optional = true }
 fugit = { version = "0.3.6", optional = true }
 euclid = { version = "0.22", default-features = false, optional = true }
 
@@ -243,9 +267,11 @@ eeprom24x = { version = "0.7.2", optional = true }
 
 defmt-rtt = { version = "0.4.0", optional = true }
 defmt = { version = "1.0.0", optional = true }
+defmt-serial = { version = "0.11.0", optional = true }
 panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
 
 embassy-stm32 = { version = "0.2.0", optional = true }
+embassy-rp = { version = "0.4.0", optional = true, features = ["rp235xa", "time-driver", "critical-section-impl", "binary-info", "defmt", "unstable-pac"] }
 embassy-executor = { version = "0.7.0", optional = true, default-features = false }
 embassy-time = { version = "0.4.0", optional = true }
 embassy-futures = { version = "0.1.1", optional = true }
