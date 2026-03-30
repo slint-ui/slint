@@ -29,6 +29,8 @@ export default defineConfig({
     integrations: [
         starlight({
             title: "Slint SC Safety Manual",
+            // This is the right-hand TOC for each page.
+            tableOfContents: false,
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
@@ -40,13 +42,13 @@ export default defineConfig({
                 }),
             ],
             sidebar: [
-                { label: "Overview", slug: "index" },
+                { label: "Slint SC Safety Manual", slug: "index" },
                 { label: "Safety Policy", slug: "safety-policy" },
                 {
                     label: "Requirements",
                     items: [
                         {
-                            label: "Overview",
+                            label: "ISO 26262 Requirements",
                             slug: "requirements",
                         },
                         {
@@ -93,7 +95,7 @@ export default defineConfig({
                     label: "Qualification Plan",
                     items: [
                         {
-                            label: "Overview",
+                            label: "Qualification Plan",
                             slug: "qualification-plan",
                         },
                         {
