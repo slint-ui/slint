@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::parser::SyntaxToken;
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::Write;
 
 /// The idea is that each token need to go through this, either with no changes,
