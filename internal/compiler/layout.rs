@@ -20,7 +20,7 @@ pub enum Orientation {
 }
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq, Default)]
-pub enum FlexDirection {
+pub enum FlexboxLayoutDirection {
     /// Items are laid out in rows (horizontal primary axis)
     #[default]
     Row,
@@ -616,14 +616,14 @@ impl FlexboxLayout {
     pub fn is_main_axis(&self, orientation: Orientation) -> bool {
         use crate::expression_tree::Expression;
         let direction = match self.direction.as_ref() {
-            None => Some(FlexDirection::Row), // default
+            None => Some(FlexboxLayoutDirection::Row), // default
             Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
                 match &binding.borrow().expression {
                     Expression::EnumerationValue(ev) => match ev.value {
-                        0 => Some(FlexDirection::Row),
-                        1 => Some(FlexDirection::RowReverse),
-                        2 => Some(FlexDirection::Column),
-                        3 => Some(FlexDirection::ColumnReverse),
+                        0 => Some(FlexboxLayoutDirection::Row),
+                        1 => Some(FlexboxLayoutDirection::RowReverse),
+                        2 => Some(FlexboxLayoutDirection::Column),
+                        3 => Some(FlexboxLayoutDirection::ColumnReverse),
                         _ => None,
                     },
                     _ => None,
@@ -632,11 +632,13 @@ impl FlexboxLayout {
         };
         matches!(
             (direction, orientation),
-            (Some(FlexDirection::Row | FlexDirection::RowReverse), Orientation::Horizontal)
-                | (
-                    Some(FlexDirection::Column | FlexDirection::ColumnReverse),
-                    Orientation::Vertical
-                )
+            (
+                Some(FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse),
+                Orientation::Horizontal
+            ) | (
+                Some(FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse),
+                Orientation::Vertical
+            )
         )
     }
 

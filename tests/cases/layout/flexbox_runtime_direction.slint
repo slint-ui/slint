@@ -10,7 +10,7 @@ export component TestCase inherits Window {
     in-out property <bool> use-column: false;
 
     FlexboxLayout {
-        flex-direction: use-column ? FlexDirection.column : FlexDirection.row;
+        flex-direction: use-column ? FlexboxLayoutDirection.column : FlexboxLayoutDirection.row;
         spacing: 10px;
 
         r1 := Rectangle {

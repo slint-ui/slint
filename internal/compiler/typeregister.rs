@@ -117,7 +117,7 @@ impl BuiltinTypes {
             name: BuiltinPrivateStruct::LayoutInfo.into(),
         });
         let enums = BuiltinEnums::new();
-        let flex_align_self_type = Type::Enumeration(enums.FlexAlignSelf.clone());
+        let flex_align_self_type = Type::Enumeration(enums.FlexboxLayoutAlignSelf.clone());
         Self {
             enums,
             logical_point_type: Rc::new(Struct {
@@ -304,7 +304,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         // because Type::Enumeration requires a runtime Rc allocation.
         .chain(std::iter::once((
             "flex-align-self",
-            Type::Enumeration(BUILTIN.with(|e| e.enums.FlexAlignSelf.clone())),
+            Type::Enumeration(BUILTIN.with(|e| e.enums.FlexboxLayoutAlignSelf.clone())),
             PropertyVisibility::Input,
         )))
         .chain(IntoIterator::into_iter([

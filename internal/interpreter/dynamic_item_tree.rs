@@ -234,7 +234,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
             .ok()
             .and_then(|v| v.try_into().ok())
-            .unwrap_or(i_slint_core::items::FlexAlignSelf::Auto);
+            .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::Auto);
         let flex_order = load_f32("flex-order") as i32;
 
         i_slint_core::layout::FlexboxLayoutItemInfo {
