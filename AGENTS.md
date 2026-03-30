@@ -172,6 +172,7 @@ For tasks requiring deeper architectural understanding, see:
 - **`docs/development/custom-renderer.md`** - Renderer traits, drawing API, backend integration, testing. Load when working on `internal/renderers/` or fixing drawing bugs.
 - **`docs/development/animation-internals.md`** - Animation timing, easing curves, performance, debugging. Load when working on `internal/core/animations.rs` or animation-related issues.
 - **`docs/development/layout-system.md`** - Layout solving, constraints, GridLayout/BoxLayout, compile-time lowering. Load when working on `internal/core/layout.rs` or sizing/positioning bugs.
+- **`docs/development/python-tests.md`** - Python test infrastructure: pytest tests, Rust test driver, rebuilding slint-python, debugging compilation vs runtime issues. Load when working on Python tests or debugging `test-driver-python` failures.
 - **`docs/development/item-tree.md`** - Item tree structure, component instantiation, traversal, focus. Load when working on `internal/core/item_tree.rs`, event handling, or runtime component model.
 - **`docs/development/model-repeater-system.md`** - Model trait, VecModel, adapters (map/filter/sort), Repeater, ListView virtualization. Load when working on `internal/core/model.rs` or data binding in `for` loops.
 - **`docs/development/input-event-system.md`** - Mouse/touch/keyboard events, event routing, focus management, drag-drop, shortcuts. Load when working on `internal/core/input.rs` or event handling.
