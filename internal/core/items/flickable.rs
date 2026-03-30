@@ -43,7 +43,7 @@ use data_ringbuffer::PositionTimeRingBuffer;
 /// Deceleration during the animation. It slows down the initial velocity of the simulation
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
-const DECELERATION: f32 = 20.;
+const DECELERATION: f32 = 2000.;
 /// The maximum duration between a move and a release event to start an animation
 /// If the duration is larger than this value, no animation will be executed because
 /// it is not desired
