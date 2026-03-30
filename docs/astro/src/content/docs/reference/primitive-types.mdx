@@ -100,9 +100,11 @@ A property that is used with the <Link type="StyledText" label="StyledText eleme
 
 Create styled text with the `@markdown()` macro. For example: `@markdown("Hello **Bold**")`.
 
-`@markdown()` supports interpolation1: For example, `@markdown("Hello *{}*", "World")` becomes `"Hello *World*"`.
+`@markdown()` supports interpolation: For example, `@markdown("5 + 5 = *\{ 5 + 5 }*")` becomes `"5 + 5 = *10*"`.
 
-Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello {}", "*World*")` will become `"Hello \*World\*"`.
+Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello \{"*World*"}")` will become `"Hello \*World\*"`.
+
+If multiple string literal are used, they are concatenated.
 
 </SlintProperty>
 

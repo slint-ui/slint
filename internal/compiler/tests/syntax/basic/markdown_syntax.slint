@@ -2,26 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component X {
-    property <styled-text> t1: @markdown("{}", "test");
-    property <styled-text> t2: @markdown("{} {}", "test");
-//                             >                        <error{Argument index 1 out of range: 1 arguments provided}
-    property <styled-text> t3: @markdown("{}", "test", "test2");
-//                             >                              <error{Format string contains 1 placeholders, but 2 arguments were provided}
-    property <styled-text> t4: @markdown("{0} {0}", "test");
-    property <styled-text> t5: @markdown("{1} {1}", "test");
-//                             >                          <error{Argument index 1 out of range: 1 arguments provided}
-    property <styled-text> t6: @markdown("{1} {1}", "test", "test2");
-    property <styled-text> t7: @markdown("{1} {0}", "test", "test2");
-    property <styled-text> t8: @markdown("{} {0}", "test", "test2");
-//                             >                                  <error{Cannot mix positional and non-positional placeholder in format string}
+    property <styled-text> t1: @markdown("Foo\invalid");
+//                                       >           <error{Cannot parse string literal}
+    property <styled-text> t2: @markdown("Foo\u{e541}Bar");  // Using the MARKDOWN_INTERPOLATION_PLACEHOLDER cause strange errors
+//                             >                         <error{Argument index 0 out of range: 0 arguments provided}
+    property <styled-text> t3: @markdown("XXX"  "TTT \{12px} ZZZ");
+//                                                     >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
     property <styled-text> t9: @markdown("{");
-//                             >            <error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
     property <styled-text> t10: @markdown("}");
-//                              >            <error{Unexpected '}' in format string. Escape '}' with '}}'}
     property <styled-text> t11: @markdown("{abc}");
-//                              >                <error{Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{' and '}'}
     property <styled-text> t12: @markdown("{0");
-//                              >             <error{Unterminated placeholder in format string. '{' must be escaped with '{{'}
     property <styled-text> t13: @markdown("> quote");
 //                              >                  <error{Unimplemented tag: BlockQuote(None)}
     property <styled-text> t14: @markdown("![alt](image.png)");
@@ -44,4 +34,6 @@ export component X {
 //                              >                                      <error{Unexpected size attribute in html <font size='12'>}
     property <styled-text> t23: @markdown("<u class='test'>text</u>");
 //                              >                                   <error{Unexpected class attribute in html <u class='test'>}
+    property <styled-text> t24: @markdown("<font color='#q'>text</font>");
+//                              >                                       <error{Invalid color value '#q'}
 }

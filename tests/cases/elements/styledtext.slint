@@ -4,7 +4,8 @@
 export component TestCase inherits Window {
     VerticalLayout {
         st := StyledText {
-            text: @markdown("Hello **World**: {} *{}*", "_abc_", @markdown("<u>xyz</u>"));
+
+            text: @markdown("Hello **World**: \{"_abc_"} *\{@markdown("<u>xyz</u>")}*");
             default-color: red;
         }
 
