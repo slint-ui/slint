@@ -1,0 +1,24 @@
+[package]
+name = "systray"
+description.workspace = true
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[[bin]]
+path = "main.rs"
+name = "systray"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["system-tray", "renderer-femtovg", "backend-winit-x11", "compat-1-2"] }
+tray-icon = "0.21"
+image = "0.25"
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
