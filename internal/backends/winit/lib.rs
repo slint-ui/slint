@@ -888,7 +888,6 @@ impl i_slint_core::platform::Platform for Backend {
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn open_url(&self, url: &str) {
         if let Err(e) = webbrowser::open(url) {
             eprintln!("Failed to open URL: {}", e);
