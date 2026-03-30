@@ -14,6 +14,8 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use i_slint_common::sharedfontique::{self, fontique, skrifa};
+#[cfg(not(target_arch = "wasm32"))]
+use skrifa::MetadataProvider;
 
 #[derive(Clone)]
 struct Font {
@@ -30,6 +32,7 @@ pub fn embed_glyphs<'a>(
     _compiler_config: &CompilerConfiguration,
     _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
+    _font_weights: Vec<u16>,
     _characters_seen: HashSet<char>,
     _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     _diag: &mut BuildDiagnostics,
@@ -42,6 +45,7 @@ pub fn embed_glyphs<'a>(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
     mut pixel_sizes: Vec<i16>,
+    font_weights: Vec<u16>,
     mut characters_seen: HashSet<char>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
@@ -206,30 +210,10 @@ pub fn embed_glyphs<'a>(
         return;
     }
 
-    let mut embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
-        let Some(family_name) = collection.family_name(font.family.0).to_owned() else {
-            diag.push_error(
-                format!(
-                    "internal error: TrueType font without family name encountered: {}",
-                    path.display()
-                ),
-                &generic_diag_location,
-            );
-            return;
-        };
-
-        let embedded_bitmap_font = embed_font(
-            family_name.to_owned(),
-            Font { font: font.clone() },
-            &pixel_sizes,
-            characters_seen.iter().cloned(),
-            &fallback_fonts,
-            compiler_config,
-        );
-
+    let register_embedded_font = |path: &std::path::Path, embedded_bitmap_font: BitmapFont| {
         let resource_id = doc.embedded_file_resources.borrow().len();
         doc.embedded_file_resources.borrow_mut().insert(
-            path.to_string_lossy().into(),
+            format!("{}@w{}", path.to_string_lossy(), embedded_bitmap_font.weight).into(),
             crate::embedded_resources::EmbeddedResources {
                 id: resource_id,
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
@@ -244,6 +228,60 @@ pub fn embed_glyphs<'a>(
                 arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
                 source_location: None,
             });
+        }
+    };
+
+    let mut embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
+        let Some(family_name) = collection.family_name(font.family.0).to_owned() else {
+            diag.push_error(
+                format!(
+                    "internal error: TrueType font without family name encountered: {}",
+                    path.display()
+                ),
+                &generic_diag_location,
+            );
+            return;
+        };
+
+        let font_ref = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
+        let axes = font_ref.axes();
+        let wght_axis = axes.iter().find(|axis| axis.tag() == skrifa::Tag::new(b"wght"));
+
+        if let Some(wght_axis) = wght_axis {
+            // Variable font: embed one BitmapFont per requested weight
+            let weights = if font_weights.is_empty() { vec![400u16] } else { font_weights.clone() };
+            for &weight in &weights {
+                let clamped = (weight as f32).clamp(wght_axis.min_value(), wght_axis.max_value());
+                let location = axes.location([("wght", clamped)]);
+                let variations = vec![(skrifa::Tag::new(b"wght"), clamped)];
+
+                let embedded = embed_font(
+                    family_name.to_owned(),
+                    Font { font: font.clone() },
+                    &pixel_sizes,
+                    characters_seen.iter().cloned(),
+                    &fallback_fonts,
+                    compiler_config,
+                    location.coords(),
+                    &variations,
+                    Some(weight),
+                );
+                register_embedded_font(path, embedded);
+            }
+        } else {
+            // Static font: embed once
+            let embedded = embed_font(
+                family_name.to_owned(),
+                Font { font: font.clone() },
+                &pixel_sizes,
+                characters_seen.iter().cloned(),
+                &fallback_fonts,
+                compiler_config,
+                &[],
+                &[],
+                None,
+            );
+            register_embedded_font(path, embedded);
         }
     };
 
@@ -285,7 +323,12 @@ fn embed_font(
     character_coverage: impl Iterator<Item = char>,
     fallback_fonts: &[Font],
     _compiler_config: &CompilerConfiguration,
+    normalized_coords: &[skrifa::instance::NormalizedCoord],
+    _variations: &[(skrifa::Tag, f32)],
+    override_weight: Option<u16>,
 ) -> BitmapFont {
+    let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
+
     let mut character_map: Vec<CharacterMapEntry> = character_coverage
         .filter(|code_point| {
             core::iter::once(&font)
@@ -302,21 +345,20 @@ fn embed_font(
 
     #[cfg(feature = "sdf-fonts")]
     let glyphs = if _compiler_config.use_sdf_fonts {
-        embed_sdf_glyphs(pixel_sizes, &character_map, &font, fallback_fonts)
+        embed_sdf_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, _variations)
     } else {
-        embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts)
+        embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, &coords_i16)
     };
     #[cfg(not(feature = "sdf-fonts"))]
-    let glyphs = embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts);
+    let glyphs =
+        embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, &coords_i16);
 
     character_map.sort_by_key(|entry| entry.code_point);
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
-    let metrics = skrifa::metrics::Metrics::new(
-        &font_ref,
-        skrifa::instance::Size::unscaled(),
-        skrifa::instance::LocationRef::default(),
-    );
+    let location = skrifa::instance::LocationRef::new(normalized_coords);
+    let metrics =
+        skrifa::metrics::Metrics::new(&font_ref, skrifa::instance::Size::unscaled(), location);
     let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
     BitmapFont {
@@ -328,7 +370,7 @@ fn embed_font(
         x_height: metrics.x_height.unwrap_or_default(),
         cap_height: metrics.cap_height.unwrap_or_default(),
         glyphs,
-        weight: attrs.weight.value() as u16,
+        weight: override_weight.unwrap_or(attrs.weight.value() as u16),
         italic: attrs.style != skrifa::attribute::Style::Normal,
         #[cfg(feature = "sdf-fonts")]
         sdf: _compiler_config.use_sdf_fonts,
@@ -343,6 +385,7 @@ fn embed_alpha_map_glyphs(
     character_map: &Vec<CharacterMapEntry>,
     font: &Font,
     fallback_fonts: &[Font],
+    normalized_coords: &[i16],
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
     use std::cell::RefCell;
@@ -365,15 +408,19 @@ fn embed_alpha_map_glyphs(
 
                     let font_ref = swash_font_ref(font_to_use);
                     let glyph_id = font_ref.charmap().map(*code_point);
-                    let gm = font_ref.glyph_metrics(&[]);
-                    let fm = font_ref.metrics(&[]);
+                    let gm = font_ref.glyph_metrics(normalized_coords);
+                    let fm = font_ref.metrics(normalized_coords);
                     let scale = *pixel_size as f32 / fm.units_per_em as f32;
                     let advance_width = gm.advance_width(glyph_id) * scale;
 
                     SCALE_CONTEXT.with(|ctx| {
                         let font_ref = swash_font_ref(font_to_use);
                         let mut ctx = ctx.borrow_mut();
-                        let mut scaler = ctx.builder(font_ref).size(*pixel_size as f32).build();
+                        let mut scaler = ctx
+                            .builder(font_ref)
+                            .size(*pixel_size as f32)
+                            .normalized_coords(normalized_coords)
+                            .build();
                         let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
                             .format(swash::zeno::Format::Alpha)
                             .render(&mut scaler, glyph_id);
@@ -418,6 +465,7 @@ fn embed_sdf_glyphs(
     character_map: &Vec<CharacterMapEntry>,
     font: &Font,
     fallback_fonts: &[Font],
+    variations: &[(skrifa::Tag, f32)],
 ) -> Vec<BitmapGlyphs> {
     use rayon::prelude::*;
 
@@ -436,11 +484,17 @@ fn embed_sdf_glyphs(
                 .chain(fallback_fonts.iter())
                 .find_map(|font| {
                     (swash_font_ref(font).charmap().map(*code_point) != 0).then(|| {
-                        generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE)
+                        generate_sdf_for_glyph(
+                            font,
+                            *code_point,
+                            target_pixel_size,
+                            RANGE,
+                            variations,
+                        )
                     })
                 })
                 .unwrap_or_else(|| {
-                    generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE)
+                    generate_sdf_for_glyph(font, *code_point, target_pixel_size, RANGE, variations)
                 })
                 .unwrap_or_default()
         })
@@ -455,19 +509,29 @@ fn generate_sdf_for_glyph(
     code_point: char,
     target_pixel_size: i16,
     range: f64,
+    variations: &[(skrifa::Tag, f32)],
 ) -> Option<BitmapGlyph> {
     use fdsm::transform::Transform;
     use nalgebra::{Affine2, Similarity2, Vector2};
 
-    let face =
+    let mut face =
         fdsm_ttf_parser::ttf_parser::Face::parse(font.font.blob.data(), font.font.index).unwrap();
+    for &(tag, value) in variations {
+        face.set_variation(
+            fdsm_ttf_parser::ttf_parser::Tag(u32::from_be_bytes(tag.to_be_bytes())),
+            value,
+        );
+    }
     let glyph_id = face.glyph_index(code_point).unwrap_or_default();
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
+    let variation_settings: Vec<_> =
+        variations.iter().map(|&(tag, value)| (tag, value)).collect::<Vec<_>>();
+    let location = font_ref.axes().location(variation_settings);
     let metrics = skrifa::metrics::Metrics::new(
         &font_ref,
         skrifa::instance::Size::unscaled(),
-        skrifa::instance::LocationRef::default(),
+        skrifa::instance::LocationRef::from(&location),
     );
     let target_pixel_size = target_pixel_size as f64;
     let scale = target_pixel_size / metrics.units_per_em as f64;
@@ -544,10 +608,18 @@ fn generate_sdf_for_glyph(
     Some(bg)
 }
 
-fn try_extract_font_size_from_element(elem: &ElementRc, property_name: &str) -> Option<f64> {
+fn try_extract_literal_from_element(
+    elem: &ElementRc,
+    property_name: &str,
+    unit: Unit,
+) -> Option<f64> {
     elem.borrow().bindings.get(property_name).and_then(|expression| {
         match &expression.borrow().expression {
-            Expression::NumberLiteral(value, Unit::Px) => Some(*value),
+            Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
+            Expression::Cast { from, .. } => match from.as_ref() {
+                Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
+                _ => None,
+            },
             _ => None,
         }
     })
@@ -573,13 +645,46 @@ pub fn collect_font_sizes_used(
         .as_str()
     {
         "TextInput" | "Text" | "SimpleText" | "ComplexText" | "StyledTextItem" => {
-            if let Some(font_size) = try_extract_font_size_from_element(elem, "font-size") {
+            if let Some(font_size) = try_extract_literal_from_element(elem, "font-size", Unit::Px) {
                 add_font_size(font_size)
             }
         }
         "Dialog" | "Window" | "WindowItem" => {
-            if let Some(font_size) = try_extract_font_size_from_element(elem, "default-font-size") {
+            if let Some(font_size) =
+                try_extract_literal_from_element(elem, "default-font-size", Unit::Px)
+            {
                 add_font_size(font_size)
+            }
+        }
+        _ => {}
+    });
+}
+
+pub fn collect_font_weights_used(component: &Rc<Component>, weights_seen: &mut Vec<u16>) {
+    let mut add_weight = |weight: f64| {
+        let weight = weight as u16;
+        if let Err(pos) = weights_seen.binary_search(&weight) {
+            weights_seen.insert(pos, weight);
+        }
+    };
+
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| match elem
+        .borrow()
+        .base_type
+        .to_string()
+        .as_str()
+    {
+        "TextInput" | "Text" | "SimpleText" | "ComplexText" | "StyledTextItem" => {
+            if let Some(weight) = try_extract_literal_from_element(elem, "font-weight", Unit::None)
+            {
+                add_weight(weight)
+            }
+        }
+        "Dialog" | "Window" | "WindowItem" => {
+            if let Some(weight) =
+                try_extract_literal_from_element(elem, "default-font-weight", Unit::None)
+            {
+                add_weight(weight)
             }
         }
         _ => {}

@@ -32,7 +32,7 @@ export component TestCase inherits Window {
     out property<length> w4: s4.preferred-width;
     out property<length> w5: s5.preferred-width;
 
-    property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 62px;
+    property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px;
 }
 
 /*
@@ -46,7 +46,7 @@ assert_eq!(instance.get_w1(), 66.0);
 assert_eq!(instance.get_w2(), 80.0);
 assert_eq!(instance.get_w3(), 64.0);
 assert_eq!(instance.get_w4(), 64.0);
-assert_eq!(instance.get_w5(), 62.0);
+assert_eq!(instance.get_w5(), 65.0);
 ```
 ```cpp
 auto handle = TestCase::create();
@@ -55,6 +55,6 @@ assert(instance.get_w1() == 66.0);
 assert(instance.get_w2() == 80.0);
 assert(instance.get_w3() == 64.0);
 assert(instance.get_w4() == 64.0);
-assert(instance.get_w5() == 62.0);
+assert(instance.get_w5() == 65.0);
 ```
 */
