@@ -123,8 +123,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
 
     // Position-independent diagnostics: `//-error{message}` or `//-warning{message}`
     // matches by message and level only, regardless of source location.
-    let pos_independent_re =
-        regex::Regex::new(r"\n *//-(error|warning|note)\{([^\n]*)\}").unwrap();
+    let pos_independent_re = regex::Regex::new(r"\n *//-(error|warning|note)\{([^\n]*)\}").unwrap();
     for m in pos_independent_re.captures_iter(source) {
         let level = match m.get(1).unwrap().as_str() {
             "warning" => DiagnosticLevel::Warning,
