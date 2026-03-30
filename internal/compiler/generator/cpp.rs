@@ -2645,7 +2645,7 @@ fn generate_flexbox_layout_item_info_decl(
         )
     } else {
         "auto base = layout_item_info(o, child_index); \
-         return { base.constraint, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexAlignSelf::Auto, 0 };"
+         return { base.constraint, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexboxLayoutAlignSelf::Auto, 0 };"
             .to_owned()
     };
 

@@ -211,8 +211,8 @@ flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemI
                     float spacing_h, float spacing_v, const cbindgen_private::Padding &padding_h,
                     const cbindgen_private::Padding &padding_v,
                     cbindgen_private::Orientation orientation,
-                    cbindgen_private::FlexDirection direction, float constraint_size,
-                    cbindgen_private::FlexWrap flex_wrap)
+                    cbindgen_private::FlexboxLayoutDirection direction, float constraint_size,
+                    cbindgen_private::FlexboxLayoutWrap flex_wrap)
 {
     return cbindgen_private::slint_flexbox_layout_info(cells_h, cells_v, spacing_h, spacing_v,
                                                        &padding_h, &padding_v, orientation,

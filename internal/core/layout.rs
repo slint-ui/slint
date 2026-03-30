@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexDirection, FlexWrap,
-    LayoutAlignment,
+    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
+    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1136,10 +1136,10 @@ pub struct FlexboxLayoutData<'a> {
     pub padding_h: Padding,
     pub padding_v: Padding,
     pub alignment: LayoutAlignment,
-    pub direction: FlexDirection,
-    pub align_content: FlexAlignContent,
-    pub align_items: FlexAlignItems,
-    pub flex_wrap: FlexWrap,
+    pub direction: FlexboxLayoutDirection,
+    pub align_content: FlexboxLayoutAlignContent,
+    pub align_items: FlexboxLayoutAlignItems,
+    pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
     /// Vertical constraints (height) for each cell
@@ -1165,7 +1165,7 @@ pub struct FlexboxLayoutItemInfo {
     /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
     pub flex_basis: Coord,
     /// Per-item cross-axis alignment override (Auto = use container's align-items)
-    pub flex_align_self: FlexAlignSelf,
+    pub flex_align_self: FlexboxLayoutAlignSelf,
     /// Visual ordering of flex items (lower values appear first, default 0)
     pub flex_order: i32,
 }
@@ -1177,7 +1177,7 @@ impl Default for FlexboxLayoutItemInfo {
             flex_grow: 0.0,
             flex_shrink: 0.0,
             flex_basis: -1 as _,
-            flex_align_self: FlexAlignSelf::Auto,
+            flex_align_self: FlexboxLayoutAlignSelf::Auto,
             flex_order: 0,
         }
     }
@@ -1322,8 +1322,9 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexWrap as SlintFlexWrap,
-        FlexboxLayoutItemInfo, LayoutAlignment, Padding, Slice,
+        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
+        FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
+        Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1338,9 +1339,9 @@ mod flexbox_taffy {
         pub padding_h: &'a Padding,
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
-        pub align_content: FlexAlignContent,
-        pub align_items: FlexAlignItems,
-        pub flex_wrap: SlintFlexWrap,
+        pub align_content: FlexboxLayoutAlignContent,
+        pub align_items: FlexboxLayoutAlignItems,
+        pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
@@ -1440,11 +1441,11 @@ mod flexbox_taffy {
                             flex_grow: cell_h.flex_grow,
                             flex_shrink: cell_h.flex_shrink,
                             align_self: match cell_h.flex_align_self {
-                                FlexAlignSelf::Auto => None,
-                                FlexAlignSelf::Stretch => Some(AlignSelf::Stretch),
-                                FlexAlignSelf::Start => Some(AlignSelf::FlexStart),
-                                FlexAlignSelf::End => Some(AlignSelf::FlexEnd),
-                                FlexAlignSelf::Center => Some(AlignSelf::Center),
+                                FlexboxLayoutAlignSelf::Auto => None,
+                                FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
+                                FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
+                                FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
+                                FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
                             },
                             ..Default::default()
                         })
@@ -1473,9 +1474,9 @@ mod flexbox_taffy {
                         display: Display::Flex,
                         flex_direction: params.flex_direction,
                         flex_wrap: match params.flex_wrap {
-                            SlintFlexWrap::Wrap => FlexWrap::Wrap,
-                            SlintFlexWrap::NoWrap => FlexWrap::NoWrap,
-                            SlintFlexWrap::WrapReverse => FlexWrap::WrapReverse,
+                            SlintFlexboxLayoutWrap::Wrap => FlexWrap::Wrap,
+                            SlintFlexboxLayoutWrap::NoWrap => FlexWrap::NoWrap,
+                            SlintFlexboxLayoutWrap::WrapReverse => FlexWrap::WrapReverse,
                         },
                         justify_content: Some(match params.alignment {
                             // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
@@ -1489,19 +1490,19 @@ mod flexbox_taffy {
                             LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         align_items: Some(match params.align_items {
-                            FlexAlignItems::Stretch => AlignItems::Stretch,
-                            FlexAlignItems::Start => AlignItems::FlexStart,
-                            FlexAlignItems::End => AlignItems::FlexEnd,
-                            FlexAlignItems::Center => AlignItems::Center,
+                            FlexboxLayoutAlignItems::Stretch => AlignItems::Stretch,
+                            FlexboxLayoutAlignItems::Start => AlignItems::FlexStart,
+                            FlexboxLayoutAlignItems::End => AlignItems::FlexEnd,
+                            FlexboxLayoutAlignItems::Center => AlignItems::Center,
                         }),
                         align_content: Some(match params.align_content {
-                            FlexAlignContent::Stretch => AlignContent::Stretch,
-                            FlexAlignContent::Start => AlignContent::FlexStart,
-                            FlexAlignContent::End => AlignContent::FlexEnd,
-                            FlexAlignContent::Center => AlignContent::Center,
-                            FlexAlignContent::SpaceBetween => AlignContent::SpaceBetween,
-                            FlexAlignContent::SpaceAround => AlignContent::SpaceAround,
-                            FlexAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
+                            FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
+                            FlexboxLayoutAlignContent::Start => AlignContent::FlexStart,
+                            FlexboxLayoutAlignContent::End => AlignContent::FlexEnd,
+                            FlexboxLayoutAlignContent::Center => AlignContent::Center,
+                            FlexboxLayoutAlignContent::SpaceBetween => AlignContent::SpaceBetween,
+                            FlexboxLayoutAlignContent::SpaceAround => AlignContent::SpaceAround,
+                            FlexboxLayoutAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         gap: Size {
                             width: LengthPercentage::length(params.spacing_h as _),
@@ -1661,10 +1662,10 @@ pub fn solve_flexbox_layout(
     }
 
     let taffy_direction = match data.direction {
-        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
-        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+        FlexboxLayoutDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexboxLayoutDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexboxLayoutDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexboxLayoutDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
     };
 
     let (container_width, container_height) = (
@@ -1689,8 +1690,12 @@ pub fn solve_flexbox_layout(
     });
 
     let (available_width, available_height) = match data.direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (data.width, Coord::MAX),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, data.height),
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (data.width, Coord::MAX)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (Coord::MAX, data.height)
+        }
     };
 
     builder.compute_layout(available_width, available_height);
@@ -1735,9 +1740,9 @@ pub fn flexbox_layout_info(
     padding_h: &Padding,
     padding_v: &Padding,
     orientation: Orientation,
-    direction: FlexDirection,
+    direction: FlexboxLayoutDirection,
     constraint_size: Coord,
-    flex_wrap: FlexWrap,
+    flex_wrap: FlexboxLayoutWrap,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
@@ -1758,11 +1763,14 @@ pub fn flexbox_layout_info(
     // Determine if we're asking for main-axis or cross-axis
     let is_main_axis = matches!(
         (direction, orientation),
-        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
-            | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
+        (FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse, Orientation::Horizontal)
+            | (
+                FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse,
+                Orientation::Vertical
+            )
     );
 
-    let min = if matches!(flex_wrap, FlexWrap::NoWrap) && is_main_axis {
+    let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) && is_main_axis {
         // No wrapping: items must all fit in one line, min = sum of minimums + spacing
         cells.iter().map(|c| c.constraint.min).sum::<Coord>()
             + spacing * (cells.len().saturating_sub(1)) as Coord
@@ -1775,7 +1783,7 @@ pub fn flexbox_layout_info(
     // The main-axis constraint determines how items wrap.
     let main_axis_constraint = if is_main_axis {
         // Note that constraint_size is not used for the main axis
-        if matches!(flex_wrap, FlexWrap::NoWrap) {
+        if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
             // No wrapping: items won't wrap regardless of size, use max content
             Coord::MAX
         } else {
@@ -1795,15 +1803,19 @@ pub fn flexbox_layout_info(
     };
 
     let taffy_direction = match direction {
-        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
-        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+        FlexboxLayoutDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexboxLayoutDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexboxLayoutDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexboxLayoutDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
     };
 
     let (container_width, container_height) = match direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (Some(main_axis_constraint), None),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(main_axis_constraint)),
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (Some(main_axis_constraint), None)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (None, Some(main_axis_constraint))
+        }
     };
 
     let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
@@ -1814,8 +1826,8 @@ pub fn flexbox_layout_info(
         padding_h,
         padding_v,
         alignment: LayoutAlignment::Start,
-        align_content: FlexAlignContent::Stretch,
-        align_items: FlexAlignItems::Stretch,
+        align_content: FlexboxLayoutAlignContent::Stretch,
+        align_items: FlexboxLayoutAlignItems::Stretch,
         flex_wrap,
         flex_direction: taffy_direction,
         container_width,
@@ -1823,8 +1835,12 @@ pub fn flexbox_layout_info(
     });
 
     let (available_width, available_height) = match direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (main_axis_constraint, Coord::MAX),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, main_axis_constraint),
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (main_axis_constraint, Coord::MAX)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (Coord::MAX, main_axis_constraint)
+        }
     };
 
     builder.compute_layout(available_width, available_height);
@@ -1980,9 +1996,9 @@ pub(crate) mod ffi {
         padding_h: &Padding,
         padding_v: &Padding,
         orientation: Orientation,
-        direction: FlexDirection,
+        direction: FlexboxLayoutDirection,
         constraint_size: Coord,
-        flex_wrap: FlexWrap,
+        flex_wrap: FlexboxLayoutWrap,
     ) -> LayoutInfo {
         super::flexbox_layout_info(
             cells_h,

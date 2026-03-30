@@ -106,25 +106,25 @@ Note that the `stretch` value has no effect on FlexboxLayout (main-axis stretchi
 ## Direction Properties
 
 ### flex-direction
-<SlintProperty propName="flex-direction" typeName="enum" enumName="FlexDirection">
+<SlintProperty propName="flex-direction" typeName="enum" enumName="FlexboxLayoutDirection">
 The primary direction in which items are placed. Set to `row` to place items horizontally left-to-right (default), or `column` to place items vertically top-to-bottom.
 It also supports `row-reverse` and `column-reverse` which invert the flow: `row-reverse` places items right-to-left (starting at the right edge), and `column-reverse` places items bottom-to-top (starting at the bottom edge).
 </SlintProperty>
 
 ### flex-wrap
-<SlintProperty propName="flex-wrap" typeName="enum" enumName="FlexWrap">
+<SlintProperty propName="flex-wrap" typeName="enum" enumName="FlexboxLayoutWrap">
 Controls whether flex items wrap onto multiple lines when they don't fit in the container.
 The default value is `wrap`.
 </SlintProperty>
 
 ### align-content
-<SlintProperty propName="align-content" typeName="enum" enumName="FlexAlignContent">
+<SlintProperty propName="align-content" typeName="enum" enumName="FlexboxLayoutAlignContent">
 Set the distribution of flex lines along the cross axis.
 The default value is `stretch`.
 </SlintProperty>
 
 ### align-items
-<SlintProperty propName="align-items" typeName="enum" enumName="FlexAlignItems">
+<SlintProperty propName="align-items" typeName="enum" enumName="FlexboxLayoutAlignItems">
 Set the alignment of individual items along the cross axis within each flex line.
 The default value is `stretch`.
 </SlintProperty>
@@ -152,7 +152,7 @@ If not set, the item's `preferred-width` (row) or `preferred-height` (column) is
 </SlintProperty>
 
 ### flex-align-self
-<SlintProperty propName="flex-align-self" typeName="enum" enumName="FlexAlignSelf">
+<SlintProperty propName="flex-align-self" typeName="enum" enumName="FlexboxLayoutAlignSelf">
 Overrides the container's `align-items` for this specific item.
 The default value is `auto`, which inherits the container's `align-items` setting.
 </SlintProperty>
