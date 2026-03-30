@@ -38,7 +38,7 @@ use std::future::Future;
 use std::io::Write as _;
 use std::pin::pin;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, atomic};
+use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
 use std::time::Duration;
 
@@ -130,7 +130,7 @@ enum OutgoingRequest {
     Done(lsp_server::Response),
 }
 
-type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;
+type OutgoingRequestQueue = Arc<dashmap::DashMap<RequestId, OutgoingRequest>>;
 
 /// A handle that can be used to communicate with the client
 ///
@@ -160,23 +160,20 @@ impl ServerNotifier {
             Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
         self.sender.send(msg)?;
         let queue = self.queue.clone();
-        queue.lock().unwrap().insert(id.clone(), OutgoingRequest::Start);
-        Ok(std::future::poll_fn(move |ctx| {
-            let mut queue = queue.lock().unwrap();
-            match queue.remove(&id).unwrap() {
-                OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
-                    queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
-                    Poll::Pending
-                }
-                OutgoingRequest::Done(d) => {
-                    if let Some(err) = d.error {
-                        Poll::Ready(Err(err.message.into()))
-                    } else {
-                        Poll::Ready(
-                            serde_json::from_value(d.result.unwrap_or_default())
-                                .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                        )
-                    }
+        queue.insert(id.clone(), OutgoingRequest::Start);
+        Ok(std::future::poll_fn(move |ctx| match queue.remove(&id).unwrap().1 {
+            OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
+                queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
+                Poll::Pending
+            }
+            OutgoingRequest::Done(d) => {
+                if let Some(err) = d.error {
+                    Poll::Ready(Err(err.message.into()))
+                } else {
+                    Poll::Ready(
+                        serde_json::from_value(d.result.unwrap_or_default())
+                            .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
+                    )
                 }
             }
         }))
@@ -416,7 +413,7 @@ async fn main_loop(
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let inner_connection = connection.clone();
     std::thread::spawn(move || {
-        crossbeam_tokio_adapter(inner_connection, from_lsp_sender);
+        crossbeam_tokio_adapter(inner_connection, from_lsp_sender, request_queue);
         tracing::debug!("crossbeam -> tokio adapter exited");
     });
 
@@ -436,19 +433,8 @@ async fn main_loop(
                             }
                             early_messages.push(Message::Request(req));
                         }
-                        Some(Message::Response(resp)) => {
-                            let mut request_queue = request_queue.lock().unwrap();
-                            let Some(q) = request_queue.get_mut(&resp.id) else {
-                                return Err("Response to unknown request".into());
-                            };
-                            match q {
-                                OutgoingRequest::Done(_) => {
-                                    return Err("Response to unknown request".into())
-                                }
-                                OutgoingRequest::Start => { /* nothing to do */ }
-                                OutgoingRequest::Pending(x) => x.wake_by_ref(),
-                            };
-                            *q = OutgoingRequest::Done(resp)
+                        Some(Message::Response(_)) => {
+                            // should not be receiving responses, since they're handled in the dedicated thread
                         }
                         Some(Message::Notification(notification)) => {
                             early_messages.push(Message::Notification(notification));
@@ -463,7 +449,7 @@ async fn main_loop(
     }
 
     for msg in early_messages {
-        handle_lsp_message(msg, &connection, &mut rh, &mut ctx, &request_queue).await?;
+        handle_lsp_message(msg, &connection, &mut rh, &mut ctx).await?;
     }
 
     loop {
@@ -477,12 +463,10 @@ async fn main_loop(
                         &connection,
                         &mut rh,
                         &mut ctx,
-                        &request_queue,
                     ).await?;
                 } else {
                         return Err("LSP connection closed".into());
                 }
-
             }
             _msg = preview_to_lsp_receiver.recv() => {
                 // Messages from the native preview come in here:
@@ -515,7 +499,6 @@ async fn handle_lsp_message(
     connection: &Arc<Connection>,
     rh: &mut RequestHandler,
     ctx: &mut Context,
-    request_queue: &Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>,
 ) -> Result<()> {
     match msg {
         Message::Request(req) => {
@@ -525,17 +508,8 @@ async fn handle_lsp_message(
             }
             rh.handle_request(req, ctx)?;
         }
-        Message::Response(resp) => {
-            let mut request_queue = request_queue.lock().unwrap();
-            let Some(q) = request_queue.get_mut(&resp.id) else {
-                return Err("Response to unknown request".into());
-            };
-            match q {
-                OutgoingRequest::Done(_) => return Err("Response to unknown request".into()),
-                OutgoingRequest::Start => { /* nothing to do */ }
-                OutgoingRequest::Pending(x) => x.wake_by_ref(),
-            };
-            *q = OutgoingRequest::Done(resp)
+        Message::Response(_) => {
+            // should not be receiving responses, since they're handled in the dedicated thread
         }
         Message::Notification(notification) => {
             handle_notification(notification, ctx).await?;
@@ -550,9 +524,25 @@ async fn handle_lsp_message(
 fn crossbeam_tokio_adapter(
     connection: Arc<Connection>,
     from_lsp_sender: mpsc::UnboundedSender<Message>,
+    request_queue: OutgoingRequestQueue,
 ) {
     loop {
         match connection.receiver.recv() {
+            Ok(Message::Response(resp)) => {
+                let Some(mut q) = request_queue.get_mut(&resp.id) else {
+                    tracing::error!("Response to unknown request");
+                    continue;
+                };
+                match &*q {
+                    OutgoingRequest::Done(_) => {
+                        tracing::error!("Response to unknown request");
+                        continue;
+                    }
+                    OutgoingRequest::Start => { /* nothing to do */ }
+                    OutgoingRequest::Pending(x) => x.wake_by_ref(),
+                };
+                *q = OutgoingRequest::Done(resp);
+            }
             Ok(msg) => {
                 if from_lsp_sender.send(msg.clone()).is_err() {
                     return;
