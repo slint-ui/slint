@@ -53,7 +53,7 @@ const TestCase &instance = *handle;
 assert(instance.get_test());
 
 assert_eq(instance.get_clicked_link_url(), "");
-slint_testing::send_mouse_click(&instance, 75., 325.);
+slint_testing::send_mouse_click(&instance, 30., 300.);
 assert_eq(instance.get_clicked_link_url(), "https://slint.dev");
 ```
 */
