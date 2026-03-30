@@ -20,7 +20,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-default", "renderer-software", "accessibility", "compat-1-2"]
+default = ["backend-default", "renderer-software", "compat-1-2"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -111,7 +111,7 @@ renderer-winit-software = ["renderer-software"]
 ##
 ## Enabling this feature will try to expose the tree of UI elements to OS provided accessibility
 ## APIs to support screen readers and other assistive technologies.
-accessibility = ["i-slint-backend-selector/accessibility"]
+# accessibility = ["i-slint-backend-selector/accessibility"]
 
 ## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
 ## [`Window::window_handle()`] function that returns a struct that implements

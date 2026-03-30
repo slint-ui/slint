@@ -34,6 +34,7 @@ use corelib::items::{ColorScheme, MouseCursor};
 use corelib::items::{ItemRc, ItemRef};
 
 use crate::{EventResult, SharedBackendData};
+#[cfg(enable_accesskit)]
 use accesskit_winit::Event;
 use corelib::Property;
 use corelib::api::PhysicalSize;
@@ -409,7 +410,7 @@ impl WinitWindowAdapter {
     pub fn ensure_window(
         &self,
         active_event_loop: &dyn ActiveEventLoop,
-        events: Arc<Mutex<Vec<Event>>>,
+        #[cfg(enable_accesskit)] events: Arc<Mutex<Vec<Event>>>,
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         #[allow(unused_mut)]
         let mut window_attributes = match &*self.winit_window_or_none.borrow() {

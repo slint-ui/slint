@@ -45,7 +45,7 @@ renderer-skia-vulkan = [
 renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-backend-linuxkms?/renderer-software"]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
-accessibility = ["i-slint-backend-winit?/accessibility"]
+# accessibility = ["i-slint-backend-winit?/accessibility"]
 
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-winit?/raw-window-handle-06"]
 

@@ -55,7 +55,7 @@ renderer-software = [
   "i-slint-renderer-software/std",
   "dep:bytemuck",
 ]
-accessibility = ["dep:accesskit", "dep:accesskit_winit"]
+# accessibility = []
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-27 = ["i-slint-core/unstable-wgpu-27", "i-slint-renderer-skia?/unstable-wgpu-27"]
 unstable-wgpu-28 = [
@@ -77,9 +77,9 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 uuid ={ version = "1.23", features = ["v4"]}
 strum = { workspace = true }
-winit = { version = "0.31.0-beta.2", default-features = false }
-winit-wayland = { version = "0.31.0-beta.2", optional = true}
-winit-x11 = { version = "0.31.0-beta.2", optional = true}
+winit = { git = "https://github.com/rust-windowing/winit.git", default-features = false }
+winit-wayland = { git = "https://github.com/rust-windowing/winit.git", optional = true}
+winit-x11 = { git = "https://github.com/rust-windowing/winit.git", optional = true}
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
@@ -111,8 +111,8 @@ glutin-winit = { version = "0.5", optional = true, default-features = false, fea
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # accesskit = { version = "0.22", optional = true }
 # accesskit_winit = { version = "0.30", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
-accesskit = { git = "https://github.com/slint-ui/accesskit.git", branch = "winit-new-user-events", optional = true }
-accesskit_winit = { git = "https://github.com/slint-ui/accesskit.git", branch = "winit-new-user-events", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
+#accesskit = { git = "https://github.com/slint-ui/accesskit.git", branch = "winit-new-user-events", optional = true }
+#accesskit_winit = { git = "https://github.com/slint-ui/accesskit.git", branch = "winit-new-user-events", package = "accesskit_winit", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
 copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
