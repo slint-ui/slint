@@ -18,6 +18,8 @@ component ComboBoxBase implements ComboBoxInterface {
 }
 
 export component TestCase uses { ComboBoxInterface from base } {
+    out property <bool> test: self.current-value == "Apples";
+
     base := ComboBoxBase {
         model: ["Apples", "Oranges"];
     }
