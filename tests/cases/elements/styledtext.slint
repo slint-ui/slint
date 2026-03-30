@@ -33,7 +33,7 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 
 // Over the link: pointer cursor
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(75.0, 325.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 300.0) });
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Pointer);
 
 // Move away from the link: back to default
