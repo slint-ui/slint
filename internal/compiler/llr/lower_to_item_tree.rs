@@ -589,7 +589,7 @@ fn lower_sub_component(
         crate::layout::Orientation::Vertical,
     )
     .into();
-    // For repeated elements in a FlexBoxLayout, generate code to read flex properties
+    // For repeated elements in a FlexboxLayout, generate code to read flex properties
     if sub_component.child_of_layout {
         let root_elem = &component.root_element;
         let has_flex_binding =

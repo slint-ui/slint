@@ -1,14 +1,14 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout that's not in a layout, like in the printer demo
+// Test FlexboxLayout that's not in a layout, like in the printer demo
 
 export component TestCase inherits Window {
 
     min-width: 300px;
     min-height: 300px;
 
-    flex := FlexBoxLayout {
+    flex := FlexboxLayout {
         align-content: start;  // Don't stretch rows to fill the window height
         spacing: 10px;
         vertical-stretch: 0;

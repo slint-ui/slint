@@ -3,7 +3,7 @@
 
 export component X inherits Rectangle {
 
-    FlexBoxLayout {
+    FlexboxLayout {
         Text {
             flex-grow: 1;
             flex-shrink: 2;
@@ -14,46 +14,46 @@ export component X inherits Rectangle {
         Rectangle {
             Text {
                 flex-grow: 1;
-//                         ><error{flex-grow used outside of a FlexBoxLayout}
+//                         ><error{flex-grow used outside of a FlexboxLayout}
                 flex-shrink: 2;
-//                           ><error{flex-shrink used outside of a FlexBoxLayout}
+//                           ><error{flex-shrink used outside of a FlexboxLayout}
                 flex-basis: 100px;
-//                          >    <error{flex-basis used outside of a FlexBoxLayout}
+//                          >    <error{flex-basis used outside of a FlexboxLayout}
                 flex-align-self: center;
-//                               >     <error{flex-align-self used outside of a FlexBoxLayout}
+//                               >     <error{flex-align-self used outside of a FlexboxLayout}
                 flex-order: 3;
-//                          ><error{flex-order used outside of a FlexBoxLayout}
+//                          ><error{flex-order used outside of a FlexboxLayout}
             }
         }
     }
 
-    // flex properties used outside of FlexBoxLayout should error
+    // flex properties used outside of FlexboxLayout should error
     Text {
         flex-grow: 1;
-//                 ><error{flex-grow used outside of a FlexBoxLayout}
+//                 ><error{flex-grow used outside of a FlexboxLayout}
         flex-shrink: 2;
-//                   ><error{flex-shrink used outside of a FlexBoxLayout}
+//                   ><error{flex-shrink used outside of a FlexboxLayout}
         flex-basis: 100px;
-//                  >    <error{flex-basis used outside of a FlexBoxLayout}
+//                  >    <error{flex-basis used outside of a FlexboxLayout}
         flex-align-self: center;
-//                       >     <error{flex-align-self used outside of a FlexBoxLayout}
+//                       >     <error{flex-align-self used outside of a FlexboxLayout}
         flex-order: 3;
-//                  ><error{flex-order used outside of a FlexBoxLayout}
+//                  ><error{flex-order used outside of a FlexboxLayout}
     }
 
     GridLayout {
         Text {
             flex-grow: 1;
-//                     ><error{flex-grow used outside of a FlexBoxLayout}
+//                     ><error{flex-grow used outside of a FlexboxLayout}
         }
     }
 
     HorizontalLayout {
         Text {
             flex-grow: 1;
-//                     ><error{flex-grow used outside of a FlexBoxLayout}
+//                     ><error{flex-grow used outside of a FlexboxLayout}
             flex-order: 5;
-//                      ><error{flex-order used outside of a FlexBoxLayout}
+//                      ><error{flex-order used outside of a FlexboxLayout}
         }
     }
 }

@@ -1248,7 +1248,7 @@ fn generate_sub_component(
             quote! {
                 fn flexbox_layout_item_info_for_repeated(
                     self: ::core::pin::Pin<&Self>,
-                ) -> sp::FlexBoxLayoutItemInfo {
+                ) -> sp::FlexboxLayoutItemInfo {
                     #![allow(unused)]
                     let _self = self;
                     #expr
@@ -2184,7 +2184,7 @@ fn generate_repeated_component(
                         self: ::core::pin::Pin<&Self>,
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
-                    ) -> sp::FlexBoxLayoutItemInfo {
+                    ) -> sp::FlexboxLayoutItemInfo {
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
@@ -3078,7 +3078,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
-        Expression::WithFlexBoxLayoutItemInfo {
+        Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name,

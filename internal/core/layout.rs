@@ -1127,8 +1127,8 @@ pub struct BoxLayoutData<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-/// The FlexBoxLayoutData is used for a flex layout.
-pub struct FlexBoxLayoutData<'a> {
+/// The FlexboxLayoutData is used for a flex layout.
+pub struct FlexboxLayoutData<'a> {
     pub width: Coord,
     pub height: Coord,
     pub spacing_h: Coord,
@@ -1141,9 +1141,9 @@ pub struct FlexBoxLayoutData<'a> {
     pub align_items: FlexAlignItems,
     pub flex_wrap: FlexWrap,
     /// Horizontal constraints (width) for each cell
-    pub cells_h: Slice<'a, FlexBoxLayoutItemInfo>,
+    pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
     /// Vertical constraints (height) for each cell
-    pub cells_v: Slice<'a, FlexBoxLayoutItemInfo>,
+    pub cells_v: Slice<'a, FlexboxLayoutItemInfo>,
 }
 
 #[repr(C)]
@@ -1156,7 +1156,7 @@ pub struct LayoutItemInfo {
 #[repr(C)]
 #[derive(Debug, Clone)]
 /// The information about a single item in a flexbox layout
-pub struct FlexBoxLayoutItemInfo {
+pub struct FlexboxLayoutItemInfo {
     pub constraint: LayoutInfo,
     /// Flex grow factor (0 = don't grow, default)
     pub flex_grow: f32,
@@ -1170,7 +1170,7 @@ pub struct FlexBoxLayoutItemInfo {
     pub flex_order: i32,
 }
 
-impl Default for FlexBoxLayoutItemInfo {
+impl Default for FlexboxLayoutItemInfo {
     fn default() -> Self {
         Self {
             constraint: LayoutInfo::default(),
@@ -1183,7 +1183,7 @@ impl Default for FlexBoxLayoutItemInfo {
     }
 }
 
-impl From<LayoutItemInfo> for FlexBoxLayoutItemInfo {
+impl From<LayoutItemInfo> for FlexboxLayoutItemInfo {
     fn from(info: LayoutItemInfo) -> Self {
         Self { constraint: info.constraint, ..Default::default() }
     }
@@ -1322,17 +1322,17 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexBoxLayoutItemInfo,
-        FlexWrap as SlintFlexWrap, LayoutAlignment, Padding, Slice,
+        Coord, FlexAlignContent, FlexAlignItems, FlexAlignSelf, FlexWrap as SlintFlexWrap,
+        FlexboxLayoutItemInfo, LayoutAlignment, Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
     use taffy::prelude::*;
 
     /// Parameters for FlexboxTaffyBuilder::new
-    pub struct FlexBoxLayoutParams<'a> {
-        pub cells_h: &'a Slice<'a, FlexBoxLayoutItemInfo>,
-        pub cells_v: &'a Slice<'a, FlexBoxLayoutItemInfo>,
+    pub struct FlexboxLayoutParams<'a> {
+        pub cells_h: &'a Slice<'a, FlexboxLayoutItemInfo>,
+        pub cells_v: &'a Slice<'a, FlexboxLayoutItemInfo>,
         pub spacing_h: Coord,
         pub spacing_v: Coord,
         pub padding_h: &'a Padding,
@@ -1357,7 +1357,7 @@ mod flexbox_taffy {
 
     impl FlexboxTaffyBuilder {
         /// Create a new flexbox layout tree from item constraints
-        pub fn new(params: FlexBoxLayoutParams) -> Self {
+        pub fn new(params: FlexboxLayoutParams) -> Self {
             let mut taffy = TaffyTree::<()>::new();
 
             // Create child nodes from Slint constraints
@@ -1551,7 +1551,7 @@ mod flexbox_taffy {
                     },
                 )
                 .unwrap_or_else(|e| {
-                    crate::debug_log!("FlexBox layout computation error: {}", e);
+                    crate::debug_log!("FlexboxLayout computation error: {}", e);
                 });
         }
 
@@ -1579,8 +1579,8 @@ mod flexbox_taffy {
     }
 }
 
-/// A cache generator for FlexBoxLayout that handles 4 values per item (x, y, width, height)
-struct FlexBoxLayoutCacheGenerator<'a> {
+/// A cache generator for FlexboxLayout that handles 4 values per item (x, y, width, height)
+struct FlexboxLayoutCacheGenerator<'a> {
     // Input
     repeater_indices: &'a [u32],
     // An always increasing counter, the index of the cell being added
@@ -1595,7 +1595,7 @@ struct FlexBoxLayoutCacheGenerator<'a> {
     result: &'a mut SharedVector<Coord>,
 }
 
-impl<'a> FlexBoxLayoutCacheGenerator<'a> {
+impl<'a> FlexboxLayoutCacheGenerator<'a> {
     fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
         // Calculate total repeated cells (count for each repeater)
         let total_repeated_cells: usize = repeater_indices
@@ -1646,10 +1646,10 @@ impl<'a> FlexBoxLayoutCacheGenerator<'a> {
     }
 }
 
-/// Solve a FlexBoxLayout using Taffy
+/// Solve a FlexboxLayout using Taffy
 /// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
 pub fn solve_flexbox_layout(
-    data: &FlexBoxLayoutData,
+    data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
     // 4 values per item: x, y, width, height
@@ -1672,7 +1672,7 @@ pub fn solve_flexbox_layout(
         if data.height > 0 as Coord { Some(data.height) } else { None },
     );
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
         cells_h: &data.cells_h,
         cells_v: &data.cells_v,
         spacing_h: data.spacing_h,
@@ -1699,7 +1699,7 @@ pub fn solve_flexbox_layout(
     // If `order` sorting was applied, we need to collect results by original index first,
     // because the cache generator expects items in their original declaration order.
     if builder.order_map.is_empty() {
-        let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        let mut generator = FlexboxLayoutCacheGenerator::new(&repeater_indices, &mut result);
         for idx in 0..data.cells_h.len() {
             let (x, y, w, h) = builder.child_geometry(idx);
             generator.add(x, y, w, h);
@@ -1711,7 +1711,7 @@ pub fn solve_flexbox_layout(
             let orig_idx = builder.original_index(taffy_idx);
             geom[orig_idx] = builder.child_geometry(taffy_idx);
         }
-        let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        let mut generator = FlexboxLayoutCacheGenerator::new(&repeater_indices, &mut result);
         for (x, y, w, h) in geom {
             generator.add(x, y, w, h);
         }
@@ -1720,7 +1720,7 @@ pub fn solve_flexbox_layout(
     result
 }
 
-/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexBoxLayout
+/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexboxLayout
 /// This handles both main-axis (simple) and cross-axis (wrapping-aware) cases.
 /// The constraint_size is the perpendicular dimension to orientation:
 /// - For Horizontal orientation: constraint_size is height
@@ -1728,8 +1728,8 @@ pub fn solve_flexbox_layout(
 ///
 /// The constraint_size is ignored for main-axis calculation.
 pub fn flexbox_layout_info(
-    cells_h: Slice<FlexBoxLayoutItemInfo>,
-    cells_v: Slice<FlexBoxLayoutItemInfo>,
+    cells_h: Slice<FlexboxLayoutItemInfo>,
+    cells_v: Slice<FlexboxLayoutItemInfo>,
     spacing_h: Coord,
     spacing_v: Coord,
     padding_h: &Padding,
@@ -1806,7 +1806,7 @@ pub fn flexbox_layout_info(
         FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(main_axis_constraint)),
     };
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
         cells_h: &cells_h,
         cells_v: &cells_v,
         spacing_h,
@@ -1963,7 +1963,7 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_flexbox_layout(
-        data: &FlexBoxLayoutData,
+        data: &FlexboxLayoutData,
         repeater_indices: Slice<u32>,
         result: &mut SharedVector<Coord>,
     ) {
@@ -1971,10 +1971,10 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    /// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
+    /// Return LayoutInfo for a FlexboxLayout with runtime direction support.
     pub extern "C" fn slint_flexbox_layout_info(
-        cells_h: Slice<FlexBoxLayoutItemInfo>,
-        cells_v: Slice<FlexBoxLayoutItemInfo>,
+        cells_h: Slice<FlexboxLayoutItemInfo>,
+        cells_v: Slice<FlexboxLayoutItemInfo>,
         spacing_h: Coord,
         spacing_v: Coord,
         padding_h: &Padding,

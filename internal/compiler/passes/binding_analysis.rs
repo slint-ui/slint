@@ -548,13 +548,13 @@ fn recurse_expression(
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
-        Expression::SolveFlexBoxLayout(layout)
-        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+        Expression::SolveFlexboxLayout(layout)
+        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
             // Visit layout geometry dependencies
-            if matches!(expr, Expression::SolveFlexBoxLayout(..)) {
+            if matches!(expr, Expression::SolveFlexboxLayout(..)) {
                 // The solve only needs the main-axis dimension (width for row, height for column).
                 // The cross-axis dimension is determined by the content, not constrained by
                 // the container (items overflow or wrap as needed).
@@ -575,7 +575,7 @@ fn recurse_expression(
                         vis(&nr.clone().into(), P);
                     }
                 }
-            } else if let Expression::ComputeFlexBoxLayoutInfo(_, orientation) = expr {
+            } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
                 // Main-axis layout info only depends on same-axis item constraints,
                 // to avoid cross-axis binding loops. Cross-axis info needs both axes
                 // plus the perpendicular dimension (for wrapping).

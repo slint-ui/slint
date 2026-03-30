@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout with an Image child (height-for-width behavior).
+// Test FlexboxLayout with an Image child (height-for-width behavior).
 // This used to trigger a binding loop because the Image's vertical layout info
 // depends on its width (aspect ratio), creating a cross-axis dependency cycle.
 
@@ -9,7 +9,7 @@ export component TestCase inherits Window {
     width: 400px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         r := Rectangle {
             width: 100px;
             height: 50px;

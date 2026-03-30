@@ -1,14 +1,14 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout order per-item property
+// Test FlexboxLayout order per-item property
 
 // Test 1: order changes visual placement (row direction)
 // Items declared A, B, C but ordered C(flex-order:-1), A(0), B(1)
 component TestOrderRow inherits Rectangle {
     width: 300px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
 
         r_a := Rectangle {
@@ -42,7 +42,7 @@ component TestOrderRow inherits Rectangle {
 component TestOrderDefault inherits Rectangle {
     width: 300px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
 
         r1 := Rectangle {
@@ -73,7 +73,7 @@ component TestOrderDefault inherits Rectangle {
 component TestOrderColumn inherits Rectangle {
     width: 50px;
     height: 300px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         flex-wrap: no-wrap;
 

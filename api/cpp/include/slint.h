@@ -195,7 +195,7 @@ box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> 
     return cbindgen_private::slint_box_layout_info_ortho(cells, &padding);
 }
 
-inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxLayoutData &data,
+inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexboxLayoutData &data,
                                                 cbindgen_private::Slice<int> repeater_indices)
 {
     SharedVector<float> result;
@@ -206,8 +206,8 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexBoxL
 }
 
 inline cbindgen_private::LayoutInfo
-flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::FlexBoxLayoutItemInfo> cells_h,
-                    cbindgen_private::Slice<cbindgen_private::FlexBoxLayoutItemInfo> cells_v,
+flexbox_layout_info(cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_h,
+                    cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_v,
                     float spacing_h, float spacing_v, const cbindgen_private::Padding &padding_h,
                     const cbindgen_private::Padding &padding_v,
                     cbindgen_private::Orientation orientation,

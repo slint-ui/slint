@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout align-items property for row and column directions.
+// Test FlexboxLayout align-items property for row and column directions.
 // align-items controls how individual items are aligned along the cross axis
 // within each flex line.
 
@@ -17,7 +17,7 @@ component TestAlignItemsStartRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: start;
         align-items: start;
 
@@ -50,7 +50,7 @@ component TestAlignItemsEndRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: start;
         align-items: end;
 
@@ -83,7 +83,7 @@ component TestAlignItemsCenterRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: start;
         align-items: center;
 
@@ -116,7 +116,7 @@ component TestAlignItemsStretchRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         // align-content: stretch (default) — single line fills container height
         // align-items: stretch (default) — items stretch to line height
         r1 := Rectangle {
@@ -147,7 +147,7 @@ component TestAlignItemsStartColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: start;
         align-items: start;
@@ -181,7 +181,7 @@ component TestAlignItemsEndColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: start;
         align-items: end;
@@ -215,7 +215,7 @@ component TestAlignItemsCenterColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: start;
         align-items: center;
@@ -249,7 +249,7 @@ component TestAlignItemsStretchColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         // align-content: stretch (default) — single column fills container width
         // align-items: stretch (default) — items stretch to column width

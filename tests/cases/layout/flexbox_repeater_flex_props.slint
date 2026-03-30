@@ -9,7 +9,7 @@
 component TestFlexGrowRepeater inherits Rectangle {
     width: 300px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
 
         for item in [1]: Rectangle {
@@ -33,7 +33,7 @@ component TestFlexGrowRepeater inherits Rectangle {
 component TestOrderRepeater inherits Rectangle {
     width: 200px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
 
         r_static := Rectangle {
@@ -57,7 +57,7 @@ component TestOrderRepeater inherits Rectangle {
 component TestAlignSelfWithRepeater inherits Rectangle {
     width: 300px;
     height: 100px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         align-items: start;
 

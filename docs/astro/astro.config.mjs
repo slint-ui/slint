@@ -290,7 +290,7 @@ export default defineConfig({
                                                 slug: "reference/layouts/verticallayout",
                                             },
                                             {
-                                                label: "FlexBoxLayout",
+                                                label: "FlexboxLayout",
                                                 slug: "reference/layouts/flexboxlayout",
                                             },
                                         ],

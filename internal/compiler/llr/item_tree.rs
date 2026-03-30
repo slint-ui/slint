@@ -411,7 +411,7 @@ pub struct SubComponent {
     pub layout_info_v: MutExpression,
     pub child_of_layout: bool,
     pub grid_layout_input_for_repeated: Option<MutExpression>,
-    /// Expression that builds a FlexBoxLayoutItemInfo for a repeated element in a FlexBoxLayout.
+    /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
     /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info

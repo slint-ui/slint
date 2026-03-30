@@ -295,7 +295,7 @@ pub(super) fn solve_box_layout(
 }
 
 pub(super) fn solve_flexbox_layout(
-    layout: &crate::layout::FlexBoxLayout,
+    layout: &crate::layout::FlexboxLayout,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     let (padding_h, spacing_h) =
@@ -306,7 +306,7 @@ pub(super) fn solve_flexbox_layout(
     let width = layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
     let height = layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
     let data = make_struct(
-        BuiltinPrivateStruct::FlexBoxLayoutData,
+        BuiltinPrivateStruct::FlexboxLayoutData,
         [
             ("width", Type::Float32, width),
             ("height", Type::Float32, height),
@@ -348,7 +348,7 @@ pub(super) fn solve_flexbox_layout(
         ],
     );
     match fld.compute_cells {
-        Some((cells_h_var, cells_v_var, elements)) => llr_Expression::WithFlexBoxLayoutItemInfo {
+        Some((cells_h_var, cells_v_var, elements)) => llr_Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable: cells_h_var,
             cells_v_variable: cells_v_var,
             repeater_indices_var_name: Some("repeated_indices".into()),
@@ -374,7 +374,7 @@ pub(super) fn solve_flexbox_layout(
 }
 
 pub(super) fn compute_flexbox_layout_info(
-    layout: &crate::layout::FlexBoxLayout,
+    layout: &crate::layout::FlexboxLayout,
     orientation: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
@@ -462,10 +462,10 @@ pub(super) fn compute_flexbox_layout_info(
 }
 
 fn compute_flexbox_layout_info_for_direction(
-    layout: &crate::layout::FlexBoxLayout,
+    layout: &crate::layout::FlexboxLayout,
     orientation: Orientation,
     is_cross_axis: bool,
-    fld: FlexBoxLayoutDataResult,
+    fld: FlexboxLayoutDataResult,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     let (padding_h, spacing_h) =
@@ -506,7 +506,7 @@ fn compute_flexbox_layout_info_for_direction(
 
         match fld.compute_cells {
             Some((cells_h_var, cells_v_var, elements)) => {
-                llr_Expression::WithFlexBoxLayoutItemInfo {
+                llr_Expression::WithFlexboxLayoutItemInfo {
                     cells_h_variable: cells_h_var,
                     cells_v_variable: cells_v_var,
                     repeater_indices_var_name: None,
@@ -544,7 +544,7 @@ fn compute_flexbox_layout_info_for_direction(
 
         match fld.compute_cells {
             Some((cells_h_var, cells_v_var, elements)) => {
-                llr_Expression::WithFlexBoxLayoutItemInfo {
+                llr_Expression::WithFlexboxLayoutItemInfo {
                     cells_h_variable: cells_h_var,
                     cells_v_variable: cells_v_var,
                     repeater_indices_var_name: None,
@@ -566,7 +566,7 @@ fn compute_flexbox_layout_info_for_direction(
 }
 
 #[derive(Clone)]
-struct FlexBoxLayoutDataResult {
+struct FlexboxLayoutDataResult {
     alignment: llr_Expression,
     direction: llr_Expression,
     align_content: llr_Expression,
@@ -574,7 +574,7 @@ struct FlexBoxLayoutDataResult {
     flex_wrap: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
-    /// When there are repeaters involved, we need to do a WithFlexBoxLayoutItemInfo with the
+    /// When there are repeaters involved, we need to do a WithFlexboxLayoutItemInfo with the
     /// given cells_h/cells_v variable names and elements (each static element has a tuple of (h, v) layout info)
     compute_cells: Option<(
         String,
@@ -584,9 +584,9 @@ struct FlexBoxLayoutDataResult {
 }
 
 fn flexbox_layout_data(
-    layout: &crate::layout::FlexBoxLayout,
+    layout: &crate::layout::FlexboxLayout,
     ctx: &mut ExpressionLoweringCtx,
-) -> FlexBoxLayoutDataResult {
+) -> FlexboxLayoutDataResult {
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
@@ -643,7 +643,7 @@ fn flexbox_layout_data(
     let element_ty = crate::typeregister::flexbox_layout_item_info_type();
 
     let flex_prop =
-        |li: &crate::layout::FlexBoxLayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
+        |li: &crate::layout::FlexboxLayoutItem, ctx: &mut ExpressionLoweringCtx| -> FlexItemProps {
             FlexItemProps {
                 grow: li
                     .flex_grow
@@ -710,7 +710,7 @@ fn flexbox_layout_data(
             element_ty,
             output: llr_ArrayOutput::Slice,
         };
-        FlexBoxLayoutDataResult {
+        FlexboxLayoutDataResult {
             alignment,
             direction,
             align_content,
@@ -766,7 +766,7 @@ fn flexbox_layout_data(
             name: "cells_v".into(),
             ty: Type::Array(Rc::new(crate::typeregister::flexbox_layout_item_info_type())),
         };
-        FlexBoxLayoutDataResult {
+        FlexboxLayoutDataResult {
             alignment,
             direction,
             align_content,
@@ -817,7 +817,7 @@ struct FlexItemProps {
 fn make_flexbox_cell_data_struct(layout_info: llr_Expression, fp: FlexItemProps) -> llr_Expression {
     let (align_self_ty, _) = default_align_self();
     make_struct(
-        BuiltinPrivateStruct::FlexBoxLayoutItemInfo,
+        BuiltinPrivateStruct::FlexboxLayoutItemInfo,
         [
             ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
             ("flex-grow", Type::Float32, fp.grow),
@@ -1245,8 +1245,8 @@ fn get_row_child_templates(
     ctx.state.row_child_templates(&comp)
 }
 
-/// Generate an expression that builds a FlexBoxLayoutItemInfo for a repeated element
-/// in a FlexBoxLayout, reading flex properties from the component instance.
+/// Generate an expression that builds a FlexboxLayoutItemInfo for a repeated element
+/// in a FlexboxLayout, reading flex properties from the component instance.
 pub fn get_flexbox_layout_item_info_for_repeated(
     ctx: &mut ExpressionLoweringCtx,
     element: &ElementRc,
@@ -1265,7 +1265,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
     let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
     make_struct(
-        BuiltinPrivateStruct::FlexBoxLayoutItemInfo,
+        BuiltinPrivateStruct::FlexboxLayoutItemInfo,
         [
             (
                 "constraint",

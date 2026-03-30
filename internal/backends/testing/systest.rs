@@ -383,7 +383,7 @@ impl TestingClient {
                 Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout,
                 Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout,
                 Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout,
-                Some(LayoutKind::FlexBox) => proto::LayoutKind::FlexBox,
+                Some(LayoutKind::FlexboxLayout) => proto::LayoutKind::FlexboxLayout,
                 None => proto::LayoutKind::NotALayout,
             },
         })

@@ -211,7 +211,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         self: Pin<&Self>,
         o: Orientation,
         child_index: Option<usize>,
-    ) -> i_slint_core::layout::FlexBoxLayoutItemInfo {
+    ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
         let instance_ref = s.borrow_instance();
@@ -237,7 +237,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
             .unwrap_or(i_slint_core::items::FlexAlignSelf::Auto);
         let flex_order = load_f32("flex-order") as i32;
 
-        i_slint_core::layout::FlexBoxLayoutItemInfo {
+        i_slint_core::layout::FlexboxLayoutItemInfo {
             constraint: self.layout_item_info(o, child_index).constraint,
             flex_grow,
             flex_shrink,

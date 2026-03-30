@@ -188,7 +188,7 @@ impl BuiltinTypes {
                     ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FlexBoxLayoutItemInfo.into(),
+                name: BuiltinPrivateStruct::FlexboxLayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -882,7 +882,7 @@ pub fn layout_item_info_type() -> Type {
     BUILTIN.with(|types| types.layout_item_info_type.clone())
 }
 
-/// The [`Type`] for a runtime FlexBoxLayoutItemInfo structure
+/// The [`Type`] for a runtime FlexboxLayoutItemInfo structure
 pub fn flexbox_layout_item_info_type() -> Type {
     BUILTIN.with(|types| types.flexbox_layout_item_info_type.clone())
 }

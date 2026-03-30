@@ -36,7 +36,7 @@ pub enum FlexDirection {
 pub enum Layout {
     GridLayout(GridLayout),
     BoxLayout(BoxLayout),
-    FlexBoxLayout(FlexBoxLayout),
+    FlexboxLayout(FlexboxLayout),
 }
 
 impl Layout {
@@ -45,7 +45,7 @@ impl Layout {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
-            Layout::FlexBoxLayout(l) => l.visit_named_references(visitor),
+            Layout::FlexboxLayout(l) => l.visit_named_references(visitor),
         }
     }
 }
@@ -57,9 +57,9 @@ pub struct LayoutItem {
     pub constraints: LayoutConstraints,
 }
 
-/// A FlexBoxLayout child item, wrapping a LayoutItem with flex-specific properties.
+/// A FlexboxLayout child item, wrapping a LayoutItem with flex-specific properties.
 #[derive(Debug, Clone)]
-pub struct FlexBoxLayoutItem {
+pub struct FlexboxLayoutItem {
     pub item: LayoutItem,
     pub flex_grow: Option<NamedReference>,
     pub flex_shrink: Option<NamedReference>,
@@ -598,10 +598,10 @@ impl BoxLayout {
     }
 }
 
-/// Internal representation of a FlexBoxLayout (row or column direction with wrapping)
+/// Internal representation of a FlexboxLayout (row or column direction with wrapping)
 #[derive(Debug, Clone)]
-pub struct FlexBoxLayout {
-    pub elems: Vec<FlexBoxLayoutItem>,
+pub struct FlexboxLayout {
+    pub elems: Vec<FlexboxLayoutItem>,
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
@@ -609,7 +609,7 @@ pub struct FlexBoxLayout {
     pub flex_wrap: Option<NamedReference>,
 }
 
-impl FlexBoxLayout {
+impl FlexboxLayout {
     /// Returns true if the given orientation is the main axis, based on compile-time
     /// direction analysis. Returns false if direction is unknown at compile time
     /// (conservatively treating it as cross-axis).
@@ -766,7 +766,7 @@ pub fn is_layout(base_type: &ElementType) -> bool {
         ElementType::Builtin(be) => {
             matches!(
                 be.name.as_str(),
-                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexBoxLayout"
+                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout"
             )
         }
         _ => false,

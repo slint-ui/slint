@@ -78,17 +78,17 @@ message WindowEvent {
     }
 }
 
-// Copied from enums.rs - can't be auto-generated :(
-// with one difference: None became Unknown, because None doesn't compile.
-// Upside: AccessKit also uses Unknown :)
 enum LayoutKind {
     NotALayout = 0;
     HorizontalLayout = 1;
     VerticalLayout = 2;
     GridLayout = 3;
-    FlexBox = 4;
+    FlexboxLayout = 4;
 }
 
+// Copied from enums.rs - can't be auto-generated :(
+// with one difference: None became Unknown, because None doesn't compile.
+// Upside: AccessKit also uses Unknown :)
 enum AccessibleRole {
     Unknown = 0;
     Button = 1;
