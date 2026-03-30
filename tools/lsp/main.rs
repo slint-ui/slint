@@ -28,7 +28,7 @@ use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, InitializeParams, Url,
 };
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
@@ -36,6 +36,7 @@ use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response}
 use std::collections::HashMap;
 use std::future::Future;
 use std::io::Write as _;
+use std::pin::pin;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, atomic};
 use std::task::{Poll, Waker};
@@ -188,21 +189,15 @@ impl ServerNotifier {
 }
 
 impl RequestHandler {
-    async fn handle_request(
-        &self,
-        request: lsp_server::Request,
-        ctx: &Rc<RwLock<Context>>,
-    ) -> Result<()> {
+    fn handle_request(&self, request: lsp_server::Request, ctx: &mut Context) -> Result<()> {
         if let Some(x) = self.0.get(&request.method.as_str()) {
-            match x(request.params, ctx.clone()).await {
+            match x(request.params, ctx) {
                 Ok(r) => {
-                    let ctx = ctx.read().await;
                     ctx.server_notifier
                         .sender
                         .send(Message::Response(Response::new_ok(request.id, r)))?;
                 }
                 Err(e) => {
-                    let ctx = ctx.read().await;
                     ctx.server_notifier.sender.send(Message::Response(Response::new_err(
                         request.id,
                         match e.code {
@@ -216,7 +211,6 @@ impl RequestHandler {
                 }
             };
         } else {
-            let ctx = ctx.read().await;
             ctx.server_notifier.sender.send(Message::Response(Response::new_err(
                 request.id,
                 ErrorCode::MethodNotFound as i32,
@@ -406,7 +400,7 @@ async fn main_loop(
         enable_experimental: false,
     };
 
-    let ctx = Rc::new(RwLock::new(Context {
+    let mut ctx = Context {
         document_cache: crate::common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
         server_notifier,
@@ -416,7 +410,7 @@ async fn main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-    }));
+    };
 
     let connection = Arc::new(connection);
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
@@ -426,84 +420,128 @@ async fn main_loop(
         tracing::debug!("crossbeam -> tokio adapter exited");
     });
 
-    let inner_ctx = ctx.clone();
-    let mut startup = tokio::task::spawn_local(async move { startup_lsp(inner_ctx).await }).fuse();
+    let mut early_messages = Vec::new();
 
-    loop {
-        let recompile_idle_timeout = if ctx.read().await.pending_recompile.is_empty() {
-            Duration::MAX
-        } else {
-            RECOMPILE_IDLE_TIMEOUT
-        };
-        tokio::select! {
-            msg = from_lsp_receiver.recv() => {
-                match msg {
-                    Some(Message::Request(req)) => {
-                        // ignore errors when shutdown
-                        if connection.handle_shutdown(&req).unwrap_or(false) {
-                            return Ok(());
-                        }
-                        rh.handle_request(req, &ctx).await?;
-                    }
-                    Some(Message::Response(resp)) => {
-                        let mut request_queue = request_queue.lock().unwrap();
-                        let Some(q) = request_queue.get_mut(&resp.id) else {
-                            return Err("Response to unknown request".into());
-                        };
-                        match q {
-                            OutgoingRequest::Done(_) => {
-                                return Err("Response to unknown request".into())
+    {
+        let mut startup_future = pin!(startup_lsp(&mut ctx).fuse());
+        loop {
+            tokio::select! {
+                _ = &mut startup_future => break,
+                msg = from_lsp_receiver.recv() => {
+                    match msg {
+                        Some(Message::Request(req)) => {
+                            // ignore errors when shutdown
+                            if connection.handle_shutdown(&req).unwrap_or(false) {
+                                return Ok(());
                             }
-                            OutgoingRequest::Start => { /* nothing to do */ }
-                            OutgoingRequest::Pending(x) => x.wake_by_ref(),
-                        };
-                        *q = OutgoingRequest::Done(resp)
-                    }
-                    Some(Message::Notification(notification)) => {
-                        handle_notification(notification, &ctx).await?;
-                    }
-                    None => {
-                        return Err("LSP connection closed".into());
+                            early_messages.push(Message::Request(req));
+                        }
+                        Some(Message::Response(resp)) => {
+                            let mut request_queue = request_queue.lock().unwrap();
+                            let Some(q) = request_queue.get_mut(&resp.id) else {
+                                return Err("Response to unknown request".into());
+                            };
+                            match q {
+                                OutgoingRequest::Done(_) => {
+                                    return Err("Response to unknown request".into())
+                                }
+                                OutgoingRequest::Start => { /* nothing to do */ }
+                                OutgoingRequest::Pending(x) => x.wake_by_ref(),
+                            };
+                            *q = OutgoingRequest::Done(resp)
+                        }
+                        Some(Message::Notification(notification)) => {
+                            early_messages.push(Message::Notification(notification));
+                        }
+                        None => {
+                            return Err("LSP connection closed".into());
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    for msg in early_messages {
+        handle_lsp_message(msg, &connection, &mut rh, &mut ctx, &request_queue).await?;
+    }
+
+    loop {
+        let recompile_idle_timeout =
+            if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
+        tokio::select! {
+            msg = from_lsp_receiver.recv() => {
+                if let Some(msg) = msg {
+                    handle_lsp_message(
+                        msg,
+                        &connection,
+                        &mut rh,
+                        &mut ctx,
+                        &request_queue,
+                    ).await?;
+                } else {
+                        return Err("LSP connection closed".into());
+                }
+
             }
             _msg = preview_to_lsp_receiver.recv() => {
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
                 {
-                    let ctx = ctx.clone();
                     let Some(msg) = _msg else {
                         return Err("Preview to LSP connection closed".into());
                     };
-                    tokio::task::spawn_local(async move {
-                        if let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
-                            tracing::error!("handle_preview_to_lsp_message: {err}");
-                        }
-                    });
+                    if let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
+                        tracing::error!("handle_preview_to_lsp_message: {err}");
+                    }
                 }
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
-                let pending_recompile = std::mem::take(&mut ctx.write().await.pending_recompile);
+                let pending_recompile = std::mem::take(&mut ctx.pending_recompile);
 
                 for url in pending_recompile {
-                    let ctx = ctx.clone();
-                    tokio::task::spawn_local(async move {
-                        let mut ctx = ctx.write().await;
-                        if let Err(err) = language::reload_document(&mut ctx, url).await {
-                            tracing::error!("Failed document reload: {err}");
-                        }
-                    });
-                }
-            }
-            result = &mut startup => {
-                if let Err(err) = result.map_err(|err| err.into()).and_then(std::convert::identity) {
-                    tracing::error!("LSP startup failed: {err}");
-                    return Err(err);
+                    if let Err(err) = language::reload_document(&mut ctx, url).await {
+                        tracing::error!("Failed document reload: {err}");
+                    }
                 }
             }
         }
     }
+}
+
+async fn handle_lsp_message(
+    msg: Message,
+    connection: &Arc<Connection>,
+    rh: &mut RequestHandler,
+    ctx: &mut Context,
+    request_queue: &Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>,
+) -> Result<()> {
+    match msg {
+        Message::Request(req) => {
+            // ignore errors when shutdown
+            if connection.handle_shutdown(&req).unwrap_or(false) {
+                return Ok(());
+            }
+            rh.handle_request(req, ctx)?;
+        }
+        Message::Response(resp) => {
+            let mut request_queue = request_queue.lock().unwrap();
+            let Some(q) = request_queue.get_mut(&resp.id) else {
+                return Err("Response to unknown request".into());
+            };
+            match q {
+                OutgoingRequest::Done(_) => return Err("Response to unknown request".into()),
+                OutgoingRequest::Start => { /* nothing to do */ }
+                OutgoingRequest::Pending(x) => x.wake_by_ref(),
+            };
+            *q = OutgoingRequest::Done(resp)
+        }
+        Message::Notification(notification) => {
+            handle_notification(notification, ctx).await?;
+        }
+    }
+    Ok(())
 }
 
 /// Crossbeam does not play well with async (it's always blocking), so we need to run a separate
@@ -525,16 +563,12 @@ fn crossbeam_tokio_adapter(
     }
 }
 
-async fn handle_notification(
-    req: lsp_server::Notification,
-    ctx: &Rc<RwLock<Context>>,
-) -> Result<()> {
+async fn handle_notification(req: lsp_server::Notification, ctx: &mut Context) -> Result<()> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            let mut ctx = ctx.write().await;
             open_document(
-                &mut ctx,
+                ctx,
                 params.text_document.text,
                 params.text_document.uri,
                 Some(params.text_document.version),
@@ -543,7 +577,7 @@ async fn handle_notification(
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            close_document(&mut *ctx.write().await, params.text_document.uri).await
+            close_document(ctx, params.text_document.uri).await
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
@@ -553,7 +587,7 @@ async fn handle_notification(
                 params.text_document.version
             );
             load_document(
-                &mut *ctx.write().await,
+                ctx,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 Some(params.text_document.version),
@@ -565,7 +599,7 @@ async fn handle_notification(
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
             for fe in params.changes {
                 tracing::debug!("Watched file changed: {} (type: {:?})", fe.uri, fe.typ);
-                trigger_file_watcher(&mut *ctx.write().await, fe.uri, fe.typ).await?;
+                trigger_file_watcher(ctx, fe.uri, fe.typ).await?;
             }
             Ok(())
         }
@@ -574,13 +608,11 @@ async fn handle_notification(
         language::SHOW_PREVIEW_COMMAND => {
             match language::show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
-                &mut *ctx.write().await,
+                ctx,
             ) {
                 Ok(()) => Ok(()),
                 Err(e) => match e.code {
                     LspErrorCode::RequestFailed => ctx
-                        .read()
-                        .await
                         .server_notifier
                         .send_notification::<lsp_types::notification::ShowMessage>(
                         lsp_types::ShowMessageParams {
@@ -627,7 +659,7 @@ async fn send_workspace_edit(
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
     message: crate::common::PreviewToLspMessage,
-    ctx: &Rc<RwLock<Context>>,
+    ctx: &Context,
 ) -> Result<()> {
     use crate::common::PreviewToLspMessage as M;
     match message {
@@ -639,14 +671,14 @@ async fn handle_preview_to_lsp_message(
                 tracing::debug!("Preview: {} diagnostics for {}", diagnostics.len(), uri);
             }
             crate::common::lsp_to_editor::notify_lsp_diagnostics(
-                &ctx.read().await.server_notifier,
+                &ctx.server_notifier,
                 uri,
                 version,
                 diagnostics,
             );
         }
         M::ShowDocument { file, selection, take_focus } => {
-            let sn = ctx.read().await.server_notifier.clone();
+            let sn = ctx.server_notifier.clone();
             crate::common::lsp_to_editor::send_show_document_to_editor(
                 sn, file, selection, take_focus,
             )
@@ -655,38 +687,28 @@ async fn handle_preview_to_lsp_message(
         M::PreviewTypeChanged { is_external } => {
             tracing::debug!("Preview type changed: is_external={}", is_external);
             if is_external {
-                ctx.read()
-                    .await
-                    .to_preview
-                    .set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
+                ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
             } else {
-                ctx.read()
-                    .await
-                    .to_preview
-                    .set_preview_target(common::PreviewTarget::ChildProcess)?;
+                ctx.to_preview.set_preview_target(common::PreviewTarget::ChildProcess)?;
             }
         }
         M::RequestState { .. } => {
             tracing::debug!("Preview requested state");
-            crate::language::send_state_to_preview(&*ctx.read().await);
+            crate::language::send_state_to_preview(ctx);
         }
         M::SendWorkspaceEdit { label, edit } => {
-            let sn = ctx.read().await.server_notifier.clone();
+            let sn = ctx.server_notifier.clone();
             let _ = send_workspace_edit(sn, label, Ok(edit)).await;
         }
         M::SendShowMessage { message } => {
-            ctx.read()
-                .await
-                .server_notifier
+            ctx.server_notifier
                 .send_notification::<lsp_types::notification::ShowMessage>(message)?;
         }
-        M::TelemetryEvent(object) => ctx
-            .read()
-            .await
-            .server_notifier
-            .send_notification::<lsp_types::notification::TelemetryEvent>(
-            lsp_types::OneOf::Left(object),
-        )?,
+        M::TelemetryEvent(object) => {
+            ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
+                lsp_types::OneOf::Left(object),
+            )?
+        }
     }
     Ok(())
 }

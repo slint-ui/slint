@@ -36,13 +36,11 @@ use lsp_types::{
     SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
     Url, WorkDoneProgressOptions,
 };
-use tokio::sync::RwLock;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
@@ -114,12 +112,10 @@ pub fn send_state_to_preview(ctx: &Context) {
     }
 }
 
-async fn register_file_watcher(ctx: &RwLock<Context>) -> common::Result<()> {
+async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
     use lsp_types::notification::Notification;
 
     if ctx
-        .read()
-        .await
         .init_param
         .capabilities
         .workspace
@@ -134,7 +130,7 @@ async fn register_file_watcher(ctx: &RwLock<Context>) -> common::Result<()> {
                 kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
             }],
         };
-        let server_notifier = { ctx.read().await.server_notifier.clone() };
+        let server_notifier = { ctx.server_notifier.clone() };
         server_notifier
             .send_request::<lsp_types::request::RegisterCapability>(
                 lsp_types::RegistrationParams {
@@ -203,36 +199,25 @@ pub enum LspErrorCode {
 pub struct RequestHandler(
     pub  HashMap<
         &'static str,
-        Box<
-            dyn Fn(
-                serde_json::Value,
-                Rc<RwLock<Context>>,
-            )
-                -> Pin<Box<dyn Future<Output = Result<serde_json::Value, LspError>>>>,
-        >,
+        Box<dyn Fn(serde_json::Value, &mut Context) -> Result<serde_json::Value, LspError>>,
     >,
 );
 
 impl RequestHandler {
-    pub fn register<
-        R: lsp_types::request::Request,
-        Fut: Future<Output = std::result::Result<R::Result, LspError>> + 'static,
-    >(
+    pub fn register<R: lsp_types::request::Request>(
         &mut self,
-        handler: fn(R::Params, Rc<RwLock<Context>>) -> Fut,
+        handler: impl Fn(R::Params, &mut Context) -> Result<R::Result, LspError> + 'static,
     ) where
         R::Params: 'static,
     {
         self.0.insert(
             R::METHOD,
             Box::new(move |value, ctx| {
-                Box::pin(async move {
-                    let params = serde_json::from_value(value).map_err(|e| LspError {
-                        code: LspErrorCode::InvalidParameter,
-                        message: format!("error when deserializing request: {e:?}"),
-                    })?;
-                    handler(params, ctx).await.map(|x| serde_json::to_value(x).unwrap())
-                })
+                let params = serde_json::from_value(value).map_err(|e| LspError {
+                    code: LspErrorCode::InvalidParameter,
+                    message: format!("error when deserializing request: {e:?}"),
+                })?;
+                handler(params, ctx).map(|x| serde_json::to_value(x).unwrap())
             }),
         );
     }
@@ -311,8 +296,7 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
 }
 
 pub fn register_request_handlers(rh: &mut RequestHandler) {
-    rh.register::<GotoDefinition, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<GotoDefinition>(|params, ctx| {
         let result = token_descr(
             &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
@@ -321,9 +305,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         .and_then(|token| goto::goto_definition(&mut ctx.document_cache, token.0));
         Ok(result)
     });
-    rh.register::<Completion, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
-
+    rh.register::<Completion>(|params, ctx| {
         let result = token_descr(
             &ctx.document_cache,
             &params.text_document_position.text_document.uri,
@@ -346,8 +328,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         });
         Ok(result)
     });
-    rh.register::<HoverRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<HoverRequest>(|params, ctx| {
         let result = token_descr(
             &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
@@ -357,8 +338,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         Ok(result)
     });
-    rh.register::<SignatureHelpRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<SignatureHelpRequest>(|params, ctx| {
         let result = token_descr(
             &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
@@ -367,9 +347,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         .and_then(|(token, _)| signature_help::get_signature_help(&mut ctx.document_cache, token));
         Ok(result)
     });
-    rh.register::<CodeActionRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
-
+    rh.register::<CodeActionRequest>(|params, ctx| {
         let result =
             token_descr(&ctx.document_cache, &params.text_document.uri, &params.range.start)
                 .and_then(|(token, _)| {
@@ -378,27 +356,24 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 });
         Ok(result)
     });
-    rh.register::<ExecuteCommand, _>(|params, ctx| async move {
+    rh.register::<ExecuteCommand>(|params, ctx| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
             {
-                let mut ctx = ctx.write().await;
-                show_preview_command(&params.arguments, &mut ctx)?;
+                show_preview_command(&params.arguments, ctx)?;
             }
             return Ok(None::<serde_json::Value>);
         }
         if params.command.as_str() == POPULATE_COMMAND {
-            let mut ctx = ctx.write().await;
-            populate_command(&params.arguments, &mut ctx).await?;
+            tokio::task::spawn_local(populate_command(&params.arguments, ctx)?);
             return Ok(None::<serde_json::Value>);
         }
         Ok(None::<serde_json::Value>)
     });
-    rh.register::<DocumentColor, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<DocumentColor>(|params, ctx| {
         Ok(get_document_color(&mut ctx.document_cache, &params.text_document).unwrap_or_default())
     });
-    rh.register::<ColorPresentationRequest, _>(|params, _ctx| async move {
+    rh.register::<ColorPresentationRequest>(|params, _ctx| {
         // Convert the color from the color picker to a string representation. This could try to produce a minimal
         // representation.
         let requested_color = params.color;
@@ -422,20 +397,16 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         Ok(vec![ColorPresentation { label: color_literal, ..Default::default() }])
     });
-    rh.register::<DocumentSymbolRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<DocumentSymbolRequest>(|params, ctx| {
         Ok(get_document_symbols(&mut ctx.document_cache, &params.text_document))
     });
-    rh.register::<CodeLensRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<CodeLensRequest>(|params, ctx| {
         Ok(get_code_lenses(&mut ctx.document_cache, &params.text_document))
     });
-    rh.register::<SemanticTokensFullRequest, _>(|params, ctx| async move {
-        let mut ctx = ctx.write().await;
+    rh.register::<SemanticTokensFullRequest>(|params, ctx| {
         Ok(semantic_tokens::get_semantic_tokens(&mut ctx.document_cache, &params.text_document))
     });
-    rh.register::<DocumentHighlightRequest, _>(|params, ctx| async move {
-        let ctx = ctx.read().await;
+    rh.register::<DocumentHighlightRequest>(|params, ctx| {
         let uri = params.text_document_position_params.text_document.uri;
         if let Some((tk, _)) =
             token_descr(&ctx.document_cache, &uri, &params.text_document_position_params.position)
@@ -501,8 +472,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             .send(&common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
         Ok(None)
     });
-    rh.register::<Rename, _>(|params, ctx| async move {
-        let ctx = ctx.read().await;
+    rh.register::<Rename>(|params, ctx| {
         let uri = params.text_document_position.text_document.uri;
         if let Some((tk, _off)) =
             token_descr(&ctx.document_cache, &uri, &params.text_document_position.position)
@@ -541,8 +511,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             message: "This symbol cannot be renamed.".into(),
         })
     });
-    rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
-        let ctx = ctx.read().await;
+    rh.register::<PrepareRenameRequest>(|params, ctx| {
         let uri = params.text_document.uri;
         if let Some((tk, _)) = token_descr(&ctx.document_cache, &uri, &params.position) {
             if common::rename_element_id::find_element_ids(&tk, &tk.parent()).is_some() {
@@ -560,8 +529,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         }
         Ok(None)
     });
-    rh.register::<Formatting, _>(|params, ctx| async move {
-        let ctx = ctx.read().await;
+    rh.register::<Formatting>(|params, ctx| {
         Ok(formatting::format_document(params, &ctx.document_cache))
     });
 }
@@ -630,10 +598,10 @@ fn populate_command_range(
     ))
 }
 
-pub async fn populate_command(
+pub fn populate_command(
     params: &[serde_json::Value],
     ctx: &mut Context,
-) -> Result<serde_json::Value, LspError> {
+) -> Result<impl Future<Output = Result<serde_json::Value, LspError>> + 'static, LspError> {
     let text_document =
         serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
             params
@@ -707,29 +675,35 @@ pub async fn populate_command(
         common::create_workspace_edit(uri, version, vec![edit])
     };
 
-    let response = ctx
-        .server_notifier
-        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-            lsp_types::ApplyWorkspaceEditParams { label: Some("Populate empty file".into()), edit },
-        )
-        .map_err(|_| LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "Failed to send populate edit".into(),
-        })?
-        .await
-        .map_err(|_| LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "Failed to send populate edit".into(),
-        })?;
+    let server_notifier = ctx.server_notifier.clone();
 
-    if !response.applied {
-        return Err(LspError {
-            code: LspErrorCode::RequestFailed,
-            message: "Failed to apply population edit".into(),
-        });
-    }
+    Ok(async move {
+        let response = server_notifier
+            .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                lsp_types::ApplyWorkspaceEditParams {
+                    label: Some("Populate empty file".into()),
+                    edit,
+                },
+            )
+            .map_err(|_| LspError {
+                code: LspErrorCode::RequestFailed,
+                message: "Failed to send populate edit".into(),
+            })?
+            .await
+            .map_err(|_| LspError {
+                code: LspErrorCode::RequestFailed,
+                message: "Failed to send populate edit".into(),
+            })?;
 
-    Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
+        if !response.applied {
+            return Err(LspError {
+                code: LspErrorCode::RequestFailed,
+                message: "Failed to apply population edit".into(),
+            });
+        }
+
+        Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
+    })
 }
 
 pub(crate) async fn load_document_impl(
@@ -1474,9 +1448,9 @@ export component MainWindow inherits Window {
     (!result.is_empty()).then_some(result)
 }
 
-pub async fn startup_lsp(ctx: Rc<RwLock<Context>>) -> common::Result<()> {
-    register_file_watcher(&ctx).await?;
-    load_configuration(&ctx).await
+pub async fn startup_lsp(ctx: &mut Context) -> common::Result<()> {
+    register_file_watcher(ctx).await?;
+    load_configuration(ctx).await
 }
 
 #[derive(Debug)]
@@ -1531,12 +1505,10 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
     WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
 }
 
-pub async fn load_configuration(ctx: &RwLock<Context>) -> common::Result<()> {
+pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
     tracing::debug!("Loading configuration from client");
 
     if !ctx
-        .read()
-        .await
         .init_param
         .capabilities
         .workspace
@@ -1547,8 +1519,8 @@ pub async fn load_configuration(ctx: &RwLock<Context>) -> common::Result<()> {
         return Ok(());
     }
 
-    let server_notifier = { ctx.read().await.server_notifier.clone() };
-    let workspace_config = server_notifier
+    let workspace_config = ctx
+        .server_notifier
         .send_request::<lsp_types::request::WorkspaceConfiguration>(
             lsp_types::ConfigurationParams {
                 items: vec![lsp_types::ConfigurationItem {
@@ -1566,14 +1538,11 @@ pub async fn load_configuration(ctx: &RwLock<Context>) -> common::Result<()> {
 
     let mut diag = BuildDiagnostics::default();
     let (cc, all_files) = ctx
-        .write()
-        .await
         .document_cache
         .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
         .await;
 
     {
-        let ctx = ctx.read().await;
         send_diagnostics(
             &ctx.server_notifier,
             &ctx.document_cache,
@@ -1591,7 +1560,6 @@ pub async fn load_configuration(ctx: &RwLock<Context>) -> common::Result<()> {
         enable_experimental: cc.enable_experimental,
     };
     {
-        let mut ctx = ctx.write().await;
         ctx.preview_config = config.clone();
         ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
     }
