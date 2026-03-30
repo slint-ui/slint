@@ -21,7 +21,16 @@ path = "lib.rs"
 internal = ["include_dir"]
 # ffi for C++ bindings
 ffi = []
-system-testing = ["prost", "prost-build", "protox", "generational-arena", "async-net", "futures-lite", "byteorder", "image"]
+system-testing = [
+  "prost",
+  "prost-build",
+  "protox",
+  "generational-arena",
+  "async-net",
+  "futures-lite",
+  "byteorder",
+  "image",
+]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
