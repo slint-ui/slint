@@ -454,15 +454,21 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                         expecting_color_attribute = false;
 
                                         let value =
-                                            crate::color_parsing::parse_color_literal(&value)
+                                            match crate::color_parsing::parse_color_literal(&value)
                                                 .or_else(|| {
                                                     crate::color_parsing::named_colors()
                                                         .get(&*value)
                                                         .copied()
-                                                })
-                                                .ok_or_else(|| {
-                                                    StyledTextError::InvalidColor(value.to_string())
-                                                })?;
+                                                }) {
+                                                Some(value) => value,
+                                                None => {
+                                                    return Some(Err(
+                                                        StyledTextError::InvalidColor(
+                                                            value.to_string(),
+                                                        ),
+                                                    ));
+                                                }
+                                            };
 
                                         let paragraph = match current_paragraph.as_mut() {
                                             Some(paragraph) => paragraph,
@@ -713,11 +719,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
-            r#"<u><font color="\#a">hello world</font></u>"#,
-            &[]
-        )
-        .unwrap_err(),
+        parse_interpolated::<&[_]>(r#"<u><font color="\#a">hello world</font></u>"#, &[])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_err(),
         StyledTextError::InvalidColor(r"\#a".into())
     );
 }
