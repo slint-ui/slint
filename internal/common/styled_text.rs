@@ -44,7 +44,7 @@ pub struct StyledTextParagraph {
 
 /// Error type returned by `StyledText::parse`
 #[cfg(feature = "markdown")]
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq)]
 #[non_exhaustive]
 pub enum StyledTextError<'a> {
     /// Spans are unbalanced: stack already empty when popped
@@ -102,6 +102,9 @@ pub enum StyledTextError<'a> {
     MixedPlaceholders,
     #[error("Interpolating multiple styled text paragraphs is not currently implemented")]
     MultiParagraphInterpolation,
+    /// Invalid color value
+    #[error("Invalid color value '{}'", .0)]
+    InvalidColor(alloc::string::String),
 }
 
 /// Styled text that has been parsed and seperated into paragraphs
@@ -451,13 +454,21 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                                         expecting_color_attribute = false;
 
                                         let value =
-                                            crate::color_parsing::parse_color_literal(&value)
+                                            match crate::color_parsing::parse_color_literal(&value)
                                                 .or_else(|| {
                                                     crate::color_parsing::named_colors()
                                                         .get(&*value)
                                                         .copied()
-                                                })
-                                                .expect("invalid color value");
+                                                }) {
+                                                Some(value) => value,
+                                                None => {
+                                                    return Some(Err(
+                                                        StyledTextError::InvalidColor(
+                                                            value.to_string(),
+                                                        ),
+                                                    ));
+                                                }
+                                            };
 
                                         let paragraph = match current_paragraph.as_mut() {
                                             Some(paragraph) => paragraph,
@@ -705,6 +716,13 @@ new *line*
             ],
             links: alloc::vec::Vec::new()
         }]
+    );
+
+    assert_eq!(
+        parse_interpolated::<&[_]>(r#"<u><font color="\#a">hello world</font></u>"#, &[])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_err(),
+        StyledTextError::InvalidColor(r"\#a".into())
     );
 }
 

@@ -124,22 +124,11 @@ component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
     in property <styled-text> text;
-    in property <length> font-size;
-    in property <int> font-weight;
-    in property <brush> color;
+    in property <brush> default-color;
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
     callback link-clicked(link: string);
     in property <color> link-color: #00f;
-
-    in property <string> font-family;
-    in property <bool> font-italic;
-    in property <TextOverflow> overflow;
-    in property <TextWrap> wrap;
-    in property <length> letter-spacing;
-    in property <brush> stroke;
-    in property <length> stroke-width;
-    in property <TextStrokeStyle> stroke-style;
     //-default_size_binding:implicit_size
 }
 
