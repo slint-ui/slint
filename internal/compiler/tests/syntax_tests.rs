@@ -25,6 +25,10 @@
 //!
 //! Warnings with `> <warning{expected_message}` are also supported.
 //!
+//! Position-independent diagnostics can be specified with `//-error{expected_message}` or
+//! `//-warning{expected_message}`. These match by message and level only, regardless of source
+//! location. Useful when the diagnostic position varies across platforms.
+//!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
@@ -116,11 +120,34 @@ struct ExpectedDiagnostic {
 
 fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
     let mut expected = Vec::new();
+
+    // Position-independent diagnostics: `//-error{message}` or `//-warning{message}`
+    // matches by message and level only, regardless of source location.
+    let pos_independent_re =
+        regex::Regex::new(r"\n *//-(error|warning|note)\{([^\n]*)\}").unwrap();
+    for m in pos_independent_re.captures_iter(source) {
+        let level = match m.get(1).unwrap().as_str() {
+            "warning" => DiagnosticLevel::Warning,
+            "error" => DiagnosticLevel::Error,
+            "note" => DiagnosticLevel::Note,
+            _ => unreachable!(),
+        };
+        let message =
+            m.get(2).unwrap().as_str().replace('↵', "\n").replace('📂', env!("CARGO_MANIFEST_DIR"));
+        expected.push(ExpectedDiagnostic {
+            start: None,
+            end: None,
+            level,
+            message,
+            comment_range: m.get(0).unwrap().range(),
+        });
+    }
+
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(
-        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note)\{([^\n]*)\}",
+        r"\n *//[^\n\^\|<>\-]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note)\{([^\n]*)\}",
     )
     .unwrap();
 
@@ -256,6 +283,18 @@ fn process_diagnostics(
         // instead.
         let (l, c) = diagnostics::diagnostic_end_line_column_with_format(diag, ByteFormat::Utf8);
         let diag_end = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c - 1;
+
+        // Try position-independent match first (start and end are both None)
+        let pos_independent = expected.iter().position(|expected| {
+            expected.start.is_none()
+                && expected.end.is_none()
+                && compare_message(diag.message(), &expected.message)
+                && diag.level() == expected.level
+        });
+        if let Some(idx) = pos_independent {
+            expected.remove(idx);
+            continue;
+        }
 
         let expected_start = expected.iter().position(|expected| {
             Some(diag_start) == expected.start
@@ -571,6 +610,30 @@ export component Foo inherits Window foo { width: 10px; }
 
 export component Foo inherits Window foo { width: 10px; }
 //                                   > <^^error{Syntax error: expected '{'}
+    "#
+    )?);
+
+    // Position-independent matching with //!
+    assert!(process(
+        r#"
+export component Foo inherits Window foo { width: 10px; }
+//-error{Syntax error: expected '{'}
+    "#
+    )?);
+
+    // Position-independent should fail if message doesn't match
+    assert!(!process(
+        r#"
+export component Foo inherits Window foo { width: 10px; }
+//-error{wrong message}
+    "#
+    )?);
+
+    // Position-independent should fail if level doesn't match
+    assert!(!process(
+        r#"
+export component Foo inherits Window foo { width: 10px; }
+//-warning{Syntax error: expected '{'}
     "#
     )?);
 
