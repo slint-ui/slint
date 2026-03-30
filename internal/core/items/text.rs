@@ -304,21 +304,24 @@ impl Item for StyledTextItem {
         };
         match event {
             #[cfg(feature = "shared-parley")]
-            MouseEvent::Moved { position, .. } => {
-                if find_link(position).is_some() {
-                    *cursor = super::MouseCursor::Pointer;
-                }
-                InputEventResult::EventIgnored
-            }
-            #[cfg(feature = "shared-parley")]
-            MouseEvent::Pressed {
+            MouseEvent::Released {
                 position,
                 button: PointerEventButton::Left,
                 click_count: _,
                 is_touch: _,
             } => {
                 if let Some(link) = find_link(position) {
+                    *cursor = super::MouseCursor::Pointer;
                     Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
+                }
+                InputEventResult::EventAccepted
+            }
+            #[cfg(feature = "shared-parley")]
+            MouseEvent::Moved { position, .. }
+            | MouseEvent::Pressed { position, .. }
+            | MouseEvent::Released { position, .. } => {
+                if find_link(position).is_some() {
+                    *cursor = super::MouseCursor::Pointer;
                 }
                 InputEventResult::EventAccepted
             }
