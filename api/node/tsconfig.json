@@ -3,8 +3,10 @@
         "module": "CommonJS",
         "target": "esnext",
         "declaration": true,
+        "rootDir": "typescript",
         "outDir": "dist",
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "types": ["node"]
     },
     "include": [
         "typescript/"

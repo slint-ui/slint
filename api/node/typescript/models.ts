@@ -18,7 +18,7 @@ class ModelIterator<T> implements Iterator<T> {
             this.row++;
             return {
                 done: false,
-                value: this.model.rowData(row),
+                value: this.model.rowData(row) as T,
             };
         }
         return {
