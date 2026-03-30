@@ -23,6 +23,7 @@ struct FormatState {
     /// this contains the whitespace that was removed, so that it can be added again in case the next
     /// token is a comment
     last_removed_whitespace: Option<String>,
+
     /// The level of indentation
     indentation_level: u32,
 
@@ -191,6 +192,38 @@ fn format_node(
     Ok(())
 }
 
+fn format_document_node(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for n in node.children_with_tokens() {
+        if let Some(t) = n.as_token()
+            && t.kind() == SyntaxKind::Whitespace
+            && whitespace_has_empty_line(t.text())
+            && next_non_trivia_token_kind(&n).is_some_and(|kind| kind != SyntaxKind::Eof)
+        {
+            // Preserve document-level blank lines as written and override any
+            // pending newline inserted by the preceding formatter branch.
+            state.skip_all_whitespace = false;
+            state.whitespace_to_add = None;
+            state.last_removed_whitespace = None;
+            state.after_comment = false;
+            state.insertion_count += 1;
+            writer.no_change(t.clone())?;
+            continue;
+        }
+
+        // Comments are tokens, but top-level items are nodes. Make sure a preceding
+        // comment does not suppress indentation inside the next formatted node.
+        if n.as_node().is_some() {
+            state.after_comment = false;
+        }
+        fold(n, writer, state)?;
+    }
+    Ok(())
+}
+
 fn fold(
     n: NodeOrToken,
     writer: &mut impl TokenWriter,
@@ -234,6 +267,18 @@ fn fold(
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum SyntaxMatch {
+    NotFound,
+    Found(SyntaxKind),
+}
+
+impl SyntaxMatch {
+    fn is_found(self) -> bool {
+        matches!(self, SyntaxMatch::Found(..))
+    }
+}
+
 fn whitespace_has_empty_line(text: &str) -> bool {
     let mut newlines = 0;
     for b in text.bytes() {
@@ -273,18 +318,6 @@ fn prev_non_trivia_token_kind(token: i_slint_compiler::parser::SyntaxToken) -> O
             }
             kind => return Some(kind),
         }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum SyntaxMatch {
-    NotFound,
-    Found(SyntaxKind),
-}
-
-impl SyntaxMatch {
-    fn is_found(self) -> bool {
-        matches!(self, SyntaxMatch::Found(..))
     }
 }
 
@@ -371,37 +404,6 @@ fn format_component(
         state.new_line();
     }
 
-    Ok(())
-}
-
-fn format_document_node(
-    node: &SyntaxNode,
-    writer: &mut impl TokenWriter,
-    state: &mut FormatState,
-) -> Result<(), std::io::Error> {
-    for n in node.children_with_tokens() {
-        if let Some(t) = n.as_token()
-            && t.kind() == SyntaxKind::Whitespace
-            && whitespace_has_empty_line(t.text())
-            && next_non_trivia_token_kind(&n).is_some_and(|kind| kind != SyntaxKind::Eof)
-        {
-            // Preserve document-level blank lines as written and override any
-            // pending newline inserted by the preceding formatter branch.
-            state.skip_all_whitespace = false;
-            state.whitespace_to_add = None;
-            state.last_removed_whitespace = None;
-            state.after_comment = false;
-            state.insertion_count += 1;
-            writer.no_change(t.clone())?;
-            continue;
-        }
-        // Comments are tokens, but top-level items are nodes. Make sure a preceding
-        // comment does not suppress indentation inside the next formatted node.
-        if n.as_node().is_some() {
-            state.after_comment = false;
-        }
-        fold(n, writer, state)?;
-    }
     Ok(())
 }
 
@@ -1402,12 +1404,13 @@ fn format_object_type(
         acc + len
     });
     let is_large_object = len >= 80;
+    let has_comment = node.descendants_with_tokens().any(|n| n.kind() == SyntaxKind::Comment);
     let member_count = node.children().filter(|n| n.kind() == SyntaxKind::ObjectTypeMember).count();
 
     let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?;
-    // Trailing commas or long content keep braces on separate lines
-    let indent_with_new_line = is_large_object || has_trailing_comma;
+    // Trailing commas, long content, or comments keep braces on separate lines.
+    let indent_with_new_line = is_large_object || has_trailing_comma || has_comment;
 
     if indent_with_new_line {
         state.indentation_level += 1;
@@ -1429,16 +1432,8 @@ fn format_object_type(
         if let SyntaxMatch::Found(SyntaxKind::ObjectTypeMember) = el {
             let at_end = sub
                 .peek()
-                .map(|next| {
-                    if next.kind() == SyntaxKind::Whitespace {
-                        next.as_token()
-                            .and_then(|ws| ws.next_token())
-                            .map(|n| n.kind() == SyntaxKind::RBrace)
-                            .unwrap_or(false)
-                    } else {
-                        next.kind() == SyntaxKind::RBrace
-                    }
-                })
+                .and_then(next_non_trivia_token_kind)
+                .map(|kind| kind == SyntaxKind::RBrace)
                 .unwrap_or(false);
 
             if indent_with_new_line {
@@ -1477,8 +1472,10 @@ fn format_object_type_member(
     if node.child_token(SyntaxKind::Comma).is_some() {
         whitespace_to(&mut sub, SyntaxKind::Comma, writer, state, "")?;
     }
-    // Strip any trailing whitespace inside the member, so `}` can close tightly.
-    state.skip_all_whitespace = true;
+    // Strip trailing whitespace unless it belongs to a trailing comment.
+    if !state.after_comment {
+        state.skip_all_whitespace = true;
+    }
     finish_node(sub, writer, state)?;
     Ok(())
 }
@@ -1757,7 +1754,18 @@ mod tests {
         let doc = syntax_nodes::Document::new(syntax_node).unwrap();
         let mut file = Vec::new();
         format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
-        assert_eq!(String::from_utf8(file).unwrap(), formatted);
+        let first_pass = String::from_utf8(file).unwrap();
+        assert_eq!(first_pass, formatted);
+
+        let syntax_node = i_slint_compiler::parser::parse(
+            first_pass.clone(),
+            None,
+            &mut BuildDiagnostics::default(),
+        );
+        let doc = syntax_nodes::Document::new(syntax_node).unwrap();
+        let mut file = Vec::new();
+        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
+        assert_eq!(String::from_utf8(file).unwrap(), first_pass);
     }
 
     #[test]
@@ -2490,6 +2498,106 @@ struct PrinterQueueItem {
     pages: int,
     size: string, // number instead and format in .slint?
     submission-date: string
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn struct_declaration_preserves_comments_and_top_level_spacing() {
+        assert_formatting(
+            r#"
+export struct AttributeData {
+    key: string,
+    key-error: string,
+    type: int,
+    value: string,
+    value-valid: bool,
+    unit: int,
+    action: int,  // Some comment
+}
+
+export struct LineEditData {
+    enabled: bool,
+    text: string,
+    placeholder: string,
+    suggestions: [string],
+}
+"#,
+            r#"
+export struct AttributeData {
+    key: string,
+    key-error: string,
+    type: int,
+    value: string,
+    value-valid: bool,
+    unit: int,
+    action: int,  // Some comment
+}
+
+export struct LineEditData {
+    enabled: bool,
+    text: string,
+    placeholder: string,
+    suggestions: [string],
+}
+"#,
+        );
+
+        assert_formatting(
+            r#"
+export struct AttributeData {
+    action: int,  // Some comment
+}
+
+export struct LineEditData {
+    enabled: bool,
+    text: string,
+    placeholder: string,
+    suggestions: [string],
+}
+"#,
+            r#"
+export struct AttributeData {
+    action: int,  // Some comment
+}
+
+export struct LineEditData {
+    enabled: bool,
+    text: string,
+    placeholder: string,
+    suggestions: [string],
+}
+"#,
+        );
+
+        assert_formatting(
+            r#"
+export struct AttributeData {
+    key: string, // Set by UI, reset by backend
+    key-error: string,
+    type: int,
+}
+
+export struct LineEditData {
+    enabled: bool,
+    text: string,
+    placeholder: string,
+    suggestions: [string],
+}
+"#,
+            r#"
+export struct AttributeData {
+    key: string, // Set by UI, reset by backend
+    key-error: string,
+    type: int,
+}
+
+export struct LineEditData {
+    enabled: bool,
+    text: string,
+    placeholder: string,
+    suggestions: [string],
 }
 "#,
         );
