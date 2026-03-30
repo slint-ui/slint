@@ -5,8 +5,13 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::Weak;
+use std::sync::Arc;
+use std::sync::Mutex;
 
+use accesskit::TreeId;
+use accesskit::Uuid;
 use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeUpdate};
+use accesskit_winit::Event;
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
@@ -51,16 +56,12 @@ pub struct AccessKitAdapter {
 impl AccessKitAdapter {
     pub fn new(
         window_adapter_weak: Weak<WinitWindowAdapter>,
-        active_event_loop: &ActiveEventLoop,
-        winit_window: &winit::window::Window,
+        winit_window: &Arc<dyn winit::window::Window>,
         proxy: EventLoopProxy,
+        events: Arc<Mutex<Vec<Event>>>,
     ) -> Self {
         Self {
-            inner: accesskit_winit::Adapter::with_event_loop_proxy(
-                active_event_loop,
-                winit_window,
-                proxy,
-            ),
+            inner: accesskit_winit::Adapter::with_event_loop_proxy(&**winit_window, proxy, events),
             window_adapter_weak: window_adapter_weak.clone(),
             nodes: NodeCollection {
                 next_component_id: 1,
@@ -87,14 +88,14 @@ impl AccessKitAdapter {
 
     pub fn process_event(
         &mut self,
-        window: &winit::window::Window,
+        window: &Arc<dyn winit::window::Window>,
         event: &winit::event::WindowEvent,
     ) {
         if matches!(event, winit::event::WindowEvent::Focused(_)) {
             self.global_property_tracker.set_dirty();
             self.invoke_later(|self_cell, _| self_cell.borrow_mut().rebuild_tree_of_dirty_nodes());
         }
-        self.inner.process_event(window, event);
+        self.inner.process_event(&**window, event);
     }
 
     pub fn process_accesskit_event(
@@ -135,6 +136,7 @@ impl AccessKitAdapter {
             nodes: Vec::new(),
             tree: None,
             focus: self.nodes.focus_node(&self.window_adapter_weak),
+            tree_id: TreeId(Uuid::new_v4()),
         })
     }
 
@@ -144,7 +146,7 @@ impl AccessKitAdapter {
             Action::Focus => {
                 return self
                     .nodes
-                    .item_rc_for_node_id(request.target)
+                    .item_rc_for_node_id(request.target_node)
                     .map(DeferredAccessKitAction::SetFocus);
             }
             Action::Decrement => AccessibilityAction::Decrement,
@@ -166,7 +168,7 @@ impl AccessKitAdapter {
             _ => return None,
         };
         self.nodes
-            .item_rc_for_node_id(request.target)
+            .item_rc_for_node_id(request.target_node)
             .map(|item| DeferredAccessKitAction::InvokeAccessibleAction(item, a))
     }
 
@@ -239,6 +241,7 @@ impl AccessKitAdapter {
                     nodes: nodes.collect(),
                     tree: None,
                     focus: self.nodes.focus_node(&self.window_adapter_weak),
+                    tree_id: TreeId(Uuid::new_v4()),
                 }
             })
         })
@@ -429,6 +432,7 @@ impl NodeCollection {
                 nodes: Default::default(),
                 tree: Default::default(),
                 focus: self.root_node_id,
+                tree_id: TreeId(Uuid::new_v4()),
             };
         };
         let window = window_adapter.window();
@@ -473,6 +477,7 @@ impl NodeCollection {
             nodes,
             tree: Some(self.tree_info(root_id)),
             focus: self.focus_node(window_adapter_weak),
+            tree_id: TreeId(Uuid::new_v4()),
         }
     }
 
@@ -748,12 +753,6 @@ struct CachedNode {
     id: NodeId,
     children: Vec<NodeId>,
     tracker: Pin<Box<PropertyTracker>>,
-}
-
-impl From<accesskit_winit::Event> for SlintEvent {
-    fn from(value: accesskit_winit::Event) -> Self {
-        SlintEvent(crate::event_loop::CustomEvent::Accesskit(value))
-    }
 }
 
 pub enum DeferredAccessKitAction {

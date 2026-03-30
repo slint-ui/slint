@@ -9,6 +9,8 @@
 
 extern crate alloc;
 
+use accesskit_winit::Event;
+use accesskit_winit::Event as AccessKitEvent;
 use event_loop::{CustomEvent, EventLoopState};
 use i_slint_core::api::EventLoopError;
 use i_slint_core::graphics::RequestedGraphicsAPI;
@@ -20,7 +22,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
-use winit::event_loop::{ActiveEventLoop, EventLoopBuilder};
+use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use winit::event_loop::{ActiveEventLoop, EventLoopBuilder, EventLoopProxy as WinitEventLoopProxy};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
@@ -526,6 +530,10 @@ pub(crate) struct SharedBackendData {
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy,
     event_queue: Arc<std::sync::Mutex<std::collections::VecDeque<CustomEvent>>>,
+    accesskit_events: Arc<Mutex<Vec<AccessKitEvent>>>,
+    /// The generation is used to determine if a quit_event_loop call is meant for the current
+    /// event loop or is from a stale event.
+    event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
     #[cfg(target_os = "ios")]
     #[allow(unused)]
@@ -606,6 +614,8 @@ impl SharedBackendData {
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             event_queue: Default::default(),
+            event_loop_generation: Default::default(),
+            accesskit_events: Default::default(),
             is_wayland,
             #[cfg(target_os = "ios")]
             keyboard_notifications,
@@ -642,7 +652,9 @@ impl SharedBackendData {
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
-            if let Some(err) = window_weak.upgrade().and_then(|w| w.ensure_window(event_loop).err())
+            if let Some(err) = window_weak
+                .upgrade()
+                .and_then(|w| w.ensure_window(event_loop, self.accesskit_events.clone()).err())
             {
                 result = Err(err);
                 break;
@@ -819,7 +831,7 @@ impl i_slint_core::platform::Platform for Backend {
         );
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), EventLoopError> {
-                self.1.lock().unwrap().push_back(CustomEvent::Exit);
+                self.1.lock().unwrap().push_back(CustomEvent::Exit(0)); // TODO: Exit code correct?
                 self.0.wake_up();
                 Ok(())
             }

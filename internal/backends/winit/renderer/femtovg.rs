@@ -55,7 +55,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
-    ) -> Result<Arc<winit::window::Window>, PlatformError> {
+    ) -> Result<Arc<Box<dyn winit::window::Window>>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,

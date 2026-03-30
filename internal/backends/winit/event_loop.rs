@@ -208,7 +208,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
-        if !matches!(event, WindowEvent::CursorMoved { .. }) {
+        if !matches!(event, WindowEvent::PointerMoved { .. }) {
             self.flush_pending_mouse_move();
         }
 
@@ -422,15 +422,15 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 };
                 runtime_window.process_mouse_input(ev);
             }
-            WindowEvent::Touch(touch) => {
-                let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
-                let position = euclid::point2(location.x, location.y);
-                runtime_window.process_touch_input(
-                    touch.id,
-                    position,
-                    winit_touch_phase(touch.phase),
-                );
-            }
+            // WindowEvent::Touch(touch) => {
+            //     let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
+            //     let position = euclid::point2(location.x, location.y);
+            //     runtime_window.process_touch_input(
+            //         touch.id,
+            //         position,
+            //         winit_touch_phase(touch.phase),
+            //     );
+            // }
             WindowEvent::ScaleFactorChanged { scale_factor, surface_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.loop_error = window
@@ -485,29 +485,29 @@ impl winit::application::ApplicationHandler for EventLoopState {
         if let Some(handler) = self.custom_application_handler.as_mut() {
             if matches!(handler.proxy_wake_up(event_loop), EventResult::PreventDefault) {
                 return;
-//=======
-//    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
-//        match event.0 {
-//            CustomEvent::UserEvent(user_callback) => user_callback(),
-//            CustomEvent::Exit(generation) => {
-//                if self
-//                    .shared_backend_data
-//                    .event_loop_generation
-//                    .load(std::sync::atomic::Ordering::Relaxed)
-//                    == generation
-//                {
-//                    self.suspend_all_hidden_windows();
-//                    event_loop.exit()
-//                }
-//                // else ignore the event, since it's from a previous run of the event loop
-//>>>>>>> master
+                //=======
+                //    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
+                //        match event.0 {
+                //            CustomEvent::UserEvent(user_callback) => user_callback(),
+                //            CustomEvent::Exit(generation) => {
+                //                if self
+                //                    .shared_backend_data
+                //                    .event_loop_generation
+                //                    .load(std::sync::atomic::Ordering::Relaxed)
+                //                    == generation
+                //                {
+                //                    self.suspend_all_hidden_windows();
+                //                    event_loop.exit()
+                //                }
+                //                // else ignore the event, since it's from a previous run of the event loop
+                //>>>>>>> master
             }
         }
         let events = std::mem::take(&mut *self.shared_backend_data.event_queue.lock().unwrap());
         for event in events {
             match event {
                 CustomEvent::UserEvent(user_callback) => user_callback(),
-                CustomEvent::Exit => {
+                CustomEvent::Exit(_) => {
                     self.suspend_all_hidden_windows();
                     event_loop.exit()
                 }

@@ -34,6 +34,7 @@ use corelib::items::{ColorScheme, MouseCursor};
 use corelib::items::{ItemRc, ItemRef};
 
 use crate::{EventResult, SharedBackendData};
+use accesskit_winit::Event;
 use corelib::Property;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
@@ -43,6 +44,7 @@ use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
 use std::cell::OnceCell;
+use std::sync::Mutex;
 #[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
@@ -407,6 +409,7 @@ impl WinitWindowAdapter {
     pub fn ensure_window(
         &self,
         active_event_loop: &dyn ActiveEventLoop,
+        events: Arc<Mutex<Vec<Event>>>,
     ) -> Result<Arc<dyn winit::window::Window>, PlatformError> {
         #[allow(unused_mut)]
         let mut window_attributes = match &*self.winit_window_or_none.borrow() {
@@ -478,9 +481,9 @@ impl WinitWindowAdapter {
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self.self_weak.clone(),
-                active_event_loop,
                 &winit_window,
-                self.event_loop_proxy.clone(),
+                active_event_loop.create_proxy(),
+                events,
             )
             .into(),
             #[cfg(muda)]
@@ -1480,8 +1483,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn window_handle_06_rc(
         &self,
     ) -> Result<Arc<dyn raw_window_handle::HasWindowHandle>, raw_window_handle::HandleError> {
-        Ok(self
-            .winit_window_or_none
+        self.winit_window_or_none
             .borrow()
             .as_window()
             .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(Arc::new(window)))
@@ -1491,8 +1493,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn display_handle_06_rc(
         &self,
     ) -> Result<Arc<dyn raw_window_handle::HasDisplayHandle>, raw_window_handle::HandleError> {
-        Ok(self
-            .winit_window_or_none
+        self.winit_window_or_none
             .borrow()
             .as_window()
             .map_or(Err(raw_window_handle::HandleError::Unavailable), |window| Ok(Arc::new(window)))
