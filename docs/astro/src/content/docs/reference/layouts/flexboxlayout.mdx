@@ -1,21 +1,21 @@
 ---
-title: FlexBoxLayout
-description: FlexBoxLayout element api.
+title: FlexboxLayout
+description: FlexboxLayout element api.
 ---
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 
-`FlexBoxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
+`FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
 
 
 <CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example1.png"  imageWidth="300" imageHeight="150"  imageAlt='flexboxlayout example with row direction'>
 
 ```slint playground
-// This example demonstrates FlexBoxLayout with row direction (default)
+// This example demonstrates FlexboxLayout with row direction (default)
 export component Foo inherits Window {
     width: 300px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         spacing: 8px;
         padding: 8px;
         flex-direction: row;
@@ -33,11 +33,11 @@ export component Foo inherits Window {
 <CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example2.png"  imageWidth="150" imageHeight="250"  imageAlt='flexboxlayout example with column direction'>
 
 ```slint playground
-// This example demonstrates FlexBoxLayout with column direction
+// This example demonstrates FlexboxLayout with column direction
 export component Foo inherits Window {
     width: 300px;
     height: 300px;
-    FlexBoxLayout {
+    FlexboxLayout {
         spacing: 8px;
         padding: 8px;
         flex-direction: column;
@@ -99,7 +99,7 @@ To target specific sides with different values use the following properties:
 ### alignment
 <SlintProperty propName="alignment" typeName="enum" enumName="LayoutAlignment">
 Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
-Note that the `stretch` value has no effect on FlexBoxLayout (main-axis stretching in CSS Flexbox is controlled by `flex-grow`).
+Note that the `stretch` value has no effect on FlexboxLayout (main-axis stretching in CSS Flexbox is controlled by `flex-grow`).
 </SlintProperty>
 
 ## Direction Properties
@@ -130,7 +130,7 @@ The default value is `stretch`.
 
 ## Per-Item Properties
 
-The following properties can be set on individual children of a `FlexBoxLayout`:
+The following properties can be set on individual children of a `FlexboxLayout`:
 
 ### flex-grow
 <SlintProperty propName="flex-grow" typeName="float">
@@ -165,8 +165,8 @@ The default value is `0`.
 
 ## Layout Behavior
 
-The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
+The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
 
-You can learn more about the CSS FlexBox specification from
+You can learn more about the CSS Flexbox specification from
 - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
 - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.

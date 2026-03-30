@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout flex-wrap property.
+// Test FlexboxLayout flex-wrap property.
 // flex-wrap controls whether flex items wrap onto multiple lines.
 
 component VisibleRect inherits Rectangle {
@@ -16,7 +16,7 @@ component TestWrapRow inherits VisibleRect {
     width: 130px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: wrap;
         align-content: start;
 
@@ -49,7 +49,7 @@ component TestNoWrapRow inherits VisibleRect {
     width: 130px;
     height: 300px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
 
         r1 := Rectangle {
@@ -81,7 +81,7 @@ component TestWrapReverseRow inherits VisibleRect {
     width: 130px;
     height: 80px;  // exactly 2 lines × 40px, so alignment doesn't affect positions
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: wrap-reverse;
 
         r1 := Rectangle {
@@ -115,7 +115,7 @@ component TestNoWrapColumn inherits VisibleRect {
     width: 300px;
     height: 130px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         flex-wrap: no-wrap;
 
@@ -151,7 +151,7 @@ component TestNoWrapColumnLayoutInfo inherits VisibleRect {
     width: 400px;
     height: 300px;
 
-    flex := FlexBoxLayout {
+    flex := FlexboxLayout {
         flex-direction: column;
         flex-wrap: no-wrap;
 

@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout with runtime direction change
+// Test FlexboxLayout with runtime direction change
 
 export component TestCase inherits Window {
     width: 300px;
@@ -9,7 +9,7 @@ export component TestCase inherits Window {
 
     in-out property <bool> use-column: false;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: use-column ? FlexDirection.column : FlexDirection.row;
         spacing: 10px;
 

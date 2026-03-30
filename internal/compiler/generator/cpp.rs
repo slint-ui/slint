@@ -2633,7 +2633,7 @@ fn generate_flexbox_layout_item_info_decl(
     root_sc: &llr::SubComponent,
     ctx: &EvaluationContext,
 ) -> Declaration {
-    const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::FlexBoxLayoutItemInfo";
+    const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::FlexboxLayoutItemInfo";
 
     let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
         let compiled = compile_expression(&expr.borrow(), ctx);
@@ -4044,7 +4044,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
-        Expression::WithFlexBoxLayoutItemInfo {
+        Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name,
@@ -4819,7 +4819,7 @@ fn generate_with_flexbox_layout_item_info(
 ) -> String {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
     let mut push_code =
-        "std::vector<slint::cbindgen_private::FlexBoxLayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::FlexBoxLayoutItemInfo> cells_vector_v;".to_owned();
+        "std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_v;".to_owned();
     let mut repeater_idx = 0usize;
 
     for item in elements {
@@ -4872,7 +4872,7 @@ fn generate_with_flexbox_layout_item_info(
         format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
     });
     format!(
-        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexBoxLayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexBoxLayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); return {}; }}()",
+        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexboxLayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexboxLayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); return {}; }}()",
         compile_expression(sub_expression, ctx),
         cells_h = ident(cells_h_variable),
         cells_v = ident(cells_v_variable),

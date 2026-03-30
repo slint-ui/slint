@@ -602,8 +602,8 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
                 fxe(&mut e.item.element);
             }
         }
-        Expression::SolveFlexBoxLayout(layout)
-        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+        Expression::SolveFlexboxLayout(layout)
+        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
             }

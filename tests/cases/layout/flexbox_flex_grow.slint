@@ -1,13 +1,13 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout flex-grow, flex-shrink, and flex-basis per-item properties
+// Test FlexboxLayout flex-grow, flex-shrink, and flex-basis per-item properties
 
 // Test 1: flex-grow — items grow proportionally to fill extra space
 component TestFlexGrowRow inherits Rectangle {
     width: 300px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         r1 := Rectangle {
             flex-basis: 50px;
@@ -42,7 +42,7 @@ component TestFlexGrowRow inherits Rectangle {
 component TestFlexGrowColumn inherits Rectangle {
     width: 50px;
     height: 300px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         flex-wrap: no-wrap;
         r1 := Rectangle {
@@ -71,7 +71,7 @@ component TestFlexGrowColumn inherits Rectangle {
 component TestFlexShrinkRow inherits Rectangle {
     width: 200px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         r1 := Rectangle {
             flex-basis: 150px;
@@ -99,7 +99,7 @@ component TestFlexShrinkRow inherits Rectangle {
 component TestFlexBasis inherits Rectangle {
     width: 300px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         r1 := Rectangle {
             flex-basis: 80px;
@@ -123,7 +123,7 @@ component TestFlexBasis inherits Rectangle {
 component TestFlexDefaults inherits Rectangle {
     width: 300px;
     height: 50px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         r1 := Rectangle {
             preferred-width: 80px;

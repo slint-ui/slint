@@ -38,7 +38,7 @@ component FlexCell inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
-    title: "FlexBox Layout - Direction Test";
+    title: "Flexbox Layout - Interactive Test";
     default-font-size: 20px;
 
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
@@ -57,7 +57,15 @@ export component MainWindow inherits Window {
         LayoutAlignment.space-around,
         LayoutAlignment.space-evenly
     ];
-    property <[string]> align_content_options: ["Stretch", "Start", "End", "Center", "Space Between", "Space Around", "Space Evenly"];
+    property <[string]> align_content_options: [
+        "Stretch",
+        "Start",
+        "End",
+        "Center",
+        "Space Between",
+        "Space Around",
+        "Space Evenly"
+    ];
     property <[FlexAlignContent]> align_content_values: [
         FlexAlignContent.stretch,
         FlexAlignContent.start,
@@ -143,7 +151,7 @@ export component MainWindow inherits Window {
             background: white;
             vertical-stretch: 1;
 
-            FlexBoxLayout {
+            FlexboxLayout {
                 flex-direction: direction_values[direction_combo.current-index];
                 alignment: alignment_values[alignment_combo.current-index];
                 align-content: align_content_values[align_content_combo.current-index];
@@ -160,6 +168,7 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #4a90d9;
                 }
+
                 FlexCell {
                     cell_text: "B grow:2";
                     flex-grow: 2;
@@ -167,6 +176,7 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #2e6da4;
                 }
+
                 for text in ["C", "D", "E"]: Cell {
                     cell_text: text;
                     width: 80phx;
@@ -179,12 +189,14 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #27ae60;
                 }
+
                 FlexCell {
                     cell_text: "G basis:160";
                     flex-basis: 160phx;
                     min-height: 40phx;
                     background: #1e8449;
                 }
+
                 for text in ["H", "I", "J", "K", "L"]: Cell {
                     cell_text: text;
                     width: 80phx;
@@ -198,6 +210,7 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #d94a4a;
                 }
+
                 FlexCell {
                     cell_text: "N shrink:3";
                     flex-basis: 150phx;
@@ -205,6 +218,7 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #a93226;
                 }
+
                 for text in ["P", "Q", "R"]: Cell {
                     cell_text: text;
                     width: 80phx;
@@ -217,6 +231,7 @@ export component MainWindow inherits Window {
                     height: 30phx;
                     background: #e67e22;
                 }
+
                 FlexCell {
                     cell_text: "T self:center";
                     flex-align-self: center;
@@ -231,6 +246,7 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #8e44ad;
                 }
+
                 FlexCell {
                     cell_text: "V flex-order:99";
                     flex-order: 99;
@@ -238,6 +254,7 @@ export component MainWindow inherits Window {
                     min-height: 40phx;
                     background: #6c3483;
                 }
+
                 for text in ["W", "X", "Y"]: Cell {
                     cell_text: text;
                     width: 80phx;

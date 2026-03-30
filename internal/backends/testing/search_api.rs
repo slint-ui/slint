@@ -36,7 +36,7 @@ pub enum LayoutKind {
     /// A `GridLayout`.
     GridLayout,
     /// A flex box layout.
-    FlexBox,
+    FlexboxLayout,
 }
 
 impl LayoutKind {
@@ -45,7 +45,7 @@ impl LayoutKind {
             "h-box" => Some(Self::HorizontalLayout),
             "v-box" => Some(Self::VerticalLayout),
             "grid" => Some(Self::GridLayout),
-            "flex-box" => Some(Self::FlexBox),
+            "flex-box" => Some(Self::FlexboxLayout),
             _ => None,
         }
     }

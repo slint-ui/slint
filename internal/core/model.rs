@@ -867,13 +867,13 @@ pub trait RepeatedItemTree:
         crate::layout::LayoutItemInfo::default()
     }
 
-    /// Returns what's needed to perform a flexbox layout if this ItemTree is in a FlexBoxLayout.
+    /// Returns what's needed to perform a flexbox layout if this ItemTree is in a FlexboxLayout.
     /// Includes flex-specific properties (flex-grow, flex-shrink, flex-basis, align-self, order).
     fn flexbox_layout_item_info(
         self: Pin<&Self>,
         orientation: Orientation,
         child_index: Option<usize>,
-    ) -> crate::layout::FlexBoxLayoutItemInfo {
+    ) -> crate::layout::FlexboxLayoutItemInfo {
         self.layout_item_info(orientation, child_index).into()
     }
 

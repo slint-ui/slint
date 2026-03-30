@@ -754,7 +754,7 @@ impl ElementDebugInfo {
                     Orientation::Vertical => info.push_str("v-box"),
                 },
                 Layout::GridLayout(_) => info.push_str("grid"),
-                Layout::FlexBoxLayout(_) => info.push_str("flex-box"),
+                Layout::FlexboxLayout(_) => info.push_str("flex-box"),
             }
         }
         info
@@ -2085,10 +2085,10 @@ impl Element {
     }
 }
 
-/// For FlexBoxLayout, suggest Slint property names for CSS properties.
+/// For FlexboxLayout, suggest Slint property names for CSS properties.
 fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Option<String> {
     let base_name = base_type.to_smolstr();
-    if base_name != "FlexBoxLayout" {
+    if base_name != "FlexboxLayout" {
         return None;
     }
     match property_name {
@@ -2512,13 +2512,13 @@ pub fn visit_named_references_in_expression(
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
         Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
-        Expression::ComputeFlexBoxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeFlexboxLayoutInfo(l, _) => l.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
         }
         Expression::SolveBoxLayout(l, _) => l.visit_named_references(vis),
-        Expression::SolveFlexBoxLayout(l) => l.visit_named_references(vis),
+        Expression::SolveFlexboxLayout(l) => l.visit_named_references(vis),
         Expression::SolveGridLayout { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);

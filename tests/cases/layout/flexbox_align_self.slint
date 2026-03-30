@@ -1,14 +1,14 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout align-self per-item property
+// Test FlexboxLayout align-self per-item property
 
 // Test 1: align-self overrides container align-items
 // Container has align-items: start, but r2 overrides to end
 component TestAlignSelfOverride inherits Rectangle {
     width: 300px;
     height: 100px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         align-items: start;
 
@@ -42,7 +42,7 @@ component TestAlignSelfOverride inherits Rectangle {
 component TestAlignSelfCenter inherits Rectangle {
     width: 300px;
     height: 100px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         align-items: start;
 
@@ -70,7 +70,7 @@ component TestAlignSelfCenter inherits Rectangle {
 component TestAlignSelfStretch inherits Rectangle {
     width: 300px;
     height: 100px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         align-items: start;
 
@@ -97,7 +97,7 @@ component TestAlignSelfStretch inherits Rectangle {
 component TestAlignSelfAuto inherits Rectangle {
     width: 300px;
     height: 100px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-wrap: no-wrap;
         align-items: end;
 
