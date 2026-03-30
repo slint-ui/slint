@@ -32,7 +32,7 @@ jobs:
                   swift-version: "6.2"
             - uses: ./.github/actions/setup-rust
             - name: Build Rust static library
-              run: cargo build --lib -p slint-swift
+              run: cargo build --lib -p slint-swift --features interpreter
             - name: Run Swift tests
               working-directory: api/swift
               run: swift test
