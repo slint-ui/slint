@@ -2,6 +2,7 @@
 title: TextInput
 description: TextInput element api.
 ---
+
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
@@ -68,7 +69,7 @@ Whether or not the font face should be drawn italicized or not.
 </SlintProperty>
 
 ### font-metrics
-<SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics">
+<SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
 The design metrics of the font scaled to the font pixel size used by the element.
 </SlintProperty>
 
@@ -123,7 +124,7 @@ The width of the text cursor.
 </SlintProperty>
 
 ### text
-<SlintProperty propName="text" typeName="string" defaultValue='""'>
+<SlintProperty propName="text" typeName="string" propertyVisibility="in-out" defaultValue="&quot;&quot;">
 The text rendered and editable by the user.
 </SlintProperty>
 
@@ -145,7 +146,7 @@ Call this function to focus the text input and make it receive future keyboard e
 ### clear-focus()
 Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also <Link type="FocusHandling" />.
 
-### set-selection-offsets(int, int)
+### set-selection-offsets(start: int, end: int)
 Selects the text between two UTF-8 offsets.
 
 ### select-all()
@@ -168,23 +169,21 @@ Pastes the text content of the clipboard at the cursor position.
 ### accepted()
 Invoked when the enter key is pressed.
 
-### cursor-position-changed(Point)
-The cursor was moved to the new (x, y) position
-described by the `Point` argument.
+### cursor-position-changed(position: Point)
+The cursor was moved to the new (x, y) position described by the `Point` argument.
 
 ### edited()
 Invoked when the text has changed because the user modified it.
 
-### key-pressed(KeyEvent) -> EventResult
+### key-pressed(event: KeyEvent) -> EventResult
 Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
 handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
 `reject` to let `TextInput` handle it.
 
-### key-released(KeyEvent) -> EventResult
+### key-released(event: KeyEvent) -> EventResult
 Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
 handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
 `reject` to let `TextInput` handle it.
-
 
 ## Accessibility
 
