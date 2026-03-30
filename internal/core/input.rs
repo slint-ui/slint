@@ -610,12 +610,12 @@ pub struct InternalKeyEvent {
     pub anchor_position: Option<i32>,
 }
 
-impl KeyEvent {
+impl InternalKeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
     pub fn shortcut(&self) -> Option<StandardShortcut> {
-        if self.modifiers.control && !self.modifiers.shift {
-            match self.text.as_str() {
+        if self.key_event.modifiers.control && !self.key_event.modifiers.shift {
+            match self.key_event.text.as_str() {
                 #[cfg(not(target_arch = "wasm32"))]
                 "c" => Some(StandardShortcut::Copy),
                 #[cfg(not(target_arch = "wasm32"))]
@@ -632,8 +632,8 @@ impl KeyEvent {
                 "r" => Some(StandardShortcut::Refresh),
                 _ => None,
             }
-        } else if self.modifiers.control && self.modifiers.shift {
-            match self.text.as_str() {
+        } else if self.key_event.modifiers.control && self.key_event.modifiers.shift {
+            match self.key_event.text.as_str() {
                 #[cfg(not(target_os = "windows"))]
                 "z" | "Z" => Some(StandardShortcut::Redo),
                 _ => None,
@@ -646,14 +646,15 @@ impl KeyEvent {
     /// If a shortcut concerning text editing was pressed, this function
     /// returns `Some(TextShortcut)`. Otherwise it returns None.
     pub fn text_shortcut(&self) -> Option<TextShortcut> {
-        let keycode = self.text.chars().next()?;
+        let ke = &self.key_event;
+        let keycode = ke.text.chars().next()?;
 
         let is_apple = crate::is_apple_platform();
 
         let move_mod = if is_apple {
-            self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
+            ke.modifiers.alt && !ke.modifiers.control && !ke.modifiers.meta
         } else {
-            self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
+            ke.modifiers.control && !ke.modifiers.alt && !ke.modifiers.meta
         };
 
         if move_mod {
@@ -682,7 +683,7 @@ impl KeyEvent {
 
         #[cfg(not(target_os = "macos"))]
         {
-            if self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta {
+            if ke.modifiers.control && !ke.modifiers.alt && !ke.modifiers.meta {
                 match keycode {
                     key_codes::Home => {
                         return Some(TextShortcut::Move(TextCursorDirection::StartOfText));
@@ -695,7 +696,7 @@ impl KeyEvent {
             }
         }
 
-        if is_apple && self.modifiers.control {
+        if is_apple && ke.modifiers.control {
             match keycode {
                 key_codes::LeftArrow => {
                     return Some(TextShortcut::Move(TextCursorDirection::StartOfLine));
