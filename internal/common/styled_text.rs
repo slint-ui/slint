@@ -113,62 +113,51 @@ pub struct StyledText {
 }
 
 #[cfg(feature = "markdown")]
-impl StyledText {
-    pub fn from_plain_text(text: alloc::string::String) -> Self {
-        Self {
-            paragraphs: alloc::vec![StyledTextParagraph {
-                text,
-                formatting: Default::default(),
-                links: Default::default()
-            }],
+pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParagraph {
+    StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
+}
+
+#[cfg(feature = "markdown")]
+pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
+    format_string: &str,
+    args: &[S],
+) -> impl Iterator<Item = Result<StyledTextParagraph, StyledTextError<'static>>> {
+    let mut parser = pulldown_cmark::Parser::new_ext(
+        format_string,
+        pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
+    );
+
+    let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
+    let mut style_stack = alloc::vec::Vec::new();
+    let mut current_url = None;
+    let mut implicit_arg_index = 0;
+    let mut positioned_arg_index_max = 0;
+
+    let begin_paragraph = |indentation: u32, list_item_type: Option<ListItemType>| {
+        let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
+        for _ in 0..indentation {
+            text.push_str("    ");
         }
-    }
-
-    /// Parse a markdown string with interpolated arguments as styled text
-    pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
-        format_string: &str,
-        args: &[S],
-    ) -> Result<Self, StyledTextError<'static>> {
-        let parser = pulldown_cmark::Parser::new_ext(
-            format_string,
-            pulldown_cmark::Options::ENABLE_STRIKETHROUGH,
-        );
-
-        let mut paragraphs = alloc::vec::Vec::new();
-        let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
-        let mut style_stack = alloc::vec::Vec::new();
-        let mut current_url = None;
-        let mut implicit_arg_index = 0;
-        let mut positioned_arg_index_max = 0;
-
-        let begin_paragraph = |paragraphs: &mut alloc::vec::Vec<StyledTextParagraph>,
-                               indentation: u32,
-                               list_item_type: Option<ListItemType>| {
-            let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
-            for _ in 0..indentation {
-                text.push_str("    ");
-            }
-            match list_item_type {
-                Some(ListItemType::Unordered) => {
-                    let remainder = indentation % 3;
-                    if remainder == 0 {
-                        text.push_str("• ")
-                    } else if remainder == 1 {
-                        text.push_str("◦ ")
-                    } else {
-                        text.push_str("▪ ")
-                    }
+        match list_item_type {
+            Some(ListItemType::Unordered) => {
+                let remainder = indentation % 3;
+                if remainder == 0 {
+                    text.push_str("• ")
+                } else if remainder == 1 {
+                    text.push_str("◦ ")
+                } else {
+                    text.push_str("▪ ")
                 }
-                Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
-                None => {}
-            };
-            paragraphs.push(StyledTextParagraph {
-                text,
-                formatting: Default::default(),
-                links: Default::default(),
-            });
+            }
+            Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
+            None => {}
         };
+        StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
+    };
 
+    let mut current_paragraph = None;
+
+    std::iter::from_fn(move || {
         let mut substitute = |paragraph: &mut StyledTextParagraph,
                               string: &str|
          -> Result<(), StyledTextError<'static>> {
@@ -254,16 +243,20 @@ impl StyledText {
             Ok(())
         };
 
-        for event in parser {
+        for event in &mut parser {
             let indentation = list_state_stack.len().saturating_sub(1) as _;
 
             match event {
                 pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                    begin_paragraph(&mut paragraphs, indentation, None);
+                    if let Some(paragraph) =
+                        current_paragraph.replace(begin_paragraph(indentation, None))
+                    {
+                        return Some(Ok(paragraph));
+                    }
                 }
                 pulldown_cmark::Event::End(pulldown_cmark::TagEnd::List(_)) => {
                     if list_state_stack.pop().is_none() {
-                        return Err(StyledTextError::Pop);
+                        return Some(Err(StyledTextError::Pop));
                     }
                 }
                 pulldown_cmark::Event::End(
@@ -272,20 +265,26 @@ impl StyledText {
                 pulldown_cmark::Event::Start(tag) => {
                     let style = match tag {
                         pulldown_cmark::Tag::Paragraph => {
-                            begin_paragraph(&mut paragraphs, indentation, None);
+                            if let Some(paragraph) =
+                                current_paragraph.replace(begin_paragraph(indentation, None))
+                            {
+                                return Some(Ok(paragraph));
+                            }
                             continue;
                         }
                         pulldown_cmark::Tag::Item => {
-                            begin_paragraph(
-                                &mut paragraphs,
+                            let old_paragraph = current_paragraph.replace(begin_paragraph(
                                 indentation,
                                 Some(match list_state_stack.last().copied() {
                                     Some(Some(index)) => ListItemType::Ordered(index),
                                     _ => ListItemType::Unordered,
                                 }),
-                            );
+                            ));
                             if let Some(state) = list_state_stack.last_mut() {
                                 *state = state.map(|state| state + 1);
+                            }
+                            if let Some(paragraph) = old_paragraph {
+                                return Some(Ok(paragraph));
                             }
                             continue;
                         }
@@ -317,29 +316,38 @@ impl StyledText {
                         | pulldown_cmark::Tag::BlockQuote(_)
                         | pulldown_cmark::Tag::CodeBlock(_)
                         | pulldown_cmark::Tag::FootnoteDefinition(_) => {
-                            return Err(StyledTextError::UnimplementedTag(tag.into_static()));
+                            return Some(Err(StyledTextError::UnimplementedTag(tag.into_static())));
                         }
                     };
 
-                    style_stack.push((
-                        style,
-                        paragraphs.last().ok_or(StyledTextError::ParagraphNotStarted)?.text.len(),
-                    ));
+                    let paragraph = match current_paragraph.as_mut() {
+                        Some(paragraph) => paragraph,
+                        None => return Some(Err(StyledTextError::ParagraphNotStarted)),
+                    };
+
+                    style_stack.push((style, paragraph.text.len()));
                 }
                 pulldown_cmark::Event::Text(text) => {
-                    let paragraph =
-                        paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
-                    substitute(paragraph, &text)?;
+                    let paragraph = match current_paragraph.as_mut() {
+                        Some(paragraph) => paragraph,
+                        None => return Some(Err(StyledTextError::ParagraphNotStarted)),
+                    };
+
+                    if let Err(err) = substitute(paragraph, &text) {
+                        return Some(Err(err));
+                    };
                 }
                 pulldown_cmark::Event::End(_) => {
                     let (style, start) = if let Some(value) = style_stack.pop() {
                         value
                     } else {
-                        return Err(StyledTextError::Pop);
+                        return Some(Err(StyledTextError::Pop));
                     };
 
-                    let paragraph =
-                        paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
+                    let paragraph = match current_paragraph.as_mut() {
+                        Some(paragraph) => paragraph,
+                        None => return Some(Err(StyledTextError::ParagraphNotStarted)),
+                    };
                     let end = paragraph.text.len();
 
                     if let Some(url) = current_url.take() {
@@ -349,11 +357,15 @@ impl StyledText {
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
                 }
                 pulldown_cmark::Event::Code(text) => {
-                    let paragraph =
-                        paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
+                    let paragraph = match current_paragraph.as_mut() {
+                        Some(paragraph) => paragraph,
+                        None => return Some(Err(StyledTextError::ParagraphNotStarted)),
+                    };
                     let start = paragraph.text.len();
 
-                    substitute(paragraph, &text)?;
+                    if let Err(err) = substitute(paragraph, &text) {
+                        return Some(Err(err));
+                    }
                     paragraph.formatting.push(FormattedSpan {
                         range: start..paragraph.text.len(),
                         style: Style::Code,
@@ -364,7 +376,7 @@ impl StyledText {
                         let (style, start) = if let Some(value) = style_stack.pop() {
                             value
                         } else {
-                            return Err(StyledTextError::Pop);
+                            return Some(Err(StyledTextError::Pop));
                         };
 
                         let expected_tag = match &style {
@@ -378,14 +390,17 @@ impl StyledText {
                         };
 
                         if (&*html) != expected_tag {
-                            return Err(StyledTextError::ClosingTagMismatch(
+                            return Some(Err(StyledTextError::ClosingTagMismatch(
                                 expected_tag,
                                 (&*html).into(),
-                            ));
+                            )));
                         }
 
-                        let paragraph =
-                            paragraphs.last_mut().ok_or(StyledTextError::ParagraphNotStarted)?;
+                        let paragraph = match current_paragraph.as_mut() {
+                            Some(paragraph) => paragraph,
+                            None => return Some(Err(StyledTextError::ParagraphNotStarted)),
+                        };
+
                         let end = paragraph.text.len();
                         paragraph.formatting.push(FormattedSpan { range: start..end, style });
                     } else {
@@ -396,21 +411,25 @@ impl StyledText {
                                 Ok(htmlparser::Token::ElementStart { local: tag_type, .. }) => {
                                     match &*tag_type {
                                         "u" => {
-                                            style_stack.push((
-                                                Style::Underline,
-                                                paragraphs
-                                                    .last()
-                                                    .ok_or(StyledTextError::ParagraphNotStarted)?
-                                                    .text
-                                                    .len(),
-                                            ));
+                                            let paragraph = match current_paragraph.as_mut() {
+                                                Some(paragraph) => paragraph,
+                                                None => {
+                                                    return Some(Err(
+                                                        StyledTextError::ParagraphNotStarted,
+                                                    ));
+                                                }
+                                            };
+                                            style_stack
+                                                .push((Style::Underline, paragraph.text.len()));
                                         }
                                         "font" => {
                                             expecting_color_attribute = true;
                                         }
                                         _ => {
-                                            return Err(StyledTextError::UnimplementedHtmlTag(
-                                                (&*tag_type).into(),
+                                            return Some(Err(
+                                                StyledTextError::UnimplementedHtmlTag(
+                                                    (&*tag_type).into(),
+                                                ),
                                             ));
                                         }
                                     }
@@ -422,9 +441,11 @@ impl StyledText {
                                 }) => match &*key {
                                     "color" => {
                                         if !expecting_color_attribute {
-                                            return Err(StyledTextError::UnexpectedAttribute(
-                                                (&*key).into(),
-                                                (&*html).into(),
+                                            return Some(Err(
+                                                StyledTextError::UnexpectedAttribute(
+                                                    (&*key).into(),
+                                                    (&*html).into(),
+                                                ),
                                             ));
                                         }
                                         expecting_color_attribute = false;
@@ -438,33 +459,35 @@ impl StyledText {
                                                 })
                                                 .expect("invalid color value");
 
-                                        style_stack.push((
-                                            Style::Color(value),
-                                            paragraphs
-                                                .last()
-                                                .ok_or(StyledTextError::ParagraphNotStarted)?
-                                                .text
-                                                .len(),
-                                        ));
+                                        let paragraph = match current_paragraph.as_mut() {
+                                            Some(paragraph) => paragraph,
+                                            None => {
+                                                return Some(Err(
+                                                    StyledTextError::ParagraphNotStarted,
+                                                ));
+                                            }
+                                        };
+                                        style_stack
+                                            .push((Style::Color(value), paragraph.text.len()));
                                     }
                                     _ => {
-                                        return Err(StyledTextError::UnexpectedAttribute(
+                                        return Some(Err(StyledTextError::UnexpectedAttribute(
                                             (&*key).into(),
                                             (&*html).into(),
-                                        ));
+                                        )));
                                     }
                                 },
                                 Ok(htmlparser::Token::ElementEnd { .. }) => {}
                                 _ => {
-                                    return Err(StyledTextError::UnimplementedHtmlEvent(
+                                    return Some(Err(StyledTextError::UnimplementedHtmlEvent(
                                         alloc::format!("{:?}", token),
-                                    ));
+                                    )));
                                 }
                             }
                         }
 
                         if expecting_color_attribute {
-                            return Err(StyledTextError::MissingColor((&*html).into()));
+                            return Some(Err(StyledTextError::MissingColor((&*html).into())));
                         }
                     }
                 }
@@ -474,44 +497,37 @@ impl StyledText {
                 | pulldown_cmark::Event::InlineMath(_)
                 | pulldown_cmark::Event::DisplayMath(_)
                 | pulldown_cmark::Event::Html(_) => {
-                    return Err(StyledTextError::UnimplementedEvent(event.into_static()));
+                    return Some(Err(StyledTextError::UnimplementedEvent(event.into_static())));
                 }
             }
         }
 
         if implicit_arg_index > 0 && positioned_arg_index_max > 0 {
-            return Err(StyledTextError::MixedPlaceholders);
+            return Some(Err(StyledTextError::MixedPlaceholders));
         }
 
         if (positioned_arg_index_max == 0 && implicit_arg_index != args.len())
             || positioned_arg_index_max > args.len()
         {
-            return Err(StyledTextError::PlaceholderCountMismatch(
+            return Some(Err(StyledTextError::PlaceholderCountMismatch(
                 implicit_arg_index.max(positioned_arg_index_max),
                 args.len(),
-            ));
+            )));
         }
 
         if !style_stack.is_empty() {
-            return Err(StyledTextError::NotEmpty);
+            return Some(Err(StyledTextError::NotEmpty));
         }
 
-        Ok(StyledText { paragraphs: (&paragraphs[..]).into() })
-    }
-}
-
-#[cfg(feature = "markdown")]
-impl AsRef<[StyledTextParagraph]> for StyledText {
-    fn as_ref(&self) -> &[StyledTextParagraph] {
-        &self.paragraphs
-    }
+        current_paragraph.take().map(Ok)
+    })
 }
 
 #[cfg(feature = "markdown")]
 #[test]
 fn markdown_parsing() {
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>("hello *world*", &[]).unwrap().paragraphs,
+        parse_interpolated::<&[_]>("hello *world*", &[]).collect::<Result<Vec<_>, _>>().unwrap(),
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..11, style: Style::Emphasis }],
@@ -520,15 +536,15 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
+        parse_interpolated::<&[_]>(
             "
 - line 1
 - line 2
             ",
             &[]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [
             StyledTextParagraph {
                 text: "• line 1".into(),
@@ -544,7 +560,7 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
+        parse_interpolated::<&[_]>(
             "
 1. a
 2. b
@@ -552,8 +568,8 @@ fn markdown_parsing() {
         ",
             &[]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [
             StyledTextParagraph {
                 text: "1. a".into(),
@@ -574,15 +590,15 @@ fn markdown_parsing() {
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
+        parse_interpolated::<&[_]>(
             "
 Normal _italic_ **strong** ~~strikethrough~~ `code`
 new *line*
 ",
             &[]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [
             StyledTextParagraph {
                 text: "Normal italic strong strikethrough code".into(),
@@ -603,7 +619,7 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
+        parse_interpolated::<&[_]>(
             "
 - root
   - child
@@ -612,8 +628,8 @@ new *line*
 ",
             &[]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [
             StyledTextParagraph {
                 text: "• root".into(),
@@ -639,9 +655,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>("hello [*world*](https://example.com)", &[])
-            .unwrap()
-            .paragraphs,
+        parse_interpolated::<&[_]>("hello [*world*](https://example.com)", &[])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![
@@ -653,7 +669,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>("<u>hello world</u>", &[]).unwrap().paragraphs,
+        parse_interpolated::<&[_]>("<u>hello world</u>", &[])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan { range: 0..11, style: Style::Underline },],
@@ -662,12 +680,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
-            r#"<font color="blue">hello world</font>"#,
-            &[]
-        )
-        .unwrap()
-        .paragraphs,
+        parse_interpolated::<&[_]>(r#"<font color="blue">hello world</font>"#, &[])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![FormattedSpan {
@@ -679,12 +694,9 @@ new *line*
     );
 
     assert_eq!(
-        StyledText::parse_interpolated::<StyledText>(
-            r#"<u><font color="red">hello world</font></u>"#,
-            &[]
-        )
-        .unwrap()
-        .paragraphs,
+        parse_interpolated::<&[_]>(r#"<u><font color="red">hello world</font></u>"#, &[])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
         [StyledTextParagraph {
             text: "hello world".into(),
             formatting: alloc::vec![
@@ -700,12 +712,9 @@ new *line*
 #[test]
 fn markdown_parsing_interpolated() {
     assert_eq!(
-        StyledText::parse_interpolated(
-            "Text: *{}*",
-            &[StyledText::from_plain_text("italic".into())]
-        )
-        .unwrap()
-        .paragraphs,
+        parse_interpolated("Text: *{}*", &[&[paragraph_from_plain_text("italic".into())]])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
         [StyledTextParagraph {
             text: "Text: italic".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..12, style: Style::Emphasis }],
@@ -713,12 +722,9 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_interpolated(
-            "Escaped text: {}",
-            &[StyledText::from_plain_text("*bold*".into())]
-        )
-        .unwrap()
-        .paragraphs,
+        parse_interpolated("Escaped text: {}", &[&[paragraph_from_plain_text("*bold*".into())]])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
         [StyledTextParagraph {
             text: "Escaped text: *bold*".into(),
             formatting: alloc::vec![],
@@ -726,12 +732,12 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_interpolated(
+        parse_interpolated(
             "Code block text: `{}`",
-            &[StyledText::from_plain_text("*bold*".into())]
+            &[&[paragraph_from_plain_text("*bold*".into())]]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [StyledTextParagraph {
             text: "Code block text: *bold*".into(),
             formatting: alloc::vec![FormattedSpan { range: 17..23, style: Style::Code }],
@@ -739,15 +745,15 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_interpolated(
+        parse_interpolated(
             "**{}** {}",
             &[
-                StyledText::from_plain_text("Hello".into()),
-                StyledText::parse_interpolated::<StyledText>("*World*", &[]).unwrap()
+                alloc::vec![paragraph_from_plain_text("Hello".into())],
+                parse_interpolated::<&[_]>("*World*", &[]).collect::<Result<_, _>>().unwrap()
             ]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [StyledTextParagraph {
             text: "Hello World".into(),
             formatting: alloc::vec![
@@ -758,12 +764,14 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        StyledText::parse_interpolated(
+        parse_interpolated(
             "<u>{}</u>",
-            &[StyledText::parse_interpolated::<StyledText>("*underline_and_italic*", &[]).unwrap()]
+            &[parse_interpolated::<&[_]>("*underline_and_italic*", &[])
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()]
         )
-        .unwrap()
-        .paragraphs,
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [StyledTextParagraph {
             text: "underline_and_italic".into(),
             formatting: alloc::vec![

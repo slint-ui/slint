@@ -785,14 +785,15 @@ impl Expression {
             })
             .collect();
 
-        let dummy_value =
-            i_slint_common::styled_text::StyledText::from_plain_text("dummy value".into());
+        let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
 
         // Validate the markdown format string with dummy values
-        if let Err(e) = i_slint_common::styled_text::StyledText::parse_interpolated(
+        if let Err(e) = i_slint_common::styled_text::parse_interpolated(
             &string,
-            &vec![&dummy_value; values.len()],
-        ) {
+            &vec![&[dummy_paragraph]; values.len()],
+        )
+        .collect::<Result<Vec<_>, _>>()
+        {
             ctx.diag.push_error(e.to_string(), &node);
         }
 
