@@ -928,7 +928,7 @@ impl Item for TextInput {
                     return KeyEventResult::EventAccepted;
                 }
 
-                match event.key_event.text_shortcut() {
+                match event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
                             TextInput::move_cursor(
@@ -1013,7 +1013,7 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
 
-                if let Some(shortcut) = event.key_event.shortcut() {
+                if let Some(shortcut) = event.shortcut() {
                     match shortcut {
                         StandardShortcut::SelectAll => {
                             self.select_all(window_adapter, self_rc);
