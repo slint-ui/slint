@@ -9984,6 +9984,8 @@ version = "1.16.0"
 dependencies = [
  "i-slint-backend-selector",
  "i-slint-core",
+ "slint-interpreter",
+ "spin_on",
  "unicode-segmentation",
 ]
 

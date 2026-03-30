@@ -361,4 +361,217 @@ bool slint_string_to_float(const SlintSharedStringOpaque *string, float *value);
 /// Returns the number of grapheme clusters in a SharedString.
 uintptr_t slint_string_character_count(const SlintSharedStringOpaque *string);
 
+// ---------------------------------------------------------------------------
+// Interpreter types
+// These declarations are only used when the `interpreter` Rust feature is enabled.
+// ---------------------------------------------------------------------------
+
+/// Discriminant for SlintValue (matches ValueType in Rust, repr(i8)).
+typedef enum {
+    SLINT_VALUE_TYPE_VOID = 0,
+    SLINT_VALUE_TYPE_NUMBER = 1,
+    SLINT_VALUE_TYPE_STRING = 2,
+    SLINT_VALUE_TYPE_BOOL = 3,
+    SLINT_VALUE_TYPE_MODEL = 4,
+    SLINT_VALUE_TYPE_STRUCT = 5,
+    SLINT_VALUE_TYPE_BRUSH = 6,
+    SLINT_VALUE_TYPE_IMAGE = 7,
+    SLINT_VALUE_TYPE_OTHER = -1,
+} SlintValueType;
+
+/// Diagnostic severity level.
+typedef enum {
+    SLINT_DIAGNOSTIC_LEVEL_ERROR = 0,
+    SLINT_DIAGNOSTIC_LEVEL_WARNING = 1,
+    SLINT_DIAGNOSTIC_LEVEL_NOTE = 2,
+} SlintDiagnosticLevel;
+
+/// Opaque heap-allocated Value. Created by `slint_swift_value_*` functions.
+/// Freed by `slint_swift_value_drop`.
+typedef struct SlintValueOpaque SlintValueOpaque;
+
+/// Opaque heap-allocated Struct. Created by `slint_swift_struct_new`.
+/// Freed by `slint_swift_struct_drop`.
+typedef struct SlintInterpreterStructOpaque SlintInterpreterStructOpaque;
+
+/// Opaque heap-allocated ComponentCompiler.
+typedef struct SlintCompilerOpaque SlintCompilerOpaque;
+
+/// Opaque heap-allocated ComponentDefinition.
+typedef struct SlintComponentDefinitionOpaque SlintComponentDefinitionOpaque;
+
+/// Opaque heap-allocated ComponentInstance.
+typedef struct SlintComponentInstanceOpaque SlintComponentInstanceOpaque;
+
+// ---------------------------------------------------------------------------
+// Interpreter — Value functions (slint_swift_value_*)
+// ---------------------------------------------------------------------------
+
+/// Creates a void Value on the heap.
+SlintValueOpaque *slint_swift_value_new_void(void);
+
+/// Creates a number Value on the heap.
+SlintValueOpaque *slint_swift_value_new_double(double d);
+
+/// Creates a bool Value on the heap.
+SlintValueOpaque *slint_swift_value_new_bool(bool b);
+
+/// Creates a string Value on the heap from UTF-8 bytes.
+SlintValueOpaque *slint_swift_value_new_string(const char *bytes, uintptr_t len);
+
+/// Creates a Value wrapping a clone of `stru` on the heap.
+SlintValueOpaque *slint_swift_value_new_struct(const SlintInterpreterStructOpaque *stru);
+
+/// Clones a Value on the heap.
+SlintValueOpaque *slint_swift_value_clone(const SlintValueOpaque *val);
+
+/// Frees a heap-allocated Value.
+void slint_swift_value_drop(SlintValueOpaque *val);
+
+/// Returns the type discriminant of a Value.
+SlintValueType slint_swift_value_type(const SlintValueOpaque *val);
+
+/// Copies the number out of a Value. Returns true on success.
+bool slint_swift_value_to_double(const SlintValueOpaque *val, double *out);
+
+/// Copies the bool out of a Value. Returns true on success.
+bool slint_swift_value_to_bool(const SlintValueOpaque *val, bool *out);
+
+/// Writes the UTF-8 string data pointer and byte length. Returns true on success.
+bool slint_swift_value_to_string(const SlintValueOpaque *val, const char **out_ptr,
+                                 uintptr_t *out_len);
+
+/// Returns a heap-allocated clone of the Struct inside a Value, or NULL if not a struct.
+/// The caller must free it with `slint_swift_struct_drop`.
+SlintInterpreterStructOpaque *slint_swift_value_to_struct(const SlintValueOpaque *val);
+
+// ---------------------------------------------------------------------------
+// Interpreter — Struct functions (slint_swift_struct_*)
+// ---------------------------------------------------------------------------
+
+/// Creates a heap-allocated default Struct.
+SlintInterpreterStructOpaque *slint_swift_struct_new(void);
+
+/// Clones a heap-allocated Struct.
+SlintInterpreterStructOpaque *slint_swift_struct_clone(const SlintInterpreterStructOpaque *stru);
+
+/// Frees a heap-allocated Struct.
+void slint_swift_struct_drop(SlintInterpreterStructOpaque *stru);
+
+/// Returns a heap-allocated clone of the named field, or NULL if absent.
+SlintValueOpaque *slint_swift_struct_get_field(const SlintInterpreterStructOpaque *stru,
+                                               const char *name, uintptr_t name_len);
+
+/// Sets the named field on `stru` to a clone of `value`.
+void slint_swift_struct_set_field(SlintInterpreterStructOpaque *stru, const char *name,
+                                  uintptr_t name_len, const SlintValueOpaque *value);
+
+/// Returns the number of fields in the struct.
+uintptr_t slint_swift_struct_field_count(const SlintInterpreterStructOpaque *stru);
+
+/// Writes the name of field at `index` into `out_ptr`/`out_len`.
+/// Returns true if `index` is valid.
+bool slint_swift_struct_field_name_at(const SlintInterpreterStructOpaque *stru, uintptr_t index,
+                                      const char **out_ptr, uintptr_t *out_len);
+
+// ---------------------------------------------------------------------------
+// Interpreter — ComponentCompiler functions (slint_swift_compiler_*)
+// ---------------------------------------------------------------------------
+
+/// Creates a heap-allocated ComponentCompiler. The caller must call `slint_swift_compiler_drop`.
+SlintCompilerOpaque *slint_swift_compiler_new(void);
+
+/// Frees a heap-allocated ComponentCompiler.
+void slint_swift_compiler_drop(SlintCompilerOpaque *compiler);
+
+/// Sets the style name for the compiler.
+void slint_swift_compiler_set_style(SlintCompilerOpaque *compiler, const char *style,
+                                    uintptr_t style_len);
+
+/// Compiles `.slint` source code. Returns a heap-allocated ComponentDefinition on success,
+/// or NULL on failure. The caller must call `slint_swift_definition_drop` to free it.
+SlintComponentDefinitionOpaque *slint_swift_compiler_build_from_source(SlintCompilerOpaque *compiler,
+                                                                        const char *source,
+                                                                        uintptr_t source_len,
+                                                                        const char *path,
+                                                                        uintptr_t path_len);
+
+/// Returns the number of diagnostics from the last compilation.
+uintptr_t slint_swift_compiler_diagnostics_count(const SlintCompilerOpaque *compiler);
+
+/// Returns true if any diagnostic has error level.
+bool slint_swift_compiler_has_errors(const SlintCompilerOpaque *compiler);
+
+/// Reads diagnostic fields at `index`. Returns true if `index` is valid.
+bool slint_swift_compiler_get_diagnostic(const SlintCompilerOpaque *compiler, uintptr_t index,
+                                         const char **message_ptr, uintptr_t *message_len,
+                                         const char **file_ptr, uintptr_t *file_len,
+                                         uintptr_t *line, uintptr_t *column,
+                                         SlintDiagnosticLevel *level);
+
+// ---------------------------------------------------------------------------
+// Interpreter — ComponentDefinition functions (slint_swift_definition_*)
+// ---------------------------------------------------------------------------
+
+/// Clones a heap-allocated ComponentDefinition.
+SlintComponentDefinitionOpaque *slint_swift_definition_clone(
+    const SlintComponentDefinitionOpaque *def);
+
+/// Frees a heap-allocated ComponentDefinition.
+void slint_swift_definition_drop(SlintComponentDefinitionOpaque *def);
+
+/// Returns the component name as a newly created SharedString.
+/// The caller must call `slint_shared_string_drop` on `name_out`.
+void slint_swift_definition_name(const SlintComponentDefinitionOpaque *def,
+                                 SlintSharedStringOpaque *name_out);
+
+/// Returns the number of public properties.
+uintptr_t slint_swift_definition_properties_count(const SlintComponentDefinitionOpaque *def);
+
+/// Writes the name and type of property at `index`. Returns true if `index` is valid.
+/// The caller must call `slint_shared_string_drop` on `name_out` on success.
+bool slint_swift_definition_property_at(const SlintComponentDefinitionOpaque *def, uintptr_t index,
+                                        SlintSharedStringOpaque *name_out,
+                                        SlintValueType *type_out);
+
+/// Returns the number of public callbacks.
+uintptr_t slint_swift_definition_callbacks_count(const SlintComponentDefinitionOpaque *def);
+
+/// Writes the name of callback at `index` as a SharedString into `name_out`.
+/// Returns true if `index` is valid.
+/// The caller must call `slint_shared_string_drop` on `name_out` on success.
+bool slint_swift_definition_callback_at(const SlintComponentDefinitionOpaque *def, uintptr_t index,
+                                        SlintSharedStringOpaque *name_out);
+
+/// Creates a heap-allocated ComponentInstance from this definition.
+/// Returns NULL if creation fails. The caller must call `slint_swift_instance_drop`.
+SlintComponentInstanceOpaque *slint_swift_definition_create_instance(
+    const SlintComponentDefinitionOpaque *def);
+
+// ---------------------------------------------------------------------------
+// Interpreter — ComponentInstance functions (slint_swift_instance_*)
+// ---------------------------------------------------------------------------
+
+/// Frees a heap-allocated ComponentInstance.
+void slint_swift_instance_drop(SlintComponentInstanceOpaque *inst);
+
+/// Shows or hides the component window.
+void slint_swift_instance_show(const SlintComponentInstanceOpaque *inst, bool visible);
+
+/// Returns a heap-allocated Value for the named property, or NULL on failure.
+SlintValueOpaque *slint_swift_instance_get_property(const SlintComponentInstanceOpaque *inst,
+                                                    const char *name, uintptr_t name_len);
+
+/// Sets the named property. Returns true on success.
+bool slint_swift_instance_set_property(const SlintComponentInstanceOpaque *inst, const char *name,
+                                       uintptr_t name_len, const SlintValueOpaque *value);
+
+/// Invokes a callback or function with the given argument array.
+/// `args` is an array of `SlintValueOpaque*` pointers of length `args_count`.
+/// Returns a heap-allocated Value on success, NULL on failure.
+SlintValueOpaque *slint_swift_instance_invoke(const SlintComponentInstanceOpaque *inst,
+                                              const char *name, uintptr_t name_len,
+                                              const SlintValueOpaque *const *args,
+                                              uintptr_t args_count);
+
 #endif // SLINT_CORE_H

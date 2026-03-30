@@ -1556,3 +1556,97 @@ cargo build --lib -p slint-swift
 # Run all Swift tests (83 tests across 7 suites)
 cd api/swift && swift test
 ```
+
+### Phase 3: Interpreter
+
+Phase 3 adds runtime interpretation of `.slint` source code, exposing
+`SlintCompiler`, `SlintComponentDefinition`, `SlintComponentInstance`,
+`SlintValue`, and `SlintStruct` in a new `SlintInterpreter` Swift module.
+
+#### File Structure (additions to Phase 2)
+
+```
+api/swift/
+├── Cargo.toml                          # added: `interpreter` feature + slint-interpreter dep
+├── lib.rs                              # added: re-export slint_interpreter + wrapper functions
+├── Sources/
+│   ├── SlintCBridge/include/SlintCore.h  # added: interpreter declarations
+│   └── SlintInterpreter/
+│       ├── SlintValue.swift            # SlintValue — dynamic value type
+│       ├── SlintStruct.swift           # SlintStruct — named field map
+│       └── SlintInterpreter.swift      # SlintCompiler, SlintComponentDefinition,
+│                                       #   SlintComponentInstance
+└── Tests/SlintTests/
+    └── SlintInterpreterTests.swift     # 30+ interpreter tests
+```
+
+#### Rust Wrapper Functions (`slint_swift_*` prefix)
+
+The interpreter's `internal/interpreter/ffi.rs` uses Rust-specific types:
+`Slice<u8>` for string parameters, `Box<Value>` returned as raw pointers,
+and `ComponentInstance` requiring VRc dereferencing to reach `ErasedItemTreeBox`.
+Since most of those types are `pub(crate)`, they cannot be called directly
+from `api/swift/lib.rs`.
+
+Instead, `lib.rs` adds a `#[cfg(feature = "slint-interpreter")] mod interpreter_swift`
+that exposes a `slint_swift_*`-prefixed C API using only the public Rust APIs:
+`slint_interpreter::Value`, `slint_interpreter::Struct`,
+`slint_interpreter::ComponentDefinition`, and `slint_interpreter::ComponentInstance`.
+
+Key patterns:
+
+| Challenge | Solution |
+|---|---|
+| `Slice<u8>` params | Wrappers take `*const c_char, usize`; construct `Slice` internally |
+| `StructOpaque` (pub(crate)) | Use `Box<slint_interpreter::Struct>` directly |
+| `ComponentDefinitionOpaque` (pub(crate)) | Use `Box<ComponentDefinition>` directly |
+| `ComponentInstance` VRc dereferencing | Call public `ComponentInstance::get_property` etc. |
+| Async compiler API | `spin_on::spin_on(compiler.build_from_source(...))` |
+
+All heap-allocated objects follow the same **box pattern** established in Phase 1
+for `SlintImage`: `slint_swift_foo_new()` returns `*mut T`, the caller frees with
+`slint_swift_foo_drop(*mut T)`.
+
+#### Memory Model for Interpreter Types
+
+| Swift type | Rust backing | Lifetime |
+|---|---|---|
+| `SlintValue` | `Box<Value>` | `deinit` calls `slint_swift_value_drop` |
+| `SlintStruct` | `Box<Struct>` | `deinit` calls `slint_swift_struct_drop` |
+| `SlintCompiler` | `Box<SwiftCompiler>` | `deinit` calls `slint_swift_compiler_drop` |
+| `SlintComponentDefinition` | `Box<ComponentDefinition>` | `deinit` calls `slint_swift_definition_drop` |
+| `SlintComponentInstance` | `Box<ComponentInstance>` | `deinit` calls `slint_swift_instance_drop` |
+
+`SlintComponentInstance` is `@MainActor` because the Slint runtime's component
+instances are not thread-safe — all property accesses and callbacks must run on
+the main thread.
+
+#### Compiler Diagnostics Lifetime
+
+`slint_swift_compiler_get_diagnostic` returns raw string pointers that borrow
+from `SwiftCompiler`'s `diagnostics: Vec<Diagnostic>`. These pointers are valid
+only as long as:
+1. The compiler object is not dropped.
+2. No new compilation (`build_from_source` / `build_from_path`) is triggered.
+
+The Swift `SlintCompiler.diagnostics` computed property copies all diagnostics
+into `SlintDiagnostic` value types (Swift structs) immediately, so the caller
+never holds a dangling pointer.
+
+#### `invoke` — C Array of Value Pointers
+
+The `slint_swift_instance_invoke` C function accepts `args: *const *const Value`.
+Swift bridges this with a `withUnsafeMutableBufferPointer` call over an array of
+`UnsafeMutableRawPointer?` values, each pointing to a `SlintValue`'s underlying
+Rust `Value`. The count is passed separately; a zero-element call passes a null
+pointer safely because the Rust side reads `args[0..args_count]`.
+
+#### Build Verification
+
+```sh
+# Build Rust static library with interpreter support
+cargo build --lib -p slint-swift --features interpreter
+
+# Run all Swift tests (includes interpreter tests)
+cd api/swift && swift test
+```

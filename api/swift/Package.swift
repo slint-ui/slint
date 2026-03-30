@@ -10,10 +10,11 @@ let package = Package(
     platforms: [.macOS(.v13), .iOS(.v16)],
     products: [
         .library(name: "Slint", targets: ["Slint"]),
+        .library(name: "SlintInterpreter", targets: ["SlintInterpreter"]),
     ],
     targets: [
         // C bridging header (declares Rust extern "C" symbols) + links the Rust static library.
-        // Build the Rust lib first: `cargo build --lib -p slint-swift` (or --release)
+        // Build the Rust lib first: `cargo build --lib -p slint-swift --features interpreter`
         .target(
             name: "SlintCBridge",
             path: "Sources/SlintCBridge",
@@ -41,10 +42,17 @@ let package = Package(
             path: "Sources/Slint"
         ),
 
+        // Interpreter Swift API (requires `interpreter` feature in the Rust build)
+        .target(
+            name: "SlintInterpreter",
+            dependencies: ["Slint"],
+            path: "Sources/SlintInterpreter"
+        ),
+
         // Unit tests
         .testTarget(
             name: "SlintTests",
-            dependencies: ["Slint"],
+            dependencies: ["Slint", "SlintInterpreter"],
             path: "Tests/SlintTests"
         ),
     ]
