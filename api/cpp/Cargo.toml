@@ -59,7 +59,7 @@ std = [
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
 
-default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
+default = ["std", "backend-winit", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true, optional = true }
