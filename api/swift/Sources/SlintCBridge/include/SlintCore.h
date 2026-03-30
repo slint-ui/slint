@@ -490,11 +490,9 @@ void slint_swift_compiler_set_style(SlintCompilerOpaque *compiler, const char *s
 
 /// Compiles `.slint` source code. Returns a heap-allocated ComponentDefinition on success,
 /// or NULL on failure. The caller must call `slint_swift_definition_drop` to free it.
-SlintComponentDefinitionOpaque *slint_swift_compiler_build_from_source(SlintCompilerOpaque *compiler,
-                                                                        const char *source,
-                                                                        uintptr_t source_len,
-                                                                        const char *path,
-                                                                        uintptr_t path_len);
+SlintComponentDefinitionOpaque *
+slint_swift_compiler_build_from_source(SlintCompilerOpaque *compiler, const char *source,
+                                       uintptr_t source_len, const char *path, uintptr_t path_len);
 
 /// Returns the number of diagnostics from the last compilation.
 uintptr_t slint_swift_compiler_diagnostics_count(const SlintCompilerOpaque *compiler);
@@ -514,8 +512,8 @@ bool slint_swift_compiler_get_diagnostic(const SlintCompilerOpaque *compiler, ui
 // ---------------------------------------------------------------------------
 
 /// Clones a heap-allocated ComponentDefinition.
-SlintComponentDefinitionOpaque *slint_swift_definition_clone(
-    const SlintComponentDefinitionOpaque *def);
+SlintComponentDefinitionOpaque *
+slint_swift_definition_clone(const SlintComponentDefinitionOpaque *def);
 
 /// Frees a heap-allocated ComponentDefinition.
 void slint_swift_definition_drop(SlintComponentDefinitionOpaque *def);
@@ -545,8 +543,8 @@ bool slint_swift_definition_callback_at(const SlintComponentDefinitionOpaque *de
 
 /// Creates a heap-allocated ComponentInstance from this definition.
 /// Returns NULL if creation fails. The caller must call `slint_swift_instance_drop`.
-SlintComponentInstanceOpaque *slint_swift_definition_create_instance(
-    const SlintComponentDefinitionOpaque *def);
+SlintComponentInstanceOpaque *
+slint_swift_definition_create_instance(const SlintComponentDefinitionOpaque *def);
 
 // ---------------------------------------------------------------------------
 // Interpreter — ComponentInstance functions (slint_swift_instance_*)
