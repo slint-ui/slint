@@ -140,12 +140,12 @@ export interface ComponentHandle {
     /**
      * Shows the component's window on the screen.
      */
-    show();
+    show(): void;
 
     /**
      * Hides the component's window, so that it is not visible anymore.
      */
-    hide();
+    hide(): void;
 
     /**
      * Returns the {@link Window} associated with this component instance.
@@ -158,6 +158,7 @@ export interface ComponentHandle {
  * @hidden
  */
 class Component implements ComponentHandle {
+    [key: string]: unknown;
     #instance: napi.ComponentInstance;
 
     /**
@@ -184,11 +185,11 @@ class Component implements ComponentHandle {
         this.hide();
     }
 
-    show() {
+    show(): void {
         this.#instance.window().show();
     }
 
-    hide() {
+    hide(): void {
         this.#instance.window().hide();
     }
 }
@@ -476,7 +477,7 @@ function loadSlint(loadData: LoadData): Object {
                         instance!
                             .definition()
                             .globalProperties(globalName)
-                            .forEach((prop) => {
+                            ?.forEach((prop) => {
                                 const propName = translateName(prop.name);
 
                                 if (globalObject[propName] !== undefined) {
@@ -513,7 +514,7 @@ function loadSlint(loadData: LoadData): Object {
                         instance!
                             .definition()
                             .globalCallbacks(globalName)
-                            .forEach((cb) => {
+                            ?.forEach((cb) => {
                                 const callbackName = translateName(cb);
 
                                 if (globalObject[callbackName] !== undefined) {
@@ -553,7 +554,7 @@ function loadSlint(loadData: LoadData): Object {
                         instance!
                             .definition()
                             .globalFunctions(globalName)
-                            .forEach((cb) => {
+                            ?.forEach((cb) => {
                                 const functionName = translateName(cb);
 
                                 if (globalObject[functionName] !== undefined) {
@@ -685,7 +686,7 @@ export function loadSource(
 class EventLoop {
     #quit_loop: boolean = false;
     #terminationPromise: Promise<unknown> | null = null;
-    #terminateResolveFn: ((_value: unknown) => void) | null;
+    #terminateResolveFn: ((_value: unknown) => void) | null = null;
 
     start(
         running_callback?: Function,
@@ -703,8 +704,9 @@ class EventLoop {
         napi.setQuitOnLastWindowClosed(quitOnLastWindowClosed);
 
         if (running_callback !== undefined) {
+            const cb = running_callback;
             napi.invokeFromEventLoop(() => {
-                running_callback();
+                cb();
                 running_callback = undefined;
             });
         }
