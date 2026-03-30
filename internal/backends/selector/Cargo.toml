@@ -25,6 +25,8 @@ backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
+system-tray = ["i-slint-backend-winit/system-tray"]
+
 renderer-femtovg = [
   "dep:i-slint-renderer-femtovg",
   "i-slint-backend-winit?/renderer-femtovg",

@@ -132,6 +132,15 @@ pub fn create_window_adapter()
     i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
 }
 
+#[cfg(feature = "system-tray")]
+pub fn create_system_tray(
+    params: i_slint_core::system_tray::Params,
+) -> Result<i_slint_core::system_tray::SystemTray, crate::PlatformError> {
+    i_slint_backend_selector::with_platform(|b| {
+        b.create_system_tray(params).ok_or_else(|| "System tray not supported".into())
+    })
+}
+
 /// Wrapper around i_slint_core::translations::translate for the generated code
 pub fn translate(
     origin: SharedString,
@@ -178,6 +187,7 @@ pub mod re_exports {
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
+    pub use i_slint_core::system_tray;
     pub use i_slint_core::input::{
         FocusEvent, FocusReason, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
         Keys, MouseEvent, key_codes::Key, make_keys,

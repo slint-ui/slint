@@ -61,6 +61,7 @@ unstable-wgpu-28 = [
   "i-slint-renderer-femtovg?/unstable-wgpu-28",
   "i-slint-renderer-skia?/unstable-wgpu-28",
 ]
+system-tray = ["i-slint-core/system-tray"]
 default = []
 
 [dependencies]

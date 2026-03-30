@@ -226,6 +226,8 @@ pub use i_slint_core::model::{
 };
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
+#[cfg(feature = "system-tray")]
+pub use i_slint_core::system_tray;
 
 pub mod private_unstable_api;
 

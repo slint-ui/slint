@@ -161,6 +161,8 @@ renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-re
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate and [WGPU](https://crates.io/crates/wgpu).
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-slint-renderer-femtovg/wgpu", "std"]
 
+system-tray = ["i-slint-core/system-tray", "i-slint-core/system-tray-ksni", "i-slint-backend-selector/system-tray"]
+
 ## Render using [Skia](https://skia.org/).
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 
