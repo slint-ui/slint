@@ -994,11 +994,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         match &mut brush {
             GlyphBrush::Fill(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.fill_glyph_run(font_id, glyphs_it, paint).unwrap();
+                canvas.fill_glyph_run(font_id, &[], glyphs_it, paint).unwrap();
             }
             GlyphBrush::Stroke(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.stroke_glyph_run(font_id, glyphs_it, paint).unwrap();
+                canvas.stroke_glyph_run(font_id, &[], glyphs_it, paint).unwrap();
             }
         }
     }
