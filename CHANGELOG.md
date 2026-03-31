@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
  - Skia: Enabled subpixel glyph positioning to fix uneven text spacing. (#10752)
  - Winit: Batch mouse move events to prevent too many move event to delay rendering. (#9038)
  - Wasm: Enabled clipboard interaction by default.
+ - LinuxKMS: Add support for WGPU based rendering with Skia and FemtoVG.
 
 ### Slint
 
