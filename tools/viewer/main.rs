@@ -64,7 +64,7 @@ struct Cli {
     #[arg(name = "path", action)]
     path: std::path::PathBuf,
 
-    /// The style name ('native' or 'fluent')
+    /// The style name. Defaults to 'fluent' if not specified
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
 

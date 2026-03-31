@@ -70,7 +70,7 @@ pub struct Cli {
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Vec<String>,
 
-    /// The style name for the preview ('native' or 'fluent')
+    /// The style name for the preview. Defaults to 'fluent' if not specified
     #[arg(long, name = "style name", default_value_t, action)]
     style: String,
 
@@ -341,7 +341,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
 
     let to_preview_clone = to_preview.clone();
     let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style }),
+        style: Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style }),
         include_paths: cli_args.include_paths,
         library_paths: cli_args
             .library_paths
