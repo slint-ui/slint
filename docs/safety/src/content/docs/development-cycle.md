@@ -11,7 +11,7 @@ To ensure that software tools used in the development of Slint SC do not introdu
 
 ### Language and Compiler
 
-Slint SC is written in Rust and requires `rustc` + `cargo` version 1.88 or newer to build. We use Ferrocene (Version?) to build Slint SC.
+Slint SC is written in Rust and requires Ferrocene version 26.02.0.
 
 * **Tool Impact (TI2):** The compiler can introduce errors into the executable.
 * **Tool Error Detection (TD2/TD3):** While Rust's strong type system and borrow checker catch many errors, compiler bugs might still bypass detection.
@@ -21,15 +21,15 @@ Slint SC is written in Rust and requires `rustc` + `cargo` version 1.88 or newer
 ## CI System and Infrastructure
 
 Continuous Integration (CI) is driven by GitHub Actions. CI triggers automated testing for any Pull Request (PR) or direct push to the `master` branch.
-* **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block the PR.
+* **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
 * **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
 
 ## Configuration Management (ISO 26262-8 Clause 7)
 
 Slint SC utilizes a structured configuration management process to ensure artifacts are reproducible and traceable.
 
-* **Version Control:** Slint is hosted as an open-source project on GitHub (<https://github.com/slint-ui/slint>).
-* **Baselining:** Releases should be tagged using Semantic Versioning (SemVer). A safety-related release baseline could consist  of the specific git commit hash, the pinned compiler version, and the exact state of all verification artifacts at that point in time.
+* **Version Control:** Slint is hosted on GitHub (<https://github.com/slint-ui/slint>).
+* **Baselining:** Releases should be tagged using Semantic Versioning (SemVer). A safety-related release baseline could consist of the specific git commit hash.
 * **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
 
 ## Change Management (ISO 26262-8 Clause 8)
