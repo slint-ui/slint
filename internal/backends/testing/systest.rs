@@ -29,6 +29,7 @@ impl super::Sealed for RootWrapper<'_> {}
 #[allow(non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/proto.rs"));
+    include!(concat!(env!("OUT_DIR"), "/proto.serde.rs"));
 }
 
 struct TestedWindow {
