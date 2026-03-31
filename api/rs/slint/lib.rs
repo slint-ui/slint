@@ -241,14 +241,35 @@ pub fn parse_markdown(markdown: &str) -> Result<StyledText, StyledTextError<'sta
     StyledText::parse(markdown)
 }
 
-/// Parses markdown into [`StyledText`] and substitutes `{}` or `{n}` placeholders with existing
-/// styled text arguments.
+/// Parses markdown into [`StyledText`] and substitutes `{}` placeholders with existing styled
+/// text arguments.
 #[cfg(feature = "std")]
 pub fn parse_markdown_with_arguments(
     format_string: &str,
     arguments: &[StyledText],
 ) -> Result<StyledText, StyledTextError<'static>> {
-    StyledText::parse_interpolated(format_string, arguments)
+    let mut rewritten = String::with_capacity(format_string.len());
+    let mut chars = format_string.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '{' if chars.peek() == Some(&'{') => {
+                chars.next();
+                rewritten.push('{');
+            }
+            '}' if chars.peek() == Some(&'}') => {
+                chars.next();
+                rewritten.push('}');
+            }
+            '{' if chars.peek() == Some(&'}') => {
+                chars.next();
+                rewritten.push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
+            }
+            ch => rewritten.push(ch),
+        }
+    }
+
+    StyledText::parse_interpolated(&rewritten, arguments)
 }
 
 /// Converts plain text into [`StyledText`] without applying markdown parsing.
