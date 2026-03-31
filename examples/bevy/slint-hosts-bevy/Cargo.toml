@@ -22,3 +22,6 @@ bevy_image = { version = "0.18.0", features = ["zstd_rust"] }
 smol = { version = "2.0.0" }
 async-compat = { version = "0.2.4" }
 reqwest = { version = "0.12", features = ["stream"] }
+
+[features]
+backend-linuxkms = ["slint/backend-linuxkms-noseat", "slint/renderer-skia-vulkan"]

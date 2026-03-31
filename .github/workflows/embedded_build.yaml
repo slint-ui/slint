@@ -71,7 +71,12 @@ jobs:
               with:
                   crate: cross
             - name: Build
-              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation
+              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia,slint/renderer-skia-vulkan,slint/unstable-wgpu-28 -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation -p wgpu_texture
+            - name: Build Bevy Demo
+              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features backend-linuxkms -p slint-hosts-bevy
+              working-directory: examples/bevy
+              env:
+                  SLINT_ROOT: ${{ github.workspace }}
             - name: "Upload demo artifacts"
               uses: actions/upload-artifact@v7
               with:
@@ -83,3 +88,5 @@ jobs:
                       target/${{ matrix.target }}/release/viewer
                       target/${{ matrix.target }}/release/energy-monitor
                       target/${{ matrix.target }}/release/home-automation
+                      target/${{ matrix.target }}/release/wgpu_texture
+                      examples/bevy/target/${{ matrix.target }}/release/bevy_example
