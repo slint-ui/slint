@@ -24,15 +24,16 @@ export component PageButton inherits Rectangle {
     Rectangle {
         t := Text {
             font-size: default-font-size;
-            font-weight: selected ? 400 : 100;
+            font-weight: 400;
             font-family: AppState.default-font-family;
             color: black;
+            opacity: selected ? 100% : 70%;
             Text {
                 x: -1px;
                 y: -1px;
                 text: t.text;
                 font-size: default-font-size;
-                font-weight: selected ? 400 : 100;
+                font-weight: 400;
                 font-family: AppState.default-font-family;
                 color: #ffffff;
             }
