@@ -44,15 +44,17 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
 
     const NUM_MOVEMENTS: u64 = 2;
     const DURATION_MS: u64 = 50;
+    const TIME_TO_RELEASE_MS: u64 = 2; // Below threshold
     let diff_x = (released_position.x - pressed_position.x) / NUM_MOVEMENTS as f32;
     let diff_y = (released_position.y - pressed_position.y) / NUM_MOVEMENTS as f32;
 
     window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
     window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
     for i in 0..NUM_MOVEMENTS {
-        window.dispatch_event(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(pressed_position.x + i as f32 * diff_x, pressed_position.y + i as f32 * diff_y) });
         slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(pressed_position.x + i as f32 * diff_x, pressed_position.y + i as f32 * diff_y) });
     }
+        slint_testing::mock_elapsed_time(TIME_TO_RELEASE_MS);
     window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
 }
 

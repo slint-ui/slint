@@ -257,6 +257,7 @@ if !cfg!(target_os = "macos") {
 ```rust
 // Test3
 // Test flicked-Callback behaviour
+// The pointer will be released after a short time after the last move event, so we start the animation
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_flicked(), 0);
@@ -273,13 +274,41 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 slint_testing::mock_elapsed_time(300);
 assert_eq!(instance.get_flicked(), 0); //flicked didn't get called by just pressing
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) }); // At least two moves are required to determine the velocity
-slint_testing::mock_elapsed_time(10000);
+slint_testing::mock_elapsed_time(2); // Below the threshold
 assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
 instance.set_flicked(0);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 120.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_flicked(), -10500105); //flicked got called after drag
 instance.set_flicked(0);
 
+```
+
+```rust
+// Test4
+// Test flicked-Callback behaviour
+// The pointer will be released long after the last move event, so we don't start the animation
+use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_flicked(), 0);
+
+// test scrolling behaviour
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
+dbg!(instance.get_flicked());
+assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
+instance.set_flicked(0);
+
+// test dragging bevaviour
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
+slint_testing::mock_elapsed_time(300);
+assert_eq!(instance.get_flicked(), 0); //flicked didn't get called by just pressing
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) }); // At least two moves are required to determine the velocity
+slint_testing::mock_elapsed_time(10000); // Long time
+assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
+instance.set_flicked(0);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 120.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_flicked(), 0); // We didn't execute the animation
+instance.set_flicked(0);
 ```
 
 ```rust

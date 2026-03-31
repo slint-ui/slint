@@ -45,6 +45,16 @@ impl<const N: usize> PositionTimeRingBuffer<N> {
         }
     }
 
+    /// Index of the most recent added value
+    fn latest_index(&self) -> usize {
+        if self.curr_index > 0 { self.curr_index - 1 } else { N - 1 }
+    }
+
+    /// Returns the last time value added to the buffer if not empty otherwise None
+    pub fn last_time(&self) -> Option<Instant> {
+        if !self.empty() { Some(self.values[self.latest_index()].0) } else { None }
+    }
+
     /// Returns the difference between the oldest and the newest point
     pub fn diff(&self) -> (Duration, Vector2D<Coord, LogicalPx>) {
         if self.full {
@@ -76,6 +86,7 @@ mod tests {
         assert!(buffer.empty());
         assert_eq!(buffer.curr_index, 0);
         assert!(!buffer.full);
+        assert_eq!(buffer.last_time(), None);
     }
 
     #[test]
@@ -89,6 +100,8 @@ mod tests {
         assert!(!buffer.empty());
         assert_eq!(buffer.curr_index, 1);
         assert!(!buffer.full);
+        assert_eq!(buffer.latest_index(), 0);
+        assert_eq!(buffer.last_time(), Some(time));
 
         assert_eq!(buffer.diff(), (Duration::from_millis(0), Vector2D::new(0., 0.)));
     }
@@ -105,6 +118,8 @@ mod tests {
         assert!(!buffer.empty());
         assert_eq!(buffer.curr_index, 2);
         assert!(!buffer.full);
+        assert_eq!(buffer.latest_index(), 1);
+        assert_eq!(buffer.last_time(), Some(time + Duration::from_millis(13)));
 
         assert_eq!(buffer.diff(), (Duration::from_millis(13), Vector2D::new(3., -25.)));
     }
@@ -114,7 +129,7 @@ mod tests {
         let mut buffer: PositionTimeRingBuffer<5> = PositionTimeRingBuffer::default();
         let base_time = Instant::now();
 
-        // Push 3 elements to fill the buffer
+        // Push elements to fill the buffer
         for i in 0..5 {
             let time = base_time + Duration::from_millis(i * 3 as u64);
             let point = LogicalPoint::new(i as f32, -2. * i as f32);
@@ -124,6 +139,8 @@ mod tests {
         assert!(!buffer.empty());
         assert_eq!(buffer.curr_index, 0);
         assert!(buffer.full);
+        assert_eq!(buffer.last_time(), Some(base_time + Duration::from_millis(4 * 3)));
+        assert_eq!(buffer.latest_index(), 4);
 
         assert_eq!(buffer.diff(), (Duration::from_millis(12), Vector2D::new(4., -8.)));
     }
@@ -144,6 +161,8 @@ mod tests {
         assert!(!buffer.empty());
         assert!(buffer.full);
         assert_eq!(buffer.curr_index, 2);
+        assert_eq!(buffer.latest_index(), 1);
+        assert_eq!(buffer.last_time(), Some(base_time + Duration::from_millis(6)));
 
         assert_eq!(buffer.diff(), (Duration::from_millis(4), Vector2D::new(4., 4. * 2.)));
     }
@@ -164,6 +183,8 @@ mod tests {
         assert!(!buffer.empty());
         assert!(buffer.full);
         assert_eq!(buffer.curr_index, 0);
+        assert_eq!(buffer.latest_index(), CAP - 1);
+        assert_eq!(buffer.last_time(), Some(base_time + Duration::from_millis(4)));
 
         // Wrapping back must be done
         assert_eq!(buffer.diff(), (Duration::from_millis(4), Vector2D::new(4. * 3., 4. * -2.)));
