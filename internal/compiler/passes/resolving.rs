@@ -761,35 +761,55 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|s| crate::literals::unescape_string(&s))
-        else {
-            ctx.diag.push_error("Cannot parse string literal".into(), &node);
-            return Expression::Invalid;
-        };
+        let mut markdown = String::new();
+        let mut values = Vec::new();
 
-        let values: Vec<Expression> = node
-            .Expression()
-            .map(|node| {
-                let expr = Expression::from_expression_node(node.clone(), ctx);
-                if expr.ty() == Type::StyledText {
-                    expr
+        for n in node.children_with_tokens() {
+            if n.kind() == SyntaxKind::StringLiteral {
+                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
+                    markdown.push_str(&s);
                 } else {
-                    Expression::FunctionCall {
-                        function: BuiltinFunction::StringToStyledText.into(),
-                        arguments: vec![expr.maybe_convert_to(Type::String, &node, ctx.diag)],
-                        source_location: Some(node.to_source_location()),
+                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
+                }
+            } else if n.kind() == SyntaxKind::StringTemplate {
+                for n in n.as_node().unwrap().children_with_tokens() {
+                    if n.kind() == SyntaxKind::StringLiteral {
+                        if let Some(s) =
+                            crate::literals::unescape_string(n.as_token().unwrap().text())
+                        {
+                            markdown.push_str(&s);
+                        } else {
+                            ctx.diag.push_error("Cannot parse string literal".into(), &n);
+                        }
+                    } else if n.kind() == SyntaxKind::Expression {
+                        let node = n.into_node().unwrap();
+                        let expr = Expression::from_expression_node(node.clone().into(), ctx);
+                        let expr = if expr.ty() == Type::StyledText {
+                            expr
+                        } else {
+                            Expression::FunctionCall {
+                                function: BuiltinFunction::StringToStyledText.into(),
+                                arguments: vec![expr.maybe_convert_to(
+                                    Type::String,
+                                    &node,
+                                    ctx.diag,
+                                )],
+                                source_location: Some(node.to_source_location()),
+                            }
+                        };
+                        values.push(expr);
+                        markdown
+                            .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
                     }
                 }
-            })
-            .collect();
+            }
+        }
 
         let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
 
         // Validate the markdown format string with dummy values
         if let Err(e) = i_slint_common::styled_text::parse_interpolated(
-            &string,
+            &markdown,
             &vec![&[dummy_paragraph]; values.len()],
         )
         .collect::<Result<Vec<_>, _>>()
@@ -800,7 +820,7 @@ impl Expression {
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(string),
+                Expression::StringLiteral(markdown.into()),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -1555,22 +1575,33 @@ impl Expression {
         node: syntax_nodes::StringTemplate,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let mut exprs = node.Expression().map(|e| {
-            Expression::from_expression_node(e.clone(), ctx).maybe_convert_to(
-                Type::String,
-                &e,
-                ctx.diag,
-            )
-        });
-        let mut result = exprs.next().unwrap_or_default();
-        for x in exprs {
-            result = Expression::BinaryExpression {
-                lhs: Box::new(std::mem::take(&mut result)),
-                rhs: Box::new(x),
-                op: '+',
+        let mut result = None;
+        for n in node.children_with_tokens() {
+            let expr = if n.kind() == SyntaxKind::StringLiteral {
+                let token = n.as_token().unwrap();
+                crate::literals::unescape_string(token.text())
+                    .map(Self::StringLiteral)
+                    .unwrap_or_else(|| {
+                        ctx.diag.push_error("Cannot parse string literal".into(), token);
+                        Self::Invalid
+                    })
+            } else if n.kind() == SyntaxKind::Expression {
+                let node = n.into_node().unwrap();
+                let expr = Expression::from_expression_node(node.clone().into(), ctx);
+                expr.maybe_convert_to(Type::String, &node, ctx.diag)
+            } else {
+                continue;
+            };
+            result = match result {
+                Some(result) => Some(Expression::BinaryExpression {
+                    lhs: Box::new(result),
+                    rhs: Box::new(expr),
+                    op: '+',
+                }),
+                None => Some(expr),
             }
         }
-        result
+        result.unwrap_or_default()
     }
 
     /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions

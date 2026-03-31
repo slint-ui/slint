@@ -12,10 +12,11 @@ The `StyledText` element renders text with various styling and interactive prope
 <CodeSnippetMD imagePath="/src/assets/generated/styled-text-example.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Styled Text Example'>
 ```slint
 export component Example inherits Window {
+    in property <string> value: 55;
     width: 200px;
     height: 200px;
     StyledText {
-      text: @markdown("This is a piece of <u>Styled Text</u>\nwith a red value inserted: <font color=\"red\">{}</font>", 55);
+      text: @markdown("This is a piece of <u>Styled Text</u>\nwith a red value inserted: <font color=\"red\">\{value}</font>");
     }
 }
 ```

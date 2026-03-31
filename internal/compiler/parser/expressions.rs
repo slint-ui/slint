@@ -339,17 +339,13 @@ fn parse_function_arguments(p: &mut impl Parser) {
 fn parse_template_string(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::StringTemplate);
     debug_assert!(p.nth(0).as_str().ends_with("\\{"));
-    {
-        let mut p = p.start_node(SyntaxKind::Expression);
-        p.expect(SyntaxKind::StringLiteral);
-    }
+    p.expect(SyntaxKind::StringLiteral);
     loop {
         parse_expression(&mut *p);
         let peek = p.peek();
         if peek.kind != SyntaxKind::StringLiteral || !peek.as_str().starts_with('}') {
             p.error("Error while parsing string template")
         }
-        let mut p = p.start_node(SyntaxKind::Expression);
         let cont = peek.as_str().ends_with('{');
         p.consume();
         if !cont {
@@ -446,10 +442,8 @@ fn parse_tr(p: &mut impl Parser) {
 
 /// ```test,AtTr
 /// @markdown("foo")
-/// @markdown("foo{}", bar(42))
-/// @markdown("foo{0}", bar(42))
-/// @markdown("foo{1}{0}", 555, bar(42))
-/// @markdown("foo{1}{0}{1}", 555, bar(42))
+/// @markdown("foo\{bar(42)} xx")
+/// @markdown("foo\n" "bar")
 /// ```
 fn parse_markdown(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtMarkdown);
@@ -458,28 +452,29 @@ fn parse_markdown(p: &mut impl Parser) {
     p.expect(SyntaxKind::Identifier); //eg "markdown"
     p.expect(SyntaxKind::LParent);
 
-    fn consume_literal(p: &mut impl Parser) -> bool {
+    let mut has_content = false;
+    loop {
         let peek = p.peek();
-        if peek.kind() != SyntaxKind::StringLiteral
-            || !peek.as_str().starts_with('"')
-            || !peek.as_str().ends_with('"')
-        {
-            p.error("Expected plain string literal");
-            return false;
+        if peek.kind() != SyntaxKind::StringLiteral {
+            break;
         }
-        p.expect(SyntaxKind::StringLiteral)
+        if peek.as_str().ends_with('{') {
+            parse_template_string(&mut *p)
+        } else {
+            p.consume()
+        }
+        has_content = true;
     }
 
-    if !consume_literal(&mut *p) {
+    if !has_content {
+        p.error("Expected string literal");
+        p.until(SyntaxKind::RParent);
         return;
     }
 
-    while p.test(SyntaxKind::Comma) {
-        if !parse_expression(&mut *p) {
-            break;
-        }
+    if !p.expect(SyntaxKind::RParent) {
+        p.until(SyntaxKind::RParent);
     }
-    p.expect(SyntaxKind::RParent);
 }
 
 #[cfg_attr(test, parser_test)]

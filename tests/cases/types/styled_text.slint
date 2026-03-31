@@ -4,21 +4,23 @@
 //ignore: pyi
 
 export component TestCase inherits Window {
+    property <string> world: "World";
     VerticalLayout {
         s1 := StyledText {
-            text: @markdown("Hello {}", "World");
+            text: @markdown("Hello \{world}");
         }
         s2 := StyledText {
-            text: @markdown("Hello {}", "*World*");
+            text: @markdown("Hello \{"*World*"}");
         }
         s3 := StyledText {
-            text: @markdown("Hello *{}*", "World");
+            text: @markdown("Hello"
+                            " *\{world}*");
         }
         s4 := StyledText {
-            text: @markdown("Hello {}", @markdown("*{}*", "World"));
+            text: @markdown("Hello \{@markdown("*\{world}*")}");
         }
         s5 := StyledText {
-            text: @markdown("*{}* {}", @markdown("**H{}**", "ello"), @markdown("*{}*", "World"));
+            text: @markdown("*\{@markdown("**H\{"ello"}**")}* \{@markdown("*\{world}*")}");
         }
     }
 

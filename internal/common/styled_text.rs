@@ -77,29 +77,12 @@ pub enum StyledTextError<'a> {
     /// Closing html tag doesn't match the opening tag
     #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
     ClosingTagMismatch(&'a str, alloc::string::String),
-    /// Unexpected trailing '{' in format string
-    #[error("Unexpected '{{' in format string. Escape '{{' with '{{{{'")]
-    UnexpectedTrailingBrace,
-    /// Unexpected '}' in format string
-    #[error("Unexpected '}}' in format string. Escape '}}' with '}}}}'")]
-    UnexpectedClosingBrace,
-    /// Unterminated placeholder in format string
-    #[error("Unterminated placeholder in format string. '{{' must be escaped with '{{{{'")]
-    UnterminatedPlaceholder,
-    /// Invalid placeholder in format string
-    #[error(
-        "Invalid '{{...}}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'"
-    )]
-    InvalidPlaceholder,
     /// Argument index out of range
     #[error("Argument index {} out of range: {} arguments provided", .0, .1)]
     ArgumentOutOfRange(usize, usize),
     /// Format string placeholders count mismatch
     #[error("Format string contains {} placeholders, but {} arguments were provided", .0, .1)]
     PlaceholderCountMismatch(usize, usize),
-    /// Mixed placeholder types
-    #[error("Cannot mix positional and non-positional placeholder in format string")]
-    MixedPlaceholders,
     #[error("Interpolating multiple styled text paragraphs is not currently implemented")]
     MultiParagraphInterpolation,
     /// Invalid color value
@@ -107,18 +90,14 @@ pub enum StyledTextError<'a> {
     InvalidColor(alloc::string::String),
 }
 
-/// Styled text that has been parsed and seperated into paragraphs
-#[repr(transparent)]
-#[derive(Debug, PartialEq, Clone, Default)]
-pub struct StyledText {
-    /// Paragraphs of styled text
-    pub paragraphs: alloc::vec::Vec<StyledTextParagraph>,
-}
-
 #[cfg(feature = "markdown")]
 pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParagraph {
     StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
 }
+
+#[cfg(feature = "markdown")]
+/// This is the character for private use that is used to make interpolation possible in markdown.
+pub const MARKDOWN_INTERPOLATION_PLACEHOLDER: char = '\u{e541}';
 
 #[cfg(feature = "markdown")]
 pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
@@ -133,8 +112,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     let mut list_state_stack: alloc::vec::Vec<Option<u64>> = alloc::vec::Vec::new();
     let mut style_stack = alloc::vec::Vec::new();
     let mut current_url = None;
-    let mut implicit_arg_index = 0;
-    let mut positioned_arg_index_max = 0;
+    let mut arg_index = 0;
 
     let begin_paragraph = |indentation: u32, list_item_type: Option<ListItemType>| {
         let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
@@ -165,51 +143,9 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                               string: &str|
          -> Result<(), StyledTextError<'static>> {
             let mut pos = 0;
-            let mut literal_start_pos = 0;
-            while let Some(mut p) = string[pos..].find(['{', '}']) {
-                if string.len() - pos < p + 1 {
-                    return Err(StyledTextError::UnexpectedTrailingBrace);
-                }
+            while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
                 p += pos;
-
-                // Skip escaped }
-                if string.get(p..=p) == Some("}") {
-                    if string.get(p + 1..=p + 1) == Some("}") {
-                        pos = p + 2;
-                        continue;
-                    } else {
-                        return Err(StyledTextError::UnexpectedClosingBrace);
-                    }
-                }
-
-                // Skip escaped {
-                if string.get(p + 1..=p + 1) == Some("{") {
-                    pos = p + 2;
-                    continue;
-                }
-
-                // Find the argument
-                let end = if let Some(end) = string[p..].find('}') {
-                    end + p
-                } else {
-                    return Err(StyledTextError::UnterminatedPlaceholder);
-                };
-
-                let inner_arg_string = &string[p + 1..end];
-                let arg_index = if inner_arg_string.is_empty() {
-                    let arg_index = implicit_arg_index;
-                    implicit_arg_index += 1;
-                    arg_index
-                } else if let Ok(n) = inner_arg_string.parse::<u16>() {
-                    let positioned_arg_index = n as usize;
-                    positioned_arg_index_max =
-                        positioned_arg_index_max.max(positioned_arg_index + 1);
-                    positioned_arg_index
-                } else {
-                    return Err(StyledTextError::InvalidPlaceholder);
-                };
-
-                paragraph.text.push_str(&string[literal_start_pos..p]);
+                paragraph.text.push_str(&string[pos..p]);
 
                 if let Some(arg) = args.get(arg_index) {
                     let arg_paragraphs = arg.as_ref();
@@ -238,10 +174,12 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     return Err(StyledTextError::ArgumentOutOfRange(arg_index, args.len()));
                 }
 
-                pos = end + 1;
-                literal_start_pos = pos;
+                arg_index += 1;
+
+                p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
+                pos = p;
             }
-            paragraph.text.push_str(&string[literal_start_pos..]);
+            paragraph.text.push_str(&string[pos..]);
 
             Ok(())
         };
@@ -513,17 +451,8 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
             }
         }
 
-        if implicit_arg_index > 0 && positioned_arg_index_max > 0 {
-            return Some(Err(StyledTextError::MixedPlaceholders));
-        }
-
-        if (positioned_arg_index_max == 0 && implicit_arg_index != args.len())
-            || positioned_arg_index_max > args.len()
-        {
-            return Some(Err(StyledTextError::PlaceholderCountMismatch(
-                implicit_arg_index.max(positioned_arg_index_max),
-                args.len(),
-            )));
+        if arg_index != args.len() {
+            return Some(Err(StyledTextError::PlaceholderCountMismatch(arg_index, args.len())));
         }
 
         if !style_stack.is_empty() {
@@ -730,9 +659,12 @@ new *line*
 #[test]
 fn markdown_parsing_interpolated() {
     assert_eq!(
-        parse_interpolated("Text: *{}*", &[&[paragraph_from_plain_text("italic".into())]])
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap(),
+        parse_interpolated(
+            &format!("Text: *{MARKDOWN_INTERPOLATION_PLACEHOLDER}*"),
+            &[&[paragraph_from_plain_text("italic".into())]]
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [StyledTextParagraph {
             text: "Text: italic".into(),
             formatting: alloc::vec![FormattedSpan { range: 6..12, style: Style::Emphasis }],
@@ -740,9 +672,12 @@ fn markdown_parsing_interpolated() {
         }]
     );
     assert_eq!(
-        parse_interpolated("Escaped text: {}", &[&[paragraph_from_plain_text("*bold*".into())]])
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap(),
+        parse_interpolated(
+            &format!("Escaped text: {MARKDOWN_INTERPOLATION_PLACEHOLDER}"),
+            &[&[paragraph_from_plain_text("*bold*".into())]]
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
         [StyledTextParagraph {
             text: "Escaped text: *bold*".into(),
             formatting: alloc::vec![],
@@ -751,7 +686,7 @@ fn markdown_parsing_interpolated() {
     );
     assert_eq!(
         parse_interpolated(
-            "Code block text: `{}`",
+            &format!("Code block text: `{MARKDOWN_INTERPOLATION_PLACEHOLDER}`"),
             &[&[paragraph_from_plain_text("*bold*".into())]]
         )
         .collect::<Result<Vec<_>, _>>()
@@ -764,7 +699,9 @@ fn markdown_parsing_interpolated() {
     );
     assert_eq!(
         parse_interpolated(
-            "**{}** {}",
+            &format!(
+                "**{MARKDOWN_INTERPOLATION_PLACEHOLDER}** {MARKDOWN_INTERPOLATION_PLACEHOLDER}"
+            ),
             &[
                 alloc::vec![paragraph_from_plain_text("Hello".into())],
                 parse_interpolated::<&[_]>("*World*", &[]).collect::<Result<_, _>>().unwrap()
@@ -783,7 +720,7 @@ fn markdown_parsing_interpolated() {
     );
     assert_eq!(
         parse_interpolated(
-            "<u>{}</u>",
+            &format!("<u>{MARKDOWN_INTERPOLATION_PLACEHOLDER}</u>"),
             &[parse_interpolated::<&[_]>("*underline_and_italic*", &[])
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap()]
