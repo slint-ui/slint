@@ -481,7 +481,7 @@ impl SharedBackendData {
         Ok(Self {
             allow_fallback,
             renderer_name,
-            requested_graphics_api: requested_graphics_api,
+            requested_graphics_api,
             #[cfg(enable_skia_renderer)]
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows,
