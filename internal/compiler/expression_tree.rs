@@ -119,6 +119,7 @@ pub enum BuiltinFunction {
     OpenUrl,
     ParseMarkdown,
     StringToStyledText,
+    FragmentShader,
 }
 
 #[derive(Debug, Clone)]
@@ -263,6 +264,7 @@ declare_builtin_function_types!(
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
+    FragmentShader: (Type::String) -> Type::Brush,
     ColorScheme: () -> Type::Enumeration(
         typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
     ),
@@ -400,6 +402,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => false,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::FragmentShader => true,
             BuiltinFunction::OpenUrl => false,
         }
     }
@@ -483,6 +486,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => true,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::FragmentShader => true,
             BuiltinFunction::OpenUrl => false,
         }
     }
