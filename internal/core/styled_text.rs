@@ -13,17 +13,16 @@ pub struct StyledText {
 impl StyledText {
     /// Creates styled text from plain text without applying markdown parsing.
     pub fn from_plain_text(text: alloc::string::String) -> Self {
-        i_slint_common::styled_text::StyledText::from_plain_text(text).into()
+        Self {
+            paragraphs: [i_slint_common::styled_text::paragraph_from_plain_text(text)].into(),
+        }
     }
 
     /// Parses markdown into styled text.
     pub fn parse(
         markdown: &str,
     ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
-        Ok(i_slint_common::styled_text::StyledText::parse_interpolated::<
-            i_slint_common::styled_text::StyledText,
-        >(markdown, &[])?
-        .into())
+        Self::parse_interpolated::<Self>(markdown, &[])
     }
 
     /// Parses markdown and substitutes `{}` or `{n}` placeholders with styled text arguments.
@@ -115,9 +114,7 @@ pub fn string_to_styled_text(_string: alloc::string::String) -> StyledText {
         if _string.is_empty() {
             return Default::default();
         }
-        StyledText {
-            paragraphs: [i_slint_common::styled_text::paragraph_from_plain_text(_string)].into(),
-        }
+        StyledText::from_plain_text(_string)
     }
     #[cfg(not(feature = "std"))]
     Default::default()
