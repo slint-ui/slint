@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use euclid::approxeq::ApproxEq;
 
-#[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
@@ -337,10 +336,8 @@ pub struct WinitWindowAdapter {
     #[cfg(not(use_winit_theme))]
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
-    #[cfg(muda)]
     menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
-    #[cfg(muda)]
     context_menu: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
     #[cfg(all(muda, target_os = "macos"))]
@@ -385,9 +382,7 @@ impl WinitWindowAdapter {
             window_event_filter: Cell::new(None),
             #[cfg(not(use_winit_theme))]
             xdg_settings_watcher: Default::default(),
-            #[cfg(muda)]
             menubar: Default::default(),
-            #[cfg(muda)]
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
@@ -1515,6 +1510,31 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
         false
     }
+
+    // TODO implement!
+    // #[cfg(not(muda))]
+    // fn show_native_popup_menu(
+    //     &self,
+    //     context_menu_item: vtable::VRc<i_slint_core::menus::MenuVTable>,
+    //     position: LogicalPosition,
+    // ) -> bool {
+    //     self.context_menu.replace(Some(context_menu_item));
+
+    //     if let WinitWindowOrNone::HasWindow { .. } = &*self.winit_window_or_none.borrow() {
+    //         // On Windows, we must destroy the muda menu before re-creating a new one
+    //         drop(context_menu_muda_adapter.borrow_mut().take());
+    //         if let Some(new_adapter) = crate::muda::MudaAdapter::show_context_menu(
+    //             self.context_menu.borrow().as_ref().unwrap(),
+    //             &self.winit_window().unwrap(),
+    //             position,
+    //             self.event_loop_proxy.clone(),
+    //         ) {
+    //             context_menu_muda_adapter.replace(Some(new_adapter));
+    //             return true;
+    //         }
+    //     }
+    //     false
+    // }
 
     #[cfg(enable_accesskit)]
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
