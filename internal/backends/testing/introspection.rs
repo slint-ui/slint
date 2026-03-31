@@ -258,7 +258,7 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
 
     proto::ElementPropertiesResponse {
         type_names_and_ids,
-        accessible_label: element.accessible_label().map_or(Default::default(), |s| s.to_string()),
+        accessible_label: element.accessible_label().map(|s| s.to_string()).unwrap_or_default(),
         accessible_value: element.accessible_value().unwrap_or_default().to_string(),
         accessible_value_maximum: element.accessible_value_maximum().unwrap_or_default(),
         accessible_value_minimum: element.accessible_value_minimum().unwrap_or_default(),

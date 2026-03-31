@@ -204,7 +204,7 @@ async fn handle_tool_call(
                 window_handles: state.window_handles().into_iter().map(index_to_handle).collect(),
             };
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "get_window_properties" => {
@@ -230,7 +230,7 @@ async fn handle_tool_call(
                 )),
             };
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "find_elements_by_id" => {
@@ -245,7 +245,7 @@ async fn handle_tool_call(
                     .collect(),
             };
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "get_element_properties" => {
@@ -256,7 +256,7 @@ async fn handle_tool_call(
             let element = state.element("get_element_properties", element_index)?;
             let response = introspection::element_properties(&element);
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "query_element_descendants" => {
@@ -274,7 +274,7 @@ async fn handle_tool_call(
                     .collect(),
             };
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "get_element_tree" => {
@@ -299,11 +299,11 @@ async fn handle_tool_call(
             // Add root element
             let root_props = introspection::element_properties(&root_element);
             let mut root_node =
-                serde_json::to_value(&root_props).map_err(|e| format!("serialize error: {e}"))?;
+                serde_json::to_value(root_props).map_err(|e| format!("serialize error: {e}"))?;
             if let Some(obj) = root_node.as_object_mut() {
                 obj.insert(
                     "handle".to_string(),
-                    serde_json::to_value(&index_to_handle(root_index))
+                    serde_json::to_value(index_to_handle(root_index))
                         .map_err(|e| format!("serialize error: {e}"))?,
                 );
             }
@@ -316,13 +316,12 @@ async fn handle_tool_call(
                 }
                 let child_handle = state.element_to_handle(child.clone());
                 let props = introspection::element_properties(&child);
-                if let Ok(mut node) = serde_json::to_value(&props) {
-                    if let Some(obj) = node.as_object_mut() {
-                        if let Ok(handle_json) =
-                            serde_json::to_value(&index_to_handle(child_handle))
-                        {
-                            obj.insert("handle".to_string(), handle_json);
-                        }
+                if let Ok(mut node) = serde_json::to_value(props) {
+                    if let (Some(obj), Ok(handle_json)) = (
+                        node.as_object_mut(),
+                        serde_json::to_value(index_to_handle(child_handle)),
+                    ) {
+                        obj.insert("handle".to_string(), handle_json);
                     }
                     elements.push(node);
                 }
@@ -362,7 +361,7 @@ async fn handle_tool_call(
             }
             let response = proto::ElementClickResponse {};
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "invoke_accessibility_action" => {
@@ -376,7 +375,7 @@ async fn handle_tool_call(
             introspection::invoke_element_accessibility_action(&element, action);
             let response = proto::InvokeElementAccessibilityActionResponse {};
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "set_element_value" => {
@@ -388,7 +387,7 @@ async fn handle_tool_call(
             element.set_accessible_value(p.value);
             let response = proto::SetElementAccessibleValueResponse {};
             Ok(ToolResult::Json(
-                serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
         "dispatch_key_event" => {
@@ -1088,7 +1087,7 @@ mod tests {
         let req = proto::RequestWindowProperties {
             window_handle: Some(proto::Handle { index: 1, generation: 2 }),
         };
-        let json = serde_json::to_value(&req).unwrap();
+        let json = serde_json::to_value(req).unwrap();
         assert!(json.get("windowHandle").is_some(), "expected camelCase 'windowHandle'");
         assert_eq!(json["windowHandle"]["index"], "1");
 
@@ -1096,13 +1095,13 @@ mod tests {
             window_handle: Some(proto::Handle { index: 0, generation: 0 }),
             elements_id: "test".into(),
         };
-        let json = serde_json::to_value(&req).unwrap();
+        let json = serde_json::to_value(req).unwrap();
         assert!(json.get("elementsId").is_some(), "expected camelCase 'elementsId'");
 
         let req = proto::RequestElementProperties {
             element_handle: Some(proto::Handle { index: 0, generation: 0 }),
         };
-        let json = serde_json::to_value(&req).unwrap();
+        let json = serde_json::to_value(req).unwrap();
         assert!(json.get("elementHandle").is_some(), "expected camelCase 'elementHandle'");
     }
 
