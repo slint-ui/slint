@@ -541,9 +541,6 @@ impl SharedBackendData {
     }
 }
 
-type RendererFactoryFn =
-    fn(&Rc<SharedBackendData>) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>;
-
 #[i_slint_core_macros::slint_doc]
 /// This struct implements the Slint Platform trait.
 /// Use this in conjunction with [`slint::platform::set_platform`](slint:rust:slint/platform/fn.set_platform.html) to initialize.
@@ -938,7 +935,7 @@ fn create_renderer(
         #[cfg(enable_skia_renderer)]
         (Some("skia"), maybe_graphics_api) => {
             (renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(maybe_graphics_api)?)(
-                &shared_data,
+                shared_data,
             )
         }
         #[cfg(all(enable_skia_renderer, supports_opengl))]
@@ -971,13 +968,13 @@ fn create_renderer(
                     #[cfg(feature = "unstable-wgpu-27")]
                     if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
                         return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
-                            &shared_data,
+                            shared_data,
                         ));
                     }
                     #[cfg(feature = "unstable-wgpu-28")]
                     if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
                         return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
-                            &shared_data,
+                            shared_data,
                         ));
                     }
                     None
@@ -985,9 +982,7 @@ fn create_renderer(
             ) {
                 selected_renderer
             } else {
-                return Err("Skia with WGPU doesn't support non-WGPU graphics API"
-                    .to_string()
-                    .into());
+                Err("Skia with WGPU doesn't support non-WGPU graphics API".to_string().into())
             }
         }
         #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
@@ -1006,7 +1001,7 @@ fn create_renderer(
                 );
                 default_renderer_factory(shared_data)
             } else {
-                return Err(PlatformError::NoPlatform);
+                Err(PlatformError::NoPlatform)
             }
         }
         #[cfg(feature = "unstable-wgpu-28")]
