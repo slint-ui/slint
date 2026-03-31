@@ -9,7 +9,7 @@ use i_slint_core::debug_log;
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
-use quick_protobuf::{MessageRead, MessageWrite};
+use prost::Message;
 use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::{Rc, Weak};
@@ -91,66 +91,72 @@ impl TestingClient {
 
     async fn handle_request(
         &self,
-        request: proto::mod_RequestToAUT::OneOfmsg,
-    ) -> Result<proto::mod_AUTResponse::OneOfmsg, String> {
+        request: Option<proto::request_to_aut::Msg>,
+    ) -> Result<proto::aut_response::Msg, String> {
+        use proto::aut_response::Msg as Resp;
+        use proto::request_to_aut::Msg as Req;
+
+        let request = request.ok_or_else(|| "Empty request".to_string())?;
+
         Ok(match request {
-            proto::mod_RequestToAUT::OneOfmsg::request_window_list(..) => {
-                proto::mod_AUTResponse::OneOfmsg::window_list(proto::WindowListResponse {
-                    window_handles: self
-                        .windows
-                        .borrow()
-                        .iter()
-                        .map(|(index, _)| index_to_handle(index))
-                        .collect(),
-                })
+            Req::RequestWindowList(..) => Resp::WindowList(proto::WindowListResponse {
+                window_handles: self
+                    .windows
+                    .borrow()
+                    .iter()
+                    .map(|(index, _)| index_to_handle(index))
+                    .collect(),
+            }),
+            Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
+                Resp::WindowProperties(self.window_properties(handle_to_index(
+                    window_handle.ok_or_else(|| {
+                        "window properties request missing window handle".to_string()
+                    })?,
+                ))?)
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_window_properties(
-                proto::RequestWindowProperties { window_handle },
-            ) => proto::mod_AUTResponse::OneOfmsg::window_properties(self.window_properties(
-                handle_to_index(window_handle.ok_or_else(|| {
-                    "window properties request missing window handle".to_string()
-                })?),
-            )?),
-            proto::mod_RequestToAUT::OneOfmsg::request_find_elements_by_id(
-                proto::RequestFindElementsById { window_handle, elements_id },
-            ) => {
+            Req::RequestFindElementsById(proto::RequestFindElementsById {
+                window_handle,
+                elements_id,
+            }) => {
                 let elements = self.find_elements_by_id(
                     handle_to_index(window_handle.ok_or_else(|| {
                         "find elements by id request missing window handle".to_string()
                     })?),
                     &elements_id,
                 )?;
-                proto::mod_AUTResponse::OneOfmsg::elements(proto::ElementsResponse {
+                Resp::Elements(proto::ElementsResponse {
                     element_handles: elements.map(|elem| self.element_to_handle(elem)).collect(),
                 })
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_element_properties(
-                proto::RequestElementProperties { element_handle },
-            ) => proto::mod_AUTResponse::OneOfmsg::element_properties(
-                self.element_properties(element_handle)?,
-            ),
-            proto::mod_RequestToAUT::OneOfmsg::request_invoke_element_accessibility_action(
-                proto::RequestInvokeElementAccessibilityAction { element_handle, action },
+            Req::RequestElementProperties(proto::RequestElementProperties { element_handle }) => {
+                Resp::ElementProperties(self.element_properties(element_handle)?)
+            }
+            Req::RequestInvokeElementAccessibilityAction(
+                msg @ proto::RequestInvokeElementAccessibilityAction { element_handle, .. },
             ) => {
+                let action =
+                    proto::ElementAccessibilityAction::try_from(msg.action).map_err(|_| {
+                        format!("invalid ElementAccessibilityAction value: {}", msg.action)
+                    })?;
                 self.invoke_element_accessibility_action(element_handle, action)?;
-                proto::mod_AUTResponse::OneOfmsg::invoke_element_accessibility_action_response(
+                Resp::InvokeElementAccessibilityActionResponse(
                     proto::InvokeElementAccessibilityActionResponse {},
                 )
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_set_element_accessible_value(
-                proto::RequestSetElementAccessibleValue { element_handle, value },
-            ) => {
+            Req::RequestSetElementAccessibleValue(proto::RequestSetElementAccessibleValue {
+                element_handle,
+                value,
+            }) => {
                 let element =
                     self.element("set element accessible value request", element_handle)?;
                 element.set_accessible_value(value);
-                proto::mod_AUTResponse::OneOfmsg::set_element_accessible_value_response(
-                    proto::SetElementAccessibleValueResponse {},
-                )
+                Resp::SetElementAccessibleValueResponse(proto::SetElementAccessibleValueResponse {})
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_take_snapshot(
-                proto::RequestTakeSnapshot { window_handle, image_mime_type },
-            ) => {
-                proto::mod_AUTResponse::OneOfmsg::take_snapshot_response(self.take_snapshot(
+            Req::RequestTakeSnapshot(proto::RequestTakeSnapshot {
+                window_handle,
+                image_mime_type,
+            }) => {
+                Resp::TakeSnapshotResponse(self.take_snapshot(
                     handle_to_index(
                         window_handle.ok_or_else(|| {
                             "grab window request missing window handle".to_string()
@@ -159,22 +165,28 @@ impl TestingClient {
                     image_mime_type,
                 )?)
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_element_click(
-                proto::RequestElementClick { element_handle, action, button },
-            ) => {
+            Req::RequestElementClick(proto::RequestElementClick {
+                element_handle,
+                action,
+                button,
+            }) => {
                 let element = self.element("element click request", element_handle)?;
-                let button = convert_pointer_event_button(button);
-                match action {
+                let button = convert_pointer_event_button(
+                    proto::PointerEventButton::try_from(button)
+                        .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
+                );
+                match proto::ClickAction::try_from(action)
+                    .map_err(|_| format!("invalid ClickAction value: {action}"))?
+                {
                     proto::ClickAction::SingleClick => element.single_click(button).await,
                     proto::ClickAction::DoubleClick => element.double_click(button).await,
                 }
-                proto::mod_AUTResponse::OneOfmsg::element_click_response(
-                    proto::ElementClickResponse {},
-                )
+                Resp::ElementClickResponse(proto::ElementClickResponse {})
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_dispatch_window_event(
-                proto::RequestDispatchWindowEvent { window_handle, event },
-            ) => {
+            Req::RequestDispatchWindowEvent(proto::RequestDispatchWindowEvent {
+                window_handle,
+                event,
+            }) => {
                 self.dispatch_window_event(
                     handle_to_index(window_handle.ok_or_else(|| {
                         "window event dispatch request missing window handle".to_string()
@@ -183,25 +195,22 @@ impl TestingClient {
                         "window event dispatch request missing event".to_string()
                     })?)?,
                 )?;
-                proto::mod_AUTResponse::OneOfmsg::dispatch_window_event_response(
-                    proto::DispatchWindowEventResponse {},
-                )
+                Resp::DispatchWindowEventResponse(proto::DispatchWindowEventResponse {})
             }
-            proto::mod_RequestToAUT::OneOfmsg::request_query_element_descendants(
-                proto::RequestQueryElementDescendants { element_handle, query_stack, find_all },
-            ) => {
+            Req::RequestQueryElementDescendants(proto::RequestQueryElementDescendants {
+                element_handle,
+                query_stack,
+                find_all,
+            }) => {
                 let element = self.element("run element query request", element_handle)?;
                 let elements = self.query_element_descendants(element, query_stack, find_all)?;
-                proto::mod_AUTResponse::OneOfmsg::element_query_response(
-                    proto::ElementQueryResponse {
-                        element_handles: elements
-                            .into_iter()
-                            .map(|elem| self.element_to_handle(elem))
-                            .collect(),
-                    },
-                )
+                Resp::ElementQueryResponse(proto::ElementQueryResponse {
+                    element_handles: elements
+                        .into_iter()
+                        .map(|elem| self.element_to_handle(elem))
+                        .collect(),
+                })
             }
-            proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
         })
     }
 
@@ -215,9 +224,9 @@ impl TestingClient {
             is_fullscreen: window.is_fullscreen(),
             is_maximized: window.is_maximized(),
             is_minimized: window.is_minimized(),
-            size: send_physical_size(window.size()).into(),
-            position: send_physical_position(window.position()).into(),
-            root_element_handle: self.root_element_handle(window_index)?.into(),
+            size: Some(send_physical_size(window.size())),
+            position: Some(send_physical_position(window.position())),
+            root_element_handle: Some(self.root_element_handle(window_index)?),
         })
     }
 
@@ -286,26 +295,31 @@ impl TestingClient {
         query_stack: Vec<proto::ElementQueryInstruction>,
         find_all: bool,
     ) -> Result<Vec<crate::ElementHandle>, String> {
+        use proto::element_query_instruction::Instruction;
         let mut query = element.query_descendants();
         for instruction in query_stack {
-            match instruction.instruction {
-                proto::mod_ElementQueryInstruction::OneOfinstruction::match_descendants(_) => {
+            match instruction
+                .instruction
+                .ok_or_else(|| "empty element query instruction".to_string())?
+            {
+                Instruction::MatchDescendants(_) => {
                     query = query.match_descendants();
                 }
-                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_id(id) => {
-                    query = query.match_id(id)
-                }
-                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name(type_name) => {
+                Instruction::MatchElementId(id) => query = query.match_id(id),
+                Instruction::MatchElementTypeName(type_name) => {
                     query = query.match_type_name(type_name)
                 }
-                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_type_name_or_base(type_name_or_base) => {
+                Instruction::MatchElementTypeNameOrBase(type_name_or_base) => {
                     query = query.match_inherits(type_name_or_base)
                 }
-                proto::mod_ElementQueryInstruction::OneOfinstruction::match_element_accessible_role(role) => {
-                    query = query.match_accessible_role(convert_from_proto_accessible_role(role).ok_or_else(|| "Unknown accessibility role used in element query".to_string())?)
-                }
-                proto::mod_ElementQueryInstruction::OneOfinstruction::None => {
-                    return Err("unknown element query instruction".into());
+                Instruction::MatchElementAccessibleRole(role_i32) => {
+                    let role = proto::AccessibleRole::try_from(role_i32)
+                        .map_err(|_| format!("invalid AccessibleRole value: {role_i32}"))?;
+                    query = query.match_accessible_role(
+                        convert_from_proto_accessible_role(role).ok_or_else(|| {
+                            "Unknown accessibility role used in element query".to_string()
+                        })?,
+                    )
                 }
             }
         }
@@ -368,10 +382,11 @@ impl TestingClient {
                 .to_string(),
             accessible_checked: element.accessible_checked().unwrap_or_default(),
             accessible_checkable: element.accessible_checkable().unwrap_or_default(),
-            size: send_logical_size(element.size()).into(),
-            absolute_position: send_logical_position(element.absolute_position()).into(),
+            size: Some(send_logical_size(element.size())),
+            absolute_position: Some(send_logical_position(element.absolute_position())),
             accessible_role: convert_to_proto_accessible_role(element.accessible_role().unwrap())
-                .unwrap_or_default(),
+                .unwrap_or_default()
+                .into(),
             computed_opacity: element.computed_opacity(),
             accessible_placeholder_text: element
                 .accessible_placeholder_text()
@@ -380,11 +395,11 @@ impl TestingClient {
             accessible_enabled: element.accessible_enabled().unwrap_or_default(),
             accessible_read_only: element.accessible_read_only().unwrap_or_default(),
             layout_kind: match element.layout_kind() {
-                Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout,
-                Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout,
-                Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout,
-                Some(LayoutKind::FlexboxLayout) => proto::LayoutKind::FlexboxLayout,
-                None => proto::LayoutKind::NotALayout,
+                Some(LayoutKind::HorizontalLayout) => proto::LayoutKind::HorizontalLayout.into(),
+                Some(LayoutKind::VerticalLayout) => proto::LayoutKind::VerticalLayout.into(),
+                Some(LayoutKind::GridLayout) => proto::LayoutKind::GridLayout.into(),
+                Some(LayoutKind::FlexboxLayout) => proto::LayoutKind::FlexboxLayout.into(),
+                None => proto::LayoutKind::NotALayout.into(),
             },
         })
     }
@@ -397,7 +412,7 @@ impl TestingClient {
         let element =
             self.element("invoke element accessibility action request", element_handle)?;
         match action {
-            proto::ElementAccessibilityAction::Default_ => {
+            proto::ElementAccessibilityAction::Default => {
                 element.invoke_accessible_default_action()
             }
             proto::ElementAccessibilityAction::Increment => {
@@ -420,8 +435,7 @@ impl TestingClient {
             .borrow()
             .get(window_index)
             .ok_or_else(|| "Invalid window handle".to_string())?
-            .root_element_handle
-            .clone())
+            .root_element_handle)
     }
 
     fn window_adapter(
@@ -454,9 +468,9 @@ pub fn init() -> Result<(), EventLoopError> {
 async fn message_loop(
     server_addr: &str,
     mut message_callback: impl FnMut(
-        proto::mod_RequestToAUT::OneOfmsg,
+        Option<proto::request_to_aut::Msg>,
     ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<proto::mod_AUTResponse::OneOfmsg, String>>>,
+        Box<dyn std::future::Future<Output = Result<proto::aut_response::Msg, String>>>,
     >,
 ) {
     debug_log!("Attempting to connect to testing server at {server_addr}");
@@ -488,22 +502,19 @@ async fn message_loop(
             break "Unable to read request data from AUT connection";
         }
 
-        let message = match proto::RequestToAUT::from_reader(
-            &mut quick_protobuf::reader::BytesReader::from_bytes(&message_buf),
-            &message_buf,
-        ) {
+        let message = match proto::RequestToAut::decode(&message_buf[..]) {
             Ok(msg) => msg,
             Err(_) => {
                 break "Error de-serializing AUT request message";
             }
         };
         let response = message_callback(message.msg).await.unwrap_or_else(|message| {
-            proto::mod_AUTResponse::OneOfmsg::error(proto::ErrorResponse { message })
+            proto::aut_response::Msg::Error(proto::ErrorResponse { message })
         });
-        let response = proto::AUTResponse { msg: response };
+        let response = proto::AutResponse { msg: Some(response) };
         let mut binary_message = Vec::new();
-        binary_message.write_u32::<BigEndian>(response.get_size() as u32).unwrap();
-        response.write_message(&mut quick_protobuf::Writer::new(&mut binary_message)).unwrap();
+        binary_message.write_u32::<BigEndian>(response.encoded_len() as u32).unwrap();
+        response.encode(&mut binary_message).unwrap();
         if stream.write_all(&binary_message).await.is_err() {
             break "Unable to write AUT response body";
         }
@@ -615,28 +626,32 @@ fn convert_pointer_event_button(
 fn convert_window_event(
     event: proto::WindowEvent,
 ) -> Result<i_slint_core::platform::WindowEvent, String> {
-    Ok(match event.event {
-        proto::mod_WindowEvent::OneOfevent::pointer_pressed(proto::PointerPressEvent {
-            position,
-            button,
-        }) => i_slint_core::platform::WindowEvent::PointerPressed {
-            position: convert_logical_position(
-                position
-                    .ok_or_else(|| "Missing logical position in pointer press event".to_string())?,
-            ),
-            button: convert_pointer_event_button(button),
-        },
-        proto::mod_WindowEvent::OneOfevent::pointer_released(proto::PointerReleaseEvent {
-            position,
-            button,
-        }) => i_slint_core::platform::WindowEvent::PointerReleased {
-            position: convert_logical_position(
-                position
-                    .ok_or_else(|| "Missing logical position in pointer press event".to_string())?,
-            ),
-            button: convert_pointer_event_button(button),
-        },
-        proto::mod_WindowEvent::OneOfevent::pointer_moved(proto::PointerMoveEvent { position }) => {
+    use proto::window_event::Event;
+    let event = event.event.ok_or_else(|| "empty window event".to_string())?;
+    Ok(match event {
+        Event::PointerPressed(proto::PointerPressEvent { position, button }) => {
+            i_slint_core::platform::WindowEvent::PointerPressed {
+                position: convert_logical_position(position.ok_or_else(|| {
+                    "Missing logical position in pointer press event".to_string()
+                })?),
+                button: convert_pointer_event_button(
+                    proto::PointerEventButton::try_from(button)
+                        .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
+                ),
+            }
+        }
+        Event::PointerReleased(proto::PointerReleaseEvent { position, button }) => {
+            i_slint_core::platform::WindowEvent::PointerReleased {
+                position: convert_logical_position(position.ok_or_else(|| {
+                    "Missing logical position in pointer release event".to_string()
+                })?),
+                button: convert_pointer_event_button(
+                    proto::PointerEventButton::try_from(button)
+                        .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
+                ),
+            }
+        }
+        Event::PointerMoved(proto::PointerMoveEvent { position }) => {
             i_slint_core::platform::WindowEvent::PointerMoved {
                 position: convert_logical_position(
                     position.ok_or_else(|| {
@@ -645,11 +660,7 @@ fn convert_window_event(
                 ),
             }
         }
-        proto::mod_WindowEvent::OneOfevent::pointer_scrolled(proto::PointerScrolledEvent {
-            position,
-            delta_x,
-            delta_y,
-        }) => {
+        Event::PointerScrolled(proto::PointerScrolledEvent { position, delta_x, delta_y }) => {
             i_slint_core::platform::WindowEvent::PointerScrolled {
                 position: convert_logical_position(position.ok_or_else(|| {
                     "Missing logical position in pointer scroll event".to_string()
@@ -658,20 +669,17 @@ fn convert_window_event(
                 delta_y,
             }
         }
-        proto::mod_WindowEvent::OneOfevent::pointer_exited(proto::PointerExitedEvent {}) => {
+        Event::PointerExited(proto::PointerExitedEvent {}) => {
             i_slint_core::platform::WindowEvent::PointerExited {}
         }
-        proto::mod_WindowEvent::OneOfevent::key_pressed(proto::KeyPressedEvent { text }) => {
+        Event::KeyPressed(proto::KeyPressedEvent { text }) => {
             i_slint_core::platform::WindowEvent::KeyPressed { text: text.into() }
         }
-        proto::mod_WindowEvent::OneOfevent::key_press_repeated(proto::KeyPressRepeatedEvent {
-            text,
-        }) => i_slint_core::platform::WindowEvent::KeyPressRepeated { text: text.into() },
-        proto::mod_WindowEvent::OneOfevent::key_released(proto::KeyReleasedEvent { text }) => {
-            i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
+        Event::KeyPressRepeated(proto::KeyPressRepeatedEvent { text }) => {
+            i_slint_core::platform::WindowEvent::KeyPressRepeated { text: text.into() }
         }
-        proto::mod_WindowEvent::OneOfevent::None => {
-            return Err("Unknown window event received in system testing protobuf".to_string());
+        Event::KeyReleased(proto::KeyReleasedEvent { text }) => {
+            i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
         }
     })
 }

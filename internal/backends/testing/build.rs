@@ -4,13 +4,13 @@
 fn main() {
     #[cfg(feature = "system-testing")]
     {
-        let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
-        let proto_file = std::path::PathBuf::from(::std::env::var("CARGO_MANIFEST_DIR").unwrap())
-            .join("slint_systest.proto");
-        let config_builder = pb_rs::ConfigBuilder::new(&[proto_file], None, Some(&out_dir), &[])
-            .unwrap()
-            .headers(false)
-            .dont_use_cow(true);
-        pb_rs::types::FileDescriptor::run(&config_builder.build()).unwrap();
+        let manifest_dir =
+            std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+        let proto_file = manifest_dir.join("slint_systest.proto");
+        let fds = protox::compile([&proto_file], [&manifest_dir])
+            .expect("failed to compile slint_systest.proto");
+        prost_build::Config::new()
+            .compile_fds(fds)
+            .expect("failed to generate Rust code from proto descriptors");
     }
 }
