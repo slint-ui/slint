@@ -474,7 +474,6 @@ fn parse_markdown(p: &mut impl Parser) {
 
     if !p.expect(SyntaxKind::RParent) {
         p.until(SyntaxKind::RParent);
-        return;
     }
 }
 

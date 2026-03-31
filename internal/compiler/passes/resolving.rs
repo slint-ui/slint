@@ -766,7 +766,7 @@ impl Expression {
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                if let Some(s) = crate::literals::unescape_string(&n.as_token().unwrap().text()) {
+                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
                     markdown.push_str(&s);
                 } else {
                     ctx.diag.push_error("Cannot parse string literal".into(), &n);
@@ -775,7 +775,7 @@ impl Expression {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
                         if let Some(s) =
-                            crate::literals::unescape_string(&n.as_token().unwrap().text())
+                            crate::literals::unescape_string(n.as_token().unwrap().text())
                         {
                             markdown.push_str(&s);
                         } else {
