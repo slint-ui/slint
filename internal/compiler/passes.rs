@@ -277,7 +277,8 @@ pub async fn run_passes(
 
             // Include at least the default font sizes used in the MCU backend
             let mut font_pixel_sizes = vec![(12. * sf) as i16];
-            let mut font_weights = vec![400u16];
+            use i_slint_common::sharedfontique::fontique;
+            let mut font_weights = vec![fontique::FontWeight::NORMAL.value() as u16];
             doc.visit_all_used_components(|component| {
                 embed_glyphs::collect_font_sizes_used(component, sf, &mut font_pixel_sizes);
                 embed_glyphs::collect_font_weights_used(component, &mut font_weights);
