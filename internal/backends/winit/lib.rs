@@ -992,7 +992,9 @@ fn create_renderer(
             }
         }
         #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
-        (Some("skia-software"), None) => renderer::skia::WinitSkiaRenderer::new_software_suspended(shared_data),
+        (Some("skia-software"), None) => {
+            renderer::skia::WinitSkiaRenderer::new_software_suspended(shared_data)
+        }
         #[cfg(feature = "renderer-software")]
         (Some("sw"), None) | (Some("software"), None) => {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
