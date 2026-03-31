@@ -23,7 +23,7 @@ pub fn create_collection(shared: bool) -> Collection {
 
     #[cfg(any(target_family = "wasm", target_os = "nto"))]
     {
-        let data = include_bytes!("sharedfontique/DejaVuSans.ttf");
+        let data = include_bytes!("sharedfontique/Inter-VariableFont.ttf");
         let fonts = collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
         for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
             collection.append_fallbacks(
