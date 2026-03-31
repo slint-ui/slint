@@ -317,10 +317,9 @@ async fn handle_tool_call(
                 let child_handle = state.element_to_handle(child.clone());
                 let props = introspection::element_properties(&child);
                 if let Ok(mut node) = serde_json::to_value(props) {
-                    if let (Some(obj), Ok(handle_json)) = (
-                        node.as_object_mut(),
-                        serde_json::to_value(index_to_handle(child_handle)),
-                    ) {
+                    if let (Some(obj), Ok(handle_json)) =
+                        (node.as_object_mut(), serde_json::to_value(index_to_handle(child_handle)))
+                    {
                         obj.insert("handle".to_string(), handle_json);
                     }
                     elements.push(node);
