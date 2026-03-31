@@ -100,9 +100,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (download_progress_sender, download_progress_receiver) =
         smol::channel::bounded::<(SharedString, f32)>(5);
 
-    // Slint initializes first — on linuxkms it creates its own wgpu instance with
-    // DRM surface support. The wgpu resources are then passed to Bevy via the
+    // Slint initializes first with wgpu — on linuxkms it creates its own wgpu instance
+    // with DRM surface support. The wgpu resources are then passed to Bevy via the
     // rendering notifier callback.
+    let mut wgpu_settings = slint::wgpu_27::WGPUSettings::default();
+    wgpu_settings.device_required_limits = slint::wgpu_27::wgpu::Limits::default()
+        .using_resolution(slint::wgpu_27::wgpu::Limits::downlevel_defaults());
+    slint::BackendSelector::new()
+        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Automatic(wgpu_settings))
+        .select()?;
     let app_window = AppWindow::new().unwrap();
 
     // These will be filled once Bevy is initialized from the rendering notifier.
