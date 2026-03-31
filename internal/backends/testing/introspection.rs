@@ -251,16 +251,9 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         type_name: element.type_name().unwrap_or_default().into(),
         id: element.id().unwrap_or_default().into(),
     })
-    .chain(
-        element
-            .bases()
-            .into_iter()
-            .flatten()
-            .map(|base_type_name| proto::ElementTypeNameAndId {
-                type_name: base_type_name.into(),
-                id: "root".into(),
-            }),
-    )
+    .chain(element.bases().into_iter().flatten().map(|base_type_name| {
+        proto::ElementTypeNameAndId { type_name: base_type_name.into(), id: "root".into() }
+    }))
     .collect();
 
     proto::ElementPropertiesResponse {
@@ -270,10 +263,7 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         accessible_value_maximum: element.accessible_value_maximum().unwrap_or_default(),
         accessible_value_minimum: element.accessible_value_minimum().unwrap_or_default(),
         accessible_value_step: element.accessible_value_step().unwrap_or_default(),
-        accessible_description: element
-            .accessible_description()
-            .unwrap_or_default()
-            .to_string(),
+        accessible_description: element.accessible_description().unwrap_or_default().to_string(),
         accessible_checked: element.accessible_checked().unwrap_or_default(),
         accessible_checkable: element.accessible_checkable().unwrap_or_default(),
         size: {

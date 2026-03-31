@@ -10,8 +10,8 @@ use prost::Message;
 use std::io::Cursor;
 use std::rc::Rc;
 
-use crate::introspection::{self, proto, IntrospectionState};
 use crate::ElementHandle;
+use crate::introspection::{self, IntrospectionState, proto};
 
 struct TestingClient {
     state: Rc<IntrospectionState>,
@@ -103,10 +103,8 @@ impl TestingClient {
                     proto::ElementAccessibilityAction::try_from(msg.action).map_err(|_| {
                         format!("invalid ElementAccessibilityAction value: {}", msg.action)
                     })?;
-                let element = self.element(
-                    "invoke element accessibility action request",
-                    element_handle,
-                )?;
+                let element =
+                    self.element("invoke element accessibility action request", element_handle)?;
                 introspection::invoke_element_accessibility_action(&element, action);
                 Resp::InvokeElementAccessibilityActionResponse(
                     proto::InvokeElementAccessibilityActionResponse {},
@@ -226,7 +224,6 @@ impl TestingClient {
     fn element_to_handle(&self, element: ElementHandle) -> proto::Handle {
         index_to_handle(self.state.element_to_handle(element))
     }
-
 }
 
 pub fn init() -> Result<(), EventLoopError> {

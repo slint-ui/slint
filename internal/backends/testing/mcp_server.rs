@@ -20,7 +20,7 @@ use i_slint_core::api::EventLoopError;
 use serde_json::Value;
 use std::rc::Rc;
 
-use crate::introspection::{self, proto, IntrospectionState};
+use crate::introspection::{self, IntrospectionState, proto};
 
 fn handle_to_index(handle: proto::Handle) -> generational_arena::Index {
     introspection::handle_to_index(handle)
@@ -201,11 +201,7 @@ async fn handle_tool_call(
     match name {
         "list_windows" => {
             let response = proto::WindowListResponse {
-                window_handles: state
-                    .window_handles()
-                    .into_iter()
-                    .map(index_to_handle)
-                    .collect(),
+                window_handles: state.window_handles().into_iter().map(index_to_handle).collect(),
             };
             Ok(ToolResult::Json(
                 serde_json::to_value(&response).map_err(|e| format!("serialize error: {e}"))?,
@@ -213,10 +209,8 @@ async fn handle_tool_call(
         }
         "get_window_properties" => {
             let p: proto::RequestWindowProperties = deserialize_params(args)?;
-            let window_index = handle_to_index(
-                p.window_handle
-                    .ok_or_else(|| "missing windowHandle".to_string())?,
-            );
+            let window_index =
+                handle_to_index(p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?);
             let adapter = state.window_adapter(window_index)?;
             let window = adapter.window();
             let response = proto::WindowPropertiesResponse {
@@ -241,10 +235,8 @@ async fn handle_tool_call(
         }
         "find_elements_by_id" => {
             let p: proto::RequestFindElementsById = deserialize_params(args)?;
-            let window_index = handle_to_index(
-                p.window_handle
-                    .ok_or_else(|| "missing windowHandle".to_string())?,
-            );
+            let window_index =
+                handle_to_index(p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?);
             let elements = state.find_elements_by_id(window_index, &p.elements_id)?;
             let response = proto::ElementsResponse {
                 element_handles: elements
@@ -259,8 +251,7 @@ async fn handle_tool_call(
         "get_element_properties" => {
             let p: proto::RequestElementProperties = deserialize_params(args)?;
             let element_index = handle_to_index(
-                p.element_handle
-                    .ok_or_else(|| "missing elementHandle".to_string())?,
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             );
             let element = state.element("get_element_properties", element_index)?;
             let response = introspection::element_properties(&element);
@@ -271,11 +262,11 @@ async fn handle_tool_call(
         "query_element_descendants" => {
             let p: proto::RequestQueryElementDescendants = deserialize_params(args)?;
             let element_index = handle_to_index(
-                p.element_handle
-                    .ok_or_else(|| "missing elementHandle".to_string())?,
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             );
             let element = state.element("query_element_descendants", element_index)?;
-            let results = introspection::query_element_descendants(element, p.query_stack, p.find_all)?;
+            let results =
+                introspection::query_element_descendants(element, p.query_stack, p.find_all)?;
             let response = proto::ElementQueryResponse {
                 element_handles: results
                     .into_iter()
@@ -295,11 +286,9 @@ async fn handle_tool_call(
                     serde_json::from_value(v.clone())
                         .map_err(|e| format!("invalid elementHandle: {e}"))
                 })?;
-            let max_elements: usize = args
-                .get("maxElements")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(200)
-                .clamp(1, 1000) as usize;
+            let max_elements: usize =
+                args.get("maxElements").and_then(|v| v.as_u64()).unwrap_or(200).clamp(1, 1000)
+                    as usize;
 
             let root_index = handle_to_index(element_handle);
             let root_element = state.element("get_element_tree", root_index)?;
@@ -348,10 +337,8 @@ async fn handle_tool_call(
         }
         "take_screenshot" => {
             let p: proto::RequestTakeSnapshot = deserialize_params(args)?;
-            let window_index = handle_to_index(
-                p.window_handle
-                    .ok_or_else(|| "missing windowHandle".to_string())?,
-            );
+            let window_index =
+                handle_to_index(p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?);
             let png_data = state.take_snapshot(window_index, "image/png")?;
             Ok(ToolResult::Image {
                 meta: serde_json::json!({ "sizeBytes": png_data.len() }),
@@ -361,8 +348,7 @@ async fn handle_tool_call(
         "click_element" => {
             let p: proto::RequestElementClick = deserialize_params(args)?;
             let element_index = handle_to_index(
-                p.element_handle
-                    .ok_or_else(|| "missing elementHandle".to_string())?,
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             );
             let element = state.element("click_element", element_index)?;
             let button = proto::PointerEventButton::try_from(p.button)
@@ -382,8 +368,7 @@ async fn handle_tool_call(
         "invoke_accessibility_action" => {
             let p: proto::RequestInvokeElementAccessibilityAction = deserialize_params(args)?;
             let element_index = handle_to_index(
-                p.element_handle
-                    .ok_or_else(|| "missing elementHandle".to_string())?,
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             );
             let element = state.element("invoke_accessibility_action", element_index)?;
             let action = proto::ElementAccessibilityAction::try_from(p.action)
@@ -397,8 +382,7 @@ async fn handle_tool_call(
         "set_element_value" => {
             let p: proto::RequestSetElementAccessibleValue = deserialize_params(args)?;
             let element_index = handle_to_index(
-                p.element_handle
-                    .ok_or_else(|| "missing elementHandle".to_string())?,
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             );
             let element = state.element("set_element_value", element_index)?;
             element.set_accessible_value(p.value);
@@ -421,23 +405,19 @@ async fn handle_tool_call(
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| "missing text".to_string())?
                 .to_string();
-            let event_type = args
-                .get("eventType")
-                .and_then(|v| v.as_str())
-                .unwrap_or("press_and_release");
+            let event_type =
+                args.get("eventType").and_then(|v| v.as_str()).unwrap_or("press_and_release");
 
             let window_index = handle_to_index(window_handle);
             let events: Vec<i_slint_core::platform::WindowEvent> = match event_type {
-                "press" => vec![i_slint_core::platform::WindowEvent::KeyPressed {
-                    text: text.into(),
-                }],
-                "release" => vec![i_slint_core::platform::WindowEvent::KeyReleased {
-                    text: text.into(),
-                }],
+                "press" => {
+                    vec![i_slint_core::platform::WindowEvent::KeyPressed { text: text.into() }]
+                }
+                "release" => {
+                    vec![i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }]
+                }
                 "press_and_release" => vec![
-                    i_slint_core::platform::WindowEvent::KeyPressed {
-                        text: text.clone().into(),
-                    },
+                    i_slint_core::platform::WindowEvent::KeyPressed { text: text.clone().into() },
                     i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() },
                 ],
                 other => return Err(format!("Unknown eventType: {other}")),
@@ -962,9 +942,7 @@ mod tests {
         assert!(validate_origin(&[("origin".into(), "http://127.0.0.1:8080".into())]).is_ok());
         assert!(validate_origin(&[("origin".into(), "http://[::1]:3000".into())]).is_ok());
         assert!(validate_origin(&[("origin".into(), "http://evil.com".into())]).is_err());
-        assert!(
-            validate_origin(&[("origin".into(), "http://localhost.evil.com".into())]).is_err()
-        );
+        assert!(validate_origin(&[("origin".into(), "http://localhost.evil.com".into())]).is_err());
     }
 
     #[test]
