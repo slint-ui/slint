@@ -243,7 +243,13 @@ pub fn embed_glyphs<'a>(
             return;
         };
 
-        let font_ref = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
+        let Some(font_ref) = skrifa::FontRef::from_index(font.blob.data(), font.index).ok() else {
+            diag.push_error(
+                format!("internal error: failed to parse font: {}", path.display()),
+                &generic_diag_location,
+            );
+            return;
+        };
         let axes = font_ref.axes();
         let wght_axis = axes.iter().find(|axis| axis.tag() == skrifa::Tag::new(b"wght"));
 
