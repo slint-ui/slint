@@ -954,43 +954,37 @@ fn create_renderer(
             any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
         ))]
         (Some("skia-wgpu"), maybe_graphics_api) => {
-            if let Some(factory) = maybe_graphics_api.map_or_else(
+            if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    cfg_if::cfg_if!(
-                        if #[cfg(feature = "unstable-wgpu-28")]
-                    {
-                        let result = Some(
-                            (renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                                as RendererFactoryFn)(shared_data),
-                        );
-                    } else {
-                        let result = Some(
-                            (renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-                                as RendererFactoryFn)(shared_data),
-                        );
-                    }
-                    );
-                    result
+                    #[cfg(feature = "unstable-wgpu-28")]
+                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                        shared_data,
+                    ));
+
+                    #[cfg(feature = "unstable-wgpu-27")]
+                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
+                        shared_data,
+                    ));
+
+                    None
                 },
                 |api| {
                     #[cfg(feature = "unstable-wgpu-27")]
                     if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
-                        return Some((renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-                            as RendererFactoryFn)(
-                            &shared_data
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
+                            &shared_data,
                         ));
                     }
                     #[cfg(feature = "unstable-wgpu-28")]
                     if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
-                        return Some((renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                            as RendererFactoryFn)(
-                            &shared_data
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                            &shared_data,
                         ));
                     }
                     None
                 },
             ) {
-                factory
+                selected_renderer
             } else {
                 return Err("Skia with WGPU doesn't support non-WGPU graphics API"
                     .to_string()
