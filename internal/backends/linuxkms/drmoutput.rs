@@ -361,6 +361,7 @@ impl DrmOutput {
 
     // Iterate through all planes and collect formats from compatible ones
     pub fn find_compatible_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
+        let _ = self.drm_device.set_client_capability(drm::ClientCapability::UniversalPlanes, true);
         let plane_handles = self
             .drm_device
             .plane_handles()
