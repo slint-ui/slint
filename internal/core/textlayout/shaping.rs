@@ -327,8 +327,8 @@ fn with_default_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> 
         fontique::QueryStatus::Stop
     });
     let font = font.unwrap();
-    let face = rustybuzz::Face::from_slice(font.blob.data(), font.index)
-        .expect("unable to parse font");
+    let face =
+        rustybuzz::Face::from_slice(font.blob.data(), font.index).expect("unable to parse font");
     callback(&face)
 }
 
