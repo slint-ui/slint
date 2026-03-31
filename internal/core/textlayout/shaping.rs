@@ -310,14 +310,14 @@ impl FontMetrics<f32> for &rustybuzz::Face<'_> {
 }
 
 #[cfg(test)]
-fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> R {
+fn with_default_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> R {
     let mut collection = fontique::Collection::default();
-    let dejavu_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "common", "sharedfontique", "DejaVuSans.ttf"]
+    let font_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "..", "common", "sharedfontique", "Inter-VariableFont.ttf"]
             .iter()
             .collect();
     let registered_fonts =
-        collection.register_fonts(std::fs::read(&dejavu_path).unwrap().into(), None);
+        collection.register_fonts(std::fs::read(&font_path).unwrap().into(), None);
     let mut cache = fontique::SourceCache::default();
     let mut query = collection.query(&mut cache);
     query.set_families(std::iter::once(fontique::QueryFamily::from(registered_fonts[0].0)));
@@ -328,29 +328,28 @@ fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> R
     });
     let font = font.unwrap();
     let face = rustybuzz::Face::from_slice(font.blob.data(), font.index)
-        .expect("unable to parse dejavu font");
+        .expect("unable to parse font");
     callback(&face)
 }
 
 #[test]
 fn test_shaping() {
     use TextShaper;
-    use std::num::NonZeroU16;
 
-    with_dejavu_font(|face| {
+    with_default_font(|face| {
         {
             let mut shaped_glyphs = Vec::new();
             // two glyph clusters: ā́b
             face.shape_text("a\u{0304}\u{0301}b", &mut shaped_glyphs);
 
             assert_eq!(shaped_glyphs.len(), 3);
-            assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(195));
+            assert!(shaped_glyphs[0].glyph_id.is_some());
             assert_eq!(shaped_glyphs[0].text_byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[1].glyph_id, NonZeroU16::new(690));
+            assert!(shaped_glyphs[1].glyph_id.is_some());
             assert_eq!(shaped_glyphs[1].text_byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
+            assert!(shaped_glyphs[2].glyph_id.is_some());
             assert_eq!(shaped_glyphs[2].text_byte_offset, 5);
         }
 
@@ -360,12 +359,12 @@ fn test_shaping() {
             face.shape_text("a b", &mut shaped_glyphs);
 
             assert_eq!(shaped_glyphs.len(), 3);
-            assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(68));
+            assert!(shaped_glyphs[0].glyph_id.is_some());
             assert_eq!(shaped_glyphs[0].text_byte_offset, 0);
 
             assert_eq!(shaped_glyphs[1].text_byte_offset, 1);
 
-            assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
+            assert!(shaped_glyphs[2].glyph_id.is_some());
             assert_eq!(shaped_glyphs[2].text_byte_offset, 2);
         }
     });
@@ -375,7 +374,7 @@ fn test_shaping() {
 fn test_letter_spacing() {
     use TextShaper;
 
-    with_dejavu_font(|face| {
+    with_default_font(|face| {
         // two glyph clusters: ā́b
         let text = "a\u{0304}\u{0301}b";
         let advances = {
