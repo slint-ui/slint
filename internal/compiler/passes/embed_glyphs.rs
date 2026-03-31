@@ -249,7 +249,11 @@ pub fn embed_glyphs<'a>(
 
         if let Some(wght_axis) = wght_axis {
             // Variable font: embed one BitmapFont per requested weight
-            let weights = if font_weights.is_empty() { vec![400u16] } else { font_weights.clone() };
+            let weights = if font_weights.is_empty() {
+                vec![fontique::FontWeight::NORMAL.value() as u16]
+            } else {
+                font_weights.clone()
+            };
             for &weight in &weights {
                 let clamped = (weight as f32).clamp(wght_axis.min_value(), wght_axis.max_value());
                 let location = axes.location([("wght", clamped)]);
