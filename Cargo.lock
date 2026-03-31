@@ -2127,7 +2127,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 
 [[package]]
 name = "drm"
@@ -5495,9 +5495,9 @@ dependencies = [
 
 [[package]]
 name = "inventory"
-version = "0.3.23"
+version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8062b737e5389949f477d4760a2ebbff0c366f97798f2419b8d8f366363d3342"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
 dependencies = [
  "rustversion",
 ]
@@ -5699,9 +5699,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.92"
+version = "0.3.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc4c90f45aa2e6eacbe8645f77fdea542ac97a494bcd117a67df9ff4d611f995"
+checksum = "797146bb2677299a1eb6b7b50a890f4c361b29ef967addf5b2fa45dae1bb6d7d"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -11731,9 +11731,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.115"
+version = "0.2.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6523d69017b7633e396a89c5efab138161ed5aafcbc8d3e5c5a42ae38f50495a"
+checksum = "7dc0882f7b5bb01ae8c5215a1230832694481c1a4be062fd410e12ea3da5b631"
 dependencies = [
  "cfg-if",
  "once_cell",
@@ -11744,9 +11744,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.65"
+version = "0.4.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d1faf851e778dfa54db7cd438b70758eba9755cb47403f3496edd7c8fc212f0"
+checksum = "19280959e2844181895ef62f065c63e0ca07ece4771b53d89bfdb967d97cbf05"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -11754,9 +11754,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.115"
+version = "0.2.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e3a6c758eb2f701ed3d052ff5737f5bfe6614326ea7f3bbac7156192dc32e67"
+checksum = "75973d3066e01d035dbedaad2864c398df42f8dd7b1ea057c35b8407c015b537"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -11764,9 +11764,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.115"
+version = "0.2.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "921de2737904886b52bcbb237301552d05969a6f9c40d261eb0533c8b055fedf"
+checksum = "91af5e4be765819e0bcfee7322c14374dc821e35e72fa663a830bbc7dc199eac"
 dependencies = [
  "bumpalo",
  "proc-macro2",
@@ -11777,9 +11777,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.115"
+version = "0.2.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a93e946af942b58934c604527337bad9ae33ba1d5c6900bbb41c2c07c2364a93"
+checksum = "c9bf0406a78f02f336bf1e451799cca198e8acde4ffa278f0fb20487b150a633"
 dependencies = [
  "unicode-ident",
 ]
@@ -11874,9 +11874,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-backend"
-version = "0.3.14"
+version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa75f400b7f719bcd68b3f47cd939ba654cedeef690f486db71331eec4c6a406"
+checksum = "2857dd20b54e916ec7253b3d6b4d5c4d7d4ca2c33c2e11c6c76a99bd8744755d"
 dependencies = [
  "cc",
  "downcast-rs",
@@ -11888,9 +11888,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-client"
-version = "0.31.13"
+version = "0.31.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab51d9f7c071abeee76007e2b742499e535148035bb835f97aaed1338cf516c3"
+checksum = "645c7c96bb74690c3189b5c9cb4ca1627062bb23693a4fad9d8c3de958260144"
 dependencies = [
  "bitflags 2.11.0",
  "rustix 1.1.4",
@@ -11911,9 +11911,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-cursor"
-version = "0.31.13"
+version = "0.31.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b3298683470fbdc6ca40151dfc48c8f2fd4c41a26e13042f801f85002384091"
+checksum = "4a52d18780be9b1314328a3de5f930b73d2200112e3849ca6cb11822793fb34d"
 dependencies = [
  "rustix 1.1.4",
  "wayland-client",
@@ -11922,9 +11922,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-protocols"
-version = "0.32.11"
+version = "0.32.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b23b5df31ceff1328f06ac607591d5ba360cf58f90c8fad4ac8d3a55a3c4aec7"
+checksum = "563a85523cade2429938e790815fd7319062103b9f4a2dc806e9b53b95982d8f"
 dependencies = [
  "bitflags 2.11.0",
  "wayland-backend",
@@ -11947,9 +11947,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-protocols-misc"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "429b99200febaf95d4f4e46deff6fe4382bcff3280ee16a41cf887b3c3364984"
+checksum = "6e9567599ef23e09b8dad6e429e5738d4509dfc46b3b21f32841a304d16b29c8"
 dependencies = [
  "bitflags 2.11.0",
  "wayland-backend",
@@ -11960,9 +11960,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-protocols-plasma"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d392fc283a87774afc9beefcd6f931582bb97fe0e6ced0b306a62cb1d026527c"
+checksum = "2b6d8cf1eb2c1c31ed1f5643c88a6e53538129d4af80030c8cabd1f9fa884d91"
 dependencies = [
  "bitflags 2.11.0",
  "wayland-backend",
@@ -11973,9 +11973,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-protocols-wlr"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78248e4cc0eff8163370ba5c158630dcae1f3497a586b826eca2ef5f348d6235"
+checksum = "eb04e52f7836d7c7976c78ca0250d61e33873c34156a2a1fc9474828ec268234"
 dependencies = [
  "bitflags 2.11.0",
  "wayland-backend",
@@ -11986,9 +11986,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-scanner"
-version = "0.31.9"
+version = "0.31.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c86287151a309799b821ca709b7345a048a2956af05957c89cb824ab919fa4e3"
+checksum = "9c324a910fd86ebdc364a3e61ec1f11737d3b1d6c273c0239ee8ff4bc0d24b4a"
 dependencies = [
  "proc-macro2",
  "quick-xml",
@@ -11997,9 +11997,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-sys"
-version = "0.31.10"
+version = "0.31.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "374f6b70e8e0d6bf9461a32988fd553b59ff630964924dad6e4a4eb6bd538d17"
+checksum = "d8eab23fefc9e41f8e841df4a9c707e8a8c4ed26e944ef69297184de2785e3be"
 dependencies = [
  "dlib",
  "log",
@@ -12032,9 +12032,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.92"
+version = "0.3.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84cde8507f4d7cfcb1185b8cb5890c494ffea65edbe1ba82cfd63661c805ed94"
+checksum = "749466a37ee189057f54748b200186b59a03417a117267baf3fd89cecc9fb837"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -13010,12 +13010,12 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
@@ -13036,11 +13036,11 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.11.0",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -13051,12 +13051,12 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -13073,13 +13073,12 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
  "objc2 0.6.4",
  "objc2-core-foundation",
- "objc2-foundation 0.3.2",
  "smol_str 0.3.2",
  "tracing",
  "winit-core",
@@ -13090,11 +13089,11 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -13104,10 +13103,10 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "libredox",
  "orbclient",
  "raw-window-handle",
@@ -13120,12 +13119,12 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -13140,12 +13139,12 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "foldhash 0.2.0",
  "libc",
  "memmap2",
@@ -13166,13 +13165,13 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "atomic-waker",
  "bitflags 2.11.0",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -13188,11 +13187,11 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
@@ -13204,13 +13203,13 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/rust-windowing/winit.git#b5252f136632aac27937ad00fbd6764f812d4922"
+source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/rust-windowing/winit.git)",
+ "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
  "libc",
  "percent-encoding",
  "raw-window-handle",

@@ -1427,6 +1427,69 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
+    fn create_popup(
+        &self,
+        geometry: i_slint_core::lengths::LogicalRect,
+    ) -> Option<Rc<dyn WindowAdapter>> {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            use crate::winit::window::WindowType;
+            use raw_window_handle::HasWindowHandle;
+            use winit::dpi::{LogicalPosition, LogicalSize, Position};
+
+            let size = LogicalSize::new(geometry.width(), geometry.height());
+            let position = LogicalPosition::new(geometry.origin.x, geometry.origin.y);
+
+            let mut window_attributes = WindowAttributes::default()
+                .with_title("child window")
+                .with_surface_size(size)
+                .with_position(Position::Logical(position.cast()))
+                .with_decorations(false)
+                .with_visible(true)
+                .as_type(WindowType::Popup);
+
+            if let Ok(parent) = winit_window.window_handle() {
+                window_attributes =
+                    unsafe { window_attributes.with_parent_window(Some(parent.as_raw())) };
+
+                // if let Some(hook) = &self.window_attributes_hook {
+                //     window_attributes = hook(window_attributes);
+                // }
+
+                if let Ok(adapter) = crate::create_renderer(&self.shared_backend_data).map_or_else(
+                    |e| {
+                        crate::try_create_window_with_fallback_renderer(
+                            &self.shared_backend_data.clone(),
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar_bar,
+                        )
+                        .ok_or_else(|| {
+                            format!("Winit backend failed to find a suitable renderer: {e}")
+                        })
+                    },
+                    |renderer| {
+                        Ok(WinitWindowAdapter::new(
+                            self.shared_backend_data.clone(),
+                            renderer,
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar_bar,
+                        ))
+                    },
+                ) {
+                    // Add to inactive_windows so that it gets shown in the next event loop round
+                    self.shared_backend_data
+                        .inactive_windows
+                        .borrow_mut()
+                        .push(Rc::downgrade(&adapter));
+
+                    return Some(adapter as _);
+                }
+            }
+        }
+        None
+    }
+
     #[cfg(muda)]
     fn show_native_popup_menu(
         &self,

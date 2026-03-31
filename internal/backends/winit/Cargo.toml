@@ -77,9 +77,12 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 uuid ={ version = "1.23", features = ["v4"]}
 strum = { workspace = true }
-winit = { git = "https://github.com/rust-windowing/winit.git", default-features = false }
-winit-wayland = { git = "https://github.com/rust-windowing/winit.git", optional = true}
-winit-x11 = { git = "https://github.com/rust-windowing/winit.git", optional = true}
+winit = { path = "../../../../../../winit/winit", default-features = false }
+winit-wayland = { path = "../../../../../../winit/winit-wayland", optional = true}
+winit-x11 = { path = "../../../../../../winit/winit-x11", optional = true}
+# winit = { git = "https://github.com/Murmele/winit.git", branch = "popup", default-features = false }
+# winit-wayland = { git = "https://github.com/Murmele/winit.git", branch = "popup", optional = true}
+# winit-x11 = { git = "https://github.com/Murmele/winit.git", branch = "popup", optional = true}
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
