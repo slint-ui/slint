@@ -87,30 +87,31 @@ impl MudaAdapter {
         position: LogicalPosition,
         proxy: EventLoopProxy<SlintEvent>,
     ) -> Option<Self> {
-        if cfg!(target_os = "macos") {
-            // TODO: Implement this on macOS (Note that rebuild_menu must not create the default app)
-            return None;
-        }
-
         let menu = muda::Menu::new();
         install_event_handler_if_necessary(proxy);
 
         let mut s = Self { entries: Default::default(), tracker: None, menu };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
 
-        let position = i_slint_core::api::WindowPosition::Logical(position);
-        let position = Some(crate::winitwindowadapter::position_to_winit(&position));
-
         match winit_window.window_handle().ok()?.as_raw() {
             #[cfg(target_os = "windows")]
             RawWindowHandle::Win32(handle) => {
+                let position = i_slint_core::api::WindowPosition::Logical(position);
+                let position = crate::winitwindowadapter::position_to_winit(&position);
                 unsafe {
-                    s.menu.show_context_menu_for_hwnd(handle.hwnd.get(), position);
+                    s.menu.show_context_menu_for_hwnd(handle.hwnd.get(), Some(position));
                 }
                 Some(s)
             }
             #[cfg(target_os = "macos")]
             RawWindowHandle::AppKit(handle) => {
+                // muda assumes a non-flipped NSView and flips Y internally. But winit's view
+                // has isFlipped=true, so we pre-flip Y to compensate.
+                let h =
+                    winit_window.inner_size().to_logical::<f64>(winit_window.scale_factor()).height;
+                let position = Some(winit::dpi::Position::Logical(
+                    winit::dpi::LogicalPosition::new(position.x as f64, h - position.y as f64),
+                ));
                 unsafe { s.menu.show_context_menu_for_nsview(handle.ns_view.as_ptr(), position) };
                 Some(s)
             }
@@ -205,7 +206,9 @@ impl MudaAdapter {
 
         // Until we have menu roles, always create an app menu on macOS.
         #[cfg(target_os = "macos")]
-        create_default_app_menu(&self.menu).unwrap();
+        if matches!(muda_type, MudaType::Menubar) {
+            create_default_app_menu(&self.menu).unwrap();
+        }
 
         if let Some(menubar) = menubar.as_deref() {
             let mut build_menu = || {
