@@ -909,7 +909,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
     }
 }
 
-/// Creates a new renderer from the properties backend properties in `shared_data`
+/// Creates a new renderer from the backend properties in `shared_data`
 fn create_renderer(
     shared_data: &Rc<SharedBackendData>,
 ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
