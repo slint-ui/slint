@@ -62,3 +62,39 @@ fn test_multiple_rust_attrs() {
         })
     );
 }
+
+#[test]
+fn test_struct_with_length_field_in_two_way_binding() {
+    i_slint_backend_testing::init_no_event_loop();
+    slint! {
+        export struct RectangleStuff {
+            x: length,
+            y: length,
+            width: length,
+            height: length,
+        }
+
+        export component TestLengthStruct inherits Window {
+            in-out property <RectangleStuff> stuff: {
+                x: 50px,
+                y: 50px,
+                width: 100px,
+                height: 100px
+            };
+
+            Rectangle {
+                x <=> root.stuff.x;
+                y <=> root.stuff.y;
+                width <=> root.stuff.width;
+                height <=> root.stuff.height;
+            }
+        }
+    }
+
+    let component = TestLengthStruct::new().unwrap();
+    let stuff = component.get_stuff();
+    assert_eq!(stuff.x, 50.0);
+    assert_eq!(stuff.y, 50.0);
+    assert_eq!(stuff.width, 100.0);
+    assert_eq!(stuff.height, 100.0);
+}
