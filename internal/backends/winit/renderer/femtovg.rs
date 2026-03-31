@@ -35,7 +35,7 @@ impl GlutinFemtoVGRenderer {
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
-            _requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
+            _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
             _shared_backend_data_weak: Rc::downgrade(shared_backend_data),
         }))
     }
@@ -178,14 +178,14 @@ impl WGPUFemtoVGRenderer {
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         if !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
-            shared_backend_data._requested_graphics_api.clone(),
+            shared_backend_data.requested_graphics_api.clone(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::<i_slint_renderer_femtovg::wgpu::WGPUBackend>::new_suspended(
             ),
-            requested_graphics_api: shared_backend_data._requested_graphics_api.clone(),
+            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
         }))
     }
 }
