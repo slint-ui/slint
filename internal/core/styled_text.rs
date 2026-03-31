@@ -20,7 +20,12 @@ impl StyledText {
     pub fn parse(
         markdown: &str,
     ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
-        Self::parse_interpolated(markdown, &[])
+        Ok(
+            i_slint_common::styled_text::StyledText::parse_interpolated::<
+                i_slint_common::styled_text::StyledText,
+            >(markdown, &[])?
+            .into(),
+        )
     }
 
     /// Parses markdown and substitutes `{}` or `{n}` placeholders with styled text arguments.
