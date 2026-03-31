@@ -77,8 +77,7 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Alias to a backend and renderer that depends on the platform.
-## Will select the Qt backend on linux if present, and the winit otherwise
-backend-default = ["i-slint-backend-selector/default", "dep:i-slint-backend-qt"]
+backend-default = ["i-slint-backend-selector/default"]
 
 
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
