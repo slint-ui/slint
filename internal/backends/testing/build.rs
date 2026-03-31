@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 fn main() {
-    #[cfg(feature = "system-testing")]
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
     {
         use prost::Message;
         let manifest_dir =

@@ -34,6 +34,21 @@ system-testing = [
   "pbjson-build",
   "protox",
 ]
+mcp = [
+  "prost",
+  "pbjson",
+  "serde",
+  "serde_json",
+  "generational-arena",
+  "async-net",
+  "futures-lite",
+  "image",
+  "base64",
+  "httparse",
+  "prost-build",
+  "pbjson-build",
+  "protox",
+]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
@@ -42,6 +57,9 @@ vtable = { workspace = true }
 prost = { version = "0.14", optional = true }
 pbjson = { version = "0.9", optional = true }
 serde = { version = "1", optional = true }
+serde_json = { workspace = true, optional = true }
+base64 = { version = "0.22", optional = true }
+httparse = { version = "1", optional = true }
 generational-arena = { version = "0.2.9", optional = true }
 async-net = { version = "2.0.0", optional = true }
 futures-lite = { version = "2.3.0", optional = true }
