@@ -246,6 +246,7 @@ pub trait CustomApplicationHandler {
 /// Create the builder using [`Backend::builder()`], then configure it for example with [`Self::with_renderer_name`],
 /// and build the backend using [`Self::build`].
 pub struct BackendBuilder {
+    /// Allow fallback if the desired renderer is not found
     allow_fallback: bool,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     window_attributes_hook:
@@ -367,146 +368,12 @@ impl BackendBuilder {
 
         let shared_data = Rc::new(SharedBackendData::new(
             event_loop_builder,
+            self.renderer_name,
             self.requested_graphics_api.clone(),
+            self.allow_fallback,
         )?);
 
-        let renderer_factory_fn = match (
-            self.renderer_name.as_deref(),
-            self.requested_graphics_api.as_ref(),
-        ) {
-            #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
-            (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
-                // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-                if let Some(api) = maybe_graphics_api {
-                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
-                }
-                renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
-            }
-            #[cfg(feature = "renderer-femtovg-wgpu")]
-            (Some("femtovg-wgpu"), maybe_graphics_api) => {
-                if let Some(_api) = maybe_graphics_api {
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    if !matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
-                        return Err(
-                           "The FemtoVG WGPU renderer only supports the WGPU28 graphics API selection"
-                                .into(),
-                        );
-                    }
-                }
-                renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
-            }
-            #[cfg(enable_skia_renderer)]
-            (Some("skia"), maybe_graphics_api) => {
-                renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(maybe_graphics_api)?
-            }
-            #[cfg(all(enable_skia_renderer, supports_opengl))]
-            (Some("skia-opengl"), maybe_graphics_api) => {
-                // If a graphics API was requested, double check that it's GL.
-                if let Some(api) = maybe_graphics_api {
-                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
-                }
-                renderer::skia::WinitSkiaRenderer::new_opengl_suspended
-            }
-            #[cfg(all(
-                enable_skia_renderer,
-                any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
-            ))]
-            (Some("skia-wgpu"), maybe_graphics_api) => {
-                if let Some(factory) = maybe_graphics_api.map_or_else(
-                    || {
-                        cfg_if::cfg_if!(
-                            if #[cfg(feature = "unstable-wgpu-28")]
-                        {
-                            let result = Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                                    as RendererFactoryFn,
-                            );
-                        } else {
-                            let result = Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-                                    as RendererFactoryFn,
-                            );
-                        }
-                        );
-                        result
-                    },
-                    |api| {
-                        #[cfg(feature = "unstable-wgpu-27")]
-                        if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
-                            return Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-                                    as RendererFactoryFn,
-                            );
-                        }
-                        #[cfg(feature = "unstable-wgpu-28")]
-                        if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
-                            return Some(
-                                renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                                    as RendererFactoryFn,
-                            );
-                        }
-                        None
-                    },
-                ) {
-                    factory
-                } else {
-                    return Err("Skia with WGPU doesn't support non-WGPU graphics API"
-                        .to_string()
-                        .into());
-                }
-            }
-            #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
-            (Some("skia-software"), None) => {
-                renderer::skia::WinitSkiaRenderer::new_software_suspended
-            }
-            #[cfg(feature = "renderer-software")]
-            (Some("sw"), None) | (Some("software"), None) => {
-                renderer::sw::WinitSoftwareRenderer::new_suspended
-            }
-            (None, None) => default_renderer_factory,
-            (Some(renderer_name), _) => {
-                if self.allow_fallback {
-                    eprintln!(
-                        "slint winit: unrecognized renderer {renderer_name}, falling back to {DEFAULT_RENDERER_NAME}"
-                    );
-                    default_renderer_factory
-                } else {
-                    return Err(PlatformError::NoPlatform);
-                }
-            }
-            #[cfg(feature = "unstable-wgpu-28")]
-            (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
-                cfg_if::cfg_if! {
-                    if #[cfg(enable_skia_renderer)] {
-                        renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
-                    } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
-                        renderer::femtovg::WGPUFemtoVGRenderer::new_suspended
-                    } else {
-                        return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
-                    }
-                }
-            }
-            #[cfg(all(enable_skia_renderer, feature = "unstable-wgpu-27"))]
-            (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
-                renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
-            }
-            (None, Some(_requested_graphics_api)) => {
-                cfg_if::cfg_if! {
-                    if #[cfg(enable_skia_renderer)] {
-                        renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?
-                    } else if #[cfg(all(feature = "renderer-femtovg", supports_opengl))] {
-                        // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
-                        i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api)?;
-                        renderer::femtovg::GlutinFemtoVGRenderer::new_suspended
-                    } else {
-                        return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that").into())
-                    }
-                }
-            }
-        };
-
         Ok(Backend {
-            renderer_factory_fn,
             event_loop_state: Default::default(),
             window_attributes_hook: self.window_attributes_hook,
             shared_data,
@@ -520,7 +387,10 @@ impl BackendBuilder {
 }
 
 pub(crate) struct SharedBackendData {
-    _requested_graphics_api: Option<RequestedGraphicsAPI>,
+    /// Allow fallback if the desired renderer is not found
+    allow_fallback: bool,
+    renderer_name: Option<String>,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
     #[cfg(enable_skia_renderer)]
     skia_context: i_slint_renderer_skia::SkiaSharedContext,
     active_windows: Rc<RefCell<HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>>>,
@@ -546,7 +416,9 @@ pub(crate) struct SharedBackendData {
 impl SharedBackendData {
     fn new(
         mut builder: EventLoopBuilder,
+        renderer_name: Option<String>,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        allow_fallback: bool,
     ) -> Result<Self, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         use raw_window_handle::HasDisplayHandle;
@@ -607,7 +479,9 @@ impl SharedBackendData {
                 .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
         );
         Ok(Self {
-            _requested_graphics_api: requested_graphics_api,
+            allow_fallback,
+            renderer_name,
+            requested_graphics_api: requested_graphics_api,
             #[cfg(enable_skia_renderer)]
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows,
@@ -690,7 +564,6 @@ type RendererFactoryFn =
 /// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
 /// ```
 pub struct Backend {
-    renderer_factory_fn: RendererFactoryFn,
     event_loop_state: RefCell<Option<crate::event_loop::EventLoopState>>,
     shared_data: Rc<SharedBackendData>,
     custom_application_handler: RefCell<Option<Box<dyn crate::CustomApplicationHandler>>>,
@@ -767,7 +640,7 @@ impl i_slint_core::platform::Platform for Backend {
             attrs = hook(attrs);
         }
 
-        let adapter = (self.renderer_factory_fn)(&self.shared_data).map_or_else(
+        let adapter = create_renderer(&self.shared_data).map_or_else(
             |e| {
                 try_create_window_with_fallback_renderer(
                     &self.shared_data,
@@ -1044,6 +917,143 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             adapter
                 .window_event_filter
                 .set(Some(Box::new(move |window, event| callback(window, event))));
+        }
+    }
+}
+
+/// Creates a new renderer from the properties backend properties in `shared_data`
+fn create_renderer(
+    shared_data: &Rc<SharedBackendData>,
+) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+    match (shared_data.renderer_name.as_deref(), shared_data.requested_graphics_api.as_ref()) {
+        #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
+        (Some("gl"), maybe_graphics_api) | (Some("femtovg"), maybe_graphics_api) => {
+            // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
+            if let Some(api) = maybe_graphics_api {
+                i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
+            }
+            renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
+        }
+        #[cfg(feature = "renderer-femtovg-wgpu")]
+        (Some("femtovg-wgpu"), maybe_graphics_api) => {
+            if let Some(_api) = maybe_graphics_api {
+                #[cfg(feature = "unstable-wgpu-28")]
+                if !matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
+                    return Err(
+                        "The FemtoVG WGPU renderer only supports the WGPU28 graphics API selection"
+                            .into(),
+                    );
+                }
+            }
+            renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
+        }
+        #[cfg(enable_skia_renderer)]
+        (Some("skia"), maybe_graphics_api) => {
+            (renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(maybe_graphics_api)?)(
+                &shared_data,
+            )
+        }
+        #[cfg(all(enable_skia_renderer, supports_opengl))]
+        (Some("skia-opengl"), maybe_graphics_api) => {
+            // If a graphics API was requested, double check that it's GL.
+            if let Some(api) = maybe_graphics_api {
+                i_slint_core::graphics::RequestedOpenGLVersion::try_from(api)?;
+            }
+            renderer::skia::WinitSkiaRenderer::new_opengl_suspended(shared_data)
+        }
+        #[cfg(all(
+            enable_skia_renderer,
+            any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
+        ))]
+        (Some("skia-wgpu"), maybe_graphics_api) => {
+            if let Some(factory) = maybe_graphics_api.map_or_else(
+                || {
+                    cfg_if::cfg_if!(
+                        if #[cfg(feature = "unstable-wgpu-28")]
+                    {
+                        let result = Some(
+                            (renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
+                                as RendererFactoryFn)(shared_data),
+                        );
+                    } else {
+                        let result = Some(
+                            (renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
+                                as RendererFactoryFn)(shared_data),
+                        );
+                    }
+                    );
+                    result
+                },
+                |api| {
+                    #[cfg(feature = "unstable-wgpu-27")]
+                    if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
+                        return Some((renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended
+                            as RendererFactoryFn)(
+                            &shared_data
+                        ));
+                    }
+                    #[cfg(feature = "unstable-wgpu-28")]
+                    if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
+                        return Some((renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended
+                            as RendererFactoryFn)(
+                            &shared_data
+                        ));
+                    }
+                    None
+                },
+            ) {
+                factory
+            } else {
+                return Err("Skia with WGPU doesn't support non-WGPU graphics API"
+                    .to_string()
+                    .into());
+            }
+        }
+        #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
+        (Some("skia-software"), None) => renderer::skia::WinitSkiaRenderer::new_software_suspended,
+        #[cfg(feature = "renderer-software")]
+        (Some("sw"), None) | (Some("software"), None) => {
+            renderer::sw::WinitSoftwareRenderer::new_suspended(shared_data)
+        }
+        (None, None) => default_renderer_factory(shared_data),
+        (Some(renderer_name), _) => {
+            if shared_data.allow_fallback {
+                eprintln!(
+                    "slint winit: unrecognized renderer {renderer_name}, falling back to {DEFAULT_RENDERER_NAME}"
+                );
+                default_renderer_factory(shared_data)
+            } else {
+                return Err(PlatformError::NoPlatform);
+            }
+        }
+        #[cfg(feature = "unstable-wgpu-28")]
+        (None, Some(RequestedGraphicsAPI::WGPU28(..))) => {
+            cfg_if::cfg_if! {
+                if #[cfg(enable_skia_renderer)] {
+                    renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
+                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+                    renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
+                } else {
+                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                }
+            }
+        }
+        #[cfg(all(enable_skia_renderer, feature = "unstable-wgpu-27"))]
+        (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
+            renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(shared_data)
+        }
+        (None, Some(_requested_graphics_api)) => {
+            cfg_if::cfg_if! {
+                if #[cfg(enable_skia_renderer)] {
+                    renderer::skia::WinitSkiaRenderer::factory_for_graphics_api(Some(_requested_graphics_api))?(shared_data)
+                } else if #[cfg(all(feature = "renderer-femtovg", supports_opengl))] {
+                    // If a graphics API was requested, double check that it's GL. FemtoVG doesn't support Metal, etc.
+                    i_slint_core::graphics::RequestedOpenGLVersion::try_from(_requested_graphics_api)?;
+                    renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
+                } else {
+                    return Err(format!("Graphics API use requested by the compile-time enabled renderers don't support that").into())
+                }
+            }
         }
     }
 }
