@@ -582,6 +582,9 @@ impl SharedBackendData {
         let event_loop =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
+        #[cfg(target_os = "macos")]
+        Self::disable_macos_automatic_shortcut_localization();
+
         cfg_if::cfg_if! {
             if #[cfg(all(unix, not(target_vendor = "apple"), feature = "wayland"))] {
                 use winit::platform::wayland::EventLoopExtWayland;
@@ -620,6 +623,48 @@ impl SharedBackendData {
             #[cfg(target_os = "ios")]
             keyboard_notifications,
         })
+    }
+
+    // Disable automatic keyboard shortcut localization on macOS by injecting
+    // applicationShouldAutomaticallyLocalizeKeyEquivalents: into winit's delegate class.
+    //
+    // This is necessary to make the keyboard shortcuts declared in Slint work as intended on macOS, instead of being automatically localized by the system.
+    //
+    // This is done at runtime because winit 0.30 doesn't allow replacing its delegate.
+    // TODO: Replace with a proper delegate class when upgrading to the next winit version.
+    #[cfg(target_os = "macos")]
+    fn disable_macos_automatic_shortcut_localization() {
+        use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
+        use objc2::sel;
+
+        unsafe extern "C-unwind" fn should_not_localize(
+            _this: *mut AnyObject,
+            _cmd: Sel,
+            _app: *mut AnyObject,
+        ) -> Bool {
+            Bool::NO
+        }
+
+        let sel = sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:);
+        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate") {
+            if cls.instance_method(sel).is_none() {
+                unsafe {
+                    objc2::ffi::class_addMethod(
+                        (cls as *const AnyClass).cast_mut(),
+                        sel,
+                        core::mem::transmute::<
+                            unsafe extern "C-unwind" fn(
+                                *mut AnyObject,
+                                Sel,
+                                *mut AnyObject,
+                            ) -> Bool,
+                            Imp,
+                        >(should_not_localize),
+                        c"B@:@".as_ptr(),
+                    );
+                }
+            }
+        }
     }
 
     pub fn register_window(&self, id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
