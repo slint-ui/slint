@@ -133,7 +133,10 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
 }
 
 fn primitive_property_value(ty: &Type, property_accessor: MemberAccess) -> TokenStream {
-    let value = property_accessor.get_property();
+    primitive_value_from_property_value(ty, property_accessor.get_property())
+}
+
+fn primitive_value_from_property_value(ty: &Type, value: TokenStream) -> TokenStream {
     match ty {
         Type::LogicalLength => quote!(#value.get()),
         _ => value,
@@ -1174,12 +1177,24 @@ fn generate_sub_component(
                 let mut access = quote!();
                 let mut ty = ctx.property_ty(prop2);
                 for f in fields {
-                    let Type::Struct (s) = &ty else { panic!("Field of two way binding on a non-struct type") };
+                    let Type::Struct(s) = &ty else {
+                        panic!("Field of two way binding on a non-struct type")
+                    };
                     let a = struct_field_access(s, f);
                     access.extend(quote!(.#a));
                     ty = s.fields.get(f).unwrap();
                 }
-                quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| s #access .clone(), |s, v| s #access = v.clone()))
+                let to_property_value =
+                    set_primitive_property_value(ty, quote!(s #access .clone()));
+                let to_struct_value = primitive_value_from_property_value(ty, quote!((*v).clone()));
+                quote!(
+                    sp::Property::link_two_way_with_map(
+                        #p2,
+                        #p1,
+                        |s| #to_property_value,
+                        |s, v| s #access = #to_struct_value,
+                    )
+                )
             }
         });
         init.push(quote!(#r;))
