@@ -21,6 +21,16 @@ impl From<Keys> for SlintKeys {
 
 #[napi]
 impl SlintKeys {
+    /// Create a `Keys` from a list of string parts, e.g. `["Control", "Shift?", "Z"]`.
+    ///
+    /// Each element is either a modifier name or a key name. Throws on parse failure.
+    #[napi(factory)]
+    pub fn from_parts(parts: Vec<String>) -> napi::Result<Self> {
+        Keys::from_parts(parts.iter().map(|s| s.as_str()))
+            .map(|k| Self { inner: k })
+            .map_err(|e| napi::Error::from_reason(e.to_string()))
+    }
+
     /// Returns the platform-native string representation of this key binding.
     #[napi]
     pub fn to_string(&self) -> String {

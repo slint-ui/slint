@@ -17,7 +17,6 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
-use i_slint_common::for_each_keys;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -1040,7 +1039,7 @@ impl Expression {
                     }
                 }
                 key_name => {
-                    if let Some((key, shiftbehavior)) = lookup_key(key_name) {
+                    if let Some((key, shiftbehavior)) = lookup_key_name(key_name) {
                         key_code = Some((
                             SmolStr::from_iter(core::iter::once(key)),
                             shiftbehavior,
@@ -1049,7 +1048,7 @@ impl Expression {
                     } else {
                         // TODO: This should suggest more kinds of close matches
                         let uppercased = key_name.to_uppercase();
-                        let hint = if lookup_key(&uppercased).is_some() {
+                        let hint = if lookup_key_name(&uppercased).is_some() {
                             // common case: @keys(Control+a) instead of @keys(Control+A)
                             format!("Use uppercase {uppercased} instead")
                         } else {
@@ -1082,7 +1081,7 @@ impl Expression {
                     }
                     keys.ignore_shift = true;
                     if keys.modifiers.shift {
-                        let shifted_hint = lookup_key(shifted_hint).map(|(shifted_code, _shift_behavior)|
+                        let shifted_hint = lookup_key_name(shifted_hint).map(|(shifted_code, _shift_behavior)|
                             format!("\nConsider using {shifted_hint} to match when the user types '{shifted_code}'")
                         ).unwrap_or_default();
 
@@ -1679,55 +1678,7 @@ impl Expression {
     }
 }
 
-/// Shift Behavior relevant for the @keys macro
-#[derive(Clone, Debug)]
-enum ShiftBehavior {
-    // Keys that change their key code when Shift is pressed, but the shifted value is layout-dependent
-    LocalizedShiftable { shifted_hint: &'static str },
-    // Unshiftable keys have the same key code regardless of the shift state
-    //
-    // (This also currently applies to the letter keys, as we match everything with lowercase)
-    Unshiftable,
-}
-
-fn with_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, (char, ShiftBehavior)>) -> R) -> R {
-    macro_rules! key_shift_behavior {
-        ($keycode:literal # $ident:ident # $shifted:ident) => {
-            (
-                stringify!($ident),
-                (
-                    $keycode,
-                    ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) },
-                ),
-            )
-        };
-        ($keycode:literal # $ident:ident # ) => {
-            (stringify!($ident), ($keycode, ShiftBehavior::Unshiftable))
-        };
-    }
-    macro_rules! generate_key_map {
-        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
-            {
-                [
-                    $(
-                        key_shift_behavior!($char # $name # $($shifted_char)?$($shifted_ident)?)
-                    ),*
-                ]
-            }
-        }
-    }
-    thread_local! {
-        pub static KEY_MAP: HashMap<&'static str, (char, ShiftBehavior)> =
-            for_each_keys!(generate_key_map).into_iter().collect();
-    }
-
-    KEY_MAP.with(fun)
-}
-
-/// Look up the given key in the Keys namespace, including its shift behavior
-fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
-    with_key_map(|map| map.get(keycode).cloned())
-}
+use i_slint_common::key_codes::{ShiftBehavior, lookup_key_name};
 
 /// Return the type that merge two times when they are used in two branch of a condition
 ///
@@ -2435,24 +2386,5 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn check_shifted_hints() {
-        with_key_map(|map| {
-            for (key_name, (_code, shift_behavior)) in map.iter() {
-                if let ShiftBehavior::LocalizedShiftable { shifted_hint } = shift_behavior {
-                    assert!(
-                        lookup_key(shifted_hint).is_some(),
-                        "shifted_hint `{shifted_hint}` of key `{key_name}` is not a key name"
-                    );
-                }
-            }
-        })
     }
 }

@@ -205,3 +205,91 @@ macro_rules! for_each_keys {
 ];
     };
 }
+
+/// Whether a named key's character code changes with Shift on various keyboard layouts.
+#[derive(Clone, Copy, Debug)]
+pub enum ShiftBehavior {
+    /// The key produces a different character when Shift is held (layout-dependent).
+    /// `shifted_hint` is the name of the shifted key (e.g., `"CloseParen"` for `Digit0`).
+    LocalizedShiftable { shifted_hint: &'static str },
+    /// The key code is the same regardless of Shift state.
+    Unshiftable,
+}
+
+/// Look up a key by name (case-sensitive, matching the `@keys` macro),
+/// returning its character code and shift behavior.
+pub fn lookup_key_name(name: &str) -> Option<(char, ShiftBehavior)> {
+    macro_rules! check_key_name {
+        ($($char:literal # $key_name:ident # $($shifted:expr)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+            $(
+                if name == stringify!($key_name) {
+                    return Some(($char, shift_behavior_for!($($shifted)?)));
+                }
+            )*
+        };
+    }
+
+    macro_rules! shift_behavior_for {
+        () => {
+            ShiftBehavior::Unshiftable
+        };
+        ($shifted:expr) => {
+            ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) }
+        };
+    }
+    for_each_keys!(check_key_name);
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate alloc;
+    use alloc::string::String;
+
+    /// Verify that every key code literal in `for_each_keys!` is already
+    /// NFC-normalized after lowercasing.
+    ///
+    /// All current key codes are either ASCII or single code points from
+    /// the private-use/control range, so lowercasing always yields exactly
+    /// one code point — which is NFC by definition for single code points.
+    /// This test guards against accidentally adding a key code that would
+    /// need NFC normalization.
+    #[test]
+    fn key_code_literals_are_nfc_after_lowercase() {
+        macro_rules! check_nfc {
+            ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+                $({
+                    let lowered: String = $char.to_lowercase().collect();
+                    // A single code point is always in NFC form.
+                    // Multi-char lowercase expansions (e.g. 'ß' → "ss") could
+                    // in theory compose into something else, so flag those too.
+                    assert_eq!(
+                        lowered.chars().count(), 1,
+                        "Key {} (U+{:04X}) lowercases to multiple chars: {:?}",
+                        stringify!($name), $char as u32, lowered
+                    );
+                })*
+            };
+        }
+        for_each_keys!(check_nfc);
+    }
+
+    #[test]
+    fn check_shifted_hints() {
+        use super::lookup_key_name;
+        macro_rules! check_hints {
+            ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+                $($(
+                    assert!(
+                        lookup_key_name(stringify!($shifted)).is_some(),
+                        "shifted_hint `{}` of key `{}` is not a key name",
+                        stringify!($shifted),
+                        stringify!($name),
+                    );
+                )?)*
+            };
+        }
+        for_each_keys!(check_hints);
+    }
+}
