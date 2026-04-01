@@ -2642,7 +2642,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             let fields = lhs.fields.iter().enumerate().map(|(index, (name, _))| {
                                 let index = proc_macro2::Literal::usize_unsuffixed(index);
                                 let name = ident(name);
-                                quote!(the_struct.#name =  obj.#index as _;)
+                                quote!(the_struct.#name = (obj.#index).clone() as _;)
                             });
                             let id = struct_name_to_tokens(targetstruct).unwrap();
                             quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
@@ -2951,7 +2951,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
-                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
+                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = (#elem).clone() as _;)* the_struct})
                 }
             } else {
                 let as_ = ty.fields.values().map(|t| {
@@ -2976,7 +2976,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
-            quote!(#name.clone())
+            quote!(#name)
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
             quote!(sp::EasingCurve::Linear)
