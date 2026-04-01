@@ -11,6 +11,9 @@ ASIL (Automotive Safety Integrity Level) describes the risk level of something. 
 
 Since a compiler and a toolkit don't have a specific vehicle function, they don't have an intrinsic ASIL derived from a HARA (Hazard Analysis and Risk Assessment).
 
-Slint SC is a "Safety Element out of Context" (SEooC). The GUI components of Slint SC may be used for mission-critical digital instrument clusters, or they may be used for non-critical applications such as infotainment systems.
+Slint SC is a "Safety Element out of Context" (SEooC). Slint SC is meant to be used for
+mission-critical digital instrument clusters.
+
+For non-critical (QM) interactive applications such as infotainment systems, Slint can be used. In that case, these ASIL requirements do not apply.
 
 Each Requirement below has a descriptive ID that begins with SR_, a description, and ASIL=B.
