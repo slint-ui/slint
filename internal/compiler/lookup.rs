@@ -221,7 +221,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::Easing) => EasingSpecific.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
-            LookupResult::Namespace(BuiltinNamespace::FontWeight) => FontWeightLookup.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
+                FontWeightLookup.lookup(ctx, name)
+            }
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
             }
@@ -737,9 +739,8 @@ impl LookupObject for FontWeightLookup {
         _ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let mut weight = |n, v: f64| {
-            f(&SmolStr::new_static(n), Expression::NumberLiteral(v, Unit::None).into())
-        };
+        let mut weight =
+            |n, v: f64| f(&SmolStr::new_static(n), Expression::NumberLiteral(v, Unit::None).into());
         None.or_else(|| weight("thin", 100.0))
             .or_else(|| weight("extra-light", 200.0))
             .or_else(|| weight("light", 300.0))
