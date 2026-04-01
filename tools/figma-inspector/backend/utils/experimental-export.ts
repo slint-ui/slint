@@ -14,6 +14,8 @@ import type {
 export const indent = "    ";
 export const indent2 = indent + indent;
 
+const MAX_ALIAS_DEPTH = 32;
+
 // Not all api data is collected. The following properties are not included:
 // - variable.key
 // - variable.remote
@@ -51,9 +53,6 @@ export async function createVariableCollections(): Promise<CollectionsMap> {
                 collection.variables.set(safeVariable.id, safeVariable);
             }
         }
-
-        // Handle any deleted variables referenced by aliases
-        await processVariableAliases(collectionsMap);
 
         return collectionsMap;
     } catch (error) {
@@ -140,7 +139,7 @@ export async function createSlintExport(): Promise<void> {
                 // Add properties for each mode
                 for (const mode of collection.modes) {
                     allSlintCode += `${indent}property <${structName}> ${mode.name}: {\n`;
-                    allSlintCode += generateVariablesForMode(
+                    allSlintCode += await generateVariablesForMode(
                         Array.from(collection.variables.values()),
                         mode.modeId,
                         collection.name,
@@ -150,7 +149,7 @@ export async function createSlintExport(): Promise<void> {
             } else {
                 // For collections with only one mode, just create a simple property
                 allSlintCode += `${indent}out property <${structName}> vars: {\n`;
-                allSlintCode += generateVariablesForMode(
+                allSlintCode += await generateVariablesForMode(
                     Array.from(collection.variables.values()),
                     collection.modes[0].modeId,
                     collection.name,
@@ -197,80 +196,6 @@ function createVariableSU(variable: Variable): VariableSU {
     } as VariableSU;
 }
 
-async function handleDeletedVariable(
-    id: VariableId,
-    collectionsMap: CollectionsMap,
-): Promise<void> {
-    //TODO: Support reporting the deleted variables and collections via the included readme.txt
-    const variable = await figma.variables.getVariableByIdAsync(id);
-    if (!variable) {
-        return;
-    }
-
-    const collectionId = variable.variableCollectionId as CollectionId;
-    const collection = collectionsMap.get(collectionId);
-
-    // If collection exists, just add the variable
-    if (collection) {
-        const newVariable = createVariableSU(variable);
-        newVariable.name = variable.name + "_DELETED";
-        collection.variables.set(newVariable.id, newVariable);
-        return;
-    }
-
-    // Collection doesn't exist, need to recreate it
-    const deletedCollection =
-        await figma.variables.getVariableCollectionByIdAsync(collectionId);
-    if (!deletedCollection) {
-        return;
-    }
-
-    const newCollection = createVariableCollectionSU(deletedCollection);
-    newCollection.name = deletedCollection.name + "_DELETED";
-    collectionsMap.set(newCollection.id, newCollection);
-
-    // Add all variables from the deleted collection
-    for (const variableId of deletedCollection.variableIds) {
-        const v = await figma.variables.getVariableByIdAsync(variableId);
-        if (v) {
-            const newVariable = createVariableSU(v);
-            newVariable.name = v.name + "_DELETED";
-            newCollection.variables.set(newVariable.id, newVariable);
-        }
-    }
-
-    // Just in-case this variable is missing from the collection, add it
-    if (!newCollection.variables.has(id)) {
-        const newVariable = createVariableSU(variable);
-        newCollection.variables.set(newVariable.id, newVariable);
-    }
-}
-
-async function processVariableAliases(
-    collectionsMap: CollectionsMap,
-): Promise<void> {
-    for (const collection of collectionsMap.values()) {
-        for (const variable of collection.variables.values()) {
-            if (Object.values(variable.valuesByMode).length === 0) {
-                console.log(
-                    "Unexpected error! Variable has no values",
-                    variable.name,
-                    variable.id,
-                );
-            }
-            for (const value of Object.values(variable.valuesByMode)) {
-                if (!isVariableAlias(value)) {
-                    continue;
-                }
-                const id = value.id;
-                if (!variableFromId(id, collectionsMap)) {
-                    await handleDeletedVariable(id, collectionsMap);
-                }
-            }
-        }
-    }
-}
-
 function variableFromId(
     id: VariableId,
     collectionsMap: CollectionsMap,
@@ -292,8 +217,8 @@ const numberChars = new Set("0123456789");
 export function sanitizeSlintPropertyName(name: string): string {
     name = name.trim();
 
-    // Replace forward slashes with hyphen
-    name = name.replaceAll("/", "-");
+    // replaceAll is not available in the Figma plugin JS runtime
+    name = name.split("/").join("-");
 
     // Remove all invalid characters, keeping only:
     // - ASCII letters (a-z, A-Z)
@@ -438,62 +363,189 @@ export function createPath(
     return `${collectionName}.vars.${variable.name}`;
 }
 
-export function generateVariableValue(
+function valueForVariableInEmitMode(
+    su: VariableSU,
+    modeId: string,
+    collectionsMap: CollectionsMap,
+): VariableValue | undefined {
+    const direct = su.valuesByMode[modeId];
+    if (direct !== undefined && direct !== null) {
+        return direct;
+    }
+    const def = collectionsMap.get(su.variableCollectionId)?.defaultModeId;
+    if (def !== undefined) {
+        const v = su.valuesByMode[def];
+        if (v !== undefined && v !== null) {
+            return v;
+        }
+    }
+    const keys = Object.keys(su.valuesByMode);
+    return keys.length > 0 ? su.valuesByMode[keys[0]] : undefined;
+}
+
+async function valueFromFigmaVariableForEmitMode(
+    figVar: Variable,
+    emitModeId: string,
+): Promise<VariableValue | undefined> {
+    if (
+        figVar.valuesByMode[emitModeId] !== undefined &&
+        figVar.valuesByMode[emitModeId] !== null
+    ) {
+        return figVar.valuesByMode[emitModeId];
+    }
+    const coll = await figma.variables.getVariableCollectionByIdAsync(
+        figVar.variableCollectionId,
+    );
+    const def = coll?.defaultModeId;
+    if (def !== undefined) {
+        const v = figVar.valuesByMode[def];
+        if (v !== undefined && v !== null) {
+            return v;
+        }
+    }
+    const keys = Object.keys(figVar.valuesByMode);
+    return keys.length > 0 ? figVar.valuesByMode[keys[0]] : undefined;
+}
+
+function variableHasAliasInAnyMode(target: VariableSU): boolean {
+    if (!target.valuesByMode) {
+        return false;
+    }
+    return Object.values(target.valuesByMode).some((mv) => isVariableAlias(mv));
+}
+
+async function resolveAliasChainRecursive(
+    outerVariable: VariableSU,
+    value: VariableValue,
+    collectionName: string,
+    collectionsMap: CollectionsMap,
+    modeId: string,
+    depth: number,
+): Promise<string> {
+    if (depth > MAX_ALIAS_DEPTH) {
+        return `${indent2}// alias chain too deep: ${outerVariable.name}\n`;
+    }
+    if (!isVariableAlias(value)) {
+        return formatValueForSlint(outerVariable, value);
+    }
+
+    const aliasId = value.id as VariableId;
+    const nextVariable = variableFromId(aliasId, collectionsMap);
+
+    if (nextVariable) {
+        const nextValue = valueForVariableInEmitMode(
+            nextVariable,
+            modeId,
+            collectionsMap,
+        );
+        if (nextValue === undefined) {
+            return `${indent2}// no value in mode for ${outerVariable.name}\n`;
+        }
+        if (isVariableAlias(nextValue)) {
+            return resolveAliasChainRecursive(
+                outerVariable,
+                nextValue,
+                collectionName,
+                collectionsMap,
+                modeId,
+                depth + 1,
+            );
+        }
+        return formatValueForSlint(outerVariable, nextValue);
+    }
+
+    const figVar = await figma.variables.getVariableByIdAsync(aliasId);
+    if (!figVar) {
+        console.warn(
+            `[experimental-export] unresolved alias target ${aliasId} (${outerVariable.name})`,
+        );
+        return `${indent2}// unresolved alias: ${outerVariable.name}\n`;
+    }
+    const resolved = await valueFromFigmaVariableForEmitMode(figVar, modeId);
+    if (resolved === undefined) {
+        return `${indent2}// no value for alias: ${outerVariable.name}\n`;
+    }
+    if (isVariableAlias(resolved)) {
+        return resolveAliasChainRecursive(
+            outerVariable,
+            resolved,
+            collectionName,
+            collectionsMap,
+            modeId,
+            depth + 1,
+        );
+    }
+    return formatValueForSlint(outerVariable, resolved);
+}
+
+export async function generateVariableValue(
     variable: VariableSU,
     value: VariableValue,
     collectionName: string,
     collectionsMap: CollectionsMap,
-): string {
-    if (isVariableAlias(value)) {
-        // Figma allows designers to go wild with variables the reference other variables or even other
-        // references. This quickly leads to binding loops in this current export. This function simplifies the
-        // problem by allowing a single variable in another struct. If the variable references the current struct
-        // or another reference the alias chain is simply resolved to a final value based on defaultModeId's
-        // if it has no path it probably a variable from a deleted collection that handleDeadEndValue has recreated.
-        const variableFromAlias = variableFromId(value.id, collectionsMap);
+    modeId: string,
+    depth = 0,
+): Promise<string> {
+    if (depth > MAX_ALIAS_DEPTH) {
+        return `${indent2}// alias chain too deep: ${variable.name}\n`;
+    }
 
-        if (variableFromAlias) {
-            const variablesCollectionName = collectionsMap.get(
-                variableFromAlias.variableCollectionId,
-            )?.name;
-            if (variablesCollectionName === collectionName) {
-                return followAliasChain(variable, value, collectionsMap);
-            }
-            // check if next item is value or alias
-            const nextVariable = variableFromId(value.id, collectionsMap);
-            if (nextVariable) {
-                // Check all values in valuesByMode for variable aliases
-                if (nextVariable.valuesByMode) {
-                    for (const [_modeId, modeValue] of Object.entries(
-                        nextVariable.valuesByMode,
-                    )) {
-                        if (isVariableAlias(modeValue)) {
-                            return followAliasChain(
-                                variable,
-                                value,
-                                collectionsMap,
-                            );
-                        }
-                    }
-                }
-            }
-            const variableName = createPath(variableFromAlias, collectionsMap);
-            return `${indent2}${variable.name}: ${variableName},\n`;
-        } else {
-            console.log(
-                "The createCollections should not create data that allows this situation to happen",
+    if (!isVariableAlias(value)) {
+        return formatValueForSlint(variable, value);
+    }
+
+    const aliasId = value.id as VariableId;
+    const target = variableFromId(aliasId, collectionsMap);
+
+    if (target) {
+        const variablesCollectionName = collectionsMap.get(
+            target.variableCollectionId,
+        )?.name;
+        const sameCollection = variablesCollectionName === collectionName;
+        if (sameCollection || variableHasAliasInAnyMode(target)) {
+            return resolveAliasChainRecursive(
+                variable,
+                value,
+                collectionName,
+                collectionsMap,
+                modeId,
+                depth,
             );
         }
+        const variableName = createPath(target, collectionsMap);
+        return `${indent2}${variable.name}: ${variableName},\n`;
     }
-    return formatValueForSlint(variable, value);
+
+    const figVar = await figma.variables.getVariableByIdAsync(aliasId);
+    if (!figVar) {
+        console.warn(
+            `[experimental-export] unresolved alias target ${aliasId} for ${variable.name}`,
+        );
+        return `${indent2}// unresolved alias: ${variable.name}\n`;
+    }
+    const resolved = await valueFromFigmaVariableForEmitMode(figVar, modeId);
+    if (resolved === undefined) {
+        return `${indent2}// no value for alias: ${variable.name}\n`;
+    }
+    if (isVariableAlias(resolved)) {
+        return generateVariableValue(
+            variable,
+            resolved,
+            collectionName,
+            collectionsMap,
+            modeId,
+            depth + 1,
+        );
+    }
+    return formatValueForSlint(variable, resolved);
 }
 
-function generateVariablesForMode(
+async function generateVariablesForMode(
     variables: VariableSU[],
     modeId: string,
     collectionName: string,
     collectionsMap: CollectionsMap,
-): string {
+): Promise<string> {
     let result = "";
     for (const variable of variables) {
         let value = variable.valuesByMode[modeId];
@@ -505,41 +557,14 @@ function generateVariablesForMode(
             value = variable.valuesByMode[defaultModeId!];
         }
 
-        result += generateVariableValue(
+        result += await generateVariableValue(
             variable,
             value,
             collectionName,
             collectionsMap,
+            modeId,
         );
     }
     result += `${indent}};\n\n`;
     return result;
-}
-
-function followAliasChain(
-    variable: VariableSU,
-    value: VariableValue,
-    collectionsMap: CollectionsMap,
-): string {
-    if (isVariableAlias(value)) {
-        // get the next variable in the chain
-        const nextVariable = variableFromId(value.id, collectionsMap);
-
-        if (nextVariable) {
-            const defaultModeId = collectionsMap.get(
-                nextVariable.variableCollectionId,
-            )?.defaultModeId;
-            const nextValue = nextVariable.valuesByMode[defaultModeId!];
-            if (isVariableAlias(nextValue)) {
-                return followAliasChain(variable, nextValue, collectionsMap);
-            } else {
-                return formatValueForSlint(variable, nextValue);
-            }
-        } else {
-            console.log(
-                "followAliasChain: The createCollections should not create data that allows this situation to happen",
-            );
-        }
-    }
-    return formatValueForSlint(variable, value);
 }
