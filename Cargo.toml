@@ -198,6 +198,7 @@ skrifa = { version = "0.40" }
 windows = { version = "0.62" }
 windows-core = { version = "0.62.0" }
 lyon_path = { version = "1.0", default-features = false }
+objc2 = { version = "0.6.3" }
 
 [profile.release]
 lto = true
