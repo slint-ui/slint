@@ -779,7 +779,7 @@ pub struct Element {
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: BindingsMap,
     pub change_callbacks: BTreeMap<SmolStr, RefCell<Vec<Expression>>>,
-    pub property_analysis: RefCell<HashMap<SmolStr, PropertyAnalysis>>,
+    pub property_analysis: RefCell<BTreeMap<SmolStr, PropertyAnalysis>>,
 
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
