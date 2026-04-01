@@ -48,7 +48,7 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 Because Slint SC is intended for embedded systems, there are very few internal dependencies, and exactly **zero external dependencies** for the core runtime portion of Slint SC.
 
 For build-time tooling and optional features (e.g., image decoding), external libraries may be utilized.
-* **Qualification Strategy:** Any necessary external Software of Unknown Kinematics (SOUP) must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
+* **Qualification Strategy:** Any necessary external Software of Unknown Provenance (SOUP) must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
 
 ## Verification (ISO 26262-8 Clause 9)
 
