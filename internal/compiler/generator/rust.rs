@@ -2727,9 +2727,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let f = access_member(callback, ctx);
             let a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!(#f.call(&(#(#a as _,)*))))
+                f.then(|f| quote!(#f.call(&(#((#a).clone() as _,)*))))
             } else {
-                f.map_or_default(|f| quote!(#f.call(&(#(#a as _,)*))))
+                f.map_or_default(|f| quote!(#f.call(&(#((#a).clone() as _,)*))))
             }
         }
         Expression::FunctionCall { function, arguments } => {
