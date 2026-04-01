@@ -409,7 +409,7 @@ async fn main_loop(
     let connection = Arc::new(connection);
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let inner_connection = connection.clone();
-    std::thread::spawn(move || {
+    let adapter_thread = std::thread::spawn(move || {
         crossbeam_tokio_adapter(inner_connection, from_lsp_sender, request_queue);
         tracing::debug!("crossbeam -> tokio adapter exited");
     });
@@ -422,14 +422,19 @@ async fn main_loop(
         tokio::select! {
             msg = from_lsp_receiver.recv() => {
                 if let Some(msg) = msg {
-                    handle_lsp_message(
+                    if handle_lsp_message(
                         msg,
                         &connection,
                         &mut rh,
                         &mut ctx,
-                    ).await?;
+                    ).await? {
+                        tracing::debug!("LSP shutdown requested");
+                        adapter_thread.join().expect("Failed to join adapter thread");
+                        return Ok(());
+                    }
                 } else {
-                        return Err("LSP connection closed".into());
+                    adapter_thread.join().expect("Failed to join adapter thread");
+                    return Err("LSP connection closed".into());
                 }
             }
             _msg = preview_to_lsp_receiver.recv() => {
@@ -460,12 +465,12 @@ async fn handle_lsp_message(
     connection: &Arc<Connection>,
     rh: &mut RequestHandler,
     ctx: &mut Context,
-) -> Result<()> {
+) -> Result<bool> {
     match msg {
         Message::Request(req) => {
             // ignore errors when shutdown
             if connection.handle_shutdown(&req).unwrap_or(false) {
-                return Ok(());
+                return Ok(true);
             }
             rh.handle_request(req, ctx)?;
         }
@@ -476,7 +481,7 @@ async fn handle_lsp_message(
             handle_notification(notification, ctx).await?;
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 /// Crossbeam does not play well with async (it's always blocking), so we need to run a separate
