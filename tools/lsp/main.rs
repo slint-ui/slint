@@ -19,7 +19,6 @@ pub mod util;
 use common::{LspToPreview, Result};
 use language::*;
 
-use futures_util::FutureExt;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
     DidOpenTextDocument, Notification,
@@ -36,7 +35,6 @@ use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response}
 use std::collections::HashMap;
 use std::future::Future;
 use std::io::Write as _;
-use std::pin::pin;
 use std::rc::Rc;
 use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
@@ -417,40 +415,7 @@ async fn main_loop(
         tracing::debug!("crossbeam -> tokio adapter exited");
     });
 
-    let mut early_messages = Vec::new();
-
-    {
-        let mut startup_future = pin!(startup_lsp(&mut ctx).fuse());
-        loop {
-            tokio::select! {
-                _ = &mut startup_future => break,
-                msg = from_lsp_receiver.recv() => {
-                    match msg {
-                        Some(Message::Request(req)) => {
-                            // ignore errors when shutdown
-                            if connection.handle_shutdown(&req).unwrap_or(false) {
-                                return Ok(());
-                            }
-                            early_messages.push(Message::Request(req));
-                        }
-                        Some(Message::Response(_)) => {
-                            // should not be receiving responses, since they're handled in the dedicated thread
-                        }
-                        Some(Message::Notification(notification)) => {
-                            early_messages.push(Message::Notification(notification));
-                        }
-                        None => {
-                            return Err("LSP connection closed".into());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for msg in early_messages {
-        handle_lsp_message(msg, &connection, &mut rh, &mut ctx).await?;
-    }
+    startup_lsp(&mut ctx).await?;
 
     loop {
         let recompile_idle_timeout =
@@ -472,10 +437,7 @@ async fn main_loop(
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
                 {
-                    let Some(msg) = _msg else {
-                        return Err("Preview to LSP connection closed".into());
-                    };
-                    if let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
+                    if let Some(msg) = _msg && let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
                         tracing::error!("handle_preview_to_lsp_message: {err}");
                     }
                 }
