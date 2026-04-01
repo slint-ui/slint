@@ -17,7 +17,7 @@ use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
 use crate::langtype::{BuiltinElement, DefaultSizeBinding, Type};
-use crate::layout::{LayoutConstraints, Orientation, implicit_layout_info_call};
+use crate::layout::{BuiltinFilter, LayoutConstraints, Orientation, implicit_layout_info_call};
 use crate::object_tree::{Component, ElementRc};
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::HashMap;
@@ -190,15 +190,16 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                     }
                     let explicit_constraints =
                         LayoutConstraints::new(c, diag, DiagnosticLevel::Error);
-                    let use_implicit_size = c.borrow().builtin_type().is_some_and(|b| {
-                        b.default_size_binding == DefaultSizeBinding::ImplicitSize
-                    });
 
                     let compute = |orientation| {
-                        if !explicit_constraints.has_explicit_restrictions(orientation) {
-                            use_implicit_size.then(|| implicit_layout_info_call(c, orientation))
-                        } else {
+                        if explicit_constraints.has_explicit_restrictions(orientation) {
                             Some(explicit_layout_info(c, orientation))
+                        } else {
+                            implicit_layout_info_call(
+                                c,
+                                orientation,
+                                BuiltinFilter::SkipNonImplicit,
+                            )
                         }
                     };
                     Some((compute(Orientation::Horizontal), compute(Orientation::Vertical)))
@@ -222,8 +223,10 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         crate::typeregister::layout_info_type().into(),
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
-    let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
-    let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
+    let mut expr_h =
+        implicit_layout_info_call(elem, Orientation::Horizontal, BuiltinFilter::All).unwrap();
+    let mut expr_v =
+        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All).unwrap();
 
     let explicit_constraints = LayoutConstraints::new(elem, diag, DiagnosticLevel::Warning);
     if !explicit_constraints.fixed_width {

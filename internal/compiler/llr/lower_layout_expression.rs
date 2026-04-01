@@ -1114,7 +1114,12 @@ pub fn get_layout_info(
         llr_Expression::PropertyReference(ctx.map_property_reference(layout_info_prop))
     } else {
         super::lower_expression::lower_expression(
-            &crate::layout::implicit_layout_info_call(elem, orientation),
+            &crate::layout::implicit_layout_info_call(
+                elem,
+                orientation,
+                crate::layout::BuiltinFilter::All,
+            )
+            .unwrap(),
             ctx,
         )
     };

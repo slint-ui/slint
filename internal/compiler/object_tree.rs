@@ -3028,8 +3028,18 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             SmolStr::new_static("layoutinfo-h"),
             crate::typeregister::layout_info_type().into(),
         );
-        let expr_h = crate::layout::implicit_layout_info_call(old_root, Orientation::Horizontal);
-        let expr_v = crate::layout::implicit_layout_info_call(old_root, Orientation::Vertical);
+        let expr_h = crate::layout::implicit_layout_info_call(
+            old_root,
+            Orientation::Horizontal,
+            crate::layout::BuiltinFilter::All,
+        )
+        .unwrap();
+        let expr_v = crate::layout::implicit_layout_info_call(
+            old_root,
+            Orientation::Vertical,
+            crate::layout::BuiltinFilter::All,
+        )
+        .unwrap();
         let expr_v =
             BindingExpression::new_with_span(expr_v, old_root.borrow().to_source_location());
         li_v.element().borrow_mut().bindings.insert(li_v.name().clone(), expr_v.into());

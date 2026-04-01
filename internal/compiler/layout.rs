@@ -685,8 +685,22 @@ impl FlexboxLayout {
     }
 }
 
-/// Get the implicit layout info of a particular element
-pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
+/// Controls whether `implicit_layout_info_call` returns layout info for builtins
+/// that don't have an intrinsic size (Rectangle, Empty, TouchArea, etc.).
+#[derive(Clone, Copy, PartialEq)]
+pub enum BuiltinFilter {
+    /// Return layout info for all builtins (existing behavior).
+    All,
+    /// Skip builtins whose `default_size_binding` is not `ImplicitSize`.
+    SkipNonImplicit,
+}
+
+/// Get the implicit layout info of a particular element.
+pub fn implicit_layout_info_call(
+    elem: &ElementRc,
+    orientation: Orientation,
+    filter: BuiltinFilter,
+) -> Option<Expression> {
     let mut elem_it = elem.clone();
     loop {
         return match &elem_it.clone().borrow().base_type {
@@ -696,7 +710,10 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to
                         // use `elem` as an element for the PropertyReference, not `root` within the base of elem
                         debug_assert!(Rc::ptr_eq(&nr.element(), &base_comp.root_element));
-                        Expression::PropertyReference(NamedReference::new(elem, nr.name().clone()))
+                        Some(Expression::PropertyReference(NamedReference::new(
+                            elem,
+                            nr.name().clone(),
+                        )))
                     }
                     None => {
                         elem_it = base_comp.root_element.clone();
@@ -717,9 +734,12 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                         | "Clip"
                 ) =>
             {
+                if filter == BuiltinFilter::SkipNonImplicit {
+                    return None;
+                }
                 // hard-code the value for rectangle because many rectangle end up optimized away and we
                 // don't want to depend on the element.
-                Expression::Struct {
+                Some(Expression::Struct {
                     ty: crate::typeregister::layout_info_type(),
                     values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
                         .iter()
@@ -737,13 +757,20 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                                 }),
                         )
                         .collect(),
-                }
+                })
             }
-            _ => Expression::FunctionCall {
+            ElementType::Builtin(base_type)
+                if filter == BuiltinFilter::SkipNonImplicit
+                    && base_type.default_size_binding
+                        != crate::langtype::DefaultSizeBinding::ImplicitSize =>
+            {
+                None
+            }
+            _ => Some(Expression::FunctionCall {
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
-            },
+            }),
         };
     }
 }
