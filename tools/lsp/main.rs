@@ -32,7 +32,6 @@ use tokio::sync::mpsc;
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
-use std::collections::HashMap;
 use std::future::Future;
 use std::io::Write as _;
 use std::rc::Rc;
@@ -341,7 +340,7 @@ async fn main_loop(
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn));
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
-                HashMap::from([
+                std::collections::HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
                     (common::PreviewTarget::EmbeddedWasm, embedded_preview),
                 ]),
