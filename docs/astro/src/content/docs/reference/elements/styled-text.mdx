@@ -16,7 +16,9 @@ export component Example inherits Window {
     width: 200px;
     height: 200px;
     StyledText {
-      text: @markdown("This is a piece of <u>Styled Text</u>\nwith a red value inserted: <font color=\"red\">\{value}</font>");
+      text: @markdown("This is a piece of <u>Styled Text</u>\n"
+                      "with a red value inserted:"
+                      "<font color=\"red\">\{value}</font>");
     }
 }
 ```
