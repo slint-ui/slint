@@ -652,7 +652,7 @@ pub fn connect_remote_preview_command(
         if let Some(port) = port {
             use crate::preview::connector::remote::RemoteLspToPreview;
 
-            let _ = to_preview.set_preview_target(preview_protocol::PreviewTarget::Remote);
+            let _ = to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
             to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
                 move |remote| {
                     let future = remote.connect(addresses, port as u16);

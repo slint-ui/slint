@@ -258,8 +258,8 @@ impl common::LspToPreview for WasmLspToPreview {
             .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
     }
 
-    fn preview_target(&self) -> preview_protocol::PreviewTarget {
-        preview_protocol::PreviewTarget::EmbeddedWasm
+    fn preview_target(&self) -> i_slint_preview_protocol::PreviewTarget {
+        i_slint_preview_protocol::PreviewTarget::EmbeddedWasm
     }
 }
 

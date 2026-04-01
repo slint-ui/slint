@@ -1,4 +1,4 @@
-use preview_protocol::lsp_types::notification::Notification;
+use lsp_types::notification::Notification;
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub(crate) struct RemoteViewerDiscoveredMessage {

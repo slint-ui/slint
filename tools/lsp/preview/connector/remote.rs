@@ -67,7 +67,7 @@ impl RemoteLspToPreview {
         server_notifier: crate::ServerNotifier,
     ) -> Option<JoinHandle<()>> {
         let receiver = mdns
-            .browse(preview_protocol::SERVICE_TYPE)
+            .browse(i_slint_preview_protocol::SERVICE_TYPE)
             .inspect_err(|err| tracing::error!("Failed to start mDNS browsing: {err}"))
             .ok()?;
 
@@ -202,9 +202,10 @@ impl RemoteLspToPreview {
                             );
                         }
                         Message::Binary(bytes) => {
-                            match postcard::from_bytes::<preview_protocol::PreviewToLspMessage>(
-                                &bytes,
-                            ) {
+                            match postcard::from_bytes::<
+                                i_slint_preview_protocol::PreviewToLspMessage,
+                            >(&bytes)
+                            {
                                 Ok(msg) => {
                                     preview_to_lsp_sender.send(msg).unwrap_or_else(|err| {
                                         tracing::error!(
@@ -307,7 +308,7 @@ impl Drop for RemoteLspToPreview {
 }
 
 impl crate::common::LspToPreview for RemoteLspToPreview {
-    fn send(&self, message: &preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
         tracing::debug!("Sending websocket message {message:?}");
         let connection = Arc::downgrade(&self.connection);
         let message = postcard::to_allocvec(message).unwrap();
