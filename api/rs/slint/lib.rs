@@ -219,6 +219,7 @@ pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
+pub use i_slint_core::input::{Keys, KeysParseError};
 pub use i_slint_core::items::{StandardListViewItem, TableColumn};
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,

@@ -18,6 +18,16 @@ pub struct PyKeys {
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyKeys {
+    /// Create a `Keys` from a list of string parts, e.g. `["Control", "Shift?", "Z"]`.
+    ///
+    /// Each element is either a modifier name or a key name. Raises ValueError on parse failure.
+    #[staticmethod]
+    fn from_parts(parts: Vec<String>) -> PyResult<Self> {
+        i_slint_core::input::Keys::from_parts(parts.iter().map(|s| s.as_str()))
+            .map(|k| Self { keys: k })
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
     fn __str__(&self) -> String {
         self.keys.to_string()
     }
