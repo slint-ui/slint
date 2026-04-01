@@ -5,11 +5,17 @@ use futures_util::{
     lock::Mutex,
     stream::{SplitSink, SplitStream, StreamExt as _},
 };
-use i_slint_preview_protocol::PreviewTarget;
+use i_slint_preview_protocol::{PreviewTarget, PreviewToLspMessage};
+use tokio::sync::mpsc;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::{sync::RwLock, task::JoinHandle};
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
-use crate::language::Context;
+use crate::preview::connector::remote::remote_notifications::{
+    ConnectionState, RemoteViewerConnectionState,
+};
+
+mod remote_notifications;
 
 struct RemoteLspConnection {
     sender: SplitSink<WebSocketStream, Message>,
@@ -22,10 +28,15 @@ pub struct RemoteLspToPreview {
     #[cfg(not(target_arch = "wasm32"))]
     mdns: Option<mdns_sd::ServiceDaemon>,
     connection: Arc<Mutex<Option<RemoteLspConnection>>>,
+    server_notifier: crate::ServerNotifier,
+    preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 impl RemoteLspToPreview {
-    pub fn new() -> Self {
+    pub fn new(
+        server_notifier: crate::ServerNotifier,
+        preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
+    ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let mdns = mdns_sd::ServiceDaemon::new()
             .inspect_err(|err| tracing::error!("Failed creating MDNS service daemon: {err}"))
@@ -37,13 +48,15 @@ impl RemoteLspToPreview {
             #[cfg(not(target_arch = "wasm32"))]
             mdns,
             connection: Arc::default(),
+            server_notifier,
+            preview_to_lsp_sender,
         }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn start_browsing(&self) {
         if let Some(mdns) = &self.mdns {
-            let server_notifier = ctx.server_notifier.clone();
+            let server_notifier = self.server_notifier.clone();
             *self.browse_task.write().await = Self::browse_task(mdns, server_notifier);
         }
     }
@@ -68,6 +81,8 @@ impl RemoteLspToPreview {
                         tracing::debug!("mDNS service found: {fullname}");
                     }
                     mdns_sd::ServiceEvent::ServiceResolved(resolved_service) => {
+                        use crate::preview::connector::remote::remote_notifications::RemoteViewerDiscoveredMessage;
+
                         tracing::debug!("mDNS service resolved: {resolved_service:?}");
                         if let Err(err) = server_notifier
                             .send_notification::<RemoteViewerDiscoveredMessage>(
@@ -109,15 +124,19 @@ impl RemoteLspToPreview {
         }))
     }
 
-    pub async fn connect(
+    pub fn connect<S: Into<String>>(
         &self,
-        addresses: impl IntoIterator<Item = &str>,
+        addresses: impl IntoIterator<Item = S>,
         port: u16,
-    ) -> crate::common::Result<()> {
+    ) -> impl Future<Output = crate::common::Result<()>> + 'static {
         tracing::debug!("RemoteLspToPreview::connect");
-        if let Some(ctx) = self.ctx.upgrade() {
-            let mut addresses = addresses.into_iter();
-            let stream = loop {
+        let connection = self.connection.clone();
+        let addresses = addresses.into_iter().map(Into::into).collect::<Vec<_>>();
+        let preview_to_lsp_sender = self.preview_to_lsp_sender.clone();
+        let server_notifier = self.server_notifier.clone();
+        async move {
+            let addresses = &mut addresses.into_iter();
+            let (stream, address, port) = loop {
                 let Some(address) = addresses.next() else {
                     return Err("Unable to connect to remote viewer".into());
                 };
@@ -130,7 +149,7 @@ impl RemoteLspToPreview {
                 match connect_future.await {
                     Ok(stream) => {
                         tracing::info!("Connected to remote preview server at {address}:{port}");
-                        break stream;
+                        break (stream, address, port);
                     }
                     Err(err) => {
                         tracing::debug!(
@@ -142,21 +161,35 @@ impl RemoteLspToPreview {
 
             let (socket_sender, socket_receiver) = stream.split();
 
-            let Some(old) = self.connection.lock().await.replace(RemoteLspConnection {
+            let Some(old) = connection.lock().await.replace(RemoteLspConnection {
                 sender: socket_sender,
-                task: tokio::task::spawn_local(Self::receive_task(socket_receiver, ctx)),
+                task: tokio::task::spawn_local(Self::receive_task(
+                    socket_receiver,
+                    preview_to_lsp_sender,
+                    server_notifier,
+                    address,
+                    port,
+                )),
             }) else {
                 return Ok(());
             };
 
             tracing::info!("Closing previous connection to remote preview server");
             old.task.abort();
-        }
 
-        Ok(())
+            Ok(())
+        }
     }
 
-    async fn receive_task(mut socket_receiver: SplitStream<WebSocketStream>, ctx: &mut Context) {
+    async fn receive_task(
+        mut socket_receiver: SplitStream<WebSocketStream>,
+        preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
+        server_notifier: crate::ServerNotifier,
+        address: String,
+        port: u16,
+    ) {
+        let mut connection_state_handle =
+            ConnectionStateHandle::new(server_notifier, address, port);
         // TODO: implement a timer to send a ping every once in a while, and close the connection if we don't receive a pong in time
         while let Some(msg) = socket_receiver.next().await {
             match msg {
@@ -173,13 +206,11 @@ impl RemoteLspToPreview {
                                 &bytes,
                             ) {
                                 Ok(msg) => {
-                                    if let Err(e) =
-                                        crate::handle_preview_to_lsp_message(msg, &ctx).await
-                                    {
+                                    preview_to_lsp_sender.send(msg).unwrap_or_else(|err| {
                                         tracing::error!(
-                                            "Error sending message from remote preview server to LSP server: {e}"
+                                            "Failed sending message from remote preview server to LSP server: {err}"
                                         );
-                                    }
+                                    });
                                 }
                                 Err(e) => {
                                     tracing::error!(
@@ -189,14 +220,23 @@ impl RemoteLspToPreview {
                             }
                         }
                         Message::Close(_) => {
-                            tracing::info!("WebSocket connection closed by remote server");
+                            connection_state_handle.error =
+                                Some("Remote server closed the connection".into());
                             return;
                         }
                     }
                 }
                 Err(tokio_tungstenite_wasm::Error::ConnectionClosed)
                 | Err(tokio_tungstenite_wasm::Error::AlreadyClosed) => {
-                    tracing::info!("WebSocket connection closed by remote server");
+                    connection_state_handle.error =
+                        Some("Remote server closed the connection".into());
+                    return;
+                }
+                Err(tokio_tungstenite_wasm::Error::Io(err))
+                    if err.kind() != std::io::ErrorKind::WouldBlock =>
+                {
+                    tracing::error!("I/O error in WebSocket connection: {err}");
+                    connection_state_handle.error = Some(format!("I/O error: {err}"));
                     return;
                 }
                 Err(err) => {
@@ -204,6 +244,40 @@ impl RemoteLspToPreview {
                 }
             }
         }
+    }
+}
+
+struct ConnectionStateHandle {
+    server_notifier: crate::ServerNotifier,
+    error: Option<String>,
+    address: String,
+    port: u16,
+}
+
+impl ConnectionStateHandle {
+    fn new(server_notifier: crate::ServerNotifier, address: String, port: u16) -> Self {
+        let _ = server_notifier.send_notification::<RemoteViewerConnectionState>(
+            RemoteViewerConnectionState {
+                address: address.clone(),
+                port,
+                state: ConnectionState::Connected,
+                error: None,
+            },
+        );
+        Self { server_notifier, error: None, address, port }
+    }
+}
+
+impl Drop for ConnectionStateHandle {
+    fn drop(&mut self) {
+        let _ = self.server_notifier.send_notification::<RemoteViewerConnectionState>(
+            RemoteViewerConnectionState {
+                address: self.address.clone(),
+                port: self.port,
+                state: ConnectionState::Disconnected,
+                error: self.error.take(),
+            },
+        );
     }
 }
 
@@ -264,16 +338,4 @@ impl crate::common::LspToPreview for RemoteLspToPreview {
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::Remote
     }
-}
-
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct RemoteViewerDiscoveredMessage {
-    pub host: String,
-    pub port: u16,
-    pub addresses: Vec<String>,
-}
-
-impl lsp_types::notification::Notification for RemoteViewerDiscoveredMessage {
-    type Params = Self;
-    const METHOD: &'static str = "slint/remote_viewer_discovered";
 }

@@ -184,6 +184,19 @@ export function activate(
             };
             remote_viewers.set(params.host, remote_viewer_entry);
         });
+        cl?.onNotification("slint/remote_viewer_connection_state", async (params) => {
+            switch (params.state) {
+                case "connected":
+                    vscode.window.showInformationMessage(`Remote viewer connected: ${params.address}:${params.port}`);
+                    cl.outputChannel.appendLine(`Remote viewer connected: ${params.address}:${params.port}`);
+                    break;
+                case "disconnected":
+                    vscode.window.showInformationMessage(`Remote viewer disconnected: ${params.address}:${params.port}`);
+                    cl.outputChannel.appendLine(`Remote viewer disconnected: ${params.address}:${params.port}`);
+                    break;
+            }
+            // TODO
+        });
     });
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {

@@ -396,12 +396,17 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 return Ok(None::<serde_json::Value>);
             }
             POPULATE_COMMAND => {
-                populate_command(&params.arguments, ctx)?;
+                let future = populate_command(&params.arguments, ctx)?;
+                tokio::task::spawn_local(async move {
+                    if let Err(err) = future.await {
+                        tracing::error!("Error executing populate command: {err}");
+                    }
+                });
                 return Ok(None::<serde_json::Value>);
             }
             #[cfg(feature = "preview-remote")]
             CONNECT_REMOTE_PREVIEW_COMMAND => {
-                connect_remote_preview_command(&params.arguments, &ctx);
+                return connect_remote_preview_command(&params.arguments, ctx);
             }
             _ => {
                 tracing::error!("Received unknown command {}", params.command.as_str());
@@ -645,15 +650,20 @@ pub fn connect_remote_preview_command(
 
     if let Some(addresses) = addresses {
         if let Some(port) = port {
-            let _ = to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
-            to_preview.with_preview_target::<crate::preview::connector::remote::RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
-                async |remote| {
-                    remote.connect(addresses.iter().map(String::as_str), port as u16).await.map_err(|err| {
-                        LspError {
-                            code: LspErrorCode::RequestFailed,
-                            message: format!("Failed to connect to remote preview: {err}"),
+            use crate::preview::connector::remote::RemoteLspToPreview;
+
+            let _ = to_preview.set_preview_target(preview_protocol::PreviewTarget::Remote);
+            to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
+                move |remote| {
+                    let future = remote.connect(addresses, port as u16);
+                    tokio::task::spawn_local(async move {
+                        if let Err(err) = future.await {
+                            LspError {
+                                code: LspErrorCode::RequestFailed,
+                                message: format!("Failed to connect to remote preview: {err}"),
+                            };
                         }
-                    })?;
+                    });
                     Ok(None)
                 }).unwrap()
         } else {

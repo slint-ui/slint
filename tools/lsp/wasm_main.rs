@@ -474,7 +474,6 @@ fn handle_preview_to_lsp_message(
     message: preview_protocol::PreviewToLspMessage,
     ctx: &Context,
 ) -> Result<()> {
-    let ctx = ctx.write().await;
     use preview_protocol::PreviewToLspMessage as M;
 
     match message {

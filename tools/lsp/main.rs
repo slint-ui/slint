@@ -352,13 +352,14 @@ async fn main_loop(
 
         let sn = server_notifier.clone();
 
-        let child_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender));
+        let child_preview: Box<dyn common::LspToPreview> = Box::new(
+            preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender.clone()),
+        );
         let embedded_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
         #[cfg(feature = "preview-remote")]
         let remote_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::RemoteLspToPreview::new(ctx.clone()));
+            Box::new(preview::connector::RemoteLspToPreview::new(sn, preview_to_lsp_sender));
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 std::collections::HashMap::from([
