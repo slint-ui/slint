@@ -913,10 +913,7 @@ pub async fn load(
     mut compiler_config: CompilerConfiguration,
 ) -> CompilationResult {
     // If the native style should be Qt, resolve it here as we know that we have it
-    let is_native = match &compiler_config.style {
-        Some(s) => s == "native",
-        None => std::env::var("SLINT_STYLE").is_ok_and(|s| s == "native"),
-    };
+    let is_native = compiler_config.style.as_deref() == Some("native");
     if is_native {
         // On wasm, look at the browser user agent
         #[cfg(target_arch = "wasm32")]
