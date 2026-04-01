@@ -19,6 +19,7 @@ pub enum SlintPadCallbackFunction {
     OpenDemoUrl,
     ShowAbout,
     CopyPermalink,
+    NewFile,
 }
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -292,6 +293,7 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
     }
 
     api.set_runs_in_slintpad(true);
+    api.on_new_file(new_file);
     api.on_share_permalink_to_clipboard(|| {
         share_url_to_clipboard();
     });
@@ -299,6 +301,27 @@ fn init_slintpad_specific_ui(api: &crate::preview::ui::Api) {
         open_demo_url(&url);
     });
     api.on_show_about_slint(show_about_slint);
+}
+
+fn new_file() {
+    WASM_CALLBACKS.with_borrow(|callbacks| {
+        let maybe_callback = wasm_bindgen::JsValue::from(
+            callbacks
+                .as_ref()
+                .expect("Callbacks were set up earlier")
+                .invoke_slintpad_callback
+                .clone(),
+        );
+        if !maybe_callback.is_function() {
+            return;
+        }
+        let opener = js_sys::Function::from(maybe_callback);
+        let _ = opener.call2(
+            &JsValue::UNDEFINED,
+            &wasm_bindgen::JsValue::from(SlintPadCallbackFunction::NewFile),
+            &wasm_bindgen::JsValue::undefined(),
+        );
+    });
 }
 
 fn share_url_to_clipboard() {
