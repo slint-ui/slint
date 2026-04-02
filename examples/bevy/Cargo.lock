@@ -4029,6 +4029,7 @@ dependencies = [
  "strum",
  "vtable",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
  "webbrowser",
  "windows",

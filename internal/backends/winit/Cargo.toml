@@ -100,6 +100,7 @@ vtable = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer", "WebGlContextEvent"] }
 wasm-bindgen = { version = "0.2" }
+wasm-bindgen-futures = { version = "0.4" }
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(all(target_vendor = "apple", not(target_os = "macos")))))'.dependencies]
 glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
