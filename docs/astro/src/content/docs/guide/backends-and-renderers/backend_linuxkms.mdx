@@ -116,7 +116,8 @@ The LinuxKMS backend supports different renderers. They can be explicitly select
 |----------------|------------------------|-----------------------------------------------------------------------------|
 | FemtoVG        | OpenGL ES 2.0          | `linuxkms-femtovg`                                                          |
 | FemtoVG (wgpu) | Vulkan                 | `linuxkms-femtovg-wgpu`                                                     |
-| Skia           | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
+| Skia           | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl` or `linuxkms-skia-vulkan` |
+| Skia software  | None                   | `linuxkms-skia-software` |
 | Software       | None                   | `linuxkms-software`                                                         |
 
 :::note[Note]
@@ -128,6 +129,12 @@ and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abacken
 A mouse is supported as input device, but rendering of the mouse cursor only works with the Skia and FemtoVG renderers,
 not with the Slint software renderer.
 :::
+
+Enable the Rust `renderer-skia-software` feature together with a Linux KMS backend feature
+to use Skia without a working graphics acceleration driver.
+Select `SLINT_BACKEND=linuxkms-skia-software` to request this renderer explicitly,
+including when other Skia renderers are enabled.
+This feature does not add software rendering support to other backends.
 
 ## Display Selection
 
