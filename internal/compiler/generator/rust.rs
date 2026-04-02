@@ -2580,6 +2580,14 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
     quote!(&sp::ItemRc::new(#component_rc_tokens, #item_index_tokens))
 }
 
+/// Compile `expr` to a Rust expression returning an owned value.
+fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    let compiled_expr = compile_expression(expr, ctx);
+
+    quote!((#compiled_expr).clone())
+}
+
+/// Compile `expr` to a Rust expression which may potentially return a reference.
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => {
@@ -2725,11 +2733,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
-            let a = arguments.iter().map(|a| compile_expression(a, ctx));
+            let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
             if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!(#f.call(&(#((#a).clone() as _,)*))))
+                f.then(|f| quote!(#f.call(&(#(#a as _,)*))))
             } else {
-                f.map_or_default(|f| quote!(#f.call(&(#((#a).clone() as _,)*))))
+                f.map_or_default(|f| quote!(#f.call(&(#(#a as _,)*))))
             }
         }
         Expression::FunctionCall { function, arguments } => {
@@ -2830,8 +2838,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);
-            let lhs = compile_expression_no_parenthesis(lhs, ctx);
-            let rhs = compile_expression_no_parenthesis(rhs, ctx);
+            let lhs = compile_expression_to_value_no_parenthesis(lhs, ctx);
+            let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
 
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
@@ -2928,7 +2936,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             )
         }
         Expression::Array { values, element_ty, output } => {
-            let val = values.iter().map(|e| compile_expression(e, ctx));
+            let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
             match output {
                 ArrayOutput::Model => {
                     let rust_element_ty = rust_primitive_type(element_ty).unwrap();
@@ -2943,7 +2951,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Struct { ty, values } => {
-            let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
+            let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
                 let keys = ty.fields.keys().map(|k| ident(k));
@@ -2951,7 +2959,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
-                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = (#elem).clone() as _;)* the_struct})
+                    quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
                 }
             } else {
                 let as_ = ty.fields.values().map(|t| {
@@ -2965,7 +2973,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     }
                 });
                 // This will produce a tuple
-                quote!((#(#elem #as_,)*))
+                quote!((#((#elem).clone() #as_,)*))
             }
         }
 
@@ -3192,7 +3200,7 @@ fn compile_builtin_function_call(
     arguments: &[Expression],
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     match function {
         BuiltinFunction::SetFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
@@ -4503,7 +4511,11 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
         .collect::<Vec<_>>()
 }
 
-fn compile_expression_no_parenthesis(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+fn remove_parenthesis(
+    expr: &Expression,
+    ctx: &EvaluationContext,
+    compile: impl FnOnce(&Expression, &EvaluationContext) -> TokenStream,
+) -> TokenStream {
     fn extract_single_group(stream: &TokenStream) -> Option<TokenStream> {
         let mut iter = stream.clone().into_iter();
         let elem = iter.next()?;
@@ -4517,13 +4529,24 @@ fn compile_expression_no_parenthesis(expr: &Expression, ctx: &EvaluationContext)
         Some(elem.stream())
     }
 
-    let mut stream = compile_expression(expr, ctx);
+    let mut stream = compile(expr, ctx);
     if !matches!(expr, Expression::Struct { .. }) {
         while let Some(s) = extract_single_group(&stream) {
             stream = s;
         }
     }
     stream
+}
+
+fn compile_expression_no_parenthesis(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
+    remove_parenthesis(expr, ctx, compile_expression)
+}
+
+fn compile_expression_to_value_no_parenthesis(
+    expr: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    remove_parenthesis(expr, ctx, compile_expression_to_value)
 }
 
 #[cfg(feature = "bundle-translations")]
