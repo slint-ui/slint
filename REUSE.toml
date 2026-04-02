@@ -133,6 +133,7 @@ path = [
   "examples/orbit-animation/images/**.svg",
   "examples/sprite-sheet/images/**.png",
   "examples/speedometer/needle.png",
+  "examples/system_tray/favicon-white.png",
 
   "demos/printerdemo/ui/images/action-button-frame.png",
   "demos/printerdemo/ui/images/mcu/combo-active-background.png",
