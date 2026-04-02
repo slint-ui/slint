@@ -477,7 +477,12 @@ impl WinitWindowAdapter {
             window_attributes = window_attributes.with_transparent(false);
         }
 
-        let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
+        let winit_window = self.renderer.resume(
+            active_event_loop,
+            window_attributes,
+            WindowInner::from_pub(self.window()).context(),
+            self.self_weak.clone(),
+        )?;
 
         let scale_factor =
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
