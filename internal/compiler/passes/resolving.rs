@@ -1077,14 +1077,18 @@ impl Expression {
                     }
                     keys.ignore_shift = true;
                     if keys.modifiers.shift {
+                        let shifted_hint = lookup_key(shifted_hint).map(|(shifted_code, _shift_behavior)|
+                            format!("\nConsider using {shifted_hint} to match when the user types '{shifted_code}'")
+                        ).unwrap_or_default();
+
                         ctx.diag.push_error(
-                                        format!(
-                                            "Key bindings involving {name} ignore Shift to support different keyboard layouts\n\
-                                            Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
-                                            name = node.as_token().unwrap().text()
-                                        ),
-                                        &node,
-                                    );
+                            format!(
+                                "{name} implies Shift? to support different keyboard layouts\n\
+                                Remove Shift to match when the user types '{key_code}'{shifted_hint}",
+                                name = node.as_token().unwrap().text()
+                            ),
+                            &node,
+                        );
                     }
                 }
                 // Unshiftable keys ignore the shift state in their key_code
@@ -1681,8 +1685,7 @@ enum ShiftBehavior {
     Unshiftable,
 }
 
-/// Look up the given key in the Keys namespace, including its shift behavior
-fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
+fn with_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, (char, ShiftBehavior)>) -> R) -> R {
     macro_rules! key_shift_behavior {
         ($keycode:literal # $ident:ident # $shifted:ident) => {
             (
@@ -1713,7 +1716,12 @@ fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
             for_each_keys!(generate_key_map).into_iter().collect();
     }
 
-    KEY_MAP.with(|map| map.get(keycode).cloned())
+    KEY_MAP.with(fun)
+}
+
+/// Look up the given key in the Keys namespace, including its shift behavior
+fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
+    with_key_map(|map| map.get(keycode).cloned())
 }
 
 /// Return the type that merge two times when they are used in two branch of a condition
@@ -2348,5 +2356,24 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_shifted_hints() {
+        with_key_map(|map| {
+            for (key_name, (_code, shift_behavior)) in map.iter() {
+                if let ShiftBehavior::LocalizedShiftable { shifted_hint } = shift_behavior {
+                    assert!(
+                        lookup_key(shifted_hint).is_some(),
+                        "shifted_hint `{shifted_hint}` of key `{key_name}` is not a key name"
+                    );
+                }
+            }
+        })
     }
 }
