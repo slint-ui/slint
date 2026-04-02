@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "system_tray"
+version = "1.16.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "system_tray"
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["system-tray", "renderer-femtovg", "backend-winit-x11", "compat-1-2"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
