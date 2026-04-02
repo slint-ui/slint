@@ -10,6 +10,7 @@ use itertools::Itertools;
 
 use smol_str::SmolStr;
 
+use crate::diagnostics::Spanned;
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::parser::syntax_nodes;
@@ -263,6 +264,15 @@ impl Type {
         };
         match (self, other) {
             (a, b) if a == b => true,
+            (Type::Enumeration(a), Type::Enumeration(b)) => {
+                a.node.as_ref().zip(b.node.as_ref()).is_some_and(|(a, b)| {
+                    let a = a.to_source_location();
+                    let b = b.to_source_location();
+                    a.span == b.span
+                        && a.source_file.as_ref().map(|sf| sf.path())
+                            == b.source_file.as_ref().map(|sf| sf.path())
+                })
+            }
             (_, Type::Invalid)
             | (_, Type::Void)
             | (Type::Float32, Type::Int32)
@@ -1017,6 +1027,27 @@ impl Enumeration {
                 None
             }
         })
+    }
+}
+
+pub fn renamed_type_for_public_export(ty: &Type, name: &SmolStr) -> Type {
+    match ty {
+        Type::Struct(s) => match &s.name {
+            StructName::User { name: current_name, node } if current_name != name => {
+                Type::Struct(Rc::new(Struct {
+                    fields: s.fields.clone(),
+                    name: StructName::User { name: name.clone(), node: node.clone() },
+                }))
+            }
+            _ => ty.clone(),
+        },
+        Type::Enumeration(en) if en.name != *name => Type::Enumeration(Rc::new(Enumeration {
+            name: name.clone(),
+            values: en.values.clone(),
+            default_value: en.default_value,
+            node: en.node.clone(),
+        })),
+        _ => ty.clone(),
     }
 }
 

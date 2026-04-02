@@ -1153,6 +1153,15 @@ impl TypeLoader {
                                         state.diag.push_error(format!("No exported type called '{imported_name}' found in \"{}\"", doc_path.display()), &e);
                                         return None;
                                     };
+                                    let r = match r {
+                                        itertools::Either::Right(ty) => itertools::Either::Right(
+                                            crate::langtype::renamed_type_for_public_export(
+                                                &ty,
+                                                &exported_name.name,
+                                            ),
+                                        ),
+                                        component => component,
+                                    };
                                     Some((exported_name, r))
                                 })
                                 .collect::<Vec<_>>();
@@ -1590,9 +1599,19 @@ impl TypeLoader {
                 itertools::Either::Left(c) => {
                     registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, c)
                 }
-                itertools::Either::Right(ty) => registry_to_populate
-                    .borrow_mut()
-                    .insert_type_with_name(ty, import_name.internal_name),
+                itertools::Either::Right(ty) => {
+                    let ty = if import_name.internal_name == import_name.external_name {
+                        crate::langtype::renamed_type_for_public_export(
+                            &ty,
+                            &import_name.internal_name,
+                        )
+                    } else {
+                        ty
+                    };
+                    registry_to_populate
+                        .borrow_mut()
+                        .insert_type_with_name(ty, import_name.internal_name)
+                }
             };
         }
     }
@@ -2238,4 +2257,62 @@ fn test_snapshotting() {
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[cfg(feature = "rust")]
+#[test]
+fn test_renamed_enum_reexport_generates_distinct_rust_types() {
+    let mut compiler_config = CompilerConfiguration::new(crate::generator::OutputFormat::Rust);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
+        Box::pin(async move {
+            assert_eq!(path.replace('\\', "/"), "other.slint");
+            Some(Ok(r#"
+export enum SomeEnum { Alpha, Beta, Gamma }
+export { SomeEnum as SomeOtherEnum }
+"#
+            .to_owned()))
+        })
+    }));
+
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+import { SomeOtherEnum } from "other.slint";
+
+export enum SomeEnum { One, Two, Three }
+export component App inherits Window {
+    in property <SomeEnum> local-enum;
+    in property <SomeOtherEnum> imported-enum;
+}
+export { SomeOtherEnum } from "other.slint";
+"#
+        .into(),
+        Some(std::path::Path::new("main.slint")),
+        &mut test_diags,
+    );
+
+    let (doc, build_diagnostics, _) = spin_on::spin_on(crate::compile_syntax_node(
+        doc_node,
+        BuildDiagnostics::default(),
+        compiler_config,
+    ));
+
+    assert!(!test_diags.has_errors());
+    assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
+
+    let generated = crate::generator::rust::generate(
+        &doc,
+        &CompilerConfiguration::new(crate::generator::OutputFormat::Rust),
+    )
+    .unwrap()
+    .to_string();
+
+    assert!(generated.contains("pub enum r#SomeEnum"));
+    assert!(generated.contains("pub enum r#SomeOtherEnum"));
+    assert!(generated.contains("r#One"));
+    assert!(generated.contains("r#Alpha"));
+    assert!(generated.contains("get_imported_enum"));
+    assert!(generated.contains("-> r#SomeOtherEnum"));
+    assert!(!generated.contains("r#SomeEnum as r#SomeOtherEnum"));
 }
