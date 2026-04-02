@@ -354,6 +354,11 @@ pub struct WinitWindowAdapter {
     #[cfg(not(use_winit_theme))]
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
+    #[cfg(target_os = "macos")]
+    macos_color_observer: OnceCell<
+        objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2::runtime::NSObjectProtocol>>,
+    >,
+
     #[cfg(muda)]
     menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
@@ -406,6 +411,8 @@ impl WinitWindowAdapter {
             window_event_filter: Cell::new(None),
             #[cfg(not(use_winit_theme))]
             xdg_settings_watcher: Default::default(),
+            #[cfg(target_os = "macos")]
+            macos_color_observer: OnceCell::new(),
             #[cfg(muda)]
             menubar: Default::default(),
             #[cfg(muda)]
@@ -942,6 +949,29 @@ impl WinitWindowAdapter {
             .ok()
     }
 
+    /// Register an observer for macOS system color changes so that
+    /// the accent color updates live when the user changes it in System Settings.
+    #[cfg(target_os = "macos")]
+    fn setup_macos_color_observer(&self) {
+        let self_weak = self.self_weak.clone();
+        let block =
+            block2::RcBlock::new(move |_: core::ptr::NonNull<objc2_foundation::NSNotification>| {
+                if let Some(adapter) = self_weak.upgrade() {
+                    adapter.update_accent_color();
+                }
+            });
+        let observer = unsafe {
+            objc2_foundation::NSNotificationCenter::defaultCenter()
+                .addObserverForName_object_queue_usingBlock(
+                    Some(objc2_app_kit::NSSystemColorsDidChangeNotification),
+                    None,
+                    None,
+                    &block,
+                )
+        };
+        let _ = self.macos_color_observer.set(observer);
+    }
+
     pub fn activation_changed(&self, is_active: bool) -> Result<(), PlatformError> {
         let have_focus = is_active || self.input_method_focused();
         let slint_window = self.window();
@@ -1471,7 +1501,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     fn accent_color(&self) -> Color {
         self.accent_color
-            .get_or_init(|| Box::pin(Property::new(Self::query_system_accent_color())))
+            .get_or_init(|| {
+                #[cfg(target_os = "macos")]
+                self.setup_macos_color_observer();
+                Box::pin(Property::new(Self::query_system_accent_color()))
+            })
             .as_ref()
             .get()
     }
@@ -1616,6 +1650,14 @@ impl Drop for WinitWindowAdapter {
         #[cfg(not(use_winit_theme))]
         if let Some(xdg_watch_future) = self.xdg_settings_watcher.take() {
             xdg_watch_future.abort();
+        }
+
+        #[cfg(target_os = "macos")]
+        if let Some(observer) = self.macos_color_observer.get() {
+            unsafe {
+                objc2_foundation::NSNotificationCenter::defaultCenter()
+                    .removeObserver((*observer).as_ref());
+            }
         }
     }
 }
