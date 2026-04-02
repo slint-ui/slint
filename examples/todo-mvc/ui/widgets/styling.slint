@@ -26,16 +26,13 @@ export struct TextStyle {
 }
 
 export global FontSettings {
-    out property <int> light-font-weight: FontWeight.light;
-    out property <int> regular-font-weight: FontWeight.medium;
-    out property <int> semi-bold-font-weight: FontWeight.semi-bold;
     out property <TextStyle> body: {
         font-size: 14 * 0.0769rem,
-        font-weight: root.light-font-weight,
+        font-weight: FontWeight.light,
     };
     out property <TextStyle> body-strong: {
         font-size: 16 * 0.0769rem,
-        font-weight: root.semi-bold-font-weight,
+        font-weight: FontWeight.semi-bold,
     };
 }
 
