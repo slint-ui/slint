@@ -180,7 +180,9 @@ impl GraphicsBackend for WGPUBackend {
             return Ok(WGPUWindowSurface::Snapshot(snapshot_output));
         }
         let surface = self.surface.borrow();
-        let surface = surface.as_ref().unwrap();
+        let Some(surface) = surface.as_ref() else {
+            return Err("WGPU surface not yet initialized".into());
+        };
         let frame = match surface.get_current_texture() {
             Ok(texture) => texture,
             Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture()?,
