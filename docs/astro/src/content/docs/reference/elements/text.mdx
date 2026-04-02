@@ -97,16 +97,16 @@ Text {
 
 ### font-weight
 <SlintProperty propName="font-weight" typeName="int">
-The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
 
 <CodeSnippetMD imagePath="/src/assets/generated/text-font-weight.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-weight'>
 
-```slint 'font-weight: 800;'
+```slint 'font-weight: FontWeight.extra-bold;'
 Text {
     text: "BOLD";
     color: black;
     font-size: 30pt;
-    font-weight: 800;
+    font-weight: FontWeight.extra-bold;
 }
 ```
 </CodeSnippetMD>
