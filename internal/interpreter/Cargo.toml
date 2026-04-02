@@ -128,6 +128,11 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 ## selected automatically, use `SLINT_BACKEND=winit-vello` or `SLINT_BACKEND=linuxkms-vello`.
 renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
 
+## Enable Skia software rendering for the Linux KMS backend.
+## Select it with `SLINT_BACKEND=linuxkms-skia-software`.
+## This feature does not change renderer selection on other backends.
+renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software", "std"]
+
 ## Make the winit backend capable of rendering using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software"]
 
