@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+TestCase := Rectangle {
+    property <int> thin: FontWeight.thin;
+    property <int> extra_light: FontWeight.extra-light;
+    property <int> light: FontWeight.light;
+    property <int> normal: FontWeight.normal;
+    property <int> medium: FontWeight.medium;
+    property <int> semi_bold: FontWeight.semi-bold;
+    property <int> bold: FontWeight.bold;
+    property <int> extra_bold: FontWeight.extra-bold;
+    property <int> black: FontWeight.black;
+
+    Text {
+        font-weight: FontWeight.bold;
+    }
+
+    property <bool> test: thin == 100 && extra_light == 200 && light == 300 && normal == 400 && medium == 500 && semi_bold == 600 && bold == 700 && extra_bold == 800 && black == 900;
+}
+
+/*g
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_thin(), 100);
+assert_eq!(instance.get_extra_light(), 200);
+assert_eq!(instance.get_light(), 300);
+assert_eq!(instance.get_normal(), 400);
+assert_eq!(instance.get_medium(), 500);
+assert_eq!(instance.get_semi_bold(), 600);
+assert_eq!(instance.get_bold(), 700);
+assert_eq!(instance.get_extra_bold(), 800);
+assert_eq!(instance.get_black(), 900);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_thin(), 100);
+assert_eq(instance.get_extra_light(), 200);
+assert_eq(instance.get_light(), 300);
+assert_eq(instance.get_normal(), 400);
+assert_eq(instance.get_medium(), 500);
+assert_eq(instance.get_semi_bold(), 600);
+assert_eq(instance.get_bold(), 700);
+assert_eq(instance.get_extra_bold(), 800);
+assert_eq(instance.get_black(), 900);
+assert(instance.get_test());
+```
+*/
