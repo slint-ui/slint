@@ -951,7 +951,6 @@ impl i_slint_core::platform::Platform for Backend {
         &self,
         params: i_slint_core::system_tray::Params,
     ) -> Option<i_slint_core::system_tray::SystemTray> {
-
         let event_loop = self.shared_data.not_running_event_loop.borrow();
         let event_loop = event_loop.as_ref()?;
 

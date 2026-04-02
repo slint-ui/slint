@@ -54,7 +54,7 @@ pub enum CustomEvent {
     #[cfg(muda)]
     Muda(muda::MenuEvent),
     #[cfg(feature = "system-tray")]
-    SystemTray(i_slint_core::system_tray::Event)
+    SystemTray(i_slint_core::system_tray::Event),
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -540,8 +540,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
             }
             #[cfg(feature = "system-tray")]
-            CustomEvent::SystemTray(e) => {
-            }
+            CustomEvent::SystemTray(e) => {}
         }
     }
 

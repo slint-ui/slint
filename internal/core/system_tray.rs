@@ -9,7 +9,7 @@ use ksni::blocking::TrayMethods;
 
 #[cfg(feature = "system-tray-ksni")]
 struct KsniTray {
-    icon: ksni::Icon
+    icon: ksni::Icon,
 }
 
 #[cfg(feature = "system-tray-ksni")]
@@ -45,9 +45,7 @@ pub struct SystemTray {
 
 impl SystemTray {
     #[cfg(any(feature = "system-tray-ksni", feature = "system-tray-tray-icon"))]
-    pub fn new<
-        E: From<Event> + Send + 'static,
-    >(
+    pub fn new<E: From<Event> + Send + 'static>(
         params: Params,
         event_loop: &winit::event_loop::EventLoop<E>,
     ) -> Result<Self, Error> {
@@ -60,16 +58,12 @@ impl SystemTray {
             let height = pixel_buffer.height() as i32;
 
             for pixel in data.chunks_exact_mut(4) {
-                    pixel.rotate_right(1) // rgba to argb
-                }
+                pixel.rotate_right(1) // rgba to argb
+            }
 
-            let tray = KsniTray {
-                icon: ksni::Icon {
-                    width,
-                    height,
-                    data
-                }
-            }.spawn().map_err(Error::KsniBuildError)?;
+            let tray = KsniTray { icon: ksni::Icon { width, height, data } }
+                .spawn()
+                .map_err(Error::KsniBuildError)?;
             return Ok(Self { tray });
         }
 
@@ -97,7 +91,7 @@ impl SystemTray {
                 },
             ));
 
-            return Ok(Self {tray_icon});
+            return Ok(Self { tray_icon });
         }
     }
 }
@@ -114,7 +108,7 @@ pub enum Error {
     BuildError(tray_icon::Error),
     #[cfg(feature = "system-tray-ksni")]
     #[error("Build error: {}", .0)]
-    KsniBuildError(ksni::Error)
+    KsniBuildError(ksni::Error),
 }
 
 #[cfg(feature = "system-tray-tray-icon")]
