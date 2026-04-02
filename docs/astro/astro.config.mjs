@@ -329,6 +329,10 @@ export default defineConfig({
                                         label: "Platform Namespace",
                                         slug: "reference/global-namespaces/platform",
                                     },
+                                    {
+                                        label: "FontWeight Namespace",
+                                        slug: "reference/global-namespaces/font-weight",
+                                    },
                                 ],
                             },
                             {
