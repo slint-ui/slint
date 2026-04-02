@@ -904,7 +904,7 @@ class Repeater
 
         void row_added(size_t index, size_t count) override
         {
-            auto offset = layout_state.offset;
+            const auto offset = layout_state.offset;
             if (index < offset) {
                 if (index + count <= offset)
                     return;
@@ -927,7 +927,7 @@ class Repeater
         {
             if (index < layout_state.offset)
                 return;
-            auto local = index - layout_state.offset;
+            const auto local = index - layout_state.offset;
             if (local >= data.size())
                 return;
             auto &c = data[local];
@@ -941,7 +941,7 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            auto offset = layout_state.offset;
+            const auto offset = layout_state.offset;
             if (index < offset) {
                 if (index + count <= offset)
                     return;
@@ -1096,7 +1096,7 @@ public:
         inner->is_dirty.get();
         inner->is_dirty.set(false);
 
-        auto m = model.get();
+        const auto m = model.get();
         if (!m)
             return;
 
@@ -1122,7 +1122,7 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
-        auto offset = inner->layout_state.offset;
+        const auto offset = inner->layout_state.offset;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
@@ -1132,7 +1132,7 @@ public:
 
     private_api::IndexRange index_range() const
     {
-        auto offset = inner->layout_state.offset;
+        const auto offset = inner->layout_state.offset;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }
 
