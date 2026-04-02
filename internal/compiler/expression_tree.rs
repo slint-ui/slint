@@ -88,6 +88,7 @@ pub enum BuiltinFunction {
     Hsv,
     Oklch,
     ColorScheme,
+    AccentColor,
     SupportsNativeMenuBar,
     /// Setup the menu bar
     ///
@@ -266,6 +267,7 @@ declare_builtin_function_types!(
     ColorScheme: () -> Type::Enumeration(
         typeregister::BUILTIN.with(|e| e.enums.ColorScheme.clone()),
     ),
+    AccentColor: () -> Type::Color,
     SupportsNativeMenuBar: () -> Type::Bool,
     // entries, sub-menu, activate. But the types here are not accurate.
     SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
@@ -321,6 +323,7 @@ impl BuiltinFunction {
             }
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
+            BuiltinFunction::AccentColor => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
             BuiltinFunction::SetupMenuBar => false,
             BuiltinFunction::MonthDayCount => false,
@@ -411,6 +414,7 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => true,
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
+            BuiltinFunction::AccentColor => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
             BuiltinFunction::SetupMenuBar => false,
             BuiltinFunction::MonthDayCount => true,

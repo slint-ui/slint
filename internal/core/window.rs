@@ -9,6 +9,7 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
     WindowPosition, WindowSize,
 };
+use crate::graphics::Color;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -200,6 +201,11 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// returns the color scheme used
     fn color_scheme(&self) -> ColorScheme {
         ColorScheme::Unknown
+    }
+
+    /// Returns the system accent color, or transparent if the platform doesn't provide one.
+    fn accent_color(&self) -> Color {
+        Color::default()
     }
 
     /// Returns whether we can have a native menu bar
@@ -1278,6 +1284,13 @@ impl WindowInner {
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
+    /// Returns the system accent color, or transparent if unavailable.
+    pub fn accent_color(&self) -> Color {
+        self.window_adapter()
+            .internal(crate::InternalToken)
+            .map_or(Color::default(), |x| x.accent_color())
+    }
+
     /// Return whether the platform supports native menu bars
     pub fn supports_native_menu_bar(&self) -> bool {
         self.window_adapter()
@@ -2146,6 +2159,18 @@ pub mod ffi {
                 .internal(crate::InternalToken)
                 .map_or(ColorScheme::Unknown, |x| x.color_scheme())
         }
+    }
+
+    /// Return the system accent color, or transparent if not available
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_accent_color(
+        handle: *const WindowAdapterRcOpaque,
+        out: &mut Color,
+    ) {
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        *out = window_adapter
+            .internal(crate::InternalToken)
+            .map_or(Color::default(), |x| x.accent_color());
     }
 
     /// Return whether the platform supports native menu bars

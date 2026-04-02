@@ -2341,6 +2341,17 @@ impl WindowAdapterInternal for QtWindow {
         ds.as_ref().get()
     }
 
+    fn accent_color(&self) -> i_slint_core::graphics::Color {
+        let argb = cpp! {unsafe [] -> u32 as "QRgb" {
+            #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+                return qApp->palette().color(QPalette::Accent).rgba();
+            #else
+                return qApp->palette().color(QPalette::Highlight).rgba();
+            #endif
+        }};
+        i_slint_core::graphics::Color::from_argb_encoded(argb)
+    }
+
     fn bring_to_front(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
