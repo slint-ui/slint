@@ -379,6 +379,62 @@ pub fn init_instance_adapter_device_queue_surface(
     .expect("internal error: wgpu setup is not expected to be async")
 }
 
+/// Runs [`async_init_instance_adapter_device_queue_surface`] and passes the created
+/// objects on to `finalize`. On most platforms the initialization future resolves on
+/// the first poll, so this happens synchronously and errors (including `finalize`'s)
+/// are returned to the caller. On WASM the initialization does real async work (the
+/// WebGPU adapter probe is a JsFuture), so the future is spawned on the event loop
+/// via `context`, `finalize` runs when it resolves, and errors can only be logged.
+pub fn init_instance_adapter_device_queue_surface_then(
+    context: &crate::SlintContext,
+    surface_target: impl Into<SurfaceTarget> + 'static,
+    requested_graphics_api: Option<RequestedGraphicsAPI>,
+    backends_to_avoid: wgpu::Backends,
+    finalize: impl FnOnce(
+        wgpu_29::Instance,
+        wgpu_29::Adapter,
+        wgpu_29::Device,
+        wgpu_29::Queue,
+        wgpu_29::Surface<'static>,
+    ) -> Result<(), crate::api::PlatformError>
+    + 'static,
+) -> Result<(), crate::api::PlatformError> {
+    let init_future = async move {
+        let (instance, adapter, device, queue, surface) =
+            async_init_instance_adapter_device_queue_surface(
+                surface_target,
+                requested_graphics_api,
+                backends_to_avoid,
+            )
+            .await
+            .map_err(|e| {
+                crate::api::PlatformError::from(alloc::format!("WGPU initialization failed: {e}"))
+            })?;
+        finalize(instance, adapter, device, queue, surface)
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = context;
+        poll_once(init_future).expect("internal error: wgpu setup is not expected to be async")
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        context
+            .spawn_local(async move {
+                if let Err(e) = init_future.await {
+                    crate::debug_log!("{e}");
+                }
+            })
+            .map_err(|e| {
+                crate::api::PlatformError::from(alloc::format!(
+                    "Error spawning async wgpu initialization: {e}"
+                ))
+            })?;
+        Ok(())
+    }
+}
+
 // Helper function to poll a future once. Remove once the suspension API uses async.
 fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     let waker = std::task::Waker::noop();
