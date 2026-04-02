@@ -79,16 +79,16 @@ impl ServerNotifier {
 }
 
 impl RequestHandler {
-    async fn handle_request(
+    fn handle_request(
         &self,
         method: String,
         params: JsValue,
-        ctx: Rc<Context>,
+        ctx: &mut Context,
     ) -> Result<JsValue> {
         if let Some(f) = self.0.get(&method.as_str()) {
             let param = serde_wasm_bindgen::from_value(params)
                 .map_err(|x| format!("invalid param to handle_request: {x:?}"))?;
-            let r = f(param, ctx).await.map_err(|e| e.message)?;
+            let r = f(param, ctx).map_err(|e| e.message)?;
             to_value(&r).map_err(|e| e.to_string().into())
         } else {
             Err("Cannot handle request".into())
@@ -166,7 +166,7 @@ extern "C" {
 
 #[wasm_bindgen]
 pub struct SlintServer {
-    ctx: Rc<Context>,
+    ctx: Context,
     reentry_guard: Rc<RefCell<ReentryGuard>>,
     rh: Rc<RequestHandler>,
 }
@@ -210,23 +210,23 @@ pub fn create(
             Some(contents.map(|c| (None, c)))
         })
     }));
-    let document_cache = RefCell::new(DocumentCache::new(compiler_config));
+    let document_cache = DocumentCache::new(compiler_config);
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
     language::register_request_handlers(&mut rh);
 
     Ok(SlintServer {
-        ctx: Rc::new(Context {
+        ctx: Context {
             document_cache,
-            preview_config: RefCell::new(Default::default()),
+            preview_config: Default::default(),
             init_param,
             server_notifier,
             to_show: Default::default(),
             open_urls: Default::default(),
             to_preview,
             pending_recompile: Default::default(),
-        }),
+        },
         reentry_guard,
         rh: Rc::new(rh),
     })
@@ -324,101 +324,89 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn startup_lsp(&self) -> js_sys::Promise {
-        let ctx = self.ctx.clone();
-        let guard = self.reentry_guard.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let _lock = ReentryGuard::lock(guard).await;
-            language::startup_lsp(&ctx).await.map_err(|e| JsError::new(&e.to_string()))?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> js_sys::Promise {
-        let ctx = self.ctx.clone();
-        let guard = self.reentry_guard.clone();
-
-        wasm_bindgen_futures::future_to_promise(async move {
-            let _lock = ReentryGuard::lock(guard).await;
-            let url: lsp_types::Url = serde_wasm_bindgen::from_value(url)?;
-            let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
-            language::trigger_file_watcher(&ctx, url, typ)
-                .await
-                .map_err(|e| JsError::new(&e.to_string()))?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn open_document(&self, content: String, uri: JsValue, version: i32) -> js_sys::Promise {
-        let ctx = self.ctx.clone();
-        let guard = self.reentry_guard.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let _lock = ReentryGuard::lock(guard).await;
-            let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-            language::open_document(
-                &ctx,
-                content,
-                uri.clone(),
-                Some(version),
-                &mut ctx.document_cache.borrow_mut(),
-            )
-            .await
-            .map_err(|e| JsError::new(&e.to_string()))?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn load_document(&self, content: String, uri: JsValue, version: i32) -> js_sys::Promise {
-        let ctx = self.ctx.clone();
-        let guard = self.reentry_guard.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let _lock = ReentryGuard::lock(guard).await;
-            let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-            language::load_document(
-                &ctx,
-                content,
-                uri.clone(),
-                Some(version),
-                &mut ctx.document_cache.borrow_mut(),
-            )
-            .await
-            .map_err(|e| JsError::new(&e.to_string()))?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn close_document(&self, uri: JsValue) -> js_sys::Promise {
-        let ctx = self.ctx.clone();
-        let guard = self.reentry_guard.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let _lock = ReentryGuard::lock(guard).await;
-            let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-            language::close_document(&ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn handle_request(&self, _id: JsValue, method: String, params: JsValue) -> js_sys::Promise {
-        let guard = self.reentry_guard.clone();
-        let rh = self.rh.clone();
-        let ctx = self.ctx.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let fut = rh.handle_request(method, params, ctx);
-            let _lock = ReentryGuard::lock(guard).await;
-            fut.await.map_err(|e| JsError::new(&e.to_string()).into())
-        })
-    }
-
-    #[wasm_bindgen]
-    pub async fn reload_config(&self) -> JsResult<()> {
+    pub async fn startup_lsp(&mut self) -> JsResult<JsValue> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
-        language::load_configuration(&self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
+        language::startup_lsp(&mut self.ctx).await.map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn trigger_file_watcher(&mut self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
+        let guard = self.reentry_guard.clone();
+
+        let _lock = ReentryGuard::lock(guard).await;
+        let url: lsp_types::Url = serde_wasm_bindgen::from_value(url)?;
+        let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
+        language::trigger_file_watcher(&mut self.ctx, url, typ)
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn open_document(
+        &mut self,
+        content: String,
+        uri: JsValue,
+        version: i32,
+    ) -> JsResult<JsValue> {
+        let guard = self.reentry_guard.clone();
+        let _lock = ReentryGuard::lock(guard).await;
+        let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+        language::open_document(&mut self.ctx, content, uri.clone(), Some(version))
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn load_document(
+        &mut self,
+        content: String,
+        uri: JsValue,
+        version: i32,
+    ) -> JsResult<JsValue> {
+        let guard = self.reentry_guard.clone();
+        let _lock = ReentryGuard::lock(guard).await;
+        let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+        language::load_document(&mut self.ctx, content, uri.clone(), Some(version))
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn close_document(&mut self, uri: JsValue) -> JsResult<JsValue> {
+        let guard = self.reentry_guard.clone();
+        let _lock = ReentryGuard::lock(guard).await;
+        let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+        language::close_document(&mut self.ctx, uri)
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn handle_request(
+        &mut self,
+        _id: JsValue,
+        method: String,
+        params: JsValue,
+    ) -> JsResult<JsValue> {
+        let guard = self.reentry_guard.clone();
+        let _lock = ReentryGuard::lock(guard).await;
+        self.rh
+            .handle_request(method, params, &mut self.ctx)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(JsValue::UNDEFINED)
+    }
+
+    #[wasm_bindgen]
+    pub async fn reload_config(&mut self) -> JsResult<()> {
+        let guard = self.reentry_guard.clone();
+        let _lock = ReentryGuard::lock(guard).await;
+        language::load_configuration(&mut self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
     }
 }
 

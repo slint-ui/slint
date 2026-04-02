@@ -27,18 +27,17 @@ use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, InitializeParams, Url,
 };
+use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::future::Future;
 use std::io::Write as _;
-use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, atomic};
+use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
+use std::time::Duration;
 
 use crate::common::document_cache::CompilerConfiguration;
 
@@ -58,6 +57,8 @@ use tikv_jemallocator::Jemalloc;
 )))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -126,7 +127,7 @@ enum OutgoingRequest {
     Done(lsp_server::Response),
 }
 
-type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;
+type OutgoingRequestQueue = Arc<dashmap::DashMap<RequestId, OutgoingRequest>>;
 
 /// A handle that can be used to communicate with the client
 ///
@@ -156,23 +157,20 @@ impl ServerNotifier {
             Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
         self.sender.send(msg)?;
         let queue = self.queue.clone();
-        queue.lock().unwrap().insert(id.clone(), OutgoingRequest::Start);
-        Ok(std::future::poll_fn(move |ctx| {
-            let mut queue = queue.lock().unwrap();
-            match queue.remove(&id).unwrap() {
-                OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
-                    queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
-                    Poll::Pending
-                }
-                OutgoingRequest::Done(d) => {
-                    if let Some(err) = d.error {
-                        Poll::Ready(Err(err.message.into()))
-                    } else {
-                        Poll::Ready(
-                            serde_json::from_value(d.result.unwrap_or_default())
-                                .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
-                        )
-                    }
+        queue.insert(id.clone(), OutgoingRequest::Start);
+        Ok(std::future::poll_fn(move |ctx| match queue.remove(&id).unwrap().1 {
+            OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
+                queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
+                Poll::Pending
+            }
+            OutgoingRequest::Done(d) => {
+                if let Some(err) = d.error {
+                    Poll::Ready(Err(err.message.into()))
+                } else {
+                    Poll::Ready(
+                        serde_json::from_value(d.result.unwrap_or_default())
+                            .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
+                    )
                 }
             }
         }))
@@ -185,23 +183,26 @@ impl ServerNotifier {
 }
 
 impl RequestHandler {
-    async fn handle_request(&self, request: lsp_server::Request, ctx: &Rc<Context>) -> Result<()> {
+    fn handle_request(&self, request: lsp_server::Request, ctx: &mut Context) -> Result<()> {
         if let Some(x) = self.0.get(&request.method.as_str()) {
-            match x(request.params, ctx.clone()).await {
-                Ok(r) => ctx
-                    .server_notifier
-                    .sender
-                    .send(Message::Response(Response::new_ok(request.id, r)))?,
-                Err(e) => ctx.server_notifier.sender.send(Message::Response(Response::new_err(
-                    request.id,
-                    match e.code {
-                        LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
-                        LspErrorCode::InternalError => ErrorCode::InternalError as i32,
-                        LspErrorCode::RequestFailed => ErrorCode::RequestFailed as i32,
-                        LspErrorCode::ContentModified => ErrorCode::ContentModified as i32,
-                    },
-                    e.message,
-                )))?,
+            match x(request.params, ctx) {
+                Ok(r) => {
+                    ctx.server_notifier
+                        .sender
+                        .send(Message::Response(Response::new_ok(request.id, r)))?;
+                }
+                Err(e) => {
+                    ctx.server_notifier.sender.send(Message::Response(Response::new_err(
+                        request.id,
+                        match e.code {
+                            LspErrorCode::InvalidParameter => ErrorCode::InvalidParams as i32,
+                            LspErrorCode::InternalError => ErrorCode::InternalError as i32,
+                            LspErrorCode::RequestFailed => ErrorCode::RequestFailed as i32,
+                            LspErrorCode::ContentModified => ErrorCode::ContentModified as i32,
+                        },
+                        e.message,
+                    )))?;
+                }
             };
         } else {
             ctx.server_notifier.sender.send(Message::Response(Response::new_err(
@@ -281,7 +282,13 @@ fn main() {
             },
         }
     } else {
-        match run_lsp_server(args) {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap();
+        let local_set = tokio::task::LocalSet::new();
+        match local_set.block_on(&rt, run_lsp_server(args)) {
             Ok(threads) => threads.join().unwrap(),
             Err(error) => {
                 eprintln!("Error running LSP server: {error}");
@@ -291,7 +298,7 @@ fn main() {
     }
 }
 
-fn run_lsp_server(args: Cli) -> Result<IoThreads> {
+async fn run_lsp_server(args: Cli) -> Result<IoThreads> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
@@ -300,19 +307,23 @@ fn run_lsp_server(args: Cli) -> Result<IoThreads> {
         serde_json::to_value(language::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
-    main_loop(connection, init_param, args)?;
+    main_loop(connection, init_param, args).await?;
 
     Ok(io_threads)
 }
 
-fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli) -> Result<()> {
+async fn main_loop(
+    connection: Connection,
+    init_param: InitializeParams,
+    cli_args: Cli,
+) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
 
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
-    let (preview_to_lsp_sender, preview_to_lsp_receiver) =
-        crossbeam_channel::unbounded::<crate::common::PreviewToLspMessage>();
+    let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
+        mpsc::unbounded_channel::<crate::common::PreviewToLspMessage>();
 
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
@@ -329,7 +340,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn));
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
-                HashMap::from([
+                std::collections::HashMap::from([
                     (common::PreviewTarget::ChildProcess, child_preview),
                     (common::PreviewTarget::EmbeddedWasm, embedded_preview),
                 ]),
@@ -383,9 +394,9 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         enable_experimental: false,
     };
 
-    let ctx = Rc::new(Context {
-        document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
-        preview_config: RefCell::new(Default::default()),
+    let mut ctx = Context {
+        document_cache: crate::common::DocumentCache::new(compiler_config),
+        preview_config: Default::default(),
         server_notifier,
         init_param,
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -393,93 +404,122 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-    });
-
-    let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
-    let mut first_future = Box::pin(startup_lsp(&ctx));
-
-    // We are waiting in this loop for two kind of futures:
-    //  - The compiler future should always be ready immediately because we do not set a callback to load files
-    //  - the future from `send_request` are blocked waiting for a response from the client.
-    //    Responses are sent on the `connection.receiver` which will wake the loop, so there
-    //    is no need to do anything in the waker.
-    struct DummyWaker;
-    impl std::task::Wake for DummyWaker {
-        fn wake(self: Arc<Self>) {}
-    }
-    let waker = Arc::new(DummyWaker).into();
-    match first_future.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
-        Poll::Ready(x) => x?,
-        Poll::Pending => futures.push(first_future),
     };
 
+    let connection = Arc::new(connection);
+    let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
+    let inner_connection = connection.clone();
+    let adapter_thread = std::thread::spawn(move || {
+        crossbeam_tokio_adapter(inner_connection, from_lsp_sender, request_queue);
+        tracing::debug!("crossbeam -> tokio adapter exited");
+    });
+
+    startup_lsp(&mut ctx).await?;
+
     loop {
-        let recompile_timeout = if ctx.pending_recompile.borrow().is_empty() {
-            crossbeam_channel::never()
-        } else {
-            crossbeam_channel::after(std::time::Duration::from_millis(50))
-        };
-        crossbeam_channel::select! {
-            recv(connection.receiver) -> msg => {
-                match msg? {
-                    Message::Request(req) => {
-                        // ignore errors when shutdown
-                        if connection.handle_shutdown(&req).unwrap_or(false) {
-                            return Ok(());
-                        }
-                        futures.push(Box::pin(rh.handle_request(req, &ctx)));
+        let recompile_idle_timeout =
+            if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
+        tokio::select! {
+            msg = from_lsp_receiver.recv() => {
+                if let Some(msg) = msg {
+                    if handle_lsp_message(
+                        msg,
+                        &connection,
+                        &mut rh,
+                        &mut ctx,
+                    ).await? {
+                        tracing::debug!("LSP shutdown requested");
+                        adapter_thread.join().expect("Failed to join adapter thread");
+                        return Ok(());
                     }
-                    Message::Response(resp) => {
-                        if let Some(q) = request_queue.lock().unwrap().get_mut(&resp.id) {
-                            match q {
-                                OutgoingRequest::Done(_) => {
-                                    return Err("Response to unknown request".into())
-                                }
-                                OutgoingRequest::Start => { /* nothing to do */ }
-                                OutgoingRequest::Pending(x) => x.wake_by_ref(),
-                            };
-                            *q = OutgoingRequest::Done(resp)
-                        } else {
-                            return Err("Response to unknown request".into());
-                        }
-                    }
-                    Message::Notification(notification) => {
-                        futures.push(Box::pin(handle_notification(notification, &ctx)))
-                    }
+                } else {
+                    adapter_thread.join().expect("Failed to join adapter thread");
+                    return Err("LSP connection closed".into());
                 }
-             },
-             recv(preview_to_lsp_receiver) -> _msg => {
+            }
+            _msg = preview_to_lsp_receiver.recv() => {
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
-                futures.push(Box::pin(handle_preview_to_lsp_message(_msg?, &ctx)))
-             },
-             recv(recompile_timeout) -> _ => {
-                 let pending_recompile = std::mem::take(&mut *ctx.pending_recompile.borrow_mut());
-
-                 for url in pending_recompile {
-                     futures.push(Box::pin(language::reload_document(&ctx, url)));
-                 }
-             }
-        };
-
-        let mut result = Ok(());
-        futures.retain_mut(|f| {
-            if result.is_err() {
-                return true;
-            }
-            match f.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
-                Poll::Ready(x) => {
-                    result = x;
-                    false
+                {
+                    if let Some(msg) = _msg && let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
+                        tracing::error!("handle_preview_to_lsp_message: {err}");
+                    }
                 }
-                Poll::Pending => true,
             }
-        });
-        result?;
+            _ = tokio::time::sleep(recompile_idle_timeout) => {
+                tracing::debug!("LSP recompiling");
+                let pending_recompile = std::mem::take(&mut ctx.pending_recompile);
+
+                for url in pending_recompile {
+                    if let Err(err) = language::reload_document(&mut ctx, url).await {
+                        tracing::error!("Failed document reload: {err}");
+                    }
+                }
+            }
+        }
     }
 }
 
-async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -> Result<()> {
+async fn handle_lsp_message(
+    msg: Message,
+    connection: &Arc<Connection>,
+    rh: &mut RequestHandler,
+    ctx: &mut Context,
+) -> Result<bool> {
+    match msg {
+        Message::Request(req) => {
+            // ignore errors when shutdown
+            if connection.handle_shutdown(&req).unwrap_or(false) {
+                return Ok(true);
+            }
+            rh.handle_request(req, ctx)?;
+        }
+        Message::Response(_) => {
+            // should not be receiving responses, since they're handled in the dedicated thread
+        }
+        Message::Notification(notification) => {
+            handle_notification(notification, ctx).await?;
+        }
+    }
+    Ok(false)
+}
+
+/// Crossbeam does not play well with async (it's always blocking), so we need to run a separate
+/// thread just to relay messages between a Crossbeam channel and an async channel.
+/// We need Crossbeam because we're using lsp-server, which does not support anything else.
+fn crossbeam_tokio_adapter(
+    connection: Arc<Connection>,
+    from_lsp_sender: mpsc::UnboundedSender<Message>,
+    request_queue: OutgoingRequestQueue,
+) {
+    loop {
+        match connection.receiver.recv() {
+            Ok(Message::Response(resp)) => {
+                let Some(mut q) = request_queue.get_mut(&resp.id) else {
+                    tracing::error!("Response to unknown request");
+                    continue;
+                };
+                match &*q {
+                    OutgoingRequest::Done(_) => {
+                        tracing::error!("Response to unknown request");
+                        continue;
+                    }
+                    OutgoingRequest::Start => { /* nothing to do */ }
+                    OutgoingRequest::Pending(x) => x.wake_by_ref(),
+                };
+                *q = OutgoingRequest::Done(resp);
+            }
+            Ok(msg) => {
+                if from_lsp_sender.send(msg.clone()).is_err() {
+                    return;
+                }
+            }
+            Err(_) => return,
+        }
+    }
+}
+
+async fn handle_notification(req: lsp_server::Notification, ctx: &mut Context) -> Result<()> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
@@ -488,7 +528,6 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 params.text_document.text,
                 params.text_document.uri,
                 Some(params.text_document.version),
-                &mut ctx.document_cache.borrow_mut(),
             )
             .await
         }
@@ -508,7 +547,6 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 Some(params.text_document.version),
-                &mut ctx.document_cache.borrow_mut(),
             )
             .await
         }
@@ -577,7 +615,7 @@ async fn send_workspace_edit(
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
     message: crate::common::PreviewToLspMessage,
-    ctx: &Rc<Context>,
+    ctx: &Context,
 ) -> Result<()> {
     use crate::common::PreviewToLspMessage as M;
     match message {
@@ -596,11 +634,9 @@ async fn handle_preview_to_lsp_message(
             );
         }
         M::ShowDocument { file, selection, take_focus } => {
+            let sn = ctx.server_notifier.clone();
             crate::common::lsp_to_editor::send_show_document_to_editor(
-                ctx.server_notifier.clone(),
-                file,
-                selection,
-                take_focus,
+                sn, file, selection, take_focus,
             )
             .await;
         }
@@ -617,7 +653,8 @@ async fn handle_preview_to_lsp_message(
             crate::language::send_state_to_preview(ctx);
         }
         M::SendWorkspaceEdit { label, edit } => {
-            let _ = send_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit)).await;
+            let sn = ctx.server_notifier.clone();
+            let _ = send_workspace_edit(sn, label, Ok(edit)).await;
         }
         M::SendShowMessage { message } => {
             ctx.server_notifier
