@@ -1407,6 +1407,14 @@ fn call_builtin_function(
             .internal(corelib::InternalToken)
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
             .into(),
+        BuiltinFunction::AccentColor => {
+            let color = local_context
+                .component_instance
+                .window_adapter()
+                .internal(corelib::InternalToken)
+                .map_or(corelib::Color::default(), |x| x.accent_color());
+            Value::Brush(corelib::Brush::SolidColor(color))
+        }
         BuiltinFunction::SupportsNativeMenuBar => local_context
             .component_instance
             .window_adapter()

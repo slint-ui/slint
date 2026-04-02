@@ -4324,6 +4324,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }
+        BuiltinFunction::AccentColor => {
+            format!("{}.accent_color()", access_window_field(ctx))
+        }
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }

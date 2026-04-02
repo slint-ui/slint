@@ -429,10 +429,13 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     //window.resize_event(inner_size_writer.???)?;
                 }
             }
-            WindowEvent::ThemeChanged(theme) => window.set_color_scheme(match theme {
-                winit::window::Theme::Dark => ColorScheme::Dark,
-                winit::window::Theme::Light => ColorScheme::Light,
-            }),
+            WindowEvent::ThemeChanged(theme) => {
+                window.set_color_scheme(match theme {
+                    winit::window::Theme::Dark => ColorScheme::Dark,
+                    winit::window::Theme::Light => ColorScheme::Light,
+                });
+                window.update_accent_color();
+            }
             WindowEvent::Occluded(x) => {
                 window.renderer.occluded(x);
 
