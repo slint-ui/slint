@@ -901,29 +901,42 @@ class Repeater
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
 
+        // ListView-specific state
+        size_t offset = 0;
+        float cached_item_height = 0;
+        float previous_viewport_y = 0;
+        float anchor_y = 0;
+
         void row_added(size_t index, size_t count) override
         {
-            if (index > data.size()) {
-                // Can happen before ensure_updated was called
-                return;
+            if (index < offset) {
+                if (index + count <= offset)
+                    return;
+                count -= offset - index;
+                index = 0;
+            } else {
+                index -= offset;
             }
+            if (count == 0 || index > data.size())
+                return;
             is_dirty.set(true);
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
             for (std::size_t i = index; i < data.size(); ++i) {
-                // all the indexes are dirty
                 data[i].state = State::Dirty;
             }
         }
         void row_changed(size_t index) override
         {
-            if (index >= data.size()) {
+            if (index < offset)
                 return;
-            }
-            auto &c = data[index];
+            auto local = index - offset;
+            if (local >= data.size())
+                return;
+            auto &c = data[local];
             if (model && c.ptr) {
-                std::optional<ModelData> data = model->row_data(index);
-                (*c.ptr)->update_data(index, data ? *data : ModelData {});
+                std::optional<ModelData> row_data = model->row_data(index);
+                (*c.ptr)->update_data(index, row_data ? *row_data : ModelData {});
                 c.state = State::Clean;
             } else {
                 c.state = State::Dirty;
@@ -931,14 +944,21 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            if (index + count > data.size()) {
-                // Can happen before ensure_updated was called
-                return;
+            if (index < offset) {
+                if (index + count <= offset)
+                    return;
+                count -= offset - index;
+                index = 0;
+            } else {
+                index -= offset;
             }
+            if (count == 0 || index >= data.size())
+                return;
+            if (index + count > data.size())
+                count = data.size() - index;
             is_dirty.set(true);
             data.erase(data.begin() + index, data.begin() + index + count);
             for (std::size_t i = index; i < data.size(); ++i) {
-                // all the indexes are dirty
                 data[i].state = State::Dirty;
             }
         }
@@ -958,15 +978,7 @@ class Repeater
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-public:
-    template<typename F>
-    void set_model_binding(F &&binding) const
-    {
-        model.set_binding(std::forward<F>(binding));
-    }
-
-    template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    void refresh_model() const
     {
         if (model.is_dirty()) {
             auto old_model = model.get_internal();
@@ -979,6 +991,49 @@ public:
                 }
             }
         }
+    }
+
+    /// Create an instance for model row `row`, update it, and return its handle.
+    template<typename Parent>
+    ComponentHandle<C> create_and_update(const Parent *parent,
+                                         const std::shared_ptr<Model<ModelData>> &m,
+                                         size_t row) const
+    {
+        auto handle = C::create(parent);
+        auto data = m->row_data(row);
+        handle->update_data(row, data ? *data : ModelData {});
+        return handle;
+    }
+
+    /// If the instance at `c` is dirty, ensure it exists and update it.
+    /// Returns true if the instance was freshly created.
+    template<typename Parent>
+    bool ensure_instance_updated(typename RepeaterInner::RepeatedInstanceWithState &c,
+                                 const Parent *parent, const std::shared_ptr<Model<ModelData>> &m,
+                                 size_t row) const
+    {
+        if (c.state != RepeaterInner::State::Dirty)
+            return false;
+        bool created = !c.ptr;
+        if (created)
+            c.ptr = C::create(parent);
+        auto data = m->row_data(row);
+        (*c.ptr)->update_data(row, data ? *data : ModelData {});
+        c.state = RepeaterInner::State::Clean;
+        return created;
+    }
+
+public:
+    template<typename F>
+    void set_model_binding(F &&binding) const
+    {
+        model.set_binding(std::forward<F>(binding));
+    }
+
+    template<typename Parent>
+    void ensure_updated(const Parent *parent) const
+    {
+        refresh_model();
 
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
@@ -986,19 +1041,9 @@ public:
                 auto count = m->row_count();
                 inner->data.resize(count);
                 for (size_t i = 0; i < count; ++i) {
-                    auto &c = inner->data[i];
-                    bool created = false;
-                    if (!c.ptr) {
-                        c.ptr = C::create(parent);
-                        created = true;
-                    }
-                    if (c.state == RepeaterInner::State::Dirty) {
-                        std::optional<ModelData> data = m->row_data(i);
-                        (*c.ptr)->update_data(i, data ? *data : ModelData {});
-                    }
-                    if (created) {
-                        (*c.ptr)->init();
-                    }
+                    bool created = ensure_instance_updated(inner->data[i], parent, m, i);
+                    if (created)
+                        (*inner->data[i].ptr)->init();
                 }
             } else {
                 inner->data.clear();
@@ -1015,13 +1060,188 @@ public:
                                  const private_api::Property<float> *viewport_width,
                                  const private_api::Property<float> *viewport_height,
                                  const private_api::Property<float> *viewport_y,
-                                 float listview_width, [[maybe_unused]] float listview_height) const
+                                 float listview_width, float listview_height) const
     {
-        // TODO: the rust code in model.rs try to only allocate as many items as visible items
-        ensure_updated(parent);
+        refresh_model();
 
-        float h = compute_layout_listview(viewport_width, listview_width, viewport_y->get());
-        viewport_height->set(h);
+        if (!inner)
+            return;
+        // Query is_dirty to track model changes
+        inner->is_dirty.get();
+        inner->is_dirty.set(false);
+
+        auto m = model.get();
+        if (!m)
+            return;
+
+        float vp_width = listview_width;
+        auto row_count = m->row_count();
+        if (row_count == 0) {
+            inner->data.clear();
+            viewport_height->set(0);
+            viewport_y->set(0);
+            viewport_width->set(vp_width);
+            return;
+        }
+
+        float vp_y = std::min(viewport_y->get(), 0.0f);
+
+        // Estimate element height
+        float element_height = inner->cached_item_height;
+        if (element_height <= 0) {
+            float total_height = 0;
+            size_t count = 0;
+            for (auto &c : inner->data) {
+                if (c.ptr) {
+                    total_height += (*c.ptr)->item_geometry(0).height;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                element_height = total_height / float(count);
+            } else {
+                inner->offset = std::min(inner->offset, row_count - 1);
+                inner->data.resize(1);
+                inner->data[0] = { RepeaterInner::State::Clean,
+                                   create_and_update(parent, m, inner->offset) };
+                (*inner->data[0].ptr)->init();
+                element_height = (*inner->data[0].ptr)->item_geometry(0).height;
+            }
+        }
+
+        if (inner->offset >= row_count)
+            inner->offset = row_count - 1;
+
+        float one_and_a_half_screen = listview_height * 1.5f;
+        float first_item_y = inner->anchor_y;
+        float last_item_bottom = first_item_y + element_height * float(inner->data.size());
+
+        std::vector<size_t> indices_to_init;
+
+        size_t new_offset;
+        float new_offset_y;
+
+        if (first_item_y > -vp_y + one_and_a_half_screen
+            || last_item_bottom + element_height < -vp_y) {
+            // Random seek (jump > 1.5 screens)
+            inner->data.clear();
+            inner->offset = std::min(size_t(-vp_y / element_height), row_count - 1);
+            new_offset = inner->offset;
+            new_offset_y = 0;
+        } else if (vp_y < inner->previous_viewport_y) {
+            // Scrolled down: walk existing instances to find new offset
+            float it_y = first_item_y + vp_y;
+            new_offset = inner->offset;
+            for (size_t i = 0; i < inner->data.size(); ++i) {
+                if (ensure_instance_updated(inner->data[i], parent, m, new_offset))
+                    indices_to_init.push_back(i);
+                float h = (*inner->data[i].ptr)->item_geometry(0).height;
+                if (it_y + h > 0 || new_offset + 1 >= row_count)
+                    break;
+                it_y += h;
+                new_offset++;
+            }
+            new_offset_y = it_y;
+        } else {
+            // Scrolled up: will instantiate items before offset below
+            new_offset = inner->offset;
+            new_offset_y = first_item_y + vp_y;
+        }
+
+        int loop_count = 0;
+        for (;;) {
+            // Fill gap using already-instantiated items before new_offset
+            while (new_offset > inner->offset && new_offset_y > 0) {
+                new_offset--;
+                new_offset_y -=
+                        (*inner->data[new_offset - inner->offset].ptr)->item_geometry(0).height;
+            }
+            // If still a gap, create new instances before the current ones
+            size_t prepend_count = 0;
+            while (new_offset > 0 && new_offset_y > 0) {
+                new_offset--;
+                auto handle = create_and_update(parent, m, new_offset);
+                new_offset_y -= handle->item_geometry(0).height;
+                inner->data.insert(inner->data.begin(),
+                                   { RepeaterInner::State::Clean, std::move(handle) });
+                prepend_count++;
+            }
+            if (prepend_count > 0) {
+                for (auto &x : indices_to_init)
+                    x += prepend_count;
+                for (size_t i = 0; i < prepend_count; i++)
+                    indices_to_init.push_back(i);
+                inner->offset = new_offset;
+            }
+
+            // Layout items until we fill the view
+            float y = new_offset_y;
+            size_t idx = new_offset;
+            size_t instances_begin = new_offset - inner->offset;
+            for (size_t i = instances_begin; i < inner->data.size(); ++i) {
+                if (idx >= row_count)
+                    break;
+                if (ensure_instance_updated(inner->data[i], parent, m, idx))
+                    indices_to_init.push_back(i);
+                if (inner->data[i].ptr)
+                    vp_width = std::max(vp_width, (*inner->data[i].ptr)->listview_layout(&y));
+                idx++;
+                if (y >= listview_height)
+                    break;
+            }
+
+            // Create more items until there is no more room
+            while (y < listview_height && idx < row_count) {
+                auto handle = create_and_update(parent, m, idx);
+                vp_width = std::max(vp_width, handle->listview_layout(&y));
+                indices_to_init.push_back(inner->data.size());
+                inner->data.push_back({ RepeaterInner::State::Clean, std::move(handle) });
+                idx++;
+            }
+
+            if (y < listview_height && vp_y < 0 && loop_count < 3) {
+                vp_y += listview_height - y;
+                loop_count++;
+                continue;
+            }
+
+            // Clean up off-screen instances
+            if (new_offset != inner->offset) {
+                size_t remove_count = new_offset - inner->offset;
+                inner->data.erase(inner->data.begin(), inner->data.begin() + remove_count);
+                std::erase_if(indices_to_init, [&](size_t &i) {
+                    if (i < remove_count)
+                        return true;
+                    i -= remove_count;
+                    return false;
+                });
+                inner->offset = new_offset;
+            }
+            size_t keep = idx - new_offset;
+            if (inner->data.size() > keep) {
+                inner->data.resize(keep);
+                std::erase_if(indices_to_init, [&](size_t i) { return i >= keep; });
+            }
+
+            if (inner->data.empty())
+                break;
+
+            // Recompute scrollbar coordinates
+            inner->cached_item_height = (y - new_offset_y) / float(inner->data.size());
+            inner->anchor_y = inner->cached_item_height * float(inner->offset);
+            viewport_height->set(inner->cached_item_height * float(row_count));
+            viewport_width->set(vp_width);
+            float new_viewport_y = -inner->anchor_y + new_offset_y;
+            if (new_viewport_y != viewport_y->get())
+                viewport_y->set(new_viewport_y);
+            inner->previous_viewport_y = new_viewport_y;
+            break;
+        }
+
+        for (auto i : indices_to_init) {
+            if (i < inner->data.size() && inner->data[i].ptr)
+                (*inner->data[i].ptr)->init();
+        }
     }
 
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
@@ -1039,16 +1259,18 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
-        if (i >= inner->data.size()) {
+        auto offset = inner->offset;
+        if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
-        const auto &x = inner->data.at(i);
+        const auto &x = inner->data.at(i - offset);
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }
 
     private_api::IndexRange index_range() const
     {
-        return private_api::IndexRange { 0, inner->data.size() };
+        auto offset = inner->offset;
+        return private_api::IndexRange { offset, offset + inner->data.size() };
     }
 
     std::size_t len() const { return inner ? inner->data.size() : 0; }
