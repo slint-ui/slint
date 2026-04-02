@@ -102,9 +102,12 @@ fn process_expression(
         Expression::StoreLocalVariable { name, value } => {
             let inner_ty = value.ty();
             match process_expression(*value, false, ctx, &inner_ty) {
-                ExpressionResult::Just(e) => ExpressionResult::Just(
-                    Expression::StoreLocalVariable { name, value: Box::new(e) },
-                ),
+                ExpressionResult::Just(e) => {
+                    ExpressionResult::Just(Expression::StoreLocalVariable {
+                        name,
+                        value: Box::new(e),
+                    })
+                }
                 ExpressionResult::Return(r) => ExpressionResult::Return(r),
                 ExpressionResult::MaybeReturn {
                     pre_statements,
@@ -138,8 +141,7 @@ fn process_expression(
                         name: field.into(),
                     };
                     let condition = load(FIELD_CONDITION);
-                    let returned_value =
-                        has_return_value.then(|| load(FIELD_RETURNED));
+                    let returned_value = has_return_value.then(|| load(FIELD_RETURNED));
                     let actual_value = Some(Expression::StoreLocalVariable {
                         name,
                         value: Box::new(load(FIELD_ACTUAL)),
