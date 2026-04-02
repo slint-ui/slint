@@ -9,9 +9,9 @@ export struct TextStyle {
 }
 
 export global CupertinoFontSettings {
-    out property <int> light-font-weight: 300;
-    out property <int> regular-font-weight: 400;
-    out property <int> semibold-font-weight: 600;
+    out property <int> light-font-weight: FontWeight.light;
+    out property <int> regular-font-weight: FontWeight.normal;
+    out property <int> semibold-font-weight: FontWeight.semi-bold;
 
     out property <TextStyle> body: {
         font-size: 13 * 0.0769rem,

@@ -44,7 +44,7 @@ export component DatePickerPopup inherits PopupWindow  {
                       spacing: 8px,
                       delegate-style: {
                           font-size: 14px,
-                          font-weight: 500,
+                          font-weight: FontWeight.medium,
                           foreground: Palette.foreground,
                           state-brush: root.state,
                           background-selected: Palette.accent-background,
@@ -62,12 +62,12 @@ export component DatePickerPopup inherits PopupWindow  {
                   },
                   current-day-style: {
                       foreground: Palette.foreground,
-                      font-weight: 300,
+                      font-weight: FontWeight.light,
                       font-size: 28px,
                   },
                   title-style: {
                     font-size: 14px,
-                    font-weight: 500,
+                    font-weight: FontWeight.medium,
                     foreground: Palette.foreground,
                   },
                   previous-icon: @image-url("./_arrow_back.svg"),
@@ -80,7 +80,7 @@ export component DatePickerPopup inherits PopupWindow  {
                       state-brush: root.state,
                       icon-size: 8px,
                       font-size: 14px,
-                      font-weight: 500
+                      font-weight: FontWeight.medium
                   }
             };
         }

@@ -188,7 +188,7 @@ component Cell inherits Rectangle {
         }
 
         Text {
-            font-weight: is-header ? 700 : 400;
+            font-weight: is-header ? FontWeight.bold : FontWeight.normal;
             width: root.width - EditorSpaceSettings.default-padding;
             height: root.height;
             horizontal-alignment: TextHorizontalAlignment.left;
