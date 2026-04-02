@@ -180,7 +180,7 @@ macro_rules! for_each_keys {
 '(' # OpenParen         # Digit9            # ;
 ')' # CloseParen        # Digit0            # ;
 '*' # Asterisk          # Digit8            # ;
-'+' # Plus              # Equal             # ;
+'+' # Plus              # Equals            # ;
 '|' # Pipe              # BackSlash         # ;
 '-' # HyphenMinus       # Underscore        # Minus ;
 '{' # OpenCurlyBracket  # OpenBracket       # ;
@@ -198,9 +198,9 @@ macro_rules! for_each_keys {
 '/' # Slash             # QuestionMark      # Slash ;
 '`' # BackQuote         # Tilde             # Backquote ;
 '[' # OpenBracket       # OpenCurlyBracket  # BracketLeft ;
-'\\' # BackSlash        # Pipe              # Backslash ;
+'\\'# BackSlash         # Pipe              # Backslash ;
 ']' # CloseBracket      # CloseCurlyBracket # BracketRight ;
-'\'' # Quote            # DoubleQuote       # Quote ;
+'\''# Quote             # DoubleQuote       # Quote ;
 
 ];
     };
