@@ -3,13 +3,16 @@ title: Development Cycle
 description: Tools, processes, and infrastructure used for Slint SC development.
 ---
 
-This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Clauses 7, 8, 9, 11, and 12).
+This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Sections 6-12)
 
-## Tool Qualification (ISO 26262-8 Clause 11)
 
-To ensure that software tools used in the development of Slint SC do not introduce or fail to detect errors, tools are assessed based on their Tool Impact (TI) and Tool Error Detection (TD) to determine their Tool Confidence Level (TCL).
+## Organization members
 
-### Language and Compiler
+The administrators of the slint-ui Github organization are the founders of SixtyFPS GmbH.
+All employees of SixtyFPS GmbH are members of the organization.
+External contributors may also be invited to become members of the Github organization.
+
+## Language and Compiler
 
 Slint SC is written in Rust and requires Ferrocene version 26.02.0.
 
@@ -24,15 +27,15 @@ Continuous Integration (CI) is driven by GitHub Actions. CI triggers automated t
 * **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
 * **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
 
-## Configuration Management (ISO 26262-8 Clause 7)
+## Configuration Management (ISO 26262-8 7.x)
 
 Slint SC utilizes a structured configuration management process to ensure artifacts are reproducible and traceable.
 
 * **Version Control:** Slint is hosted on GitHub (<https://github.com/slint-ui/slint>).
-* **Baselining:** Releases should be tagged using Semantic Versioning (SemVer). A safety-related release baseline could consist of the specific git commit hash.
+* **Baselining:** Releases are tagged with a MajorVersion.MinorVersion, and occasionally have a .PatchRelease.
 * **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
 
-## Change Management (ISO 26262-8 Clause 8)
+## Change Management (ISO 26262-8 8.x)
 
 Modifications to the Slint SC codebase are managed to preserve the safety and integrity of the system.
 
@@ -41,16 +44,29 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 * **Code Reviews:** While administrators have push access, all safety-impacting changes must go through a formal Pull Request (PR) process. PRs enforce peer review, providing an opportunity to challenge the impact analysis and verify the implementation before merging.
 * **Traceability:** Every functional change merged into the codebase must be traceable back to an established issue or requirement, ensuring comprehensive oversight.
 
-## Software Component Qualification (ISO 26262-8 Clause 12)
+## Software Component Qualification (ISO 26262-8 12.x)
+
+To ensure that software tools used in the development of Slint SC do not introduce or fail to detect errors, tools are assessed based on their Tool Impact (TI) and Tool Error Detection (TD) to determine their Tool Confidence Level (TCL).
 
 ### Dependencies
 
 Because Slint SC is intended for embedded systems, there are very few internal dependencies, and exactly **zero external dependencies** for the core runtime portion of Slint SC.
 
 For build-time tooling and optional features (e.g., image decoding), external libraries may be utilized.
+
 * **Qualification Strategy:** Any necessary external Software of Unknown Provenance (SOUP) must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
 
-## Verification (ISO 26262-8 Clause 9)
+# The Development Process (ISO 26262-8 11.4.8)
+
+## Distributed Development (ISO 26262-8 5.x)
+
+Employees of SixtyFPS GmbH are located in different countries, and some work remotely. This is not a problem, as we have all the necessary infrastructure in place to support this.
+
+## Release Schedule
+
+The release schedule of Slint SC is currently not known.
+
+## Verification (ISO 26262-8 9.4.x)
 
 A comprehensive verification strategy is employed to confirm that Slint SC meets its safety requirements. The CI pipeline enforces automated test execution, including:
 * **Interpreter and API Tests:** Ensuring the core APIs behave as expected.
@@ -59,6 +75,6 @@ A comprehensive verification strategy is employed to confirm that Slint SC meets
 
 *Note: Specific test coverage metrics (e.g., MC/DC, statement coverage) and static analysis results are required for formal safety certification and are collected during the release baselining process.*
 
-## Hardware Qualification (ISO 26262-8 Clause 13)
+## Hardware Qualification (ISO 26262-8 13.x)
 
-*Note: Clause 13 is Out of Scope.* Slint SC is a purely software-based UI toolkit. Qualification of the underlying hardware elements (e.g., MCU/MPU, memory, display controllers) operating the safety-critical UI is the responsibility of the system integrator.
+*Note: Section 13 is Out of Scope.* Slint SC is a purely software-based UI toolkit. Qualification of the underlying hardware elements (e.g., MCU/MPU, memory, display controllers) operating the safety-critical UI is the responsibility of the system integrator.

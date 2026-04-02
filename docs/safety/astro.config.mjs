@@ -29,8 +29,6 @@ export default defineConfig({
     integrations: [
         starlight({
             title: "Slint SC Safety Manual",
-            // This is the right-hand TOC for each page.
-            tableOfContents: false,
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
@@ -89,7 +87,7 @@ export default defineConfig({
                         },
                     ],
                 },
-                { label: "System Components", slug: "system-components" },
+                { label: "Using Slint SC", slug: "using-slint-sc" },
                 { label: "Development Cycle", slug: "development-cycle" },
                 {
                     label: "Qualification Plan",

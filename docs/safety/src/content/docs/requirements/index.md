@@ -1,7 +1,9 @@
 ---
 title: ISO 26262 Requirements
-description: Overview of ISO 26262 requirements for Slint SC.
+description: Overview of ISO 26262 safety requirements for Slint SC.
 ---
+
+## Specification and Management of Safety Requirements (ISO 26262-8 6.x)
 
 The ISO 26262 standard tells us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but it doesn't tell us how to write those requirements for a GUI toolkit. The following sections contain specific, actionable engineering requirements that should be considered for Slint SC.
 

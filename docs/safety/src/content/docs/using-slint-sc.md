@@ -1,7 +1,8 @@
 ---
-title: System Components
-description: Components included in Slint SC and how to use them.
+title: Using Slint SC
+description: Components included in Slint SC and use cases.
 ---
+## Components of Slint SC
 
 This is what is included in Slint SC:
 
@@ -14,11 +15,26 @@ Each of these things can have a **Usage** and a **Constraints** section.
 
 Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
 
-## Installation Procedures
+# Use Cases (ISO 26262:8 11.4.5.1)
 
-Slint SC does not exist yet, so you can't install it yet.
+## Using Slint SC in a project
 
-## Compiling Slint into Rust
+* **ID** : UC_ADD_SLINT_TO_PROJECT
+* **Input** : Cargo.toml file in the root of a rust project file tree
+* **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
+* **Environment Constraints**: (TODO)
+
+When Slint SC is available, it will be available as a crate on crates.io.
+To add it to a project, one simply specifies Slint SC as a dependency in `Cargo.toml`.
+
+(TODO - show example)
+
+## Compiling a .slint file into Rust
+
+* **ID** : UC_COMPILE_SLINT_FILE
+* **Input** : a .slint file
+* **Output** : Rust code that can be compiled into the final executable.
+* **Environment Constraints**: (TODO)
 
 Rust developers using Slint SC can instantiate and configure a `CompilerConfiguration` from the [`slint_build`](https://docs.slint.dev/latest/docs/rust/slint_build/) crate to compile `.slint` files into Rust.
 
