@@ -5,17 +5,21 @@
 //! used by generated code to instantiate items from a model using the `for`
 //! syntax, and [`RepeatedItemTree`] which is the trait implemented by the
 //! generated repeated components.
+//!
+//! The [`RepeaterInstanceOps`] trait abstracts over instance storage so the
+//! update algorithm can be shared between Rust and C++ (via FFI).
 
 use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
-use super::{ModelRc, Model};
+use super::{Model, ModelRc};
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property};
 use alloc::vec::Vec;
-use core::cell::{Cell, RefCell};
+use core::cell::RefCell;
 use core::pin::Pin;
-use euclid::num::Zero;
+#[allow(unused)]
+use euclid::num::Floor;
 use pin_project::pin_project;
 
 type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
@@ -90,28 +94,323 @@ enum RepeatedInstanceState {
 }
 struct RepeaterInner<C: RepeatedItemTree> {
     instances: Vec<(RepeatedInstanceState, Option<ItemTreeRc<C>>)>,
-
-    // The remaining properties only make sense for ListView
-    /// The model row (index) of the first ItemTree in the `instances` vector.
-    offset: usize,
-    /// The average visible item height.
-    cached_item_height: LogicalLength,
-    /// The viewport_y last time the layout of the ListView was done
-    previous_viewport_y: LogicalLength,
-    /// the position of the item in the row `offset` (which corresponds to `instances[0]`).
-    /// We will try to keep this constant when re-layouting items
-    anchor_y: LogicalLength,
+    /// ListView-specific layout state (offset, cached heights, scroll position).
+    layout_state: RepeaterLayoutState,
 }
 
 impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner {
-            instances: Default::default(),
-            offset: 0,
-            cached_item_height: Default::default(),
-            previous_viewport_y: Default::default(),
-            anchor_y: Default::default(),
+        RepeaterInner { instances: Default::default(), layout_state: Default::default() }
+    }
+}
+
+/// Persistent layout state for a ListView repeater.
+#[derive(Default, Clone, Debug)]
+#[repr(C)]
+pub struct RepeaterLayoutState {
+    /// The model row index of the first instance in the collection.
+    pub offset: usize,
+    /// The average visible item height (cached between frames).
+    pub cached_item_height: Coord,
+    /// The viewport_y value from the previous layout pass.
+    pub previous_viewport_y: Coord,
+    /// The y position of the item at `offset`.
+    pub anchor_y: Coord,
+}
+
+/// Abstraction over a repeater's instance collection so the same algorithm
+/// works for both native Rust repeaters and C++ repeaters via FFI.
+trait RepeaterInstanceOps {
+    /// Number of currently instantiated items.
+    fn len(&self) -> usize;
+
+    /// Replace the range `position..position+remove` with `add` new empty/dirty slots.
+    fn splice(&mut self, position: usize, remove: usize, add: usize);
+
+    /// If dirty, ensure the instance is created and updated for `row`.
+    /// Returns `true` if freshly created (needs init later).
+    fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool;
+
+    /// Height of the instance, or `None` if not yet created.
+    fn height(&self, instance_idx: usize) -> Option<Coord>;
+
+    /// Call `listview_layout` on the instance.
+    /// Advances `*y` to the next item position. Returns item width.
+    fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord;
+}
+
+/// Update all instances in the repeater, creating any that are missing.
+/// Returns indices of newly created instances (that need `init()` called).
+fn update_all_instances(
+    ops: &mut impl RepeaterInstanceOps,
+    offset: usize,
+    count: usize,
+) -> Vec<usize> {
+    let cur = ops.len();
+    if count > cur {
+        ops.splice(cur, 0, count - cur);
+    } else if count < cur {
+        ops.splice(count, cur - count, 0);
+    }
+    let mut indices_to_init = Vec::new();
+    for i in 0..count {
+        if ops.ensure_updated(i, i + offset) {
+            indices_to_init.push(i);
         }
+    }
+    indices_to_init
+}
+
+/// Update only the instances visible in the ListView viewport.
+///
+/// This is the core virtualization algorithm: it estimates which model rows
+/// are visible, instantiates/updates those, lays them out, and cleans up
+/// off-screen instances. Returns indices of newly created instances.
+fn update_visible_instances(
+    ops: &mut impl RepeaterInstanceOps,
+    state: &mut RepeaterLayoutState,
+    row_count: usize,
+    viewport_width: Pin<&Property<LogicalLength>>,
+    viewport_height: Pin<&Property<LogicalLength>>,
+    viewport_y: Pin<&Property<LogicalLength>>,
+    listview_width: LogicalLength,
+    listview_height: LogicalLength,
+) -> Vec<usize> {
+    let zero = LogicalLength::default();
+    let mut vp_width = listview_width.get();
+    let listview_height = listview_height.get();
+
+    if row_count == 0 {
+        ops.splice(0, ops.len(), 0);
+        viewport_height.set(zero);
+        viewport_y.set(zero);
+        viewport_width.set(listview_width);
+        return Vec::new();
+    }
+
+    let mut vp_y = viewport_y.get().get();
+    if !viewport_y.has_binding() {
+        vp_y = vp_y.min(0 as Coord);
+    }
+
+    let mut indices_to_init = Vec::new();
+
+    // Estimate element height from cached value or by measuring existing instances.
+    let element_height = if state.cached_item_height > 0 as Coord {
+        state.cached_item_height
+    } else {
+        let mut total_height: Coord = 0 as Coord;
+        let mut count = 0usize;
+        for i in 0..ops.len() {
+            if let Some(h) = ops.height(i) {
+                total_height += h;
+                count += 1;
+            }
+        }
+
+        if count > 0 {
+            total_height / count as Coord
+        } else {
+            // No items exist yet. Create one to measure.
+            state.offset = state.offset.min(row_count - 1);
+            ops.splice(0, ops.len(), 1);
+            if ops.ensure_updated(0, state.offset) {
+                indices_to_init.push(0);
+            }
+            ops.height(0).unwrap_or(0 as Coord)
+        }
+    };
+
+    if state.offset >= row_count {
+        state.offset = row_count - 1;
+    }
+
+    let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
+    let first_item_y = state.anchor_y;
+    let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
+
+    let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
+        || last_item_bottom + element_height < -vp_y
+    {
+        // Jumping more than 1.5 screens: random seek.
+        ops.splice(0, ops.len(), 0);
+        state.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+        (state.offset, 0 as Coord)
+    } else if vp_y < state.previous_viewport_y {
+        // Scrolled down: find the new offset by walking existing instances.
+        let mut it_y = first_item_y + vp_y;
+        let mut new_off = state.offset;
+        for i in 0..ops.len() {
+            if ops.ensure_updated(i, new_off) {
+                indices_to_init.push(i);
+            }
+            let h = ops.height(i).unwrap_or(0 as Coord);
+            if it_y + h > 0 as Coord || new_off + 1 >= row_count {
+                break;
+            }
+            it_y += h;
+            new_off += 1;
+        }
+        (new_off, it_y)
+    } else {
+        // Scrolled up: will instantiate items before offset in the loop below.
+        (state.offset, first_item_y + vp_y)
+    };
+
+    let mut loop_count = 0;
+    loop {
+        // Fill gap before new_offset using already-instantiated items.
+        while new_offset > state.offset && new_offset_y > 0 as Coord {
+            new_offset -= 1;
+            new_offset_y -= ops.height(new_offset - state.offset).unwrap_or(0 as Coord);
+        }
+        // If there is still a gap, create new instances before the current ones.
+        let mut prepend_count = 0;
+        while new_offset > 0 && new_offset_y > 0 as Coord {
+            new_offset -= 1;
+            ops.splice(0, 0, 1);
+            ops.ensure_updated(0, new_offset);
+            new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
+            prepend_count += 1;
+        }
+        if prepend_count > 0 {
+            for x in &mut indices_to_init {
+                *x += prepend_count;
+            }
+            indices_to_init.extend(0..prepend_count);
+            state.offset = new_offset;
+        }
+        debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
+
+        // Layout items until we fill the view, starting with already-instantiated ones.
+        let mut y = new_offset_y;
+        let mut idx = new_offset;
+        let instances_begin = new_offset - state.offset;
+        for i in instances_begin..ops.len() {
+            if idx >= row_count {
+                break;
+            }
+            if ops.ensure_updated(i, idx) {
+                indices_to_init.push(i);
+            }
+            vp_width = vp_width.max(ops.listview_layout(i, &mut y));
+            idx += 1;
+            if y >= listview_height {
+                break;
+            }
+        }
+
+        // Create more items until there is no more room.
+        while y < listview_height && idx < row_count {
+            let i = ops.len();
+            ops.splice(i, 0, 1);
+            ops.ensure_updated(i, idx);
+            indices_to_init.push(i);
+            vp_width = vp_width.max(ops.listview_layout(i, &mut y));
+            idx += 1;
+        }
+
+        if y < listview_height && vp_y < 0 as Coord && loop_count < 3 {
+            debug_assert!(idx >= row_count);
+            // Reached end of model with room to spare. Scroll up.
+            vp_y += listview_height - y;
+            loop_count += 1;
+            continue;
+        }
+
+        // Clean up instances that are not shown.
+        if new_offset != state.offset {
+            let remove_count = new_offset - state.offset;
+            ops.splice(0, remove_count, 0);
+            indices_to_init.retain_mut(|i| {
+                if *i < remove_count {
+                    false
+                } else {
+                    *i -= remove_count;
+                    true
+                }
+            });
+            state.offset = new_offset;
+        }
+        let keep = idx - new_offset;
+        if ops.len() > keep {
+            ops.splice(keep, ops.len() - keep, 0);
+            indices_to_init.retain(|x| *x < keep);
+        }
+
+        if ops.len() == 0 {
+            break;
+        }
+
+        // Recompute coordinates for the scrollbar.
+        state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
+        state.anchor_y = state.cached_item_height * state.offset as Coord;
+        viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        viewport_width.set(LogicalLength::new(vp_width));
+        let new_viewport_y = -state.anchor_y + new_offset_y;
+        if !viewport_y.has_binding() {
+            if new_viewport_y != viewport_y.get().get() {
+                viewport_y.set(LogicalLength::new(new_viewport_y));
+            }
+            state.previous_viewport_y = new_viewport_y;
+        }
+        break;
+    }
+
+    indices_to_init
+}
+
+/// Adapter implementing [`RepeaterInstanceOps`] for the native Rust repeater.
+struct RustRepeaterOps<'a, C: RepeatedItemTree> {
+    instances: &'a mut Vec<(RepeatedInstanceState, Option<ItemTreeRc<C>>)>,
+    init: &'a dyn Fn() -> ItemTreeRc<C>,
+    model: &'a ModelRc<C::Data>,
+}
+
+impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
+    fn len(&self) -> usize {
+        self.instances.len()
+    }
+
+    fn splice(&mut self, position: usize, remove: usize, add: usize) {
+        self.instances.splice(
+            position..position + remove,
+            core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
+        );
+    }
+
+    fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
+        let c = &mut self.instances[instance_idx];
+        if c.0 == RepeatedInstanceState::Dirty {
+            let created = c.1.is_none();
+            if created {
+                c.1 = Some((self.init)());
+            }
+            c.1.as_ref().unwrap().update(row, self.model.row_data(row).unwrap_or_default());
+            c.0 = RepeatedInstanceState::Clean;
+            created
+        } else {
+            false
+        }
+    }
+
+    fn height(&self, instance_idx: usize) -> Option<Coord> {
+        self.instances[instance_idx]
+            .1
+            .as_ref()
+            .map(|x| x.as_pin_ref().item_geometry(0).height_length().get())
+    }
+
+    fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord {
+        let mut y_len = LogicalLength::new(*y);
+        let w = self.instances[instance_idx]
+            .1
+            .as_ref()
+            .unwrap()
+            .as_pin_ref()
+            .listview_layout(&mut y_len);
+        *y = y_len.get();
+        w.get()
     }
 }
 
@@ -135,7 +434,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.offset)) {
+        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
@@ -150,14 +449,14 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were added
     fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.offset {
-            if index + count < inner.offset {
+        if index < inner.layout_state.offset {
+            if index + count < inner.layout_state.offset {
                 return;
             }
-            count -= inner.offset - index;
+            count -= inner.layout_state.offset - index;
             index = 0;
         } else {
-            index -= inner.offset;
+            index -= inner.layout_state.offset;
         }
         if count == 0 || index > inner.instances.len() {
             return;
@@ -175,14 +474,14 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.offset {
-            if index + count < inner.offset {
+        if index < inner.layout_state.offset {
+            if index + count < inner.layout_state.offset {
                 return;
             }
-            count -= inner.offset - index;
+            count -= inner.layout_state.offset - index;
             index = 0;
         } else {
-            index -= inner.offset;
+            index -= inner.layout_state.offset;
         }
         if count == 0 || index >= inner.instances.len() {
             return;
@@ -251,45 +550,28 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The init function is the function to create a ItemTree
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) {
         let model = self.model();
-        if self.data().project_ref().is_dirty.get() {
-            self.ensure_updated_impl(init, &model, model.row_count());
+        if !self.data().project_ref().is_dirty.get() {
+            return;
         }
-    }
-
-    // returns true if new items were created
-    fn ensure_updated_impl(
-        self: Pin<&Self>,
-        init: impl Fn() -> ItemTreeRc<C>,
-        model: &ModelRc<C::Data>,
-        count: usize,
-    ) -> bool {
-        let mut indices_to_init = Vec::new();
+        let count = model.row_count();
         let mut inner = self.0.inner.borrow_mut();
-        inner.instances.resize_with(count, || (RepeatedInstanceState::Dirty, None));
-        let offset = inner.offset;
-        let mut any_items_created = false;
-        for (i, c) in inner.instances.iter_mut().enumerate() {
-            if c.0 == RepeatedInstanceState::Dirty {
-                if c.1.is_none() {
-                    any_items_created = true;
-                    c.1 = Some(init());
-                    indices_to_init.push(i);
-                };
-                c.1.as_ref()
-                    .unwrap()
-                    .update(i + offset, model.row_data(i + offset).unwrap_or_default());
-                c.0 = RepeatedInstanceState::Clean;
-            }
-        }
+        let offset = inner.layout_state.offset;
+        let mut ops =
+            RustRepeaterOps { instances: &mut inner.instances, init: &init, model: &model };
         self.data().is_dirty.set(false);
+        let indices_to_init = update_all_instances(&mut ops, offset, count);
 
         drop(inner);
-        let inner = self.0.inner.borrow();
-        for item in indices_to_init.into_iter().filter_map(|index| inner.instances.get(index)) {
-            item.1.as_ref().unwrap().init();
-        }
+        self.init_instances(indices_to_init);
+    }
 
-        any_items_created
+    fn init_instances(&self, indices: Vec<usize>) {
+        let inner = self.0.inner.borrow();
+        for index in indices {
+            if let Some((_, Some(comp))) = inner.instances.get(index) {
+                comp.init();
+            }
+        }
     }
 
     /// Same as `Self::ensure_updated` but for a ListView
@@ -306,240 +588,27 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let _ = self.data().project_ref().is_dirty.get();
         self.data().project_ref().is_dirty.set(false);
 
-        let mut vp_width = listview_width;
         let model = self.model();
         let row_count = model.row_count();
-        let zero = LogicalLength::zero();
-        if row_count == 0 {
-            self.0.inner.borrow_mut().instances.clear();
-            viewport_height.set(zero);
-            viewport_y.set(zero);
-            viewport_width.set(vp_width);
-            return;
-        }
-
-        let listview_height = listview_height.get();
-        let mut vp_y = viewport_y.get();
-        if !viewport_y.has_binding() {
-            vp_y = vp_y.min(zero);
-        }
-
-        // We need some sort of estimation of the element height
-        let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
-        let element_height = if cached_item_height > zero {
-            cached_item_height
-        } else {
-            let total_height = Cell::new(zero);
-            let count = Cell::new(0);
-            let get_height_visitor = |x: &ItemTreeRc<C>| {
-                let height = x.as_pin_ref().item_geometry(0).height_length();
-                count.set(count.get() + 1);
-                total_height.set(total_height.get() + height);
-            };
-            for c in self.data().inner.borrow().instances.iter() {
-                if let Some(x) = c.1.as_ref() {
-                    get_height_visitor(x);
-                }
-            }
-
-            if count.get() > 0 {
-                total_height.get() / (count.get() as Coord)
-            } else {
-                // There seems to be currently no items. Just instantiate one item.
-                {
-                    let mut inner = self.0.inner.borrow_mut();
-                    inner.offset = inner.offset.min(row_count - 1);
-                }
-
-                self.ensure_updated_impl(&init, &model, 1);
-                if let Some(c) = self.data().inner.borrow().instances.first() {
-                    if let Some(x) = c.1.as_ref() {
-                        get_height_visitor(x);
-                    }
-                } else {
-                    panic!("Could not determine size of items");
-                }
-                total_height.get()
-            }
-        };
 
         let data = self.data();
         let mut inner = data.inner.borrow_mut();
-        if inner.offset >= row_count {
-            inner.offset = row_count - 1;
-        }
 
-        let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
-        let first_item_y = inner.anchor_y;
-        let last_item_bottom = first_item_y + element_height * inner.instances.len() as Coord;
+        let RepeaterInner { ref mut instances, ref mut layout_state } = *inner;
+        let mut ops = RustRepeaterOps { instances, init: &init, model: &model };
+        let indices_to_init = update_visible_instances(
+            &mut ops,
+            layout_state,
+            row_count,
+            viewport_width,
+            viewport_height,
+            viewport_y,
+            listview_width,
+            listview_height.get(),
+        );
 
-        let mut indices_to_init = Vec::new();
-
-        let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
-            || last_item_bottom + element_height < -vp_y
-        {
-            // We are jumping more than 1.5 screens, consider this as a random seek.
-            inner.instances.clear();
-            inner.offset = ((-vp_y / element_height).get().floor() as usize).min(row_count - 1);
-            (inner.offset, zero)
-        } else if vp_y < inner.previous_viewport_y {
-            // we scrolled down, try to find out the new offset.
-            let mut it_y = first_item_y + vp_y;
-            let mut new_offset = inner.offset;
-            if !viewport_y.has_binding() {
-                debug_assert!(it_y <= zero); // we scrolled down, the anchor should be hidden
-            }
-            for (i, c) in inner.instances.iter_mut().enumerate() {
-                if c.0 == RepeatedInstanceState::Dirty {
-                    if c.1.is_none() {
-                        c.1 = Some(init());
-                        indices_to_init.push(i);
-                    }
-                    c.1.as_ref()
-                        .unwrap()
-                        .update(new_offset, model.row_data(new_offset).unwrap_or_default());
-                    c.0 = RepeatedInstanceState::Clean;
-                }
-                let h = c.1.as_ref().unwrap().as_pin_ref().item_geometry(0).height_length();
-                if it_y + h > zero || new_offset + 1 >= row_count {
-                    break;
-                }
-                it_y += h;
-                new_offset += 1;
-            }
-            (new_offset, it_y)
-        } else {
-            // We scrolled up, we'll instantiate items before offset in the loop
-            (inner.offset, first_item_y + vp_y)
-        };
-
-        let mut loop_count = 0;
-        loop {
-            // If there is a gap before the new_offset and the beginning of the visible viewport,
-            // try to fill it with items. First look at items that are before new_offset in the
-            // inner.instances, if any.
-            while new_offset > inner.offset && new_offset_y > zero {
-                new_offset -= 1;
-                new_offset_y -= inner.instances[new_offset - inner.offset]
-                    .1
-                    .as_ref()
-                    .unwrap()
-                    .as_pin_ref()
-                    .item_geometry(0)
-                    .height_length();
-            }
-            // If there is still a gap, fill it with new instances before
-            let mut new_instances = Vec::new();
-            while new_offset > 0 && new_offset_y > zero {
-                new_offset -= 1;
-                let new_instance = init();
-                new_instance.update(new_offset, model.row_data(new_offset).unwrap_or_default());
-                new_offset_y -= new_instance.as_pin_ref().item_geometry(0).height_length();
-                new_instances.push(new_instance);
-            }
-            if !new_instances.is_empty() {
-                for x in &mut indices_to_init {
-                    *x += new_instances.len();
-                }
-                indices_to_init.extend(0..new_instances.len());
-                inner.instances.splice(
-                    0..0,
-                    new_instances
-                        .into_iter()
-                        .rev()
-                        .map(|c| (RepeatedInstanceState::Clean, Some(c))),
-                );
-                inner.offset = new_offset;
-            }
-            assert!(
-                new_offset >= inner.offset && new_offset <= inner.offset + inner.instances.len()
-            );
-
-            // Now we will layout items until we fit the view, starting with the ones that are already instantiated
-            let mut y = new_offset_y;
-            let mut idx = new_offset;
-            let instances_begin = new_offset - inner.offset;
-            for c in &mut inner.instances[instances_begin..] {
-                if idx >= row_count {
-                    break;
-                }
-                if c.0 == RepeatedInstanceState::Dirty {
-                    if c.1.is_none() {
-                        c.1 = Some(init());
-                        indices_to_init.push(instances_begin + idx - new_offset)
-                    }
-                    c.1.as_ref().unwrap().update(idx, model.row_data(idx).unwrap_or_default());
-                    c.0 = RepeatedInstanceState::Clean;
-                }
-                if let Some(x) = c.1.as_ref() {
-                    vp_width = vp_width.max(x.as_pin_ref().listview_layout(&mut y));
-                }
-                idx += 1;
-                if y >= listview_height {
-                    break;
-                }
-            }
-
-            // create more items until there is no more room.
-            while y < listview_height && idx < row_count {
-                let new_instance = init();
-                new_instance.update(idx, model.row_data(idx).unwrap_or_default());
-                vp_width = vp_width.max(new_instance.as_pin_ref().listview_layout(&mut y));
-                indices_to_init.push(inner.instances.len());
-                inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
-                idx += 1;
-            }
-            if y < listview_height && vp_y < zero && loop_count < 3 {
-                assert!(idx >= row_count);
-                // we reached the end of the model, and we still have room. scroll a bit up.
-                vp_y += listview_height - y;
-                loop_count += 1;
-                continue;
-            }
-
-            // Let's cleanup the instances that are not shown.
-            if new_offset != inner.offset {
-                let instances_begin = new_offset - inner.offset;
-                inner.instances.splice(0..instances_begin, core::iter::empty());
-                indices_to_init.retain_mut(|idx| {
-                    if *idx < instances_begin {
-                        false
-                    } else {
-                        *idx -= instances_begin;
-                        true
-                    }
-                });
-                inner.offset = new_offset;
-            }
-            if inner.instances.len() != idx - new_offset {
-                inner.instances.splice(idx - new_offset.., core::iter::empty());
-                indices_to_init.retain(|x| *x < idx - new_offset);
-            }
-
-            if inner.instances.is_empty() {
-                break;
-            }
-
-            // Now re-compute some coordinate such a way that the scrollbar are adjusted.
-            inner.cached_item_height = (y - new_offset_y) / inner.instances.len() as Coord; // mean over all instance heights
-            inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
-            viewport_height.set(inner.cached_item_height * row_count as Coord);
-            viewport_width.set(vp_width);
-            let new_viewport_y = -inner.anchor_y + new_offset_y;
-            if !viewport_y.has_binding() {
-                if new_viewport_y != viewport_y.get() {
-                    // If the new value gets set, all bindings are removed which means also an animation gets removed
-                    viewport_y.set(new_viewport_y);
-                }
-                inner.previous_viewport_y = new_viewport_y;
-            }
-            break;
-        }
         drop(inner);
-        let inner = self.0.inner.borrow();
-        for item in indices_to_init.into_iter().filter_map(|index| inner.instances.get(index)) {
-            item.1.as_ref().unwrap().init();
-        }
+        self.init_instances(indices_to_init);
     }
 
     /// Sets the data directly in the model
@@ -584,7 +653,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// model at an offset.
     pub fn range(&self) -> core::ops::Range<usize> {
         let inner = self.0.inner.borrow();
-        core::ops::Range { start: inner.offset, end: inner.offset + inner.instances.len() }
+        core::ops::Range {
+            start: inner.layout_state.offset,
+            end: inner.layout_state.offset + inner.instances.len(),
+        }
     }
 
     /// Return the instance for the given model index.
@@ -593,7 +665,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let inner = self.0.inner.borrow();
         inner
             .instances
-            .get(index.checked_sub(inner.offset)?)
+            .get(index.checked_sub(inner.layout_state.offset)?)
             .map(|c| c.1.clone().expect("That was updated before!"))
     }
 
@@ -690,5 +762,104 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     /// Returns a vector containing all instances
     pub fn instances_vec(&self) -> Vec<ItemTreeRc<C>> {
         self.instance.borrow().clone().into_iter().collect()
+    }
+}
+
+#[cfg(feature = "ffi")]
+mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+
+    /// C++ callback table for [`RepeaterInstanceOps`], including the opaque
+    /// user_data pointer that is passed to each callback.
+    #[repr(C)]
+    pub struct RepeaterInstanceOpsVTable {
+        pub user_data: *mut core::ffi::c_void,
+        pub len: unsafe extern "C" fn(user_data: *mut core::ffi::c_void) -> usize,
+        pub splice: unsafe extern "C" fn(
+            user_data: *mut core::ffi::c_void,
+            position: usize,
+            remove: usize,
+            add: usize,
+        ),
+        pub ensure_updated: unsafe extern "C" fn(
+            user_data: *mut core::ffi::c_void,
+            instance_idx: usize,
+            row: usize,
+        ) -> bool,
+        /// Height of instance, or NaN if not yet created.
+        pub height:
+            unsafe extern "C" fn(user_data: *mut core::ffi::c_void, instance_idx: usize) -> Coord,
+        pub listview_layout: Option<
+            unsafe extern "C" fn(
+                user_data: *mut core::ffi::c_void,
+                instance_idx: usize,
+                y: &mut Coord,
+            ) -> Coord,
+        >,
+        pub init: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, instance_idx: usize),
+    }
+
+    impl RepeaterInstanceOpsVTable {
+        fn init_instances(&self, indices: Vec<usize>) {
+            for idx in indices {
+                unsafe { (self.init)(self.user_data, idx) };
+            }
+        }
+    }
+
+    impl RepeaterInstanceOps for RepeaterInstanceOpsVTable {
+        fn len(&self) -> usize {
+            unsafe { (self.len)(self.user_data) }
+        }
+        fn splice(&mut self, position: usize, remove: usize, add: usize) {
+            unsafe { (self.splice)(self.user_data, position, remove, add) }
+        }
+        fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
+            unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) }
+        }
+        fn height(&self, instance_idx: usize) -> Option<Coord> {
+            let h = unsafe { (self.height)(self.user_data, instance_idx) };
+            if h.is_nan() { None } else { Some(h) }
+        }
+        fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord {
+            self.listview_layout
+                .map_or(0 as Coord, |f| unsafe { f(self.user_data, instance_idx, y) })
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_repeater_ensure_updated(
+        ops: &mut RepeaterInstanceOpsVTable,
+        offset: usize,
+        count: usize,
+    ) {
+        let indices_to_init = update_all_instances(ops, offset, count);
+        ops.init_instances(indices_to_init);
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_repeater_ensure_updated_listview(
+        ops: &mut RepeaterInstanceOpsVTable,
+        state: &mut RepeaterLayoutState,
+        row_count: usize,
+        viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_y: Pin<&Property<LogicalLength>>,
+        listview_width: LogicalLength,
+        listview_height: LogicalLength,
+    ) {
+        let indices_to_init = update_visible_instances(
+            ops,
+            state,
+            row_count,
+            viewport_width,
+            viewport_height,
+            viewport_y,
+            listview_width,
+            listview_height,
+        );
+        ops.init_instances(indices_to_init);
     }
 }
