@@ -10,8 +10,8 @@ use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use slint_interpreter::ComponentInstance;
 use preview_protocol::lsp_types;
+use slint_interpreter::ComponentInstance;
 
 use crate::common::{self, text_edit};
 use crate::language::completion;

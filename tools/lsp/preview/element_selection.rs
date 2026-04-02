@@ -8,8 +8,8 @@ use i_slint_compiler::{
     parser::{SyntaxKind, TextSize},
 };
 use i_slint_core::lengths::LogicalPoint;
-use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
 use preview_protocol::lsp_types;
+use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
 
 use crate::common;
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};

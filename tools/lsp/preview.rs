@@ -18,6 +18,10 @@ use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
+use preview_protocol::{
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+    lsp_types::{self, Url},
+};
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
@@ -25,10 +29,6 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use preview_protocol::{
-    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
-    lsp_types::{self, Url},
-};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
