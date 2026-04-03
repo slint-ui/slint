@@ -10,6 +10,7 @@ let package = Package(
     platforms: [.macOS(.v13), .iOS(.v16)],
     products: [
         .library(name: "Slint", targets: ["Slint"]),
+        .library(name: "SlintSwiftUI", targets: ["SlintSwiftUI"]),
         .library(name: "SlintInterpreter", targets: ["SlintInterpreter"]),
     ],
     targets: [
@@ -37,11 +38,20 @@ let package = Package(
             ]
         ),
 
-        // Core Swift API
+        // Core Swift API (excludes SwiftUI wrapper to avoid compiler issues on CI)
         .target(
             name: "Slint",
             dependencies: ["SlintCBridge"],
-            path: "Sources/Slint"
+            path: "Sources/Slint",
+            exclude: ["SlintView.swift"]
+        ),
+
+        // SwiftUI wrapper (separate target to isolate SwiftUI dependency)
+        .target(
+            name: "SlintSwiftUI",
+            dependencies: ["Slint"],
+            path: "Sources/Slint",
+            sources: ["SlintView.swift"]
         ),
 
         // Interpreter Swift API (requires `interpreter` feature in the Rust build)

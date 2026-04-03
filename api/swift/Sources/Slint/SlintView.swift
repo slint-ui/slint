@@ -3,6 +3,7 @@
 
 #if canImport(SwiftUI)
 import SwiftUI
+import Slint
 @preconcurrency import SlintCBridge
 
 /// A SwiftUI view that hosts Slint UI content.
