@@ -522,6 +522,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
             .clone(),
+        is_tooltip: p.is_tooltip,
     }
 }
 

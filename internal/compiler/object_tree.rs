@@ -324,6 +324,11 @@ pub struct PopupWindow {
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
+    /// Whether this popup is an input-transparent tooltip overlay.
+    ///
+    /// Tooltip popups are allowed to render as an overlay, but should not affect
+    /// mouse hit-testing / dispatch.
+    pub is_tooltip: bool,
 }
 
 #[derive(Debug, Clone)]

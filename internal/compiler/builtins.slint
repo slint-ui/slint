@@ -153,6 +153,10 @@ export component TouchArea {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export component ToolTip inherits Empty {
+    in property <string> text;
+}
+
 export component FocusScope {
     in property <bool> enabled: true;
     in property <bool> focus-on-click: true;

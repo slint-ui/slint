@@ -42,6 +42,7 @@ mod lower_states;
 mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
+mod lower_tooltips;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
@@ -131,9 +132,21 @@ pub async fn run_passes(
             diag,
         );
         repeater_component::process_repeater_components(component);
+        lower_tooltips::lower_tooltips(component, &doc.local_registry, &palette, &style_metrics);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
+
+        // Popups are created in `lower_tooltips` / `lower_popups`, after the style pass above ran.
+        // Without this, tooltip/dialog `Window` + `Text` never get palette defaults (invisible text).
+        for p in component.popup_windows.borrow().iter() {
+            apply_default_properties_from_style::apply_default_properties_from_style(
+                &p.component,
+                &style_metrics,
+                &palette,
+                diag,
+            );
+        }
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);

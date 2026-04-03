@@ -224,6 +224,10 @@ fn lower_popup_window(
         y: coord_y,
         close_policy,
         parent_element: parent_element.clone(),
+        is_tooltip: popup_window_element
+            .borrow()
+            .id
+            .starts_with("tooltip-popup-overlay-"),
     });
 }
 
