@@ -4,7 +4,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use itertools::Itertools;
-use preview_protocol::lsp_types::Url;
+use lsp_types::Url;
 use smol_str::SmolStr;
 
 use i_slint_compiler::{
@@ -374,7 +374,6 @@ fn convert_number_literal(
 
 #[cfg(test)]
 mod tests {
-    use preview_protocol::lsp_types;
     use slint::{Model, SharedString};
 
     use crate::{

@@ -14,10 +14,8 @@ pub mod util;
 use common::{DocumentCache, LspToPreview, Result};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
-use preview_protocol::{
-    LspToPreviewMessage, VersionedUrl,
-    lsp_types::{self, Url},
-};
+use lsp_types::Url;
+use preview_protocol::{LspToPreviewMessage, VersionedUrl};
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -30,7 +28,6 @@ use crate::wasm_prelude::*;
 type JsResult<T> = std::result::Result<T, JsError>;
 
 pub mod wasm_prelude {
-    use preview_protocol::lsp_types;
     use std::path::{Path, PathBuf};
 
     /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
@@ -393,16 +390,15 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
+    pub async fn trigger_file_watcher(&mut self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
-        let url: lsp_types::Url = serde_wasm_bindgen::from_value(url)?;
+        let url: Url = serde_wasm_bindgen::from_value(url)?;
         let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
         language::trigger_file_watcher(&mut ctx, url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
     }
-
     #[wasm_bindgen]
     pub async fn open_document(
         &self,
@@ -411,7 +407,7 @@ impl SlintServer {
         version: i32,
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
-        let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+        let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         language::open_document(&mut ctx, content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
@@ -426,7 +422,7 @@ impl SlintServer {
         version: i32,
     ) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
-        let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+        let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         language::load_document(&mut ctx, content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
@@ -434,9 +430,9 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
+    pub async fn close_document(&mut self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
-        let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
+        let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         language::close_document(&mut ctx, uri).await.map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
     }

@@ -15,7 +15,6 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-# Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
-lsp-types = "0.95.0"
+lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true

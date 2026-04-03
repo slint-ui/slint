@@ -8,7 +8,7 @@ use crate::{common, util};
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
-use preview_protocol::lsp_types::{self, Url};
+use lsp_types::Url;
 use smol_str::SmolStr;
 
 #[cfg(target_arch = "wasm32")]

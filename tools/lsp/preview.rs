@@ -18,10 +18,8 @@ use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use preview_protocol::{
-    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
-    lsp_types::{self, Url},
-};
+use lsp_types::Url;
+use preview_protocol::{PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion};
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;

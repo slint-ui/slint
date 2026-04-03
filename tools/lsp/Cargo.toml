@@ -96,6 +96,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
 preview-protocol = { path = "../preview-protocol" }
+lsp-types = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }

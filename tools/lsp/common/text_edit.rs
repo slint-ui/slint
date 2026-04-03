@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 
 use i_slint_compiler::parser::{TextRange, TextSize};
-use preview_protocol::lsp_types;
 
 use crate::common;
 

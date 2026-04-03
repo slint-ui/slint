@@ -4,7 +4,7 @@
 use super::ui;
 use crate::common::text_edit;
 use core::hash::{Hash as _, Hasher as _};
-use preview_protocol::{PreviewToLspMessage, lsp_types};
+use preview_protocol::PreviewToLspMessage;
 use slint::ComponentHandle as _;
 
 use std::collections::HashMap;

@@ -8,10 +8,8 @@ use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
-use preview_protocol::{
-    SourceFileVersion,
-    lsp_types::{self, Url},
-};
+use lsp_types::Url;
+use preview_protocol::SourceFileVersion;
 
 use std::{
     cell::RefCell,

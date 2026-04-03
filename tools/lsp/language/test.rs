@@ -3,7 +3,7 @@
 
 //! Code to help with writing tests for the language server
 
-use preview_protocol::lsp_types::{self, Diagnostic, Url};
+use lsp_types::{Diagnostic, Url};
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;

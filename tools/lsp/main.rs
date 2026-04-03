@@ -20,8 +20,8 @@ pub mod util;
 use common::{LspToPreview, Result};
 use language::*;
 
-use preview_protocol::lsp_types::{
-    self, DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
+use lsp_types::{
+    DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, InitializeParams, Url,
     notification::{
         DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,

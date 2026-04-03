@@ -9,7 +9,6 @@ use i_slint_compiler::object_tree::{self, type_from_node};
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
-use preview_protocol::lsp_types;
 use smol_str::SmolStr;
 
 use crate::common;

@@ -23,13 +23,13 @@ use i_slint_compiler::parser::{
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use itertools::Itertools;
-use preview_protocol::lsp_types::{
-    self, ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
+use lsp_types::{
+    ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
-    DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
-    PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
-    Url, WorkDoneProgressOptions,
+    DocumentSymbol, DocumentSymbolResponse, FileChangeType, InitializeParams, InitializeResult,
+    OneOf, Position, PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions,
+    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerInfo,
+    TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
     request::{
         CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
         DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting,
@@ -590,7 +590,7 @@ pub fn show_preview_command(
 fn populate_command_range(
     node: &SyntaxNode,
     format: common::ByteFormat,
-) -> Option<preview_protocol::lsp_types::Range> {
+) -> Option<lsp_types::Range> {
     let range = node.text_range();
 
     let start_offset = node

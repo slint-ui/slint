@@ -5,11 +5,8 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use preview_protocol::VersionedUrl;
-use preview_protocol::{
-    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion,
-    lsp_types::{self, TextEdit, Url, WorkspaceEdit},
-};
+use lsp_types::{TextEdit, Url, WorkspaceEdit};
+use preview_protocol::{LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl};
 
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
@@ -597,8 +594,6 @@ pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub mod lsp_to_editor {
-    use preview_protocol::lsp_types;
-
     pub fn notify_lsp_diagnostics(
         sender: &crate::ServerNotifier,
         uri: lsp_types::Url,

@@ -8,7 +8,6 @@ use std::{
 };
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use preview_protocol::lsp_types;
 
 use crate::common;
 

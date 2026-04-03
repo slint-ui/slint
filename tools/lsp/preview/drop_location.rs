@@ -10,7 +10,6 @@ use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use preview_protocol::lsp_types;
 use slint_interpreter::ComponentInstance;
 
 use crate::common::{self, text_edit};
@@ -1349,7 +1348,7 @@ pub fn move_element_to(
 #[cfg(test)]
 mod tests {
     use i_slint_compiler::parser::{TextRange, TextSize};
-    use preview_protocol::lsp_types::{self, Url};
+    use lsp_types::Url;
 
     use std::collections::HashMap;
 

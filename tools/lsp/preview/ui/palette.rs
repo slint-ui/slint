@@ -8,7 +8,7 @@ use crate::{
     preview::{properties, ui},
 };
 
-use preview_protocol::lsp_types::Url;
+use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
 use slint::{ComponentHandle, Model, ModelRc, SharedString};
@@ -280,8 +280,6 @@ fn filter_palettes(
 
 #[cfg(test)]
 mod tests {
-    use preview_protocol::lsp_types;
-
     use crate::preview::ui::PaletteEntry;
 
     use super::*;

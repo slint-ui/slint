@@ -17,9 +17,9 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
 use i_slint_compiler::typeregister::TypeRegister;
 use itertools::Itertools;
-use preview_protocol::lsp_types::{
-    self, CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat,
-    Position, Range, TextEdit,
+use lsp_types::{
+    CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
+    Range, TextEdit,
 };
 use smol_str::SmolStr;
 use std::borrow::Cow;

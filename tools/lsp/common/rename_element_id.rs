@@ -5,7 +5,7 @@ use crate::common::ByteFormat;
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, syntax_nodes,
 };
-use preview_protocol::lsp_types::{self, TextEdit};
+use lsp_types::TextEdit;
 
 /// If the token is matching a Element ID, return the list of all element id in the same component
 ///

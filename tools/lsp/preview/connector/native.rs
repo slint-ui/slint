@@ -6,7 +6,6 @@ use crate::{common, preview};
 use std::collections::HashMap;
 use std::{cell::RefCell, io::BufRead};
 
-use preview_protocol::lsp_types;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     sync::mpsc,

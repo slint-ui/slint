@@ -9,7 +9,6 @@ use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
 use itertools::Itertools;
-use preview_protocol::lsp_types;
 use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
