@@ -51,6 +51,7 @@ static SWIFT_PACKAGE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     swift_dir
 });
 
+#[allow(dead_code)] // Called from generated #[test] functions in build.rs
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
