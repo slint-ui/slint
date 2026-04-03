@@ -395,12 +395,16 @@ async fn run_main_loop(
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
-                            url: i_slint_preview_protocol::VersionedUrl::new(url, None),
-                            contents: contents.clone(),
-                        });
+                        to_preview.send(
+                            &i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                                url: i_slint_preview_protocol::VersionedUrl::new(url, None),
+                                contents: contents.clone(),
+                            },
+                        );
                     } else {
-                        to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url });
+                        to_preview.send(
+                            &i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url },
+                        );
                     }
                 }
                 Some(contents.map(|c| (None, c)))

@@ -10,8 +10,8 @@ use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, Pro
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-use lsp_types::Url;
 use i_slint_preview_protocol::SourceFileVersion;
+use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 
 use std::collections::HashSet;
