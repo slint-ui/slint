@@ -14,25 +14,19 @@ External contributors may also be invited to become members of the Github organi
 
 ## Language and Compiler
 
-Slint SC is written in Rust and requires Ferrocene version 26.02.0.
+The `slint-compiler` translates `.slint` files into Rust code. Slint SC is itself written in Rust and is built using Ferrocene version 26.02.0.
 
-* **Tool Impact (TI2):** The compiler can introduce errors into the executable.
+* **Tool Impact (TI2):** The `slint-compiler` can introduce errors into the executable.
 * **Tool Error Detection (TD2/TD3):** While Rust's strong type system and borrow checker catch many errors, compiler bugs might still bypass detection.
-* **Tool Confidence Level (TCL):** A combination of TI2 and TD2/TD3 results in a Tool Confidence Level of TCL2 or TCL3.
-* **Qualification Strategy:** As a high-impact tool, Ferrocene is already ASIL D qualified for safety-critical deployment.
-
-## CI System and Infrastructure
-
-Continuous Integration (CI) is driven by GitHub Actions. CI triggers automated testing for any Pull Request (PR) or direct push to the `master` branch.
-* **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
-* **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
+* **Tool Confidence Level (TCL):** The combination of TI2 and TD2/TD3 results in a Tool Confidence Level of TCL2 or TCL3.
+* **Qualification Strategy:** As a high-impact tool, Ferrocene is already ASIL D qualified for safety-critical deployment. The `slint-compiler` is not yet qualified and must be qualified before being used in a safety-critical project.
 
 ## Configuration Management (ISO 26262-8 7.x)
 
 Slint SC utilizes a structured configuration management process to ensure artifacts are reproducible and traceable.
 
 * **Version Control:** Slint is hosted on GitHub (<https://github.com/slint-ui/slint>).
-* **Baselining:** Releases are tagged with a MajorVersion.MinorVersion, and occasionally have a .PatchRelease.
+* **Baselining:** Releases are tagged in git as `release/MajorVersion.MinorVersion`.
 * **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
 
 ## Change Management (ISO 26262-8 8.x)
@@ -44,15 +38,36 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 * **Code Reviews:** While administrators have push access, all safety-impacting changes must go through a formal Pull Request (PR) process. PRs enforce peer review, providing an opportunity to challenge the impact analysis and verify the implementation before merging.
 * **Traceability:** Every functional change merged into the codebase must be traceable back to an established issue or requirement, ensuring comprehensive oversight.
 
+## CI System and Infrastructure
+
+Continuous Integration (CI) is achieved through GitHub Actions, a platform provided by GitHub that is used to automate building, testing, and deployment of software. Here are some definitions of terms:
+
+* **An Action** is a custom application that performs a complex but frequent repetitive task.
+* **A job** is a set of steps that are either expressed as shell scripts or as actions. Steps are executed based on their ordering and dependencies, where data can be shared between steps.
+* **A [Workflow]()** is a configurable automated process that runs one or more jobs. Workflows are triggered by events, and executed by runners.
+* **An event** is a specific activity associated with a GitHub repository, such as opening an issue or creating a PR.
+* **A runner** is a server that executes triggered workflows.
+
+For Slint, [Actions](https://github.com/slint-ui/slint/actions) are triggered for any Pull Request (PR) or direct push to the `master` branch.
+
+(TODO: Show the Actions for Slint SC when we have some)
+
+* **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
+* **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
+
+
 ## Software Component Qualification (ISO 26262-8 12.x)
 
 To ensure that software tools used in the development of Slint SC do not introduce or fail to detect errors, tools are assessed based on their Tool Impact (TI) and Tool Error Detection (TD) to determine their Tool Confidence Level (TCL).
+
 
 ### Dependencies
 
 Because Slint SC is intended for embedded systems, there are very few internal dependencies, and exactly **zero external dependencies** for the core runtime portion of Slint SC.
 
 For build-time tooling and optional features (e.g., image decoding), external libraries may be utilized.
+
+(TODO: List specific dependencies here)
 
 * **Qualification Strategy:** Any necessary external Software of Unknown Provenance (SOUP) must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
 
@@ -62,9 +77,11 @@ For build-time tooling and optional features (e.g., image decoding), external li
 
 Employees of SixtyFPS GmbH are located in different countries, and some work remotely. This is not a problem, as we have all the necessary infrastructure in place to support this.
 
+(TODO: Add more details about how distributed development is supported)
+
 ## Release Schedule
 
-The release schedule of Slint SC is currently not known.
+There is no release schedule for Slint SC yet.
 
 ## Verification (ISO 26262-8 9.4.x)
 

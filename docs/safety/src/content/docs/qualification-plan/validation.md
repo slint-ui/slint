@@ -1,9 +1,7 @@
 ---
-title: Validation
+title: Validation (ISO 26262-4 9.x)
 description: Running and understanding Slint SC safety-critical tests.
 ---
-
-* Safety Validation activities (see ISO 26262-4 section 9)
 
 Validation involves running a set of safety-critical tests. We describe how to run them here, and how to understand the results. Each test should be described in a section here, tagged with appropriate requirement IDs.
 

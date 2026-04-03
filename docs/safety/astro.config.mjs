@@ -105,6 +105,10 @@ export default defineConfig({
                             slug: "qualification-plan/known-issues",
                         },
                         {
+                            label: "Test Cases",
+                            slug: "qualification-plan/test-cases",
+                        },
+                        {
                             label: "Validation",
                             slug: "qualification-plan/validation",
                         },
