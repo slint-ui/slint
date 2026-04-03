@@ -2,11 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import Testing
+import Slint
 import SlintInterpreter
 
 // MARK: - Shared helpers
 
+/// Ensures the testing backend is initialized exactly once for all tests.
+private let _initTestingBackend: Void = {
+    SlintEventLoop.initTesting()
+}()
+
 private func compile(_ source: String) -> SlintComponentDefinition? {
+    _ = _initTestingBackend
     let compiler = SlintCompiler()
     return compiler.buildFromSource(source, path: "test.slint")
 }

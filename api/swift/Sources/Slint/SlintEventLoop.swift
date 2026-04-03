@@ -34,6 +34,15 @@ private let eventCallbackDrop: @convention(c) (UnsafeMutableRawPointer?) -> Void
 /// Use `SlintEventLoop.run()` to start the event loop (blocks the current thread)
 /// and `SlintEventLoop.quit()` to stop it.
 public enum SlintEventLoop {
+    /// Initializes the headless testing backend.
+    ///
+    /// Call this before creating any component instances in environments
+    /// without a display server (e.g. headless CI). Requires the Rust crate
+    /// to be built with the `backend-testing` feature.
+    public static func initTesting() {
+        slint_swift_testing_init()
+    }
+
     /// Ensures a backend is initialized.
     ///
     /// Call this before creating any windows if you need to ensure the backend

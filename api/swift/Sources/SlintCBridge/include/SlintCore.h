@@ -286,6 +286,14 @@ bool slint_timer_running(uintptr_t id);
 uint64_t slint_timer_interval(uintptr_t id);
 
 // ---------------------------------------------------------------------------
+// Testing backend (available when `backend-testing` feature is enabled)
+// ---------------------------------------------------------------------------
+
+/// Initializes the headless testing backend. Call before creating component
+/// instances in environments without a display server (e.g. CI).
+void slint_swift_testing_init(void);
+
+// ---------------------------------------------------------------------------
 // Event loop functions (from api/swift/lib.rs)
 // ---------------------------------------------------------------------------
 

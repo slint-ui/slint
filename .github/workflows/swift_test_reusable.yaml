@@ -35,7 +35,7 @@ jobs:
               if: runner.os == 'Linux'
               run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
             - name: Build Rust static library
-              run: cargo build --lib -p slint-swift --features interpreter
+              run: cargo build --lib -p slint-swift --features interpreter,backend-testing
             - name: Run Swift unit tests
               working-directory: api/swift
               run: swift test

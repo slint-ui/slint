@@ -597,6 +597,20 @@ use alloc::boxed::Box;
 use i_slint_core::graphics::Image;
 
 // ---------------------------------------------------------------------------
+// Testing backend
+// ---------------------------------------------------------------------------
+
+/// Initializes the headless testing backend. Call this before creating any
+/// component instances in environments without a display server (e.g. CI).
+///
+/// This function is only available when the `backend-testing` feature is enabled.
+#[cfg(feature = "i-slint-backend-testing")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_swift_testing_init() {
+    i_slint_backend_testing::init_no_event_loop();
+}
+
+// ---------------------------------------------------------------------------
 // Phase 4: Platform Integration — Event dispatch helpers
 // ---------------------------------------------------------------------------
 
