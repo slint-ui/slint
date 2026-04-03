@@ -170,15 +170,6 @@ struct LayoutWithoutLineBreaksBuilder {
 }
 
 impl LayoutWithoutLineBreaksBuilder {
-    fn line_height_factor(&self, font_ctx: &mut parley::FontContext) -> Option<f32> {
-        let font = self
-            .font_request
-            .as_ref()?
-            .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
-        let metrics = sharedfontique::DesignFontMetrics::new(&font);
-        line_height_factor_for_metrics(&metrics)
-    }
-
     fn new(
         font_request: Option<FontRequest>,
         text_wrap: TextWrap,
@@ -199,7 +190,6 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        let line_height_factor = self.line_height_factor(font_ctx);
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
 
         if let Some(ref font_request) = self.font_request {
@@ -241,11 +231,6 @@ impl LayoutWithoutLineBreaksBuilder {
             } else {
                 parley::style::FontStyle::Normal
             }));
-        }
-        if let Some(line_height_factor) = line_height_factor {
-            builder.push_default(parley::StyleProperty::LineHeight(
-                parley::style::LineHeight::MetricsRelative(line_height_factor),
-            ));
         }
         builder.push_default(parley::StyleProperty::FontSize(self.pixel_size.get()));
         builder.push_default(parley::StyleProperty::WordBreak(match self.text_wrap {
@@ -514,7 +499,9 @@ fn layout(
         .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
 
     let y_offset = match (max_physical_height, options.vertical_align) {
-        (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
+        (Some(max_height), TextVerticalAlignment::Center) => {
+            (max_height - height) / 2.0 + single_line_vertical_centering_correction(&paragraphs)
+        }
         (Some(max_height), TextVerticalAlignment::Bottom) => max_height - height,
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::new(0.0),
     };
@@ -1542,45 +1529,66 @@ pub fn text_input_cursor_rect_for_byte_offset(
     cursor_rect / scale_factor
 }
 
-fn line_height_factor_for_metrics(metrics: &sharedfontique::DesignFontMetrics) -> Option<f32> {
-    let typographic_height = metrics.ascent - metrics.descent;
-    let line_height_with_leading = typographic_height + metrics.line_gap;
+fn single_line_vertical_centering_correction(paragraphs: &[TextParagraph]) -> PhysicalLength {
+    let mut lines = paragraphs.iter().flat_map(|paragraph| paragraph.layout.lines());
 
-    (metrics.line_gap > 0.0 && line_height_with_leading > 0.0)
-        .then_some(typographic_height / line_height_with_leading)
+    let Some(line) = lines.next() else {
+        return PhysicalLength::zero();
+    };
+
+    if lines.next().is_some() {
+        return PhysicalLength::zero();
+    }
+
+    PhysicalLength::new(single_line_vertical_centering_correction_for_line_metrics(line.metrics()))
+}
+
+fn single_line_vertical_centering_correction_for_line_metrics(
+    metrics: &parley::layout::LineMetrics,
+) -> f32 {
+    let leading_above = metrics.baseline - metrics.ascent - metrics.min_coord;
+    let leading_below = metrics.max_coord - metrics.baseline - metrics.descent;
+
+    (leading_below - leading_above) / 2.0
 }
 
 #[cfg(test)]
 mod tests {
-    use i_slint_common::sharedfontique::DesignFontMetrics;
-
-    use super::line_height_factor_for_metrics;
+    use super::single_line_vertical_centering_correction_for_line_metrics;
 
     #[test]
-    fn positive_line_gap_is_removed_from_line_height_factor() {
-        let metrics = DesignFontMetrics {
+    fn uneven_half_leading_is_compensated_for_single_line_centering() {
+        let metrics = parley::layout::LineMetrics {
             ascent: 12.0,
-            descent: -4.0,
-            line_gap: 4.0,
-            x_height: 0.0,
-            cap_height: 0.0,
-            units_per_em: 16.0,
+            descent: 4.0,
+            leading: 1.0,
+            line_height: 17.0,
+            baseline: 12.0,
+            offset: 0.0,
+            advance: 0.0,
+            trailing_whitespace: 0.0,
+            min_coord: 0.0,
+            max_coord: 17.0,
         };
 
-        assert_eq!(line_height_factor_for_metrics(&metrics), Some(0.8));
+        assert_eq!(single_line_vertical_centering_correction_for_line_metrics(&metrics), 0.5);
     }
 
     #[test]
-    fn zero_line_gap_keeps_default_line_height() {
-        let metrics = DesignFontMetrics {
+    fn even_leading_keeps_single_line_centering_unchanged() {
+        let metrics = parley::layout::LineMetrics {
             ascent: 12.0,
-            descent: -4.0,
-            line_gap: 0.0,
-            x_height: 0.0,
-            cap_height: 0.0,
-            units_per_em: 16.0,
+            descent: 4.0,
+            leading: 2.0,
+            line_height: 18.0,
+            baseline: 13.0,
+            offset: 0.0,
+            advance: 0.0,
+            trailing_whitespace: 0.0,
+            min_coord: 0.0,
+            max_coord: 18.0,
         };
 
-        assert_eq!(line_height_factor_for_metrics(&metrics), None);
+        assert_eq!(single_line_vertical_centering_correction_for_line_metrics(&metrics), 0.0);
     }
 }
