@@ -166,7 +166,7 @@ extern "C" {
 
 #[wasm_bindgen]
 pub struct SlintServer {
-    ctx: Context,
+    ctx: RefCell<Context>,
     reentry_guard: Rc<RefCell<ReentryGuard>>,
     rh: Rc<RequestHandler>,
 }
@@ -217,7 +217,7 @@ pub fn create(
     language::register_request_handlers(&mut rh);
 
     Ok(SlintServer {
-        ctx: Context {
+        ctx: RefCell::new(Context {
             document_cache,
             preview_config: Default::default(),
             init_param,
@@ -226,7 +226,7 @@ pub fn create(
             open_urls: Default::default(),
             to_preview,
             pending_recompile: Default::default(),
-        },
+        }),
         reentry_guard,
         rh: Rc::new(rh),
     })
@@ -273,17 +273,18 @@ impl SlintServer {
             return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
         };
 
+        let ctx = self.ctx.borrow();
         match message {
             M::Diagnostics { diagnostics, version, uri } => {
                 crate::common::lsp_to_editor::notify_lsp_diagnostics(
-                    &self.ctx.server_notifier,
+                    &ctx.server_notifier,
                     uri,
                     version,
                     diagnostics,
                 );
             }
             M::ShowDocument { file, selection, .. } => {
-                let sn = self.ctx.server_notifier.clone();
+                let sn = ctx.server_notifier.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     crate::common::lsp_to_editor::send_show_document_to_editor(
                         sn, file, selection, true,
@@ -295,20 +296,18 @@ impl SlintServer {
                 // Nothing to do!
             }
             M::RequestState { .. } => {
-                crate::language::send_state_to_preview(&self.ctx);
+                crate::language::send_state_to_preview(&ctx);
             }
             M::SendWorkspaceEdit { label, edit } => {
-                forward_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
+                forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));
             }
             M::SendShowMessage { message } => {
-                let _ = self
-                    .ctx
+                let _ = ctx
                     .server_notifier
                     .send_notification::<lsp_types::notification::ShowMessage>(message);
             }
             M::TelemetryEvent(object) => {
-                let _ = self
-                    .ctx
+                let _ = ctx
                     .server_notifier
                     .send_notification::<lsp_types::notification::TelemetryEvent>(
                         lsp_types::OneOf::Left(object),
@@ -324,21 +323,23 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn startup_lsp(&mut self) -> JsResult<JsValue> {
+    pub async fn startup_lsp(&self) -> JsResult<JsValue> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
-        language::startup_lsp(&mut self.ctx).await.map_err(|e| JsError::new(&e.to_string()))?;
+        language::startup_lsp(&mut self.ctx.borrow_mut())
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
     }
 
     #[wasm_bindgen]
-    pub async fn trigger_file_watcher(&mut self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
+    pub async fn trigger_file_watcher(&self, url: JsValue, typ: JsValue) -> JsResult<JsValue> {
         let guard = self.reentry_guard.clone();
 
         let _lock = ReentryGuard::lock(guard).await;
         let url: lsp_types::Url = serde_wasm_bindgen::from_value(url)?;
         let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
-        language::trigger_file_watcher(&mut self.ctx, url, typ)
+        language::trigger_file_watcher(&mut self.ctx.borrow_mut(), url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
@@ -346,7 +347,7 @@ impl SlintServer {
 
     #[wasm_bindgen]
     pub async fn open_document(
-        &mut self,
+        &self,
         content: String,
         uri: JsValue,
         version: i32,
@@ -354,7 +355,7 @@ impl SlintServer {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
         let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-        language::open_document(&mut self.ctx, content, uri.clone(), Some(version))
+        language::open_document(&mut self.ctx.borrow_mut(), content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
@@ -362,7 +363,7 @@ impl SlintServer {
 
     #[wasm_bindgen]
     pub async fn load_document(
-        &mut self,
+        &self,
         content: String,
         uri: JsValue,
         version: i32,
@@ -370,18 +371,18 @@ impl SlintServer {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
         let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-        language::load_document(&mut self.ctx, content, uri.clone(), Some(version))
+        language::load_document(&mut self.ctx.borrow_mut(), content, uri.clone(), Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
     }
 
     #[wasm_bindgen]
-    pub async fn close_document(&mut self, uri: JsValue) -> JsResult<JsValue> {
+    pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
         let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-        language::close_document(&mut self.ctx, uri)
+        language::close_document(&mut self.ctx.borrow_mut(), uri)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(JsValue::UNDEFINED)
@@ -389,24 +390,27 @@ impl SlintServer {
 
     #[wasm_bindgen]
     pub async fn handle_request(
-        &mut self,
+        &self,
         _id: JsValue,
         method: String,
         params: JsValue,
     ) -> JsResult<JsValue> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
-        self.rh
-            .handle_request(method, params, &mut self.ctx)
+        let result = self
+            .rh
+            .handle_request(method, params, &mut self.ctx.borrow_mut())
             .map_err(|e| JsError::new(&e.to_string()))?;
-        Ok(JsValue::UNDEFINED)
+        Ok(result)
     }
 
     #[wasm_bindgen]
-    pub async fn reload_config(&mut self) -> JsResult<()> {
+    pub async fn reload_config(&self) -> JsResult<()> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
-        language::load_configuration(&mut self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
+        language::load_configuration(&mut self.ctx.borrow_mut())
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 }
 
