@@ -425,7 +425,9 @@ impl JavaHelper {
     }
 
     pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
-        self.with_jni_env(|env, helper| Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32)))
+        self.with_jni_env(|env, helper| {
+            Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
+        })
     }
 
     pub fn get_view_rect(&self) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
