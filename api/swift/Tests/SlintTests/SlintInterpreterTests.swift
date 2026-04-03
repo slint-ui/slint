@@ -8,14 +8,24 @@ import SlintInterpreter
 // MARK: - Shared helpers
 
 /// Ensures the testing backend is initialized exactly once for all tests.
+/// This MUST be triggered before any SlintCompiler usage, otherwise the default
+/// backend (winit) may be initialized first and fail on headless Linux CI.
 private let _initTestingBackend: Void = {
     SlintEventLoop.initTesting()
 }()
 
+/// Compiles a .slint source string into a component definition.
+/// Automatically initializes the testing backend on first call.
 private func compile(_ source: String) -> SlintComponentDefinition? {
     _ = _initTestingBackend
     let compiler = SlintCompiler()
     return compiler.buildFromSource(source, path: "test.slint")
+}
+
+/// Creates a fresh SlintCompiler with the testing backend initialized.
+private func makeCompiler() -> SlintCompiler {
+    _ = _initTestingBackend
+    return SlintCompiler()
 }
 
 // MARK: - SlintValue tests
@@ -163,7 +173,7 @@ struct SlintStructTests {
 struct SlintCompilerTests {
 
     @Test func compileMinimalComponent() {
-        let compiler = SlintCompiler()
+        let compiler = makeCompiler()
         let def = compiler.buildFromSource(
             "export component Minimal inherits Window {}",
             path: "test.slint"
@@ -174,14 +184,14 @@ struct SlintCompilerTests {
     }
 
     @Test func compileInvalidSourceReturnsNil() {
-        let compiler = SlintCompiler()
+        let compiler = makeCompiler()
         let def = compiler.buildFromSource("not valid slint !!!", path: "bad.slint")
         #expect(def == nil)
         #expect(compiler.hasErrors)
     }
 
     @Test func diagnosticsContainMessage() {
-        let compiler = SlintCompiler()
+        let compiler = makeCompiler()
         _ = compiler.buildFromSource("export component Bad { unknown-property: 0; }", path: "x.slint")
         #expect(!compiler.diagnostics.isEmpty)
     }
