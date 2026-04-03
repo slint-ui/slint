@@ -232,52 +232,6 @@ pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundl
 
 pub mod private_unstable_api;
 
-/// Parses markdown into [`StyledText`], which can then be assigned to a `styled-text` property.
-///
-/// Use [`parse_markdown_with_arguments()`] if you need placeholder interpolation with existing
-/// styled text values.
-#[cfg(feature = "std")]
-pub fn parse_markdown(markdown: &str) -> Result<StyledText, StyledTextError<'static>> {
-    StyledText::parse(markdown)
-}
-
-/// Parses markdown into [`StyledText`] and substitutes `{}` placeholders with existing styled
-/// text arguments.
-#[cfg(feature = "std")]
-pub fn parse_markdown_with_arguments(
-    format_string: &str,
-    arguments: &[StyledText],
-) -> Result<StyledText, StyledTextError<'static>> {
-    let mut rewritten = String::with_capacity(format_string.len());
-    let mut chars = format_string.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '{' if chars.peek() == Some(&'{') => {
-                chars.next();
-                rewritten.push('{');
-            }
-            '}' if chars.peek() == Some(&'}') => {
-                chars.next();
-                rewritten.push('}');
-            }
-            '{' if chars.peek() == Some(&'}') => {
-                chars.next();
-                rewritten.push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
-            }
-            ch => rewritten.push(ch),
-        }
-    }
-
-    StyledText::parse_interpolated(&rewritten, arguments)
-}
-
-/// Converts plain text into [`StyledText`] without applying markdown parsing.
-#[cfg(feature = "std")]
-pub fn string_to_styled_text(text: impl Into<String>) -> StyledText {
-    StyledText::from_plain_text(text.into())
-}
-
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system for rendering to the screen
 /// and reacting to user input.

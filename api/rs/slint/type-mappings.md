@@ -19,7 +19,7 @@ The follow table summarizes the entire mapping:
 | `Point` | [`LogicalPosition`] | A struct with `x` and `y` fields, representing logical coordinates. |
 | `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
-| `styled-text` | [`StyledText`] | Use [`parse_markdown`](crate::parse_markdown) or [`string_to_styled_text`](crate::string_to_styled_text) to create values in Rust. |
+| `styled-text` | [`StyledText`] | Use [`StyledText::from_markdown`](crate::StyledText::from_markdown) or [`StyledText::from_plain_text`](crate::StyledText::from_plain_text) to create values in Rust. |
 | anonymous object | anonymous tuple | The fields are in alphabetical order. |
 | enumeration | `enum` of the same name | The values are converted to CamelCase |
 | structure | `struct` of the same name | |

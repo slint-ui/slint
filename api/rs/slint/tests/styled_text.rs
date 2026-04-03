@@ -14,16 +14,11 @@ fn styled_text_can_be_created_from_rust_markdown() {
     }
 
     let component = Test::new().unwrap();
-    let greeting = slint::parse_markdown("Hello *world*!").unwrap();
+    let greeting = slint::StyledText::from_markdown("Hello *world*!").unwrap();
     component.set_text(greeting.clone());
     assert_eq!(component.get_text(), greeting);
 
-    let emphasis = slint::parse_markdown("*world*").unwrap();
-    let interpolated = slint::parse_markdown_with_arguments("Hello {}!", &[emphasis]).unwrap();
-    component.set_text(interpolated.clone());
-    assert_eq!(component.get_text(), interpolated);
-
-    let plain = slint::string_to_styled_text("plain text");
+    let plain = slint::StyledText::from_plain_text("plain text");
     component.set_text(plain.clone());
     assert_eq!(component.get_text(), plain);
 }
