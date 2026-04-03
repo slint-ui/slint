@@ -636,7 +636,8 @@ void slint_swift_dispatch_window_active_changed(const SlintWindowAdapterRcOpaque
 // ---------------------------------------------------------------------------
 
 /// Opaque reference to a `&dyn Renderer` (two pointers: data + vtable).
-typedef struct {
+typedef struct
+{
     const void *_0;
     const void *_1;
 } SlintRendererRefOpaque;
@@ -645,29 +646,33 @@ typedef struct {
 /// `renderer` must be a valid renderer ref (e.g. from `slint_software_renderer_handle`).
 /// Writes the result into `target`.
 void slint_swift_window_adapter_new(
-    void *user_data, void (*drop_fn)(void *), void (*set_visible_fn)(void *, bool),
-    void (*request_redraw_fn)(void *), void (*size_fn)(void *, uint32_t *, uint32_t *),
-    void (*set_size_fn)(void *, uint32_t, uint32_t),
-    bool (*position_fn)(void *, int32_t *, int32_t *), void (*set_position_fn)(void *, int32_t, int32_t),
-    void (*update_window_properties_fn)(void *, const SlintSharedStringOpaque *, bool, bool, bool),
-    SlintRendererRefOpaque renderer, SlintWindowAdapterRcOpaque *target);
+        void *user_data, void (*drop_fn)(void *), void (*set_visible_fn)(void *, bool),
+        void (*request_redraw_fn)(void *), void (*size_fn)(void *, uint32_t *, uint32_t *),
+        void (*set_size_fn)(void *, uint32_t, uint32_t),
+        bool (*position_fn)(void *, int32_t *, int32_t *),
+        void (*set_position_fn)(void *, int32_t, int32_t),
+        void (*update_window_properties_fn)(void *, const SlintSharedStringOpaque *, bool, bool,
+                                            bool),
+        SlintRendererRefOpaque renderer, SlintWindowAdapterRcOpaque *target);
 
 // ---------------------------------------------------------------------------
 // Phase 4: Platform Integration — Custom Platform
 // ---------------------------------------------------------------------------
 
 /// Opaque task handle for platform `invoke_from_event_loop` callbacks.
-typedef struct {
+typedef struct
+{
     const void *_0;
     const void *_1;
 } SlintPlatformTaskOpaque;
 
 /// Registers a custom platform with the Slint runtime. Must be called before any window.
-void slint_swift_platform_register(
-    void *user_data, void (*drop_fn)(void *),
-    void (*window_factory_fn)(void *, SlintWindowAdapterRcOpaque *),
-    void (*run_event_loop_fn)(void *), void (*quit_event_loop_fn)(void *),
-    void (*invoke_from_event_loop_fn)(void *, SlintPlatformTaskOpaque));
+void slint_swift_platform_register(void *user_data, void (*drop_fn)(void *),
+                                   void (*window_factory_fn)(void *, SlintWindowAdapterRcOpaque *),
+                                   void (*run_event_loop_fn)(void *),
+                                   void (*quit_event_loop_fn)(void *),
+                                   void (*invoke_from_event_loop_fn)(void *,
+                                                                     SlintPlatformTaskOpaque));
 
 /// Runs a platform task received from `invoke_from_event_loop`.
 void slint_swift_platform_task_run(SlintPlatformTaskOpaque task);
