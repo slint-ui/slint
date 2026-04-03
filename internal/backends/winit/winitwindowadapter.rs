@@ -830,6 +830,8 @@ impl WinitWindowAdapter {
                     let a = c.alphaComponent() as f32;
                     Color::from_argb_f32(a, r, g, b)
                 }).unwrap_or_default()
+            } else if #[cfg(target_arch = "wasm32")] {
+                query_wasm_accent_color()
             } else {
                 // Linux: set by XDG settings watcher; other platforms: not available
                 Color::default()
@@ -1700,6 +1702,32 @@ fn adjust_window_size_to_satisfy_constraints(
         // TODO: don't ignore error, propgate to caller
         adapter.resize_window(window_size.into()).ok();
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn query_wasm_accent_color() -> Color {
+    (|| {
+        use wasm_bindgen::JsCast;
+        let window = web_sys::window()?;
+        let document = window.document()?;
+        let element = document.create_element("span").ok()?;
+        let html_element: &web_sys::HtmlElement = element.dyn_ref()?;
+        html_element.style().set_property("color", "AccentColor").ok()?;
+        // If the browser doesn't support AccentColor, the property won't be set
+        if html_element.style().get_property_value("color").ok()?.is_empty() {
+            return None;
+        }
+        html_element.style().set_property("display", "none").ok()?;
+        document.body()?.append_child(&element).ok()?;
+        let color_str =
+            window.get_computed_style(&element).ok()??.get_property_value("color").ok()?;
+        element.remove();
+        // Parse "rgb(r, g, b)" computed color string
+        let inner = color_str.strip_prefix("rgb(")?.strip_suffix(')')?;
+        let mut parts = inner.split(',').map(|p| p.trim().parse::<u8>().ok());
+        Some(Color::from_argb_u8(255, parts.next()??, parts.next()??, parts.next()??))
+    })()
+    .unwrap_or_default()
 }
 
 #[cfg(target_family = "wasm")]
