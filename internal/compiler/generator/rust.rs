@@ -3391,6 +3391,7 @@ fn compile_builtin_function_call(
                             #close_policy,
                             parent_item,
                             false, // is_menu
+                            popup.is_tooltip,
                         ))
                     );
                     #popup_window_id::user_init(popup_instance_vrc.clone());
@@ -3487,6 +3488,7 @@ fn compile_builtin_function_call(
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
                     true, // is_menu
+                    false, // is_tooltip
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);

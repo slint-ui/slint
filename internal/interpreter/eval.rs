@@ -1070,6 +1070,7 @@ fn call_builtin_function(
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     true,
+                    false,
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });
@@ -1891,6 +1892,22 @@ pub fn load_property(component: InstanceRef, element: &ElementRc, name: &str) ->
     load_property_helper(&ComponentInstance::InstanceRef(component), element, name)
 }
 
+/// Native items register RTTI keys with hyphens (`has-hover`, `mouse-x`, …) matching
+/// `i-slint-core-macros` identifier normalization, while the compiler often uses underscores
+/// in [`NamedReference`].
+pub(crate) fn lookup_rtti_str_key<'a, T>(
+    map: &'a HashMap<&'static str, T>,
+    name: &str,
+) -> Option<&'a T> {
+    map.get(name).or_else(|| {
+        if name.contains('_') {
+            map.get(name.replace('_', "-").as_str())
+        } else {
+            None
+        }
+    })
+}
+
 fn load_property_helper(
     component_instance: &ComponentInstance,
     element: &ElementRc,
@@ -1917,7 +1934,9 @@ fn load_property_helper(
                 .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, name));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
+            Ok(lookup_rtti_str_key(&item_info.rtti.properties, name)
+                .ok_or(())?
+                .get(item))
         }
         ComponentInstance::GlobalComponent(glob) => glob.as_ref().get_property(name),
     }
@@ -1975,7 +1994,8 @@ pub fn store_property(
             };
             let item_info = &enclosing_component.description.items[element.borrow().id.as_str()];
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
+            let p = lookup_rtti_str_key(&item_info.rtti.properties, name)
+                .ok_or(SetPropertyError::NoSuchProperty)?;
             p.set(item, value, maybe_animation.as_animation())
                 .map_err(|()| SetPropertyError::WrongType)?;
         }
@@ -2117,7 +2137,7 @@ pub(crate) fn set_callback_handler(
             };
             let item_info = &description.items[element.id.as_str()];
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
+            if let Some(callback) = lookup_rtti_str_key(&item_info.rtti.callbacks, callback_name) {
                 callback.set_handler(item, handler);
                 Ok(())
             } else {

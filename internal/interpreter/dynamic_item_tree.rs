@@ -1087,6 +1087,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<DropArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
+            rtti_for::<ToolTip>(),
         ]
         .iter()
         .cloned(),
@@ -1726,9 +1727,10 @@ pub fn instantiate(
                     } else {
                         let item_within_component = &description.items[&elem.id];
                         let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                        if let Some(callback) =
-                            item_within_component.rtti.callbacks.get(prop_name.as_str())
-                        {
+                        if let Some(callback) = eval::lookup_rtti_str_key(
+                            &item_within_component.rtti.callbacks,
+                            prop_name.as_str(),
+                        ) {
                             callback.set_handler(
                                 item,
                                 Box::new(make_callback_eval_closure(expr, self_weak.clone())),
@@ -1807,9 +1809,10 @@ pub fn instantiate(
             } else {
                 let item_within_component = &description.items[&elem.id];
                 let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                if let Some(prop_rtti) =
-                    item_within_component.rtti.properties.get(prop_name.as_str())
-                {
+                if let Some(prop_rtti) = eval::lookup_rtti_str_key(
+                    &item_within_component.rtti.properties,
+                    prop_name.as_str(),
+                ) {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
 
                     for twb in &binding.two_way_bindings {
@@ -2767,6 +2770,9 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
+    // Run before `show_popup` so bindings and change-trackers are live; otherwise `WindowInner`
+    // computes size from layout before the popup subtree is fully initialized (tooltips could be 0×0).
+    inst.run_setup_code();
     let pos = {
         generativity::make_guard!(guard);
         let compo_box = inst.unerase(guard);
@@ -2782,9 +2788,9 @@ pub fn show_popup(
             close_policy,
             parent_item,
             false,
+            popup.is_tooltip,
         ),
     );
-    inst.run_setup_code();
 }
 
 pub fn close_popup(
