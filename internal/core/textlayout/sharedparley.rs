@@ -170,6 +170,15 @@ struct LayoutWithoutLineBreaksBuilder {
 }
 
 impl LayoutWithoutLineBreaksBuilder {
+    fn line_height_factor(&self, font_ctx: &mut parley::FontContext) -> Option<f32> {
+        let font = self
+            .font_request
+            .as_ref()?
+            .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
+        let metrics = sharedfontique::DesignFontMetrics::new(&font);
+        line_height_factor_for_metrics(&metrics)
+    }
+
     fn new(
         font_request: Option<FontRequest>,
         text_wrap: TextWrap,
@@ -190,6 +199,7 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
+        let line_height_factor = self.line_height_factor(font_ctx);
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
 
         if let Some(ref font_request) = self.font_request {
@@ -231,6 +241,11 @@ impl LayoutWithoutLineBreaksBuilder {
             } else {
                 parley::style::FontStyle::Normal
             }));
+        }
+        if let Some(line_height_factor) = line_height_factor {
+            builder.push_default(parley::StyleProperty::LineHeight(
+                parley::style::LineHeight::MetricsRelative(line_height_factor),
+            ));
         }
         builder.push_default(parley::StyleProperty::FontSize(self.pixel_size.get()));
         builder.push_default(parley::StyleProperty::WordBreak(match self.text_wrap {
@@ -1525,4 +1540,47 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let cursor_rect = layout
         .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
     cursor_rect / scale_factor
+}
+
+fn line_height_factor_for_metrics(metrics: &sharedfontique::DesignFontMetrics) -> Option<f32> {
+    let typographic_height = metrics.ascent - metrics.descent;
+    let line_height_with_leading = typographic_height + metrics.line_gap;
+
+    (metrics.line_gap > 0.0 && line_height_with_leading > 0.0)
+        .then_some(typographic_height / line_height_with_leading)
+}
+
+#[cfg(test)]
+mod tests {
+    use i_slint_common::sharedfontique::DesignFontMetrics;
+
+    use super::line_height_factor_for_metrics;
+
+    #[test]
+    fn positive_line_gap_is_removed_from_line_height_factor() {
+        let metrics = DesignFontMetrics {
+            ascent: 12.0,
+            descent: -4.0,
+            line_gap: 4.0,
+            x_height: 0.0,
+            cap_height: 0.0,
+            units_per_em: 16.0,
+        };
+
+        assert_eq!(line_height_factor_for_metrics(&metrics), Some(0.8));
+    }
+
+    #[test]
+    fn zero_line_gap_keeps_default_line_height() {
+        let metrics = DesignFontMetrics {
+            ascent: 12.0,
+            descent: -4.0,
+            line_gap: 0.0,
+            x_height: 0.0,
+            cap_height: 0.0,
+            units_per_em: 16.0,
+        };
+
+        assert_eq!(line_height_factor_for_metrics(&metrics), None);
+    }
 }
