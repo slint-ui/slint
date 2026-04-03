@@ -31,6 +31,9 @@ jobs:
               with:
                   swift-version: "6.2"
             - uses: ./.github/actions/setup-rust
+            - name: Install Linux system dependencies
+              if: runner.os == 'Linux'
+              run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
             - name: Build Rust static library
               run: cargo build --lib -p slint-swift --features interpreter
             - name: Run Swift unit tests
