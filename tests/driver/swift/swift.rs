@@ -30,7 +30,7 @@ fn check_swift_version() -> Result<(), String> {
                 if major >= 6 {
                     return Ok(());
                 }
-                return Err(format!("Swift 6.2+ is required, but found: {}", version_str.trim()));
+                return Err(format!("Swift 6.0+ is required, but found: {}", version_str.trim()));
             }
         }
     }
@@ -112,7 +112,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let mut pkg = File::create(dir.path().join("Package.swift"))?;
     write!(
         pkg,
-        r#"// swift-tools-version: 6.2
+        r#"// swift-tools-version: 6.0
 import PackageDescription
 let package = Package(
     name: "SlintTestRunner",
