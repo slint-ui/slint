@@ -30,6 +30,8 @@ jobs:
             - uses: swift-actions/setup-swift@v2.4.0
               with:
                   swift-version: "6.2"
+            - name: Verify Swift version
+              run: swift --version
             - uses: ./.github/actions/setup-rust
             - name: Install Linux system dependencies
               if: runner.os == 'Linux'

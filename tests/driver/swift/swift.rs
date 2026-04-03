@@ -6,16 +6,50 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::{fs::File, io::Write};
 
+/// Resolve the `swift` binary path, preferring a CI-installed toolchain over the system default.
+fn swift_command() -> PathBuf {
+    which::which("swift").unwrap_or_else(|_| PathBuf::from("swift"))
+}
+
+/// Check that the swift toolchain is at least version 6.0.
+/// Returns `Ok(())` if so, or `Err` with a message if not (or if swift is not found).
+fn check_swift_version() -> Result<(), String> {
+    let swift = swift_command();
+    let output = std::process::Command::new(&swift)
+        .args(["--version"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|e| format!("Could not run swift --version: {e}"))?;
+
+    let version_str = String::from_utf8_lossy(&output.stdout);
+    // Parse "Swift version X.Y.Z" from the output
+    if let Some(version_part) = version_str.split("Swift version ").nth(1) {
+        if let Some(major_str) = version_part.split('.').next() {
+            if let Ok(major) = major_str.parse::<u32>() {
+                if major >= 6 {
+                    return Ok(());
+                }
+                return Err(format!("Swift 6.2+ is required, but found: {}", version_str.trim()));
+            }
+        }
+    }
+    Err(format!("Could not parse Swift version from: {}", version_str.trim()))
+}
+
 /// Build the Swift package once and return its absolute path.
 static SWIFT_PACKAGE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    // Verify Swift version before attempting anything
+    check_swift_version().expect("Swift version check failed");
+
     let swift_dir =
         std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/swift"))
             .expect("Could not canonicalize api/swift path");
 
-    // Build the Rust static library with interpreter support
+    // Build the Rust static library with interpreter and backend-testing support
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let o = std::process::Command::new(cargo)
-        .args(["build", "--lib", "-p", "slint-swift", "--features", "interpreter"])
+        .args(["build", "--lib", "-p", "slint-swift", "--features", "interpreter,backend-testing"])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
@@ -31,7 +65,8 @@ static SWIFT_PACKAGE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
     }
 
     // Build the Swift package
-    let o = std::process::Command::new("swift")
+    let swift = swift_command();
+    let o = std::process::Command::new(&swift)
         .args(["build"])
         .current_dir(&swift_dir)
         .stdout(std::process::Stdio::piped())
@@ -112,6 +147,9 @@ import Foundation
 import Slint
 import SlintInterpreter
 
+// Initialize testing backend for headless environments
+SlintEventLoop.initTesting()
+
 // Assertion helpers
 func assertEqual<T: Equatable>(_ a: T, _ b: T, file: String = #file, line: Int = #line) {{
     if a != b {{
@@ -170,8 +208,9 @@ let instance = definition.createInstance()!
     let target_debug_dir =
         std::fs::canonicalize(&target_debug_dir).unwrap_or(target_debug_dir.clone());
 
-    // Build and run the temporary package
-    let output = std::process::Command::new("swift")
+    // Build and run the temporary package using the same swift binary
+    let swift = swift_command();
+    let output = std::process::Command::new(&swift)
         .args([
             "run",
             "--package-path",
