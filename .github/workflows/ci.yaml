@@ -142,7 +142,7 @@ jobs:
         uses: ./.github/workflows/swift_test_reusable.yaml
         with:
           name: "Swift macOS"
-          os: "macos-14"
+          os: "macos-15"
 
     swift_test_linux:
         needs: files-changed
