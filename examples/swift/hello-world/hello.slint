@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component HelloWorld inherits Window {
+    in-out property <int> counter: 0;
+    callback button-clicked;
+
+    VerticalLayout {
+        alignment: center;
+
+        Text {
+            text: "Hello, Swift! Count: " + counter;
+            horizontal-alignment: center;
+            font-size: 24px;
+        }
+
+        Button {
+            text: "Click me";
+            clicked => {
+                root.counter += 1;
+                root.button-clicked();
+            }
+        }
+    }
+}

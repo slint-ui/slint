@@ -33,6 +33,8 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - name: Build Rust static library
               run: cargo build --lib -p slint-swift --features interpreter
-            - name: Run Swift tests
+            - name: Run Swift unit tests
               working-directory: api/swift
               run: swift test
+            - name: Run Swift test driver
+              run: SLINT_TEST_FILTER=swift cargo test -p test-driver-swift

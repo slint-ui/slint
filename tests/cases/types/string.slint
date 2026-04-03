@@ -50,4 +50,14 @@ assert(!instance.e2);
 assert(instance.test);
 ```
 
+```swift
+let p1 = instance.getProperty("p1")!.asString!
+assertEqual(p1, "hello")
+let p2 = instance.getProperty("p2")!.asString!
+assertEqual(p2, "fox:🦊")
+assertTrue(instance.getProperty("e1")!.asBool!)
+assertFalse(instance.getProperty("e2")!.asBool!)
+assertTrue(instance.getProperty("test")!.asBool!)
+```
+
 */

@@ -1889,3 +1889,195 @@ cd api/swift && swift build
 # Run all Swift tests (118 tests across 11 suites)
 cd api/swift && swift test
 ```
+
+### Phase 5: Testing and CI
+
+Phase 5 adds a `test-driver-swift` crate for running `.slint` test files
+with embedded Swift code blocks, CI workflows for macOS and Linux, and a
+Swift example.
+
+#### File Structure
+
+```
+tests/driver/swift/
+├── Cargo.toml             # Workspace member, depends on driverlib
+├── build.rs               # Generates test functions from .slint files
+├── main.rs                # Test binary entry point
+└── swift.rs               # Test driver logic
+
+examples/swift/hello-world/
+├── hello.slint            # Example Slint UI
+├── main.swift             # Swift entry point using interpreter API
+└── README.md              # Build and run instructions
+```
+
+#### Test Driver Architecture
+
+The Swift test driver follows the same pattern as the Node.js driver:
+
+1. **Build phase** (`build.rs`): Scans `tests/cases/` for `.slint` files,
+   generates a Rust test function per file. Tests with `//ignore: swift` are
+   skipped. Style variants are not supported (filtered out).
+
+2. **Test execution** (`swift.rs`): For each `.slint` file:
+   - Extracts `` ```swift `` code blocks via `driverlib::extract_test_functions`
+   - If no Swift blocks exist, the test is silently skipped (returns `Ok(())`)
+   - Creates a temporary SPM executable package that depends on the local
+     `api/swift` Slint package
+   - Generates `main.swift` with assertion helpers, interpreter setup, and
+     the extracted test code
+   - Runs `swift run --package-path <tmpdir> -Xlinker -L<target/debug>`
+
+3. **One-time setup** (`SWIFT_PACKAGE_DIR` lazy static): On first test,
+   builds both the Rust static library (`cargo build --lib -p slint-swift
+   --features interpreter`) and the Swift package (`swift build`). Subsequent
+   tests reuse the cached build.
+
+#### Temporary SPM Package Pattern
+
+Rather than invoking `swiftc` directly (which requires manually resolving
+module search paths, VFS overlays, and the `SlintCBridge` C module), the
+driver creates a temporary SPM executable package:
+
+```swift
+// swift-tools-version: 6.2
+import PackageDescription
+let package = Package(
+    name: "SlintTestRunner",
+    platforms: [.macOS(.v13), .iOS(.v16)],
+    dependencies: [
+        .package(name: "Slint", path: "/absolute/path/to/api/swift"),
+    ],
+    targets: [
+        .executableTarget(
+            name: "SlintTestRunner",
+            dependencies: [
+                .product(name: "Slint", package: "Slint"),
+                .product(name: "SlintInterpreter", package: "Slint"),
+            ],
+            path: "Sources"
+        ),
+    ]
+)
+```
+
+Key details:
+- **`name: "Slint"` in `.package()`** is required because SPM resolves
+  local packages by directory name (`swift`) by default, not by the
+  `Package.swift` name. The explicit `name:` parameter forces it to match
+  the product names.
+- **`-Xlinker -L<path>`** is passed to `swift run` because the Slint
+  `Package.swift` uses relative `unsafeFlags` (`-L../../target/debug`)
+  that don't resolve correctly from the temp directory.
+- Each test block is wrapped in `do { }` to avoid trailing closure
+  ambiguity with the preceding `createInstance()!` call.
+
+#### Generated Test File Structure
+
+```swift
+import Foundation
+import Slint
+import SlintInterpreter
+
+// Assertion helpers: assertEqual, assertTrue, assertFalse, assertClose
+
+let compiler = SlintCompiler()
+let definition = compiler.buildFromSource(
+    try! String(contentsOfFile: "/path/to/test.slint", encoding: .utf8),
+    path: "/path/to/test.slint"
+)!
+let instance = definition.createInstance()!
+
+do {
+    // extracted swift test code
+}
+
+print("PASS")
+exit(0)
+```
+
+#### Swift Test Block Format
+
+Swift test blocks are embedded in `.slint` test files using the standard
+Markdown code fence syntax:
+
+```text
+/*
+` ` `swift
+let val = instance.getProperty("my-prop")!
+assertTrue(val.asBool!)
+` ` `
+*/
+```
+
+The interpreter API is used for all property access:
+- `instance.getProperty("name")` returns `SlintValue?`
+- `instance.setProperty("name", value: SlintValue(...))` returns `Bool`
+- `instance.invoke("callback-name", args: [...])` returns `SlintValue?`
+
+#### Test Files with Swift Blocks
+
+Initial Swift test blocks were added to:
+- `tests/cases/types/bool.slint` — boolean property access
+- `tests/cases/types/string.slint` — string property access and comparison
+- `tests/cases/types/int_conversion.slint` — numeric property access
+- `tests/cases/bindings/two_way_simple.slint` — property set + two-way binding
+
+#### CI Configuration
+
+The existing `swift_test_reusable.yaml` workflow was extended to also run the
+Swift test driver. A new Linux job was added to `ci.yaml`:
+
+```yaml
+# .github/workflows/ci.yaml
+swift_test_linux:
+    needs: files-changed
+    if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_swift == 'true'
+    uses: ./.github/workflows/swift_test_reusable.yaml
+    with:
+      name: "Swift Linux"
+      os: "ubuntu-24.04"
+```
+
+The reusable workflow now runs both Swift unit tests and the test driver:
+```yaml
+- name: Run Swift unit tests
+  working-directory: api/swift
+  run: swift test
+- name: Run Swift test driver
+  run: SLINT_TEST_FILTER=swift cargo test -p test-driver-swift
+```
+
+The `SLINT_TEST_FILTER=swift` filter ensures only test files that actually
+contain `` ```swift `` blocks are compiled — others skip instantly.
+
+#### Workspace Registration
+
+- `tests/driver/swift` added to `Cargo.toml` workspace members
+- `swift` added to `tests/run_tests.sh` as a valid driver name
+
+Usage:
+```sh
+tests/run_tests.sh swift                      # All Swift tests
+tests/run_tests.sh swift types/bool           # Filtered
+SLINT_TEST_FILTER=types/bool cargo test -p test-driver-swift  # Direct
+```
+
+#### Build Verification
+
+```sh
+# Build the Rust static library
+cargo build --lib -p slint-swift --features interpreter
+
+# Build the Swift package
+cd api/swift && swift build
+
+# Run Swift unit tests (118 tests)
+cd api/swift && swift test
+
+# Run Swift test driver (tests with ```swift blocks)
+SLINT_TEST_FILTER=types/bool cargo test -p test-driver-swift
+
+# Run all Swift test driver tests
+cargo test -p test-driver-swift
+```

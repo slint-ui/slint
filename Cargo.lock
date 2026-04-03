@@ -10994,6 +10994,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-driver-swift"
+version = "1.16.0"
+dependencies = [
+ "tempfile",
+ "test_driver_lib",
+ "which",
+]
+
+[[package]]
 name = "test_driver_lib"
 version = "1.16.0"
 dependencies = [

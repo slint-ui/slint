@@ -144,6 +144,14 @@ jobs:
           name: "Swift macOS"
           os: "macos-14"
 
+    swift_test_linux:
+        needs: files-changed
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_swift == 'true'
+        uses: ./.github/workflows/swift_test_reusable.yaml
+        with:
+          name: "Swift Linux"
+          os: "ubuntu-24.04"
+
     cpp_test_driver:
         needs: files-changed
         if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
