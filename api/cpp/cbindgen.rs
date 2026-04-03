@@ -294,6 +294,7 @@ fn gen_corelib(
 
     let items = [
         "Empty",
+        "ToolTip",
         "Rectangle",
         "BasicBorderRectangle",
         "BorderRectangle",

@@ -1873,6 +1873,111 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+/// The implementation of the `ToolTip` builtin (content is composed by the compiler lowering).
+pub struct ToolTip {
+    pub text: Property<SharedString>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for ToolTip {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        // Unlike `Empty`, do not stretch: tooltip popups are lowered with a `Text` sibling; sharing
+        // stretch with `Empty` can starve the label and yield a 0×0 popup.
+        LayoutInfo::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        mut geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry.size = LogicalSize::zero();
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for ToolTip {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        ToolTip,
+        CachedRenderingData,
+    > = ToolTip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_ToolTipVTable() -> ToolTipVTable for ToolTip
+}
+
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
