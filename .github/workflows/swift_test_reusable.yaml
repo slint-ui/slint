@@ -29,7 +29,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: swift-actions/setup-swift@v2.4.0
               with:
-                  swift-version: "6.2"
+                  swift-version: "6.0"
             - name: Verify Swift version
               run: swift --version
             - uses: ./.github/actions/setup-rust
