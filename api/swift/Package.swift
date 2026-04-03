@@ -24,14 +24,16 @@ let package = Package(
                 .unsafeFlags(["-L../../target/debug"], .when(configuration: .debug)),
                 .unsafeFlags(["-L../../target/release"], .when(configuration: .release)),
                 // macOS system frameworks required by the Rust backend (winit, CoreFoundation, etc.)
-                .linkedFramework("AppKit"),
-                .linkedFramework("Carbon"),
-                .linkedFramework("CoreFoundation"),
-                .linkedFramework("CoreGraphics"),
-                .linkedFramework("CoreServices"),
-                .linkedFramework("CoreText"),
-                .linkedFramework("CoreVideo"),
-                .linkedFramework("OpenGL"),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("Carbon", .when(platforms: [.macOS])),
+                .linkedFramework("CoreFoundation", .when(platforms: [.macOS])),
+                .linkedFramework("CoreGraphics", .when(platforms: [.macOS])),
+                .linkedFramework("CoreServices", .when(platforms: [.macOS])),
+                .linkedFramework("CoreText", .when(platforms: [.macOS])),
+                .linkedFramework("CoreVideo", .when(platforms: [.macOS])),
+                .linkedFramework("OpenGL", .when(platforms: [.macOS])),
+                // Linux system libraries required by the Rust backend
+                .linkedLibrary("fontconfig", .when(platforms: [.linux])),
             ]
         ),
 
