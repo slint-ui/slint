@@ -596,6 +596,553 @@ pub fn with_platform<R>(
 use alloc::boxed::Box;
 use i_slint_core::graphics::Image;
 
+// ---------------------------------------------------------------------------
+// Phase 4: Platform Integration — Event dispatch helpers
+// ---------------------------------------------------------------------------
+
+/// Dispatches a pointer-pressed event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_pointer_pressed(
+    handle: *const WindowAdapterRcOpaque,
+    x: f32,
+    y: f32,
+    button: u32,
+) {
+    let event = i_slint_core::platform::WindowEvent::PointerPressed {
+        position: i_slint_core::api::LogicalPosition::new(x, y),
+        button: pointer_event_button_from_u32(button),
+    };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a pointer-released event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_pointer_released(
+    handle: *const WindowAdapterRcOpaque,
+    x: f32,
+    y: f32,
+    button: u32,
+) {
+    let event = i_slint_core::platform::WindowEvent::PointerReleased {
+        position: i_slint_core::api::LogicalPosition::new(x, y),
+        button: pointer_event_button_from_u32(button),
+    };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a pointer-moved event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_pointer_moved(
+    handle: *const WindowAdapterRcOpaque,
+    x: f32,
+    y: f32,
+) {
+    let event = i_slint_core::platform::WindowEvent::PointerMoved {
+        position: i_slint_core::api::LogicalPosition::new(x, y),
+    };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a pointer-scrolled event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_pointer_scrolled(
+    handle: *const WindowAdapterRcOpaque,
+    x: f32,
+    y: f32,
+    delta_x: f32,
+    delta_y: f32,
+) {
+    let event = i_slint_core::platform::WindowEvent::PointerScrolled {
+        position: i_slint_core::api::LogicalPosition::new(x, y),
+        delta_x,
+        delta_y,
+    };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a pointer-exited event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_pointer_exited(handle: *const WindowAdapterRcOpaque) {
+    let event = i_slint_core::platform::WindowEvent::PointerExited;
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a key-pressed event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+/// `text` must be a valid `SharedString` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_key_pressed(
+    handle: *const WindowAdapterRcOpaque,
+    text: &SharedString,
+) {
+    let event = i_slint_core::platform::WindowEvent::KeyPressed { text: text.clone() };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a key-press-repeated event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+/// `text` must be a valid `SharedString` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_key_press_repeated(
+    handle: *const WindowAdapterRcOpaque,
+    text: &SharedString,
+) {
+    let event = i_slint_core::platform::WindowEvent::KeyPressRepeated { text: text.clone() };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a key-released event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+/// `text` must be a valid `SharedString` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_key_released(
+    handle: *const WindowAdapterRcOpaque,
+    text: &SharedString,
+) {
+    let event = i_slint_core::platform::WindowEvent::KeyReleased { text: text.clone() };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a scale-factor-changed event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_scale_factor_changed(
+    handle: *const WindowAdapterRcOpaque,
+    scale_factor: f32,
+) {
+    let event = i_slint_core::platform::WindowEvent::ScaleFactorChanged { scale_factor };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a resized event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_resized(
+    handle: *const WindowAdapterRcOpaque,
+    width: f32,
+    height: f32,
+) {
+    let event = i_slint_core::platform::WindowEvent::Resized {
+        size: i_slint_core::api::LogicalSize::new(width, height),
+    };
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a close-requested event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_close_requested(
+    handle: *const WindowAdapterRcOpaque,
+) {
+    let event = i_slint_core::platform::WindowEvent::CloseRequested;
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+/// Dispatches a window-active-changed event to the window.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_dispatch_window_active_changed(
+    handle: *const WindowAdapterRcOpaque,
+    active: bool,
+) {
+    let event = i_slint_core::platform::WindowEvent::WindowActiveChanged(active);
+    unsafe {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event);
+    }
+}
+
+fn pointer_event_button_from_u32(button: u32) -> i_slint_core::items::PointerEventButton {
+    use i_slint_core::items::PointerEventButton;
+    match button {
+        0 => PointerEventButton::Other,
+        1 => PointerEventButton::Left,
+        2 => PointerEventButton::Right,
+        3 => PointerEventButton::Middle,
+        4 => PointerEventButton::Back,
+        5 => PointerEventButton::Forward,
+        _ => PointerEventButton::Other,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Platform Integration — Custom WindowAdapter + Platform registration
+// ---------------------------------------------------------------------------
+
+/// A custom window adapter with an attached renderer reference.
+struct SwiftWindowAdapterWithRenderer {
+    window: i_slint_core::api::Window,
+    user_data: *mut c_void,
+    drop_fn: unsafe extern "C" fn(*mut c_void),
+    set_visible_fn: unsafe extern "C" fn(*mut c_void, bool),
+    request_redraw_fn: unsafe extern "C" fn(*mut c_void),
+    size_fn: unsafe extern "C" fn(*mut c_void, *mut u32, *mut u32),
+    set_size_fn: unsafe extern "C" fn(*mut c_void, u32, u32),
+    position_fn: unsafe extern "C" fn(*mut c_void, *mut i32, *mut i32) -> bool,
+    set_position_fn: unsafe extern "C" fn(*mut c_void, i32, i32),
+    update_window_properties_fn:
+        Option<unsafe extern "C" fn(*mut c_void, *const SharedString, bool, bool, bool)>,
+    /// Safety: must outlive this struct and be a valid `&dyn Renderer` transmuted to two pointers
+    renderer: RendererRefOpaque,
+}
+
+/// Opaque representation of `&dyn Renderer` as two pointers (data + vtable).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct RendererRefOpaque {
+    _0: *const c_void,
+    _1: *const c_void,
+}
+
+impl Drop for SwiftWindowAdapterWithRenderer {
+    fn drop(&mut self) {
+        unsafe { (self.drop_fn)(self.user_data) }
+    }
+}
+
+impl WindowAdapter for SwiftWindowAdapterWithRenderer {
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
+    }
+
+    fn set_visible(&self, visible: bool) -> Result<(), i_slint_core::platform::PlatformError> {
+        unsafe { (self.set_visible_fn)(self.user_data, visible) };
+        Ok(())
+    }
+
+    fn position(&self) -> Option<i_slint_core::api::PhysicalPosition> {
+        let mut x: i32 = 0;
+        let mut y: i32 = 0;
+        if unsafe { (self.position_fn)(self.user_data, &mut x, &mut y) } {
+            Some(i_slint_core::api::PhysicalPosition::new(x, y))
+        } else {
+            None
+        }
+    }
+
+    fn set_position(&self, position: i_slint_core::api::WindowPosition) {
+        let phys = position.to_physical(self.window.scale_factor());
+        unsafe { (self.set_position_fn)(self.user_data, phys.x, phys.y) }
+    }
+
+    fn set_size(&self, size: i_slint_core::api::WindowSize) {
+        let phys = size.to_physical(self.window.scale_factor());
+        unsafe { (self.set_size_fn)(self.user_data, phys.width, phys.height) }
+    }
+
+    fn size(&self) -> i_slint_core::api::PhysicalSize {
+        let mut w: u32 = 0;
+        let mut h: u32 = 0;
+        unsafe { (self.size_fn)(self.user_data, &mut w, &mut h) };
+        i_slint_core::api::PhysicalSize::new(w, h)
+    }
+
+    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        // Safety: the caller ensures the renderer outlives this adapter
+        unsafe { core::mem::transmute(self.renderer) }
+    }
+
+    fn request_redraw(&self) {
+        unsafe { (self.request_redraw_fn)(self.user_data) }
+    }
+
+    fn update_window_properties(&self, properties: i_slint_core::window::WindowProperties<'_>) {
+        if let Some(f) = self.update_window_properties_fn {
+            let title = properties.title();
+            let fullscreen = properties.is_fullscreen();
+            let minimized = properties.is_minimized();
+            let maximized = properties.is_maximized();
+            unsafe { f(self.user_data, &title, fullscreen, minimized, maximized) }
+        }
+    }
+}
+
+/// Creates a custom window adapter backed by Swift function pointers with an attached renderer.
+///
+/// `renderer` must be a valid `RendererRefOpaque` (e.g. from `slint_software_renderer_handle` or
+/// `slint_skia_renderer_handle`) that outlives the window adapter.
+///
+/// Writes the resulting `Rc<dyn WindowAdapter>` into `target`.
+///
+/// # Safety
+///
+/// All function pointers must be valid. `target` must point to writable, properly-aligned memory
+/// for a `WindowAdapterRcOpaque`. `user_data` must remain valid until `drop_fn` is called.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_window_adapter_new(
+    user_data: *mut c_void,
+    drop_fn: unsafe extern "C" fn(*mut c_void),
+    set_visible_fn: unsafe extern "C" fn(*mut c_void, bool),
+    request_redraw_fn: unsafe extern "C" fn(*mut c_void),
+    size_fn: unsafe extern "C" fn(*mut c_void, *mut u32, *mut u32),
+    set_size_fn: unsafe extern "C" fn(*mut c_void, u32, u32),
+    position_fn: unsafe extern "C" fn(*mut c_void, *mut i32, *mut i32) -> bool,
+    set_position_fn: unsafe extern "C" fn(*mut c_void, i32, i32),
+    update_window_properties_fn: Option<
+        unsafe extern "C" fn(*mut c_void, *const SharedString, bool, bool, bool),
+    >,
+    renderer: RendererRefOpaque,
+    target: *mut WindowAdapterRcOpaque,
+) {
+    let window =
+        Rc::<SwiftWindowAdapterWithRenderer>::new_cyclic(|w| SwiftWindowAdapterWithRenderer {
+            window: i_slint_core::api::Window::new(w.clone()),
+            user_data,
+            drop_fn,
+            set_visible_fn,
+            request_redraw_fn,
+            size_fn,
+            set_size_fn,
+            position_fn,
+            set_position_fn,
+            update_window_properties_fn,
+            renderer,
+        });
+    unsafe {
+        core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Custom Platform registration
+// ---------------------------------------------------------------------------
+
+/// Opaque task type matching the C++ PlatformTaskOpaque.
+#[repr(C)]
+pub struct SwiftPlatformTaskOpaque(*const c_void, *const c_void);
+
+struct SwiftPlatform {
+    user_data: *mut c_void,
+    drop_fn: unsafe extern "C" fn(*mut c_void),
+    window_factory_fn: unsafe extern "C" fn(*mut c_void, *mut WindowAdapterRcOpaque),
+    run_event_loop_fn: unsafe extern "C" fn(*mut c_void),
+    quit_event_loop_fn: unsafe extern "C" fn(*mut c_void),
+    invoke_from_event_loop_fn: unsafe extern "C" fn(*mut c_void, SwiftPlatformTaskOpaque),
+}
+
+impl Drop for SwiftPlatform {
+    fn drop(&mut self) {
+        unsafe { (self.drop_fn)(self.user_data) }
+    }
+}
+
+impl i_slint_core::platform::Platform for SwiftPlatform {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
+        let mut uninit = core::mem::MaybeUninit::<Rc<dyn WindowAdapter>>::uninit();
+        unsafe {
+            (self.window_factory_fn)(
+                self.user_data,
+                uninit.as_mut_ptr() as *mut WindowAdapterRcOpaque,
+            );
+            Ok(uninit.assume_init())
+        }
+    }
+
+    fn run_event_loop(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        unsafe { (self.run_event_loop_fn)(self.user_data) };
+        Ok(())
+    }
+
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
+        Some(Box::new(SwiftEventLoopProxy {
+            user_data: self.user_data,
+            quit_event_loop_fn: self.quit_event_loop_fn,
+            invoke_from_event_loop_fn: self.invoke_from_event_loop_fn,
+        }))
+    }
+}
+
+struct SwiftEventLoopProxy {
+    user_data: *mut c_void,
+    quit_event_loop_fn: unsafe extern "C" fn(*mut c_void),
+    invoke_from_event_loop_fn: unsafe extern "C" fn(*mut c_void, SwiftPlatformTaskOpaque),
+}
+
+impl i_slint_core::platform::EventLoopProxy for SwiftEventLoopProxy {
+    fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
+        unsafe { (self.quit_event_loop_fn)(self.user_data) };
+        Ok(())
+    }
+
+    fn invoke_from_event_loop(
+        &self,
+        event: Box<dyn FnOnce() + Send>,
+    ) -> Result<(), i_slint_core::api::EventLoopError> {
+        unsafe {
+            (self.invoke_from_event_loop_fn)(
+                self.user_data,
+                core::mem::transmute::<*mut dyn FnOnce(), SwiftPlatformTaskOpaque>(Box::into_raw(
+                    event,
+                )),
+            )
+        };
+        Ok(())
+    }
+}
+
+unsafe impl Send for SwiftEventLoopProxy {}
+unsafe impl Sync for SwiftEventLoopProxy {}
+
+/// Registers a custom platform with the Slint runtime.
+///
+/// This must be called before any window is created. Once set, it cannot be changed.
+///
+/// # Safety
+///
+/// All function pointers must be valid. `user_data` must remain valid until `drop_fn` is called.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_platform_register(
+    user_data: *mut c_void,
+    drop_fn: unsafe extern "C" fn(*mut c_void),
+    window_factory_fn: unsafe extern "C" fn(*mut c_void, *mut WindowAdapterRcOpaque),
+    run_event_loop_fn: unsafe extern "C" fn(*mut c_void),
+    quit_event_loop_fn: unsafe extern "C" fn(*mut c_void),
+    invoke_from_event_loop_fn: unsafe extern "C" fn(*mut c_void, SwiftPlatformTaskOpaque),
+) {
+    let p = SwiftPlatform {
+        user_data,
+        drop_fn,
+        window_factory_fn,
+        run_event_loop_fn,
+        quit_event_loop_fn,
+        invoke_from_event_loop_fn,
+    };
+    i_slint_core::platform::set_platform(Box::new(p)).unwrap();
+}
+
+/// Runs a platform task (used by `invoke_from_event_loop`).
+///
+/// # Safety
+///
+/// `task` must be a valid `SwiftPlatformTaskOpaque` received from the `invoke_from_event_loop`
+/// callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_platform_task_run(task: SwiftPlatformTaskOpaque) {
+    unsafe {
+        let f =
+            Box::from_raw(core::mem::transmute::<SwiftPlatformTaskOpaque, *mut dyn FnOnce()>(task));
+        f();
+    }
+}
+
+/// Drops a platform task without running it.
+///
+/// # Safety
+///
+/// `task` must be a valid `SwiftPlatformTaskOpaque` received from the `invoke_from_event_loop`
+/// callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_platform_task_drop(task: SwiftPlatformTaskOpaque) {
+    unsafe {
+        drop(Box::from_raw(core::mem::transmute::<SwiftPlatformTaskOpaque, *mut dyn FnOnce()>(
+            task,
+        )));
+    }
+}
+
+/// Updates all timers and animations. Call this from your platform's event loop.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_swift_platform_update_timers_and_animations() {
+    i_slint_core::platform::update_timers_and_animations()
+}
+
+/// Returns the duration in milliseconds until the next timer fires,
+/// or `u64::MAX` if no timer is pending.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_swift_platform_duration_until_next_timer_update() -> u64 {
+    i_slint_core::platform::duration_until_next_timer_update()
+        .map_or(u64::MAX, |d| d.as_millis() as u64)
+}
+
+/// Returns whether the window has active animations.
+///
+/// # Safety
+///
+/// `handle` must be a valid `WindowAdapterRcOpaque` pointer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_swift_window_has_active_animations(
+    handle: *const WindowAdapterRcOpaque,
+) -> bool {
+    let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+    window_adapter.window().has_active_animations()
+}
+
 /// Allocates a new default (empty) Image on the heap and returns a pointer.
 /// The caller must eventually call `slint_swift_image_drop` to free it.
 #[unsafe(no_mangle)]

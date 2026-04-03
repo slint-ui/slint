@@ -572,4 +572,139 @@ SlintValueOpaque *slint_swift_instance_invoke(const SlintComponentInstanceOpaque
                                               const SlintValueOpaque *const *args,
                                               uintptr_t args_count);
 
+// ---------------------------------------------------------------------------
+// Phase 4: Platform Integration — Event dispatch
+// ---------------------------------------------------------------------------
+
+/// Pointer button identifiers matching PointerEventButton in Rust.
+typedef enum {
+    SLINT_POINTER_BUTTON_OTHER = 0,
+    SLINT_POINTER_BUTTON_LEFT = 1,
+    SLINT_POINTER_BUTTON_RIGHT = 2,
+    SLINT_POINTER_BUTTON_MIDDLE = 3,
+    SLINT_POINTER_BUTTON_BACK = 4,
+    SLINT_POINTER_BUTTON_FORWARD = 5,
+} SlintPointerButton;
+
+/// Dispatches a pointer-pressed event to the window.
+void slint_swift_dispatch_pointer_pressed(const SlintWindowAdapterRcOpaque *handle, float x,
+                                          float y, uint32_t button);
+
+/// Dispatches a pointer-released event to the window.
+void slint_swift_dispatch_pointer_released(const SlintWindowAdapterRcOpaque *handle, float x,
+                                           float y, uint32_t button);
+
+/// Dispatches a pointer-moved event to the window.
+void slint_swift_dispatch_pointer_moved(const SlintWindowAdapterRcOpaque *handle, float x, float y);
+
+/// Dispatches a pointer-scrolled event to the window.
+void slint_swift_dispatch_pointer_scrolled(const SlintWindowAdapterRcOpaque *handle, float x,
+                                           float y, float delta_x, float delta_y);
+
+/// Dispatches a pointer-exited event to the window.
+void slint_swift_dispatch_pointer_exited(const SlintWindowAdapterRcOpaque *handle);
+
+/// Dispatches a key-pressed event to the window.
+void slint_swift_dispatch_key_pressed(const SlintWindowAdapterRcOpaque *handle,
+                                      const SlintSharedStringOpaque *text);
+
+/// Dispatches a key-press-repeated event to the window.
+void slint_swift_dispatch_key_press_repeated(const SlintWindowAdapterRcOpaque *handle,
+                                             const SlintSharedStringOpaque *text);
+
+/// Dispatches a key-released event to the window.
+void slint_swift_dispatch_key_released(const SlintWindowAdapterRcOpaque *handle,
+                                       const SlintSharedStringOpaque *text);
+
+/// Dispatches a scale-factor-changed event to the window.
+void slint_swift_dispatch_scale_factor_changed(const SlintWindowAdapterRcOpaque *handle,
+                                               float scale_factor);
+
+/// Dispatches a resized event to the window.
+void slint_swift_dispatch_resized(const SlintWindowAdapterRcOpaque *handle, float width,
+                                  float height);
+
+/// Dispatches a close-requested event to the window.
+void slint_swift_dispatch_close_requested(const SlintWindowAdapterRcOpaque *handle);
+
+/// Dispatches a window-active-changed event to the window.
+void slint_swift_dispatch_window_active_changed(const SlintWindowAdapterRcOpaque *handle,
+                                                bool active);
+
+// ---------------------------------------------------------------------------
+// Phase 4: Platform Integration — Custom WindowAdapter
+// ---------------------------------------------------------------------------
+
+/// Opaque reference to a `&dyn Renderer` (two pointers: data + vtable).
+typedef struct {
+    const void *_0;
+    const void *_1;
+} SlintRendererRefOpaque;
+
+/// Creates a custom window adapter backed by function pointers.
+/// `renderer` must be a valid renderer ref (e.g. from `slint_software_renderer_handle`).
+/// Writes the result into `target`.
+void slint_swift_window_adapter_new(
+    void *user_data, void (*drop_fn)(void *), void (*set_visible_fn)(void *, bool),
+    void (*request_redraw_fn)(void *), void (*size_fn)(void *, uint32_t *, uint32_t *),
+    void (*set_size_fn)(void *, uint32_t, uint32_t),
+    bool (*position_fn)(void *, int32_t *, int32_t *), void (*set_position_fn)(void *, int32_t, int32_t),
+    void (*update_window_properties_fn)(void *, const SlintSharedStringOpaque *, bool, bool, bool),
+    SlintRendererRefOpaque renderer, SlintWindowAdapterRcOpaque *target);
+
+// ---------------------------------------------------------------------------
+// Phase 4: Platform Integration — Custom Platform
+// ---------------------------------------------------------------------------
+
+/// Opaque task handle for platform `invoke_from_event_loop` callbacks.
+typedef struct {
+    const void *_0;
+    const void *_1;
+} SlintPlatformTaskOpaque;
+
+/// Registers a custom platform with the Slint runtime. Must be called before any window.
+void slint_swift_platform_register(
+    void *user_data, void (*drop_fn)(void *),
+    void (*window_factory_fn)(void *, SlintWindowAdapterRcOpaque *),
+    void (*run_event_loop_fn)(void *), void (*quit_event_loop_fn)(void *),
+    void (*invoke_from_event_loop_fn)(void *, SlintPlatformTaskOpaque));
+
+/// Runs a platform task received from `invoke_from_event_loop`.
+void slint_swift_platform_task_run(SlintPlatformTaskOpaque task);
+
+/// Drops a platform task without running it.
+void slint_swift_platform_task_drop(SlintPlatformTaskOpaque task);
+
+/// Updates all timers and animations. Call from your event loop.
+void slint_swift_platform_update_timers_and_animations(void);
+
+/// Returns milliseconds until next timer fires, or UINT64_MAX if none pending.
+uint64_t slint_swift_platform_duration_until_next_timer_update(void);
+
+/// Returns whether the window has active animations.
+bool slint_swift_window_has_active_animations(const SlintWindowAdapterRcOpaque *handle);
+
+// ---------------------------------------------------------------------------
+// Phase 4: Platform Integration — Software Renderer (for custom platforms)
+// ---------------------------------------------------------------------------
+
+/// Opaque handle to a SoftwareRenderer.
+typedef struct SlintSoftwareRendererOpaque SlintSoftwareRendererOpaque;
+
+/// Buffer age for software renderer: 0 = new buffer, 1 = reused, 2 = swapped.
+/// Creates a new software renderer. Free with `slint_software_renderer_drop`.
+SlintSoftwareRendererOpaque *slint_software_renderer_new(uint32_t buffer_age);
+
+/// Drops a software renderer.
+void slint_software_renderer_drop(SlintSoftwareRendererOpaque *renderer);
+
+/// Returns the renderer ref handle for use with `slint_swift_window_adapter_new`.
+SlintRendererRefOpaque slint_software_renderer_handle(SlintSoftwareRendererOpaque *renderer);
+
+/// Renders into an RGB8 pixel buffer. Returns the dirty physical region.
+/// `buffer` is a pointer to `buffer_len` Rgb8Pixels (3 bytes each, R, G, B).
+/// `pixel_stride` is the number of pixels per row.
+void slint_software_renderer_render_rgb8(SlintSoftwareRendererOpaque *renderer, void *buffer,
+                                         uintptr_t buffer_len, uintptr_t pixel_stride);
+
 #endif // SLINT_CORE_H

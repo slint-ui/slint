@@ -1650,3 +1650,242 @@ cargo build --lib -p slint-swift --features interpreter
 # Run all Swift tests (includes interpreter tests)
 cd api/swift && swift test
 ```
+
+### Phase 4: Platform Integration
+
+Phase 4 adds custom platform and window adapter support, native view
+integrations (AppKit, UIKit), a SwiftUI wrapper, and full event forwarding.
+
+#### File Structure (additions to Phase 3)
+
+```
+api/swift/
+├── lib.rs                                     # + event dispatch, window adapter, platform FFI
+├── Sources/
+│   ├── Slint/
+│   │   ├── SlintPlatform.swift                # SlintPlatformProtocol + registration
+│   │   ├── SlintWindowAdapterProtocol.swift   # SlintWindowAdapterProtocol + event dispatch
+│   │   ├── SlintNSView.swift                  # AppKit NSView subclass (macOS)
+│   │   ├── SlintUIKitView.swift               # UIKit UIView subclass (iOS)
+│   │   └── SlintView.swift                    # SwiftUI wrapper
+│   └── SlintCBridge/
+│       └── include/
+│           └── SlintCore.h                    # + event, platform, window adapter declarations
+```
+
+#### Event Dispatch — Typed Helper Functions
+
+Rather than exposing the `WindowEvent` tagged union (which is `#[repr(u32)]`
+with variant-specific payloads containing `SharedString` fields), Phase 4
+provides individual C functions for each event type:
+
+```c
+void slint_swift_dispatch_pointer_pressed(handle, x, y, button);
+void slint_swift_dispatch_pointer_released(handle, x, y, button);
+void slint_swift_dispatch_pointer_moved(handle, x, y);
+void slint_swift_dispatch_pointer_scrolled(handle, x, y, delta_x, delta_y);
+void slint_swift_dispatch_pointer_exited(handle);
+void slint_swift_dispatch_key_pressed(handle, text);
+void slint_swift_dispatch_key_press_repeated(handle, text);
+void slint_swift_dispatch_key_released(handle, text);
+void slint_swift_dispatch_scale_factor_changed(handle, scale_factor);
+void slint_swift_dispatch_resized(handle, width, height);
+void slint_swift_dispatch_close_requested(handle);
+void slint_swift_dispatch_window_active_changed(handle, active);
+```
+
+Each function constructs the appropriate `WindowEvent` variant in Rust and
+calls `window.dispatch_event()`. This avoids exposing the complex union layout
+to C/Swift and eliminates potential ABI mismatches.
+
+The `PointerEventButton` enum is mapped via a simple `u32` discriminant:
+
+| Value | Button   |
+|-------|----------|
+| 0     | Other    |
+| 1     | Left     |
+| 2     | Right    |
+| 3     | Middle   |
+| 4     | Back     |
+| 5     | Forward  |
+
+#### Custom WindowAdapter — Function Pointer VTable
+
+The `slint_swift_window_adapter_new` FFI function mirrors the C++ approach
+from `api/cpp/platform.rs` (`slint_window_adapter_new`). It accepts a
+`user_data` pointer and a set of C function pointers that implement the
+`WindowAdapter` trait methods:
+
+```c
+void slint_swift_window_adapter_new(
+    void *user_data,
+    void (*drop_fn)(void *),
+    void (*set_visible_fn)(void *, bool),
+    void (*request_redraw_fn)(void *),
+    void (*size_fn)(void *, uint32_t *, uint32_t *),
+    void (*set_size_fn)(void *, uint32_t, uint32_t),
+    bool (*position_fn)(void *, int32_t *, int32_t *),
+    void (*set_position_fn)(void *, int32_t, int32_t),
+    void (*update_window_properties_fn)(...),
+    SlintRendererRefOpaque renderer,
+    SlintWindowAdapterRcOpaque *target);
+```
+
+Key differences from the C++ version:
+
+- **Size/position use out-pointers** instead of returning structs by value, to
+  avoid C struct return ABI differences between compilers and platforms.
+- **Renderer is required** at creation time via `SlintRendererRefOpaque`
+  (two pointers matching `&dyn Renderer`). This must come from
+  `slint_software_renderer_handle` or `slint_skia_renderer_handle`.
+- **`update_window_properties_fn` is optional** (`NULL`-able). When provided,
+  it receives title, fullscreen, minimized, and maximized state.
+
+Internally, a `SwiftWindowAdapterWithRenderer` struct is created with
+`Rc::new_cyclic` (same pattern as `CppWindowAdapter`) so the `Window` can
+reference its own adapter.
+
+#### Custom Platform — Registration
+
+`slint_swift_platform_register` mirrors `slint_platform_register` from the
+C++ API. It accepts function pointers for:
+
+- `window_factory_fn` — creates a `WindowAdapterRcOpaque` (calls
+  `SlintPlatformProtocol.createWindowAdapter()`)
+- `run_event_loop_fn` / `quit_event_loop_fn` — event loop lifecycle
+- `invoke_from_event_loop_fn` — receives `SlintPlatformTaskOpaque` (two
+  pointers, matching `Box<dyn FnOnce()>`)
+
+The task opaque type must be consumed by calling either
+`slint_swift_platform_task_run` (executes and frees) or
+`slint_swift_platform_task_drop` (frees without executing).
+
+Additional platform helpers:
+- `slint_swift_platform_update_timers_and_animations()` — call from your
+  event loop
+- `slint_swift_platform_duration_until_next_timer_update()` — returns
+  milliseconds until next timer, or `UINT64_MAX` if none pending
+- `slint_swift_window_has_active_animations()` — check if redraw is needed
+
+#### Swift Protocol Design
+
+The Swift layer exposes two protocols:
+
+**`SlintPlatformProtocol`** — implemented by custom platforms:
+```swift
+public protocol SlintPlatformProtocol: AnyObject {
+    func createWindowAdapter() -> any SlintWindowAdapterProtocol
+    func runEventLoop()
+    func quitEventLoop()
+    func invokeFromEventLoop(_ task: SlintPlatformTask)
+}
+```
+
+**`SlintWindowAdapterProtocol`** — implemented by custom window adapters:
+```swift
+public protocol SlintWindowAdapterProtocol: AnyObject {
+    var rendererHandle: SlintRendererRefOpaque { get }
+    func setVisible(_ visible: Bool)
+    func requestRedraw()
+    func size() -> (width: UInt32, height: UInt32)
+    func setSize(width: UInt32, height: UInt32)
+    func position() -> (x: Int32, y: Int32)?        // optional
+    func setPosition(x: Int32, y: Int32)             // optional
+    func updateWindowProperties(...)                  // optional
+}
+```
+
+Neither protocol is `@MainActor`-annotated because the C callback functions
+that bridge to them are `@convention(c)` closures (which cannot be
+`@MainActor`-isolated). Instead, all callback closures use
+`nonisolated(unsafe)` and the `PlatformBox`/`WindowAdapterBox` wrappers
+are `@unchecked Sendable`. The Slint runtime guarantees these are only
+called on the main thread.
+
+#### SlintWindowAdapterHandle — Event Dispatch
+
+`SlintWindowAdapterHandle` is the primary API for dispatching events from
+native views into Slint. It holds a `SlintWindowAdapterRcOpaque` (the
+`Rc<dyn WindowAdapter>`) and provides typed Swift methods:
+
+```swift
+handle.dispatchPointerPressed(x: 100, y: 200, button: .left)
+handle.dispatchKeyPressed(text: "a")
+handle.dispatchScaleFactorChanged(2.0)
+handle.dispatchResized(width: 800, height: 600)
+```
+
+Key events use `SharedString` under the hood. The `withSharedString` helper
+creates, uses, and drops the string in a single scope to avoid leaks.
+
+#### AppKit Integration — SlintNSView
+
+`SlintNSView` is an `NSView` subclass (macOS only, guarded with
+`#if canImport(AppKit) && !targetEnvironment(macCatalyst)`) that forwards:
+
+- **Mouse events**: `mouseDown/Up`, `rightMouseDown/Up`, `otherMouseDown/Up`,
+  `mouseMoved`, `mouseDragged`, `scrollWheel`, `mouseExited`
+- **Keyboard events**: `keyDown` (distinguishes initial press vs repeat via
+  `event.isARepeat`), `keyUp`, `flagsChanged` (modifier keys)
+- **Window lifecycle**: `layout()` dispatches `Resized` + `ScaleFactorChanged`,
+  `becomeFirstResponder`/`resignFirstResponder` dispatch
+  `WindowActiveChanged`
+
+Coordinate conversion: AppKit's origin is bottom-left; Slint's is top-left.
+The `logicalPosition(for:)` method flips the Y axis:
+`y = bounds.height - localPoint.y`.
+
+Mouse tracking uses `NSTrackingArea` with `.mouseMoved` and
+`.mouseEnteredAndExited` options, rebuilt in `updateTrackingAreas()`.
+
+Modifier key tracking (`flagsChanged`) maintains an `activeModifiers` set
+and dispatches press/release events using Slint's special key codes
+(`\u{10}` = Shift, `\u{11}` = Control, `\u{12}` = Alt, `\u{13}` = Meta).
+
+#### UIKit Integration — SlintUIKitView
+
+`SlintUIKitView` is a `UIView` subclass (iOS, guarded with
+`#if canImport(UIKit) && !os(watchOS)`) that forwards:
+
+- **Touch events**: `touchesBegan/Moved/Ended/Cancelled` — each touch is
+  dispatched as a left-button pointer event. Multi-touch is enabled.
+- **Keyboard**: Conforms to `UIKeyInput` for basic text input
+  (`insertText` dispatches press+release, `deleteBackward` sends
+  `\u{08}` = Backspace)
+
+UIKit's coordinate origin is top-left (same as Slint), so no Y-flip is
+needed.
+
+#### SwiftUI Wrapper — SlintView
+
+`SlintView` bridges to SwiftUI via platform-specific representable protocols:
+
+- **macOS**: `NSViewRepresentable`, wraps `SlintNSView`
+- **iOS**: `UIViewRepresentable`, wraps `SlintUIKitView`
+
+Usage:
+```swift
+struct ContentView: View {
+    let windowHandle: SlintWindowAdapterHandle
+
+    var body: some View {
+        SlintView(windowHandle: windowHandle)
+    }
+}
+```
+
+The view delegates all updates to the underlying native view's layout
+callbacks — `updateNSView`/`updateUIView` are intentionally empty.
+
+#### Build Verification
+
+```sh
+# Build Rust static library
+cargo build --lib -p slint-swift --features interpreter
+
+# Build Swift package
+cd api/swift && swift build
+
+# Run all Swift tests (118 tests across 11 suites)
+cd api/swift && swift test
+```
