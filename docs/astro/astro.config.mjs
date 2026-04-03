@@ -290,7 +290,7 @@ export default defineConfig({
                                                 slug: "reference/layouts/verticallayout",
                                             },
                                             {
-                                                label: "FlexBoxLayout",
+                                                label: "FlexboxLayout",
                                                 slug: "reference/layouts/flexboxlayout",
                                             },
                                         ],
@@ -328,6 +328,10 @@ export default defineConfig({
                                     {
                                         label: "Platform Namespace",
                                         slug: "reference/global-namespaces/platform",
+                                    },
+                                    {
+                                        label: "FontWeight Namespace",
+                                        slug: "reference/global-namespaces/font-weight",
                                     },
                                 ],
                             },

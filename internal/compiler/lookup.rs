@@ -119,6 +119,7 @@ pub enum BuiltinNamespace {
     Easing,
     Math,
     Key,
+    FontWeight,
     SlintInternal,
 }
 
@@ -200,6 +201,9 @@ impl LookupObject for LookupResult {
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.for_each_entry(ctx, f),
+            LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
+                FontWeightLookup.for_each_entry(ctx, f)
+            }
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.for_each_entry(ctx, f)
             }
@@ -217,6 +221,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::Easing) => EasingSpecific.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Key) => KeysLookup.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
+                FontWeightLookup.lookup(ctx, name)
+            }
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
             }
@@ -658,7 +665,7 @@ impl ColorSpecific {
 pub struct KeysLookup;
 
 macro_rules! special_keys_lookup {
-    ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
+    ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
         impl LookupObject for KeysLookup {
             fn for_each_entry<R>(
                 &self,
@@ -722,6 +729,27 @@ impl LookupObject for EasingSpecific {
         r.or_else(|| {
             f(&SmolStr::new_static("cubic-bezier"), BuiltinMacroFunction::CubicBezier.into())
         })
+    }
+}
+
+struct FontWeightLookup;
+impl LookupObject for FontWeightLookup {
+    fn for_each_entry<R>(
+        &self,
+        _ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let mut weight =
+            |n, v: f64| f(&SmolStr::new_static(n), Expression::NumberLiteral(v, Unit::None).into());
+        None.or_else(|| weight("thin", 100.0))
+            .or_else(|| weight("extra-light", 200.0))
+            .or_else(|| weight("light", 300.0))
+            .or_else(|| weight("normal", 400.0))
+            .or_else(|| weight("medium", 500.0))
+            .or_else(|| weight("semi-bold", 600.0))
+            .or_else(|| weight("bold", 700.0))
+            .or_else(|| weight("extra-bold", 800.0))
+            .or_else(|| weight("black", 900.0))
     }
 }
 
@@ -809,6 +837,17 @@ impl LookupObject for SlintInternal {
         })
         .or_else(|| {
             f(
+                "accent-color",
+                Expression::FunctionCall {
+                    function: BuiltinFunction::AccentColor.into(),
+                    arguments: Vec::new(),
+                    source_location: sl(),
+                }
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
                 "use-24-hour-format",
                 Expression::FunctionCall {
                     function: BuiltinFunction::Use24HourFormat.into(),
@@ -870,6 +909,7 @@ impl LookupObject for BuiltinNamespaceLookup {
             .or_else(|| f("Easing", LookupResult::Namespace(BuiltinNamespace::Easing)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Key", LookupResult::Namespace(BuiltinNamespace::Key)))
+            .or_else(|| f("FontWeight", LookupResult::Namespace(BuiltinNamespace::FontWeight)))
             .or_else(|| {
                 if ctx.type_register.expose_internal_types {
                     f("SlintInternal", LookupResult::Namespace(BuiltinNamespace::SlintInternal))

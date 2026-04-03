@@ -33,23 +33,24 @@ Image {
 </SlintProperty>
 
 ### horizontal-alignment
-<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="ImageHorizontalAlignment" defaultValue='center'>
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="ImageHorizontalAlignment" defaultValue="center">
 The horizontal alignment of the image within the element.
 </SlintProperty>
+
 ### vertical-alignment
-<SlintProperty propName="vertical-alignment" typeName="enum" enumName="ImageVerticalAlignment" defaultValue='center'>
+<SlintProperty propName="vertical-alignment" typeName="enum" enumName="ImageVerticalAlignment" defaultValue="center">
 The vertical alignment of the image within the element.
 </SlintProperty>
 
-
 ## Image Tiling
+
 ### horizontal-tiling
-<SlintProperty propName="horizontal-tiling" typeName="enum" enumName="ImageTiling" defaultValue='none'>
+<SlintProperty propName="horizontal-tiling" typeName="enum" enumName="ImageTiling" defaultValue="none">
 How the image is tiled horizontally.
 </SlintProperty>
 
 ### vertical-tiling
-<SlintProperty propName="vertical-tiling" typeName="enum" enumName="ImageTiling" defaultValue='none'>
+<SlintProperty propName="vertical-tiling" typeName="enum" enumName="ImageTiling" defaultValue="none">
 
 <CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling repeat example'>
 ```slint
@@ -108,7 +109,7 @@ Image {
 </SlintProperty>
 
 ### image-fit
-<SlintProperty propName="image-fit" typeName="enum" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise" enumName="ImageFit">
+<SlintProperty propName="image-fit" typeName="enum" enumName="ImageFit" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise">
 <CodeSnippetMD imagePath="/src/assets/generated/image-fill.png"  imageWidth="300" imageHeight="200"  imageAlt='image fill example'>
 ```slint
 Image {
@@ -148,10 +149,10 @@ Image {
 }
 ```
 </CodeSnippetMD>
-
 </SlintProperty>
+
 ### image-rendering
-<SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering" defaultValue='smooth'>
+<SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering" defaultValue="smooth">
 
 <CodeSnippetMD imagePath="/src/assets/generated/image-smooth.png"  imageWidth="300" imageHeight="300"  imageAlt='image smooth example'>
 ```slint
@@ -172,7 +173,6 @@ Image {
 }
 ```
 </CodeSnippetMD>
-
 </SlintProperty>
 
 ## Source Properties
@@ -219,13 +219,15 @@ export component Example inherits Window {
 Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the image's path.
 </SlintProperty>
 
-
 ### source-clip-x
 <SlintProperty propName="source-clip-x" typeName="int"/>
+
 ### source-clip-y
 <SlintProperty propName="source-clip-y" typeName="int"/>
+
 ### source-clip-width
 <SlintProperty propName="source-clip-width" typeName="int" defaultValue="source.width - source.clip-x"/>
+
 ### source-clip-height
 <SlintProperty propName="source-clip-height" typeName="int" defaultValue="source.height - source.clip-y"/>
 

@@ -9,9 +9,9 @@ export struct TextStyle {
 }
 
 export global CupertinoFontSettings {
-    out property <int> light-font-weight: 300;
-    out property <int> regular-font-weight: 400;
-    out property <int> semibold-font-weight: 600;
+    out property <int> light-font-weight: FontWeight.light;
+    out property <int> regular-font-weight: FontWeight.normal;
+    out property <int> semibold-font-weight: FontWeight.semi-bold;
 
     out property <TextStyle> body: {
         font-size: 13 * 0.0769rem,
@@ -79,7 +79,7 @@ export global CupertinoPalette {
     out property <brush> alternate-foreground: dark-color-scheme ? CupertinoColors.systemGray5 : CupertinoColors.systemGray5-dark;
     out property <brush> control-background: dark-color-scheme ? CupertinoColors.systemGray2-dark : CupertinoColors.systemGray6;
     out property <brush> control-foreground: dark-color-scheme ? CupertinoColors.systemGray4 : CupertinoColors.systemGray5-dark;
-    out property <brush> accent-background: dark-color-scheme ? CupertinoColors.selection-color : CupertinoColors.selection-color;
+    out property <brush> accent-background: SlintInternal.accent-color.alpha > 0 ? SlintInternal.accent-color : CupertinoColors.selection-color;
     out property <brush> accent-foreground: CupertinoColors.systemGray5;
     out property <brush> selection-background: dark-color-scheme ? CupertinoColors.selection-color.transparentize(0.5) : CupertinoColors.selection-color.transparentize(0.5);
     out property <brush> selection-foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;

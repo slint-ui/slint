@@ -9,9 +9,9 @@ export struct TextStyle {
 }
 
 export global CosmicFontSettings {
-    out property <int> light-font-weight: 300;
-    out property <int> regular-font-weight: 400;
-    out property <int> semibold-font-weight: 600;
+    out property <int> light-font-weight: FontWeight.light;
+    out property <int> regular-font-weight: FontWeight.normal;
+    out property <int> semibold-font-weight: FontWeight.semi-bold;
     out property <TextStyle> body: {
         font-size: 14 * 0.0769rem,
         font-weight: regular-font-weight
@@ -42,7 +42,7 @@ export global CosmicPalette {
     out property <brush> alternate-foreground: dark-color-scheme ? #DEDEDE : #000000E6;
     out property <brush> control-background: dark-color-scheme ? #262626 : #C7C7C7;
     out property <brush> control-foreground: dark-color-scheme ? #C4C4C4 : #3D3D3D;
-    out property <brush> accent-background: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> accent-background: SlintInternal.accent-color.alpha > 0 ? SlintInternal.accent-color : (dark-color-scheme ? #63D0DF : #00525A);
     out property <brush> accent-foreground: dark-color-scheme ? #161616 : #FFFFFF;
     out property <brush> selection-background: dark-color-scheme ? #63D0DF : #00525A;
     out property <brush> selection-foreground: dark-color-scheme ? #161616 : #FFFFFF;

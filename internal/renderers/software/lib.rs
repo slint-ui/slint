@@ -1521,6 +1521,9 @@ trait ProcessScene {
         commands: alloc::vec::Vec<path::Command>,
         color: PremultipliedRgbaColor,
         stroke_width: f32,
+        stroke_line_cap: i_slint_core::items::LineCap,
+        stroke_line_join: i_slint_core::items::LineJoin,
+        stroke_miter_limit: f32,
     );
 }
 
@@ -1911,6 +1914,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         commands: alloc::vec::Vec<path::Command>,
         color: PremultipliedRgbaColor,
         stroke_width: f32,
+        stroke_line_cap: i_slint_core::items::LineCap,
+        stroke_line_join: i_slint_core::items::LineJoin,
+        stroke_miter_limit: f32,
     ) {
         path::render_stroked_path(
             &commands,
@@ -1918,6 +1924,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             &clip_geometry,
             color,
             stroke_width,
+            stroke_line_cap,
+            stroke_line_join,
+            stroke_miter_limit,
             self.buffer,
         );
     }
@@ -2075,6 +2084,9 @@ impl ProcessScene for PrepareScene {
         _commands: alloc::vec::Vec<path::Command>,
         _color: PremultipliedRgbaColor,
         _stroke_width: f32,
+        _stroke_line_cap: i_slint_core::items::LineCap,
+        _stroke_line_join: i_slint_core::items::LineJoin,
+        _stroke_miter_limit: f32,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -3024,12 +3036,18 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             let stroke_color = self.alpha_color(stroke_brush.color());
             if stroke_color.alpha() > 0 {
                 let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
+                let stroke_line_cap = path.stroke_line_cap();
+                let stroke_line_join = path.stroke_line_join();
+                let stroke_miter_limit = path.stroke_miter_limit();
                 self.processor.process_stroked_path(
                     physical_geom,
                     clipped_geom,
                     zeno_commands,
                     stroke_color.into(),
                     physical_stroke_width,
+                    stroke_line_cap,
+                    stroke_line_join,
+                    stroke_miter_limit,
                 );
             }
         }
@@ -3218,7 +3236,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRendererFeatures for Sce
 }
 
 #[cfg(feature = "systemfonts")]
-use i_slint_core::textlayout::sharedparley;
+use i_slint_core::textlayout::sharedparley::{self, fontique};
 
 #[cfg(feature = "systemfonts")]
 impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
@@ -3267,6 +3285,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         &mut self,
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
+        normalized_coords: &[i16],
+        _synthesis: &fontique::Synthesis,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
@@ -3274,12 +3294,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         let slint_context = self.window.context();
         let (swash_key, swash_offset) =
             fonts::systemfonts::get_swash_font_info(&font.data, font.index);
-        let font = fonts::vectorfont::VectorFont::new_from_blob_and_index(
+        let font = fonts::vectorfont::VectorFont::new_from_blob_and_index_with_coords(
             font.data.clone(),
             font.index,
             swash_key,
             swash_offset,
             font_size.cast(),
+            normalized_coords,
         );
 
         let global_offset =

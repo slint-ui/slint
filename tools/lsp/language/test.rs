@@ -5,7 +5,6 @@
 
 use lsp_types::{Diagnostic, Url};
 
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
@@ -25,13 +24,13 @@ use super::Context;
 /// ```
 pub fn mock_context() -> Context {
     crate::language::Context {
-        document_cache: empty_document_cache().into(),
+        document_cache: empty_document_cache(),
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: RefCell::new(None),
-        open_urls: RefCell::new(HashSet::new()),
+        to_show: None,
+        open_urls: HashSet::new(),
         to_preview: Rc::new(common::DummyLspToPreview::default()),
         pending_recompile: Default::default(),
     }
@@ -39,8 +38,10 @@ pub fn mock_context() -> Context {
 
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> common::DocumentCache {
-    let mut config = crate::common::document_cache::CompilerConfiguration::default();
-    config.style = Some("fluent".to_string());
+    let config = crate::common::document_cache::CompilerConfiguration {
+        style: Some("fluent".to_string()),
+        ..Default::default()
+    };
     common::DocumentCache::new(config)
 }
 
@@ -66,11 +67,21 @@ pub fn loaded_document_cache_with_file_name(
         format!("/foo/{file_name}")
     };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
+    let mut ctx = crate::language::Context {
+        document_cache: dc,
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        to_show: None,
+        open_urls: Default::default(),
+        to_preview: std::rc::Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
+    };
     let (extra_files, diag) =
-        spin_on::spin_on(load_document_impl(None, content, url.clone(), Some(42), &mut dc));
+        spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));
 
-    let diag = convert_diagnostics(&extra_files, diag, dc.format);
-    (dc, url, diag)
+    let diag = convert_diagnostics(&extra_files, diag, ctx.document_cache.format);
+    (ctx.document_cache, url, diag)
 }
 
 /// Create a `DocumentCache` with one comparatively complex test document loaded into it.
@@ -133,48 +144,39 @@ component MainWindow inherits Window {
 }
 
 pub fn load(
-    ctx: Option<&Rc<Context>>,
-    document_cache: &mut common::DocumentCache,
+    ctx: &mut Context,
     path: &Path,
     content: &str,
 ) -> (Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
     let url = Url::from_file_path(path).unwrap();
 
-    let (main_file, diag) = spin_on::spin_on(load_document_impl(
-        ctx,
-        content.into(),
-        url.clone(),
-        Some(1),
-        document_cache,
-    ));
+    let (main_file, diag) =
+        spin_on::spin_on(load_document_impl(ctx, content.into(), url.clone(), Some(1)));
 
-    (url, convert_diagnostics(&main_file, diag, document_cache.format))
+    (url, convert_diagnostics(&main_file, diag, ctx.document_cache.format))
 }
 
 #[test]
 fn accurate_diagnostics_in_dependencies() {
     // Test for issue 5797
-    let mut dc = empty_document_cache();
+    let mut ctx = mock_context();
 
     let (bar_url, diag) = load(
-        None,
-        &mut dc,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { property <int> hi; } "#,
     );
     assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
 
     let (reexport_url, diag) = load(
-        None,
-        &mut dc,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
         r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; }"#,
     );
     assert_eq!(diag, HashMap::from_iter([(reexport_url.clone(), Vec::new())]));
 
     let (foo_url, diag) = load(
-        None,
-        &mut dc,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; } }"#,
     );
@@ -182,14 +184,11 @@ fn accurate_diagnostics_in_dependencies() {
     assert!(diag[&foo_url][0].message.contains("hello"));
     assert_eq!(diag.len(), 1);
 
-    let ctx = Some(Rc::new(Context {
-        open_urls: RefCell::new(HashSet::from_iter([foo_url.clone(), bar_url.clone()])),
-        ..mock_context()
-    }));
+    ctx.open_urls.insert(foo_url.clone());
+    ctx.open_urls.insert(bar_url.clone());
 
     let (bar_url, diag) = load(
-        ctx.as_ref(),
-        &mut dc,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { in property <int> hello; } "#,
     );
@@ -204,23 +203,21 @@ fn accurate_diagnostics_in_dependencies() {
     );
 
     let sym = crate::language::get_document_symbols(
-        &mut dc,
+        &mut ctx.document_cache,
         &lsp_types::TextDocumentIdentifier { uri: foo_url.clone() },
     )
     .expect("foo.slint should still be loaded");
     assert!(matches!(sym, lsp_types::DocumentSymbolResponse::Nested(result) if !result.is_empty()));
 
     let (foo_url, diag) = load(
-        ctx.as_ref(),
-        &mut dc,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hi: 45; } }"#,
     );
     assert!(diag[&foo_url][0].message.contains("hi"));
 
     let (foo_url, diag) = load(
-        ctx.as_ref(),
-        &mut dc,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 12; } }"#,
     );
@@ -230,32 +227,29 @@ fn accurate_diagnostics_in_dependencies() {
 #[test]
 fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     // Test for issue 8064
-    let ctx = Rc::new(mock_context());
+    let mut ctx = mock_context();
 
     let (bar_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { in property <int> hello; } "#,
     );
     assert_eq!(diag, HashMap::from_iter([(bar_url.clone(), Vec::new())]));
 
-    ctx.open_urls.borrow_mut().insert(bar_url.clone());
+    ctx.open_urls.insert(bar_url.clone());
 
     let (reexport_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/reexport.slint"),
         r#"import { Bar } from "bar.slint"; export component Foo inherits Bar { in property <string> reexport; if true error }"#,
     );
     assert!(diag[&reexport_url].iter().any(|d| d.message.contains("Syntax error:")));
     assert_eq!(diag.len(), 1);
 
-    ctx.open_urls.borrow_mut().insert(reexport_url.clone());
+    ctx.open_urls.insert(reexport_url.clone());
 
     let (foo_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/foo.slint"),
         r#"import { Foo } from "reexport.slint"; export component MainWindow inherits Window { Foo { hello: 45; world: 12; } }"#,
     );
@@ -264,11 +258,10 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
     // Don't clear further error (so the client still has the parse error in reexport_url)
     assert_eq!(diag.len(), 1);
 
-    ctx.open_urls.borrow_mut().insert(foo_url.clone());
+    ctx.open_urls.insert(foo_url.clone());
 
     let (bar_url, diag) = load(
-        Some(&ctx),
-        &mut ctx.document_cache.borrow_mut(),
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { private property <int> hello; in property <int> world; } "#,
     );
@@ -284,36 +277,27 @@ fn accurate_diagnostics_in_dependencies_with_parse_errors() {
 #[test]
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn preview_file_recompiled_when_dependency_changes() {
-    let mut cache = empty_document_cache();
+    let mut ctx = mock_context();
 
     let (dep_url, _diag) = load(
-        None,
-        &mut cache,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/bar.slint"),
         r#" export component Bar { property <int> hi; } "#,
     );
 
     let (main_url, _diag) = load(
-        None,
-        &mut cache,
+        &mut ctx,
         &std::env::current_dir().unwrap().join("xxx/main.slint"),
         r#"import { Dep } from "bar.slint"; export component Main { Dep { } }"#,
     );
 
-    // Create context with:
+    // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    let ctx = Rc::new(Context {
-        document_cache: cache.into(),
-        to_show: RefCell::new(Some(common::PreviewComponent {
-            url: main_url.clone(),
-            component: None,
-        })),
-        ..mock_context()
-    });
+    ctx.to_show = Some(common::PreviewComponent { url: main_url.clone(), component: None });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
-        &ctx,
+        &mut ctx,
         dep_url.clone(),
         lsp_types::FileChangeType::CHANGED,
     ))
@@ -322,7 +306,7 @@ fn preview_file_recompiled_when_dependency_changes() {
     // The preview file (main.slint) should be scheduled for recompilation
     // even though it's not in open_urls
     assert!(
-        ctx.pending_recompile.borrow().contains(&main_url),
+        ctx.pending_recompile.contains(&main_url),
         "Preview file should be in pending_recompile when its dependency changes"
     );
 }

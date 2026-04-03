@@ -18,20 +18,20 @@ packages:
   - ui-libraries/material/docs
 
 catalog:
-  knip: 6.0.6
+  knip: 6.1.0
   '@astrojs/check': 0.9.8
   '@astrojs/starlight': 0.38.2
-  '@biomejs/biome': 2.4.8
+  '@biomejs/biome': 2.4.9
   '@expressive-code/plugin-line-numbers': 0.41.7
   '@playwright/test': 1.58.2
   '@types/node': 24.12.0
-  astro: 6.0.8
+  astro: 6.1.1
   astro-embed: 0.12.0
   cspell: 9.7.0
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
   sharp: 0.34.5
-  starlight-links-validator: 0.20.1
-  typescript: 5.9.3
-  vite: 8.0.1
-  vitest: 4.1.0
+  starlight-links-validator: 0.21.0
+  typescript: 6.0.2
+  vite: 8.0.3
+  vitest: 4.1.2

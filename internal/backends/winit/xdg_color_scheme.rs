@@ -3,6 +3,7 @@
 
 use std::rc::Weak;
 
+use i_slint_core::graphics::Color;
 use i_slint_core::items::ColorScheme;
 
 use crate::WinitWindowAdapter;
@@ -13,6 +14,12 @@ fn xdg_color_scheme_to_slint(value: zbus::zvariant::OwnedValue) -> ColorScheme {
         Ok(2) => ColorScheme::Light,
         _ => ColorScheme::Unknown,
     }
+}
+
+fn xdg_accent_color_to_slint(value: zbus::zvariant::OwnedValue) -> Option<Color> {
+    // The accent-color setting returns a (ddd) tuple of RGB doubles in [0.0, 1.0]
+    let (r, g, b) = value.downcast_ref::<(f64, f64, f64)>().ok()?;
+    Some(Color::from_argb_f32(1.0, r as f32, g as f32, b as f32))
 }
 
 pub async fn watch(window_weak: Weak<WinitWindowAdapter>) -> zbus::Result<()> {
@@ -27,27 +34,39 @@ pub async fn watch(window_weak: Weak<WinitWindowAdapter>) -> zbus::Result<()> {
     let initial_value: zbus::zvariant::OwnedValue =
         settings_proxy.call("ReadOne", &("org.freedesktop.appearance", "color-scheme")).await?;
 
-    if let Some(window) = window_weak.upgrade() {
-        window.set_color_scheme(xdg_color_scheme_to_slint(initial_value));
+    let Some(window) = window_weak.upgrade() else { return Ok(()) };
+    window.set_color_scheme(xdg_color_scheme_to_slint(initial_value));
+
+    let accent_result: zbus::Result<zbus::zvariant::OwnedValue> =
+        settings_proxy.call("ReadOne", &("org.freedesktop.appearance", "accent-color")).await;
+    if let Some(color) = accent_result.ok().and_then(xdg_accent_color_to_slint) {
+        window.set_accent_color(color);
     }
+    drop(window);
 
     use futures::stream::StreamExt;
 
-    let mut color_scheme_stream = settings_proxy
-        .receive_signal_with_args(
-            "SettingChanged",
-            &[(0, "org.freedesktop.appearance"), (1, "color-scheme")],
-        )
+    let mut settings_stream = settings_proxy
+        .receive_signal_with_args("SettingChanged", &[(0, "org.freedesktop.appearance")])
         .await?
         .map(|message| {
-            let (_, _, scheme): (String, String, zbus::zvariant::OwnedValue) =
+            let (_, key, value): (String, String, zbus::zvariant::OwnedValue) =
                 message.body().deserialize().ok()?;
-            Some(scheme)
+            Some((key, value))
         });
 
-    while let Some(Some(new_scheme)) = color_scheme_stream.next().await {
-        if let Some(window) = window_weak.upgrade() {
-            window.set_color_scheme(xdg_color_scheme_to_slint(new_scheme));
+    while let Some(Some((key, value))) = settings_stream.next().await {
+        let Some(window) = window_weak.upgrade() else { return Ok(()) };
+        match key.as_str() {
+            "color-scheme" => {
+                window.set_color_scheme(xdg_color_scheme_to_slint(value));
+            }
+            "accent-color" => {
+                if let Some(color) = xdg_accent_color_to_slint(value) {
+                    window.set_accent_color(color);
+                }
+            }
+            _ => {}
         }
     }
 

@@ -92,13 +92,13 @@ export component Clock inherits  VerticalLayout {
     Text {
         text: "Current time";
         font-size: Skin.TitleFont;
-        font-weight: 700;
+        font-weight: FontWeight.bold;
     }
     time-label := Text {
         // FIXME: actual time
         text: "10:02:45";
         font-size: Skin.HugeFont;
-        font-weight: 700;
+        font-weight: FontWeight.bold;
         color: #6776FF;
     }
 }
@@ -291,7 +291,7 @@ component Box inherits BoxBase {
         if (root.title != "") : Text {
             text <=> root.title;
             font-size: Skin.TitleFont;
-            font-weight: 700;
+            font-weight: FontWeight.bold;
         }
         spacing: 10px;
         padding: 15px;
@@ -396,7 +396,7 @@ component ButtonValueLabel inherits Text {
     in property <string> value <=> root.text;
 
     font-size: Skin.HugeFont;
-    font-weight: 700;
+    font-weight: FontWeight.bold;
     color: #929cb2;
 }
 
@@ -422,7 +422,7 @@ component BoxWithButtons inherits Box {
         TitleAndValueBox {
             titleLabel := Text {
                 font-size: Skin.TitleFont;
-                font-weight: 700;
+                font-weight: FontWeight.bold;
             }
 
             val := ButtonValueLabel { }

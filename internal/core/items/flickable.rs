@@ -44,6 +44,10 @@ use data_ringbuffer::PositionTimeRingBuffer;
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
+/// The maximum duration between a move and a release event to start an animation
+/// If the duration is larger than this value, no animation will be executed because
+/// it is not desired
+const MAX_DURATION: Duration = Duration::from_millis(10);
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
@@ -673,12 +677,14 @@ impl FlickableData {
         _event: &MouseEvent,
         flick_rc: &ItemRc,
     ) {
-        if !inner.position_time_rb.empty() {
+        if let Some(last_time) = inner.position_time_rb.last_time() {
             let (time, dist) = inner.position_time_rb.diff();
             let millis = time.as_millis();
+
             if inner.capture_events
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 0
+                && crate::animations::current_tick().duration_since(last_time) < MAX_DURATION
             {
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);

@@ -24,7 +24,7 @@
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
-    "image-js": "1.4.0",
+    "image-js": "1.5.0",
     "typedoc": "0.28.18",
     "typescript": "catalog:",
     "vitest": "catalog:"
@@ -49,6 +49,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@napi-rs/cli": "^3.5.1"
+    "@napi-rs/cli": "^3.6.0"
   }
 }

@@ -85,6 +85,7 @@ export component TestCase inherits Window {
 use slint::{SharedString, platform::{Key}};
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+
 // click on the file menu
 slint_testing::send_mouse_click(&instance, 10., 16.);
 // navigate using the keys to the "Open Recent" menu item
@@ -136,6 +137,7 @@ assert!(instance.get_checkable_menu_item_checked());
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+
 // click on the file menu
 slint_testing::send_mouse_click(&instance, 10., 16.);
 // navigate using the keys to the "Open Recent" menu item
@@ -183,4 +185,5 @@ slint_testing::send_keyboard_string_sequence(&instance, "\n");
 assert(instance.get_checkable_menu_item_checked());
 
 ```
+
 */

@@ -129,8 +129,7 @@ send_key_combo(&instance, {control, "C"});
 send_key_combo(&instance, {control, "D"});
 assert_matches(4);
 
-// TODO: Make Keys public API in C++
-instance.set_key_bindings(std::make_shared<slint::VectorModel<slint::cbindgen_private::types::Keys>>());
+instance.set_key_bindings(std::make_shared<slint::VectorModel<slint::Keys>>());
 
 send_key_combo(&instance, {control, "C"});
 send_key_combo(&instance, {control, "D"});

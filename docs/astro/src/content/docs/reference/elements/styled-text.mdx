@@ -1,6 +1,6 @@
 ---
-title: Styled Text
-description: Styled Text
+title: StyledText
+description: StyledText element api.
 ---
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
@@ -12,10 +12,13 @@ The `StyledText` element renders text with various styling and interactive prope
 <CodeSnippetMD imagePath="/src/assets/generated/styled-text-example.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Styled Text Example'>
 ```slint
 export component Example inherits Window {
+    in property <string> value: 55;
     width: 200px;
     height: 200px;
     StyledText {
-      text: @markdown("This is a piece of <u>Styled Text</u>\nwith a red value inserted: <font color=\"red\">{}</font>", 55);
+      text: @markdown("This is a piece of <u>Styled Text</u>\n"
+                      "with a red value inserted:"
+                      "<font color=\"red\">\{value}</font>");
     }
 }
 ```
@@ -54,13 +57,12 @@ Other HTML tags  |
 ## Properties
 
 ### color
-
 <SlintProperty propName="color" typeName="brush" defaultValue="<depends on theme>">
 The color of the text.
 </SlintProperty>
 
 ### font-family
-<SlintProperty propName="font-family" typeName="string" >
+<SlintProperty propName="font-family" typeName="string">
 The name of the font family selected for rendering the text.
 
 :::note[Note]
@@ -76,16 +78,16 @@ The font size of the text.
 
 ### font-weight
 <SlintProperty propName="font-weight" typeName="int">
-The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
 </SlintProperty>
 
 ### font-italic
-<SlintProperty propName="font-italic" typeName="bool" defaultValue="false" >
+<SlintProperty propName="font-italic" typeName="bool" defaultValue="false">
 Whether or not the font face should be drawn italicized or not.
 </SlintProperty>
 
 ### horizontal-alignment
-<SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' >
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="TextHorizontalAlignment">
 The horizontal alignment of the text.
 </SlintProperty>
 
@@ -100,9 +102,8 @@ How the text should behave when it exceeds the available space.
 </SlintProperty>
 
 ### text
-<SlintProperty propName="text" typeName="styled-text" defaultValue='""' >
+<SlintProperty propName="text" typeName="styled-text" defaultValue="&quot;&quot;">
 The styled text rendered, using CommonMark markup with additional HTML tags for styling.
-
 </SlintProperty>
 
 ### vertical-alignment
@@ -120,21 +121,20 @@ How the text should wrap when it exceeds the available width.
 The brush used for the text outline.
 </SlintProperty>
 
-###  stroke-width
-<SlintProperty propName="stroke-width" typeName="length" >
+### stroke-width
+<SlintProperty propName="stroke-width" typeName="length">
 The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
 </SlintProperty>
 
-###  stroke-style
+### stroke-style
 <SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle">
 The style of the text outline.
 </SlintProperty>
 
-### link-clicked
-<SlintProperty propName="link-clicked" typeName="callback" >
-A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
-</SlintProperty>
+## Callbacks
 
+### link-clicked(link: string)
+A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
 
 ### link-color
 <SlintProperty propName="link-color" typeName="color" defaultValue="#00f">

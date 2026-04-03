@@ -2,6 +2,7 @@
 title: Path
 description: Path element api.
 ---
+
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
 The `Path` element allows rendering a generic shape, composed of different geometric commands. A path
@@ -27,7 +28,7 @@ The color for filling the shape of the path.
 </SlintProperty>
 
 ### fill-rule
-<SlintProperty propName="fill-rule" typeName="enum" enumName="FillRule" defaultValue='nonzero'>
+<SlintProperty propName="fill-rule" typeName="enum" enumName="FillRule" defaultValue="nonzero">
 The fill rule to use for the path.
 </SlintProperty>
 
@@ -42,13 +43,19 @@ The width of the outline.
 </SlintProperty>
 
 ### stroke-line-cap
-<SlintProperty propName="stroke-line-cap" typeName="enum" enumName="LineCap" defaultValue='butt'>
+<SlintProperty propName="stroke-line-cap" typeName="enum" enumName="LineCap" defaultValue="butt">
 The appearance of the ends of the path's outline.
 </SlintProperty>
 
 ### stroke-line-join
-<SlintProperty propName="stroke-line-join" typeName="enum" enumName="LineJoin" defaultValue='miter'>
+<SlintProperty propName="stroke-line-join" typeName="enum" enumName="LineJoin" defaultValue="miter">
 The appearance of the joins between segments of stroked paths.
+</SlintProperty>
+
+### stroke-miter-limit
+<SlintProperty propName="stroke-miter-limit" typeName="float" defaultValue='4'>
+The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
+When the limit is exceeded, the join is rendered as a bevel instead.
 </SlintProperty>
 
 ### width
@@ -234,7 +241,6 @@ The target x position of the line.
 <SlintProperty propName="y" typeName="float">
 The target y position of the line.
 </SlintProperty>
-
 
 ## CubicTo Sub-Element for `Path`
 

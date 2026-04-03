@@ -8,3 +8,10 @@ export interface ExportedInterface {
 export component ExportedBase implements ExportedInterface {
     value: 2.71;
 }
+
+export interface ComboBoxInterface {
+    in property <[string]> model;
+    in-out property <int> current-index: 0;
+    // The property bindings refer to named references in the interface element.
+    in-out property <string> current-value: root.model[root.current-index];
+}

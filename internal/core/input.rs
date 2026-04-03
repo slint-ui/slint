@@ -216,7 +216,7 @@ pub enum InputEventFilterResult {
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
-       ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
+       ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
             $(pub const $name : char = $char;)*
 
             #[allow(missing_docs)]
@@ -341,21 +341,16 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     }
 }
 
-/// A `Keys` is created by the `@keys(...)` macro and
-/// defines which key event(s) activate a KeyBinding.
+#[i_slint_core_macros::slint_doc]
+/// The `Keys` type is the Rust representation of Slint's `keys` primitive type.
+///
+/// It can be created with the `@keys` macro in Slint and defines which key event(s) activate a KeyBinding.
+///
+/// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
 pub struct Keys {
-    /// The `key` used to trigger the shortcut
-    ///
-    /// Note: This is currently converted to lowercase when the shortcut is created!
-    key: SharedString,
-    /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
-    modifiers: KeyboardModifiers,
-    /// Whether to ignore shift state when matching the shortcut
-    ignore_shift: bool,
-    /// Whether to ignore alt state when matching the shortcut
-    ignore_alt: bool,
+    inner: KeysInner,
 }
 
 /// Re-exported in private_unstable_api to create a Keys struct.
@@ -365,7 +360,9 @@ pub fn make_keys(
     ignore_shift: bool,
     ignore_alt: bool,
 ) -> Keys {
-    Keys { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt }
+    Keys {
+        inner: KeysInner { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt },
+    }
 }
 
 #[cfg(feature = "ffi")]
@@ -405,20 +402,45 @@ pub(crate) mod ffi {
     }
 }
 
+/// Internal representation of the `Keys` type.
+/// This is semver exempt and is only used to set up the native menu in the backends.
+#[derive(PartialEq, Eq, Clone, Default)]
+#[repr(C)]
+pub struct KeysInner {
+    /// The `key` used to trigger the shortcut
+    ///
+    /// Note: This is currently converted to lowercase when the shortcut is created!
+    pub key: SharedString,
+    /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
+    pub modifiers: KeyboardModifiers,
+    /// Whether to ignore shift state when matching the shortcut
+    pub ignore_shift: bool,
+    /// Whether to ignore alt state when matching the shortcut
+    pub ignore_alt: bool,
+}
+
+impl KeysInner {
+    /// Private access to the KeysInner for a given Keys value.
+    pub fn from_pub(keys: &Keys) -> &Self {
+        &keys.inner
+    }
+}
+
 impl Keys {
     /// Check whether a `Keys` can be triggered by the given `KeyEvent`
     pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
+        let inner = &self.inner;
         // An empty Keys is never triggered, even if the modifiers match.
-        if self.key.is_empty() {
+        if inner.key.is_empty() {
             return false;
         }
 
         // TODO: Should this check the event_type and only match on KeyReleased?
-        let mut expected_modifiers = self.modifiers;
-        if self.ignore_shift {
+        let mut expected_modifiers = inner.modifiers;
+        if inner.ignore_shift {
             expected_modifiers.shift = key_event.modifiers.shift;
         }
-        if self.ignore_alt {
+        if inner.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
         // Note: The shortcut's key is already in lowercase and NFC-normalized
@@ -430,16 +452,16 @@ impl Keys {
         // if caps lock is active, even if shift is not pressed.
         let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
 
-        event_text.eq(self.key.chars()) && key_event.modifiers == expected_modifiers
+        event_text.eq(inner.key.chars()) && key_event.modifiers == expected_modifiers
     }
 
     fn format_key_for_display(&self) -> crate::SharedString {
-        let key_str = self.key.as_str();
+        let key_str = self.inner.key.as_str();
         let first_char = key_str.chars().next();
 
         if let Some(first_char) = first_char {
             macro_rules! check_special_key {
-                ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+                ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
                     match first_char {
                     $($(
                         // Use $qt as a marker - if it exists, generate the check
@@ -464,9 +486,9 @@ impl Keys {
 }
 
 impl Display for Keys {
-    /// Converts the keyboard shortcut to a string that looks native on the current platform.
+    /// Converts the [`Keys`] to a string that looks native on the current platform.
     ///
-    /// For example, the shortcut created with @keys(Meta + Control + A)
+    /// For example, the shortcut created with `@keys(Meta + Control + A)`
     /// will be converted like this:
     /// - **macOS**: `⌃⌘A`
     /// - **Windows**: `Win+Ctrl+A`
@@ -480,7 +502,8 @@ impl Display for Keys {
     // - Windows: <https://learn.microsoft.com/en-us/windows/apps/design/input/keyboard-accelerators>
     // - Linux: <https://developer.gnome.org/hig/guidelines/keyboard.html>
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        if self.key.is_empty() {
+        let inner = &self.inner;
+        if inner.key.is_empty() {
             return Ok(());
         }
 
@@ -491,16 +514,16 @@ impl Display for Keys {
             // List modifier keys in the correct order.
             // If you use more than one modifier key in a custom shortcut, always list them in this order:
             //  Control, Option, Shift, Command
-            if self.modifiers.meta {
+            if inner.modifiers.meta {
                 f.write_str("⌃")?;
             }
-            if !self.ignore_alt && self.modifiers.alt {
+            if !inner.ignore_alt && inner.modifiers.alt {
                 f.write_str("⌥")?;
             }
-            if !self.ignore_shift && self.modifiers.shift {
+            if !inner.ignore_shift && inner.modifiers.shift {
                 f.write_str("⇧")?;
             }
-            if self.modifiers.control {
+            if inner.modifiers.control {
                 f.write_str("⌘")?;
             }
         } else {
@@ -515,19 +538,19 @@ impl Display for Keys {
                     ("Ctrl", "Alt", "Shift", "Super")
                 };
 
-            if self.modifiers.meta {
+            if inner.modifiers.meta {
                 f.write_str(meta_str)?;
                 f.write_str(separator)?;
             }
-            if self.modifiers.control {
+            if inner.modifiers.control {
                 f.write_str(ctrl_str)?;
                 f.write_str(separator)?;
             }
-            if !self.ignore_alt && self.modifiers.alt {
+            if !inner.ignore_alt && inner.modifiers.alt {
                 f.write_str(alt_str)?;
                 f.write_str(separator)?;
             }
-            if !self.ignore_shift && self.modifiers.shift {
+            if !inner.ignore_shift && inner.modifiers.shift {
                 f.write_str(shift_str)?;
                 f.write_str(separator)?;
             }
@@ -539,23 +562,24 @@ impl Display for Keys {
 impl core::fmt::Debug for Keys {
     /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let inner = &self.inner;
         // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
-        if self.key.is_empty() {
+        if inner.key.is_empty() {
             write!(f, "")
         } else {
-            let alt = self
+            let alt = inner
                 .ignore_alt
                 .then_some("Alt?+")
-                .or(self.modifiers.alt.then_some("Alt+"))
+                .or(inner.modifiers.alt.then_some("Alt+"))
                 .unwrap_or_default();
-            let ctrl = if self.modifiers.control { "Control+" } else { "" };
-            let meta = if self.modifiers.meta { "Meta+" } else { "" };
-            let shift = self
+            let ctrl = if inner.modifiers.control { "Control+" } else { "" };
+            let meta = if inner.modifiers.meta { "Meta+" } else { "" };
+            let shift = inner
                 .ignore_shift
                 .then_some("Shift?+")
-                .or(self.modifiers.shift.then_some("Shift+"))
+                .or(inner.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
-            let keycode: SharedString = self
+            let keycode: SharedString = inner
                 .key
                 .chars()
                 .flat_map(|character| {
@@ -610,12 +634,12 @@ pub struct InternalKeyEvent {
     pub anchor_position: Option<i32>,
 }
 
-impl KeyEvent {
+impl InternalKeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
     pub fn shortcut(&self) -> Option<StandardShortcut> {
-        if self.modifiers.control && !self.modifiers.shift {
-            match self.text.as_str() {
+        if self.key_event.modifiers.control && !self.key_event.modifiers.shift {
+            match self.key_event.text.as_str() {
                 #[cfg(not(target_arch = "wasm32"))]
                 "c" => Some(StandardShortcut::Copy),
                 #[cfg(not(target_arch = "wasm32"))]
@@ -632,8 +656,8 @@ impl KeyEvent {
                 "r" => Some(StandardShortcut::Refresh),
                 _ => None,
             }
-        } else if self.modifiers.control && self.modifiers.shift {
-            match self.text.as_str() {
+        } else if self.key_event.modifiers.control && self.key_event.modifiers.shift {
+            match self.key_event.text.as_str() {
                 #[cfg(not(target_os = "windows"))]
                 "z" | "Z" => Some(StandardShortcut::Redo),
                 _ => None,
@@ -646,14 +670,15 @@ impl KeyEvent {
     /// If a shortcut concerning text editing was pressed, this function
     /// returns `Some(TextShortcut)`. Otherwise it returns None.
     pub fn text_shortcut(&self) -> Option<TextShortcut> {
-        let keycode = self.text.chars().next()?;
+        let ke = &self.key_event;
+        let keycode = ke.text.chars().next()?;
 
         let is_apple = crate::is_apple_platform();
 
         let move_mod = if is_apple {
-            self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
+            ke.modifiers.alt && !ke.modifiers.control && !ke.modifiers.meta
         } else {
-            self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
+            ke.modifiers.control && !ke.modifiers.alt && !ke.modifiers.meta
         };
 
         if move_mod {
@@ -682,7 +707,7 @@ impl KeyEvent {
 
         #[cfg(not(target_os = "macos"))]
         {
-            if self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta {
+            if ke.modifiers.control && !ke.modifiers.alt && !ke.modifiers.meta {
                 match keycode {
                     key_codes::Home => {
                         return Some(TextShortcut::Move(TextCursorDirection::StartOfText));
@@ -695,7 +720,7 @@ impl KeyEvent {
             }
         }
 
-        if is_apple && self.modifiers.control {
+        if is_apple && ke.modifiers.control {
             match keycode {
                 key_codes::LeftArrow => {
                     return Some(TextShortcut::Move(TextCursorDirection::StartOfLine));

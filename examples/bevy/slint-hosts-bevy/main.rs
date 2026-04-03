@@ -92,69 +92,126 @@ export component AppWindow inherits Window {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
     let (model_selector_sender, model_selector_receiver) = smol::channel::bounded::<GLTFModel>(1);
 
     let (download_progress_sender, download_progress_receiver) =
         smol::channel::bounded::<(SharedString, f32)>(5);
 
-    let (new_texture_receiver, control_message_sender) =
-        spin_on::spin_on(slint_bevy_adapter::run_bevy_app_with_slint(
-            |app| {
-                app.add_plugins(web_asset::WebAssetReaderPlugin(download_progress_sender));
-            },
-            |mut app| {
-                app.insert_resource(CameraPos(Vec3::new(3., 4.0, 4.0)))
-                    .insert_resource(ModelBasePath(
-                        "https://github.com/KhronosGroup/glTF-Sample-Assets/raw/refs/heads/main/"
-                            .into(),
-                    ))
-                    .add_systems(Startup, setup)
-                    .add_systems(Update, reload_model_from_channel(model_selector_receiver))
-                    .add_systems(Update, animate_camera)
-                    .insert_resource(ClearColor(Color::NONE))
-                    .run();
-            },
-        ))?;
-
+    // Slint initializes first with wgpu — on linuxkms it creates its own wgpu instance
+    // with DRM surface support. The wgpu resources are then passed to Bevy via the
+    // rendering notifier callback.
+    let mut wgpu_settings = slint::wgpu_27::WGPUSettings::default();
+    wgpu_settings.device_required_limits = slint::wgpu_27::wgpu::Limits::default()
+        .using_resolution(slint::wgpu_27::wgpu::Limits::downlevel_defaults());
+    slint::BackendSelector::new()
+        .require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Automatic(wgpu_settings))
+        .select()?;
     let app_window = AppWindow::new().unwrap();
-    let app2 = app_window.as_weak();
 
-    app_window.window().set_rendering_notifier(move |state, _| {
-        let slint::RenderingState::BeforeRendering = state else { return };
-        let Some(app) = app2.upgrade() else { return };
-        app.window().request_redraw();
-        let Ok(new_texture) = new_texture_receiver.try_recv() else { return };
-        if let Some(old_texture) = app.get_texture().to_wgpu_27_texture() {
-            let control_message_sender = control_message_sender.clone();
-            slint::spawn_local(async move {
-                control_message_sender
-                    .send(slint_bevy_adapter::ControlMessage::ReleaseFrontBufferTexture {
-                        texture: old_texture,
+    // These will be filled once Bevy is initialized from the rendering notifier.
+    let bevy_channels: Rc<
+        RefCell<
+            Option<(
+                smol::channel::Receiver<slint::wgpu_27::wgpu::Texture>,
+                smol::channel::Sender<slint_bevy_adapter::ControlMessage>,
+            )>,
+        >,
+    > = Rc::new(RefCell::new(None));
+
+    let app_weak = app_window.as_weak();
+    let bevy_channels_setup = bevy_channels.clone();
+
+    // Wrap in RefCell+Option so we can move out of it exactly once in the FnMut closure
+    let model_selector_receiver = RefCell::new(Some(model_selector_receiver));
+    let download_progress_sender = RefCell::new(Some(download_progress_sender));
+
+    app_window.window().set_rendering_notifier(move |state, graphics_api| {
+        match state {
+            slint::RenderingState::RenderingSetup => {
+                // Extract wgpu resources from Slint and initialize Bevy
+                let slint::GraphicsAPI::WGPU27 { instance, device, queue, .. } = graphics_api
+                else {
+                    return;
+                };
+
+                let model_selector_receiver =
+                    model_selector_receiver.borrow_mut().take().unwrap();
+                let download_progress_sender =
+                    download_progress_sender.borrow_mut().take().unwrap();
+
+                let channels = slint_bevy_adapter::run_bevy_app_with_slint(
+                    instance.clone(),
+                    device.clone(),
+                    queue.clone(),
+                    move |app| {
+                        app.add_plugins(web_asset::WebAssetReaderPlugin(
+                            download_progress_sender,
+                        ));
+                    },
+                    move |mut app| {
+                        app.insert_resource(CameraPos(Vec3::new(3., 4.0, 4.0)))
+                            .insert_resource(ModelBasePath(
+                                "https://github.com/KhronosGroup/glTF-Sample-Assets/raw/refs/heads/main/"
+                                    .into(),
+                            ))
+                            .add_systems(Startup, setup)
+                            .add_systems(Update, reload_model_from_channel(model_selector_receiver))
+                            .add_systems(Update, animate_camera)
+                            .insert_resource(ClearColor(Color::NONE))
+                            .run();
+                    },
+                );
+
+                *bevy_channels_setup.borrow_mut() = Some(channels);
+            }
+            slint::RenderingState::BeforeRendering => {
+                let Some(app) = app_weak.upgrade() else { return };
+                app.window().request_redraw();
+
+                let channels = bevy_channels_setup.borrow();
+                let Some((new_texture_receiver, control_message_sender)) = channels.as_ref()
+                else {
+                    return;
+                };
+
+                let Ok(new_texture) = new_texture_receiver.try_recv() else { return };
+                if let Some(old_texture) = app.get_texture().to_wgpu_27_texture() {
+                    let control_message_sender = control_message_sender.clone();
+                    slint::spawn_local(async move {
+                        control_message_sender
+                            .send(slint_bevy_adapter::ControlMessage::ReleaseFrontBufferTexture {
+                                texture: old_texture,
+                            })
+                            .await
+                            .unwrap();
                     })
-                    .await
                     .unwrap();
-            })
-            .unwrap();
-        }
+                }
 
-        let requested_width = app.get_requested_texture_width().round() as u32;
-        let requested_height = app.get_requested_texture_height().round() as u32;
-        if requested_width > 0 && requested_height > 0 {
-            let control_message_sender = control_message_sender.clone();
-            slint::spawn_local(async move {
-                control_message_sender
-                    .send(slint_bevy_adapter::ControlMessage::ResizeBuffers {
-                        width: requested_width,
-                        height: requested_height,
+                let requested_width = app.get_requested_texture_width().round() as u32;
+                let requested_height = app.get_requested_texture_height().round() as u32;
+                if requested_width > 0 && requested_height > 0 {
+                    let control_message_sender = control_message_sender.clone();
+                    slint::spawn_local(async move {
+                        control_message_sender
+                            .send(slint_bevy_adapter::ControlMessage::ResizeBuffers {
+                                width: requested_width,
+                                height: requested_height,
+                            })
+                            .await
+                            .unwrap();
                     })
-                    .await
                     .unwrap();
-            })
-            .unwrap();
-        }
+                }
 
-        if let Ok(image) = new_texture.try_into() {
-            app.set_texture(image);
+                if let Ok(image) = new_texture.try_into() {
+                    app.set_texture(image);
+                }
+            }
+            _ => {}
         }
     })?;
 

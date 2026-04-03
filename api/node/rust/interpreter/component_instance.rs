@@ -360,6 +360,12 @@ impl JsComponentInstance {
     }
 
     #[napi]
+    pub fn send_key_combo(&self, keys: Vec<String>) {
+        let keys: Vec<_> = keys.into_iter().map(Into::into).collect();
+        slint_interpreter::testing::send_key_combo(&self.inner, &keys);
+    }
+
+    #[napi]
     pub fn window(&self) -> Result<JsWindow> {
         Ok(JsWindow { inner: WindowInner::from_pub(self.inner.window()).window_adapter() })
     }

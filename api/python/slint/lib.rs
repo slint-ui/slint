@@ -16,6 +16,7 @@ mod api_match;
 mod async_adapter;
 mod brush;
 mod errors;
+mod keys;
 mod models;
 mod timer;
 mod value;
@@ -181,6 +182,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<timer::PyTimer>()?;
     m.add_class::<brush::PyColor>()?;
     m.add_class::<brush::PyBrush>()?;
+    m.add_class::<keys::PyKeys>()?;
     m.add_class::<models::PyModelBase>()?;
     m.add_class::<value::PyStruct>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;

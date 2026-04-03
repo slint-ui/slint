@@ -1,0 +1,116 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that flex item properties (flex-grow, align-self, order) work on repeated items.
+
+// Test 1: flex-grow on a repeated item pushes a static item to the right.
+// Repeated item with flex-grow:1 before a 60px static item:
+// repeated item gets 240px (300-60), static at x=240.
+component TestFlexGrowRepeater inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+
+        for item in [1]: Rectangle {
+            flex-grow: 1;
+            height: 50px;
+            background: red;
+        }
+        r_static := Rectangle {
+            width: 60px;
+            height: 50px;
+            background: gray;
+        }
+    }
+
+    out property <bool> test: r_static.x == 240px;
+}
+
+// Test 2: order on a repeated item moves the static item.
+// Static (flex-order:1) declared first, repeated (flex-order:0) declared second.
+// With order working, repeated comes first visually → static at x=100.
+component TestOrderRepeater inherits Rectangle {
+    width: 200px;
+    height: 50px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+
+        r_static := Rectangle {
+            width: 100px;
+            height: 50px;
+            flex-order: 1;
+            background: gray;
+        }
+        for item in [1]: Rectangle {
+            width: 100px;
+            height: 50px;
+            flex-order: 0;
+            background: red;
+        }
+    }
+
+    out property <bool> test: r_static.x == 100px;
+}
+
+// Test 3: align-self on static item works when mixed with repeaters.
+component TestAlignSelfWithRepeater inherits Rectangle {
+    width: 300px;
+    height: 100px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+        align-items: start;
+
+        r_static := Rectangle {
+            width: 80px;
+            height: 30px;
+            flex-align-self: end;
+            background: gray;
+        }
+        for item in [1]: Rectangle {
+            width: 80px;
+            height: 30px;
+            background: red;
+        }
+    }
+
+    // Static item: flex-align-self:end → y=70 (100-30)
+    out property <bool> test: r_static.y == 70px;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    VerticalLayout {
+        t1 := TestFlexGrowRepeater { }
+        t2 := TestOrderRepeater { }
+        t3 := TestAlignSelfWithRepeater { }
+    }
+
+    out property <bool> test_flex_grow: t1.test;
+    out property <bool> test_order: t2.test;
+    out property <bool> test_align_self: t3.test;
+    out property <bool> test: test_flex_grow && test_order && test_align_self;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test_flex_grow());
+assert(handle->get_test_order());
+assert(handle->get_test_align_self());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test_flex_grow());
+assert!(instance.get_test_order());
+assert!(instance.get_test_align_self());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

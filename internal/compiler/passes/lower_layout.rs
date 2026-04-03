@@ -109,7 +109,7 @@ fn lower_element_layout(
         "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
-        "FlexBoxLayout" => lower_flexbox_layout(elem, diag),
+        "FlexboxLayout" => lower_flexbox_layout(elem, diag),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
             // return now, the Dialog stays in the tree as a Dialog
@@ -877,7 +877,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
                 && v.enumeration.values[v.value] == "stretch")
         {
             diag.push_warning(
-                "alignment: stretch has no effect on FlexBoxLayout".into(),
+                "alignment: stretch has no effect on FlexboxLayout".into(),
                 &*binding,
             );
         }
@@ -888,7 +888,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     let align_items = crate::layout::binding_reference(layout_element, "align-items");
     let flex_wrap = crate::layout::binding_reference(layout_element, "flex-wrap");
 
-    let mut layout = crate::layout::FlexBoxLayout {
+    let mut layout = crate::layout::FlexboxLayout {
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
         direction,
@@ -897,7 +897,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         flex_wrap,
     };
 
-    // FlexBoxLayout needs 4 values per item: x, y, width, height
+    // FlexboxLayout needs 4 values per item: x, y, width, height
     let layout_cache_prop =
         create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
     let layout_info_prop_v = create_new_prop(
@@ -950,11 +950,15 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let flex_grow = crate::layout::binding_reference(actual_elem, "flex-grow");
         let flex_shrink = crate::layout::binding_reference(actual_elem, "flex-shrink");
         let flex_basis = crate::layout::binding_reference(actual_elem, "flex-basis");
-        layout.elems.push(crate::layout::FlexBoxLayoutItem {
+        let align_self = crate::layout::binding_reference(actual_elem, "flex-align-self");
+        let order = crate::layout::binding_reference(actual_elem, "flex-order");
+        layout.elems.push(crate::layout::FlexboxLayoutItem {
             item: item.item,
             flex_grow,
             flex_shrink,
             flex_basis,
+            align_self,
+            order,
         });
     }
     layout_element.borrow_mut().children = layout_children;
@@ -963,7 +967,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_cache_prop.element().borrow_mut().bindings.insert(
         layout_cache_prop.name().clone(),
         BindingExpression::new_with_span(
-            Expression::SolveFlexBoxLayout(layout.clone()),
+            Expression::SolveFlexboxLayout(layout.clone()),
             span.clone(),
         )
         .into(),
@@ -971,7 +975,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeFlexBoxLayoutInfo(layout.clone(), Orientation::Horizontal),
+            Expression::ComputeFlexboxLayoutInfo(layout.clone(), Orientation::Horizontal),
             span.clone(),
         )
         .into(),
@@ -979,14 +983,14 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeFlexBoxLayoutInfo(layout.clone(), Orientation::Vertical),
+            Expression::ComputeFlexboxLayoutInfo(layout.clone(), Orientation::Vertical),
             span,
         )
         .into(),
     );
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
     for d in layout_element.borrow_mut().debug.iter_mut() {
-        d.layout = Some(Layout::FlexBoxLayout(layout.clone()));
+        d.layout = Some(Layout::FlexboxLayout(layout.clone()));
     }
 }
 
@@ -1579,7 +1583,7 @@ fn check_number_literal_is_positive_integer(
 }
 
 fn recognized_layout_types() -> &'static [&'static str] {
-    &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "FlexBoxLayout", "Dialog"]
+    &["Row", "GridLayout", "HorizontalLayout", "VerticalLayout", "FlexboxLayout", "Dialog"]
 }
 
 /// Checks that there are no grid-layout specific properties used wrongly
@@ -1596,13 +1600,13 @@ fn check_no_layout_properties(
         {
             diag.push_error(format!("{prop} used outside of a GridLayout's cell"), &*expr.borrow());
         }
-        if parent_layout_type.as_deref() != Some("FlexBoxLayout")
+        if parent_layout_type.as_deref() != Some("FlexboxLayout")
             && matches!(
                 prop.as_ref(),
-                "flex-grow" | "flex-shrink" | "flex-basis" | "align-self" | "order"
+                "flex-grow" | "flex-shrink" | "flex-basis" | "flex-align-self" | "flex-order"
             )
         {
-            diag.push_error(format!("{prop} used outside of a FlexBoxLayout"), &*expr.borrow());
+            diag.push_error(format!("{prop} used outside of a FlexboxLayout"), &*expr.borrow());
         }
         if parent_layout_type.as_deref() != Some("Dialog")
             && matches!(prop.as_ref(), "dialog-button-role")

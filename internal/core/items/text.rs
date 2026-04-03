@@ -233,21 +233,10 @@ pub struct StyledTextItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub text: Property<crate::styled_text::StyledText>,
-    pub font_size: Property<LogicalLength>,
-    pub font_weight: Property<i32>,
-    pub color: Property<Brush>,
+    pub default_color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub link_clicked: Callback<StringArg>,
-
-    pub font_family: Property<SharedString>,
-    pub font_italic: Property<bool>,
-    pub wrap: Property<TextWrap>,
-    pub overflow: Property<TextOverflow>,
-    pub letter_spacing: Property<LogicalLength>,
-    pub stroke: Property<Brush>,
-    pub stroke_width: Property<LogicalLength>,
-    pub stroke_style: Property<TextStrokeStyle>,
     pub link_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -304,21 +293,24 @@ impl Item for StyledTextItem {
         };
         match event {
             #[cfg(feature = "shared-parley")]
-            MouseEvent::Moved { position, .. } => {
-                if find_link(position).is_some() {
-                    *cursor = super::MouseCursor::Pointer;
-                }
-                InputEventResult::EventIgnored
-            }
-            #[cfg(feature = "shared-parley")]
-            MouseEvent::Pressed {
+            MouseEvent::Released {
                 position,
                 button: PointerEventButton::Left,
                 click_count: _,
                 is_touch: _,
             } => {
                 if let Some(link) = find_link(position) {
+                    *cursor = super::MouseCursor::Pointer;
                     Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
+                }
+                InputEventResult::EventAccepted
+            }
+            #[cfg(feature = "shared-parley")]
+            MouseEvent::Moved { position, .. }
+            | MouseEvent::Pressed { position, .. }
+            | MouseEvent::Released { position, .. } => {
+                if find_link(position).is_some() {
+                    *cursor = super::MouseCursor::Pointer;
                 }
                 InputEventResult::EventAccepted
             }
@@ -388,11 +380,11 @@ impl HasFont for StyledTextItem {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
-            self.font_family(),
-            self.font_weight(),
-            self.font_size(),
-            self.letter_spacing(),
-            self.font_italic(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
         )
     }
 }
@@ -409,7 +401,7 @@ impl RenderText for StyledTextItem {
     }
 
     fn color(self: Pin<&Self>) -> Brush {
-        self.color()
+        self.default_color()
     }
 
     fn link_color(self: Pin<&Self>) -> Color {
@@ -423,15 +415,15 @@ impl RenderText for StyledTextItem {
     }
 
     fn wrap(self: Pin<&Self>) -> TextWrap {
-        self.wrap()
+        TextWrap::WordWrap
     }
 
     fn overflow(self: Pin<&Self>) -> TextOverflow {
-        self.overflow()
+        TextOverflow::Clip
     }
 
     fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
-        (self.stroke(), self.stroke_width(), self.stroke_style())
+        Default::default()
     }
 
     fn is_markdown(self: Pin<&Self>) -> bool {
@@ -939,7 +931,7 @@ impl Item for TextInput {
                     return KeyEventResult::EventAccepted;
                 }
 
-                match event.key_event.text_shortcut() {
+                match event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
                             TextInput::move_cursor(
@@ -1024,7 +1016,7 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
 
-                if let Some(shortcut) = event.key_event.shortcut() {
+                if let Some(shortcut) = event.shortcut() {
                     match shortcut {
                         StandardShortcut::SelectAll => {
                             self.select_all(window_adapter, self_rc);

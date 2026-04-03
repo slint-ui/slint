@@ -45,6 +45,7 @@ pub struct Path {
     pub stroke_width: Property<LogicalLength>,
     pub stroke_line_cap: Property<LineCap>,
     pub stroke_line_join: Property<LineJoin>,
+    pub stroke_miter_limit: Property<f32>,
     pub viewbox_x: Property<f32>,
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,

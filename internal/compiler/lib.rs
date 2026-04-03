@@ -241,11 +241,13 @@ impl CompilerConfiguration {
             _ => None,
         };
 
+        let style = std::env::var("SLINT_STYLE").ok();
+
         Self {
             embed_resources,
             include_paths: Default::default(),
             library_paths: Default::default(),
-            style: Default::default(),
+            style,
             open_import_callback: None,
             resource_url_mapper: None,
             inline_all_elements,

@@ -30,7 +30,11 @@ renderer-femtovg = [
   "i-slint-backend-winit?/renderer-femtovg",
   "i-slint-backend-linuxkms?/renderer-femtovg",
 ]
-renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "i-slint-backend-winit?/renderer-femtovg-wgpu"]
+renderer-femtovg-wgpu = [
+  "i-slint-renderer-femtovg/wgpu",
+  "i-slint-backend-winit?/renderer-femtovg-wgpu",
+  "i-slint-backend-linuxkms?/renderer-femtovg-wgpu",
+]
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
 renderer-skia-opengl = [
   "i-slint-backend-winit?/renderer-skia-opengl",
@@ -63,6 +67,7 @@ unstable-wgpu-28 = [
   "i-slint-renderer-skia?/unstable-wgpu-28",
   "i-slint-renderer-femtovg?/unstable-wgpu-28",
   "i-slint-backend-winit?/unstable-wgpu-28",
+  "i-slint-backend-linuxkms?/unstable-wgpu-28",
 ]
 
 unstable-winit-030 = ["i-slint-backend-winit"]
@@ -71,8 +76,7 @@ unstable-libinput-09 = ["dep:input"]
 
 backend-android-activity = ["dep:i-slint-backend-android-activity"]
 
-# note that default enable the i-slint-backend-qt, but not its enable feature
-default = ["i-slint-backend-qt", "backend-winit"]
+default = ["backend-winit"]
 
 [dependencies]
 cfg-if = "1"

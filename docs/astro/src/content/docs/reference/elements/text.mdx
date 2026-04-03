@@ -41,7 +41,6 @@ while the `preferred-width` and `preferred-height` remain unchanged.
 ## Properties
 
 ### color
-
 <SlintProperty propName="color" typeName="brush" defaultValue="<depends on theme>">
     The color of the text.
 
@@ -98,23 +97,23 @@ Text {
 
 ### font-weight
 <SlintProperty propName="font-weight" typeName="int">
-The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
 
 <CodeSnippetMD imagePath="/src/assets/generated/text-font-weight.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-weight'>
 
-```slint 'font-weight: 800;'
+```slint 'font-weight: FontWeight.extra-bold;'
 Text {
     text: "BOLD";
     color: black;
     font-size: 30pt;
-    font-weight: 800;
+    font-weight: FontWeight.extra-bold;
 }
 ```
 </CodeSnippetMD>
 </SlintProperty>
 
 ### font-italic
-<SlintProperty propName="font-italic" typeName="bool" defaultValue="false" >
+<SlintProperty propName="font-italic" typeName="bool" defaultValue="false">
 Whether or not the font face should be drawn italicized or not.
 
 <CodeSnippetMD imagePath="/src/assets/generated/text-font-italic.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
@@ -130,7 +129,7 @@ Text {
 </SlintProperty>
 
 ### font-metrics
-<SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics">
+<SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
 The design metrics of the font scaled to the font pixel size used by the element.
 </SlintProperty>
 
@@ -214,12 +213,12 @@ Text {
 </CodeSnippetMD>
 </SlintProperty>
 
-###  stroke-width
-<SlintProperty propName="stroke-width" typeName="length" >
+### stroke-width
+<SlintProperty propName="stroke-width" typeName="length">
 The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
 </SlintProperty>
 
-###  stroke-style
+### stroke-style
 <SlintProperty propName="stroke-style" typeName="enum" enumName="TextStrokeStyle">
 <CodeSnippetMD imagePath="/src/assets/generated/text-stroke-style.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='stroke-style'>
 

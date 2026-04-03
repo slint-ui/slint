@@ -8,7 +8,6 @@ use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
-use i_slint_core::input::Keys;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
@@ -52,9 +51,6 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
-    /// Correspond to `styled-text` type in .slint.
-    #[doc(hidden)]
-    StyledText,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
     Other = -1,
@@ -79,7 +75,6 @@ impl From<LangType> for ValueType {
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
             LangType::Image => Self::Image,
-            LangType::StyledText => Self::StyledText,
             _ => Self::Other,
         }
     }
@@ -1673,9 +1668,15 @@ impl ComponentInstance {
     }
 }
 
-impl ComponentHandle for ComponentInstance {
+impl StrongHandle for ComponentInstance {
     type WeakInner = vtable::VWeak<ItemTreeVTable, crate::dynamic_item_tree::ErasedItemTreeBox>;
 
+    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
+        Some(Self { inner: inner.upgrade()? })
+    }
+}
+
+impl ComponentHandle for ComponentInstance {
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized,
@@ -1685,10 +1686,6 @@ impl ComponentHandle for ComponentInstance {
 
     fn clone_strong(&self) -> Self {
         Self { inner: self.inner.clone() }
-    }
-
-    fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> Option<Self> {
-        Some(Self { inner: inner.upgrade()? })
     }
 
     fn show(&self) -> Result<(), PlatformError> {
@@ -1822,6 +1819,21 @@ pub mod testing {
             &string,
             &WindowInner::from_pub(comp.window()).window_adapter(),
         );
+    }
+
+    /// Simulate pressing a combination of keys together, then releasing them in reverse order.
+    ///
+    /// Each entry in `keys` is a key text (a single character or a special-key unicode codepoint).
+    /// All keys are pressed in order, then released in reverse
+    // Emulates the same behavior as `i_slint_backend_testing::send_key_combo_with_text`.
+    pub fn send_key_combo(comp: &super::ComponentInstance, keys: &[i_slint_core::SharedString]) {
+        let window_adapter = &WindowInner::from_pub(comp.window()).window_adapter();
+        for key in keys {
+            i_slint_core::tests::slint_send_keyboard_key_text(key, true, window_adapter);
+        }
+        for key in keys.iter().rev() {
+            i_slint_core::tests::slint_send_keyboard_key_text(key, false, window_adapter);
+        }
     }
 }
 

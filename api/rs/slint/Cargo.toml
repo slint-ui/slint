@@ -103,12 +103,13 @@ live-preview = ["dep:slint-interpreter"]
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
-#! By default, Slint will use the Qt backend, if Qt is installed, otherwise, it
-#! will use [Winit](https://crates.io/crates/winit) with [FemtoVG](https://crates.io/crates/femtovg).
-#! Both backends are compiled in. If you want to not compile one of these you need
-#! to disable the default feature and re-enable one backend. It is also possible
-#! to use Slint without backend if you provide the platform abstraction yourself
-#! with [`platform::set_platform()`].
+#! By default, Slint will use the [Winit](https://crates.io/crates/winit) backend
+#! with [FemtoVG](https://crates.io/crates/femtovg).
+#! You can also enable the Qt backend with the `backend-qt` feature.
+#! If you want to use a different backend,
+#! disable the default feature and re-enable the desired backend.
+#! It is also possible to use Slint without a backend if you provide
+#! the platform abstraction yourself with [`platform::set_platform()`].
 #!
 #! If you enable the Winit backend, you need to also include a renderer.
 #! `renderer-femtovg` is the default renderer.
@@ -146,8 +147,7 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
 ## Alias to a backend and renderer that depends on the platform.
-## Will select the Qt backend on linux if present, and the winit otherwise
-backend-default = ["i-slint-backend-selector/default", "i-slint-backend-qt"]
+backend-default = ["i-slint-backend-selector/default"]
 
 # deprecated aliases
 renderer-winit-femtovg = ["renderer-femtovg"]
@@ -259,7 +259,7 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.7.0/fontique/) related APIs.
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.8.0/fontique/) related APIs.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
 ## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
@@ -268,9 +268,9 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-fontique-07"] }
+## slint = { version = "~1.16", features = ["unstable-fontique-08"] }
 ## ```
-unstable-fontique-07 = ["i-slint-common/shared-fontique"]
+unstable-fontique-08 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -335,6 +335,6 @@ features = [
   "unstable-wgpu-28",
   "unstable-winit-030",
   "unstable-libinput-09",
-  "unstable-fontique-07",
+  "unstable-fontique-08",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

@@ -23,8 +23,8 @@ export component TestCase inherits Window {
     }
     empty7 := Rectangle { GridLayout { } }
     empty8 := Rectangle { GridLayout { spacing: 3px; padding: 5px; } }
-    empty9 := Rectangle { FlexBoxLayout { } }
-    empty10 := Rectangle { FlexBoxLayout { spacing: 5px; padding: 10px; } }
+    empty9 := Rectangle { FlexboxLayout { } }
+    empty10 := Rectangle { FlexboxLayout { spacing: 5px; padding: 10px; } }
 
     out property <bool> t1: empty1.min-height == 0 && empty1.min-width == 0 && empty1.preferred-height == 0 && empty1.preferred-width == 0 && empty1.max-height > 10000px && empty1.max-width == 0;
     out property <bool> t2: empty2.min-height == 4px && empty2.min-width == 4px && empty2.preferred-height == 4px && empty2.preferred-width == 4px && empty2.max-height == 4px && empty2.max-width > 100000px;

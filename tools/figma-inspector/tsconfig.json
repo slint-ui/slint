@@ -18,10 +18,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "lib": ["es2017", "dom"],
+    "types": ["plugin-typings", "node"],
     "typeRoots": [
       "../../node_modules/@figma",
-      "./src/globals.d.ts",
-      "shared/universals.d.ts"
+      "../../node_modules/@types"
     ]
   },
   "include": [

@@ -36,7 +36,7 @@ slint-viewer path/to/myfile.slint
  - `--load-data <file>`: Load the values of public properties from a json file.
  - `-I <path>`: Add an include path to look for imported .slint files or images.
  - `-L <library=path>`: Add a library path to look for `@library` imports.
- - `--style <style>`: Set the style. Defaults to `native` if the Qt backend is compiled, otherwise `fluent`
+ - `--style <style>`: Set the style. Defaults to `fluent` on all platforms
  - `--backend <backend>`: Override the Slint rendering backend
  - `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)
  - `--component <name>`: Load the component with the given name. If not specified, load the last exported component

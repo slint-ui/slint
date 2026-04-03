@@ -72,6 +72,9 @@ pub fn count_property_use(root: &CompilationUnit) {
         if let Some(e) = &sc.grid_layout_input_for_repeated {
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
+        if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+            e.borrow().visit_property_references(ctx, &mut visit_property);
+        }
         for child in &sc.grid_layout_children {
             child.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
             child.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);

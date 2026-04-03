@@ -29,10 +29,12 @@ export component Example inherits Window {
             MenuItem {
                 title: @tr("New");
                 activated => { file-new(); }
+                shortcut: @keys(Control + N);
             }
             MenuItem {
                 title: @tr("Open");
                 activated => { file-open(); }
+                shortcut: @keys(Control + O);
             }
         }
         Menu {

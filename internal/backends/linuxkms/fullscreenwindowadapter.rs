@@ -3,7 +3,7 @@
 
 //! This module contains the window adapter implementation to communicate between Slint and Vulkan + libinput
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -33,6 +33,7 @@ pub struct FullscreenWindowAdapter {
     renderer: Box<dyn FullscreenRenderer>,
     redraw_requested: Cell<bool>,
     rotation: RenderingRotation,
+    loop_signal: RefCell<Option<calloop::LoopSignal>>,
 }
 
 impl WindowAdapter for FullscreenWindowAdapter {
@@ -49,7 +50,10 @@ impl WindowAdapter for FullscreenWindowAdapter {
     }
 
     fn request_redraw(&self) {
-        self.redraw_requested.set(true)
+        self.redraw_requested.set(true);
+        if let Some(signal) = self.loop_signal.borrow().as_ref() {
+            signal.wakeup();
+        }
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
@@ -85,7 +89,12 @@ impl FullscreenWindowAdapter {
             renderer,
             redraw_requested: Cell::new(true),
             rotation,
+            loop_signal: RefCell::new(None),
         }))
+    }
+
+    pub fn set_loop_signal(&self, signal: calloop::LoopSignal) {
+        *self.loop_signal.borrow_mut() = Some(signal);
     }
 
     pub fn render_if_needed(

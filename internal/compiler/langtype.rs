@@ -662,8 +662,9 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
-    FlexBoxLayoutData,
+    FlexboxLayoutData,
     LayoutItemInfo,
+    FlexboxLayoutItemInfo,
     Padding,
     LayoutInfo,
     FontMetrics,
@@ -684,7 +685,7 @@ impl BuiltinPrivateStruct {
             Self::GridLayoutInputData
                 | Self::GridLayoutData
                 | Self::BoxLayoutData
-                | Self::FlexBoxLayoutData
+                | Self::FlexboxLayoutData
         )
     }
     pub fn slint_name(&self) -> Option<SmolStr> {

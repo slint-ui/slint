@@ -24,15 +24,16 @@ export component PageButton inherits Rectangle {
     Rectangle {
         t := Text {
             font-size: default-font-size;
-            font-weight: selected ? 400 : 100;
+            font-weight: FontWeight.normal;
             font-family: AppState.default-font-family;
             color: black;
+            opacity: selected ? 100% : 70%;
             Text {
                 x: -1px;
                 y: -1px;
                 text: t.text;
                 font-size: default-font-size;
-                font-weight: selected ? 400 : 100;
+                font-weight: FontWeight.normal;
                 font-family: AppState.default-font-family;
                 color: #ffffff;
             }
@@ -133,14 +134,14 @@ export component MainScreen inherits Rectangle {
                 text: Api.return-month();
                 color: Palette.info-foreground;
                 font-size: Style.H1-font-size;
-                font-weight: 100;
+                font-weight: FontWeight.thin;
             }
 
             HaText {
                 text: Api.current-date.day;
                 color: Palette.info-foreground;
                 font-size: Style.H1-font-size;
-                font-weight: 400;
+                font-weight: FontWeight.normal;
             }
         }
         if showing-time: HorizontalLayout {
@@ -162,7 +163,7 @@ export component MainScreen inherits Rectangle {
             }
 
             HaText {
-                text: Api.current-time.minute;
+                text: Api.current-time.minute < 10 ? "0" + Api.current-time.minute : Api.current-time.minute;
                 horizontal-alignment: center;
                 vertical-alignment: center;
                 color: Palette.info-foreground;
@@ -190,14 +191,14 @@ export component MainScreen inherits Rectangle {
             HaText {
                 text: Api.return-month();
                 font-size: Style.H1-font-size;
-                font-weight: 100;
+                font-weight: FontWeight.thin;
             }
 
             HaText {
                 text: Api.current-date.day;
                 color: Palette.info-foreground;
                 font-size: Style.H1-font-size;
-                font-weight: 400;
+                font-weight: FontWeight.normal;
             }
         }
         HorizontalLayout {
@@ -231,7 +232,7 @@ export component MainScreen inherits Rectangle {
                 vertical-alignment: center;
                 color: Palette.info-foreground;
                 font-size: Style.H2-font-size;
-                font-weight: 100;
+                font-weight: FontWeight.thin;
             }
         }
     }

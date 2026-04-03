@@ -2,45 +2,46 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 component Foo {
-//            >error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//            >^error{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
+//            >error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//            >^error{The binding for the property 'layoutinfo-h' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
     HorizontalLayout {
-//  >               <error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^^error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^^^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^^^^error{The binding for the property 'width' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
-//  >               <^^^^^error{The binding for the property 'layout-cache' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
-//  >               <^^^^^^error{The binding for the property 'width' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
-//  >               <^^^^^^^error{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
+//  >               <error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^^^error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+//  >               <^^^^^error{The binding for the property 'layout-cache' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+//  >               <^^^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
+//  >               <^^^^^^^error{The binding for the property 'layoutinfo-h' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
 
         Text {
             text: "hello";
             font_size: self.width / 2.5;
-//                     >               <error{The binding for the property 'font-size' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//                     >               <^error{The binding for the property 'font-size' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
+//                     >               <error{The binding for the property 'font-size' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//                     >               <^error{The binding for the property 'font-size' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
         }
     }
 }
-//<<<error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//<^<<error{The binding for the property 'layoutinfo-h' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
+//<<<error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//<^<<error{The binding for the property 'layoutinfo-h' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
 
 component Bar {
-//            >error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
+//            >error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
     HorizontalLayout {
-//  >               <error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^^error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^^^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >               <^^^^error{The binding for the property 'width' is part of a binding loop (width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache)}
+//  >               <error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^^^error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >               <^^^^error{The binding for the property 'width' is part of a binding loop (layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layout-cache)}
         Foo {}
         Foo {}
     }
 }
-//<<<error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
+//<<<error{The binding for the property 'layoutinfo-h' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
 
 export component Apps inherits Window {
     Bar {}
-//  >  <error{The binding for the property 'preferred-width' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
-//  >  <^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size)}
+//  >  <error{The binding for the property 'preferred-width' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >  <^error{The binding for the property 'width' is part of a binding loop (layoutinfo-h -> preferred-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
+//  >  <^^error{The binding for the property 'min-width' is part of a binding loop (layoutinfo-h -> min-width -> width -> width -> layout-cache -> width -> width -> layout-cache -> width -> font-size -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h -> layoutinfo-h)}
 }

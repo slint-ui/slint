@@ -30,7 +30,7 @@ use i_slint_core::lengths::{
     PhysicalPx, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
-use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, parley};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use i_slint_core::{ImageInner, Property, SharedString};
 
@@ -65,6 +65,7 @@ cpp! {{
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
     #include <QtGui/QWindow>
+    #include <QtWidgets/QGesture>
     #include <QtWidgets/QCheckBox>
     #include <QtWidgets/QComboBox>
     #include <QtWidgets/QGraphicsBlurEffect>
@@ -118,6 +119,7 @@ cpp! {{
             // to draw the window background which is set on the palette.
             // (But the window background might not be opaque)
             setAttribute(Qt::WA_NoSystemBackground, false);
+            grabGesture(Qt::PinchGesture);
         }
 
         void paintEvent(QPaintEvent *) override {
@@ -381,6 +383,69 @@ cpp! {{
                     };
                     runtime_window.process_key_input(event);
                 });
+        }
+        static int gesture_phase(Qt::GestureState state) {
+            // 0=Started, 1=Moved, 2=Ended, 3=Cancelled
+            switch (state) {
+                case Qt::GestureStarted:   return 0;
+                case Qt::GestureUpdated:   return 1;
+                case Qt::GestureFinished:  return 2;
+                case Qt::GestureCanceled:  return 3;
+                default:                   return 3;
+            }
+        }
+
+        bool event(QEvent *event) override {
+            if (event->type() == QEvent::Gesture) {
+                auto *ge = static_cast<QGestureEvent*>(event);
+                if (auto *pinch = static_cast<QPinchGesture*>(ge->gesture(Qt::PinchGesture))) {
+                    if (!rust_window) return true;
+
+                    int phase = gesture_phase(pinch->state());
+
+                    // scaleFactor() is the per-step multiplier (e.g. 1.02 = 2% growth
+                    // since last event). totalScaleFactor() is the cumulative product.
+                    // Subtract 1.0 to get an incremental delta matching winit semantics.
+                    float scale_delta = pinch->scaleFactor() - 1.0f;
+
+                    // rotationAngle() is cumulative; compute incremental delta.
+                    float rotation_delta = pinch->rotationAngle() - pinch->lastRotationAngle();
+
+                    // centerPoint() is in widget-local coordinates when delivered
+                    // via QWidget::event() (not scene coordinates as the QGraphicsObject
+                    // docs might suggest).
+                    QPointF center = pinch->centerPoint();
+
+                    rust!(Slint_pinchGesture [rust_window: &QtWindow as "void*",
+                            scale_delta: f32 as "float", rotation_delta: f32 as "float",
+                            center: qttypes::QPointF as "QPointF",
+                            phase: i32 as "int"] {
+                        let position = LogicalPoint::new(center.x as _, center.y as _);
+                        let phase = match phase {
+                            0 => i_slint_core::input::TouchPhase::Started,
+                            1 => i_slint_core::input::TouchPhase::Moved,
+                            2 => i_slint_core::input::TouchPhase::Ended,
+                            _ => i_slint_core::input::TouchPhase::Cancelled,
+                        };
+                        rust_window.mouse_event(MouseEvent::PinchGesture {
+                            position, delta: scale_delta, phase,
+                        });
+                        if rotation_delta != 0.0 || matches!(phase,
+                            i_slint_core::input::TouchPhase::Started
+                            | i_slint_core::input::TouchPhase::Ended
+                            | i_slint_core::input::TouchPhase::Cancelled)
+                        {
+                            rust_window.mouse_event(MouseEvent::RotationGesture {
+                                position, delta: rotation_delta, phase,
+                            });
+                        }
+                    });
+
+                    ge->accept();
+                    return true;
+                }
+            }
+            return QWidget::event(event);
         }
     };
 
@@ -743,6 +808,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             LineJoin::Bevel => 0x40,
             _ => 0x00,
         };
+        let stroke_miter_limit = path.stroke_miter_limit();
 
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
@@ -791,11 +857,18 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 stroke_width as "float",
                 stroke_pen_cap_style as "int",
                 stroke_pen_join_style as "int",
+                stroke_miter_limit as "float",
                 anti_alias as "bool"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
-            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style)) : Qt::NoPen);
+            if (stroke_width > 0) {
+                QPen pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style));
+                pen.setMiterLimit(static_cast<qreal>(stroke_miter_limit));
+                (*painter)->setPen(pen);
+            } else {
+                (*painter)->setPen(Qt::NoPen);
+            }
             (*painter)->setBrush(fill_brush);
             (*painter)->setRenderHint(QPainter::Antialiasing, anti_alias);
             (*painter)->drawPath(painter_path);
@@ -1094,11 +1167,15 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         &mut self,
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
+        _normalized_coords: &[i16],
+        synthesis: &fontique::Synthesis,
         brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
-        let Some(mut raw_font) = FONT_CACHE.with(|cache| cache.borrow_mut().font(font)) else {
+        let Some(mut raw_font) = FONT_CACHE.with(|cache| {
+            cache.borrow_mut().font_with_variations(font, font_size.get(), synthesis)
+        }) else {
             return;
         };
 
@@ -1214,10 +1291,66 @@ impl QRawFont {
     }
 }
 
+/// Register font data with QFontDatabase and return the registration id.
+/// Returns -1 on failure.
+fn register_font_with_database(data: &[u8]) -> i32 {
+    let font_data = qttypes::QByteArray::from(data);
+    cpp! { unsafe [font_data as "QByteArray"] -> i32 as "int" {
+        return QFontDatabase::addApplicationFontFromData(font_data);
+    }}
+}
+
+/// Get the family name for a registered font. Returns empty string on failure.
+fn font_family_for_registration(id: i32) -> String {
+    let qstring = cpp! { unsafe [id as "int"] -> qttypes::QString as "QString" {
+        auto families = QFontDatabase::applicationFontFamilies(id);
+        if (families.isEmpty()) return QString();
+        return families.first();
+    }};
+    qstring.to_string()
+}
+
+/// Create a QRawFont with variable font axes applied via QFont (Qt 6.7+).
+/// `tags` and `values` are parallel arrays of OpenType axis tags (as big-endian u32) and
+/// design-space values. Returns a default (invalid) QRawFont if Qt < 6.7 or on failure.
+fn raw_font_with_variations(
+    family: &str,
+    pixel_size: f32,
+    tags: &[u32],
+    values: &[f32],
+) -> QRawFont {
+    let family = qttypes::QString::from(family);
+    let tags_ptr = tags.as_ptr();
+    let values_ptr = values.as_ptr();
+    let count: i32 = tags.len() as i32;
+    cpp! { unsafe [family as "QString", pixel_size as "float",
+                   tags_ptr as "const quint32*", values_ptr as "const float*",
+                   count as "int"] -> QRawFont as "QRawFont" {
+        #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+        QFont font(family, -1);
+        font.setPixelSize(pixel_size);
+        font.setHintingPreference(QFont::PreferNoHinting);
+        for (int i = 0; i < count; i++) {
+            auto tag = QFont::Tag::fromValue(tags_ptr[i]);
+            if (tag)
+                font.setVariableAxis(*tag, values_ptr[i]);
+        }
+        return QRawFont::fromFont(font);
+        #else
+        Q_UNUSED(family); Q_UNUSED(pixel_size);
+        Q_UNUSED(tags_ptr); Q_UNUSED(values_ptr); Q_UNUSED(count);
+        return QRawFont();
+        #endif
+    }}
+}
+
 #[derive(Default)]
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
     fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
+    /// Font registration ids for QFontDatabase, keyed by blob.
+    /// Used for variable font support via QFont (Qt 6.7+).
+    registrations: HashMap<HashedBlob, (i32, String)>,
 }
 
 impl FontCache {
@@ -1230,6 +1363,47 @@ impl FontCache {
                 if raw_font.is_valid() { Some(raw_font) } else { None }
             })
             .clone()
+    }
+
+    /// Get or create a QFontDatabase registration for the given font data.
+    /// Returns the family name if registration succeeded.
+    fn ensure_registered(&mut self, font: &parley::FontData) -> Option<String> {
+        let blob_key: HashedBlob = font.data.clone().into();
+        if let Some((_id, family)) = self.registrations.get(&blob_key) {
+            if !family.is_empty() {
+                return Some(family.clone());
+            }
+            return None;
+        }
+        let id = register_font_with_database(font.data.as_ref());
+        let family = if id >= 0 { font_family_for_registration(id) } else { String::new() };
+        let result = if !family.is_empty() { Some(family.clone()) } else { None };
+        self.registrations.insert(blob_key, (id, family));
+        result
+    }
+
+    /// Create a QRawFont with variable font axes applied.
+    /// Falls back to the base font if Qt < 6.7 or registration fails.
+    pub fn font_with_variations(
+        &mut self,
+        font: &parley::FontData,
+        pixel_size: f32,
+        synthesis: &fontique::Synthesis,
+    ) -> Option<QRawFont> {
+        let variation_settings = synthesis.variation_settings();
+        if variation_settings.is_empty() {
+            return self.font(font);
+        }
+        let family = self.ensure_registered(font)?;
+        let (tags, values): (Vec<u32>, Vec<f32>) = variation_settings
+            .iter()
+            .map(|&(tag, value)| {
+                let bytes = tag.to_be_bytes();
+                (u32::from_be_bytes(bytes), value)
+            })
+            .unzip();
+        let raw_font = raw_font_with_variations(&family, pixel_size, &tags, &values);
+        if raw_font.is_valid() { Some(raw_font) } else { self.font(font) }
     }
 }
 
@@ -2167,6 +2341,17 @@ impl WindowAdapterInternal for QtWindow {
         ds.as_ref().get()
     }
 
+    fn accent_color(&self) -> i_slint_core::graphics::Color {
+        let argb = cpp! {unsafe [] -> u32 as "QRgb" {
+            #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+                return qApp->palette().color(QPalette::Accent).rgba();
+            #else
+                return qApp->palette().color(QPalette::Highlight).rgba();
+            #endif
+        }};
+        i_slint_core::graphics::Color::from_argb_encoded(argb)
+    }
+
     fn bring_to_front(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
@@ -2355,7 +2540,7 @@ pub(crate) fn restart_timer() {
 
 mod key_codes {
     macro_rules! define_qt_key_to_string_fn {
-        ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
+        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
             use crate::key_generated;
             pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<i_slint_core::SharedString> {
 

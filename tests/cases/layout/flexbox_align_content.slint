@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexBoxLayout align-content property for row and column directions
+// Test FlexboxLayout align-content property for row and column directions
 // align-content controls how flex lines are distributed along the cross axis.
 
 component VisibleRect inherits Rectangle {
@@ -15,7 +15,7 @@ component VisibleRect inherits Rectangle {
 component TestAlignContentStartRow inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: start;
         spacing: 5px;
 
@@ -49,7 +49,7 @@ component TestAlignContentEndRow inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: end;
         spacing: 5px;
 
@@ -83,7 +83,7 @@ component TestAlignContentCenterRow inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: center;
         spacing: 5px;
 
@@ -119,7 +119,7 @@ component TestAlignContentStretchRow inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: stretch;
         spacing: 5px;
 
@@ -154,7 +154,7 @@ component TestAlignContentStartCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: start;
         spacing: 5px;
@@ -189,7 +189,7 @@ component TestAlignContentEndCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: end;
         spacing: 5px;
@@ -224,7 +224,7 @@ component TestAlignContentCenterCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: center;
         spacing: 5px;
@@ -261,7 +261,7 @@ component TestAlignContentStretchCol inherits VisibleRect {
     width: 200px;
     height: 200px;
 
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: stretch;
         spacing: 5px;
@@ -296,7 +296,7 @@ component TestAlignContentStretchCol inherits VisibleRect {
 component TestAlignContentSpaceBetweenRow inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: space-between;
 
         r1 := Rectangle {
@@ -326,7 +326,7 @@ component TestAlignContentSpaceBetweenRow inherits VisibleRect {
 component TestAlignContentSpaceAroundRow inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: space-around;
 
         r1 := Rectangle {
@@ -355,7 +355,7 @@ component TestAlignContentSpaceAroundRow inherits VisibleRect {
 component TestAlignContentSpaceEvenlyRow inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         align-content: space-evenly;
 
         r1 := Rectangle {
@@ -388,7 +388,7 @@ component TestAlignContentSpaceEvenlyRow inherits VisibleRect {
 component TestAlignContentSpaceBetweenCol inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: space-between;
 
@@ -419,7 +419,7 @@ component TestAlignContentSpaceBetweenCol inherits VisibleRect {
 component TestAlignContentSpaceAroundCol inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: space-around;
 
@@ -449,7 +449,7 @@ component TestAlignContentSpaceAroundCol inherits VisibleRect {
 component TestAlignContentSpaceEvenlyCol inherits VisibleRect {
     width: 200px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         flex-direction: column;
         align-content: space-evenly;
 

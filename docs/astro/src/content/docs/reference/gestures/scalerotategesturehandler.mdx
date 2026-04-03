@@ -2,8 +2,8 @@
 title: ScaleRotateGestureHandler
 description: ScaleRotateGestureHandler element api.
 ---
-import SlintProperty  from '@slint/common-files/src/components/SlintProperty.astro';
 
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
 Use the `ScaleRotateGestureHandler` to handle pinch and rotation gestures from trackpads or touchscreens.
 Recognition is limited to the element's geometry.
@@ -88,7 +88,15 @@ For trackpad gestures, this is the mouse cursor position.
 
 ## Callbacks
 
--   **`started()`**: Invoked when a gesture begins. Use this to capture the initial state you want to transform.
--   **`updated()`**: Invoked whenever the `scale`, `rotation`, or `center` changes during the gesture.
--   **`ended()`**: Invoked when the gesture completes normally (fingers lifted).
--   **`cancelled()`**: Invoked when the gesture is cancelled, for example when the handler is disabled during an active gesture or the window loses focus.
+### started()
+Invoked when a gesture begins. Use this to capture the initial state you want to transform.
+
+### updated()
+Invoked whenever the `scale`, `rotation`, or `center` changes during the gesture.
+
+### ended()
+Invoked when the gesture completes normally (fingers lifted).
+
+### cancelled()
+Invoked when the gesture is cancelled, for example when the handler is disabled during an active gesture or the window loses focus.
+

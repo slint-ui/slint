@@ -37,7 +37,7 @@ enum PageFlipState {
 
 pub struct DrmOutput {
     pub drm_device: SharedFd,
-    connector: drm::control::connector::Info,
+    pub connector: drm::control::connector::Info,
     mode: drm::control::Mode,
     crtc: drm::control::crtc::Handle,
     last_buffer: Cell<Option<Box<dyn Buffer>>>,
@@ -292,5 +292,98 @@ impl DrmOutput {
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)
+    }
+
+    /// Returns the refresh rate in millihertz, computed from the mode's pixel clock
+    /// and timing parameters. This matches the precision used by Vulkan's
+    /// VkDisplayModeParametersKHR::refreshRate.
+    pub fn refresh_rate_millihertz(&self) -> u32 {
+        let clock = self.mode.clock() as u64; // in kHz
+        let (_, _, htotal) = self.mode.hsync();
+        let (_, _, vtotal) = self.mode.vsync();
+        let htotal = htotal as u64;
+        let vtotal = vtotal as u64;
+        if htotal == 0 || vtotal == 0 {
+            // Fallback to rounded vrefresh * 1000
+            return self.mode.vrefresh() * 1000;
+        }
+        // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
+        ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
+    }
+
+    #[cfg(any(feature = "unstable-wgpu-28", feature = "renderer-femtovg-wgpu"))]
+    /// Creates a wgpu-28 DRM surface target from this output.
+    pub fn wgpu_28_surface_target(
+        &self,
+    ) -> Result<
+        (i_slint_core::graphics::wgpu_28::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        PlatformError,
+    > {
+        use i_slint_core::graphics::wgpu_28::wgpu;
+        use std::os::fd::AsRawFd;
+        let plane = self.find_compatible_plane()?;
+        let (width, height) = self.size();
+        let target =
+            i_slint_core::graphics::wgpu_28::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd: self.drm_device.as_fd().as_raw_fd(),
+                plane: plane.handle().into(),
+                connector_id: self.connector.handle().into(),
+                width,
+                height,
+                refresh_rate: self.refresh_rate_millihertz(),
+            });
+        Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
+    }
+
+    #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
+    /// Creates a wgpu-27 DRM surface target from this output.
+    pub fn wgpu_27_surface_target(
+        &self,
+    ) -> Result<
+        (i_slint_core::graphics::wgpu_27::SurfaceTarget, i_slint_core::api::PhysicalSize),
+        PlatformError,
+    > {
+        use i_slint_core::graphics::wgpu_27::wgpu;
+        use std::os::fd::AsRawFd;
+        let plane = self.find_compatible_plane()?;
+        let (width, height) = self.size();
+        let target =
+            i_slint_core::graphics::wgpu_27::SurfaceTarget::Drm(wgpu::SurfaceTargetUnsafe::Drm {
+                fd: self.drm_device.as_fd().as_raw_fd(),
+                plane: plane.handle().into(),
+                connector_id: self.connector.handle().into(),
+                width,
+                height,
+                refresh_rate: self.refresh_rate_millihertz(),
+            });
+        Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
+    }
+
+    // Iterate through all planes and collect formats from compatible ones
+    pub fn find_compatible_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
+        let _ = self.drm_device.set_client_capability(drm::ClientCapability::UniversalPlanes, true);
+        let plane_handles = self
+            .drm_device
+            .plane_handles()
+            .map_err(|e| format!("Error obtaining drm plane handles: {e}"))?
+            .into_iter()
+            .filter(|plane_handle| {
+                let Ok(plane_info) = self.drm_device.get_plane(*plane_handle) else {
+                    return false;
+                };
+                self.drm_device
+                    .resource_handles()
+                    .unwrap()
+                    .filter_crtcs(plane_info.possible_crtcs())
+                    .contains(&self.crtc)
+            });
+
+        for plane_handle in plane_handles {
+            if let Ok(plane) = self.drm_device.get_plane(plane_handle) {
+                return Ok(plane);
+            }
+        }
+
+        Err(PlatformError::Other("Could not find plane matching crtc".into()))
     }
 }

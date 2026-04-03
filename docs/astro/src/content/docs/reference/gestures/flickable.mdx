@@ -2,6 +2,7 @@
 title: Flickable
 description: Flickable element api.
 ---
+
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
@@ -93,15 +94,13 @@ The total width of the scrollable element.
 The total height of the scrollable element.
 </SlintProperty>
 
-
 ### viewport-x
-<SlintProperty propName="viewport-x" typeName="length">
+<SlintProperty propName="viewport-x" typeName="length" propertyVisibility="in-out">
 The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 </SlintProperty>
 
-
 ### viewport-y
-<SlintProperty propName="viewport-y" typeName="length">
+<SlintProperty propName="viewport-y" typeName="length" propertyVisibility="in-out">
 The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 </SlintProperty>
 
