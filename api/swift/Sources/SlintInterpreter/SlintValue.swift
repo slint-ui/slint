@@ -19,7 +19,11 @@ public enum SlintValueType: Int8 {
 
     // Use the module-qualified name to avoid shadowing this Swift enum with the C typedef.
     init(raw: SlintCBridge.SlintValueType) {
-        self = SlintValueType(rawValue: Int8(raw.rawValue)) ?? .other
+        // C enums may be imported as Int32 or UInt32 depending on platform.
+        // The Rust side uses i8 repr, so values like -1 (OTHER) may appear
+        // as large unsigned values. Truncate to Int8 to recover the original
+        // signed value safely.
+        self = SlintValueType(rawValue: Int8(truncatingIfNeeded: raw.rawValue)) ?? .other
     }
 }
 
