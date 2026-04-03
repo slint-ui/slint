@@ -12,10 +12,10 @@ mod preview;
 pub mod util;
 
 use common::{DocumentCache, LspToPreview, Result};
+use i_slint_preview_protocol::{LspToPreviewMessage, VersionedUrl};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
-use preview_protocol::{LspToPreviewMessage, VersionedUrl};
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -326,7 +326,7 @@ impl SlintServer {
         &self,
         value: JsValue,
     ) -> std::result::Result<(), JsValue> {
-        use preview_protocol::PreviewToLspMessage as M;
+        use i_slint_preview_protocol::PreviewToLspMessage as M;
 
         let ctx = self.ctx.lock().await;
 

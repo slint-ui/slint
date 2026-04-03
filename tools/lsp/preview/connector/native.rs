@@ -23,12 +23,14 @@ struct ChildProcessLspToPreviewInner {
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
-    preview_to_lsp_channel: mpsc::UnboundedSender<preview_protocol::PreviewToLspMessage>,
+    preview_to_lsp_channel: mpsc::UnboundedSender<i_slint_preview_protocol::PreviewToLspMessage>,
 }
 
 impl ChildProcessLspToPreview {
     pub fn new(
-        preview_to_lsp_channel: mpsc::UnboundedSender<preview_protocol::PreviewToLspMessage>,
+        preview_to_lsp_channel: mpsc::UnboundedSender<
+            i_slint_preview_protocol::PreviewToLspMessage,
+        >,
     ) -> Self {
         Self { inner: RefCell::new(None), preview_to_lsp_channel }
     }
@@ -77,7 +79,7 @@ impl ChildProcessLspToPreview {
                 tracing::error!("{message}");
 
                 let _ = preview_to_lsp_channel.send(
-                    preview_protocol::PreviewToLspMessage::SendShowMessage {
+                    i_slint_preview_protocol::PreviewToLspMessage::SendShowMessage {
                         message: lsp_types::ShowMessageParams {
                             typ: lsp_types::MessageType::ERROR,
                             message,
@@ -110,14 +112,15 @@ impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
             let message =
-                serde_json::to_string(&preview_protocol::LspToPreviewMessage::Quit).unwrap();
+                serde_json::to_string(&i_slint_preview_protocol::LspToPreviewMessage::Quit)
+                    .unwrap();
             let _ = inner.to_child_sender.send(message);
         }
     }
 }
 
 impl common::LspToPreview for ChildProcessLspToPreview {
-    fn send(&self, message: &preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
         if self.preview_is_running() {
             let mut inner = self.inner.borrow_mut();
             let inner = inner.as_mut().unwrap();
@@ -126,7 +129,7 @@ impl common::LspToPreview for ChildProcessLspToPreview {
                 return;
             };
             let _ = inner.to_child_sender.send(message);
-        } else if let preview_protocol::LspToPreviewMessage::ShowPreview(_) = message {
+        } else if let i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(_) = message {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
         } else {
@@ -171,10 +174,10 @@ impl EmbeddedLspToPreview {
 }
 
 impl common::LspToPreview for EmbeddedLspToPreview {
-    fn send(&self, message: &preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
         let _ = self
             .server_notifier
-            .send_notification::<preview_protocol::LspToPreviewMessage>(message.clone());
+            .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
     }
 
     fn preview_target(&self) -> common::PreviewTarget {
@@ -205,7 +208,7 @@ impl SwitchableLspToPreview {
 }
 
 impl common::LspToPreview for SwitchableLspToPreview {
-    fn send(&self, message: &preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
         self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
     }
 
@@ -291,7 +294,7 @@ impl RemoteControlledPreviewToLsp {
 
 impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     #[allow(clippy::print_stdout)]
-    fn send(&self, message: &preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
         let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
         println!("{message}");
         Ok(())

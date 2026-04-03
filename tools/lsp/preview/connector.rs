@@ -13,8 +13,8 @@ pub use native::*;
 
 use crate::preview;
 
-pub fn lsp_to_preview(message: preview_protocol::LspToPreviewMessage) {
-    use preview_protocol::LspToPreviewMessage as M;
+pub fn lsp_to_preview(message: i_slint_preview_protocol::LspToPreviewMessage) {
+    use i_slint_preview_protocol::LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => preview::invalidate_contents(&url),
         M::ForgetFile { url } => preview::delete_document(&url),

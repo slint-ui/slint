@@ -70,7 +70,7 @@ fn create_show_preview_command(
 
 fn create_populate_command(
     uri: lsp_types::Url,
-    version: preview_protocol::SourceFileVersion,
+    version: i_slint_preview_protocol::SourceFileVersion,
     title: String,
     text: String,
 ) -> Command {
@@ -91,20 +91,20 @@ pub fn send_state_to_preview(ctx: &Context) {
         }
         let version = ctx.document_cache.document_version(&url);
 
-        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetContents {
-            url: preview_protocol::VersionedUrl::new(url, version),
+        ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+            url: i_slint_preview_protocol::VersionedUrl::new(url, version),
             contents: node.text().to_string(),
         });
         doc_count += 1;
     }
 
-    ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetConfiguration {
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.clone(),
     });
 
     if let Some(c) = ctx.to_show.clone() {
         tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::ShowPreview(c));
+        ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(c));
     } else {
         tracing::debug!(
             "Sending state to preview: {} documents, showing default component",
@@ -154,12 +154,12 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 
 pub struct Context {
     pub document_cache: common::DocumentCache,
-    pub preview_config: preview_protocol::PreviewConfig,
+    pub preview_config: i_slint_preview_protocol::PreviewConfig,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<preview_protocol::PreviewComponent>,
+    pub to_show: Option<i_slint_preview_protocol::PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
     pub to_preview: Rc<dyn common::LspToPreview>,
@@ -424,10 +424,12 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             {
                 let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
 
-                ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::HighlightFromEditor {
-                    url: Some(uri),
-                    offset: element.text_range().start().into(),
-                });
+                ctx.to_preview.send(
+                    &i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                        url: Some(uri),
+                        offset: element.text_range().start().into(),
+                    },
+                );
 
                 let range = util::node_to_lsp_range(&p, ctx.document_cache.format);
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
@@ -446,7 +448,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .is_some_and(|n| n.kind() != SyntaxKind::Component)
                 {
                     ctx.to_preview.send(
-                        &preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                        &i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
                             url: Some(uri),
                             offset: gp.unwrap().text_range().start().into(),
                         },
@@ -456,10 +458,12 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
 
             if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
-                ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::HighlightFromEditor {
-                    url: None,
-                    offset: 0,
-                });
+                ctx.to_preview.send(
+                    &i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                        url: None,
+                        offset: 0,
+                    },
+                );
                 return Ok(Some(
                     value
                         .into_iter()
@@ -475,7 +479,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+        ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
             url: None,
             offset: 0,
         });
@@ -580,9 +584,9 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
-    let c = preview_protocol::PreviewComponent { url, component };
+    let c = i_slint_preview_protocol::PreviewComponent { url, component };
     ctx.to_show = Some(c.clone());
-    ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::ShowPreview(c));
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(c));
 
     Ok(())
 }
@@ -754,8 +758,8 @@ pub(crate) async fn load_document_impl(
 
     let dependencies = match action {
         FileAction::ProcessContent(content) => {
-            ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetContents {
-                url: preview_protocol::VersionedUrl::new(url.clone(), version),
+            ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), version),
                 contents: content.clone(),
             });
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
@@ -764,8 +768,9 @@ pub(crate) async fn load_document_impl(
         }
         FileAction::IgnoreFile => return Default::default(),
         FileAction::InvalidateFile => {
-            ctx.to_preview
-                .send(&preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile {
+                url: url.clone(),
+            });
             ctx.document_cache.invalidate_url(&url)
         }
     };
@@ -919,8 +924,9 @@ fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<
 pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Dropping document: {url}");
     // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview
-        .send(&preview_protocol::LspToPreviewMessage::InvalidateContents { url: url.clone() });
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::InvalidateContents {
+        url: url.clone(),
+    });
 
     drop_document_impl(ctx, url)
 }
@@ -928,7 +934,8 @@ pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Re
 pub async fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Deleting document: {url}");
     // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() });
+    ctx.to_preview
+        .send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
     drop_document_impl(ctx, url)
 }
@@ -1566,7 +1573,7 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         );
     }
 
-    let config = preview_protocol::PreviewConfig {
+    let config = i_slint_preview_protocol::PreviewConfig {
         hide_ui,
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
@@ -1576,7 +1583,8 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
     };
     {
         ctx.preview_config = config.clone();
-        ctx.to_preview.send(&preview_protocol::LspToPreviewMessage::SetConfiguration { config });
+        ctx.to_preview
+            .send(&i_slint_preview_protocol::LspToPreviewMessage::SetConfiguration { config });
     }
 
     tracing::debug!("Loaded configuration from client");

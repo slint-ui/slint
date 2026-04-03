@@ -322,7 +322,7 @@ async fn main_loop(
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
     let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
-        mpsc::unbounded_channel::<preview_protocol::PreviewToLspMessage>();
+        mpsc::unbounded_channel::<i_slint_preview_protocol::PreviewToLspMessage>();
 
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
@@ -395,12 +395,12 @@ async fn run_main_loop(
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        to_preview.send(&preview_protocol::LspToPreviewMessage::SetContents {
-                            url: preview_protocol::VersionedUrl::new(url, None),
+                        to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                            url: i_slint_preview_protocol::VersionedUrl::new(url, None),
                             contents: contents.clone(),
                         });
                     } else {
-                        to_preview.send(&preview_protocol::LspToPreviewMessage::ForgetFile { url });
+                        to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url });
                     }
                 }
                 Some(contents.map(|c| (None, c)))
@@ -642,10 +642,10 @@ async fn send_workspace_edit(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
-    message: preview_protocol::PreviewToLspMessage,
+    message: i_slint_preview_protocol::PreviewToLspMessage,
     ctx: &Context,
 ) -> Result<()> {
-    use preview_protocol::PreviewToLspMessage as M;
+    use i_slint_preview_protocol::PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
             if diagnostics.is_empty() {

@@ -295,7 +295,7 @@ fn preview_file_recompiled_when_dependency_changes() {
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
     ctx.to_show =
-        Some(preview_protocol::PreviewComponent { url: main_url.clone(), component: None });
+        Some(i_slint_preview_protocol::PreviewComponent { url: main_url.clone(), component: None });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &mut ctx,

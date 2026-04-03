@@ -5,8 +5,10 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
+use i_slint_preview_protocol::{
+    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
-use preview_protocol::{LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl};
 
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
