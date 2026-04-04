@@ -12,8 +12,6 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
-#[cfg(feature = "field-offset-trait")]
-use syn::{VisRestricted, Visibility};
 
 /**
 
@@ -272,72 +270,8 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         #ensure_no_unpin
     };
 
-    #[cfg(feature = "field-offset-trait")]
-    let module_name = quote::format_ident!("{}_field_offsets", struct_name);
-
-    #[cfg(feature = "field-offset-trait")]
-    let in_mod_vis = vis.iter().map(|vis| min_vis(vis, &struct_vis)).map(|vis| match vis {
-        Visibility::Public(_) => quote! {#vis},
-        Visibility::Restricted(VisRestricted { pub_token, path, .. }) => {
-            if quote!(#path).to_string().starts_with("super") {
-                quote!(#pub_token(in super::#path))
-            } else {
-                quote!(#vis)
-            }
-        }
-        Visibility::Inherited => quote!(pub(super)),
-    });
-
-    #[cfg(feature = "field-offset-trait")]
-    let expanded = quote! { #expanded
-        #[allow(non_camel_case_types)]
-        #[allow(non_snake_case)]
-        #[allow(missing_docs)]
-        #struct_vis mod #module_name {
-            #(
-                #[derive(Clone, Copy, Default)]
-                #in_mod_vis struct #fields;
-            )*
-        }
-        #(
-            impl #crate_::ConstFieldOffset for #module_name::#fields {
-                type Container = #struct_name;
-                type Field = #types;
-                type PinFlag = #pin_flag;
-                const OFFSET : #crate_::FieldOffset<#struct_name, #types, Self::PinFlag>
-                    = #struct_name::FIELD_OFFSETS.#fields();
-            }
-            impl ::core::convert::Into<#crate_::FieldOffset<#struct_name, #types, #pin_flag>> for #module_name::#fields {
-                fn into(self) -> #crate_::FieldOffset<#struct_name, #types, #pin_flag> {
-                    #struct_name::FIELD_OFFSETS.#fields()
-                }
-            }
-            impl<Other> ::core::ops::Add<Other> for #module_name::#fields
-                where Other : #crate_::ConstFieldOffset<Container = #types>
-            {
-                type Output = #crate_::ConstFieldOffsetSum<Self, Other>;
-                fn add(self, other: Other) -> Self::Output {
-                    #crate_::ConstFieldOffsetSum(self, other)
-                }
-            }
-        )*
-    };
-
     // Hand the output tokens back to the compiler
     TokenStream::from(expanded)
-}
-
-#[cfg(feature = "field-offset-trait")]
-/// Returns the most restricted visibility
-fn min_vis<'a>(a: &'a Visibility, b: &'a Visibility) -> &'a Visibility {
-    match (a, b) {
-        (Visibility::Public(_), _) => b,
-        (_, Visibility::Public(_)) => a,
-        (Visibility::Inherited, _) => a,
-        (_, Visibility::Inherited) => b,
-        // FIXME: compare two paths
-        _ => a,
-    }
 }
 
 /**
