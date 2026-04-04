@@ -1461,7 +1461,6 @@ version = "0.2.0"
 dependencies = [
  "const-field-offset-macro",
  "field-offset",
- "memoffset",
 ]
 
 [[package]]
