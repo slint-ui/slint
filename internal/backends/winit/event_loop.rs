@@ -154,33 +154,38 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
-        window_id: winit::window::WindowId,
+        mut window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
-        let Some(window) = self.shared_backend_data.window_by_id(window_id) else {
-            if let Some(handler) = self.custom_application_handler.as_mut() {
-                handler.window_event(event_loop, window_id, None, None, &event);
-            }
-            return;
-        };
+        let (window, winit_window) = loop {
+            let window = self.shared_backend_data.window_by_id(window_id);
+            let winit_window = window.as_deref().and_then(|w| w.winit_window());
 
-        if let Some(winit_window) = window.winit_window() {
-            if matches!(
-                self.custom_application_handler.as_mut().map_or(
-                    EventResult::Propagate,
-                    |handler| handler.window_event(
-                        event_loop,
-                        window_id,
-                        Some(&*winit_window),
-                        Some(window.window()),
-                        &event
-                    )
-                ),
-                EventResult::PreventDefault
-            ) {
+            // Let the custom_application_handler process this event
+            let event_result = self.custom_application_handler.as_mut().map_or(
+                EventResult::Propagate,
+                |handler| handler.window_event(
+                    event_loop,
+                    window_id,
+                    winit_window.as_ref().map(|w| &**w),
+                    window.as_ref().map(|w| w.window()),
+                    &event
+                ));
+            match event_result {
+                EventResult::PreventDefault => return,
+                EventResult::Propagate => { },
+                EventResult::Retarget(new_window_id) => {
+                    window_id = new_window_id;
+                    continue;
+                }
+            }
+
+            // At this point we don't want to proceed if this is not one of our windows
+            let Some((window, winit_window)) = Option::zip(window, winit_window) else {
                 return;
-            }
+            };
 
+            // If the window has its own event filter, let it process this event
             if let Some(mut window_event_filter) = window.window_event_filter.take() {
                 let event_result = window_event_filter(window.window(), &event);
                 window.window_event_filter.set(Some(window_event_filter));
@@ -188,18 +193,21 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 match event_result {
                     EventResult::PreventDefault => return,
                     EventResult::Propagate => (),
+                    EventResult::Retarget(new_window_id) => {
+                        window_id = new_window_id;
+                        continue;
+                    }
                 }
             }
+            break (window, winit_window);
+        };
 
-            #[cfg(enable_accesskit)]
-            window
-                .accesskit_adapter()
-                .expect("internal error: accesskit adapter must exist when window exists")
-                .borrow_mut()
-                .process_event(&winit_window, &event);
-        } else {
-            return;
-        }
+        #[cfg(enable_accesskit)]
+        window
+            .accesskit_adapter()
+            .expect("internal error: accesskit adapter must exist when window exists")
+            .borrow_mut()
+            .process_event(&winit_window, &event);
 
         let runtime_window = WindowInner::from_pub(window.window());
         if !matches!(event, WindowEvent::CursorMoved { .. }) {
