@@ -192,5 +192,5 @@ impl Path {
 
 impl ItemConsts for Path {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
-        Path::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

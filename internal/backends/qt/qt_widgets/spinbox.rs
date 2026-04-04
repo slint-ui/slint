@@ -67,7 +67,8 @@ option.frame = true;
 
 impl Item for NativeSpinBox {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
             return make_unique_animated_widget<QSpinBox>(animation_tracker_property_ptr);
         }})
@@ -199,7 +200,7 @@ impl Item for NativeSpinBox {
                             if v < self.maximum() {
                                 let new_val = v + step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         }
                         if new_control
@@ -211,7 +212,7 @@ impl Item for NativeSpinBox {
                             if v > self.minimum() {
                                 let new_val = v - step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         }
                     }
@@ -225,14 +226,14 @@ impl Item for NativeSpinBox {
                             if v < self.maximum() {
                                 let new_val = v + step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         } else if *delta_y < 0. {
                             let v = self.value();
                             if v > self.minimum() {
                                 let new_val = v - step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         }
                     }
@@ -282,14 +283,14 @@ impl Item for NativeSpinBox {
         {
             let new_val = self.value() + self.step_size();
             self.value.set(new_val);
-            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
         } else if event.key_event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
             && self.value() > self.minimum()
         {
             let new_val = self.value() - self.step_size();
             self.value.set(new_val);
-            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
         } else {
             KeyEventResult::EventIgnored
@@ -388,7 +389,7 @@ impl Item for NativeSpinBox {
 
 impl ItemConsts for NativeSpinBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

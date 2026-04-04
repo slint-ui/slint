@@ -30,7 +30,7 @@ struct Foo {
     field_2 : u32,
 }
 
-const FOO : usize = Foo::FIELD_OFFSETS.field_2.get_byte_offset();
+const FOO : usize = Foo::FIELD_OFFSETS.field_2().get_byte_offset();
 assert_eq!(FOO, 4);
 
 // This would not work on stable rust at the moment (rust 1.43)
@@ -83,7 +83,7 @@ struct Foo {
     field_2 : u32,
 }
 
-const FIELD_2 : FieldOffset<Foo, u32, AllowPin> = Foo::FIELD_OFFSETS.field_2;
+const FIELD_2 : FieldOffset<Foo, u32, AllowPin> = Foo::FIELD_OFFSETS.field_2();
 let pin_box = Box::pin(Foo{field_1: 1, field_2: 2});
 assert_eq!(*FIELD_2.apply_pin(pin_box.as_ref()), 2);
 ```
@@ -247,27 +247,25 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[doc = #doc]
         #[allow(missing_docs, non_camel_case_types, dead_code)]
-        #struct_vis struct #field_struct_name {
-            #(#vis #fields : #crate_::FieldOffset<#struct_name, #types, #pin_flag>,)*
+        #struct_vis struct #field_struct_name;
+
+        #ensure_pin_safe
+
+        #[allow(non_snake_case, missing_docs)]
+        impl #field_struct_name {
+            #(
+                #vis const fn #fields(self) -> #crate_::FieldOffset<#struct_name, #types, #pin_flag> {
+                    // Safety: offset_of! returns the correct byte offset for this field
+                    unsafe { #crate_::FieldOffset::<#struct_name, #types, _>::#new_from_offset(
+                        ::core::mem::offset_of!(#struct_name, #fields)
+                    ) }
+                }
+            )*
         }
 
-        #[allow(clippy::eval_order_dependence)] // The point of this code is to depend on the order!
         impl #struct_name {
-            /// Return a struct containing the offset of for the fields of this struct
-            pub const FIELD_OFFSETS : #field_struct_name = {
-                #ensure_pin_safe;
-                let mut len = 0usize;
-                #field_struct_name {
-                    #( #fields : {
-                        let align = ::core::mem::align_of::<#types>();
-                        // from Layout::padding_needed_for which is not yet stable
-                        let len_rounded_up  = len.wrapping_add(align).wrapping_sub(1) & !align.wrapping_sub(1);
-                        len = len_rounded_up + ::core::mem::size_of::<#types>();
-                        /// Safety: According to the rules of repr(C), this is the right offset
-                        unsafe { #crate_::FieldOffset::<#struct_name, #types, _>::#new_from_offset(len_rounded_up) }
-                    }, )*
-                }
-            };
+            /// Return a zero-sized helper whose methods return field offsets.
+            pub const FIELD_OFFSETS : #field_struct_name = #field_struct_name;
         }
 
         #pinned_drop_impl
@@ -307,11 +305,11 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 type Field = #types;
                 type PinFlag = #pin_flag;
                 const OFFSET : #crate_::FieldOffset<#struct_name, #types, Self::PinFlag>
-                    = #struct_name::FIELD_OFFSETS.#fields;
+                    = #struct_name::FIELD_OFFSETS.#fields();
             }
             impl ::core::convert::Into<#crate_::FieldOffset<#struct_name, #types, #pin_flag>> for #module_name::#fields {
                 fn into(self) -> #crate_::FieldOffset<#struct_name, #types, #pin_flag> {
-                    #struct_name::FIELD_OFFSETS.#fields
+                    #struct_name::FIELD_OFFSETS.#fields()
                 }
             }
             impl<Other> ::core::ops::Add<Other> for #module_name::#fields

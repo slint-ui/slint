@@ -307,7 +307,7 @@ impl ItemConsts for Empty {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Empty,
         CachedRenderingData,
-    > = Empty::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Empty::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -416,7 +416,7 @@ impl ItemConsts for Rectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Rectangle,
         CachedRenderingData,
-    > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Rectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -537,7 +537,7 @@ impl ItemConsts for BasicBorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BasicBorderRectangle,
         CachedRenderingData,
-    > = BasicBorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = BasicBorderRectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -667,7 +667,7 @@ impl ItemConsts for BorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BorderRectangle,
         CachedRenderingData,
-    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -814,7 +814,7 @@ impl Clip {
 
 impl ItemConsts for Clip {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Clip, CachedRenderingData> =
-        Clip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Clip::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -944,7 +944,7 @@ impl ItemConsts for Opacity {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Opacity,
         CachedRenderingData,
-    > = Opacity::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Opacity::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1046,7 +1046,7 @@ impl ItemConsts for Layer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Layer,
         CachedRenderingData,
-    > = Layer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Layer::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1157,7 +1157,7 @@ impl ItemConsts for Transform {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Transform,
         CachedRenderingData,
-    > = Transform::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Transform::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1443,7 +1443,7 @@ impl WindowItem {
 
 impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[cfg(feature = "ffi")]
@@ -1629,7 +1629,7 @@ impl ContextMenu {
 
 impl ItemConsts for ContextMenu {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1767,7 +1767,7 @@ impl Item for BoxShadow {
 
 impl ItemConsts for BoxShadow {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
