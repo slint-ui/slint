@@ -57,7 +57,7 @@ impl Hello for SomeStruct {
 impl HelloConsts for SomeStruct {
     const CONSTANT: usize = 88;
     const SOME_OFFSET: const_field_offset::FieldOffset<SomeStruct, u32> =
-        SomeStruct::FIELD_OFFSETS.x;
+        SomeStruct::FIELD_OFFSETS.x();
 }
 
 HelloVTable_static!(static SOME_STRUCT_TYPE for SomeStruct);
@@ -99,7 +99,7 @@ impl Hello for AnotherStruct {
 impl HelloConsts for AnotherStruct {
     const CONSTANT: usize = 99;
     const SOME_OFFSET: const_field_offset::FieldOffset<AnotherStruct, u32> =
-        AnotherStruct::FIELD_OFFSETS.foo;
+        AnotherStruct::FIELD_OFFSETS.foo();
 }
 
 HelloVTable_static!(static ANOTHERSTRUCT_VTABLE for AnotherStruct);
@@ -134,7 +134,8 @@ fn test() {
         assert_eq!(xref2.foo(1), 4);
     }
 
-    let vo = VOffset::<SomeStructContainer, HelloVTable>::new(SomeStructContainer::FIELD_OFFSETS.s);
+    let vo =
+        VOffset::<SomeStructContainer, HelloVTable>::new(SomeStructContainer::FIELD_OFFSETS.s());
     let mut ssc = SomeStructContainer { e: 4, s: SomeStruct { e: 5, x: 32 } };
     assert_eq!(vo.apply(&ssc).foo(4), 32 + 4);
     assert_eq!(vo.apply_mut(&mut ssc).foo_mut(4), 32 + 4);

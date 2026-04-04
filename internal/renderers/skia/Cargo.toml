@@ -55,7 +55,7 @@ i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "s
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
-const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
 vtable = { workspace = true }
 
 cfg-if = "1"

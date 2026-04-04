@@ -1380,9 +1380,9 @@ impl WindowInner {
 
         if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
             let width_property =
-                crate::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
+                crate::items::WindowItem::FIELD_OFFSETS.width().apply_pin(window_item);
             let height_property =
-                crate::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
+                crate::items::WindowItem::FIELD_OFFSETS.height().apply_pin(window_item);
             width_property.set(size.width_length());
             height_property.set(size.height_length());
         };

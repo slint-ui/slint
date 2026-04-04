@@ -77,7 +77,7 @@ impl Item for ComplexText {
             self_rc,
             window_adapter,
             orientation,
-            Self::FIELD_OFFSETS.width.apply_pin(self),
+            Self::FIELD_OFFSETS.width().apply_pin(self),
         )
     }
 
@@ -156,7 +156,7 @@ impl ItemConsts for ComplexText {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ComplexText,
         CachedRenderingData,
-    > = ComplexText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ComplexText::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for ComplexText {
@@ -255,7 +255,7 @@ impl Item for StyledTextItem {
             self_rc,
             window_adapter,
             orientation,
-            Self::FIELD_OFFSETS.width.apply_pin(self),
+            Self::FIELD_OFFSETS.width().apply_pin(self),
         )
     }
 
@@ -301,7 +301,7 @@ impl Item for StyledTextItem {
             } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursor::Pointer;
-                    Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
+                    Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
                 }
                 InputEventResult::EventAccepted
             }
@@ -373,7 +373,7 @@ impl ItemConsts for StyledTextItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         StyledTextItem,
         CachedRenderingData,
-    > = StyledTextItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = StyledTextItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for StyledTextItem {
@@ -473,7 +473,7 @@ impl Item for SimpleText {
             self_rc,
             window_adapter,
             orientation,
-            Self::FIELD_OFFSETS.width.apply_pin(self),
+            Self::FIELD_OFFSETS.width().apply_pin(self),
         )
     }
 
@@ -552,7 +552,7 @@ impl ItemConsts for SimpleText {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         SimpleText,
         CachedRenderingData,
-    > = SimpleText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = SimpleText::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for SimpleText {
@@ -925,7 +925,10 @@ impl Item for TextInput {
         match event.event_type {
             KeyEventType::KeyPressed => {
                 // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
-                if Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.key_event.clone(),))
+                if Self::FIELD_OFFSETS
+                    .key_pressed()
+                    .apply_pin(self)
+                    .call(&(event.key_event.clone(),))
                     == EventResult::Accept
                 {
                     return KeyEventResult::EventAccepted;
@@ -1002,7 +1005,7 @@ impl Item for TextInput {
                     && !self.read_only()
                     && self.single_line()
                 {
-                    Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
+                    Self::FIELD_OFFSETS.accepted().apply_pin(self).call(&());
                     return KeyEventResult::EventAccepted;
                 }
 
@@ -1094,13 +1097,13 @@ impl Item for TextInput {
                 // nothing is entered or the cursor isn't moved.
                 self.as_ref().show_cursor(window_adapter);
 
-                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
 
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => {
                 match Self::FIELD_OFFSETS
-                    .key_released
+                    .key_released()
                     .apply_pin(self)
                     .call(&(event.key_event.clone(),))
                 {
@@ -1209,7 +1212,7 @@ impl Item for TextInput {
                                 window_adapter,
                                 self_rc,
                             );
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+                            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
                         }
                     }
                     self.preedit_text.set(Default::default());
@@ -1257,7 +1260,7 @@ impl ItemConsts for TextInput {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         TextInput,
         CachedRenderingData,
-    > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = TextInput::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for TextInput {
@@ -1613,7 +1616,7 @@ impl TextInput {
             }
             if trigger_callbacks == TextChangeNotify::TriggerCallbacks {
                 Self::FIELD_OFFSETS
-                    .cursor_position_changed
+                    .cursor_position_changed()
                     .apply_pin(self)
                     .call(&(crate::api::LogicalPosition::from_euclid(pos),));
                 self.update_ime(window_adapter, self_rc);
@@ -1693,7 +1696,7 @@ impl TextInput {
                 window_adapter,
                 self_rc,
             );
-            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
         } else {
             self.cursor_position_byte_offset.set(anchor as i32);
         }
@@ -1813,7 +1816,7 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
     pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -2141,7 +2144,7 @@ impl TextInput {
         let mut redo = self.redo_items.take();
         redo.push(last);
         self.redo_items.set(redo);
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
     fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -2187,7 +2190,7 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
     pub fn font_metrics(

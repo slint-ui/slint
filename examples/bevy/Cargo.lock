@@ -3654,7 +3654,7 @@ dependencies = [
 
 [[package]]
 name = "const-field-offset"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "const-field-offset-macro",
  "field-offset",
@@ -3662,7 +3662,7 @@ dependencies = [
 
 [[package]]
 name = "const-field-offset-macro"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",

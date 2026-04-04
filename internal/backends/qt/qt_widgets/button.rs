@@ -185,18 +185,19 @@ impl NativeButton {
     }
 
     fn activate(self: Pin<&Self>) {
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
         if self.checkable() {
-            let checked = Self::FIELD_OFFSETS.checked.apply_pin(self);
+            let checked = Self::FIELD_OFFSETS.checked().apply_pin(self);
             checked.set(!checked.get());
         }
-        Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.clicked().apply_pin(self).call(&());
     }
 }
 
 impl Item for NativeButton {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
             return make_unique_animated_widget<QPushButton>(animation_tracker_property_ptr);
         }});
@@ -209,7 +210,7 @@ impl Item for NativeButton {
             })
         };
         Self::FIELD_OFFSETS
-            .icon_size
+            .icon_size()
             .apply_pin(self)
             .set(LogicalLength::new(icon_size as i_slint_core::Coord));
     }
@@ -259,7 +260,7 @@ impl Item for NativeButton {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
-        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardEvent
     }
 
@@ -271,7 +272,7 @@ impl Item for NativeButton {
         _: &mut MouseCursor,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
-            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+            Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         let enabled = self.enabled();
         if !enabled {
@@ -280,7 +281,7 @@ impl Item for NativeButton {
 
         let was_pressed = self.pressed();
 
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
+        Self::FIELD_OFFSETS.pressed().apply_pin(self).set(match event {
             MouseEvent::Pressed { button, .. } => *button == PointerEventButton::Left,
             MouseEvent::Exit | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
@@ -330,7 +331,7 @@ impl Item for NativeButton {
             KeyEventType::KeyPressed
                 if event.key_event.text == " " || event.key_event.text == "\n" =>
             {
-                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
+                Self::FIELD_OFFSETS.pressed().apply_pin(self).set(true);
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
@@ -355,7 +356,7 @@ impl Item for NativeButton {
     ) -> FocusEventResult {
         if self.enabled() {
             Self::FIELD_OFFSETS
-                .has_focus
+                .has_focus()
                 .apply_pin(self)
                 .set(matches!(event, FocusEvent::FocusIn(_)));
             FocusEventResult::FocusAccepted
@@ -480,7 +481,7 @@ impl Item for NativeButton {
 
 impl ItemConsts for NativeButton {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

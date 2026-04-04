@@ -1310,7 +1310,7 @@ impl TextCursorBlinker {
         // Re-start timer, in case.
         Self::start(&instance, cycle_duration);
         prop.set_binding(move || {
-            TextCursorBlinker::FIELD_OFFSETS.cursor_visible.apply_pin(instance.as_ref()).get()
+            TextCursorBlinker::FIELD_OFFSETS.cursor_visible().apply_pin(instance.as_ref()).get()
         });
     }
 
@@ -1325,7 +1325,7 @@ impl TextCursorBlinker {
                 move || {
                     if let Some(blinker) = weak_blinker.upgrade() {
                         let visible = TextCursorBlinker::FIELD_OFFSETS
-                            .cursor_visible
+                            .cursor_visible()
                             .apply_pin(blinker.as_ref())
                             .get();
                         blinker.cursor_visible.set(!visible);

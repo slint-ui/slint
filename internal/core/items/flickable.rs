@@ -103,12 +103,12 @@ impl Item for Flickable {
                 let vpy = flick.viewport_y();
                 let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
 
-                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                 if *x_out_of_bounds && !x.has_binding() {
                     x.set(p.x_length());
                 }
 
-                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
                 if *y_out_of_bounds && !y.has_binding() {
                     y.set(p.y_length());
                 }
@@ -232,7 +232,7 @@ impl Item for Flickable {
 
 impl ItemConsts for Flickable {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl Flickable {
@@ -295,10 +295,10 @@ impl Flickable {
         let geo = Self::geometry_without_virtual_keyboard(self_rc);
 
         // content extents and current viewport origin (content coords)
-        let vw = Self::FIELD_OFFSETS.viewport_width.apply_pin(self).get().0;
-        let vh = Self::FIELD_OFFSETS.viewport_height.apply_pin(self).get().0;
-        let vx = -Self::FIELD_OFFSETS.viewport_x.apply_pin(self).get().0;
-        let vy = -Self::FIELD_OFFSETS.viewport_y.apply_pin(self).get().0;
+        let vw = Self::FIELD_OFFSETS.viewport_width().apply_pin(self).get().0;
+        let vh = Self::FIELD_OFFSETS.viewport_height().apply_pin(self).get().0;
+        let vx = -Self::FIELD_OFFSETS.viewport_x().apply_pin(self).get().0;
+        let vy = -Self::FIELD_OFFSETS.viewport_y().apply_pin(self).get().0;
 
         // choose minimal translation along each axis
         let tx = Self::choose_min_move(vx, geo.width(), vw, pts.iter().map(|p| p.x));
@@ -307,8 +307,8 @@ impl Flickable {
         let new_vx = vx + tx;
         let new_vy = vy + ty;
 
-        Self::FIELD_OFFSETS.viewport_x.apply_pin(self).set(euclid::Length::new(-new_vx));
-        Self::FIELD_OFFSETS.viewport_y.apply_pin(self).set(euclid::Length::new(-new_vy));
+        Self::FIELD_OFFSETS.viewport_x().apply_pin(self).set(euclid::Length::new(-new_vx));
+        Self::FIELD_OFFSETS.viewport_y().apply_pin(self).set(euclid::Length::new(-new_vy));
     }
 
     fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -426,19 +426,19 @@ impl FlickableDataInner {
         }
 
         let old_pos = LogicalPoint::from_lengths(
-            (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-            (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+            (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get(),
+            (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get(),
         );
         let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
 
-        let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-        let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+        let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
+        let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
         let old_pos = (viewport_x.get(), viewport_y.get());
         viewport_x.set(new_pos.x_length());
         viewport_y.set(new_pos.y_length());
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
         if flicked {
-            (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
             self.last_scroll_event = Some((crate::animations::current_tick(), position));
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
@@ -490,16 +490,16 @@ impl FlickableData {
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get(),
                 );
                 inner.pressed_viewport_size = LogicalSize::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
-                    (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get(),
                 );
-                let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                 x.set(x.get()); // Stop animation by removing the binding
-                let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
                 y.set(y.get()); // Stop animation by removing the binding
 
                 if inner.capture_events {
@@ -529,10 +529,11 @@ impl FlickableData {
                         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
                         let w = geo.width_length();
                         let h = geo.height_length();
-                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
-                        let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get();
-                        let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get();
+                        let vw = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
+                        let vh =
+                            (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
+                        let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get();
+                        let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get();
                         let zero = LogicalLength::zero();
                         ((vw > w || x != zero) && abs(diff.x_length()) > DISTANCE_THRESHOLD)
                             || ((vh > h || y != zero) && abs(diff.y_length()) > DISTANCE_THRESHOLD)
@@ -596,8 +597,8 @@ impl FlickableData {
             MouseEvent::Moved { position, .. } => {
                 if inner.pressed_time.is_some() {
                     let current_viewport_size = LogicalSize::from_lengths(
-                        (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
-                        (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
+                        (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get(),
+                        (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get(),
                     );
 
                     // Update reference points when the size of the viewport changes to
@@ -608,8 +609,8 @@ impl FlickableData {
                         inner.pressed_viewport_size = current_viewport_size;
 
                         inner.pressed_viewport_pos = LogicalPoint::from_lengths(
-                            (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
-                            (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
+                            (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get(),
+                            (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get(),
                         );
 
                         inner.pressed_pos = *position;
@@ -619,14 +620,15 @@ impl FlickableData {
 
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
 
-                    let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-                    let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                    let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
+                    let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
                     let should_capture = || {
                         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
                         let w = geo.width_length();
                         let h = geo.height_length();
-                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                        let vw = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
+                        let vh =
+                            (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
                         let zero = LogicalLength::zero();
                         ((vw > w || x.get() != zero)
                             && abs(x.get() - new_pos.x_length()) > DISTANCE_THRESHOLD)
@@ -641,7 +643,7 @@ impl FlickableData {
                         x.set(new_pos.x_length());
                         y.set(new_pos.y_length());
                         if old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length() {
-                            (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+                            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                         }
 
                         inner.capture_events = true;
@@ -686,10 +688,10 @@ impl FlickableData {
                 && millis > 0
                 && crate::animations::current_tick().duration_since(last_time) < MAX_DURATION
             {
-                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
-                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
-                let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-                let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
+                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
+                let vw = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
+                let vh = (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
                 let limit_x =
                     if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
                 let limit_y =
@@ -714,7 +716,7 @@ impl FlickableData {
                 }
 
                 if dist.x != 0 as Coord || dist.y != 0 as Coord {
-                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+                    (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                 }
             }
         }
@@ -732,8 +734,8 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -
     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
     let w = geo.width_length();
     let h = geo.height_length();
-    let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
-    let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+    let vw = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
+    let vh = (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
 
     let min = LogicalPoint::from_lengths(w - vw, h - vh);
     let max = LogicalPoint::default();
