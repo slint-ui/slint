@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import "../../../tools/lsp/ui/assets/Inter-VariableFont.ttf";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 80px;
+    default-font-family: "Inter";
+    default-font-size: 20px;
+
+    t := Text {
+        text: "STOP";
+    }
+
+    out property <length> preferred-text-height: t.preferred-height;
+    out property <length> metrics-text-height: t.font-metrics.ascent - t.font-metrics.descent;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let preferred = instance.get_preferred_text_height();
+let metrics = instance.get_metrics_text_height();
+let expected = metrics.ceil();
+assert!(
+    (preferred - expected).abs() < 0.01,
+    "preferred-height ({preferred}) != ceil(metrics-height) ({expected}), raw metrics-height: {metrics}"
+);
+```
+*/
