@@ -27,6 +27,10 @@ bind_java_type! {
         fn new(activity: AndroidActivity),
     },
     methods {
+        fn accent_color {
+            name = "accent_color",
+            sig = () -> jint,
+        },
         fn color_scheme {
             name = "color_scheme",
             sig = () -> jint,
@@ -418,6 +422,12 @@ impl JavaHelper {
 
     pub fn color_scheme(&self) -> Result<i32, jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.color_scheme(env))
+    }
+
+    pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
+        })
     }
 
     pub fn get_view_rect(&self) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {

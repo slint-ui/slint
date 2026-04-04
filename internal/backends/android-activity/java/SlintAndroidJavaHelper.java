@@ -567,6 +567,14 @@ public class SlintAndroidJavaHelper {
         return nightModeFlags;
     }
 
+    public int accent_color() {
+        TypedValue typedValue = new TypedValue();
+        if (mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, typedValue, true)) {
+            return mActivity.getColor(typedValue.resourceId);
+        }
+        return 0;
+    }
+
     // Get the size of the window
     public Rect get_view_rect() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
