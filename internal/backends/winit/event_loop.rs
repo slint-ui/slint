@@ -164,16 +164,19 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             // Let the custom_application_handler process this event
             let event_result = self.custom_application_handler.as_mut().map_or(
                 EventResult::Propagate,
-                |handler| handler.window_event(
-                    event_loop,
-                    window_id,
-                    winit_window.as_ref().map(|w| &**w),
-                    window.as_ref().map(|w| w.window()),
-                    &event
-                ));
+                |handler| {
+                    handler.window_event(
+                        event_loop,
+                        window_id,
+                        winit_window.as_ref().map(|w| &**w),
+                        window.as_ref().map(|w| w.window()),
+                        &event,
+                    )
+                },
+            );
             match event_result {
                 EventResult::PreventDefault => return,
-                EventResult::Propagate => { },
+                EventResult::Propagate => {}
                 EventResult::Retarget(new_window_id) => {
                     window_id = new_window_id;
                     continue;
