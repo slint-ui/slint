@@ -283,6 +283,7 @@ component Menu {
 
 // Lowered in lower_menus pass. See that pass documentation for more info
 component MenuBar {
+    in property <bool> visible: true;
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
     Menu { }
