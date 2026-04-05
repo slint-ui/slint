@@ -5,7 +5,7 @@ from . import slint as native
 from collections.abc import Iterable
 from abc import abstractmethod
 import typing
-from typing import Any, cast, Iterator
+from typing import Any, Self, cast, Iterator
 
 
 class Model[T](native.PyModelBase, Iterable[T]):
@@ -15,7 +15,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     Models are iterable and can be used in for loops."""
 
-    def __new__(cls, *args: Any) -> "Model[T]":
+    def __new__(cls, *args: Any) -> Self:
         return super().__new__(cls)
 
     def __init__(self) -> None:

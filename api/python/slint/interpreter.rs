@@ -412,8 +412,20 @@ impl ComponentInstance {
     }
 
     fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
-        let pv =
-            TypeCollection::slint_value_from_py_value_bound(&value, Some(&self.type_collection))?;
+        let normalized_name = normalize_identifier(name);
+        let ty = self
+            .instance
+            .definition()
+            .properties_and_callbacks()
+            .find_map(|(prop_name, (ty, _))| {
+                (normalize_identifier(&prop_name) == normalized_name).then_some(ty)
+            })
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("no such property"))?;
+        let pv = TypeCollection::slint_value_from_py_value_bound_for_type(
+            &value,
+            &ty,
+            Some(&self.type_collection),
+        )?;
         Ok(self.instance.set_property(name, pv).map_err(|e| PySetPropertyError(e))?)
     }
 
@@ -433,8 +445,22 @@ impl ComponentInstance {
         prop_name: &str,
         value: Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let pv =
-            TypeCollection::slint_value_from_py_value_bound(&value, Some(&self.type_collection))?;
+        let normalized_prop_name = normalize_identifier(prop_name);
+        let ty = self
+            .instance
+            .definition()
+            .global_properties_and_callbacks(global_name)
+            .and_then(|mut props| {
+                props.find_map(|(name, (ty, _))| {
+                    (normalize_identifier(&name) == normalized_prop_name).then_some(ty)
+                })
+            })
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("no such property"))?;
+        let pv = TypeCollection::slint_value_from_py_value_bound_for_type(
+            &value,
+            &ty,
+            Some(&self.type_collection),
+        )?;
         Ok(self
             .instance
             .set_global_property(global_name, prop_name, pv)

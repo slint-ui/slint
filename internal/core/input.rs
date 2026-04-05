@@ -14,12 +14,14 @@ use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
 use alloc::rc::Rc;
+use alloc::string::String;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// A mouse or touch event
 ///
@@ -353,6 +355,93 @@ pub struct Keys {
     inner: KeysInner,
 }
 
+/// An error returned when creating a [`Keys`] value from a string.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum KeysError {
+    /// The provided key string was empty.
+    EmptyString,
+    /// The provided key string contained more than one grapheme cluster.
+    MultipleGraphemeClusters(usize),
+}
+
+impl core::fmt::Display for KeysError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::EmptyString => f.write_str("key string literal must not be empty"),
+            Self::MultipleGraphemeClusters(count) => {
+                write!(
+                    f,
+                    "key string literal must contain exactly one grapheme cluster, found {count}"
+                )
+            }
+        }
+    }
+}
+
+fn key_has_shift_variant(key_name: &str) -> Option<bool> {
+    macro_rules! shifted_key_variant {
+        ($keycode:literal # $ident:ident # $shifted:ident) => {
+            (stringify!($ident), true)
+        };
+        ($keycode:literal # $ident:ident # $shifted:literal) => {
+            (stringify!($ident), true)
+        };
+        ($keycode:literal # $ident:ident # ) => {
+            (stringify!($ident), false)
+        };
+    }
+    macro_rules! generate_key_map {
+        [ $($char:literal # $name:ident # $($shifted:literal)?$($shifted_name:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
+            match key_name {
+                $(
+                    stringify!($name) => Some(shifted_key_variant!(
+                        $char # $name # $($shifted)?$($shifted_name)?
+                    ).1),
+                )*
+                _ => None,
+            }
+        };
+    }
+
+    i_slint_common::for_each_keys!(generate_key_map)
+}
+
+fn lookup_named_key(key_name: &str) -> Option<(char, bool)> {
+    macro_rules! generate_key_map {
+        [ $($char:literal # $name:ident # $($shifted:literal)?$($shifted_name:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
+            match key_name {
+                $(
+                    stringify!($name) => Some((
+                        $char,
+                        key_has_shift_variant(stringify!($name)).unwrap_or(false),
+                    )),
+                )*
+                _ => None,
+            }
+        };
+    }
+
+    i_slint_common::for_each_keys!(generate_key_map)
+}
+
+fn normalize_key_string(key: &str) -> Result<SharedString, KeysError> {
+    #[cfg(feature = "shared-parley")]
+    let key: String = icu_normalizer::ComposingNormalizer::new_nfc().normalize(key).into();
+    #[cfg(not(feature = "shared-parley"))]
+    let key = String::from(key);
+
+    let key: SharedString = key.to_lowercase().into();
+    let grapheme_count = key.graphemes(true).count();
+
+    if grapheme_count == 0 {
+        Err(KeysError::EmptyString)
+    } else if grapheme_count > 1 {
+        Err(KeysError::MultipleGraphemeClusters(grapheme_count))
+    } else {
+        Ok(key)
+    }
+}
+
 /// Re-exported in private_unstable_api to create a Keys struct.
 pub fn make_keys(
     key: SharedString,
@@ -427,6 +516,34 @@ impl KeysInner {
 }
 
 impl Keys {
+    /// Create a `Keys` value from either a key name such as `"Escape"` or a single-grapheme
+    /// string literal such as `"a"` or `"+"`.
+    pub fn from_key_name_or_string(key: &str) -> Result<Self, KeysError> {
+        if let Some((key, ignore_shift)) = lookup_named_key(key) {
+            Ok(make_keys(key.into(), Default::default(), ignore_shift, false))
+        } else {
+            Ok(make_keys(normalize_key_string(key)?, Default::default(), false, false))
+        }
+    }
+
+    /// Set the modifier state that needs to be pressed for this key combination.
+    pub fn with_modifiers(mut self, modifiers: KeyboardModifiers) -> Self {
+        self.inner.modifiers = modifiers;
+        self
+    }
+
+    /// Ignore the state of the Shift modifier when matching this key combination.
+    pub fn ignoring_shift(mut self) -> Self {
+        self.inner.ignore_shift = true;
+        self
+    }
+
+    /// Ignore the state of the Alt modifier when matching this key combination.
+    pub fn ignoring_alt(mut self) -> Self {
+        self.inner.ignore_alt = true;
+        self
+    }
+
     /// Check whether a `Keys` can be triggered by the given `KeyEvent`
     pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
         let inner = &self.inner;
@@ -2219,6 +2336,29 @@ mod touch_tests {
 mod tests {
     use super::*;
     extern crate alloc;
+
+    #[test]
+    fn test_keys_from_key_name_or_string() {
+        let escape = Keys::from_key_name_or_string("Escape").unwrap();
+        assert_eq!(KeysInner::from_pub(&escape).key, SharedString::from(key_codes::Escape));
+        assert!(!KeysInner::from_pub(&escape).ignore_shift);
+
+        let plus = Keys::from_key_name_or_string("Plus").unwrap();
+        assert_eq!(KeysInner::from_pub(&plus).key, SharedString::from(key_codes::Plus));
+        assert!(KeysInner::from_pub(&plus).ignore_shift);
+
+        let lowercase = Keys::from_key_name_or_string("A").unwrap();
+        assert_eq!(KeysInner::from_pub(&lowercase).key, SharedString::from(key_codes::A));
+
+        let literal = Keys::from_key_name_or_string("Ä").unwrap();
+        assert_eq!(KeysInner::from_pub(&literal).key, SharedString::from("ä"));
+
+        assert_eq!(Keys::from_key_name_or_string("").unwrap_err(), KeysError::EmptyString);
+        assert_eq!(
+            Keys::from_key_name_or_string("ab").unwrap_err(),
+            KeysError::MultipleGraphemeClusters(2)
+        );
+    }
 
     #[test]
     fn test_to_string() {

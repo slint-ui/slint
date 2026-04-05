@@ -5,7 +5,12 @@ import pytest
 from slint import slint as native
 from slint.slint import Image, Color, Brush
 import os
+import sys
 from pathlib import Path
+
+
+def ctrl_plus_shortcut_text() -> str:
+    return "⌘+" if sys.platform == "darwin" else "Ctrl++"
 
 
 def test_property_access() -> None:
@@ -29,6 +34,7 @@ def test_property_access() -> None:
             in property <int> intprop: 42;
             in property <float> floatprop: 100;
             in property <bool> boolprop: true;
+            in property <keys> keysprop: @keys(Control + Plus);
             in property <image> imgprop;
             in property <brush> brushprop: Colors.rgb(255, 0, 255);
             in property <color> colprop: Colors.rgb(0, 255, 0);
@@ -38,6 +44,7 @@ def test_property_access() -> None:
                 finished: true,
                 dash-prop: true,
             };
+            out property <string> keysproptext: keysprop.to-string();
             in property <image> imageprop: @image-url("../../../../demos/printerdemo/ui/images/cat.jpg");
 
             callback test-callback();
@@ -76,6 +83,14 @@ def test_property_access() -> None:
     assert not instance.get_property("boolprop")
     with pytest.raises(ValueError, match="wrong type"):
         instance.set_property("boolprop", 0)
+
+    assert instance.get_property("keysproptext") == ctrl_plus_shortcut_text()
+    instance.set_property("keysprop", "Escape")
+    assert instance.get_property("keysproptext") == "Escape"
+    instance.set_property(
+        "keysprop", {"key": "Plus", "control": True, "ignore_shift": True}
+    )
+    assert instance.get_property("keysproptext") == ctrl_plus_shortcut_text()
 
     structval = instance.get_property("structprop")
     assert isinstance(structval, native.PyStruct)

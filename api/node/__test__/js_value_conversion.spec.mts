@@ -16,6 +16,10 @@ import {
 const filename = fileURLToPath(import.meta.url).replace("build", "__test__");
 const dirname = path.dirname(filename);
 
+function ctrlPlusShortcutText() {
+    return process.platform === "darwin" ? "⌘+" : "Ctrl++";
+}
+
 function createNonNullInstance(definition: {
     App?: { create(): private_api.ComponentInstance | null };
 }): private_api.ComponentInstance {
@@ -145,6 +149,39 @@ test("get/set bool properties", () => {
         expect(thrownError.code).toBe("BooleanExpected");
         expect(thrownError.message).toContain("Boolean");
     }
+});
+
+test("get/set keys properties", () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `export component App {
+            in-out property <keys> shortcut: @keys(Control + Plus);
+            out property <string> shortcut-text: shortcut.to-string();
+        }`,
+        "",
+    );
+    const instance = createNonNullInstance(definition);
+
+    expect(instance.getProperty("shortcut-text")).toBe(ctrlPlusShortcutText());
+
+    instance.setProperty("shortcut", "Escape");
+    expect(instance.getProperty("shortcut-text")).toBe("Escape");
+
+    instance.setProperty("shortcut", {
+        key: "Plus",
+        control: true,
+        ignoreShift: true,
+    });
+    expect(instance.getProperty("shortcut-text")).toBe(ctrlPlusShortcutText());
+
+    let thrownError: any;
+    try {
+        instance.setProperty("shortcut", "");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError.message).toContain("must not be empty");
 });
 
 test("set struct properties", () => {

@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 
+use i_slint_core::input::{KeyboardModifiers, Keys};
 use i_slint_core::model::{Model, ModelRc};
 
 use crate::keys::PyKeys;
@@ -392,4 +393,67 @@ impl TypeCollection {
         }
         model
     }
+
+    pub fn slint_value_from_py_value_bound_for_type(
+        ob: &Bound<'_, PyAny>,
+        expected_type: &Type,
+        type_collection: Option<&Self>,
+    ) -> PyResult<slint_interpreter::Value> {
+        if let Type::Keys = expected_type {
+            return py_value_to_keys(ob).map(slint_interpreter::Value::Keys);
+        }
+
+        Self::slint_value_from_py_value_bound(ob, type_collection)
+    }
+}
+
+fn py_value_to_keys(ob: &Bound<'_, PyAny>) -> PyResult<Keys> {
+    if let Ok(keys) = ob.extract::<PyRef<'_, PyKeys>>() {
+        return Ok(keys.keys.clone());
+    }
+
+    if let Ok(key) = ob.extract::<&str>() {
+        return Keys::from_key_name_or_string(key)
+            .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()));
+    }
+
+    let dict = ob.cast::<PyDict>().map_err(|_| {
+        pyo3::exceptions::PyTypeError::new_err("Keys values must be strings or dicts")
+    })?;
+
+    let key = dict
+        .get_item("key")?
+        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Keys dict requires a key field"))?
+        .extract::<String>()?;
+    let mut keys = Keys::from_key_name_or_string(&key)
+        .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()))?;
+
+    let mut modifiers = KeyboardModifiers::default();
+    if let Some(value) = dict.get_item("alt")? {
+        modifiers.alt = value.extract::<bool>()?;
+    }
+    if let Some(value) = dict.get_item("control")? {
+        modifiers.control = value.extract::<bool>()?;
+    }
+    if let Some(value) = dict.get_item("shift")? {
+        modifiers.shift = value.extract::<bool>()?;
+    }
+    if let Some(value) = dict.get_item("meta")? {
+        modifiers.meta = value.extract::<bool>()?;
+    }
+
+    keys = keys.with_modifiers(modifiers);
+
+    if let Some(value) = dict.get_item("ignore_shift")?
+        && value.extract::<bool>()?
+    {
+        keys = keys.ignoring_shift();
+    }
+    if let Some(value) = dict.get_item("ignore_alt")?
+        && value.extract::<bool>()?
+    {
+        keys = keys.ignoring_alt();
+    }
+
+    Ok(keys)
 }
