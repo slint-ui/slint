@@ -7,6 +7,8 @@ import { StateLayer } from "components.slint";
 export component CheckBox {
     in property <string> text;
     in property <bool> enabled <=> state-layer.enabled;
+    in property <length> font-size: CosmicFontSettings.body.font-size;
+    in property <int> font-weight: CosmicFontSettings.body.font-weight;
     out property <bool> has-focus: state-layer.has-focus;
     in-out property <bool> checked;
 
@@ -86,8 +88,8 @@ export component CheckBox {
         if (root.text != "") : Text {
             text: root.text;
             color: root.text-color;
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: CosmicFontSettings.body.font-weight;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }
