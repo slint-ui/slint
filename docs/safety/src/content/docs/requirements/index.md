@@ -24,10 +24,10 @@ Each Requirement under this Section has a descriptive ID that begins with SR_, a
 
 All ISO26262 references below are valid for the 2018 edition of the standard.
 
+* ISO 26262-4 5.x: See [Development Phases](/development-phases/).
 * ISO 26262-4 9.x: See [Validation](/qualification-plan/validation/).
 * ISO 26262-8 5.x: See [Distributed Development](/development-process/#distributed-development-iso-26262-8-5x)
-* ISO 26262-8 6.4: The safety requirements shall be traceable to the safety goals and to the safety concept.
-The traceability shall be documented and maintained.
+* ISO 26262-8 6.4: The safety requirements shall be traceable to the safety goals and to the safety concept. The traceability shall be documented and maintained.
 * ISO 26262-8 7.x: See [Configuration Management](/development-process/#configuration-management-iso-26262-8-7x)
 * ISO 26262-8 8.x: See [Change Management](/development-process/#change-management-iso-26262-8-8x)
 * ISO 26262-8 9.4.x: See [Verification](/development-process/#verification-iso-26262-8-94x)
