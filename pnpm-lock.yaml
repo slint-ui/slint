@@ -33,6 +33,9 @@ catalogs:
     cspell:
       specifier: 9.8.0
       version: 9.8.0
+    knip:
+      specifier: 6.3.0
+      version: 6.3.0
     playwright-ctrf-json-reporter:
       specifier: 0.0.29
       version: 0.0.29
@@ -68,7 +71,7 @@ importers:
   .:
     devDependencies:
       knip:
-        specifier: 6.3.0
+        specifier: 'catalog:'
         version: 6.3.0(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)
 
   api/node:
