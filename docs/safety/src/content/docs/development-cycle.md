@@ -44,7 +44,7 @@ Continuous Integration (CI) is achieved through GitHub Actions, a platform provi
 
 * **An Action** is a custom application that performs a complex but frequent repetitive task.
 * **A job** is a set of steps that are either expressed as shell scripts or as actions. Steps are executed based on their ordering and dependencies, where data can be shared between steps.
-* **A [Workflow]()** is a configurable automated process that runs one or more jobs. Workflows are triggered by events, and executed by runners.
+* **A Workflow** is a configurable automated process that runs one or more jobs. Workflows are triggered by events, and executed by runners.
 * **An event** is a specific activity associated with a GitHub repository, such as opening an issue or creating a PR.
 * **A runner** is a server that executes triggered workflows.
 
@@ -55,6 +55,12 @@ For Slint, [Actions](https://github.com/slint-ui/slint/actions) are triggered fo
 * **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
 * **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
 
+## Regression Tests
+
+A set of regression tests are run before each nightly build and after each PR is pushed.
+
+(TODO: Describe where/how the tests are executed.)
+(TODO: List test cases here.)
 
 ## Software Component Qualification (ISO 26262-8 12.x)
 
