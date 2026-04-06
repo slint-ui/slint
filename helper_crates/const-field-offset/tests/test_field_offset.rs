@@ -6,7 +6,6 @@ use std::mem::offset_of;
 use std::sync::atomic::Ordering::SeqCst;
 
 #[derive(FieldOffsets)]
-#[repr(C)]
 struct MyStruct {
     a: u8,
     b: u16,
@@ -15,7 +14,6 @@ struct MyStruct {
 }
 
 #[derive(FieldOffsets)]
-#[repr(C)]
 struct MyStruct2 {
     k: core::cell::Cell<isize>,
     xx: MyStruct,
@@ -23,7 +21,6 @@ struct MyStruct2 {
 }
 
 #[derive(FieldOffsets)]
-#[repr(C)]
 #[allow(unused)]
 struct MyStruct3 {
     ms2: MyStruct2,
@@ -47,8 +44,8 @@ fn test() {
 }
 
 #[derive(FieldOffsets)]
-#[repr(C)]
 #[pin]
+#[allow(dead_code)]
 struct MyStructPin {
     phantom: core::marker::PhantomPinned,
     pub a: u8,
@@ -58,8 +55,8 @@ struct MyStructPin {
 }
 
 #[derive(FieldOffsets)]
-#[repr(C)]
 #[pin]
+#[allow(dead_code)]
 struct MyStruct2Pin {
     phantom: core::marker::PhantomPinned,
     k: core::cell::Cell<isize>,
@@ -87,9 +84,9 @@ fn test_pin() {
 static DROP_CALLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[derive(FieldOffsets)]
-#[repr(C)]
 #[pin]
 #[pin_drop]
+#[allow(dead_code)]
 struct MyPinnedStructWithDrop {
     x: u32,
 }

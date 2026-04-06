@@ -30,37 +30,7 @@ struct Foo {
 
 const FOO : usize = Foo::FIELD_OFFSETS.field_2().get_byte_offset();
 assert_eq!(FOO, 4);
-
-// This would not work on stable rust at the moment (rust 1.43)
-// const FOO : usize = memoffsets::offsetof!(Foo, field_2);
 ```
-
-*/
-#[cfg_attr(
-    feature = "field-offset-trait",
-    doc = "
-In addition, the macro also create a module `{ClassName}_field_offsets` which contains
-zero-sized type that implement the `const_field_offset::ConstFieldOffset` trait
-
-```rust
-use const_field_offset::{FieldOffsets, FieldOffset, ConstFieldOffset};
-#[repr(C)]
-#[derive(FieldOffsets)]
-struct Foo {
-    field_1 : u8,
-    field_2 : u32,
-}
-
-const FOO : FieldOffset<Foo, u32> = Foo_field_offsets::field_2::OFFSET;
-assert_eq!(FOO.get_byte_offset(), 4);
-```
-"
-)]
-/**
-
-## Limitations
-
-Only work with named #[repr(C)] structures.
 
 ## Attributes
 
@@ -73,7 +43,6 @@ custom `Drop` or `Unpin` implementation.
 
 ```rust
 use const_field_offset::*;
-#[repr(C)]
 #[derive(FieldOffsets)]
 #[pin]
 struct Foo {
@@ -98,7 +67,6 @@ use core::pin::Pin;
 
 struct TypeThatRequiresSpecialDropHandling(); // ...
 
-#[repr(C)]
 #[derive(FieldOffsets)]
 #[pin_drop]
 struct Foo {
@@ -120,7 +88,6 @@ specify the crate name using the `const_field_offset` attribute.
 ```rust
 // suppose you re-export the const_field_offset create from a different module
 mod xxx { pub use const_field_offset as cfo; }
-#[repr(C)]
 #[derive(xxx::cfo::FieldOffsets)]
 #[const_field_offset(xxx::cfo)]
 struct Foo {
@@ -134,24 +101,12 @@ struct Foo {
 pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    let mut has_repr_c = false;
     let mut crate_ = quote!(const_field_offset);
     let mut pin = false;
     let mut drop = false;
     for a in &input.attrs {
         if let Some(i) = a.path().get_ident() {
-            if i == "repr" {
-                let inner = a.parse_args::<syn::Ident>().map(|x| x.to_string());
-                match inner.as_ref().map(|x| x.as_str()) {
-                    Ok("C") => has_repr_c = true,
-                    Ok("packed") => {
-                        return TokenStream::from(quote!(
-                            compile_error! {"FieldOffsets does not work on #[repr(packed)]"}
-                        ));
-                    }
-                    _ => (),
-                }
-            } else if i == "const_field_offset" {
+            if i == "const_field_offset" {
                 match a.parse_args::<syn::Path>() {
                     Ok(c) => crate_ = quote!(#c),
                     Err(_) => {
@@ -167,11 +122,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 pin = true;
             }
         }
-    }
-    if !has_repr_c {
-        return TokenStream::from(
-            quote! {compile_error!{"FieldOffsets only work for structures using repr(C)"}},
-        );
     }
 
     let struct_name = input.ident;
@@ -278,33 +228,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
 ```compile_fail
 use const_field_offset::*;
 #[derive(FieldOffsets)]
-struct Foo {
-    x: u32,
-}
-```
-*/
-#[cfg(doctest)]
-const _NO_REPR_C: u32 = 0;
-
-/**
-```compile_fail
-use const_field_offset::*;
-#[derive(FieldOffsets)]
-#[repr(C)]
-#[repr(packed)]
-struct Foo {
-    x: u32,
-}
-```
-*/
-#[cfg(doctest)]
-const _REPR_PACKED: u32 = 0;
-
-/**
-```compile_fail
-use const_field_offset::*;
-#[derive(FieldOffsets)]
-#[repr(C)]
 #[pin]
 struct Foo {
     x: u32,
@@ -322,7 +245,6 @@ const _PIN_NO_DROP: u32 = 0;
 ```compile_fail
 use const_field_offset::*;
 #[derive(FieldOffsets)]
-#[repr(C)]
 #[pin]
 struct Foo {
     q: std::marker::PhantomPinned,
