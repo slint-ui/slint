@@ -7,6 +7,8 @@ import { FocusBorder } from "components.slint";
 export component CheckBox {
     in property <string> text;
     in property <bool> enabled <=> touch-area.enabled;
+    in property <length> font-size: FluentFontSettings.body.font-size;
+    in property <int> font-weight: FluentFontSettings.body.font-weight;
     out property <bool> has-focus: focus-scope.has-focus;
     in-out property <bool> checked;
 
@@ -83,8 +85,8 @@ export component CheckBox {
         if root.text != "" : Text {
             text: root.text;
             color: root.text-color;
-            font-size: FluentFontSettings.body.font-size;
-            font-weight: FluentFontSettings.body.font-weight;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }
