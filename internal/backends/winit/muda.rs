@@ -292,17 +292,47 @@ impl MudaAdapter {
     }
 }
 
-fn key_string_to_code(string: &str) -> Option<muda::accelerator::Code> {
-    use muda::accelerator::Code::*;
-    macro_rules! key_string_to_code_impl {
-        ($($char:literal # $_name:ident # $($_shifted:ident)? # $($muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
+fn key_name_to_accelerator_token(name: &str) -> Option<&'static str> {
+    macro_rules! key_name_to_accelerator_token_impl {
+        (@value $muda:ident) => {
+            Some(stringify!($muda))
+        };
+        (@value) => {
+            None
+        };
+        ($($char:literal # $name:ident # $($_shifted:ident)? # $($muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
+            [
+                $((stringify!($name), key_name_to_accelerator_token_impl!(@value $($muda)?))),*
+            ]
+            .into_iter()
+            .find_map(|(candidate, token)| (candidate == name).then_some(token).flatten())
+        };
+    }
+    i_slint_common::for_each_keys!(key_name_to_accelerator_token_impl)
+}
+
+fn key_string_to_accelerator_token(string: &str) -> Option<(&'static str, bool)> {
+    macro_rules! key_string_to_accelerator_token_impl {
+        (@value $name:ident # $shifted:ident # $muda:ident) => {
+            Some((stringify!($muda), false))
+        };
+        (@value $name:ident # $shifted:ident #) => {
+            key_name_to_accelerator_token(stringify!($shifted)).map(|token| (token, true))
+        };
+        (@value $name:ident # # $muda:ident) => {
+            Some((stringify!($muda), false))
+        };
+        (@value $name:ident # #) => {
+            None
+        };
+        ($($char:literal # $name:ident # $($shifted:ident)? # $($muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
             match string.chars().next()? {
-                $($($char => Some($muda),)?)*
+                $($char => key_string_to_accelerator_token_impl!(@value $name # $($shifted)? # $($muda)?),)*
                 _ => None,
             }
         };
     }
-    i_slint_common::for_each_keys!(key_string_to_code_impl)
+    i_slint_common::for_each_keys!(key_string_to_accelerator_token_impl)
 }
 
 fn keys_to_accelerator(
@@ -337,9 +367,27 @@ fn keys_to_accelerator(
             modifiers |= Modifiers::SUPER;
         }
     }
-    let key = key_string_to_code(&shortcut.key).ok_or(())?;
+    let (key, implied_shift) = key_string_to_accelerator_token(&shortcut.key).ok_or(())?;
+    if implied_shift {
+        modifiers |= Modifiers::SHIFT;
+    }
 
-    Ok(Some(Accelerator::new(Some(modifiers), key)))
+    let mut accelerator = String::new();
+    if modifiers.contains(Modifiers::CONTROL) {
+        accelerator.push_str("Ctrl+");
+    }
+    if modifiers.contains(Modifiers::ALT) {
+        accelerator.push_str("Alt+");
+    }
+    if modifiers.contains(Modifiers::SHIFT) {
+        accelerator.push_str("Shift+");
+    }
+    if modifiers.contains(Modifiers::SUPER) {
+        accelerator.push_str("Super+");
+    }
+    accelerator.push_str(key);
+
+    Ok(Some(accelerator.parse().map_err(|_| ())?))
 }
 
 fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {
@@ -379,6 +427,50 @@ fn create_default_app_menu(menu_bar: &muda::Menu) -> Result<(), i_slint_core::ap
             i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
         })?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::input::{KeyboardModifiers, make_keys};
+
+    #[test]
+    fn key_string_to_accelerator_token_maps_direct_keys() {
+        assert_eq!(key_string_to_accelerator_token("a"), Some(("KeyA", false)));
+        assert_eq!(key_string_to_accelerator_token("["), Some(("BracketLeft", false)));
+        assert_eq!(key_string_to_accelerator_token("\u{f700}"), Some(("ArrowUp", false)));
+    }
+
+    #[test]
+    fn key_string_to_accelerator_token_maps_shifted_symbols_to_base_key() {
+        assert_eq!(key_string_to_accelerator_token("+"), Some(("Equal", true)));
+        assert_eq!(key_string_to_accelerator_token("{"), Some(("BracketLeft", true)));
+        assert_eq!(key_string_to_accelerator_token("?"), Some(("Slash", true)));
+    }
+
+    #[test]
+    fn key_string_to_accelerator_token_rejects_unsupported_literals() {
+        assert_eq!(key_string_to_accelerator_token("é"), None);
+    }
+
+    #[test]
+    fn keys_to_accelerator_uses_muda_parser_for_common_shortcuts() {
+        let keys = make_keys(
+            "+".into(),
+            KeyboardModifiers { control: true, ..Default::default() },
+            true,
+            false,
+        );
+
+        let accelerator = keys_to_accelerator(&keys).unwrap().unwrap();
+
+        #[cfg(target_os = "macos")]
+        let expected = "Super+Shift+Equal";
+        #[cfg(not(target_os = "macos"))]
+        let expected = "Ctrl+Shift+Equal";
+
+        assert_eq!(accelerator, expected.parse().unwrap());
+    }
 }
 
 /// On Windows, we need to disable window redraw while rebuilding the menu, otherwise
