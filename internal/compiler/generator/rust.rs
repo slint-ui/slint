@@ -974,11 +974,11 @@ fn generate_sub_component(
                 });
             });
             let ensure_updated = if let Some(listview) = &repeated.listview {
-                let vp_y = access_local_member(&listview.viewport_y, &ctx);
-                let vp_h = access_local_member(&listview.viewport_height, &ctx);
-                let lv_h = access_local_member(&listview.listview_height, &ctx);
-                let vp_w = access_local_member(&listview.viewport_width, &ctx);
-                let lv_w = access_local_member(&listview.listview_width, &ctx);
+                let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
+                let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
+                let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
+                let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
+                let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
                 quote! {
                     #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(

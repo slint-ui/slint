@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that two-way binding between a ListView's viewport-y and a global property
+// compiles and works correctly (issue #11095).
+
+import { ListView } from "std-widgets.slint";
+
+export global GlobalInfo {
+    in-out property <length> saved-viewport-y;
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    in-out property <length> test-viewport-y <=> GlobalInfo.saved-viewport-y;
+
+    lv := ListView {
+        viewport-y <=> GlobalInfo.saved-viewport-y;
+        for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]: Rectangle {
+            height: 100px;
+            background: mod(i, 2) == 0 ? blue : red;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Initially viewport-y should be 0
+assert_eq!(instance.get_test_viewport_y(), 0.);
+
+// Set the global property and verify it propagates to the ListView
+instance.set_test_viewport_y(-150.0);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_test_viewport_y(), -150.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Initially viewport-y should be 0
+assert_eq(instance.get_test_viewport_y(), 0.);
+
+// Set the global property and verify it propagates to the ListView
+instance.set_test_viewport_y(-150.0);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_test_viewport_y(), -150.);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.test_viewport_y, 0.);
+instance.test_viewport_y = -150.0;
+slintlib.mock_elapsed_time(100);
+assert.equal(instance.test_viewport_y, -150.);
+```
+*/
