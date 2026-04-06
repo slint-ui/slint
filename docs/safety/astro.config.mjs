@@ -88,7 +88,7 @@ export default defineConfig({
                     ],
                 },
                 { label: "Using Slint SC", slug: "using-slint-sc" },
-                { label: "Development Cycle", slug: "development-cycle" },
+                { label: "Development Process", slug: "development-process" },
                 {
                     label: "Qualification Plan",
                     items: [

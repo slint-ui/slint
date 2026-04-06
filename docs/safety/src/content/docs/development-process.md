@@ -1,10 +1,12 @@
 ---
-title: Development Cycle
+title: Development Process
 description: Tools, processes, and infrastructure used for Slint SC development.
 ---
 
-This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Sections 6-12)
 
+# The Development Process (ISO 26262-8 11.4.8)
+
+This section describes the tools we use and the processes we follow to develop Slint SC, aiming to fulfill the supporting process requirements of ISO 26262 Part 8 (Sections 6-12)
 
 ## Organization members
 
@@ -38,6 +40,19 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 * **Code Reviews:** While administrators have push access, all safety-impacting changes must go through a formal Pull Request (PR) process. PRs enforce peer review, providing an opportunity to challenge the impact analysis and verify the implementation before merging.
 * **Traceability:** Every functional change merged into the codebase must be traceable back to an established issue or requirement, ensuring comprehensive oversight.
 
+### Merge Requirements
+
+For simple commits that do not need to be reviewed and are unlikely to break the CI, the commit can be directly pushed to the `master` branch without creating a PR.
+The master branch is protected, only admins are able to push directly to the `master` branch.
+
+A PR should be reviewed before being merged, unless the PR is trivial. Trivial PRs may be merged without review.
+
+Reviewers can leave comments on the PR. Some comments are just nitpicks but some other comments should be addressed before merging the PR. Reviewers should make an effort to clearly indicate what needs to be addressed to obtain approval.
+
+Once approved, the author of the PR can merge the PR if he has the rights to do so.
+For external contributions, the reviewer must merge the PR.
+
+
 ## CI System and Infrastructure
 
 Continuous Integration (CI) is achieved through GitHub Actions, a platform provided by GitHub that is used to automate building, testing, and deployment of software. Here are some definitions of terms:
@@ -55,7 +70,7 @@ For Slint, [Actions](https://github.com/slint-ui/slint/actions) are triggered fo
 * **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
 * **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
 
-## Regression Tests
+### Regression Tests
 
 A set of regression tests are run before each nightly build and after each PR is pushed.
 
@@ -77,7 +92,7 @@ For build-time tooling and optional features (e.g., image decoding), external li
 
 * **Qualification Strategy:** Any necessary external Software of Unknown Provenance (SOUP) must undergo rigorous evaluation, including static analysis, functional testing, and security auditing, to justify its suitability for reuse in a safety-related context before integration.
 
-# The Development Process (ISO 26262-8 11.4.8)
+
 
 ## Distributed Development (ISO 26262-8 5.x)
 
@@ -87,7 +102,7 @@ Employees of SixtyFPS GmbH are located in different countries, and some work rem
 
 ## Release Schedule
 
-There is no release schedule for Slint SC yet.
+(TODO: add release schedule)
 
 ## Verification (ISO 26262-8 9.4.x)
 
