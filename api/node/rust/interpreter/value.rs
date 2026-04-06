@@ -7,6 +7,7 @@ use crate::{
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::input::{KeyboardModifiers, Keys};
 use i_slint_core::model::{ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::bindgen_prelude::*;
@@ -314,12 +315,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
 
             Ok(Value::EnumerationValue(e.name.to_string(), value.to_string()))
         }
-        Type::Keys => {
-            let obj = unknown.coerce_to_object()?;
-            let keys_instance: ClassInstance<SlintKeys> =
-                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
-            Ok(Value::Keys(keys_instance.inner.clone()))
-        }
+        Type::Keys => Ok(Value::Keys(js_into_keys(unknown)?)),
         Type::Invalid
         | Type::Model
         | Type::Void
@@ -334,6 +330,44 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
         | Type::ArrayOfU16
         | Type::ElementReference
         | Type::StyledText => Err(napi::Error::from_reason("reason")),
+    }
+}
+
+fn js_into_keys(unknown: Unknown<'_>) -> Result<Keys> {
+    match unknown.get_type()? {
+        ValueType::String => Keys::from_key_name_or_string(&expect_string(unknown)?)
+            .map_err(|err| napi::Error::from_reason(err.to_string())),
+        ValueType::Object => {
+            if let Ok(keys_instance) = ClassInstance::<SlintKeys>::from_unknown(unknown) {
+                return Ok(keys_instance.inner.clone());
+            }
+
+            let obj = unknown.coerce_to_object()?;
+            let key = obj
+                .get::<String>("key")?
+                .ok_or_else(|| napi::Error::from_reason("Property key is missing"))?;
+            let mut keys = Keys::from_key_name_or_string(&key)
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+            let mut modifiers = KeyboardModifiers::default();
+            modifiers.alt = obj.get::<bool>("alt")?.unwrap_or(false);
+            modifiers.control = obj.get::<bool>("control")?.unwrap_or(false);
+            modifiers.shift = obj.get::<bool>("shift")?.unwrap_or(false);
+            modifiers.meta = obj.get::<bool>("meta")?.unwrap_or(false);
+            keys = keys.with_modifiers(modifiers);
+
+            if obj.get::<bool>("ignoreShift")?.unwrap_or(false) {
+                keys = keys.ignoring_shift();
+            }
+            if obj.get::<bool>("ignoreAlt")?.unwrap_or(false) {
+                keys = keys.ignoring_alt();
+            }
+
+            Ok(keys)
+        }
+        vt => Err(napi::Error::new(
+            napi::Status::InvalidArg,
+            format!("expect String or Object, got: {vt:?}"),
+        )),
     }
 }
 
