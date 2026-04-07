@@ -434,6 +434,8 @@ impl FlickableDataInner {
         let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
 
+        let old_pos = (viewport_x.get(), viewport_y.get());
+
         match phase {
             TouchPhase::Cancelled => {
                 if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
@@ -468,8 +470,6 @@ impl FlickableDataInner {
                 self.capture_events = None;
             }
         }
-
-        let old_pos = (viewport_x.get(), viewport_y.get());
 
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
         if flicked {
