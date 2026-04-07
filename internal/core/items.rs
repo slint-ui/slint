@@ -1792,9 +1792,7 @@ impl Item for SystemTray {
         #[cfg(feature = "system-tray")]
         self.change_tracker.init_delayed(
             self_rc.downgrade(),
-            |_| {
-                true
-            },
+            |_| true,
             |self_weak, has_icon| {
                 let Some(tray_rc) = self_weak.upgrade() else {
                     return;

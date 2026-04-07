@@ -13,7 +13,7 @@ use ksni::blocking::TrayMethods;
 #[cfg(feature = "system-tray-ksni")]
 struct KsniTray {
     icon: ksni::Icon,
-    title: std::string::String
+    title: std::string::String,
 }
 
 #[cfg(feature = "system-tray-ksni")]
@@ -67,9 +67,10 @@ impl SystemTray {
                 pixel.rotate_right(1) // rgba to argb
             }
 
-            let tray = KsniTray { icon: ksni::Icon { width, height, data }, title: params.title.into() }
-                .spawn()
-                .map_err(Error::KsniBuildError)?;
+            let tray =
+                KsniTray { icon: ksni::Icon { width, height, data }, title: params.title.into() }
+                    .spawn()
+                    .map_err(Error::KsniBuildError)?;
             return Ok(Self { _tray: tray });
         }
 
