@@ -256,16 +256,12 @@ pub fn render_component_items(
 
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
-pub fn item_children_bounding_rect(
-    item_rc: &ItemRc,
-    window_adapter: &WindowAdapterRc,
-) -> LogicalRect {
-    item_children_bounding_rect_inner(item_rc, window_adapter, Default::default())
+pub fn item_children_bounding_rect(item_rc: &ItemRc) -> LogicalRect {
+    item_children_bounding_rect_inner(item_rc, Default::default())
 }
 
 fn item_children_bounding_rect_inner(
     item_rc: &ItemRc,
-    window_adapter: &WindowAdapterRc,
     transform: crate::lengths::ItemTransform,
 ) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
@@ -280,7 +276,7 @@ fn item_children_bounding_rect_inner(
                 .unwrap_or_default()
                 .then_translate(item_geometry.origin.to_vector());
 
-            bounding_rect = bounding_rect.union(&item_geometry);
+            bounding_rect = bounding_rect.union(&item_geometry.cast());
 
             if item.as_ref().clips_children() {
                 let clip = transform.outer_transformed_rect(&geom.cast()).cast();
@@ -288,7 +284,6 @@ fn item_children_bounding_rect_inner(
                     bounding_rect = bounding_rect.union(
                         &item_children_bounding_rect_inner(
                             &item_rc,
-                            window_adapter,
                             transform.then(&children_transform),
                         )
                         .intersection(&clip)
@@ -298,7 +293,6 @@ fn item_children_bounding_rect_inner(
             } else {
                 bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
                     &item_rc,
-                    window_adapter,
                     transform.then(&children_transform),
                 ));
             }
