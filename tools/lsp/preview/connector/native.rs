@@ -40,6 +40,9 @@ impl ChildProcessLspToPreview {
             inner.communication_handle.abort();
         }
 
+        #[cfg(unix)]
+        crate::log_stderr_nonblocking("lsp-before-preview-spawn");
+
         let mut child = tokio::process::Command::new(
             std::env::current_exe().expect("Could not find executable name of the slint-lsp"),
         )

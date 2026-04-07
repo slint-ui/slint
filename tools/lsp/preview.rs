@@ -47,6 +47,9 @@ mod undo_redo;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::PlatformError> {
+    #[cfg(unix)]
+    crate::log_stderr_nonblocking("preview-child-start");
+
     if !config.remote_controlled {
         return Err(slint::PlatformError::Other(
             "Can not run the live preview without the LSP (yet)".into(),

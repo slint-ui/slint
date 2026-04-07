@@ -10135,6 +10135,7 @@ dependencies = [
  "i-slint-core",
  "itertools 0.14.0",
  "js-sys",
+ "libc",
  "lsp-server",
  "lsp-types",
  "muda",

@@ -215,12 +215,30 @@ impl RequestHandler {
     }
 }
 
+/// Check and log whether stderr (fd 2) has the O_NONBLOCK flag set.
+/// This is a diagnostic to help debug issue #10778.
+#[cfg(unix)]
+fn log_stderr_nonblocking(context: &str) {
+    use std::os::unix::io::AsRawFd;
+    let fd = std::io::stderr().as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags == -1 {
+        tracing::warn!("[{context}] fcntl(stderr, F_GETFL) failed: {}", std::io::Error::last_os_error());
+    } else {
+        let nonblocking = (flags & libc::O_NONBLOCK) != 0;
+        tracing::warn!("[{context}] stderr fd={fd}, flags=0x{flags:x}, O_NONBLOCK={nonblocking}");
+    }
+}
+
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
+
+    #[cfg(unix)]
+    log_stderr_nonblocking("startup");
 
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
