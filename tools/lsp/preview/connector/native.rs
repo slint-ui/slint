@@ -4,8 +4,11 @@
 use crate::{common, preview};
 
 use std::collections::HashMap;
+use std::io::Write;
 use std::{cell::RefCell, io::BufRead};
 
+use tokio::io::AsyncReadExt as _;
+use tokio::process::{ChildStderr, ChildStdout};
 use tokio::task::JoinHandle;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
@@ -35,6 +38,51 @@ impl ChildProcessLspToPreview {
         self.inner.borrow().as_ref().map(|i| !i.communication_handle.is_finished()).unwrap_or(false)
     }
 
+    // We need to forward the stderr from the preview to our own manually.
+    // This is necessary because our stderr might be configured in non-blocking mode
+    // which causes a panic if used with eprintln! (see issue #10778).
+    async fn forward_stderr(stderr: ChildStderr) -> Result<(), String> {
+        let mut reader = tokio::io::BufReader::new(stderr);
+        let mut buf = Vec::new();
+        while reader.read_buf(&mut buf).await.map_err(|e| e.to_string())? > 0 {
+            let mut written = 0;
+            while written < buf.len() {
+                let write = {
+                    // lock stderr for as short as possible
+                    let mut stderr = std::io::stderr().lock();
+                    stderr.write(&buf[written..])
+                };
+                match write {
+                    Ok(bytes_written) => written += bytes_written,
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                        // Our stderr is set up in non-blocking mode just try again after a delay
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
+                    Err(err) => {
+                        tracing::warn!("Failed to forward preview stderr: {err}");
+                        return Err(err.to_string());
+                    }
+                }
+            }
+            buf.clear();
+        }
+        Ok(())
+    }
+
+    async fn process_stdout(
+        stdout: ChildStdout,
+        channel: mpsc::UnboundedSender<common::PreviewToLspMessage>,
+    ) -> Result<(), String> {
+        let reader = tokio::io::BufReader::new(stdout);
+        let mut lines = reader.lines();
+        while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+            if let Ok(message) = serde_json::from_str(&line) {
+                channel.send(message).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
+
     fn start_preview(&self) -> common::Result<()> {
         if let Some(inner) = self.inner.borrow_mut().take() {
             inner.communication_handle.abort();
@@ -46,25 +94,24 @@ impl ChildProcessLspToPreview {
         .args(["live-preview", "--remote-controlled"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .spawn()?;
 
         tracing::debug!("Preview process spawned (PID {:?})", child.id());
 
         let from_child = child.stdout.take().expect("Child has no stdout");
         let mut to_child = child.stdin.take().expect("Child has no stdin");
+        let from_child_stderr = child.stderr.take().expect("Child has no stderr");
 
         let channel = self.preview_to_lsp_channel.clone();
 
         let preview_to_lsp_channel = self.preview_to_lsp_channel.clone();
 
         let communication_handle = tokio::spawn(async move {
-            let reader = tokio::io::BufReader::new(from_child);
-            let mut lines = reader.lines();
-            while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
-                if let Ok(message) = serde_json::from_str(&line) {
-                    channel.send(message).map_err(|e| e.to_string())?;
-                }
-            }
+            tokio::try_join! {
+                Self::process_stdout(from_child, channel),
+                Self::forward_stderr(from_child_stderr),
+            }?;
 
             let exit_status = child.wait().await.map_err(|e| e.to_string());
 
