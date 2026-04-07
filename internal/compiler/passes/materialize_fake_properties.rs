@@ -204,7 +204,12 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
     let expr = match elem.borrow().layout_info_prop(orient) {
         Some(e) => Expression::PropertyReference(e.clone()),
-        None => crate::layout::implicit_layout_info_call(elem, orient),
+        None => crate::layout::implicit_layout_info_call(
+            elem,
+            orient,
+            crate::layout::BuiltinFilter::All,
+        )
+        .unwrap(),
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }

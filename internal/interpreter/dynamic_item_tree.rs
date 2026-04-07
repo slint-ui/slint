@@ -206,6 +206,46 @@ impl RepeatedItemTree for ErasedItemTreeBox {
 
         LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
     }
+
+    fn flexbox_layout_item_info(
+        self: Pin<&Self>,
+        o: Orientation,
+        child_index: Option<usize>,
+    ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+        let instance_ref = s.borrow_instance();
+        let root_element = &s.description.original.root_element;
+
+        let load_f32 = |name: &str| -> f32 {
+            eval::load_property(instance_ref, root_element, name)
+                .ok()
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(0.0)
+        };
+
+        let flex_grow = load_f32("flex-grow");
+        let flex_shrink = load_f32("flex-shrink");
+        let flex_basis = if root_element.borrow().bindings.contains_key("flex-basis") {
+            load_f32("flex-basis")
+        } else {
+            -1.0
+        };
+        let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
+            .ok()
+            .and_then(|v| v.try_into().ok())
+            .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::Auto);
+        let flex_order = load_f32("flex-order") as i32;
+
+        i_slint_core::layout::FlexboxLayoutItemInfo {
+            constraint: self.layout_item_info(o, child_index).constraint,
+            flex_grow,
+            flex_shrink,
+            flex_basis,
+            flex_align_self,
+            flex_order,
+        }
+    }
 }
 
 impl ItemTree for ErasedItemTreeBox {
@@ -873,10 +913,7 @@ pub async fn load(
     mut compiler_config: CompilerConfiguration,
 ) -> CompilationResult {
     // If the native style should be Qt, resolve it here as we know that we have it
-    let is_native = match &compiler_config.style {
-        Some(s) => s == "native",
-        None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
-    };
+    let is_native = compiler_config.style.as_deref() == Some("native");
     if is_native {
         // On wasm, look at the browser user agent
         #[cfg(target_arch = "wasm32")]
@@ -1036,7 +1073,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
-            rtti_for::<PinchGestureHandler>(),
+            rtti_for::<ScaleRotateGestureHandler>(),
             rtti_for::<Path>(),
             rtti_for::<Flickable>(),
             rtti_for::<WindowItem>(),

@@ -592,22 +592,33 @@ impl PropertyHandle {
         }
     }
 
+    /// Transfer the dependency list from the current binding back to the
+    /// handle and return the now-detached binding pointer. The binding is
+    /// **not** dropped; the caller is responsible for its lifetime.
+    ///
+    /// Returns `None` when the handle does not point to a binding.
+    fn detach_binding(&self) -> Option<*mut BindingHolder> {
+        let binding = Self::pointer_to_binding(self.handle.get())?;
+        unsafe {
+            let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
+            if (*binding).dependencies.get() == const_sentinel {
+                self.handle.set(const_sentinel);
+            } else {
+                DependencyListHead::mem_move(
+                    (*binding).dependencies.as_ptr() as *mut DependencyListHead,
+                    self.handle.as_ptr() as *mut DependencyListHead,
+                );
+            }
+            (*binding).dependencies.set(0);
+        }
+        Some(binding)
+    }
+
     fn remove_binding(&self) {
         assert!(!self.lock_flag(), "Recursion detected");
 
-        if let Some(binding) = Self::pointer_to_binding(self.handle.get()) {
+        if let Some(binding) = self.detach_binding() {
             unsafe {
-                self.set_lock_flag(true);
-                let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
-                if (*binding).dependencies.get() == const_sentinel {
-                    self.handle.set(const_sentinel);
-                    (*binding).dependencies.set(0);
-                } else {
-                    DependencyListHead::mem_move(
-                        (*binding).dependencies.as_ptr() as *mut DependencyListHead,
-                        self.handle.as_ptr() as *mut DependencyListHead,
-                    );
-                }
                 ((*binding).vtable.drop)(binding);
             }
         }
@@ -1341,11 +1352,13 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             prop2.debug_name.borrow()
         );
 
-        let old_handle = prop2.handle.handle.get();
-        let old_pointer = PropertyHandle::pointer_to_binding(old_handle);
-        if old_pointer.is_some() {
-            prop2.handle.handle.set(0);
-        }
+        // Detach the old binding (if any) from prop2, transferring its
+        // dependency list back to the handle so that set_binding() will
+        // properly move it into the new TwoWayBindingWithMap binding.
+        // Without this, the old binding's dependency list would be orphaned
+        // when it is later freed via BindingMapper::drop, leaving
+        // DependencyNodes with dangling prev pointers.
+        let old_binding = prop2.handle.detach_binding();
 
         unsafe {
             prop2.handle.set_binding(
@@ -1354,7 +1367,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 debug_name.as_str(),
             );
 
-            if let Some(binding) = old_pointer {
+            if let Some(binding) = old_binding {
                 prop2.handle.set_binding_impl(binding);
             }
         };
@@ -1627,11 +1640,90 @@ fn test_two_way_with_map() {
     assert_eq!(p3.as_ref().get(), "def");
 }
 
+/// Regression test for use-after-free in `link_two_way_with_map_to_common_property`.
+///
+/// When a property already has a binding with dependants and is then linked
+/// via `link_two_way_with_map`, the old binding's dependency list must be
+/// transferred to the new `TwoWayBindingWithMap` binding. Without this
+/// transfer, the old binding is later freed (via `BindingMapper::drop`) while
+/// dependency nodes still point into its `dependencies` field, causing
+/// panics in `DependencyNode::debug_assert_valid` on drop.
+///
+/// The drop order is arranged so that the tracker (which owns the
+/// dependency node) outlives the properties, forcing the node to be
+/// removed after the old binding would have been freed.
+#[test]
+fn test_two_way_with_map_dependency_list_transfer() {
+    #[derive(PartialEq, Clone, Default, Debug)]
+    struct Wrapper {
+        value: i32,
+    }
+
+    let source = Rc::pin(Property::new(10));
+
+    // Declare the tracker before the properties so it is dropped *after*
+    // them (Rust drops locals in reverse declaration order). This ensures
+    // the dependency node outlives the old binding.
+    let tracker = Box::pin(<PropertyTracker>::default());
+
+    let p_field = Rc::pin(Property::new(0i32));
+    p_field.as_ref().set_binding({
+        let source = source.clone();
+        move || source.as_ref().get() * 2
+    });
+    assert_eq!(p_field.as_ref().get(), 20);
+
+    // Evaluate the tracker, which reads p_field and registers a dependency
+    // node on p_field's binding's dependency list.
+    let val = tracker.as_ref().evaluate({
+        let p_field = p_field.clone();
+        move || p_field.as_ref().get()
+    });
+    assert_eq!(val, 20);
+    assert!(!tracker.as_ref().is_dirty());
+
+    // link_two_way_with_map replaces p_field's binding with a
+    // TwoWayBindingWithMap and wraps the old binding in a BindingMapper
+    // on the common property. The dependency list must be transferred.
+    let p_struct = Rc::pin(Property::new(Wrapper { value: 0 }));
+    Property::link_two_way_with_map(
+        p_struct.as_ref(),
+        p_field.as_ref(),
+        |s| s.value,
+        |s, v| s.value = *v,
+    );
+
+    assert_eq!(p_field.as_ref().get(), 20);
+    assert_eq!(p_struct.as_ref().get(), Wrapper { value: 20 });
+
+    // The tracker's dependency should still fire when the source changes.
+    source.as_ref().set(5);
+    assert!(tracker.as_ref().is_dirty());
+
+    // Implicit drop order: p_struct, p_field, tracker, source.
+    // p_field's drop frees the common property chain (including the old
+    // binding via BindingMapper::drop). tracker is dropped afterwards —
+    // its DependencyNode::remove would panic in debug_assert_valid if
+    // the dependency list was not properly transferred.
+}
+
 mod change_tracker;
 pub use change_tracker::*;
 mod properties_animations;
-pub use crate::items::StateInfo;
 pub use properties_animations::*;
+
+/// Value of the state property
+/// A state is just the current state, but also has information about the previous state and the moment it changed
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[repr(C)]
+pub struct StateInfo {
+    /// The current state value
+    pub current_state: i32,
+    /// The previous state
+    pub previous_state: i32,
+    /// The instant in which the state changed last
+    pub change_time: crate::animations::Instant,
+}
 
 struct StateInfoBinding<F> {
     dirty_time: Cell<Option<crate::animations::Instant>>,

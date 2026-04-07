@@ -296,8 +296,8 @@ pub fn lower_expression(
         tree_Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             solve_grid_layout(layout_organized_data_prop, layout, *orientation, ctx)
         }
-        tree_Expression::SolveFlexBoxLayout(l) => solve_flexbox_layout(l, ctx),
-        tree_Expression::ComputeFlexBoxLayoutInfo(l, o) => compute_flexbox_layout_info(l, *o, ctx),
+        tree_Expression::SolveFlexboxLayout(l) => solve_flexbox_layout(l, ctx),
+        tree_Expression::ComputeFlexboxLayoutInfo(l, o) => compute_flexbox_layout_info(l, *o, ctx),
         tree_Expression::MinMax { ty, op, lhs, rhs } => llr_Expression::MinMax {
             ty: ty.clone(),
             op: *op,

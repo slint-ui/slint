@@ -20,17 +20,33 @@ component Cell inherits Rectangle {
     in property <string> cell_text;
 }
 
+component FlexCell inherits Rectangle {
+    border-width: 1phx;
+    border-color: #555;
+    VerticalLayout {
+        padding: 5phx;
+        Text {
+            color: white;
+            text: cell_text;
+            font-size: 14px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    in property <string> cell_text;
+}
+
 export component MainWindow inherits Window {
-    title: "FlexBox Layout - Direction Test";
+    title: "Flexbox Layout - Interactive Test";
     default-font-size: 20px;
 
-    property <[string]> names: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
     property <[string]> direction_options: ["Row", "RowReverse", "Column", "ColumnReverse"];
-    property <[FlexDirection]> direction_values: [
-        FlexDirection.row,
-        FlexDirection.row-reverse,
-        FlexDirection.column,
-        FlexDirection.column-reverse
+    property <[FlexboxLayoutDirection]> direction_values: [
+        FlexboxLayoutDirection.row,
+        FlexboxLayoutDirection.row-reverse,
+        FlexboxLayoutDirection.column,
+        FlexboxLayoutDirection.column-reverse
     ];
     property <[string]> alignment_options: ["Start", "End", "Center", "SpaceBetween", "SpaceAround", "SpaceEvenly"];
     property <[LayoutAlignment]> alignment_values: [
@@ -41,22 +57,33 @@ export component MainWindow inherits Window {
         LayoutAlignment.space-around,
         LayoutAlignment.space-evenly
     ];
-    property <[string]> align_content_options: ["Stretch", "Start", "End", "Center"];
-    property <[FlexAlignContent]> align_content_values: [
-        FlexAlignContent.stretch,
-        FlexAlignContent.start,
-        FlexAlignContent.end,
-        FlexAlignContent.center
+    property <[string]> align_content_options: [
+        "Stretch",
+        "Start",
+        "End",
+        "Center",
+        "Space Between",
+        "Space Around",
+        "Space Evenly"
+    ];
+    property <[FlexboxLayoutAlignContent]> align_content_values: [
+        FlexboxLayoutAlignContent.stretch,
+        FlexboxLayoutAlignContent.start,
+        FlexboxLayoutAlignContent.end,
+        FlexboxLayoutAlignContent.center,
+        FlexboxLayoutAlignContent.space-between,
+        FlexboxLayoutAlignContent.space-around,
+        FlexboxLayoutAlignContent.space-evenly
     ];
     property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
-    property <[FlexAlignItems]> align_items_values: [
-        FlexAlignItems.stretch,
-        FlexAlignItems.start,
-        FlexAlignItems.end,
-        FlexAlignItems.center
+    property <[FlexboxLayoutAlignItems]> align_items_values: [
+        FlexboxLayoutAlignItems.stretch,
+        FlexboxLayoutAlignItems.start,
+        FlexboxLayoutAlignItems.end,
+        FlexboxLayoutAlignItems.center
     ];
     property <[string]> flex_wrap_options: ["Wrap", "NoWrap", "WrapReverse"];
-    property <[FlexWrap]> flex_wrap_values: [FlexWrap.wrap, FlexWrap.no-wrap, FlexWrap.wrap-reverse];
+    property <[FlexboxLayoutWrap]> flex_wrap_values: [FlexboxLayoutWrap.wrap, FlexboxLayoutWrap.no-wrap, FlexboxLayoutWrap.wrap-reverse];
 
     VerticalLayout {
         padding: 20phx;
@@ -124,7 +151,7 @@ export component MainWindow inherits Window {
             background: white;
             vertical-stretch: 1;
 
-            FlexBoxLayout {
+            FlexboxLayout {
                 flex-direction: direction_values[direction_combo.current-index];
                 alignment: alignment_values[alignment_combo.current-index];
                 align-content: align_content_values[align_content_combo.current-index];
@@ -133,10 +160,105 @@ export component MainWindow inherits Window {
                 padding: 10phx;
                 spacing: 10phx;
 
-                for text in names: Cell {
+                // flex-grow: blue items grow to fill extra space (1× and 2× ratio)
+                FlexCell {
+                    cell_text: "A grow:1";
+                    flex-grow: 1;
+                    flex-basis: 60phx;
+                    min-height: 40phx;
+                    background: #4a90d9;
+                }
+
+                FlexCell {
+                    cell_text: "B grow:2";
+                    flex-grow: 2;
+                    flex-basis: 60phx;
+                    min-height: 40phx;
+                    background: #2e6da4;
+                }
+
+                for text in ["C", "D", "E"]: Cell {
                     cell_text: text;
-                    width: 120phx;
-                    height: 60phx;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-basis: these two have different starting sizes
+                FlexCell {
+                    cell_text: "F basis:40";
+                    flex-basis: 40phx;
+                    min-height: 40phx;
+                    background: #27ae60;
+                }
+
+                FlexCell {
+                    cell_text: "G basis:160";
+                    flex-basis: 160phx;
+                    min-height: 40phx;
+                    background: #1e8449;
+                }
+
+                for text in ["H", "I", "J", "K", "L"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-shrink: red items shrink when space is tight (try no-wrap with a narrow window)
+                FlexCell {
+                    cell_text: "M shrink:1";
+                    flex-basis: 150phx;
+                    flex-shrink: 1;
+                    min-height: 40phx;
+                    background: #d94a4a;
+                }
+
+                FlexCell {
+                    cell_text: "N shrink:3";
+                    flex-basis: 150phx;
+                    flex-shrink: 3;
+                    min-height: 40phx;
+                    background: #a93226;
+                }
+
+                for text in ["P", "Q", "R"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
+                }
+                // flex-align-self: orange item overrides the container's align-items
+                FlexCell {
+                    cell_text: "S self:end";
+                    flex-align-self: end;
+                    height: 30phx;
+                    background: #e67e22;
+                }
+
+                FlexCell {
+                    cell_text: "T self:center";
+                    flex-align-self: center;
+                    height: 30phx;
+                    background: #d35400;
+                }
+                // flex-order: these items appear before/after others despite declaration order
+                FlexCell {
+                    cell_text: "U flex-order:-1";
+                    flex-order: -1;
+                    width: 80phx;
+                    min-height: 40phx;
+                    background: #8e44ad;
+                }
+
+                FlexCell {
+                    cell_text: "V flex-order:99";
+                    flex-order: 99;
+                    width: 80phx;
+                    min-height: 40phx;
+                    background: #6c3483;
+                }
+
+                for text in ["W", "X", "Y"]: Cell {
+                    cell_text: text;
+                    width: 80phx;
+                    height: 40phx;
                 }
             }
         }

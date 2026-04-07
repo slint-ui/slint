@@ -237,13 +237,13 @@ pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &s
                 return;
             };
             match c.root_element.borrow().property_analysis.borrow_mut().entry(name.into()) {
-                std::collections::hash_map::Entry::Occupied(e) if e.get().is_set_externally => {
+                std::collections::btree_map::Entry::Occupied(e) if e.get().is_set_externally => {
                     return;
                 }
-                std::collections::hash_map::Entry::Occupied(mut e) => {
+                std::collections::btree_map::Entry::Occupied(mut e) => {
                     e.get_mut().is_set_externally = true;
                 }
-                std::collections::hash_map::Entry::Vacant(e) => {
+                std::collections::btree_map::Entry::Vacant(e) => {
                     e.insert(PropertyAnalysis { is_set_externally: true, ..Default::default() });
                 }
             }
@@ -263,13 +263,13 @@ pub(crate) fn mark_property_read_derived_in_base(mut element: ElementRc, name: &
                 return;
             };
             match c.root_element.borrow().property_analysis.borrow_mut().entry(name.into()) {
-                std::collections::hash_map::Entry::Occupied(e) if e.get().is_read_externally => {
+                std::collections::btree_map::Entry::Occupied(e) if e.get().is_read_externally => {
                     return;
                 }
-                std::collections::hash_map::Entry::Occupied(mut e) => {
+                std::collections::btree_map::Entry::Occupied(mut e) => {
                     e.get_mut().is_read_externally = true;
                 }
-                std::collections::hash_map::Entry::Vacant(e) => {
+                std::collections::btree_map::Entry::Vacant(e) => {
                     e.insert(PropertyAnalysis { is_read_externally: true, ..Default::default() });
                 }
             }

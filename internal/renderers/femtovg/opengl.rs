@@ -156,8 +156,9 @@ impl OpenGLBackend {
 pub struct GLWindowSurface {}
 
 impl WindowSurface<femtovg::renderer::OpenGl> for GLWindowSurface {
-    fn render_surface(&self) -> &<femtovg::renderer::OpenGl as femtovg::Renderer>::Surface {
-        &()
+    fn render_output(
+        &self,
+    ) -> impl Into<<femtovg::renderer::OpenGl as femtovg::Renderer>::RenderOutput> {
     }
 }
 

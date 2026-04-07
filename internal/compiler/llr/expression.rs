@@ -220,8 +220,8 @@ pub enum Expression {
         sub_expression: Box<Expression>,
     },
     /// Will call the sub_expression, with two cells variables (horizontal and vertical)
-    /// set to the arrays of LayoutItemInfo from the elements for FlexBoxLayout
-    WithFlexBoxLayoutItemInfo {
+    /// set to the arrays of LayoutItemInfo from the elements for FlexboxLayout
+    WithFlexboxLayoutItemInfo {
         /// The local variable for horizontal cells
         cells_h_variable: String,
         /// The local variable for vertical cells
@@ -379,7 +379,7 @@ impl Expression {
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
-            Self::WithFlexBoxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
@@ -481,7 +481,7 @@ macro_rules! visit_impl {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
-            Expression::WithFlexBoxLayoutItemInfo { elements, sub_expression, .. } => {
+            Expression::WithFlexboxLayoutItemInfo { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
                     $visitor(h);

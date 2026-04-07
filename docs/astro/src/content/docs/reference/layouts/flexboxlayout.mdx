@@ -1,21 +1,22 @@
 ---
-title: FlexBoxLayout
-description: FlexBoxLayout element api.
+title: FlexboxLayout
+description: FlexboxLayout element api.
 ---
+
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 
-`FlexBoxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
+`FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
 
 
 <CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example1.png"  imageWidth="300" imageHeight="150"  imageAlt='flexboxlayout example with row direction'>
 
 ```slint playground
-// This example demonstrates FlexBoxLayout with row direction (default)
+// This example demonstrates FlexboxLayout with row direction (default)
 export component Foo inherits Window {
     width: 300px;
     height: 200px;
-    FlexBoxLayout {
+    FlexboxLayout {
         spacing: 8px;
         padding: 8px;
         flex-direction: row;
@@ -33,11 +34,11 @@ export component Foo inherits Window {
 <CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example2.png"  imageWidth="150" imageHeight="250"  imageAlt='flexboxlayout example with column direction'>
 
 ```slint playground
-// This example demonstrates FlexBoxLayout with column direction
+// This example demonstrates FlexboxLayout with column direction
 export component Foo inherits Window {
     width: 300px;
     height: 300px;
-    FlexBoxLayout {
+    FlexboxLayout {
         spacing: 8px;
         padding: 8px;
         flex-direction: column;
@@ -99,50 +100,74 @@ To target specific sides with different values use the following properties:
 ### alignment
 <SlintProperty propName="alignment" typeName="enum" enumName="LayoutAlignment">
 Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
-Note that the `stretch` value has no effect on FlexBoxLayout (main-axis stretching in CSS Flexbox is controlled by `flex-grow`).
+Note that the `stretch` value has no effect on FlexboxLayout (main-axis stretching in CSS Flexbox is controlled by `flex-grow`).
 </SlintProperty>
 
 ## Direction Properties
 
 ### flex-direction
-<SlintProperty propName="flex-direction" typeName="enum" enumName="FlexDirection">
+<SlintProperty propName="flex-direction" typeName="enum" enumName="FlexboxLayoutDirection">
 The primary direction in which items are placed. Set to `row` to place items horizontally left-to-right (default), or `column` to place items vertically top-to-bottom.
 It also supports `row-reverse` and `column-reverse` which invert the flow: `row-reverse` places items right-to-left (starting at the right edge), and `column-reverse` places items bottom-to-top (starting at the bottom edge).
 </SlintProperty>
 
 ### flex-wrap
-<SlintProperty propName="flex-wrap" typeName="enum" enumName="FlexWrap">
+<SlintProperty propName="flex-wrap" typeName="enum" enumName="FlexboxLayoutWrap">
 Controls whether flex items wrap onto multiple lines when they don't fit in the container.
-- `wrap`: Items wrap onto the next line in the normal direction (default). New lines are added in the cross-axis direction.
-- `no-wrap`: All items are placed on a single line. Items may overflow the container.
-- `wrap-reverse`: Items wrap onto the next line, but lines are stacked in the reverse cross-axis direction.
 The default value is `wrap`.
 </SlintProperty>
 
 ### align-content
-<SlintProperty propName="align-content" typeName="enum" enumName="FlexAlignContent">
+<SlintProperty propName="align-content" typeName="enum" enumName="FlexboxLayoutAlignContent">
 Set the distribution of flex lines along the cross axis.
-- `stretch`: Lines are stretched to fill the container along the cross axis (default).
-- `start`: Lines are placed at the start of the cross axis.
-- `end`: Lines are placed at the end of the cross axis.
-- `center`: Lines are centered along the cross axis.
 The default value is `stretch`.
 </SlintProperty>
 
 ### align-items
-<SlintProperty propName="align-items" typeName="enum" enumName="FlexAlignItems">
+<SlintProperty propName="align-items" typeName="enum" enumName="FlexboxLayoutAlignItems">
 Set the alignment of individual items along the cross axis within each flex line.
-- `stretch`: Items are stretched to fill the line along the cross axis (default). Items without an explicit cross-axis size stretch to the line height (row) or line width (column).
-- `start`: Items are placed at the start of the cross axis.
-- `end`: Items are placed at the end of the cross axis.
-- `center`: Items are centered along the cross axis.
 The default value is `stretch`.
+</SlintProperty>
+
+## Per-Item Properties
+
+The following properties can be set on individual children of a `FlexboxLayout`:
+
+### flex-grow
+<SlintProperty propName="flex-grow" typeName="float">
+Controls how much an item grows relative to other flex items when there is extra space along the main axis.
+A value of `0` (default) means the item does not grow. Items with higher values receive proportionally more extra space.
+</SlintProperty>
+
+### flex-shrink
+<SlintProperty propName="flex-shrink" typeName="float">
+Controls how much an item shrinks relative to other flex items when items overflow the container along the main axis.
+A value of `0` (default) means the item does not shrink. Items with higher values shrink proportionally more.
+</SlintProperty>
+
+### flex-basis
+<SlintProperty propName="flex-basis" typeName="length">
+Sets the initial main size of a flex item before growing or shrinking is applied.
+If not set, the item's `preferred-width` (row) or `preferred-height` (column) is used.
+</SlintProperty>
+
+### flex-align-self
+<SlintProperty propName="flex-align-self" typeName="enum" enumName="FlexboxLayoutAlignSelf">
+Overrides the container's `align-items` for this specific item.
+The default value is `auto`, which inherits the container's `align-items` setting.
+</SlintProperty>
+
+### flex-order
+<SlintProperty propName="flex-order" typeName="int">
+Controls the visual order of flex items. Items with lower values appear first.
+Items with the same order value preserve their declaration order.
+The default value is `0`.
 </SlintProperty>
 
 ## Layout Behavior
 
-The layouting algorithm for FlexBoxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
+The layouting algorithm for FlexboxLayout is entirely implemented by <a href="https://github.com/DioxusLabs/taffy">taffy</a>
 
-You can learn more about the CSS FlexBox specification from
+You can learn more about the CSS Flexbox specification from
 - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
 - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.

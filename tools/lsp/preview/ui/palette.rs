@@ -599,12 +599,22 @@ export component Main { }
         ];
 
         for (style, border) in cases {
-            let mut config = crate::common::document_cache::CompilerConfiguration::default();
-            config.style = Some(style.to_string());
-            let mut dc = common::DocumentCache::new(config);
+            let config = crate::common::document_cache::CompilerConfiguration {
+                style: Some(style.to_string()),
+                ..Default::default()
+            };
+            let mut ctx = crate::language::Context {
+                document_cache: common::DocumentCache::new(config),
+                preview_config: Default::default(),
+                server_notifier: crate::ServerNotifier::dummy(),
+                init_param: Default::default(),
+                to_show: None,
+                open_urls: Default::default(),
+                to_preview: Rc::new(crate::common::DummyLspToPreview::default()),
+                pending_recompile: Default::default(),
+            };
             let (url, _) = crate::language::test::load(
-                None,
-                &mut dc,
+                &mut ctx,
                 &std::env::temp_dir().join("xxx/test.slint"),
                 r#"
                     import { Palette } from "std-widgets.slint";
@@ -612,7 +622,7 @@ export component Main { }
                 "#,
             );
 
-            let result = collect_palette_from_globals(&dc, &url, Vec::new(), None);
+            let result = collect_palette_from_globals(&ctx.document_cache, &url, Vec::new(), None);
             let r =
                 result.iter().find(|entry| entry.name == "Palette.border").expect("Palette.border");
             let color = i_slint_core::Color::from_argb_u8(

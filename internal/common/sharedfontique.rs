@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub use fontique;
-pub use ttf_parser;
+pub use skrifa;
+
+#[cfg(any(target_family = "wasm", target_os = "nto"))]
+use fontique::ScriptExt;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -20,7 +23,7 @@ pub fn create_collection(shared: bool) -> Collection {
 
     #[cfg(any(target_family = "wasm", target_os = "nto"))]
     {
-        let data = include_bytes!("sharedfontique/DejaVuSans.ttf");
+        let data = include_bytes!("sharedfontique/Inter-VariableFont.ttf");
         let fonts = collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
         for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
             collection.append_fallbacks(
@@ -131,34 +134,6 @@ impl std::ops::Deref for Collection {
 impl std::ops::DerefMut for Collection {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
-    }
-}
-
-/// Font metrics in design space. Scale with desired pixel size and divided by units_per_em
-/// to obtain pixel metrics.
-#[derive(Clone)]
-pub struct DesignFontMetrics {
-    pub ascent: f32,
-    pub descent: f32,
-    pub x_height: f32,
-    pub cap_height: f32,
-    pub units_per_em: f32,
-}
-
-impl DesignFontMetrics {
-    pub fn new(font: &fontique::QueryFont) -> Self {
-        let face = ttf_parser::Face::parse(font.blob.data(), font.index).unwrap();
-        Self::new_from_face(&face)
-    }
-
-    pub fn new_from_face(face: &ttf_parser::Face) -> Self {
-        Self {
-            ascent: face.ascender() as f32,
-            descent: face.descender() as f32,
-            x_height: face.x_height().unwrap_or_default() as f32,
-            cap_height: face.capital_height().unwrap_or_default() as f32,
-            units_per_em: face.units_per_em() as f32,
-        }
     }
 }
 

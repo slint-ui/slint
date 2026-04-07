@@ -319,10 +319,19 @@ fn inline_element(
         .inlined_init_code
         .insert(elem.borrow().span().offset, Expression::CodeBlock(inlined_init_code));
 
-    // Now fixup all binding and reference
+    // Now fixup all bindings and references
     for e in mapping.values() {
-        visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
+        // Must run before visit_all_named_references_in_element to break shared
+        // GridLayoutCell Rcs (otherwise NR fixup would modify the original's cells).
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
+        // Also clone grid cells in the debug layout, which
+        // visit_all_named_references_in_element also visits.
+        for d in &mut e.borrow_mut().debug {
+            if let Some(crate::layout::Layout::GridLayout(grid)) = d.layout.as_mut() {
+                grid.clone_cells();
+            }
+        }
+        visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
     }
     for p in root_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, &mapping);
@@ -601,11 +610,12 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
             }
+            layout.clone_cells();
         }
-        Expression::SolveFlexBoxLayout(layout)
-        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+        Expression::SolveFlexboxLayout(layout)
+        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
             for e in &mut layout.elems {
-                fxe(&mut e.element);
+                fxe(&mut e.item.element);
             }
         }
         Expression::RepeaterModelReference { element }

@@ -12,10 +12,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
     let blociga_api = ui.global::<blogica::backend::BLogicAAPI>();
-    blogica::backend::init(&blociga_api);
+    blogica::backend::init(blociga_api);
 
     let blogicb_api = ui.global::<blogicb::BLogicBAPI>();
-    blogicb::init(&blogicb_api);
+    blogicb::init(blogicb_api);
 
     ui.on_update_blogic_data({
         let ui_handle = ui.as_weak();
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut bdata = blogica::backend::BData::default();
 
             bdata.colors = slint::ModelRc::new(slint::VecModel::from(
-                (1..6)
+                (1..5)
                     .into_iter()
                     .map(|_| {
                         let red = rand::random::<u8>();
@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             ));
 
             bdata.codes = slint::ModelRc::new(slint::VecModel::from(
-                (1..6)
+                (1..5)
                     .into_iter()
                     .map(|_| slint::SharedString::from(random_word::get(random_word::Lang::En)))
                     .collect::<Vec<_>>(),

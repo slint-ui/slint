@@ -10,9 +10,9 @@ export component SuperSimple {
         @keys(    Alt + Control + Shift + Meta + FooBar    ),
 //                                               >    <error{FooBar not defined in the Keys namespace↵(Consider using "FooBar")}
         @keys(Shift+Plus),
-//                  >  <error{Key bindings involving Plus ignore Shift to support different keyboard layouts↵Remove Shift and consider using e.g. Equal (for U.S. Keyboard layout)}
+//                  >  <error{Plus implies Shift? to support different keyboard layouts↵Remove Shift to match when the user types '+'↵Consider using Equals to match when the user types '='}
         @keys(Shift+Asterisk),
-//                  >      <error{Key bindings involving Asterisk ignore Shift to support different keyboard layouts↵Remove Shift and consider using e.g. Digit8 (for U.S. Keyboard layout)}
+//                  >      <error{Asterisk implies Shift? to support different keyboard layouts↵Remove Shift to match when the user types '*'↵Consider using Digit8 to match when the user types '8'}
 
         // Shift?
         @keys(Shift? + Asterisk),

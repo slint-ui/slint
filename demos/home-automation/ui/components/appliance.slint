@@ -31,14 +31,14 @@ export component Appliance {
             HaText {
                 text: "Appliance";
                 font-size: 8pt;
-                font-weight: 400;
+                font-weight: FontWeight.normal;
                 color: Palette.appliance-alternate-foreground;
             }
 
             HaText {
                 text: root.name;
                 font-size: 10pt;
-                font-weight: 400;
+                font-weight: FontWeight.normal;
                 color: Palette.appliance-foreground;
             }
 
@@ -51,14 +51,14 @@ export component Appliance {
                 HaText {
                     text: "Time Remaining: ";
                     font-size: 8pt;
-                    font-weight: 400;
+                    font-weight: FontWeight.normal;
                     color: Palette.appliance-foreground;
                 }
 
                 HaText {
                     text: root.time-remaining;
                     font-size: 15pt;
-                    font-weight: 500;
+                    font-weight: FontWeight.medium;
                     color: Palette.appliance-foreground;
                 }
             }

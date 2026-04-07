@@ -107,14 +107,17 @@ i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 nucleo-matcher = "0.3.1"
+futures-util = "0.3.32"
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_arch = "wasm32", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
-crossbeam-channel = "0.5"   # must match the version used by lsp-server
+crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
 lsp-server = "0.7"
+tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
+dashmap = "6.1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"
@@ -125,6 +128,7 @@ serde-wasm-bindgen = "0.6.0"
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
 i-slint-backend-winit = { workspace = true }
+tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 i-slint-backend-winit = { workspace = true, optional = true }

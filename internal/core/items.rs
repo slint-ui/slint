@@ -24,7 +24,7 @@ use crate::api::LogicalPosition;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
-    KeyEventResult, KeyEventType, MouseEvent,
+    KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
 use crate::item_tree::ItemTreeRc;
@@ -691,7 +691,7 @@ declare_item_vtable! {
 }
 
 declare_item_vtable! {
-    fn slint_get_PinchGestureHandlerVTable() -> PinchGestureHandlerVTable for PinchGestureHandler
+    fn slint_get_ScaleRotateGestureHandlerVTable() -> ScaleRotateGestureHandlerVTable for ScaleRotateGestureHandler
 }
 
 #[repr(C)]

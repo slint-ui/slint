@@ -33,3 +33,21 @@ styles have dark and light variant suffixes, such as `fluent-light`. This proper
 style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
 determine the currently used scheme.
 </SlintProperty>
+
+## Functions
+
+### open-url(url: string)
+Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
+
+```slint playground
+import { Button } from "std-widgets.slint";
+
+export component Example inherits Window {
+    Button {
+        text: "Open Slint Website";
+        clicked => {
+            Platform.open-url("https://slint.dev");
+        }
+    }
+}
+```

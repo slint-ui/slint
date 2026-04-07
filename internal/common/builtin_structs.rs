@@ -26,7 +26,6 @@
 /// i_slint_common::for_each_builtin_structs!(print_builtin_structs);
 /// ```
 #[macro_export]
-#[allow(clippy::crate_in_macro_def)] // Intentional: this macro is consumed in crates where `crate::animations::Instant` must resolve in the caller.
 macro_rules! for_each_builtin_structs {
     ($macro:ident) => {
         $macro![
@@ -152,22 +151,6 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
-            /// Value of the state property
-            /// A state is just the current state, but also has information about the previous state and the moment it changed
-            struct StateInfo {
-                @name = BuiltinPrivateStruct::StateInfo,
-                export {
-                    /// The current state value
-                    current_state: i32,
-                    /// The previous state
-                    previous_state: i32,
-                }
-                private {
-                    /// The instant in which the state changed last
-                    change_time: crate::animations::Instant,
-                }
-            }
-
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
                 @name = BuiltinPrivateStruct::FontMetrics,
@@ -209,6 +192,8 @@ macro_rules! for_each_builtin_structs {
                     has_sub_menu: bool,
                     /// The menu entry is a separator
                     is_separator: bool,
+                    /// The shortcut keys
+                    shortcut: Keys,
                 }
                 private {}
             }

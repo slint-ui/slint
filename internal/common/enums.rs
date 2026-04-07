@@ -264,18 +264,18 @@ macro_rules! for_each_enums {
                 //zoom_out,
             }
 
-            /// This enum defines how the source image shall fit into an `Image` element.
+            /// This enum defines how the source image or path shall fit into an `Image` or `Path` element.
             #[non_exhaustive]
             enum ImageFit {
-                /// Scales and stretches the source image to fit the width and height of the `Image` element.
+                /// Scales and stretches the source to fit the width and height of the element.
                 Fill,
-                /// The source image is scaled to fit into the `Image` element's dimension while preserving the aspect ratio.
+                /// The source is scaled to fit into the element's dimensions while preserving the aspect ratio.
                 Contain,
-                /// The source image is scaled to cover into the `Image` element's dimension while preserving the aspect ratio.
-                /// If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
+                /// The source is scaled to cover the element's dimensions while preserving the aspect ratio.
+                /// If the aspect ratios don't match, the source will be clipped to fit.
                 Cover,
-                /// Preserves the size of the source image in logical pixels.
-                /// The source image will still be scaled by the scale factor that applies to all elements in the window.
+                /// Preserves the size of the source in logical pixels.
+                /// The source will still be scaled by the scale factor that applies to all elements in the window.
                 /// Any extra space will be left blank.
                 Preserve,
             }
@@ -364,7 +364,7 @@ macro_rules! for_each_enums {
 
             /// The direction in which flex items are placed in a flex container.
             #[non_exhaustive]
-            enum FlexDirection {
+            enum FlexboxLayoutDirection {
                 /// Items are placed in a row, from left to right.
                 Row,
                 /// Items are placed in a row in reverse order, from right to left.
@@ -377,7 +377,7 @@ macro_rules! for_each_enums {
 
             /// Controls the distribution of flex lines along the cross axis in a flex container.
             #[non_exhaustive]
-            enum FlexAlignContent {
+            enum FlexboxLayoutAlignContent {
                 /// Lines are stretched to fill the container along the cross axis.
                 Stretch,
                 /// Lines are placed at the start of the cross axis.
@@ -386,11 +386,17 @@ macro_rules! for_each_enums {
                 End,
                 /// Lines are centered along the cross axis.
                 Center,
+                /// Equal gaps between lines, no gap at the edges.
+                SpaceBetween,
+                /// Equal gaps around each line (half-size at edges).
+                SpaceAround,
+                /// Equal gaps between lines and at the edges.
+                SpaceEvenly,
             }
 
             /// Controls the alignment of individual items along the cross axis within each flex line.
             #[non_exhaustive]
-            enum FlexAlignItems {
+            enum FlexboxLayoutAlignItems {
                 /// Items are stretched to fill the line along the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -401,9 +407,24 @@ macro_rules! for_each_enums {
                 Center,
             }
 
+            /// Overrides the container's `align-items` for a specific flex item.
+            #[non_exhaustive]
+            enum FlexboxLayoutAlignSelf {
+                /// Use the container's `align-items` value (default).
+                Auto,
+                /// The item is stretched to fill the line along the cross axis.
+                Stretch,
+                /// The item is placed at the start of the cross axis.
+                Start,
+                /// The item is placed at the end of the cross axis.
+                End,
+                /// The item is centered along the cross axis.
+                Center,
+            }
+
             /// Controls whether flex items wrap onto multiple lines.
             #[non_exhaustive]
-            enum FlexWrap {
+            enum FlexboxLayoutWrap {
                 /// Flex items wrap onto multiple lines, from top to bottom (for row direction) or left to right (for column direction).
                 Wrap,
                 /// All flex items are laid out on a single line (default for CSS, but Slint defaults to `wrap`).

@@ -10,14 +10,14 @@ struct TextStyle  {
     font-weight: int}
 
 export global MaterialFontSettings {
-    out property <TextStyle> label-large: { font-size: 14 * 0.0625rem, font-weight: 500 };
-    out property <TextStyle> label-medium: { font-size: 12 * 0.0625rem, font-weight: 500 };
-    out property <TextStyle> body-large: { font-size: 16 * 0.0625rem, font-weight: 400 };
-    out property <TextStyle> body-small: { font-size: 12 * 0.0625rem, font-weight: 400 };
-    out property <TextStyle> title-small: { font-size: 14 * 0.0625rem, font-weight: 500 };
+    out property <TextStyle> label-large: { font-size: 14 * 0.0625rem, font-weight: FontWeight.medium };
+    out property <TextStyle> label-medium: { font-size: 12 * 0.0625rem, font-weight: FontWeight.medium };
+    out property <TextStyle> body-large: { font-size: 16 * 0.0625rem, font-weight: FontWeight.normal };
+    out property <TextStyle> body-small: { font-size: 12 * 0.0625rem, font-weight: FontWeight.normal };
+    out property <TextStyle> title-small: { font-size: 14 * 0.0625rem, font-weight: FontWeight.medium };
     out property <TextStyle> headline-large: {
         font-size: 32 * 0.0625rem,
-        font-weight: 500
+        font-weight: FontWeight.medium
     };
 }
 
@@ -28,39 +28,6 @@ export global Elevation {
 }
 
 export global MaterialPalette {
-    // base palette
-    out property <brush> background: !root.dark-color-scheme ? #f8f3f9 : #2a282d;
-    out property <brush> foreground: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
-    out property <brush> alternate-background: !root.dark-color-scheme ? #FFFBFE : #1C1B1F;
-    out property <brush> alternate-foreground: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
-    out property <brush> control-background: !root.dark-color-scheme ? #E8DEF8 : #4A4458;
-    out property <brush> control-foreground: !root.dark-color-scheme ? #1E192B : #E8DEF8;
-    out property <brush> accent-background: !root.dark-color-scheme ? #6750A4 : #D0BCFF;
-    out property <brush> accent-foreground: !root.dark-color-scheme ? #FFFFFF : #371E73;
-    out property <brush> selection-background: !root.dark-color-scheme ? #6750A44D : #D0BCFF4D;
-    out property <brush> selection-foreground: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
-    out property <brush> border: !root.dark-color-scheme ? #79747E : #938F99;
-
-    // additional palette
-    out property <brush> control-background-variant: !root.dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F;
-    out property <brush> control-foreground-variant: !root.dark-color-scheme ? #49454E : #CAC4D0;
-    out property <brush> control-background-tint: !root.dark-color-scheme ? #6750A4 : #D0BCFF;
-    out property <brush> accent-container: !root.dark-color-scheme ? #4F378B : #4F378B;
-    out property <brush> accent-ripple: !root.dark-color-scheme ? #D0BCFF : #6750A4;
-    out property <brush> shadow: #000000.with_alpha(0.3);
-    out property <brush> border-variant: !root.dark-color-scheme ? #C4C7C5 : #444746;
-    out property <brush> foreground-alt: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
-    out property <brush> secondary-ripple: !root.dark-color-scheme ? #fffc : #000000;
-    out property <brush> surface-container: !root.dark-color-scheme ? #F3EDF7 : #211F26;
-    out property <brush> surface-container-high: !root.dark-color-scheme ? #ECE6F0 : #2B2930;
-    out property <brush> surface-container-highest: !root.dark-color-scheme ? #E6E0E9 : #36343B;
-    out property <brush> tertiary-container: !root.dark-color-scheme ? #FFD8E4 : #633B48;
-    out property <brush> on-tertiary-container: !root.dark-color-scheme ? #31111D : #FFD8E4;
-
-    out property <brush> state-default: dark-color-scheme ? #E6E0E9 : #1D1B20;
-    out property <brush> state-secondary: dark-color-scheme ? #D0BCFF : #6750A4;
-    out property <brush> state-tertiary: dark-color-scheme ? #381E72 : #FFFFFF;
-
     in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
     property <bool> dark-color-scheme: {
         if (color-scheme == ColorScheme.unknown) {
@@ -68,6 +35,48 @@ export global MaterialPalette {
         }
         return color-scheme == ColorScheme.dark;
     }
+
+    pure function accentify(default-color: color) -> color {
+        let accent-color = SlintInternal.accent-color;
+        if (accent-color.alpha > 0) {
+            let lch = default-color.to-oklch();
+            return oklch(lch.lightness, lch.chroma, accent-color.to-oklch().hue);
+        }
+        return default-color;
+    }
+
+    // base palette
+    out property <brush> background: !dark-color-scheme ? #f8f3f9 : #2a282d;
+    out property <brush> foreground: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> alternate-background: !dark-color-scheme ? #FFFBFE : #1C1B1F;
+    out property <brush> alternate-foreground: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> control-background: !dark-color-scheme ? accentify(#E8DEF8) : accentify(#4A4458);
+    out property <brush> control-foreground: !dark-color-scheme ? accentify(#1E192B) : accentify(#E8DEF8);
+    out property <brush> accent-background: !dark-color-scheme ? accentify(#6750A4) : accentify(#D0BCFF);
+    out property <brush> accent-foreground: !dark-color-scheme ? #FFFFFF : accentify(#371E73);
+    out property <brush> selection-background: accent-background.with-alpha(0.3);
+    out property <brush> selection-foreground: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> border: !dark-color-scheme ? #79747E : #938F99;
+
+    // additional palette
+    out property <brush> control-background-variant: !dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F;
+    out property <brush> control-foreground-variant: !dark-color-scheme ? #49454E : #CAC4D0;
+    out property <brush> control-background-tint: accent-background;
+    out property <brush> accent-container: !dark-color-scheme ? accentify(#4F378B) : accentify(#4F378B);
+    out property <brush> accent-ripple: !dark-color-scheme ? accentify(#D0BCFF) : accentify(#6750A4);
+    out property <brush> shadow: #000000.with_alpha(0.3);
+    out property <brush> border-variant: !dark-color-scheme ? #C4C7C5 : #444746;
+    out property <brush> foreground-alt: !dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> secondary-ripple: !dark-color-scheme ? #fffc : #000000;
+    out property <brush> surface-container: !dark-color-scheme ? #F3EDF7 : #211F26;
+    out property <brush> surface-container-high: !dark-color-scheme ? #ECE6F0 : #2B2930;
+    out property <brush> surface-container-highest: !dark-color-scheme ? #E6E0E9 : #36343B;
+    out property <brush> tertiary-container: !dark-color-scheme ? #FFD8E4 : #633B48;
+    out property <brush> on-tertiary-container: !dark-color-scheme ? #31111D : #FFD8E4;
+
+    out property <brush> state-default: dark-color-scheme ? #E6E0E9 : #1D1B20;
+    out property <brush> state-secondary: accent-background;
+    out property <brush> state-tertiary: dark-color-scheme ? accentify(#381E72) : #FFFFFF;
 }
 
 export global Icons {

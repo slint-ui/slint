@@ -291,9 +291,9 @@ impl Item for NativeButton {
                 };
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                return InputEventResult::EventIgnored;
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 return InputEventResult::EventIgnored;
             }

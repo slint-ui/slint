@@ -761,45 +761,66 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|s| crate::literals::unescape_string(&s))
-        else {
-            ctx.diag.push_error("Cannot parse string literal".into(), &node);
-            return Expression::Invalid;
-        };
+        let mut markdown = String::new();
+        let mut values = Vec::new();
 
-        let values: Vec<Expression> = node
-            .Expression()
-            .map(|node| {
-                let expr = Expression::from_expression_node(node.clone(), ctx);
-                if expr.ty() == Type::StyledText {
-                    expr
+        for n in node.children_with_tokens() {
+            if n.kind() == SyntaxKind::StringLiteral {
+                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
+                    markdown.push_str(&s);
                 } else {
-                    Expression::FunctionCall {
-                        function: BuiltinFunction::StringToStyledText.into(),
-                        arguments: vec![expr.maybe_convert_to(Type::String, &node, ctx.diag)],
-                        source_location: Some(node.to_source_location()),
+                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
+                }
+            } else if n.kind() == SyntaxKind::StringTemplate {
+                for n in n.as_node().unwrap().children_with_tokens() {
+                    if n.kind() == SyntaxKind::StringLiteral {
+                        if let Some(s) =
+                            crate::literals::unescape_string(n.as_token().unwrap().text())
+                        {
+                            markdown.push_str(&s);
+                        } else {
+                            ctx.diag.push_error("Cannot parse string literal".into(), &n);
+                        }
+                    } else if n.kind() == SyntaxKind::Expression {
+                        let node = n.into_node().unwrap();
+                        let expr = Expression::from_expression_node(node.clone().into(), ctx);
+                        let expr = if expr.ty() == Type::StyledText {
+                            expr
+                        } else {
+                            Expression::FunctionCall {
+                                function: BuiltinFunction::StringToStyledText.into(),
+                                arguments: vec![expr.maybe_convert_to(
+                                    Type::String,
+                                    &node,
+                                    ctx.diag,
+                                )],
+                                source_location: Some(node.to_source_location()),
+                            }
+                        };
+                        values.push(expr);
+                        markdown
+                            .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
                     }
                 }
-            })
-            .collect();
+            }
+        }
 
-        let dummy_value =
-            i_slint_common::styled_text::StyledText::from_plain_text("dummy value".into());
+        let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
 
         // Validate the markdown format string with dummy values
-        if let Err(e) = i_slint_common::styled_text::StyledText::parse_interpolated(
-            &string,
-            &vec![&dummy_value; values.len()],
-        ) {
+        if let Err(e) = i_slint_common::styled_text::parse_interpolated(
+            &markdown,
+            &vec![&[dummy_paragraph]; values.len()],
+        )
+        .collect::<Result<Vec<_>, _>>()
+        {
             ctx.diag.push_error(e.to_string(), &node);
         }
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(string),
+                Expression::StringLiteral(markdown.into()),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -1056,14 +1077,18 @@ impl Expression {
                     }
                     keys.ignore_shift = true;
                     if keys.modifiers.shift {
+                        let shifted_hint = lookup_key(shifted_hint).map(|(shifted_code, _shift_behavior)|
+                            format!("\nConsider using {shifted_hint} to match when the user types '{shifted_code}'")
+                        ).unwrap_or_default();
+
                         ctx.diag.push_error(
-                                        format!(
-                                            "Key bindings involving {name} ignore Shift to support different keyboard layouts\n\
-                                            Remove Shift and consider using e.g. {shifted_hint} (for U.S. Keyboard layout)",
-                                            name = node.as_token().unwrap().text()
-                                        ),
-                                        &node,
-                                    );
+                            format!(
+                                "{name} implies Shift? to support different keyboard layouts\n\
+                                Remove Shift to match when the user types '{key_code}'{shifted_hint}",
+                                name = node.as_token().unwrap().text()
+                            ),
+                            &node,
+                        );
                     }
                 }
                 // Unshiftable keys ignore the shift state in their key_code
@@ -1554,22 +1579,33 @@ impl Expression {
         node: syntax_nodes::StringTemplate,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let mut exprs = node.Expression().map(|e| {
-            Expression::from_expression_node(e.clone(), ctx).maybe_convert_to(
-                Type::String,
-                &e,
-                ctx.diag,
-            )
-        });
-        let mut result = exprs.next().unwrap_or_default();
-        for x in exprs {
-            result = Expression::BinaryExpression {
-                lhs: Box::new(std::mem::take(&mut result)),
-                rhs: Box::new(x),
-                op: '+',
+        let mut result = None;
+        for n in node.children_with_tokens() {
+            let expr = if n.kind() == SyntaxKind::StringLiteral {
+                let token = n.as_token().unwrap();
+                crate::literals::unescape_string(token.text())
+                    .map(Self::StringLiteral)
+                    .unwrap_or_else(|| {
+                        ctx.diag.push_error("Cannot parse string literal".into(), token);
+                        Self::Invalid
+                    })
+            } else if n.kind() == SyntaxKind::Expression {
+                let node = n.into_node().unwrap();
+                let expr = Expression::from_expression_node(node.clone().into(), ctx);
+                expr.maybe_convert_to(Type::String, &node, ctx.diag)
+            } else {
+                continue;
+            };
+            result = match result {
+                Some(result) => Some(Expression::BinaryExpression {
+                    lhs: Box::new(result),
+                    rhs: Box::new(expr),
+                    op: '+',
+                }),
+                None => Some(expr),
             }
         }
-        result
+        result.unwrap_or_default()
     }
 
     /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions
@@ -1649,8 +1685,7 @@ enum ShiftBehavior {
     Unshiftable,
 }
 
-/// Look up the given key in the Keys namespace, including its shift behavior
-fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
+fn with_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, (char, ShiftBehavior)>) -> R) -> R {
     macro_rules! key_shift_behavior {
         ($keycode:literal # $ident:ident # $shifted:ident) => {
             (
@@ -1666,7 +1701,7 @@ fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
         };
     }
     macro_rules! generate_key_map {
-        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
+        [ $($char:literal # $name:ident # $($shifted_char:literal)?$($shifted_ident:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)* ] => {
             {
                 [
                     $(
@@ -1681,7 +1716,12 @@ fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
             for_each_keys!(generate_key_map).into_iter().collect();
     }
 
-    KEY_MAP.with(|map| map.get(keycode).cloned())
+    KEY_MAP.with(fun)
+}
+
+/// Look up the given key in the Keys namespace, including its shift behavior
+fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
+    with_key_map(|map| map.get(keycode).cloned())
 }
 
 /// Return the type that merge two times when they are used in two branch of a condition
@@ -2316,5 +2356,24 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_shifted_hints() {
+        with_key_map(|map| {
+            for (key_name, (_code, shift_behavior)) in map.iter() {
+                if let ShiftBehavior::LocalizedShiftable { shifted_hint } = shift_behavior {
+                    assert!(
+                        lookup_key(shifted_hint).is_some(),
+                        "shifted_hint `{shifted_hint}` of key `{key_name}` is not a key name"
+                    );
+                }
+            }
+        })
     }
 }

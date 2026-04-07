@@ -1,0 +1,135 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexboxLayout order per-item property
+
+// Test 1: order changes visual placement (row direction)
+// Items declared A, B, C but ordered C(flex-order:-1), A(0), B(1)
+component TestOrderRow inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+
+        r_a := Rectangle {
+            width: 100px;
+            height: 50px;
+            flex-order: 0;
+            background: red;
+        }
+        r_b := Rectangle {
+            width: 100px;
+            height: 50px;
+            flex-order: 1;
+            background: green;
+        }
+        r_c := Rectangle {
+            width: 100px;
+            height: 50px;
+            flex-order: -1;
+            background: blue;
+        }
+    }
+
+    // Visual order: C(-1), A(0), B(1) → C at x=0, A at x=100, B at x=200
+    out property <bool> test_a: r_a.x == 100px;
+    out property <bool> test_b: r_b.x == 200px;
+    out property <bool> test_c: r_c.x == 0px;
+    out property <bool> test: test_a && test_b && test_c;
+}
+
+// Test 2: default order (0) preserves declaration order
+component TestOrderDefault inherits Rectangle {
+    width: 300px;
+    height: 50px;
+    FlexboxLayout {
+        flex-wrap: no-wrap;
+
+        r1 := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: red;
+        }
+        r2 := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: green;
+        }
+        r3 := Rectangle {
+            width: 100px;
+            height: 50px;
+            background: blue;
+        }
+    }
+
+    // All flex-order=0 → declaration order: r1 at x=0, r2 at x=100, r3 at x=200
+    out property <bool> test_r1: r1.x == 0px;
+    out property <bool> test_r2: r2.x == 100px;
+    out property <bool> test_r3: r3.x == 200px;
+    out property <bool> test: test_r1 && test_r2 && test_r3;
+}
+
+// Test 3: order with column direction
+component TestOrderColumn inherits Rectangle {
+    width: 50px;
+    height: 300px;
+    FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: no-wrap;
+
+        r_a := Rectangle {
+            width: 50px;
+            height: 100px;
+            flex-order: 2;
+            background: red;
+        }
+        r_b := Rectangle {
+            width: 50px;
+            height: 100px;
+            flex-order: 0;
+            background: green;
+        }
+        r_c := Rectangle {
+            width: 50px;
+            height: 100px;
+            flex-order: 1;
+            background: blue;
+        }
+    }
+
+    // Visual order: B(0), C(1), A(2) → B at y=0, C at y=100, A at y=200
+    out property <bool> test_a: r_a.y == 200px;
+    out property <bool> test_b: r_b.y == 0px;
+    out property <bool> test_c: r_c.y == 100px;
+    out property <bool> test: test_a && test_b && test_c;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 500px;
+
+    VerticalLayout {
+        t1 := TestOrderRow { }
+        t2 := TestOrderDefault { }
+        t3 := TestOrderColumn { }
+    }
+
+    out property <bool> test: t1.test && t2.test && t3.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

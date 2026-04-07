@@ -6,9 +6,9 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
+use crate::fileaccess;
 use std::collections::HashSet;
 use std::fmt::Write;
-use std::io::BufWriter;
 use std::sync::OnceLock;
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
@@ -535,7 +535,7 @@ impl CppType for Type {
             Type::Float32 => Some("float".into()),
             Type::Int32 => Some("int".into()),
             Type::String => Some("slint::SharedString".into()),
-            Type::Keys => Some("slint::cbindgen_private::types::Keys".into()),
+            Type::Keys => Some("slint::Keys".into()),
             Type::Color => Some("slint::Color".into()),
             Type::Duration => Some("std::int64_t".into()),
             Type::Angle => Some("float".into()),
@@ -900,10 +900,9 @@ pub fn generate(
     let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
 
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
-        use std::io::Write;
-        let mut cpp_writer = BufWriter::new(std::fs::File::create(cpp_file_name)?);
-        write!(&mut cpp_writer, "{cpp_file}")?;
-        cpp_writer.flush()?;
+        // Important: Write without unnecessary mtime modification to avoid
+        // build systems to always detect the generated file as modified.
+        fileaccess::write_file_if_changed(cpp_file_name, cpp_file.to_string().as_bytes())?;
     }
 
     Ok(file)
@@ -2630,6 +2629,34 @@ fn generate_layout_item_info_decl(
     })
 }
 
+fn generate_flexbox_layout_item_info_decl(
+    root_sc: &llr::SubComponent,
+    ctx: &EvaluationContext,
+) -> Declaration {
+    const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::FlexboxLayoutItemInfo";
+
+    let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
+        let compiled = compile_expression(&expr.borrow(), ctx);
+        format!(
+            "[[maybe_unused]] auto self = this; \
+             auto info = {compiled}; \
+             info.constraint = layout_item_info(o, child_index).constraint; \
+             return info;"
+        )
+    } else {
+        "auto base = layout_item_info(o, child_index); \
+         return { base.constraint, 0.0f, 0.0f, -1.0f, slint::cbindgen_private::FlexboxLayoutAlignSelf::Auto, 0 };"
+            .to_owned()
+    };
+
+    Declaration::Function(Function {
+        name: "flexbox_layout_item_info".into(),
+        signature: SIGNATURE.to_owned(),
+        statements: Some(vec![body]),
+        ..Function::default()
+    })
+}
+
 /// Generates the `grid_layout_input_for_repeated` member function for a repeated component struct,
 /// or returns `None` if the sub-component doesn't participate in a grid layout as a repeated row.
 fn generate_grid_layout_input_decl(
@@ -2820,6 +2847,9 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             generate_layout_item_info_decl(root_sc, &ctx),
         ));
+        repeater_struct
+            .members
+            .push((Access::Public, generate_flexbox_layout_item_info_decl(root_sc, &ctx)));
         if let Some(decl) = generate_grid_layout_input_decl(root_sc, &ctx) {
             repeater_struct.members.push((Access::Public, decl));
         }
@@ -3038,7 +3068,7 @@ fn generate_functions<'a>(
                 f.args
                     .iter()
                     .enumerate()
-                    .map(|(i, ty)| format!("{} arg_{}", ty.cpp_type().unwrap(), i))
+                    .map(|(i, ty)| format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap(), i))
                     .join(", "),
                 f.ret_ty.cpp_type().unwrap()
             ),
@@ -3470,8 +3500,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::KeysLiteral(ks) => {
             format!(
                 "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
-                    slint::cbindgen_private::types::Keys out;
-                    slint::cbindgen_private::slint_keys(&key, alt, control, shift, meta, ignoreShift, ignoreAlt, &out);
+                    slint::Keys out;
+                    slint::private_api::make_keys(out, key, alt, control, shift, meta, ignoreShift, ignoreAlt);
                     return out;
                 }}({}, {}, {}, {}, {}, {}, {})",
                 shared_string_literal(&ks.key),
@@ -4014,7 +4044,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
-        Expression::WithFlexBoxLayoutItemInfo {
+        Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name,
@@ -4235,7 +4265,7 @@ fn compile_builtin_function_call(
             format!("{}.to_uppercase()", a.next().unwrap())
         }
         BuiltinFunction::KeysToString => {
-            format!("slint::private_api::keys_to_string({})", a.next().unwrap())
+            format!("{}.to_string()", a.next().unwrap())
         }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
@@ -4294,6 +4324,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }
+        BuiltinFunction::AccentColor => {
+            format!("{}.accent_color()", access_window_field(ctx))
+        }
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }
@@ -4313,7 +4346,9 @@ fn compile_builtin_function_call(
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    slint::private_api::setup_popup_menu_from_menu_item_tree(slint::private_api::create_menu_wrapper(item_tree_dyn), {access_entries}, {access_sub_menu}, {access_activated});
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn);
+                    slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
+                    slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
             } else {
                 let condition = if let [condition] = &rest {
@@ -4330,11 +4365,12 @@ fn compile_builtin_function_call(
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
+                    slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
                     if ({window}.supports_native_menu_bar()) {{
-                        auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
                         slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &menu_wrapper);
                     }} else {{
-                        slint::private_api::setup_popup_menu_from_menu_item_tree(slint::private_api::create_menu_wrapper(item_tree_dyn), {access_entries}, {access_sub_menu}, {access_activated});
+                        slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                     }}
                 }}")
             }
@@ -4604,7 +4640,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);
-            format!("slint::cbindgen_private::slint_open_url(&{}, &{}.handle())", url, window)
+            format!("slint::private_api::open_url({url}, {window})")
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
@@ -4789,7 +4825,7 @@ fn generate_with_flexbox_layout_item_info(
 ) -> String {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
     let mut push_code =
-        "std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::LayoutItemInfo> cells_vector_v;".to_owned();
+        "std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_v;".to_owned();
     let mut repeater_idx = 0usize;
 
     for item in elements {
@@ -4824,7 +4860,9 @@ fn generate_with_flexbox_layout_item_info(
                 repeater_idx += 1;
                 write!(
                     push_code,
-                    "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ cells_vector_h.push_back(sub_comp->layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); cells_vector_v.push_back(sub_comp->layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }});"
+                    "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
+                     cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
+                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }});"
                 )
                 .unwrap();
             }
@@ -4840,7 +4878,7 @@ fn generate_with_flexbox_layout_item_info(
         format!("std::array<int, {}> {ri}_array;", 2 * repeater_idx)
     });
     format!(
-        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::LayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); return {}; }}()",
+        "[&]{{ {ri} {push_code} [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexboxLayoutItemInfo>{cells_h} = slint::private_api::make_slice(std::span(cells_vector_h)); [[maybe_unused]] slint::cbindgen_private::Slice<slint::cbindgen_private::FlexboxLayoutItemInfo>{cells_v} = slint::private_api::make_slice(std::span(cells_vector_v)); return {}; }}()",
         compile_expression(sub_expression, ctx),
         cells_h = ident(cells_h_variable),
         cells_v = ident(cells_v_variable),

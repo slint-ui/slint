@@ -22,7 +22,7 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     RectLengths, ScaleFactor, logical_size_from_api,
 };
-use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, parley};
+use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
 use crate::images::TextureImporter;
@@ -470,6 +470,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 items::LineJoin::Bevel => femtovg::LineJoin::Bevel,
                 items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
             });
+            paint.set_miter_limit(path.stroke_miter_limit());
             paint.set_anti_alias(anti_alias);
             paint
         });
@@ -890,7 +891,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self.canvas.borrow_mut().rotate(angle_in_radians);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         // Compute the bounding box of the rotated rectangle
-        let (sin, cos) = angle_in_radians.sin_cos();
+        let (sin, cos) = (-angle_in_radians).sin_cos();
         let rotate_point = |p: LogicalPoint| (p.x * cos - p.y * sin, p.x * sin + p.y * cos);
         let corners = [
             rotate_point(clip.origin),
@@ -976,6 +977,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         &mut self,
         font: &parley::FontData,
         font_size: PhysicalLength,
+        normalized_coords: &[i16],
+        _synthesis: &fontique::Synthesis,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -993,11 +996,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         match &mut brush {
             GlyphBrush::Fill(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.fill_glyph_run(font_id, glyphs_it, paint).unwrap();
+                canvas.fill_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
             GlyphBrush::Stroke(paint) => {
                 paint.set_font_size(font_size.get());
-                canvas.stroke_glyph_run(font_id, glyphs_it, paint).unwrap();
+                canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
         }
     }

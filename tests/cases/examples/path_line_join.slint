@@ -51,5 +51,18 @@ PathLineJoin := Window {
                 stroke-line-join: round;
             }
         }
+        Row {
+            Text {
+                text: "The path to the right should have beveled/flat corners (miter-limit: 1)";
+            }
+            Path {
+                commands: "M10.5 15.5 9 17l-1.5-1.5";
+                fill: transparent;
+                stroke: white;
+                stroke-width: 10px;
+                stroke-line-join: miter;
+                stroke-miter-limit: 1;
+            }
+        }
     }
 }

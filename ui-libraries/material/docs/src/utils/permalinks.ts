@@ -109,28 +109,32 @@ const definitivePermalink = (permalink: string): string =>
     createPath(BASE_PATHNAME, permalink);
 
 /** */
-export const applyGetPermalinks = (menu: object = {}) => {
+export const applyGetPermalinks = (menu: unknown = {}): unknown => {
     if (Array.isArray(menu)) {
         return menu.map((item) => applyGetPermalinks(item));
-    } else if (typeof menu === "object" && menu !== null) {
-        const obj = {};
-        for (const key in menu) {
+    }
+    if (typeof menu === "object" && menu !== null) {
+        const obj: Record<string, unknown> = {};
+        const record = menu as Record<string, unknown>;
+        for (const key in record) {
             if (key === "href") {
-                if (typeof menu[key] === "string") {
-                    obj[key] = getPermalink(menu[key]);
-                } else if (typeof menu[key] === "object") {
-                    if (menu[key].type === "home") {
+                const href = record[key];
+                if (typeof href === "string") {
+                    obj[key] = getPermalink(href);
+                } else if (typeof href === "object" && href !== null) {
+                    const h = href as { type?: string; url?: string };
+                    if (h.type === "home") {
                         obj[key] = getHomePermalink();
-                    } else if (menu[key].type === "blog") {
+                    } else if (h.type === "blog") {
                         obj[key] = getBlogPermalink();
-                    } else if (menu[key].type === "asset") {
-                        obj[key] = getAsset(menu[key].url);
-                    } else if (menu[key].url) {
-                        obj[key] = getPermalink(menu[key].url, menu[key].type);
+                    } else if (h.type === "asset") {
+                        obj[key] = getAsset(h.url ?? "");
+                    } else if (h.url) {
+                        obj[key] = getPermalink(h.url, h.type ?? "page");
                     }
                 }
             } else {
-                obj[key] = applyGetPermalinks(menu[key]);
+                obj[key] = applyGetPermalinks(record[key]);
             }
         }
         return obj;

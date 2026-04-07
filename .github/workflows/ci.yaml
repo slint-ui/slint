@@ -36,6 +36,7 @@ jobs:
         slint: ${{ steps.filter.outputs.slint }}
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
+        safety_docs : ${{ steps.filter.outputs.safety_docs }}
         internal : ${{ steps.filter.outputs.internal }}
         api_cpp : ${{ steps.filter.outputs.api_cpp }}
         api_python : ${{ steps.filter.outputs.api_python }}
@@ -147,7 +148,13 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-14, windows-2022]
+                include:
+                    - os: ubuntu-22.04
+                      rust_version: "1.88"
+                    - os: macos-14
+                      rust_version: beta
+                    - os: windows-2022
+                      rust_version: stable
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -170,8 +177,36 @@ jobs:
                   echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
                   echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ matrix.rust_version }}
             - name: Run tests
               run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
+
+    cpp_test_driver_32bit:
+        needs: files-changed
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
+        runs-on: ubuntu-24.04
+        env:
+            SLINT_NO_QT: 1
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
+            PKG_CONFIG_ALLOW_CROSS: 1
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install 32-bit build dependencies
+              run: |
+                  sudo dpkg --add-architecture i386
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-unknown-linux-gnu
+            - name: Run tests
+              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
 
     cpp_cmake:
         needs: files-changed
@@ -645,6 +680,11 @@ jobs:
         CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+    safety-docs:
+      needs: files-changed
+      if: needs.files-changed.outputs.safety_docs == 'true'
+      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed

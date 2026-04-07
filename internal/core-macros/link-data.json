@@ -56,7 +56,7 @@
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
-    "FlexBoxLayout": {
+    "FlexboxLayout": {
         "href": "reference/layouts/flexboxlayout/"
     },
     "float": {
@@ -70,6 +70,9 @@
     },
     "FontHandling": {
         "href": "guide/development/fonts/"
+    },
+    "FontWeight": {
+        "href": "reference/global-namespaces/font-weight/"
     },
     "GridLayout": {
         "href": "reference/layouts/gridlayout/"

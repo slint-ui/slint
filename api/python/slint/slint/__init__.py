@@ -17,7 +17,7 @@ import typing
 from typing import Any
 import pathlib
 from .models import ListModel, Model
-from .slint import Image, Color, Brush, Timer, TimerMode
+from .slint import Image, Color, Brush, Keys, Timer, TimerMode
 from .loop import SlintEventLoop
 from pathlib import Path
 from collections.abc import Coroutine
@@ -628,6 +628,7 @@ __all__ = [
     "Image",
     "Color",
     "Brush",
+    "Keys",
     "Model",
     "ListModel",
     "Timer",

@@ -91,6 +91,11 @@ description = "Run pnpm format:fix"
 run = "pnpm type-check:ci"
 depends = ["prepare:pnpm-install"]
 
+["lint:ts:knip"]
+description = "Run knip"
+run = "pnpm knip"
+depends = ["prepare:pnpm-install"]
+
 ### Build
 
 ["build:lsp:wasm"]
@@ -138,4 +143,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:ts:typecheck"]
+depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip"]

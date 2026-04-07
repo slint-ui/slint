@@ -446,7 +446,7 @@ impl ElementType {
                     };
                 match b.properties.get(resolved_name.as_ref()) {
                     None => {
-                        if b.is_non_item_type {
+                        if b.is_non_item_type || b.is_global {
                             PropertyLookupResult::invalid(resolved_name)
                         } else {
                             crate::typeregister::reserved_property(resolved_name)
@@ -662,8 +662,9 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
-    FlexBoxLayoutData,
+    FlexboxLayoutData,
     LayoutItemInfo,
+    FlexboxLayoutItemInfo,
     Padding,
     LayoutInfo,
     FontMetrics,
@@ -684,7 +685,7 @@ impl BuiltinPrivateStruct {
             Self::GridLayoutInputData
                 | Self::GridLayoutData
                 | Self::BoxLayoutData
-                | Self::FlexBoxLayoutData
+                | Self::FlexboxLayoutData
         )
     }
     pub fn slint_name(&self) -> Option<SmolStr> {

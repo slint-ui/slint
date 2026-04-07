@@ -10,8 +10,8 @@ export component TestCase inherits Window {
         @keys("é"),
     ];
 
-    // For access from NodeJS
-    out property <keys> first_shortcut: shortcuts[0];
+    // Single shortcut for testing the property accessors
+    in-out property <keys> first_shortcut: shortcuts[0];
 
     // Test conversion from keys to string
     out property <string> shortcut_as_string: shortcuts[0].to-string();
@@ -108,6 +108,10 @@ assert_eq(instance.get_matches(), 6);
 // Unicode normalization: send NFD é (e + combining acute U+0301) - should match after normalization
 send_key_combo(&instance, { "e\xcc\x81" });
 assert_eq(instance.get_matches(), 7);
+
+assert_eq(instance.get_first_shortcut().to_string(), instance.get_shortcut_as_string());
+assert_eq(instance.get_shortcuts()->row_data(1)->to_string(), instance.get_shortcut_a_as_string());
+assert_eq(instance.get_shortcuts()->row_data(2)->to_string(), instance.get_shortcut_plus_as_string());
 ```
 
 ```rust
@@ -189,9 +193,94 @@ let shortcut_plus_string = instance.get_shortcut_plus_as_string();
 var instance = new slint.TestCase({});
 
 let shortcut = instance.first_shortcut;
-assert.equal(shortcut, "Control+Shift+\"\\u{1b}\"")
 
-// TODO: Simulate shortcuts in JS
+// toString() uses platform-native Display format, matching Slint .to-string()
+assert.equal(shortcut.toString(), instance.shortcut_as_string);
+assert.equal(instance.shortcuts.rowData(1).toString(), instance.shortcut_a_as_string);
+assert.equal(instance.shortcuts.rowData(2).toString(), instance.shortcut_plus_as_string);
+
+// String coercion via template literal
+assert.equal(`${shortcut}`, instance.shortcut_as_string);
+
+// Equality
+assert(shortcut.equals(instance.first_shortcut));
+assert(!shortcut.equals(instance.shortcuts.rowData(1)));
+
+// Round-trip assignment
+let newKeys = instance.shortcuts.rowData(1);
+instance.first_shortcut = newKeys;
+assert(instance.first_shortcut.equals(newKeys));
+assert.equal(instance.first_shortcut.toString(), instance.shortcut_a_as_string);
+
+// Named constants for special key codepoints
+const KEY_ESCAPE  = "\u001b";
+const KEY_SHIFT   = "\u0010";
+const KEY_CONTROL = "\u0011";
+const KEY_ALT     = "\u0012";
+
+let send = (keys) => {
+    slintlib.private_api.send_key_combo(instance, keys);
+}
+
+let assert_matches = (expected) => {
+    assert.equal(instance.matches, expected);
+}
+
+// Does not match with incorrect modifiers
+send([KEY_ESCAPE]);
+send([KEY_CONTROL, KEY_ESCAPE]);
+send([KEY_ALT, KEY_ESCAPE]);
+send([KEY_CONTROL, KEY_ALT, KEY_SHIFT, KEY_ESCAPE]);
+assert_matches(0);
+
+// Matches with correct modifiers
+send([KEY_CONTROL, KEY_SHIFT, KEY_ESCAPE]);
+assert_matches(1);
+
+// Additional matches
+send([KEY_CONTROL, "+"]);
+send([KEY_CONTROL, KEY_SHIFT, "+"]);
+send([KEY_CONTROL, KEY_SHIFT, "A"]);
+// A lowercase 'a' together with Shift may appear if caps-lock is active, or on the Qt backend.
+send([KEY_CONTROL, KEY_SHIFT, "a"]);
+assert_matches(5);
+
+// Additional non-matches
+send([KEY_CONTROL, KEY_ALT, "+"]);
+send([KEY_CONTROL, "A"]);
+send([KEY_CONTROL, "a"]);
+assert_matches(5);
+
+// Unicode normalization: send NFC é (U+00E9) - should match directly
+send(["\u00e9"]);
+assert_matches(6);
+
+// Unicode normalization: send NFD é (e + combining acute U+0301) - should match after normalization
+send(["e\u0301"]);
+assert_matches(7);
+```
+
+```python
+instance = TestCase()
+
+shortcut = instance.first_shortcut
+assert type(shortcut).__name__ == "Keys"
+
+# str() uses platform-native Display format, which matches the Slint .to-string() output
+assert str(shortcut) == instance.shortcut_as_string
+assert str(instance.shortcuts[1]) == instance.shortcut_a_as_string
+assert str(instance.shortcuts[2]) == instance.shortcut_plus_as_string
+
+# Equality
+assert shortcut == instance.first_shortcut
+assert shortcut != instance.shortcuts[1]
+
+# Setters
+new_keys = instance.shortcuts[1]
+if new_keys is not None:
+    instance.first_shortcut = new_keys
+
+# TODO: Simulate shortcuts in Python
 ```
 
 */

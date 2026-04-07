@@ -147,19 +147,6 @@
       const style = urlParams.get('style');
       if (style) {
         document.getElementById('style-selection').value = style.split(',')[0];
-      } else {
-        const userAgent = window.navigator.userAgent.toLowerCase();
-        let defaultStyle = '';
-        if (userAgent.indexOf('mac') !== -1 || userAgent.indexOf('iphone') !== -1 || userAgent.indexOf('ipad') !== -1) {
-          defaultStyle = 'cupertino';
-        } else if (userAgent.indexOf('windows') !== -1) {
-          defaultStyle = 'fluent';
-        } else if (userAgent.indexOf('android') !== -1) {
-          defaultStyle = 'material';
-        }
-        if (defaultStyle) {
-          document.getElementById('style-selection').value = defaultStyle;
-        }
       }
       loadGallery();
     }, false);

@@ -2,6 +2,7 @@
 title: Path
 description: Path element api.
 ---
+
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
 The `Path` element allows rendering a generic shape, composed of different geometric commands. A path
@@ -27,7 +28,7 @@ The color for filling the shape of the path.
 </SlintProperty>
 
 ### fill-rule
-<SlintProperty propName="fill-rule" typeName="enum" enumName="FillRule" defaultValue='nonzero'>
+<SlintProperty propName="fill-rule" typeName="enum" enumName="FillRule" defaultValue="nonzero">
 The fill rule to use for the path.
 </SlintProperty>
 
@@ -42,13 +43,19 @@ The width of the outline.
 </SlintProperty>
 
 ### stroke-line-cap
-<SlintProperty propName="stroke-line-cap" typeName="enum" enumName="LineCap" defaultValue='butt'>
+<SlintProperty propName="stroke-line-cap" typeName="enum" enumName="LineCap" defaultValue="butt">
 The appearance of the ends of the path's outline.
 </SlintProperty>
 
 ### stroke-line-join
-<SlintProperty propName="stroke-line-join" typeName="enum" enumName="LineJoin" defaultValue='miter'>
+<SlintProperty propName="stroke-line-join" typeName="enum" enumName="LineJoin" defaultValue="miter">
 The appearance of the joins between segments of stroked paths.
+</SlintProperty>
+
+### stroke-miter-limit
+<SlintProperty propName="stroke-miter-limit" typeName="float" defaultValue='4'>
+The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
+When the limit is exceeded, the join is rendered as a bevel instead.
 </SlintProperty>
 
 ### width
@@ -80,16 +87,11 @@ These four properties allow defining the position and size of the viewport of th
 If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
 ignored and instead the bounding rectangle of all path elements is used to define the view port.
 
-### fit-style
-<SlintProperty propName="fit-style" typeName="enum" enumName="ImageFit" defaultValue="contain"/>
-
-This property defines how elements in a path's view box are transformed to fit into the Path's
-width and height. If no view box is defined, the implicit bounding rectangle becomes the view box.
-
-- **`contain`** (default): Scale the path uniformly to fit within the element's dimensions without overflow, preserving the aspect ratio.
-- **`cover`**: Scale the path uniformly to cover the entire element, preserving the aspect ratio. If the aspect ratios differ, the path will overflow.
-- **`fill`**: Stretch the path horizontally and vertically to exactly match the element's dimensions, ignoring the aspect ratio.
-- **`preserve`**: No scaling is applied; the view box coordinates are mapped 1:1 to logical pixels in the element.
+### fit
+<SlintProperty propName="fit" typeName="enum" enumName="ImageFit" defaultValue="contain">
+Defines how the path's view box is scaled to fit the element's width and height.
+If no view box is defined, the implicit bounding rectangle is used.
+</SlintProperty>
 
 ### clip
 <SlintProperty propName="clip" typeName="bool" defaultValue="false"/>
@@ -239,7 +241,6 @@ The target x position of the line.
 <SlintProperty propName="y" typeName="float">
 The target y position of the line.
 </SlintProperty>
-
 
 ## CubicTo Sub-Element for `Path`
 

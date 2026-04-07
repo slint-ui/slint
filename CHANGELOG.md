@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
  - Skia: Enabled subpixel glyph positioning to fix uneven text spacing. (#10752)
  - Winit: Batch mouse move events to prevent too many move event to delay rendering. (#9038)
  - Wasm: Enabled clipboard interaction by default.
+ - LinuxKMS: Add support for WGPU based rendering with Skia and FemtoVG.
 
 ### Slint
 
@@ -23,11 +24,11 @@ All notable changes to this project are documented in this file.
  - Fixed empty `GridLayout` not taking padding into account.
  - Added support for Keyboard shortcuts with `KeyBinding` element, `keys` type, and `@keys(...)` macro.
  - Added printable keys in the `Key` namespace.
- - Added `FlexBoxLayout`.
+ - Added `FlexboxLayout`.
  - Added support for styled text with `StyledText` element, `styled-text` type, and `@markdown(...)` macro.
- - Added `PinchGestureHandler` element for handling multi-touch pinch gestures.
+ - Added `ScaleRotateGestureHandler` element for handling multi-touch pinch gestures.
  - Fixed compiler panic when accessing model data from repeated menu. (#10927)
- - Added `Path::fit-style` property.
+ - Added `Path::fit` property.
  - `TextHorizontalAlignment`: Added `start` and `end` variants.
 
 ### Widgets
@@ -45,6 +46,8 @@ All notable changes to this project are documented in this file.
  - Added `KeyboardModifiers`, `KeyEvent`, and `StandardListViewItem` to the `slint::language` module.
  - Added support for multiple `@rust-attr` per struct or enum.
  - Added `open_url` methd to the `Platform` trait. (#11035)
+ - Upgraded fontique and parley dependencies: The `unstable-fontique-07` Cargo feature replaces the old `unstable-fontique-07` feature, along with
+   `slint::fontique_08` replacing `slint::fontique_07`.
 
 ### Python
 

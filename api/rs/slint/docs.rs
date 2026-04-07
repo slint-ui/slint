@@ -18,6 +18,7 @@ pub mod generated_code {
 
     use crate::ComponentHandle;
     use crate::Global;
+    use crate::StrongHandle;
     use crate::Weak;
     use crate::Window;
 
@@ -52,7 +53,7 @@ pub mod generated_code {
         pub fn get_counter(&self) -> i32 {
             unimplemented!()
         }
-        /// A setter is generated for each property declared at the root of the component,
+        /// A setter is generated for each property declared at the root of the component.
         /// In this case, this is the setter that sets the value of the `counter` property
         /// declared in the `.slint` design markup.
         pub fn set_counter(&self, value: i32) {}
@@ -91,10 +92,20 @@ pub mod generated_code {
         }
     }
 
-    impl ComponentHandle for SampleComponent {
+    /// The `StrongHandle` trait is implemented for each component.
+    /// It marks this component as holding a strong reference to the Slint element tree
+    /// and allows using this component with a Weak reference.
+    impl StrongHandle for SampleComponent {
         #[doc(hidden)]
         type WeakInner = ();
 
+        #[doc(hidden)]
+        fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self> {
+            unimplemented!();
+        }
+    }
+
+    impl ComponentHandle for SampleComponent {
         /// Returns a new weak pointer.
         fn as_weak(&self) -> Weak<Self> {
             unimplemented!()
@@ -102,11 +113,6 @@ pub mod generated_code {
 
         /// Returns a clone of this handle that's a strong reference.
         fn clone_strong(&self) -> Self {
-            unimplemented!();
-        }
-
-        #[doc(hidden)]
-        fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self> {
             unimplemented!();
         }
 
@@ -140,6 +146,68 @@ pub mod generated_code {
 
         /// This function provides access to instances of global singletons exported in `.slint`.
         fn global<'a, T: Global<'a, Self>>(&'a self) -> T {
+            unimplemented!()
+        }
+    }
+
+    /// This an example of the API that is generated for a global in `.slint` design markup. This may help you understand
+    /// what functions you can call and how you can pass data in and out.
+    ///
+    /// This is the source code:
+    ///
+    /// ```slint,no-preview
+    /// export global SampleGlobal {
+    ///     in-out property<int> value;
+    ///     // ... maybe more callbacks or public functions here
+    /// }
+    /// ```
+    ///
+    /// **Note**: Globals are only accessible in Rust if they are exported from the root file or
+    /// the [`slint!`](crate::slint) macro!
+    pub struct SampleGlobal<'a> {
+        _marker: core::marker::PhantomData<&'a mut ()>,
+    }
+
+    impl<'a> SampleGlobal<'a> {
+        /// A getter is generated for each property declared in the global.
+        /// In this case, this is the getter that sets the value of the `value` property
+        /// declared in the `.slint` design markup.
+        pub fn get_value(&self) -> i32 {
+            unimplemented!()
+        }
+
+        /// A setter is generated for each property declared in the global.
+        /// In this case, this is the setter that sets the value of the `counter` property
+        /// declared in the `.slint` design markup.
+        pub fn set_value(&self, value: i32) {
+            unimplemented!()
+        }
+    }
+
+    /// The `StrongHandle` trait is implemented for each global.
+    /// It marks this component as holding a strong reference to the Slint element tree
+    /// and allows using this component with a Weak reference.
+    impl StrongHandle for SampleGlobal<'static> {
+        #[doc(hidden)]
+        type WeakInner = ();
+
+        #[doc(hidden)]
+        fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self> {
+            unimplemented!();
+        }
+    }
+
+    /// The `Global` trait is implemented for each global.
+    /// This allows accessing the global from its corresponding component (in this case [`SampleComponent`])
+    /// using the [`Global::get`] or [`ComponentHandle::global`] functions.
+    impl<'a> Global<'a, SampleComponent> for SampleGlobal<'a> {
+        type StaticSelf = SampleGlobal<'static>;
+
+        fn get(component: &'a SampleComponent) -> Self {
+            unimplemented!()
+        }
+
+        fn as_weak(&self) -> Weak<Self::StaticSelf> {
             unimplemented!()
         }
     }

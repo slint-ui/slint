@@ -623,10 +623,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout organized data cache")
             }
         }
-        Expression::SolveFlexBoxLayout(layout) => {
+        Expression::SolveFlexboxLayout(layout) => {
             crate::eval_layout::solve_flexbox_layout(layout, local_context)
         }
-        Expression::ComputeFlexBoxLayoutInfo(layout, orientation) => {
+        Expression::ComputeFlexboxLayoutInfo(layout, orientation) => {
             crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
@@ -1407,6 +1407,14 @@ fn call_builtin_function(
             .internal(corelib::InternalToken)
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
             .into(),
+        BuiltinFunction::AccentColor => {
+            let color = local_context
+                .component_instance
+                .window_adapter()
+                .internal(corelib::InternalToken)
+                .map_or(corelib::Color::default(), |x| x.accent_color());
+            Value::Brush(corelib::Brush::SolidColor(color))
+        }
         BuiltinFunction::SupportsNativeMenuBar => local_context
             .component_instance
             .window_adapter()
@@ -1435,12 +1443,13 @@ fn call_builtin_function(
                 rest.first(),
             );
 
-            if let Some(w) = component.window_adapter().internal(i_slint_core::InternalToken)
-                && !no_native
-                && w.supports_native_menu_bar()
-            {
-                let menubar = vtable::VRc::into_dyn(menu_item_tree);
-                w.setup_menubar(menubar);
+            let window_adapter = component.window_adapter();
+            let window_inner = WindowInner::from_pub(window_adapter.window());
+            let menubar = vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree));
+            window_inner.setup_menubar_shortcuts(vtable::VRc::clone(&menubar));
+
+            if !no_native && window_inner.supports_native_menu_bar() {
+                window_inner.setup_menubar(menubar);
                 return Value::Void;
             }
 

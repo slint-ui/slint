@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct RectangleStuff {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+}
+
+export component TestCase inherits Window {
+    in-out property <RectangleStuff> stuff: {
+        x: 50px,
+        y: 50px,
+        width: 100px,
+        height: 100px,
+    };
+
+    in-out property <length> rect-x <=> rect.x;
+    in-out property <length> rect-y <=> rect.y;
+    in-out property <length> rect-width <=> rect.width;
+    in-out property <length> rect-height <=> rect.height;
+
+    rect := Rectangle {
+        x <=> root.stuff.x;
+        y <=> root.stuff.y;
+        width <=> root.stuff.width;
+        height <=> root.stuff.height;
+    }
+
+    out property <bool> test:
+        rect-x == 50px && rect-y == 50px && rect-width == 100px && rect-height == 100px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(
+    instance.get_stuff(),
+    RectangleStuff { x: 50., y: 50., width: 100., height: 100. }
+);
+
+instance.set_stuff(RectangleStuff { x: 60., y: 70., width: 120., height: 130. });
+assert_eq!(instance.get_rect_x(), 60.);
+assert_eq!(instance.get_rect_y(), 70.);
+assert_eq!(instance.get_rect_width(), 120.);
+assert_eq!(instance.get_rect_height(), 130.);
+
+instance.set_rect_x(65.);
+instance.set_rect_y(75.);
+instance.set_rect_width(125.);
+instance.set_rect_height(135.);
+assert_eq!(
+    instance.get_stuff(),
+    RectangleStuff { x: 65., y: 75., width: 125., height: 135. }
+);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert(instance.get_stuff() == (RectangleStuff { .x = 50., .y = 50., .width = 100., .height = 100. }));
+
+instance.set_stuff(RectangleStuff { .x = 60., .y = 70., .width = 120., .height = 130. });
+assert_eq(instance.get_rect_x(), 60.);
+assert_eq(instance.get_rect_y(), 70.);
+assert_eq(instance.get_rect_width(), 120.);
+assert_eq(instance.get_rect_height(), 130.);
+
+instance.set_rect_x(65.);
+instance.set_rect_y(75.);
+instance.set_rect_width(125.);
+instance.set_rect_height(135.);
+assert(instance.get_stuff() == (RectangleStuff { .x = 65., .y = 75., .width = 125., .height = 135. }));
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.deepEqual(instance.stuff, { x: 50, y: 50, width: 100, height: 100 });
+
+instance.stuff = { x: 60, y: 70, width: 120, height: 130 };
+assert.equal(instance.rect_x, 60);
+assert.equal(instance.rect_y, 70);
+assert.equal(instance.rect_width, 120);
+assert.equal(instance.rect_height, 130);
+
+instance.rect_x = 65;
+instance.rect_y = 75;
+instance.rect_width = 125;
+instance.rect_height = 135;
+assert.deepEqual(instance.stuff, { x: 65, y: 75, width: 125, height: 135 });
+```
+*/

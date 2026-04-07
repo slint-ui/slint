@@ -44,8 +44,7 @@ wgpu-core = "28.0.0"
 wgpu = { version = "28.0.0", features = ["metal"] }
 
 surfman = { version = "0.11.0", features = ["chains"] }
-libservo = { git = "https://github.com/servo/servo", tag = "v0.0.5" }
-embedder_traits = { git = "https://github.com/servo/servo", tag = "v0.0.5", features = ["baked-default-resources"] }
+libservo = { git = "https://github.com/servo/servo", tag = "v0.0.6" }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"

@@ -92,6 +92,31 @@ export global Issue8723 {
 }
 
 
+struct Coords {
+    x: int,
+}
+
+// Issue #11232: implicit return of struct after conditional return
+export global Issue11232 {
+    public pure function trigger(cond: bool) -> Coords {
+        if cond {
+            return { };
+        }
+
+        { x: 42 }
+    }
+
+    // Variant: return inside a nested condition (Condition expr wrapped in StoreLocalVariable)
+    public pure function trigger2(cond1: bool, cond2: bool) -> Coords {
+        if cond1 {
+            if cond2 { return { }; }
+            { x: 10 }
+        } else {
+            { x: 20 }
+        }
+    }
+}
+
 export component TestCase {
 
     bkg1 := BackgroundExpr { cond: true; }
@@ -106,7 +131,10 @@ export component TestCase {
         return bkg1.background == Colors.blue && bkg2.background == Colors.red
             && bkg3.background == Colors.orange && bkg4.background == Colors.pink && bkg5.background == Colors.blue
             && Issue8485.format_nullable_duration(false, 2) == "bbb"
-            && Issue8723.key-pressed({text: Key.LeftArrow}) == EventResult.accept && Issue8723.test;
+            && Issue8723.key-pressed({text: Key.LeftArrow}) == EventResult.accept && Issue8723.test
+            && Issue11232.trigger(false).x == 42 && Issue11232.trigger(true).x == 0
+            && Issue11232.trigger2(true, false).x == 10 && Issue11232.trigger2(true, true).x == 0
+            && Issue11232.trigger2(false, false).x == 20;
     }
 
 

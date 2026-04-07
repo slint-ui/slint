@@ -104,12 +104,13 @@ export component DayForecastGraph inherits Rectangle {
         }
     }
 
-    layout := HorizontalLayout {
+    layout := Rectangle {
         for index in root.days-count:
             DayForecastGraphEntry {
                 property <WeatherForecastInfo> day-forecast-weather: root.forecast-weather[index];
                 property <duration> animation-duration: 0ms;
 
+                x: index * root.day-width;
                 width: root.day-width;
                 day-name: day-forecast-weather.day-name;
                 day-weather: day-forecast-weather.weather-info;

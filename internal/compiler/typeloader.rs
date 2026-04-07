@@ -908,11 +908,7 @@ struct BorrowedTypeLoader<'a> {
 
 impl TypeLoader {
     pub fn new(compiler_config: CompilerConfiguration, diag: &mut BuildDiagnostics) -> Self {
-        let mut style = compiler_config
-            .style
-            .clone()
-            .or_else(|| std::env::var("SLINT_STYLE").ok())
-            .unwrap_or_else(|| "native".into());
+        let mut style = compiler_config.style.clone().unwrap_or_else(|| "fluent".into());
 
         if style == "native" {
             style = get_native_style(&mut diag.all_loaded_files);

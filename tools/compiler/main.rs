@@ -5,7 +5,8 @@ use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
 use itertools::Itertools;
-use std::io::{BufWriter, Write};
+use std::io::Cursor;
+use std::io::Write;
 
 #[cfg(all(
     feature = "jemalloc",
@@ -215,35 +216,36 @@ fn main() -> std::io::Result<()> {
     if args.output == std::path::Path::new("-") {
         generator::generate(format, &mut std::io::stdout(), None, &doc, &loader.compiler_config)?;
     } else {
-        let mut file_writer = BufWriter::new(std::fs::File::create(&args.output)?);
+        let mut cursor = Cursor::new(Vec::new());
         generator::generate(
             format,
-            &mut file_writer,
+            &mut cursor,
             Some(&args.output),
             &doc,
             &loader.compiler_config,
         )?;
-        file_writer.flush()?;
+        // Important: Write without unnecessary mtime modification to avoid
+        // build systems to always detect the generated file as modified.
+        fileaccess::write_file_if_changed(&args.output, &cursor.into_inner())?;
     }
 
     if let Some(depfile) = args.depfile {
-        let mut f = BufWriter::new(std::fs::File::create(depfile)?);
-        write!(f, "{}: {}", args.output.display(), args.path.display())?;
+        let mut cursor = Cursor::new(Vec::new());
+        write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
         for x in &diag.all_loaded_files {
             if x.is_absolute() {
-                write!(f, " {}", x.display())?;
+                write!(cursor, " {}", x.display())?;
             }
         }
         for resource in doc.embedded_file_resources.borrow().keys() {
             if !fileaccess::load_file(std::path::Path::new(resource))
                 .is_some_and(|f| f.is_builtin())
             {
-                write!(f, " {resource}")?;
+                write!(cursor, " {resource}")?;
             }
         }
-
-        writeln!(f)?;
-        f.flush()?;
+        writeln!(cursor)?;
+        fileaccess::write_file_if_changed(&depfile, &cursor.into_inner())?;
     }
     diag.print_warnings_and_exit_on_error();
     Ok(())

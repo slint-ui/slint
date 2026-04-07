@@ -87,7 +87,7 @@ namespace slint::platform::key_codes {{
 "#
     )?;
     macro_rules! print_key_codes {
-        ($($char:literal # $name:ident # $($shifted:expr)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
+        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
             $(
                 writeln!(enums_pub, "/// A constant that represents the key code to be used in slint::Window::dispatch_key_press_event()")?;
                 writeln!(enums_pub, r#"constexpr std::u8string_view {} = u8"\u{:04x}";"#, stringify!($name), $char as u32)?;
@@ -121,6 +121,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_point.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
@@ -165,7 +166,6 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                     let pri_type = stringify!($pri_type).replace(' ', "");
                     let pri_type = match pri_type.as_str() {
                         "usize" => "uintptr_t",
-                        "crate::animations::Instant" => "uint64_t",
                         // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
                         "Option<i32>" => "std::pair<int32_t, int32_t>",
                         "Option<core::ops::Range<i32>>" => "std::tuple<int32_t, int32_t, int32_t>",
@@ -236,6 +236,7 @@ fn default_config() -> cbindgen::Config {
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
             ("Channel".into(), "uint8_t".into()),
+            ("Instant".into(), "uint64_t".into()),
         ]
         .iter()
         .cloned()
@@ -304,7 +305,7 @@ fn gen_corelib(
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
-        "PinchGestureHandler",
+        "ScaleRotateGestureHandler",
         "Flickable",
         "SimpleText",
         "StyledTextItem",
@@ -446,6 +447,7 @@ fn gen_corelib(
     properties_config.export.exclude.clear();
     properties_config.structure.derive_eq = true;
     properties_config.structure.derive_neq = true;
+    properties_config.export.include.push("StateInfo".into());
     private_exported_types.extend(properties_config.export.include.iter().cloned());
     cbindgen::Builder::new()
         .with_config(properties_config)
@@ -533,9 +535,10 @@ fn gen_corelib(
             "",
         ),
         (
-            vec!["MouseEvent", "TouchPhase", "Keys"],
+            vec!["MouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
+            #include \"private/slint_builtin_structs_internal.h\"
             namespace slint::cbindgen_private {
                 struct PointerEvent;
                 struct Rect;
@@ -543,7 +546,16 @@ fn gen_corelib(
                 using LogicalPoint = Point2D<float>;
                 using LogicalLength = float;
             }",
+        ),
+        (
+            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys"],
+            "slint_keys_internal.h",
+            "#include \"private/slint_builtin_structs.h\"\n\
+            namespace slint::cbindgen_private::types {\n\
+                using KeyboardModifiers = ::slint::language::KeyboardModifiers;\n\
+            }"
         )
+
     ]
     .iter()
     {
@@ -577,8 +589,10 @@ fn gen_corelib(
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
             "slint_windowrc_color_scheme",
+            "slint_windowrc_accent_color",
             "slint_windowrc_supports_native_menu_bar",
             "slint_windowrc_setup_native_menu_bar",
+            "slint_windowrc_setup_menu_bar_shortcuts",
             "slint_windowrc_show_native_popup_menu",
             "slint_windowrc_resolved_default_font_size",
             "slint_windowrc_dispatch_pointer_event",
@@ -750,6 +764,7 @@ fn gen_corelib(
         .with_include("private/vtable.h")
         .with_include("private/slint_string.h")
         .with_include("private/slint_sharedvector.h")
+        .with_include("private/slint_keys.h")
         .with_include("private/slint_properties.h")
         .with_include("private/slint_callbacks.h")
         .with_include("private/slint_color.h")
@@ -777,7 +792,6 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
-        using types::Keys;
     }
     template<typename ModelData> class Model;
 }",

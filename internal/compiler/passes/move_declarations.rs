@@ -32,7 +32,7 @@ fn do_move_declarations(component: &Rc<Component>) {
 
     let mut new_root_bindings = HashMap::new();
     let mut new_root_change_callbacks = HashMap::new();
-    let mut new_root_property_analysis = HashMap::new();
+    let mut new_root_property_analysis = BTreeMap::new();
 
     let move_bindings_and_animations = &mut |elem: &ElementRc| {
         visit_all_named_references_in_element(elem, fixup_reference);
@@ -66,7 +66,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         elem.borrow_mut().bindings = new_bindings;
 
         let property_analysis = elem.borrow().property_analysis.take();
-        let mut new_property_analysis = HashMap::with_capacity(property_analysis.len());
+        let mut new_property_analysis = BTreeMap::new();
         for (prop, a) in property_analysis {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&prop);
             if will_be_moved {
