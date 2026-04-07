@@ -5,10 +5,14 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+use crate::bindings::*;
 
+use crate::event_dispatch;
 use event_queue::QueueEntry;
 use event_queue::SafeUiEventLoopProxy;
+
+pub use event_queue::push_input_event;
+pub use event_queue::wake_event_loop;
 
 struct Platform {
     scale_factor: f32,
@@ -40,7 +44,7 @@ impl slint::platform::Platform for Platform {
             slint::platform::update_timers_and_animations();
 
             // Process all pending queue entries (FFI callbacks, Rust
-            // closures, quit signals).
+            // closures, input events, quit signals).
             for entry in event_queue::take_queue() {
                 match entry {
                     QueueEntry::Quit => return Ok(()),
@@ -50,6 +54,14 @@ impl slint::platform::Platform for Platform {
                         // valid function pointer and user_data remains valid
                         // until invocation.
                         unsafe { (ffi_cb.callback)(ffi_cb.user_data) };
+                    }
+                    QueueEntry::InputEvent(ffi_event) => {
+                        match event_dispatch::convert_ffi_event(&ffi_event, self.scale_factor) {
+                            None => return Ok(()),
+                            Some(window_event) => {
+                                self.window.dispatch_event(window_event);
+                            }
+                        }
                     }
                 }
             }
@@ -132,12 +144,14 @@ mod event_queue {
 
     /// A single entry in the unified event queue.
     ///
-    /// Both FFI callbacks (from C firmware) and Rust closures (from
-    /// `EventLoopProxy`) are stored as variants.
+    /// FFI callbacks (from C firmware), Rust closures (from
+    /// `EventLoopProxy`), and input events (from
+    /// `slint_safeui_dispatch_event`) are stored as variants.
     pub enum QueueEntry {
         Quit,
         Callback(Box<dyn FnOnce() + Send>),
         FfiCallback(FfiCallback),
+        InputEvent(crate::ffi_event::FfiEvent),
     }
 
     /// Static unified event queue. FFI producers push via
@@ -226,6 +240,26 @@ mod event_queue {
                     drop(rejected);
                     -1
                 }
+            }
+        });
+
+        result
+    }
+
+    /// Push a raw input event into the unified queue.
+    ///
+    /// Called from [`crate::event_dispatch::slint_safeui_dispatch_event`].
+    /// Returns `0` on success, `-1` if the queue is full.
+    pub fn push_input_event(event: crate::ffi_event::FfiEvent) -> i32 {
+        let result = critical_section::with(|cs| {
+            let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
+            match queue.push_back(QueueEntry::InputEvent(event)) {
+                Ok(()) => {
+                    // Wake the Slint event loop so it drains promptly.
+                    wake_event_loop();
+                    0
+                }
+                Err(_) => -1,
             }
         });
 
