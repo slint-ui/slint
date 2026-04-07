@@ -147,18 +147,6 @@ pub trait Platform {
         Err(PlatformError::Unsupported)
     }
 
-    /// Creates a system tray icon with the given icon image and tooltip.
-    ///
-    /// Returns an opaque handle to the system tray that can be used to update or remove it.
-    /// Returns `None` if the platform doesn't support system trays.
-    #[cfg(feature = "system-tray")]
-    fn create_system_tray(
-        &self,
-        _params: crate::system_tray::Params,
-    ) -> Option<crate::system_tray::SystemTray> {
-        None
-    }
-
     #[cfg(target_os = "android")]
     #[doc(hidden)]
     /// The long press interval before showing a context menu

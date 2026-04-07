@@ -1780,10 +1780,24 @@ declare_item_vtable! {
 pub struct SystemTray {
     pub icon: Property<crate::graphics::Image>,
     pub cached_rendering_data: CachedRenderingData,
+    #[cfg(feature = "system-tray")]
+    inner: std::cell::OnceCell<crate::system_tray::SystemTray>,
 }
 
 impl Item for SystemTray {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
+        let system_tray = match crate::system_tray::SystemTray::new(crate::system_tray::Params {
+            icon: &self.icon(),
+            tooltip: "blah blah",
+        }) {
+            Ok(system_tray) => system_tray,
+            Err(err) => panic!("{}", err)
+        };
+
+        let _ = self.inner.set(
+            system_tray
+        );
+    }
 
     fn layout_info(
         self: Pin<&Self>,

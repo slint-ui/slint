@@ -43,15 +43,12 @@ pub struct SystemTray {
     #[cfg(feature = "system-tray-tray-icon")]
     tray_icon: tray_icon::TrayIcon,
     #[cfg(feature = "system-tray-ksni")]
-    tray: ksni::blocking::Handle<KsniTray>,
+    _tray: ksni::blocking::Handle<KsniTray>,
 }
 
 impl SystemTray {
     #[cfg(any(feature = "system-tray-ksni", feature = "system-tray-tray-icon"))]
-    pub fn new<E: From<Event> + Send + 'static>(
-        params: Params,
-        event_loop: &winit::event_loop::EventLoop<E>,
-    ) -> Result<Self, Error> {
+    pub fn new(params: Params) -> Result<Self, Error> {
         #[cfg(feature = "system-tray-ksni")]
         {
             let pixel_buffer = params.icon.to_rgba8().ok_or(Error::Rgba8)?;
@@ -67,7 +64,7 @@ impl SystemTray {
             let tray = KsniTray { icon: ksni::Icon { width, height, data } }
                 .spawn()
                 .map_err(Error::KsniBuildError)?;
-            return Ok(Self { tray });
+            return Ok(Self { _tray: tray });
         }
 
         #[cfg(feature = "system-tray-tray-icon")]
@@ -80,19 +77,21 @@ impl SystemTray {
                 .build()
                 .map_err(Error::BuildError)?;
 
-            let proxy = event_loop.create_proxy();
-            tray_icon::TrayIconEvent::set_event_handler(Some(
-                move |event: tray_icon::TrayIconEvent| {
-                    let _ = proxy.send_event(Event::TrayIcon(event).into());
-                },
-            ));
+            crate::with_event_loop_proxy(|proxy| {
+                tray_icon::TrayIconEvent::set_event_handler(Some(
+                    move |event: tray_icon::TrayIconEvent| {
+                        let _ = proxy.send_event(Event::TrayIcon(event).into());
+                    },
+                ));
+            });
 
-            let proxy = event_loop.create_proxy();
-            tray_icon::menu::MenuEvent::set_event_handler(Some(
-                move |event: tray_icon::menu::MenuEvent| {
-                    let _ = proxy.send_event(Event::TrayIconMenu(event).into());
-                },
-            ));
+            crate::with_event_loop_proxy(|proxy| {
+                tray_icon::menu::MenuEvent::set_event_handler(Some(
+                    move |event: tray_icon::menu::MenuEvent| {
+                        let _ = proxy.send_event(Event::TrayIconMenu(event).into());
+                    },
+                ));
+            });
 
             return Ok(Self { tray_icon });
         }

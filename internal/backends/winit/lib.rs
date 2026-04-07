@@ -945,17 +945,6 @@ impl i_slint_core::platform::Platform for Backend {
             i_slint_core::platform::PlatformError::Other(format!("Failed to open URL: {e}"))
         })
     }
-
-    #[cfg(feature = "system-tray")]
-    fn create_system_tray(
-        &self,
-        params: i_slint_core::system_tray::Params,
-    ) -> Option<i_slint_core::system_tray::SystemTray> {
-        let event_loop = self.shared_data.not_running_event_loop.borrow();
-        let event_loop = event_loop.as_ref()?;
-
-        i_slint_core::system_tray::SystemTray::new(params, event_loop).ok()
-    }
 }
 
 mod private {
