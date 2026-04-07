@@ -5442,7 +5442,6 @@ dependencies = [
  "sys-locale",
  "taffy",
  "tempfile",
- "thiserror 2.0.18",
  "tiny-skia 0.12.0",
  "tokio",
  "tr",
@@ -5457,7 +5456,6 @@ dependencies = [
  "web-time",
  "wgpu 27.0.1",
  "wgpu 28.0.0",
- "winit",
 ]
 
 [[package]]

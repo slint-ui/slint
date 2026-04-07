@@ -89,18 +89,18 @@ impl SystemTray {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, derive_more::Error, derive_more::Display)]
 pub enum Error {
-    #[error("Failed to create a rgba8 buffer from an icon image")]
+    #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
     #[cfg(feature = "system-tray-tray-icon")]
-    #[error("Bad icon: {}", .0)]
+    #[display("Bad icon: {}", 0)]
     BadIcon(tray_icon::BadIcon),
     #[cfg(feature = "system-tray-tray-icon")]
-    #[error("Build error: {}", .0)]
+    #[display("Build error: {}", 0)]
     BuildError(tray_icon::Error),
     #[cfg(feature = "system-tray-ksni")]
-    #[error("Build error: {}", .0)]
+    #[display("Build error: {}", 0)]
     KsniBuildError(ksni::Error),
 }
 
