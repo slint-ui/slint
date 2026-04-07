@@ -2,7 +2,39 @@
 title: Using Slint SC
 description: Components included in Slint SC and use cases.
 ---
-## Components of Slint SC
+
+# Slint SC Architecture Design (ISO 26262:6 7.4)
+
+During the development of the software architectural design, the following should be considered:
+
+1. Verifiability of the software architectural design.
+    This implies bi-directional traceability between the software architectural design and the
+    software safety requirements.
+2. Simplicity of the design/software (restricted size and complexity)
+3. Modularity, Encapsulation, Reusability, Maintainability
+4. Feasibility for the design and implementation of the software units
+5. Testability of the software
+6. Maintainability of the software architectural design
+
+The software architectural design should have a static design part which
+addresses:
+
+- the software structure including its hierarchical levels;
+- the data types and their characteristics;
+- the external interfaces of the software components;
+- the external interfaces of the embedded software;
+- the global variables; and
+- the constraints including the scope of the architecture and external dependencies.
+
+In addition, there should be a dynamic design part which addresses:
+
+- the functional chain of events and behaviour;
+- the logical sequence of data processing;
+- the control flow and concurrency of processes;
+- the data flow through interfaces and global variables; and
+- the temporal constraints.
+
+## Slint SC Software Units (ISO 26262:6 7.4.4)
 
 This is what is included in Slint SC:
 
@@ -14,6 +46,8 @@ This is what is included in Slint SC:
 Each of these things can have a **Usage** and a **Constraints** section.
 
 Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
+
+(TODO: Insert diagram showing how the Units interact with each other)
 
 # Use Cases (ISO 26262:8 11.4.5.1)
 
