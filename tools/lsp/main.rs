@@ -223,7 +223,10 @@ fn log_stderr_nonblocking(context: &str) {
     let fd = std::io::stderr().as_raw_fd();
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
     if flags == -1 {
-        tracing::warn!("[{context}] fcntl(stderr, F_GETFL) failed: {}", std::io::Error::last_os_error());
+        tracing::warn!(
+            "[{context}] fcntl(stderr, F_GETFL) failed: {}",
+            std::io::Error::last_os_error()
+        );
     } else {
         let nonblocking = (flags & libc::O_NONBLOCK) != 0;
         tracing::warn!("[{context}] stderr fd={fd}, flags=0x{flags:x}, O_NONBLOCK={nonblocking}");
