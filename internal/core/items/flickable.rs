@@ -18,7 +18,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize,
     LogicalVector, PointLengths, RectLengths,
 };
 #[cfg(feature = "rtti")]
