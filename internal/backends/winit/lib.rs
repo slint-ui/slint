@@ -43,13 +43,6 @@ pub use winit;
 #[derive(Debug)]
 pub struct SlintEvent(CustomEvent);
 
-#[cfg(feature = "system-tray")]
-impl From<i_slint_core::system_tray::Event> for SlintEvent {
-    fn from(e: i_slint_core::system_tray::Event) -> Self {
-        Self(e.into())
-    }
-}
-
 #[i_slint_core_macros::slint_doc]
 /// Convenience alias for the event loop builder used by Slint.
 ///

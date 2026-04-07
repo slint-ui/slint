@@ -53,8 +53,6 @@ pub enum CustomEvent {
     Accesskit(accesskit_winit::Event),
     #[cfg(muda)]
     Muda(muda::MenuEvent),
-    #[cfg(feature = "system-tray")]
-    SystemTray(i_slint_core::system_tray::Event),
 }
 
 impl std::fmt::Debug for CustomEvent {
@@ -68,16 +66,7 @@ impl std::fmt::Debug for CustomEvent {
             Self::Accesskit(a) => write!(f, "AccessKit({a:?})"),
             #[cfg(muda)]
             Self::Muda(e) => write!(f, "Muda({e:?})"),
-            #[cfg(feature = "system-tray")]
-            Self::SystemTray(e) => write!(f, "SystemTray({e:?})"),
         }
-    }
-}
-
-#[cfg(feature = "system-tray")]
-impl From<i_slint_core::system_tray::Event> for CustomEvent {
-    fn from(e: i_slint_core::system_tray::Event) -> Self {
-        Self::SystemTray(e)
     }
 }
 
@@ -539,8 +528,6 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     window.muda_event(eid, muda_type);
                 };
             }
-            #[cfg(feature = "system-tray")]
-            CustomEvent::SystemTray(e) => {}
         }
     }
 

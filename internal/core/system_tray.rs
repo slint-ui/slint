@@ -83,22 +83,6 @@ impl SystemTray {
                 .build()
                 .map_err(Error::BuildError)?;
 
-            crate::with_event_loop_proxy(|proxy| {
-                tray_icon::TrayIconEvent::set_event_handler(Some(
-                    move |event: tray_icon::TrayIconEvent| {
-                        let _ = proxy.send_event(Event::TrayIcon(event).into());
-                    },
-                ));
-            });
-
-            crate::with_event_loop_proxy(|proxy| {
-                tray_icon::menu::MenuEvent::set_event_handler(Some(
-                    move |event: tray_icon::menu::MenuEvent| {
-                        let _ = proxy.send_event(Event::TrayIconMenu(event).into());
-                    },
-                ));
-            });
-
             return Ok(Self { tray_icon });
         }
     }
