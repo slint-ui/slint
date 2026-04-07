@@ -13,12 +13,18 @@ use ksni::blocking::TrayMethods;
 #[cfg(feature = "system-tray-ksni")]
 struct KsniTray {
     icon: ksni::Icon,
+    title: std::string::String
 }
 
 #[cfg(feature = "system-tray-ksni")]
 impl ksni::Tray for KsniTray {
     fn id(&self) -> std::string::String {
-        std::format!("slint-tray")
+        // This cannot be empty.
+        "slint-tray".into()
+    }
+
+    fn title(&self) -> std::string::String {
+        self.title.clone()
     }
 
     fn icon_pixmap(&self) -> std::vec::Vec<ksni::Icon> {
@@ -36,7 +42,7 @@ pub enum Event {
 
 pub struct Params<'a> {
     pub icon: &'a Image,
-    pub tooltip: &'a str,
+    pub title: &'a str,
 }
 
 pub struct SystemTray {
@@ -61,7 +67,7 @@ impl SystemTray {
                 pixel.rotate_right(1) // rgba to argb
             }
 
-            let tray = KsniTray { icon: ksni::Icon { width, height, data } }
+            let tray = KsniTray { icon: ksni::Icon { width, height, data }, title: params.title.into() }
                 .spawn()
                 .map_err(Error::KsniBuildError)?;
             return Ok(Self { _tray: tray });
@@ -73,7 +79,7 @@ impl SystemTray {
 
             let tray_icon = tray_icon::TrayIconBuilder::new()
                 .with_icon(icon)
-                .with_tooltip(params.tooltip)
+                .with_title(params.title)
                 .build()
                 .map_err(Error::BuildError)?;
 

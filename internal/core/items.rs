@@ -1779,6 +1779,7 @@ declare_item_vtable! {
 #[pin]
 pub struct SystemTray {
     pub icon: Property<crate::graphics::Image>,
+    pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
     #[cfg(feature = "system-tray")]
     inner: std::cell::OnceCell<crate::system_tray::SystemTray>,
@@ -1786,20 +1787,13 @@ pub struct SystemTray {
 }
 
 impl Item for SystemTray {
-    #[cfg_attr(feature = "system-tray", allow(unused))]
+    #[cfg_attr(not(feature = "system-tray"), allow(unused))]
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         #[cfg(feature = "system-tray")]
         self.change_tracker.init_delayed(
             self_rc.downgrade(),
-            |self_weak| {
-                let Some(tray_rc) = self_weak.upgrade() else {
-                    return false;
-                };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
-                    return false;
-                };
-                let tray = tray.as_pin_ref();
-                return true;
+            |_| {
+                true
             },
             |self_weak, has_icon| {
                 let Some(tray_rc) = self_weak.upgrade() else {
@@ -1812,12 +1806,10 @@ impl Item for SystemTray {
                     return;
                 }
                 let tray = tray.as_pin_ref();
-                let icon = tray.icon();
-
                 let system_tray =
                     match crate::system_tray::SystemTray::new(crate::system_tray::Params {
-                        icon: &icon,
-                        tooltip: "blah blah",
+                        icon: &tray.icon(),
+                        title: &tray.title(),
                     }) {
                         Ok(system_tray) => system_tray,
                         Err(err) => panic!("{}", err),
