@@ -27,7 +27,7 @@ pub fn ensure_window(
         );
     }
 
-    if inherits_window(component) {
+    if inherits_window_or_system_tray(component) {
         return; // already a window, nothing to do
     }
 
@@ -141,9 +141,9 @@ pub fn ensure_window(
     });
 }
 
-pub fn inherits_window(component: &Rc<Component>) -> bool {
+pub fn inherits_window_or_system_tray(component: &Rc<Component>) -> bool {
     component.root_element.borrow().builtin_type().is_none_or(|b| {
-        matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
+        matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow" | "SystemTray")
     })
 }
 
