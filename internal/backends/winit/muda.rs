@@ -10,6 +10,7 @@ use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use muda::ContextMenu;
+use std::cell::RefCell;
 use std::rc::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -20,10 +21,10 @@ use winit::window::Window;
 pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
     tracker: Option<Pin<Box<PropertyTracker<false, MudaPropertyTracker>>>>,
-    menu: muda::Menu,
+    menu: RefCell<Option<muda::Menu>>,
 }
 
-#[derive(Clone, Copy, Debug, strum::EnumString, strum::Display)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, strum::EnumString, strum::Display)]
 pub enum MudaType {
     Menubar,
     Context,
@@ -53,30 +54,14 @@ impl MudaAdapter {
         proxy: EventLoopProxy<SlintEvent>,
         window_adapter_weak: Weak<WinitWindowAdapter>,
     ) -> Self {
-        let menu = muda::Menu::new();
         install_event_handler_if_necessary(proxy);
-
-        #[cfg(target_os = "windows")]
-        if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
-            let theme = match winit_window.theme() {
-                Some(winit::window::Theme::Dark) => muda::MenuTheme::Dark,
-                Some(winit::window::Theme::Light) => muda::MenuTheme::Light,
-                None => muda::MenuTheme::Auto,
-            };
-            unsafe { menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap() };
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            menu.init_for_nsapp();
-        }
 
         let tracker =
             Some(Box::pin(PropertyTracker::new_with_dirty_handler(MudaPropertyTracker {
                 window_adapter_weak,
             })));
 
-        let mut s = Self { entries: Default::default(), tracker, menu };
+        let mut s = Self { entries: Default::default(), tracker, menu: RefCell::new(None) };
         s.rebuild_menu(winit_window, Some(menubar), MudaType::Menubar);
         s
     }
@@ -87,10 +72,9 @@ impl MudaAdapter {
         position: LogicalPosition,
         proxy: EventLoopProxy<SlintEvent>,
     ) -> Option<Self> {
-        let menu = muda::Menu::new();
         install_event_handler_if_necessary(proxy);
 
-        let mut s = Self { entries: Default::default(), tracker: None, menu };
+        let mut s = Self { entries: Default::default(), tracker: None, menu: RefCell::new(None) };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
 
         match winit_window.window_handle().ok()?.as_raw() {
@@ -99,7 +83,7 @@ impl MudaAdapter {
                 let position = i_slint_core::api::WindowPosition::Logical(position);
                 let position = crate::winitwindowadapter::position_to_winit(&position);
                 unsafe {
-                    s.menu.show_context_menu_for_hwnd(handle.hwnd.get(), Some(position));
+                    s.menu.borrow().as_ref().unwrap().show_context_menu_for_hwnd(handle.hwnd.get(), Some(position));
                 }
                 Some(s)
             }
@@ -112,7 +96,7 @@ impl MudaAdapter {
                 let position = Some(winit::dpi::Position::Logical(
                     winit::dpi::LogicalPosition::new(position.x as f64, h - position.y as f64),
                 ));
-                unsafe { s.menu.show_context_menu_for_nsview(handle.ns_view.as_ptr(), position) };
+                unsafe { s.menu.borrow().as_ref().unwrap().show_context_menu_for_nsview(handle.ns_view.as_ptr(), position) };
                 Some(s)
             }
             _ => None,
@@ -130,8 +114,9 @@ impl MudaAdapter {
             win32_set_window_redraw(winit_window, false);
         }
 
+        let mut menu = self.menu.borrow_mut();
+
         // clear the menu
-        while self.menu.remove_at(0).is_some() {}
         self.entries.clear();
 
         fn generate_menu_entry(
@@ -228,9 +213,34 @@ impl MudaAdapter {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
                 vtable::VRc::borrow(&menubar).sub_menu(None, &mut menu_entries);
+
+                if menu_entries.is_empty() && muda_type == MudaType::Menubar {
+                    *menu = None;
+                }
+                else if let Some(menu) = menu.as_ref() {
+                    while menu.remove_at(0).is_some() {}
+                } else {
+                    *menu = Some(muda::Menu::new());
+
+                    #[cfg(target_os = "windows")]
+                    if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
+                        let theme = match winit_window.theme() {
+                            Some(winit::window::Theme::Dark) => muda::MenuTheme::Dark,
+                            Some(winit::window::Theme::Light) => muda::MenuTheme::Light,
+                            None => muda::MenuTheme::Auto,
+                        };
+                        unsafe { menu.as_ref().unwrap().init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap() };
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    {
+                        menu.as_ref().unwrap().init_for_nsapp();
+                    }
+                }
+
                 let window_id = u64::from(winit_window.id()).to_string();
                 for e in menu_entries {
-                    self.menu
+                    menu.as_ref().unwrap()
                         .append(&*generate_menu_entry(
                             vtable::VRc::borrow(&menubar),
                             &e,
@@ -272,7 +282,7 @@ impl MudaAdapter {
             i_slint_core::items::ColorScheme::Unknown | _ => muda::MenuTheme::Auto,
         };
         if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
-            unsafe { self.menu.set_theme_for_hwnd(handle.hwnd.get(), theme).unwrap() };
+            unsafe { self.menu.borrow().as_ref().unwrap().set_theme_for_hwnd(handle.hwnd.get(), theme).unwrap() };
         }
     }
 
@@ -281,7 +291,7 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: Vec::new(), menu: menu_bar, tracker: None })
+        Ok(Self { entries: Vec::new(), menu: RefCell::new(Some(menu_bar)), tracker: None })
     }
 
     #[cfg(target_os = "macos")]
