@@ -285,13 +285,13 @@ fn item_children_bounding_rect_inner(
         let children_absolute_transform = transform.then(&children_relative_transform);
 
         let bounds_with_children = if item.as_ref().clips_children() {
-            item_geometry
+            item_geometry.cast()
         } else {
             item_children_bounding_rect_inner(&item_rc, window_adapter, children_absolute_transform)
                 .union(&item_geometry.cast())
         };
 
-        bounding_rect = bounding_rect.union(&bounds_with_children.cast());
+        bounding_rect = bounding_rect.union(&bounds_with_children);
 
         VisitChildrenResult::CONTINUE
     };
