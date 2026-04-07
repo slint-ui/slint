@@ -51,6 +51,7 @@ pub struct ComplexText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
@@ -176,6 +177,10 @@ impl RenderString for ComplexText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines.apply_pin(self).get()
+    }
 }
 
 impl RenderText for ComplexText {
@@ -236,6 +241,7 @@ pub struct StyledTextItem {
     pub default_color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
     pub cached_rendering_data: CachedRenderingData,
@@ -393,6 +399,10 @@ impl RenderString for StyledTextItem {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Styled(self.text())
     }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines.apply_pin(self).get()
+    }
 }
 
 impl RenderText for StyledTextItem {
@@ -455,6 +465,7 @@ pub struct SimpleText {
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub max_lines: Property<i32>,
 
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -571,6 +582,10 @@ impl HasFont for SimpleText {
 impl RenderString for SimpleText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
+    }
+
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        Self::FIELD_OFFSETS.max_lines.apply_pin(self).get()
     }
 }
 
