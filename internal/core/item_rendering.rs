@@ -274,14 +274,13 @@ fn item_children_bounding_rect_inner(
         |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             let item_rc = ItemRc::new(component.clone(), index);
             let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
-            let bounding = item_rc.bounding_rect(&geom, window_adapter);
-            let bounding = transform.outer_transformed_rect(&bounding.cast());
+            let item_geometry = transform.outer_transformed_rect(&geom.cast());
             let children_transform = item_rc
                 .children_transform()
                 .unwrap_or_default()
-                .then_translate(bounding.origin.to_vector());
+                .then_translate(item_geometry.origin.to_vector());
 
-            bounding_rect = bounding_rect.union(&bounding.cast());
+            bounding_rect = bounding_rect.union(&item_geometry);
 
             if item.as_ref().clips_children() {
                 let clip = transform.outer_transformed_rect(&geom.cast()).cast();
