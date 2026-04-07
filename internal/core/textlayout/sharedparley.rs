@@ -497,6 +497,9 @@ fn layout(
     let full_height = paragraphs
         .last()
         .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
+    // Parley's LineMetrics include half the leading above the first line. We remove that gap so the
+    // legacy preferred height/positioning is based on the typographic height rather than the taller
+    // line box.
     let first_line_top_trim = paragraphs
         .first()
         .and_then(|first_para| first_para.layout.lines().next())
