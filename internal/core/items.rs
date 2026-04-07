@@ -1782,20 +1782,47 @@ pub struct SystemTray {
     pub cached_rendering_data: CachedRenderingData,
     #[cfg(feature = "system-tray")]
     inner: std::cell::OnceCell<crate::system_tray::SystemTray>,
+    change_tracker: crate::properties::ChangeTracker,
 }
 
 impl Item for SystemTray {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let system_tray = match crate::system_tray::SystemTray::new(crate::system_tray::Params {
-            icon: &self.icon(),
-            tooltip: "blah blah",
-        }) {
-            Ok(system_tray) => system_tray,
-            Err(err) => panic!("{}", err)
-        };
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        self.change_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(tray_rc) = self_weak.upgrade() else {
+                    return false;
+                };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                    return false;
+                };
+                let tray = tray.as_pin_ref();
+                return true;
+            },
+            |self_weak, has_icon| {
+                let Some(tray_rc) = self_weak.upgrade() else {
+                    return;
+                };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                    return;
+                };
+                if !*has_icon {
+                    return;
+                }
+                let tray = tray.as_pin_ref();
+                let icon = tray.icon();
 
-        let _ = self.inner.set(
-            system_tray
+                let system_tray =
+                    match crate::system_tray::SystemTray::new(crate::system_tray::Params {
+                        icon: &icon,
+                        tooltip: "blah blah",
+                    }) {
+                        Ok(system_tray) => system_tray,
+                        Err(err) => panic!("{}", err),
+                    };
+
+                let _ = tray.inner.set(system_tray);
+            },
         );
     }
 
