@@ -497,18 +497,18 @@ fn layout(
     let full_height = paragraphs
         .last()
         .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
-    let first_line_top_trim = first_line_top_trim(&paragraphs);
+    let first_line_top_trim = paragraphs
+        .first()
+        .and_then(|first_para| first_para.layout.lines().next())
+        .map_or(PhysicalLength::zero(), |first_line| {
+            PhysicalLength::new((first_line.metrics().leading / 2.0).max(0.0))
+        });
     let height = (full_height - first_line_top_trim).max(PhysicalLength::zero());
-
     let y_offset = match (max_physical_height, options.vertical_align) {
-        (Some(max_height), TextVerticalAlignment::Center) => {
-            (max_height - height) / 2.0 - first_line_top_trim
-        }
-        (Some(max_height), TextVerticalAlignment::Bottom) => {
-            max_height - height - first_line_top_trim
-        }
-        (None, _) | (Some(_), TextVerticalAlignment::Top) => -first_line_top_trim,
-    };
+        (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
+        (Some(max_height), TextVerticalAlignment::Bottom) => max_height - height,
+        (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::zero(),
+    } - first_line_top_trim;
 
     Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
 }
@@ -1531,59 +1531,4 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let cursor_rect = layout
         .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
     cursor_rect / scale_factor
-}
-
-fn first_line_top_trim(paragraphs: &[TextParagraph]) -> PhysicalLength {
-    let mut lines = paragraphs.iter().flat_map(|paragraph| paragraph.layout.lines());
-
-    let Some(line) = lines.next() else {
-        return PhysicalLength::zero();
-    };
-
-    PhysicalLength::new(first_line_top_trim_for_line_metrics(line.metrics()))
-}
-
-fn first_line_top_trim_for_line_metrics(metrics: &parley::layout::LineMetrics) -> f32 {
-    (metrics.leading / 2.0).max(0.0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::first_line_top_trim_for_line_metrics;
-
-    #[test]
-    fn first_line_top_trim_uses_half_the_leading() {
-        let metrics = parley::layout::LineMetrics {
-            ascent: 12.0,
-            descent: 4.0,
-            leading: 1.0,
-            line_height: 17.0,
-            baseline: 12.0,
-            offset: 0.0,
-            advance: 0.0,
-            trailing_whitespace: 0.0,
-            min_coord: 0.0,
-            max_coord: 17.0,
-        };
-
-        assert_eq!(first_line_top_trim_for_line_metrics(&metrics), 0.5);
-    }
-
-    #[test]
-    fn first_line_top_trim_is_zero_without_leading() {
-        let metrics = parley::layout::LineMetrics {
-            ascent: 12.0,
-            descent: 4.0,
-            leading: 0.0,
-            line_height: 16.0,
-            baseline: 12.0,
-            offset: 0.0,
-            advance: 0.0,
-            trailing_whitespace: 0.0,
-            min_coord: 0.0,
-            max_coord: 16.0,
-        };
-
-        assert_eq!(first_line_top_trim_for_line_metrics(&metrics), 0.0);
-    }
 }
