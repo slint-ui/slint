@@ -96,6 +96,11 @@ The horizontal alignment of the text.
 The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
 </SlintProperty>
 
+### link-color
+<SlintProperty propName="link-color" typeName="color" defaultValue="#00f">
+The color used for rendering links in the text.
+</SlintProperty>
+
 ### overflow
 <SlintProperty propName="overflow" typeName="enum" enumName="TextOverflow">
 How the text should behave when it exceeds the available space.
@@ -135,8 +140,3 @@ The style of the text outline.
 
 ### link-clicked(link: string)
 A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
-
-### link-color
-<SlintProperty propName="link-color" typeName="color" defaultValue="#00f">
-The color used for rendering links in the text.
-</SlintProperty>
