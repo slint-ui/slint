@@ -55,7 +55,7 @@ assert_eq(instance.get_test_viewport_y(), -150.);
 var instance = new slint.TestCase();
 assert.equal(instance.test_viewport_y, 0.);
 instance.test_viewport_y = -150.0;
-slintlib.mock_elapsed_time(100);
+slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.test_viewport_y, -150.);
 ```
 */
