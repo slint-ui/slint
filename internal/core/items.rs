@@ -1786,7 +1786,9 @@ pub struct SystemTray {
 }
 
 impl Item for SystemTray {
+    #[cfg_attr(feature = "system-tray", allow(unused))]
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        #[cfg(feature = "system-tray")]
         self.change_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
