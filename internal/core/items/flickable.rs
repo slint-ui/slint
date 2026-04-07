@@ -369,6 +369,12 @@ pub(super) const SHORT_SCROLL_FILTER_DURATION: Duration =
 /// How far the user has to move the mouse to stop filtering scroll event from children after receiving a scroll event
 pub(super) const SCROLL_FILTER_DISTANCE_SQUARED: LogicalLength = LogicalLength::new(4 as _);
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum CaptureEvents {
+    MouseOrTouchScreen,
+    MouseWheel,
+}
+
 #[derive(Default, Debug)]
 struct FlickableDataInner {
     /// The position in which the press was made
@@ -377,7 +383,7 @@ struct FlickableDataInner {
     pressed_viewport_pos: LogicalPoint,
     pressed_viewport_size: LogicalSize,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
-    capture_events: bool,
+    capture_events: Option<CaptureEvents>,
     /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
     /// We want to filter those to prevent the case where the user scrolls with the mouse wheel,
     /// but the mouse now moves over a child item, and that item captures the scroll event.
@@ -388,8 +394,6 @@ struct FlickableDataInner {
     /// Ringbuffer to store the last move events. From those data the velocity can be
     /// calculated required for the animation after the release event
     position_time_rb: PositionTimeRingBuffer<5>,
-
-    scrolling_ongoing: bool,
 }
 
 impl FlickableDataInner {
@@ -443,14 +447,13 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
-                self.capture_events = true;
-                self.scrolling_ongoing = true;
+                self.position_time_rb = PositionTimeRingBuffer::default();
+                self.capture_events = Some(CaptureEvents::MouseWheel);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
-                if !self.scrolling_ongoing {
-                    // If no scrolling is ongoing, it means the start was captured by a different
-                    // element and so we shall ignore it here
+                if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+                    // Release the capture immediately, this event is not meant for this Flickable.
                     self.last_scroll_event = None;
                     return InputEventResult::EventIgnored;
                 }
@@ -461,9 +464,8 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Ended => {
-                self.scrolling_ongoing = false;
                 self.animate(flick, flick_rc);
-                self.capture_events = false;
+                self.capture_events = None;
             }
         }
 
@@ -487,7 +489,7 @@ impl FlickableDataInner {
             let (time, dist) = self.position_time_rb.diff();
             let millis = time.as_millis();
 
-            if self.capture_events
+            if self.capture_events.is_some()
                 && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 0
                 && crate::animations::current_tick().duration_since(last_time) < MAX_DURATION
@@ -577,21 +579,21 @@ impl FlickableData {
                 let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                 y.set(y.get()); // Stop animation by removing the binding
 
-                if inner.capture_events {
+                if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
                 } else {
                     InputEventFilterResult::DelayForwarding(FORWARD_DELAY.as_millis() as _)
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                if inner.capture_events {
+                if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
                 } else {
                     InputEventFilterResult::ForwardEvent
                 }
             }
             MouseEvent::Moved { position, .. } => {
-                let do_intercept = inner.capture_events
+                let do_intercept = inner.capture_events.is_some()
                     || inner.pressed_time.is_some_and(|pressed_time| {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
                             return false;
@@ -636,7 +638,7 @@ impl FlickableData {
                     }
                     TouchPhase::Started => InputEventFilterResult::Intercept,
                     TouchPhase::Moved => {
-                        if inner.scrolling_ongoing {
+                        if inner.capture_events.is_some() {
                             InputEventFilterResult::Intercept
                         } else {
                             // If we recently handled a wheel event, intercept it to prevent children from grabbing
@@ -654,7 +656,7 @@ impl FlickableData {
                         }
                     }
                     TouchPhase::Ended => {
-                        if inner.scrolling_ongoing {
+                        if inner.capture_events.is_some() {
                             InputEventFilterResult::Intercept
                         } else {
                             InputEventFilterResult::ForwardEvent
@@ -685,22 +687,31 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { .. } => {
-                inner.capture_events = true;
+                inner.capture_events = Some(CaptureEvents::MouseOrTouchScreen);
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
-                let was_capturing = inner.capture_events;
-                if !inner.scrolling_ongoing {
-                    Self::mouse_released(&mut inner, flick, event, flick_rc);
                 }
-                if was_capturing {
-                    InputEventResult::EventAccepted
+                if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen) {
+                    let was_capturing = true;
+                    inner.animate(flick, flick_rc);
+                    inner.capture_events = None;
+                    inner.pressed_time = None;
+                    if was_capturing {
+                        InputEventResult::EventAccepted
+                    } else {
+                        InputEventResult::EventIgnored
+                    }
+                } else if inner.capture_events.is_none() {
+                    inner.pressed_time = None;
+                    InputEventResult::EventIgnored
                 } else {
                     InputEventResult::EventIgnored
                 }
             }
             MouseEvent::Moved { position, .. } => {
                 if inner.pressed_time.is_some() {
+                    inner.position_time_rb.push(crate::animations::current_tick(), *position);
                     let current_viewport_size = LogicalSize::from_lengths(
                         (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get(),
                         (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get(),
@@ -721,8 +732,6 @@ impl FlickableData {
                         inner.pressed_pos = *position;
                     };
 
-                    inner.position_time_rb.push(crate::animations::current_tick(), *position);
-
                     let new_pos = inner.pressed_viewport_pos + (*position - inner.pressed_pos);
 
                     let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
@@ -740,7 +749,9 @@ impl FlickableData {
                                 && abs(y.get() - new_pos.y_length()) > DISTANCE_THRESHOLD)
                     };
 
-                    if inner.capture_events || should_capture() {
+                    if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen)
+                        || should_capture()
+                    {
                         let new_pos = ensure_in_bound(flick, new_pos, flick_rc);
 
                         let old_pos = (x.get(), y.get());
@@ -750,7 +761,7 @@ impl FlickableData {
                             (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
                         }
 
-                        inner.capture_events = true;
+                        inner.capture_events = Some(CaptureEvents::MouseOrTouchScreen);
                         InputEventResult::GrabMouse
                     } else if abs(x.get() - new_pos.x_length()) > DISTANCE_THRESHOLD
                         || abs(y.get() - new_pos.y_length()) > DISTANCE_THRESHOLD
@@ -761,15 +772,11 @@ impl FlickableData {
                         InputEventResult::EventAccepted
                     }
                 } else {
-                    if !inner.scrolling_ongoing {
-                        inner.capture_events = false;
-                    }
                     InputEventResult::EventIgnored
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, position, phase } => {
                 let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-
                 inner.process_wheel_event(flick, delta, *position, *phase, flick_rc)
             }
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
@@ -777,17 +784,6 @@ impl FlickableData {
             }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
-    }
-
-    fn mouse_released(
-        inner: &mut FlickableDataInner,
-        flick: Pin<&Flickable>,
-        _event: &MouseEvent,
-        flick_rc: &ItemRc,
-    ) {
-        inner.animate(flick, flick_rc);
-        inner.capture_events = false; // FIXME: should only be set to false once the flick animation is over
-        inner.pressed_time = None;
     }
 }
 
