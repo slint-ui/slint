@@ -3,7 +3,7 @@
   "version": "1.16.0",
   "description": "",
   "devDependencies": {
-    "knip": "catalog:"
+    "knip": "6.3.0"
   },
   "scripts": {
     "knip": "knip",
