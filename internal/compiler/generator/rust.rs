@@ -981,14 +981,14 @@ fn generate_sub_component(
                 let lv_w = access_local_member(&listview.listview_width, &ctx);
 
                 quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 }
             } else {
                 quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
                         || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
                     );
                 }
@@ -1093,7 +1093,7 @@ fn generate_sub_component(
             quote!(tree_index_of_first_child + #local_index_of_first_child - 1)
         };
 
-        let sub_compo_field = access_component_field_offset(&format_ident!("Self"), &field_name);
+        let sub_compo_field = access_component_field_offset(&inner_component_id, &field_name);
 
         init.push(quote!(#sub_component_id::init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
@@ -2031,7 +2031,7 @@ fn generate_repeated_component(
                             &unit.sub_components[inner_rep_sc_idx],
                         );
                         quote! {
-                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id.apply_pin(_self.as_ref()).ensure_updated(
+                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self.as_ref()).ensure_updated(
                                 || #inner_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
                             );
                             let inner_len = _self.as_ref().#inner_rep_id.len();
@@ -2324,12 +2324,12 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
         match index {
             llr::LocalMemberIndex::Property(property_idx) => {
                 let property_name = ident(&g.properties[*property_idx].name);
-                let property_field = quote!({ *&#global_name::FIELD_OFFSETS.#property_name });
+                let property_field = quote!({ *&#global_name::FIELD_OFFSETS.#property_name() });
                 MemberAccess::Direct(quote!(#property_field.apply_pin(#_self)))
             }
             llr::LocalMemberIndex::Callback(callback_idx) => {
                 let callback_name = ident(&g.callbacks[*callback_idx].name);
-                let callback_field = quote!({ *&#global_name::FIELD_OFFSETS.#callback_name });
+                let callback_field = quote!({ *&#global_name::FIELD_OFFSETS.#callback_name() });
                 MemberAccess::Direct(quote!(#callback_field.apply_pin(#_self)))
             }
             llr::LocalMemberIndex::Function(function_idx) => {
@@ -2398,7 +2398,9 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     for i in &local_reference.sub_component_path {
                         let component_id = inner_component_id(sub_component);
                         let sub_component_name = ident(&sub_component.sub_components[*i].name);
-                        compo_path = quote!( #component_id::FIELD_OFFSETS.#sub_component_name.apply_pin(#compo_path));
+                        let field =
+                            access_component_field_offset(&component_id, &sub_component_name);
+                        compo_path = quote!(#field.apply_pin(#compo_path));
                         sub_component = &ctx.compilation_unit.sub_components
                             [sub_component.sub_components[*i].ty];
                     }
@@ -2442,7 +2444,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     } else {
                         let property_name = ident(prop_name);
                         let item_ty = ident(&sub_component.items[*item_index].ty.class_name);
-                        let prop_offset = quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name));
+                        let prop_offset = quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name()));
                         parent_path.map_or_else(
                             || MemberAccess::Direct(quote!(#prop_offset.apply_pin(_self))),
                             |parent_path| {
@@ -2548,7 +2550,8 @@ fn follow_sub_component_path<'a>(
     for i in sub_component_path {
         let component_id = inner_component_id(sub_component);
         let sub_component_name = ident(&sub_component.sub_components[*i].name);
-        compo_path = quote!(#compo_path {#component_id::FIELD_OFFSETS.#sub_component_name} +);
+        let field = access_component_field_offset(&component_id, &sub_component_name);
+        compo_path = quote!(#compo_path #field +);
         sub_component = &compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
     (compo_path, sub_component)
@@ -3923,7 +3926,7 @@ fn generate_common_repeater_code(
     }
 
     let code = quote!(
-        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
             || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
         );
         #repeater_code
@@ -3969,7 +3972,7 @@ fn build_inner_ensure_and_len(
                     inner_component_id(&unit.sub_components[inner_rep_sc_idx]);
                 let inner_rep_id = format_ident!("repeater{}", usize::from(*repeater_index));
                 Some(quote! {
-                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id.apply_pin(pin).ensure_updated(
+                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(pin).ensure_updated(
                         || #inner_inner_component_id::new(pin.self_weak.get().unwrap().clone()).unwrap().into()
                     );
                     total += pin.#inner_rep_id.len();
@@ -4343,12 +4346,11 @@ fn generate_with_flexbox_layout_item_info(
     } }
 }
 
-// In Rust debug builds, accessing the member of the FIELD_OFFSETS ends up copying the
-// entire FIELD_OFFSETS into a new stack allocation, which with large property
-// binding initialization functions isn't re-used and with large generated inner
-// components ends up large amounts of stack space (see issue #133)
+/// Access a field offset via `FIELD_OFFSETS.field()`. The `FIELD_OFFSETS`
+/// constant is a ZST with const fn methods, so this does not create a MIR
+/// local of any aggregate type.
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
-    quote!({ *&#component_id::FIELD_OFFSETS.#field })
+    quote!(#component_id::FIELD_OFFSETS.#field())
 }
 
 fn embedded_file_tokens(path: &str) -> TokenStream {

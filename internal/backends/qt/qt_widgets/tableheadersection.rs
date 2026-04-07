@@ -22,7 +22,8 @@ pub struct NativeTableHeaderSection {
 
 impl Item for NativeTableHeaderSection {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
             return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
         }});
@@ -186,7 +187,7 @@ impl Item for NativeTableHeaderSection {
 
 impl ItemConsts for NativeTableHeaderSection {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -173,7 +173,7 @@ impl ItemConsts for ImageItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ImageItem,
         CachedRenderingData,
-    > = ImageItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ImageItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[repr(C)]
@@ -340,5 +340,5 @@ impl ItemConsts for ClippedImage {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ClippedImage,
         CachedRenderingData,
-    > = ClippedImage::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ClippedImage::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

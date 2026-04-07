@@ -270,5 +270,5 @@ impl ItemConsts for ComponentContainer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ComponentContainer,
         CachedRenderingData,
-    > = ComponentContainer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ComponentContainer::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

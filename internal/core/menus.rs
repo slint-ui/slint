@@ -285,7 +285,7 @@ impl crate::items::ItemConsts for MenuItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         MenuItem,
         CachedRenderingData,
-    > = MenuItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = MenuItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[cfg(feature = "ffi")]
