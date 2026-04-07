@@ -210,6 +210,7 @@ pub enum InputEventFilterResult {
     /// This is what happens when the flickable wants to delay the event.
     /// This should only be used for Press event, and the event will be sent after the delay, or
     /// if a release event is seen before that delay
+    /// If any other component is handling the event it will be not handled by the component returned this result
     //(Can't use core::time::Duration because it is not repr(c))
     DelayForwarding(u64),
 }
