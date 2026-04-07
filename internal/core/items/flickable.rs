@@ -691,7 +691,6 @@ impl FlickableData {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
-                }
                 if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen) {
                     let was_capturing = true;
                     inner.animate(flick, flick_rc);
