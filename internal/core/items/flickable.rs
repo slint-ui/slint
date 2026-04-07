@@ -47,7 +47,7 @@ const DECELERATION: f32 = 2000.;
 /// The maximum duration between a move and a release event to start an animation
 /// If the duration is larger than this value, no animation will be executed because
 /// it is not desired
-const MAX_DURATION: Duration = Duration::from_millis(10);
+const MAX_DURATION: Duration = Duration::from_millis(100);
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
