@@ -522,7 +522,7 @@ impl FlickableDataInner {
                 }
 
                 if dist.x != 0 as Coord || dist.y != 0 as Coord {
-                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+                    (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                 }
             }
         }
