@@ -271,31 +271,29 @@ fn item_children_bounding_rect_inner(
             let item_rc = ItemRc::new(component.clone(), index);
             let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
             let item_geometry = transform.outer_transformed_rect(&geom.cast());
-            let children_transform = item_rc
+            let children_relative_transform = item_rc
                 .children_transform()
                 .unwrap_or_default()
                 .then_translate(item_geometry.origin.to_vector());
 
-            bounding_rect = bounding_rect.union(&item_geometry.cast());
+            let children_absolute_transform = transform.then(&children_relative_transform);
+            let children_bounds =
+                item_children_bounding_rect_inner(&item_rc, children_absolute_transform);
 
-            if item.as_ref().clips_children() {
-                let clip = transform.outer_transformed_rect(&geom.cast()).cast();
-                if !bounding_rect.contains_rect(&clip) {
-                    bounding_rect = bounding_rect.union(
-                        &item_children_bounding_rect_inner(
-                            &item_rc,
-                            transform.then(&children_transform),
-                        )
-                        .intersection(&clip)
-                        .unwrap_or_default(),
-                    );
-                }
+            let children_bounds = if item.as_ref().clips_children() {
+                children_bounds
+                    .intersection(&item_geometry.cast())
+                    // `union` ignores any rectangles of zero size, so using `unwrap_or_default`
+                    // lets us make use of that behaviour to skip any child bounds that do not
+                    // intersect the parent geometry.
+                    .unwrap_or_default()
             } else {
-                bounding_rect = bounding_rect.union(&item_children_bounding_rect_inner(
-                    &item_rc,
-                    transform.then(&children_transform),
-                ));
-            }
+                children_bounds
+            };
+
+            bounding_rect =
+                bounding_rect.union(&item_geometry.cast()).union(&children_bounds.cast());
+
             VisitChildrenResult::CONTINUE
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
