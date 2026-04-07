@@ -30,7 +30,7 @@ critical-section = "1.2.0"
 cortex-m = { version = "0.7.7", optional = true }
 heapless = "0.9.2"
 riscv = { version = "0.16.0", optional = true }
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "unsafe-single-threaded"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["backend-qt", "compat-1-2", "renderer-software", "unsafe-single-threaded"] }
 
 [build-dependencies]
 bindgen = "0.72.1"
