@@ -256,12 +256,16 @@ pub fn render_component_items(
 
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
-pub fn item_children_bounding_rect(item_rc: &ItemRc) -> LogicalRect {
-    item_children_bounding_rect_inner(item_rc, Default::default())
+pub fn item_children_bounding_rect(
+    item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
+) -> LogicalRect {
+    item_children_bounding_rect_inner(item_rc, window_adapter, Default::default())
 }
 
 fn item_children_bounding_rect_inner(
     item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
     transform: crate::lengths::ItemTransform,
 ) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
@@ -277,8 +281,11 @@ fn item_children_bounding_rect_inner(
                 .then_translate(item_geometry.origin.to_vector());
 
             let children_absolute_transform = transform.then(&children_relative_transform);
-            let children_bounds =
-                item_children_bounding_rect_inner(&item_rc, children_absolute_transform);
+            let children_bounds = item_children_bounding_rect_inner(
+                &item_rc,
+                window_adapter,
+                children_absolute_transform,
+            );
 
             let children_bounds = if item.as_ref().clips_children() {
                 children_bounds
@@ -303,7 +310,7 @@ fn item_children_bounding_rect_inner(
         actual_visitor,
     );
 
-    bounding_rect
+    item_rc.bounding_rect(&bounding_rect, window_adapter)
 }
 
 /// Trait for an item that represent a Rectangle to the Renderer
