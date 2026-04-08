@@ -618,38 +618,6 @@ pub struct FlexboxLayout {
 }
 
 impl FlexboxLayout {
-    /// Returns true if the given orientation is the main axis, based on compile-time
-    /// direction analysis. Returns false if direction is unknown at compile time
-    /// (conservatively treating it as cross-axis).
-    pub fn is_main_axis(&self, orientation: Orientation) -> bool {
-        use crate::expression_tree::Expression;
-        let direction = match self.direction.as_ref() {
-            None => Some(FlexboxLayoutDirection::Row), // default
-            Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
-                match &binding.borrow().expression {
-                    Expression::EnumerationValue(ev) => match ev.value {
-                        0 => Some(FlexboxLayoutDirection::Row),
-                        1 => Some(FlexboxLayoutDirection::RowReverse),
-                        2 => Some(FlexboxLayoutDirection::Column),
-                        3 => Some(FlexboxLayoutDirection::ColumnReverse),
-                        _ => None,
-                    },
-                    _ => None,
-                }
-            }),
-        };
-        matches!(
-            (direction, orientation),
-            (
-                Some(FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse),
-                Orientation::Horizontal
-            ) | (
-                Some(FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse),
-                Orientation::Vertical
-            )
-        )
-    }
-
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.item.constraints.visit_named_references(visitor);
