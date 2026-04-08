@@ -27,25 +27,47 @@ use core::time::Duration;
 /// TODO: merge with platform::WindowEvent
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
-#[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
-    /// `position` is the position of the mouse when the event happens.
-    /// `button` describes the button that is pressed when the event happens.
-    /// `click_count` represents the current number of clicks.
-    Pressed { position: LogicalPoint, button: PointerEventButton, click_count: u8, is_touch: bool },
+    Pressed {
+        /// The position of the pointer when the event happened.
+        position: LogicalPoint,
+        /// The button that was pressed.
+        button: PointerEventButton,
+        /// The current click count reported for this press.
+        click_count: u8,
+        /// Whether the event originated from touch input.
+        is_touch: bool,
+    },
     /// The mouse or finger was released
-    /// `position` is the position of the mouse when the event happens.
-    /// `button` describes the button that is pressed when the event happens.
-    /// `click_count` represents the current number of clicks.
-    Released { position: LogicalPoint, button: PointerEventButton, click_count: u8, is_touch: bool },
+    Released {
+        /// The position of the pointer when the event happened.
+        position: LogicalPoint,
+        /// The button that was released.
+        button: PointerEventButton,
+        /// The current click count reported for this release.
+        click_count: u8,
+        /// Whether the event originated from touch input.
+        is_touch: bool,
+    },
     /// The position of the pointer has changed
-    Moved { position: LogicalPoint, is_touch: bool },
+    Moved {
+        /// The new position of the pointer.
+        position: LogicalPoint,
+        /// Whether the event originated from touch input.
+        is_touch: bool,
+    },
     /// Wheel was operated.
-    /// `pos` is the position of the mouse when the event happens.
-    /// `delta_x` is the amount of pixels to scroll in horizontal direction,
-    /// `delta_y` is the amount of pixels to scroll in vertical direction.
-    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
+    Wheel {
+        /// The position of the pointer when the event happened.
+        position: LogicalPoint,
+        /// The horizontal scroll delta in logical pixels.
+        delta_x: Coord,
+        /// The vertical scroll delta in logical pixels.
+        delta_y: Coord,
+        /// The gesture phase reported for the wheel event.
+        phase: TouchPhase,
+    },
     /// The mouse is being dragged over this item.
     /// [`InputEventResult::EventIgnored`] means that the item does not handle the drag operation
     /// and [`InputEventResult::EventAccepted`] means that the item can accept it.
@@ -53,13 +75,23 @@ pub enum MouseEvent {
     /// The mouse is released while dragging over this item.
     Drop(DropEvent),
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
-    /// `delta` is the incremental scale change; ScaleRotateGestureHandler accumulates it.
-    PinchGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    PinchGesture {
+        /// The focal position of the gesture.
+        position: LogicalPoint,
+        /// The incremental scale delta for this gesture update.
+        delta: f32,
+        /// The gesture phase reported by the platform.
+        phase: TouchPhase,
+    },
     /// A platform-recognized rotation gesture (macOS/iOS trackpad, Qt).
-    /// `delta` is the incremental rotation in degrees using the Slint convention:
-    /// positive = clockwise. Backends must convert from their platform convention
-    /// before constructing this event.
-    RotationGesture { position: LogicalPoint, delta: f32, phase: TouchPhase },
+    RotationGesture {
+        /// The focal position of the gesture.
+        position: LogicalPoint,
+        /// The incremental rotation in degrees, where positive means clockwise.
+        delta: f32,
+        /// The gesture phase reported by the platform.
+        phase: TouchPhase,
+    },
     /// The mouse exited the item or component
     Exit,
 }
@@ -151,7 +183,9 @@ impl MouseEvent {
     }
 }
 
-/// Phase of a touch or gesture event.
+/// Phase of a touch, gesture event or wheel event.
+/// A touchpad is recognized as wheel event and therefore
+/// we need to find out when the touch event starts and ends
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TouchPhase {
@@ -161,7 +195,7 @@ pub enum TouchPhase {
     Moved,
     /// The gesture completed normally.
     Ended,
-    /// The gesture was cancelled (e.g., interrupted by the system).
+    /// The gesture was cancelled (e.g., interrupted by the system) or the mouse wheel was used
     Cancelled,
 }
 
@@ -208,6 +242,7 @@ pub enum InputEventFilterResult {
     /// This is what happens when the flickable wants to delay the event.
     /// This should only be used for Press event, and the event will be sent after the delay, or
     /// if a release event is seen before that delay
+    /// If any other component is handling the event it will be not handled by the component returned this result
     //(Can't use core::time::Duration because it is not repr(c))
     DelayForwarding(u64),
 }

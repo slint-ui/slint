@@ -113,6 +113,7 @@ pub struct RepeaterLayoutState {
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The viewport_y value from the previous layout pass.
+    /// It is used to detect if we are scrolling up or down
     pub previous_viewport_y: Coord,
     /// The y position of the item at `offset`.
     pub anchor_y: Coord,
@@ -347,12 +348,15 @@ fn update_visible_instances(
         state.anchor_y = state.cached_item_height * state.offset as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
-        let new_viewport_y = -state.anchor_y + new_offset_y;
+        // If an animation is ongoing we should not interrupt it
         if !viewport_y.has_binding() {
+            let new_viewport_y = -state.anchor_y + new_offset_y;
             if new_viewport_y != viewport_y.get().get() {
                 viewport_y.set(LogicalLength::new(new_viewport_y));
             }
             state.previous_viewport_y = new_viewport_y;
+        } else {
+            state.previous_viewport_y = viewport_y.get().0;
         }
         break;
     }
