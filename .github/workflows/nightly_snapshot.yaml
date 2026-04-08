@@ -706,6 +706,7 @@ jobs:
                     - os: ubuntu-22.04
                       name: "Ubuntu 22.04 1.92"
                       rust_version: "1.92"
+                      # plotter is excluded because with --all-features, its dependency cause build error because of fontconfig's dlopen feature
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly"
@@ -714,7 +715,8 @@ jobs:
                     - os: macos-14
                       name: "MacOS 14 nightly"
                       rust_version: "nightly"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      # plotter is excluded because its dependency doesn't build with Nightly rust: https://github.com/servo/pathfinder/issues/584
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
