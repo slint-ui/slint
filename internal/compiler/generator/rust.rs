@@ -2636,6 +2636,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),
         Expression::BoolLiteral(b) => quote!(#b),
+        Expression::NoneValue => quote!(None),
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {

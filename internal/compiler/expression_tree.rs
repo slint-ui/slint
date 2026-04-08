@@ -644,6 +644,8 @@ pub enum Expression {
     NumberLiteral(f64, Unit),
     /// Bool
     BoolLiteral(bool),
+    /// The `none` literal, representing an absent optional value
+    NoneValue,
 
     /// Reference to the property
     PropertyReference(NamedReference),
@@ -871,6 +873,8 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
+            // NoneValue has type Optional(Invalid) - the inner type is inferred from context
+            Expression::NoneValue => Type::Optional(Box::new(Type::Invalid)),
             Expression::PropertyReference(nr) => nr.ty(),
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
@@ -996,6 +1000,7 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
+            Expression::NoneValue => {}
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::ElementReference(_) => {}
@@ -1113,6 +1118,7 @@ impl Expression {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
+            Expression::NoneValue => {}
             Expression::PropertyReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::ElementReference(_) => {}
@@ -1245,6 +1251,7 @@ impl Expression {
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
+            Expression::NoneValue => true,
             Expression::PropertyReference(nr) => nr.is_constant(),
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
@@ -1563,6 +1570,7 @@ impl Expression {
             Type::Keys => Expression::Keys(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::Invalid,
+            Type::Optional(_) => Expression::NoneValue,
         }
     }
 
@@ -1848,6 +1856,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::StringLiteral(s) => write!(f, "{s:?}"),
         Expression::NumberLiteral(vl, unit) => write!(f, "{vl}{unit}"),
         Expression::BoolLiteral(b) => write!(f, "{b:?}"),
+        Expression::NoneValue => write!(f, "none"),
         Expression::PropertyReference(a) => write!(f, "{a:?}"),
         Expression::ElementReference(a) => write!(f, "{a:?}"),
         Expression::RepeaterIndexReference { element } => {

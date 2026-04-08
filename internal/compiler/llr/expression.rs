@@ -29,6 +29,8 @@ pub enum Expression {
     NumberLiteral(f64),
     /// Bool
     BoolLiteral(bool),
+    /// The `none` literal, representing an absent optional value
+    NoneValue,
 
     // Keys
     KeysLiteral(Keys),
@@ -321,6 +323,7 @@ impl Expression {
             Type::Keys => Expression::KeysLiteral(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => return None,
+            Type::Optional(_) => Expression::NoneValue,
         })
     }
 
@@ -329,6 +332,7 @@ impl Expression {
             Self::StringLiteral(_) => Type::String,
             Self::NumberLiteral(_) => Type::Float32,
             Self::BoolLiteral(_) => Type::Bool,
+            Self::NoneValue => Type::Optional(Box::new(Type::Invalid)),
             Self::PropertyReference(prop) => ctx.property_ty(prop).clone(),
             Self::FunctionParameterReference { index } => ctx.arg_type(*index).clone(),
             Self::StoreLocalVariable { .. } => Type::Void,
@@ -394,6 +398,7 @@ macro_rules! visit_impl {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_) => {}
             Expression::BoolLiteral(_) => {}
+            Expression::NoneValue => {}
             Expression::PropertyReference(_) => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::StoreLocalVariable { value, .. } => $visitor(value),

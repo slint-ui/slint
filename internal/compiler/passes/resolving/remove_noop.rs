@@ -47,6 +47,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::NumberLiteral(_, _) => true,
         Expression::StringLiteral(_) => true,
         Expression::BoolLiteral(_) => true,
+        Expression::NoneValue => true,
         Expression::Keys(_) => true,
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),
         Expression::FunctionParameterReference { .. } => true,

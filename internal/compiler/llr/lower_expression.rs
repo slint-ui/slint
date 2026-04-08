@@ -80,6 +80,7 @@ pub fn lower_expression(
             llr_Expression::NumberLiteral(unit.normalize(*n))
         }
         tree_Expression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
+        tree_Expression::NoneValue => llr_Expression::NoneValue,
         tree_Expression::PropertyReference(nr) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }

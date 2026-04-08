@@ -69,6 +69,9 @@ pub enum Type {
     ArrayOfU16,
 
     StyledText,
+
+    /// An optional type wrapping another type
+    Optional(Box<Type>),
 }
 
 impl core::cmp::PartialEq for Type {
@@ -112,6 +115,7 @@ impl core::cmp::PartialEq for Type {
             Type::LayoutCache => matches!(other, Type::LayoutCache),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
+            Type::Optional(a) => matches!(other, Type::Optional(b) if a == b),
         }
     }
 }
@@ -189,6 +193,7 @@ impl Display for Type {
             Type::LayoutCache => write!(f, "layout cache"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
+            Type::Optional(inner) => write!(f, "{inner}?"),
         }
     }
 }
@@ -202,8 +207,7 @@ impl From<Rc<Struct>> for Type {
 impl Type {
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
-        matches!(
-            self,
+        match self {
             Self::Float32
                 | Self::Int32
                 | Self::String
@@ -225,8 +229,10 @@ impl Type {
                 | Self::Array(_)
                 | Self::Brush
                 | Self::InferredProperty
-                | Self::StyledText
-        )
+                | Self::StyledText => true,
+            Self::Optional(inner) => inner.is_property_type(),
+            _ => false,
+        }
     }
 
     pub fn ok_for_public_api(&self) -> bool {
@@ -263,6 +269,10 @@ impl Type {
         };
         match (self, other) {
             (a, b) if a == b => true,
+            // Implicit wrap: T -> T?
+            (a, Type::Optional(b)) if !matches!(a, Type::Optional(_)) => a.can_convert(b),
+            // Optional to optional: T? -> U? if T can convert to U
+            (Type::Optional(a), Type::Optional(b)) => a.can_convert(b),
             (_, Type::Invalid)
             | (_, Type::Void)
             | (Type::Float32, Type::Int32)
@@ -330,6 +340,7 @@ impl Type {
             Type::LayoutCache => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
+            Type::Optional(inner) => inner.default_unit(),
         }
     }
 
