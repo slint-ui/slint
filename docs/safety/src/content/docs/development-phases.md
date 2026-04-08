@@ -39,7 +39,9 @@ For external contributions, the reviewer must merge the PR.
 
 # Phase 4: Testing
 
-We have a small set of [Regression Tests](/development-process/#regression-tests) that are triggered from the CI/CD pipeline. We have another set of [Safety Critical Tests](/qualification-plan/test-cases/) that are run from our Validator tool.
+We have a set of [Regression Tests](/development-process/#regression-tests) that are triggered from the CI/CD pipeline. These are executed as part of Phase 4.
+
+We also have a set of [Safety Critical Tests](/qualification-plan/test-cases/) that are run from our Validator tool.
 
 (TODO: What else?)
 

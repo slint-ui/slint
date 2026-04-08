@@ -3,7 +3,20 @@ title: Using Slint SC
 description: Components included in Slint SC and use cases.
 ---
 
-# Slint SC Architecture Design (ISO 26262:6 7.4)
+## Slint SC Software Units (ISO 26262:6 7.4.4)
+
+This is what is included in Slint SC:
+
+* A Slint Compiler, from the internal `i-slint-compiler` crate
+* The `slint_build` crate which provides a Rust API for the compiler.
+* Individual slint language features
+* Features offered by specific crates that are part of the Slint Rust library
+
+Each of these things can have a **Usage** and a **Constraints** section.
+
+Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
+
+## Slint SC Architecture Design (ISO 26262:6 7.4)
 
 During the development of the software architectural design, the following should be considered:
 
@@ -20,11 +33,13 @@ The software architectural design should have a static design part which
 addresses:
 
 - the software structure including its hierarchical levels;
+- the dependencies;
 - the data types and their characteristics;
-- the external interfaces of the software components;
-- the external interfaces of the embedded software;
-- the global variables; and
-- the constraints including the scope of the architecture and external dependencies.
+- the global variables;
+- the external interfaces of the software components; and
+- the constraints including the scope of the architecture
+
+(TODO: Insert diagram showing the static design of Slint SC)
 
 In addition, there should be a dynamic design part which addresses:
 
@@ -34,20 +49,16 @@ In addition, there should be a dynamic design part which addresses:
 - the data flow through interfaces and global variables; and
 - the temporal constraints.
 
-## Slint SC Software Units (ISO 26262:6 7.4.4)
+(TODO: Insert diagram showing the dynamic design of Slint SC)
 
-This is what is included in Slint SC:
+### Safety Analysis Report (ISO 26262:6 7.4.10)
 
-* A Slint Compiler, from the internal `i-slint-compiler` crate
-* The `slint_build` crate which provides a Rust API for the compiler.
-* Individual slint language features
-* Features offered by specific crates that are part of the Slint Rust library
+Safety-oriented analysis shall be carried out at the software architectural level in accordance with ISO 26262-9:2018, Clause 8, in order to:
 
-Each of these things can have a **Usage** and a **Constraints** section.
+* identify or confirm the safety-related parts of the software; and
+* support the specification and verify the effectiveness of the safety measures.
 
-Each feature of the language or a library can map to a Requirement ID, and have 1 or more code test-examples.
-
-(TODO: Insert diagram showing how the Units interact with each other)
+(TODO: Insert Safety Analysis Report here)
 
 # Use Cases (ISO 26262:8 11.4.5.1)
 
@@ -58,7 +69,7 @@ Each feature of the language or a library can map to a Requirement ID, and have 
 * **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
 * **Environment Constraints**: (TODO)
 
-When Slint SC is available, it will be available as a crate on crates.io.
+When Slint SC is available, it will be available as a crate on [crates.io](https://crates.io/).
 To add it to a project, one simply specifies Slint SC as a dependency in `Cargo.toml`.
 
 (TODO - show example)
@@ -89,5 +100,8 @@ fn main() {
 The standard essentially views a **Requirement** as what the system *must do* (or a property it must have), whereas a **Constraint** is a boundary condition that *limits the solution space*.
 
 For APIs, the Constraints might explain that some functions are experimental and can not be used safely yet. Or, that certain values passed as parameters into functions are not supported in Slint SC. In other words, certain features can only be used a certain way to be safe.
+
+For the Slint SC Compiler, the compiler itself should impose constraints on the user so that only safe parts
+of Slint can be used, and a proper error message is reported when the user tries to use an unsafe feature.
 
 Individual Constraints can have a section each here, with a descriptive ID that begins with CON_, and a Rationale, Impact, and Mitigation.
