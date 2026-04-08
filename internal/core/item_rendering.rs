@@ -268,18 +268,19 @@ fn item_with_children_bounding_rect_transformed(
     transform: crate::lengths::ItemTransform,
 ) -> LogicalRect {
     let item_geom = item_rc.geometry();
-    let bounding = item_rc.bounding_rect(&item_geom, window_adapter);
-    let bounding = transform.outer_transformed_rect(&bounding);
-    let children_relative_transform = item_rc
-        .children_transform()
-        .unwrap_or_default()
-        .then_translate(item_geom.origin.to_vector());
-
-    let children_absolute_transform = transform.then(&children_relative_transform);
 
     if item_rc.borrow().as_ref().clips_children() {
-        bounding.cast()
+        transform.outer_transformed_rect(&item_geom.cast()).cast()
     } else {
+        let bounding = item_rc.bounding_rect(&item_geom, window_adapter);
+        let bounding = transform.outer_transformed_rect(&bounding);
+        let children_relative_transform = item_rc
+            .children_transform()
+            .unwrap_or_default()
+            .then_translate(item_geom.origin.to_vector());
+
+        let children_absolute_transform = transform.then(&children_relative_transform);
+
         item_children_bounding_rect_transformed(
             item_rc,
             window_adapter,
