@@ -933,10 +933,10 @@ impl i_slint_core::platform::Platform for Backend {
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 
-    fn open_url(&self, url: &str) {
-        if let Err(e) = webbrowser::open(url) {
-            eprintln!("Failed to open URL: {}", e);
-        }
+    fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
+        webbrowser::open(url).map_err(|e| {
+            i_slint_core::platform::PlatformError::Other(format!("Failed to open URL: {e}"))
+        })
     }
 }
 

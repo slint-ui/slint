@@ -3844,7 +3844,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::open_url(&#url, #window_adapter_tokens.window()))
+            quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

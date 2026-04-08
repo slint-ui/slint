@@ -1653,8 +1653,7 @@ fn call_builtin_function(
             let url: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             let window_adapter = local_context.component_instance.window_adapter();
-            corelib::open_url(&url, window_adapter.window());
-            Value::Void
+            Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string: SharedString =

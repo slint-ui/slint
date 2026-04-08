@@ -355,12 +355,17 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     #[cfg(not(no_qt))]
-    fn open_url(&self, url: &str) {
+    fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
         let url: qttypes::QString = url.into();
-        unsafe {
-            cpp::cpp! { [url as "QString"] {
-                QDesktopServices::openUrl(url);
+        let success = unsafe {
+            cpp::cpp! { [url as "QString"] -> bool as "bool" {
+                return QDesktopServices::openUrl(url);
             }}
+        };
+        if success {
+            Ok(())
+        } else {
+            Err(i_slint_core::platform::PlatformError::Other("Failed to open URL".into()))
         }
     }
 }

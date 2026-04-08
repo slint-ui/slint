@@ -1289,6 +1289,9 @@ pub enum PlatformError {
     /// There is already a platform set from another thread.
     SetPlatformError(crate::platform::SetPlatformError),
 
+    /// The operation is not supported by the current platform.
+    Unsupported,
+
     /// Another platform-specific error occurred
     Other(String),
     /// Another platform-specific error occurred.
@@ -1320,6 +1323,9 @@ impl core::fmt::Display for PlatformError {
             }
             PlatformError::SetPlatformError(_) => {
                 f.write_str("The Slint platform was initialized in another thread")
+            }
+            PlatformError::Unsupported => {
+                f.write_str("The operation is not supported by the current platform")
             }
             PlatformError::Other(str) => f.write_str(str),
             #[cfg(feature = "std")]
