@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Testing if the animation is applied to the flickable after mouse release. In this scenario only the y animation is triggered
+// Because we move with the mouse only straight up
+
+import { ListView } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <string> result;
+    in-out property <length> viewport-y <=> lv.viewport-y;
+    in-out property <length> viewport-width <=> lv.viewport-width;
+    in-out property <length> viewport-height <=> lv.viewport-height;
+    in-out property <length> height_ <=> self.height;
+    in-out property <length> list-preferred-height <=> lv.preferred-height;
+
+    lv := ListView {
+        width: parent.width;
+        height: parent.height;
+        viewport-height: 10000px;
+        viewport-width: 300px;
+        mouse-drag-pan-enabled: true;
+        for _[num] in 2130000000: Rectangle {
+            height: 10px;
+            border-width: 1px;
+            border-color: red;
+            Text { text: num; }
+        }
+    }
+}
+
+
+/*
+
+```rust
+use slint::*;
+use slint_testing::{MouseEvent, TouchPhase, LogicalPoint};
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let inner =  slint_testing::WindowInner::from_pub(&window);
+
+assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fullfilled", instance.get_viewport_height(), instance.get_height_());
+
+// // Scroll down
+let pressed_position = LogicalPoint::new(0., 0.);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started });
+slint_testing::mock_elapsed_time(12);
+instance.get_list_preferred_height();
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -47.164063, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(14);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -43.35547, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(8);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -44.625, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(21);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -37.003906, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(0);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -44.441406, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(4);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -38.45703, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(34);
+instance.get_list_preferred_height();
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -19.953125, phase: TouchPhase::Moved });
+instance.get_list_preferred_height();
+slint_testing::mock_elapsed_time(0);
+instance.get_list_preferred_height();
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
+instance.get_list_preferred_height();
+
+slint_testing::mock_elapsed_time(362);
+
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started });
+slint_testing::mock_elapsed_time(12);
+inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 42.085938, phase: TouchPhase::Moved });
+slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
+// No crash
+
+assert!(false);
+
+
+
+
+// slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
+// assert_eq!(instance.get_viewport_y(), -10.);
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Moved }); // To reduce the delta t
+// slint_testing::mock_elapsed_time(5);
+// assert_eq!(instance.get_viewport_y(), -10.);
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved });
+// assert_eq!(instance.get_viewport_y(), -20.);
+// slint_testing::mock_elapsed_time(5);
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
+// slint_testing::mock_elapsed_time(10000000); // Let the animation finish
+// assert!(instance.get_viewport_y() < -20., "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), -20.);
+
+// let viewport_y = instance.get_viewport_y();
+// println!("viewport-y: {}", viewport_y);
+
+// // // Scroll up again until the limit
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started });
+// slint_testing::mock_elapsed_time(1);
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 10., phase: TouchPhase::Moved });
+// slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
+// assert!(instance.get_viewport_y() == viewport_y + 10., "Received: {}, Desired: {}", instance.get_viewport_y(),viewport_y + 10.);
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 100., phase: TouchPhase::Moved }); // To reduce the delta t
+// slint_testing::mock_elapsed_time(1);
+// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
+// slint_testing::mock_elapsed_time(10000); // Let the animation finish
+// assert!(instance.get_viewport_y() == 0., "Received: {}, Desired: {}", instance.get_viewport_y(), 0.);
+```
+
+*/

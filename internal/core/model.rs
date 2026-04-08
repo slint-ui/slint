@@ -1344,8 +1344,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     // If the new value gets set, all bindings are removed which means also an animation gets removed
                     viewport_y.set(new_viewport_y);
                 }
-                inner.previous_viewport_y = new_viewport_y;
             }
+            inner.previous_viewport_y = new_viewport_y;
             break;
         }
         drop(inner);
