@@ -71,7 +71,7 @@ impl SystemTray {
                 KsniTray { icon: ksni::Icon { width, height, data }, title: params.title.into() }
                     .spawn()
                     .map_err(Error::KsniBuildError)?;
-            return Ok(Self { _tray: tray });
+            Ok(Self { _tray: tray })
         }
 
         #[cfg(all(
@@ -100,7 +100,7 @@ impl SystemTray {
                 .build()
                 .map_err(Error::BuildError)?;
 
-            return Ok(Self { tray_icon });
+            Ok(Self { tray_icon })
         }
 
         #[cfg(not(any(
@@ -110,7 +110,7 @@ impl SystemTray {
                 any(target_os = "macos", target_os = "windows")
             )
         )))]
-        return Ok(Self {});
+        Ok(Self {})
     }
 }
 
