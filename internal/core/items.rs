@@ -1899,7 +1899,7 @@ impl Item for SystemTray {
 
 impl ItemConsts for SystemTray {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
