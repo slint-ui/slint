@@ -37,6 +37,7 @@ export component TestCase inherits Window {
 ```rust
 use slint::*;
 use slint_testing::{MouseEvent, TouchPhase, LogicalPoint};
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();
@@ -74,40 +75,12 @@ slint_testing::mock_elapsed_time(362);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started });
 slint_testing::mock_elapsed_time(12);
 inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 42.085938, phase: TouchPhase::Moved });
+instance.get_list_preferred_height();
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
+instance.get_list_preferred_height();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 // No crash
-
-assert!(false);
-
-
-
-
-// slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-// assert_eq!(instance.get_viewport_y(), -10.);
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Moved }); // To reduce the delta t
-// slint_testing::mock_elapsed_time(5);
-// assert_eq!(instance.get_viewport_y(), -10.);
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved });
-// assert_eq!(instance.get_viewport_y(), -20.);
-// slint_testing::mock_elapsed_time(5);
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
-// slint_testing::mock_elapsed_time(10000000); // Let the animation finish
-// assert!(instance.get_viewport_y() < -20., "Received: {}, Desired: smaller than {}", instance.get_viewport_y(), -20.);
-
-// let viewport_y = instance.get_viewport_y();
-// println!("viewport-y: {}", viewport_y);
-
-// // // Scroll up again until the limit
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Started });
-// slint_testing::mock_elapsed_time(1);
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 10., phase: TouchPhase::Moved });
-// slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-// assert!(instance.get_viewport_y() == viewport_y + 10., "Received: {}, Desired: {}", instance.get_viewport_y(),viewport_y + 10.);
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 100., phase: TouchPhase::Moved }); // To reduce the delta t
-// slint_testing::mock_elapsed_time(1);
-// inner.process_mouse_input(MouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended });
-// slint_testing::mock_elapsed_time(10000); // Let the animation finish
-// assert!(instance.get_viewport_y() == 0., "Received: {}, Desired: {}", instance.get_viewport_y(), 0.);
 ```
 
 */
