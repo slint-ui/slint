@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Testing if the animation is applied to the flickable after mouse release. In this scenario only the y animation is triggered
-// Because we move with the mouse only straight up
+// Testing that the application does not crash when flicking with the mouse wheel and an animation is applied
 
 import { ListView } from "std-widgets.slint";
 export component TestCase inherits Window {
