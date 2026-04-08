@@ -23,7 +23,7 @@ use crate::item_rendering::{
 use crate::item_tree::{ItemTreeRc, ItemTreeWeak, ItemVisitorResult};
 #[cfg(feature = "path")]
 use crate::items::Path;
-use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Opacity, RenderingResult, TextInput};
+use crate::items::{BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput};
 use crate::lengths::{
     ItemTransform, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect,
     LogicalSize, LogicalVector,
@@ -673,6 +673,7 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
     forward_rendering_call!(fn visit_clip(Clip) -> RenderingResult);
     forward_rendering_call!(fn visit_opacity(Opacity) -> RenderingResult);
+    forward_rendering_call!(fn visit_layer(Layer) -> RenderingResult);
 
     fn combine_clip(
         &mut self,
