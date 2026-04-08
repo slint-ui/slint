@@ -1175,6 +1175,15 @@ impl WindowAdapter for WinitWindowAdapter {
             }
         }
 
+        let constraints = properties.layout_constraints();
+        if let Some(min) = constraints.min {
+            width = width.max(min.width);
+            height = height.max(min.height)
+        }
+        if let Some(max) = constraints.max {
+            width = width.min(max.width);
+            height = height.min(max.height)
+        }
         // Adjust the size of the window to the value of the width and height property (if these property are changed from .slint).
         // But not if there is a pending resize in flight as that resize will reset these properties back
         if ((existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1.)
