@@ -589,11 +589,13 @@ public:
     /// \a parameter represents the logical position of the pointer relative to the window.
     /// \a delta_x and \a delta_y represent the scroll delta values in the X and Y
     /// directions in logical pixels.
-    void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y)
+    /// \a scroll_phase represents the current phase of scrolling. If no phase is 
+    /// available like for mouse scroll wheels, use the default
+    void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y, slint::cbindgen_private::types::TouchPhase scroll_phase = slint::cbindgen_private::types::TouchPhase::Moved)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Wheel({ pos.x, pos.y }, delta_x, delta_y));
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Wheel(
+            { pos.x, pos.y }, delta_x, delta_y, scroll_phase));
     }
 
     /// Set the logical size of this window after a resize event
