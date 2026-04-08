@@ -547,35 +547,35 @@ impl Expression {
 
         let path = std::path::Path::new(&s);
 
-        if crate::pathutils::is_absolute(path) {
-            if !path.exists() {
-                ctx.diag.push_error(format!("File '{}' does not exist", path.display()), &node);
-                return Self::Invalid;
-            }
-
-            ctx.diag.all_loaded_files.insert(path.to_owned());
-            return Expression::IncludeString(s);
-        }
-
-        let resolved_path = ctx
-            .type_loader
-            .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
-            .map(|i| i.0.to_string_lossy().into())
-            .unwrap_or_else(|| {
-                crate::pathutils::join(&crate::pathutils::dirname(node.source_file.path()), path)
+        let (resolved_path, resolved_path_string) = if crate::pathutils::is_absolute(&path) {
+            (path.to_owned(), s)
+        } else {
+            let resolved_path = ctx
+                .type_loader
+                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s))
+                .map(|i| i.0.to_string_lossy().into())
+                .unwrap_or_else(|| {
+                    crate::pathutils::join(
+                        &crate::pathutils::dirname(node.source_file.path()),
+                        path,
+                    )
                     .map(|p| p.to_string_lossy().into())
                     .unwrap_or(s.clone())
-            });
+                });
 
-        let path = std::path::Path::new(&resolved_path);
+            let path = std::path::Path::new(&resolved_path);
 
-        if !path.exists() {
-            ctx.diag.push_error(format!("File '{}' does not exist", path.display()), &node);
+            (path.to_owned(), resolved_path)
+        };
+
+        if !resolved_path.exists() {
+            ctx.diag
+                .push_error(format!("File '{}' does not exist", resolved_path.display()), &node);
             return Self::Invalid;
         }
 
-        ctx.diag.all_loaded_files.insert(path.to_owned());
-        Expression::IncludeString(resolved_path)
+        ctx.diag.all_loaded_files.insert(resolved_path);
+        Expression::IncludeString(resolved_path_string)
     }
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
