@@ -11,21 +11,21 @@ use crate::EventResult;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WindowVisibility;
 use crate::{SharedBackendData, SlintEvent};
+use corelib::SharedString;
 use corelib::graphics::euclid;
-use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
+use corelib::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use corelib::items::{ColorScheme, PointerEventButton};
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
 use i_slint_core as corelib;
-use i_slint_core::input::InternalKeyEvent;
-use i_slint_core::input::TouchPhase;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::Key;
 
 fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPhase {
     match phase {
@@ -247,7 +247,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             }
 
             WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
-                let key_code = event.logical_key;
+                let key_code = event.logical_key.clone();
                 // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
                 let swap_cmd_ctrl = i_slint_core::is_apple_platform();
 
@@ -266,53 +266,86 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     key_code
                 };
 
-                macro_rules! winit_key_to_char {
-                ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
-                    match &key_code {
-                        $( $( $(
-                                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit)
-                                    $(if event.location == winit::keyboard::KeyLocation::$pos)?
-                                        => $char.into(),
-                        )* )? )*
-                        winit::keyboard::Key::Character(str) => str.as_str().into(),
-                        _ => {
-                            if let Some(text) = &event.text {
-                                text.as_str().into()
-                            } else {
-                                return;
+                fn to_slint_key(event: &winit::event::KeyEvent, key_code: &Key) -> SharedString {
+                    macro_rules! winit_key_to_char {
+                        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
+                            #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+                            match key_code {
+                                $( $( $(
+                                            winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit)
+                                            $(if event.location == winit::keyboard::KeyLocation::$pos)?
+                                            => $char.into(),
+                                )* )? )*
+                                    winit::keyboard::Key::Character(str) => str.as_str().into(),
+                                _ => {
+                                    if let Some(text) = &event.text {
+                                        text.as_str().into()
+                                    } else {
+                                        "".into()
+                                    }
+                                }
                             }
                         }
                     }
+                    i_slint_common::for_each_keys!(winit_key_to_char)
                 }
-            }
-                #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
-                let text = i_slint_common::for_each_keys!(winit_key_to_char);
+                #[allow(unused_mut)]
+                let mut text = to_slint_key(&event, &key_code);
 
-                self.loop_error = window
-                    .window()
-                    .try_dispatch_event(match event.state {
-                        winit::event::ElementState::Pressed if event.repeat => {
-                            corelib::platform::WindowEvent::KeyPressRepeated { text }
-                        }
-                        winit::event::ElementState::Pressed => {
-                            if is_synthetic {
-                                // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
-                                // Don't forward these keys other than modifiers to the app
-                                use winit::keyboard::{Key::Named, NamedKey as N};
-                                if !matches!(
-                                    key_code,
-                                    Named(N::Control | N::Shift | N::Super | N::Alt | N::AltGraph),
-                                ) {
-                                    return;
-                                }
-                            }
-                            corelib::platform::WindowEvent::KeyPressed { text }
-                        }
-                        winit::event::ElementState::Released => {
-                            corelib::platform::WindowEvent::KeyReleased { text }
-                        }
-                    })
-                    .err();
+                #[cfg(target_os = "windows")]
+                let text_without_modifiers = {
+                    use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+
+                    // On Windows, if Ctrl+Alt is pressed with a key that does not use
+                    // AltGr for remapping, we need to fall back to the
+                    // key_without_modifiers.
+                    //
+                    // See: https://github.com/rust-windowing/winit/issues/2945
+                    //
+                    // The text_without_modifiers also let's us disambiguate between a Ctrl+Alt
+                    // combination used to imply AltGr or not.
+                    // The latter case should be treated as a shortcut, the former should not.
+                    let text_without_modifiers =
+                        to_slint_key(&event, &event.key_without_modifiers());
+                    if text.is_empty() && !text_without_modifiers.is_empty() {
+                        text = text_without_modifiers.clone();
+                    }
+                    text_without_modifiers
+                };
+
+                if text.is_empty() {
+                    // Failed to translate the key event
+                    return;
+                }
+
+                if is_synthetic {
+                    // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
+                    // Don't forward these keys other than modifiers to the app
+                    use winit::keyboard::{Key::Named, NamedKey as N};
+                    if !matches!(
+                        key_code,
+                        Named(N::Control | N::Shift | N::Super | N::Alt | N::AltGraph),
+                    ) {
+                        return;
+                    }
+                }
+
+                let event_type = match event.state {
+                    winit::event::ElementState::Pressed => corelib::input::KeyEventType::KeyPressed,
+                    winit::event::ElementState::Released => {
+                        corelib::input::KeyEventType::KeyReleased
+                    }
+                };
+
+                let event = corelib::input::InternalKeyEvent {
+                    key_event: corelib::input::KeyEvent { text, ..Default::default() },
+                    event_type,
+                    #[cfg(target_os = "windows")]
+                    text_without_modifiers,
+                    ..Default::default()
+                };
+
+                runtime_window.process_key_input(event);
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {

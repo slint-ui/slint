@@ -332,22 +332,6 @@ impl InternalKeyboardModifierState {
             debug_assert_eq!(key_code.len_utf8(), text.len());
         }
 
-        // Special cases:
-        #[cfg(target_os = "windows")]
-        {
-            if self.altgr {
-                // Windows sends Ctrl followed by AltGr on AltGr. Disable the Ctrl again!
-                self.left_control = false;
-                self.right_control = false;
-            } else if self.control() && self.alt() {
-                // Windows treats Ctrl-Alt as AltGr
-                self.left_control = false;
-                self.right_control = false;
-                self.left_alt = false;
-                self.right_alt = false;
-            }
-        }
-
         Some(self)
     }
 
@@ -362,6 +346,70 @@ impl InternalKeyboardModifierState {
     }
     pub fn control(&self) -> bool {
         self.right_control || self.left_control
+    }
+
+    pub fn modifiers_for(&self, _event: &InternalKeyEvent) -> KeyboardModifiers {
+        #[allow(unused_mut)]
+        let mut alt = self.alt();
+        #[allow(unused_mut)]
+        let mut control = self.control();
+
+        // Windows treats Ctrl+Alt as implying AltGr, but not vice-versa
+        // Unfortunately, our different backends produce different key combinations here.
+        //
+        // ## Qt
+        // Qt always sends Ctrl + Alt instead of AltGr, and does not tell us whether this
+        // was interpreted as AltGr or not. So with Qt we have no way of telling whether
+        // AltGr is pressed, and we have to assume that it is pressed whenever Ctrl + Alt is pressed.
+        // In that case the `text_without_modifiers` is also not set.
+        //
+        // ## Winit
+        // Winit sends the actual Ctrl/Alt/AltGr keypresses correctly.
+        // With winit we can detect whether ctrl+alt actually caused a AltGr conversion or not,
+        // by checking whether the text_without_modifiers is different from the event text.
+        //
+        // ## Wasm
+        // Winit on the web for some reasons sends first a Ctrl and then AltGr event when only AltGr
+        // is pressed.
+        // So there we need to get rid of the additional Ctrl event whenever AltGr is pressed.
+        #[cfg(target_os = "windows")]
+        {
+            // Non-web windows (Usually winit or Qt)
+            if !self.altgr && self.control() && self.alt() {
+                // AltGr is not pressed, but Ctrl+Alt is pressed.
+                // Try to detect if an AltGr conversion occured.
+                // If so, disable Ctrl and Alt
+                //
+                // On platforms that don't provide text_without_modifiers, fall back to a simple
+                // heuristic that assumes A-Z & 0-9 are not produced with AltGr, but all other keys are.
+                let implies_altgr = if _event.text_without_modifiers.is_empty() {
+                    _event.key_event.text.chars().any(|c| !c.is_ascii_alphanumeric())
+                } else {
+                    _event.text_without_modifiers.to_lowercase()
+                        != _event.key_event.text.to_lowercase()
+                };
+                if implies_altgr {
+                    alt = false;
+                    control = false;
+                }
+            }
+        }
+        #[cfg(target_family = "wasm")]
+        if crate::detect_operating_system() == OperatingSystemType::Windows {
+            // Non-native windows (e.g. Winit on the web)
+            // This currently injects additional Ctrl events, so remove those if AltGr is
+            // pressed.
+            let is_altgr = self.altgr
+                || (self.control()
+                    && self.alt()
+                    && _event.key_event.text.chars().any(|c| !c.is_ascii_alphanumeric()));
+            if is_altgr {
+                alt = false;
+                control = false;
+            }
+        }
+
+        KeyboardModifiers { alt, control, meta: self.meta(), shift: self.shift() }
     }
 }
 
@@ -655,6 +703,13 @@ pub struct InternalKeyEvent {
     pub key_event: KeyEvent,
     /// Indicates whether the key was pressed or released
     pub event_type: KeyEventType,
+    /// The key without any modifiers held
+    /// Important on Windows, to distinguish between key presses when Ctrl+Alt was pressed
+    /// vs. AltGr.
+    /// This is optional, and we will fall back to a heuristic for Ctrl+Alt on Windows if this
+    /// isn't provided.
+    #[cfg(target_os = "windows")]
+    pub text_without_modifiers: SharedString,
     /// If the event type is KeyEventType::UpdateComposition or KeyEventType::CommitComposition,
     /// then this field specifies what part of the current text to replace.
     /// Relative to the offset of the pre-edit text within the text input element's text.
