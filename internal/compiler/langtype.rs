@@ -269,6 +269,9 @@ impl Type {
         };
         match (self, other) {
             (a, b) if a == b => true,
+            // Special case: Optional(Invalid) can convert to any Optional(T)
+            // This allows the `none` literal to be used with any optional type
+            (Type::Optional(a), Type::Optional(_)) if **a == Type::Invalid => true,
             // Implicit wrap: T -> T?
             (a, Type::Optional(b)) if !matches!(a, Type::Optional(_)) => a.can_convert(b),
             // Optional to optional: T? -> U? if T can convert to U
