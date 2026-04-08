@@ -553,63 +553,43 @@ fn recurse_expression(
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
-            // Visit layout geometry dependencies
+            // Visit all layout geometry dependencies
             if matches!(expr, Expression::SolveFlexboxLayout(..)) {
-                // The solve only needs the main-axis dimension (width for row, height for column).
-                // The cross-axis dimension is determined by the content, not constrained by
-                // the container (items overflow or wrap as needed).
-                if layout.is_main_axis(Orientation::Horizontal) {
-                    if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
-                        vis(&nr.clone().into(), P);
-                    }
-                } else if layout.is_main_axis(Orientation::Vertical) {
-                    if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
-                        vis(&nr.clone().into(), P);
-                    }
-                } else {
-                    // Runtime direction: conservatively depend on both
-                    if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
-                        vis(&nr.clone().into(), P);
-                    }
-                    if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
-                        vis(&nr.clone().into(), P);
-                    }
+                // FlexboxLayout needs both width and height
+                if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
                 }
-            } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
-                // Main-axis layout info only depends on same-axis item constraints,
-                // to avoid cross-axis binding loops. Cross-axis info needs both axes
-                // plus the perpendicular dimension (for wrapping).
-                let is_main_axis = layout.is_main_axis(*orientation);
-                if is_main_axis {
-                    // Main axis: only visit same-axis item dependencies
-                    visit_layout_items_dependencies(
-                        layout.elems.iter().map(|fi| &fi.item),
-                        *orientation,
-                        vis,
-                    );
-                } else {
-                    // Cross axis: visit both orientations + perpendicular dimension
-                    if *orientation == Orientation::Vertical
-                        && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
-                    {
-                        vis(&nr.clone().into(), P);
-                    }
-                    if *orientation == Orientation::Horizontal
-                        && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
-                    {
-                        vis(&nr.clone().into(), P);
-                    }
-                    visit_layout_items_dependencies(
-                        layout.elems.iter().map(|fi| &fi.item),
-                        Orientation::Horizontal,
-                        vis,
-                    );
-                    visit_layout_items_dependencies(
-                        layout.elems.iter().map(|fi| &fi.item),
-                        Orientation::Vertical,
-                        vis,
-                    );
+                if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
+                    vis(&nr.clone().into(), P);
                 }
+            } else if let Expression::ComputeFlexboxLayoutInfo(_, _orientation) = expr {
+                // Technically, due to wrapping, there's a dependency on width for the vertical orientation (for Rows/RowsReverse)
+                // or a dependency on height for the horizontal orientation (for Columns/ColumnsReverse).
+                // But since the flex direction, which can be changed at runtime, we don't know which one will apply.
+                // And doing both leads to binding loops...
+                // We could detect the case of a constant flex direction (like in lower_layout_expression.rs) but
+                // that still wouldn't fix the case of runtime direction changes...
+                /*if *orientation == Orientation::Vertical
+                    && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                {
+                    vis(&nr.clone().into(), P);
+                }
+                if *orientation == Orientation::Horizontal
+                    && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                {
+                    vis(&nr.clone().into(), P);
+                }*/
+                // Visit item dependencies for relevant orientations
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Horizontal,
+                    vis,
+                );
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Vertical,
+                    vis,
+                );
             }
             let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;
