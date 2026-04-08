@@ -910,6 +910,7 @@ struct RepeaterInner<C: RepeatedItemTree> {
     /// The average visible item height.
     cached_item_height: LogicalLength,
     /// The viewport_y last time the layout of the ListView was done
+    /// It is used to detect if we are scrolling up or down
     previous_viewport_y: LogicalLength,
     /// the position of the item in the row `offset` (which corresponds to `instances[0]`).
     /// We will try to keep this constant when re-layouting items
