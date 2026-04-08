@@ -348,6 +348,7 @@ fn update_visible_instances(
         state.anchor_y = state.cached_item_height * state.offset as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
+        // If an animation is ongoing we should not interrupt it
         if !viewport_y.has_binding() {
             let new_viewport_y = -state.anchor_y + new_offset_y;
             if new_viewport_y != viewport_y.get().get() {
