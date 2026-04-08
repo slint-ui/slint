@@ -15,6 +15,13 @@ All notable changes to this project are documented in this file.
  - Winit: Batch mouse move events to prevent too many move event to delay rendering. (#9038)
  - Wasm: Enabled clipboard interaction by default.
  - LinuxKMS: Add support for WGPU based rendering with Skia and FemtoVG.
+ - Qt and winit: Fixed restarting the event loop after being exited.
+ - Fixed alpha blending when smooth-scaling images (#10469)
+ - The winit backend is not the default on all platform. (Qt is no longer the default on Linux)
+ - Software renderer: Pre-rendered embedded glyphs are now embedded for multiple font weights.
+ - Software renderer: Fixed division by zero with tiny images (#7863)
+ - ContextMenuArea now use a native menu on MacOS. (#8141)
+ - Wasm: Changed default font to `Inter`.
 
 ### Slint
 
@@ -23,6 +30,7 @@ All notable changes to this project are documented in this file.
  - `Flickable`: Improved animations.
  - Fixed empty `GridLayout` not taking padding into account.
  - Added support for Keyboard shortcuts with `KeyBinding` element, `keys` type, and `@keys(...)` macro.
+ - Added `shortcut` property to `MenuItem` element in `MenuBar`.
  - Added printable keys in the `Key` namespace.
  - Added `FlexboxLayout`.
  - Added support for styled text with `StyledText` element, `styled-text` type, and `@markdown(...)` macro.
@@ -30,14 +38,20 @@ All notable changes to this project are documented in this file.
  - Fixed compiler panic when accessing model data from repeated menu. (#10927)
  - Added `Path::fit` property.
  - `TextHorizontalAlignment`: Added `start` and `end` variants.
+ - Added `Platform::open-url` function to open a URL in the default browser.
+ - Fixed two-way binding to struct field of type length (#10844)
+ - Added `FontWeight` namespace with standards constants. (#11207)
 
 ### Widgets
 
+ - Fluent is now the default style on all platform.
  - `CheckBox` no longer intercepts the scroll event with the Qt style.
  - `Slider`: Ignore scroll events with the Qt style.
  - `ComboBox`: Clamp index on reset instead of using 0. (#10805)
  - `ComboBox`: Fixed scrolling to selected item when dropdown opens. (#10995)
  - `ComboBox`: Fixed popup closing on scrollbar interaction. (#10998)
+ - `AboutSlint`: Open slint.dev in the browser when clicked.
+ - Retrieve accent color from the system.
 
 ### Rust
 
@@ -48,6 +62,9 @@ All notable changes to this project are documented in this file.
  - Added `open_url` methd to the `Platform` trait. (#11035)
  - Upgraded fontique and parley dependencies: The `unstable-fontique-07` Cargo feature replaces the old `unstable-fontique-07` feature, along with
    `slint::fontique_08` replacing `slint::fontique_07`.
+ - Implemented serfe `Serialize` and `Deserialize` for `slint::ModelRc`.
+ - Add the ability to have `slint::Weak` for globals.
+ - Worked around slow compile time in release mode.
 
 ### Python
 
@@ -57,6 +74,8 @@ All notable changes to this project are documented in this file.
 
  - Added contants for printable keys in the `slint::platform::key_codes` namespace
  - Added `slint::language` namespace to hold enums/structs from the Slint language.
+ - Private headers have been moved to a `private` directory.
+ - The slint-compiler now only write output file if the content has been modified.
 
 ### JavaScript
 
@@ -65,7 +84,11 @@ All notable changes to this project are documented in this file.
 ### Tooling
 
   - LSP: fix formatting of struct type (#10647)
+  - LSP: fix jump to definition of path with a leading `@library` (#10864)
   - viewer: handle global properties with the `--save-data` and `--load-data` arguments
+  - Error message for binding loop now contains the entire cycle and the order is reversed.
+  - Slintpad: persist editor content in history state across reloads.
+  - Slintpad: Added File > New menu item
 
 ## [1.15.1] - 2026-02-12
 
