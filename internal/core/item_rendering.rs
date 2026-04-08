@@ -254,47 +254,69 @@ pub fn render_component_items(
     renderer.restore_state();
 }
 
+/// Compute the bounding rect of this item and all its children. Remember to run this via `evaluate_no_tracking`.
+pub fn item_with_children_bounding_rect(
+    item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
+) -> LogicalRect {
+    item_with_children_bounding_rect_transformed(item_rc, window_adapter, Default::default())
+}
+
+fn item_with_children_bounding_rect_transformed(
+    item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
+    transform: crate::lengths::ItemTransform,
+) -> LogicalRect {
+    let item_geom = item_rc.geometry();
+    let bounding = item_rc.bounding_rect(&item_geom, window_adapter);
+    let bounding = transform.outer_transformed_rect(&bounding);
+    let children_relative_transform = item_rc
+        .children_transform()
+        .unwrap_or_default()
+        .then_translate(item_geom.origin.to_vector());
+
+    let children_absolute_transform = transform.then(&children_relative_transform);
+
+    let bounds_with_children = if item_rc.borrow().as_ref().clips_children() {
+        bounding.cast()
+    } else {
+        item_children_bounding_rect_transformed(
+            &item_rc,
+            window_adapter,
+            children_absolute_transform,
+        )
+        .union(&bounding.cast())
+    };
+
+    bounds_with_children
+}
+
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
 pub fn item_children_bounding_rect(
     item_rc: &ItemRc,
     window_adapter: &WindowAdapterRc,
 ) -> LogicalRect {
-    item_children_bounding_rect_inner(item_rc, window_adapter, Default::default())
+    item_children_bounding_rect_transformed(item_rc, window_adapter, Default::default())
 }
 
-fn item_children_bounding_rect_inner(
+fn item_children_bounding_rect_transformed(
     item_rc: &ItemRc,
     window_adapter: &WindowAdapterRc,
     transform: crate::lengths::ItemTransform,
 ) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
 
-    let mut actual_visitor = |component: &ItemTreeRc,
-                              index: u32,
-                              item: Pin<ItemRef>|
-     -> VisitChildrenResult {
-        let item_rc = ItemRc::new(component.clone(), index);
-        let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
-        let item_geometry = transform.outer_transformed_rect(&geom.cast());
-        let children_relative_transform = item_rc
-            .children_transform()
-            .unwrap_or_default()
-            .then_translate(item_geometry.origin.to_vector());
+    let mut actual_visitor =
+        |component: &ItemTreeRc, index: u32, _ref: Pin<ItemRef>| -> VisitChildrenResult {
+            let item_rc = ItemRc::new(component.clone(), index);
+            let bounds_with_children =
+                item_with_children_bounding_rect_transformed(&item_rc, window_adapter, transform);
 
-        let children_absolute_transform = transform.then(&children_relative_transform);
+            bounding_rect = bounding_rect.union(&bounds_with_children);
 
-        let bounds_with_children = if item.as_ref().clips_children() {
-            item_geometry.cast()
-        } else {
-            item_children_bounding_rect_inner(&item_rc, window_adapter, children_absolute_transform)
-                .union(&item_geometry.cast())
+            VisitChildrenResult::CONTINUE
         };
-
-        bounding_rect = bounding_rect.union(&bounds_with_children);
-
-        VisitChildrenResult::CONTINUE
-    };
 
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
     VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
@@ -303,7 +325,7 @@ fn item_children_bounding_rect_inner(
         actual_visitor,
     );
 
-    item_rc.bounding_rect(&bounding_rect, window_adapter)
+    bounding_rect
 }
 
 /// Trait for an item that represent a Rectangle to the Renderer

@@ -336,9 +336,12 @@ impl<'a> SkiaItemRenderer<'a> {
             // But intersect with the union of the clip with the geometry to make sure we don't
             // render insanely large surface.
             i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
-                    .intersection(&current_clip.union(&item_rc.geometry()))
-                    .unwrap_or_default()
+                i_slint_core::item_rendering::item_with_children_bounding_rect(
+                    item_rc,
+                    &window_adapter,
+                )
+                .intersection(&current_clip)
+                .unwrap_or_default()
             })
         }) {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));

@@ -19,8 +19,8 @@ use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths, ScaleFactor, logical_size_from_api,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector, RectLengths, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -1074,7 +1074,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
-            let origin = bounding_rect.origin * self.scale_factor;
+            let origin = bounding_rect.origin;
+            // We need to offset to the origin of the geometry inside the bounds
+            let geometry_origin = item_rc.geometry().origin;
+            let local_logical_origin: LogicalPoint =
+                euclid::point2(geometry_origin.x - origin.x, geometry_origin.y - origin.y);
+            let local_physical_origin: PhysicalPoint = local_logical_origin * self.scale_factor;
             let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
 
             let layer_image = existing_layer_texture
@@ -1107,7 +1112,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
                 canvas.clear_rect(0, 0, size.width, size.height, femtovg::Color::rgba(0, 0, 0, 0));
 
-                canvas.translate(-origin.x, -origin.y);
+                canvas.translate(local_physical_origin.x, local_physical_origin.y);
             }
 
             *self.state.last_mut().unwrap() = State {
@@ -1132,7 +1137,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 canvas.set_render_target(previous_render_target);
             }
 
-            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image, origin })
+            Some(ItemGraphicsCacheEntry::TextureWithOrigin {
+                texture: layer_image,
+                origin: local_physical_origin,
+            })
         });
 
         cache_entry.and_then(|item_cache_entry| match item_cache_entry {
@@ -1151,9 +1159,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             // But intersect with the union of the clip with the geometry to make sure we don't
             // render insanely large surface.
             i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
-                    .intersection(&current_clip.union(&item_rc.geometry()))
-                    .unwrap_or_default()
+                i_slint_core::item_rendering::item_with_children_bounding_rect(
+                    item_rc,
+                    &window_adapter,
+                )
+                .intersection(&current_clip)
+                .unwrap_or_default()
             })
         }) && let Some(layer_size) = layer_image.size()
         {
