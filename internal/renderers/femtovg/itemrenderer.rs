@@ -1059,6 +1059,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
+    /// Render an item and its children to a texture.
+    ///
+    /// # Arguments
+    ///
+    /// - `item_rc`: The item to render
+    /// - `layer_bounding_rect_fn`: A function that returns the `LogicalRect` bounding box for the
+    ///   item and its children. The origin of this rectangle should be relative to the origin of
+    ///   `item_rc`.
     fn render_layer(
         &mut self,
         item_rc: &ItemRc,
@@ -1074,10 +1082,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
-            let origin = bounding_rect.origin;
+
             let geometry_origin = item_rc.geometry().origin;
-            let local_logical_origin: LogicalPoint =
-                euclid::point2(geometry_origin.x - origin.x, geometry_origin.y - origin.y);
+            let local_logical_origin = (geometry_origin - bounding_rect.origin).to_point();
 
             // We want the `0,0` point to be at the origin of the item's geometry, but that may
             // not be the same as the leftmost point of the rendered graphics. This calculates the
@@ -1161,9 +1168,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let window_adapter = self.window().window_adapter();
         let current_clip = self.get_current_clip();
         if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
-            // We don't need to include the size of the "layer" item itself, since it has no content.
-            // But intersect with the union of the clip with the geometry to make sure we don't
-            // render insanely large surface.
             i_slint_core::properties::evaluate_no_tracking(|| {
                 i_slint_core::item_rendering::item_with_children_bounding_rect(
                     item_rc,
