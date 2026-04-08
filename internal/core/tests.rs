@@ -5,6 +5,8 @@
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
+use std::io::Write;
+
 use crate::api::LogicalPosition;
 use crate::input::key_codes::Key;
 use crate::platform::WindowEvent;
@@ -131,7 +133,7 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
 
             log(&_arguments.to_string());
         } else if #[cfg(feature = "std")] {
-            std::eprintln!("{_arguments}");
+            let _ = writeln!(std::io::stderr(), "{_arguments}");
         }
     }
 }
