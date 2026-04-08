@@ -1,0 +1,151 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> matched: "";
+    forward-focus: scope;
+
+    scope := FocusScope {
+        KeyBinding {
+            keys: @keys(Control + Alt + At);
+            activated => {
+                matched = "Ctrl+Alt+@"
+            }
+        }
+        KeyBinding {
+            keys: @keys(Control + Alt + Q);
+            activated => {
+                matched = "Ctrl+Alt+Q"
+            }
+        }
+
+        KeyBinding {
+            keys: @keys(Q);
+            activated => {
+                matched = "Q"
+            }
+        }
+        KeyBinding {
+            keys: @keys(At);
+            activated => {
+                matched = "@"
+            }
+        }
+    }
+}
+
+
+/*
+See issue #11246 for the motivation here.
+The gist is that Windows treats Ctrl+Alt as equivalent to AltGr.
+That means we sometimes need to remove Ctrl+Alt from an event so that it shows up as a normal keystroke
+instead of a shortcut.
+If we have a shortcut that actually uses Ctrl+Alt, it can be difficult to distinguish between the two.
+Ideally we should only remove the Ctrl+Alt modifiers if they actually caused a different character to be produced.
+
+```rust
+#[cfg(target_os = "windows")]
+{
+    let instance = TestCase::new().unwrap();
+    let assert_matched = |expected| {
+        assert_eq!(instance.get_matched(), expected);
+        instance.set_matched("".into());
+    };
+    use slint_testing::send_key_combo;
+    use slint::private_unstable_api::re_exports::Key;
+
+    // Simulate a generic platform that doesn't use the private API and cannot provide text_without_modifiers
+
+    // Ctrl+Alt+Q under windows should trigger the shortcut
+    send_key_combo(&instance, [Key::Control, Key::Alt, Key::Q]);
+    assert_matched("Ctrl+Alt+Q");
+
+    // But if it produces a special character, we assume it is the equivalent of AltGr
+    send_key_combo(&instance, [Key::Control, Key::Alt, Key::At]);
+    assert_matched("@");
+
+    // Unless AltGr was pressed in addition to Ctrl+Alt, then we know the AltGr is not produced by Ctrl+Alt together.
+    send_key_combo(&instance, [Key::Control, Key::Alt, Key::AltGr, Key::At]);
+    assert_matched("Ctrl+Alt+@");
+
+    send_key_combo(&instance, [Key::AltGr, Key::At]);
+    assert_matched("@");
+
+    // Simulate a platform that produces text_without_modifiers
+    // In this case we can distinguish whether Ctrl+Alt+@ means AltGr+@ or actually means Ctrl+Alt+@
+    use i_slint_core::platform::WindowEvent;
+    let window = instance.window();
+
+    window.dispatch_event(
+        WindowEvent::KeyPressed {
+            text: Key::Control.into()
+        }
+    );
+    window.dispatch_event(
+        WindowEvent::KeyPressed {
+            text: Key::Alt.into()
+        }
+    );
+    use i_slint_core::input::InternalKeyEvent;
+    use i_slint_core::input::KeyEventType;
+    use i_slint_core::items::KeyEvent;
+
+    let inner = i_slint_core::window::WindowInner::from_pub(instance.window());
+    // If the text_without_modifiers is "@", then we know that this layout doesn't
+    // have AltGr behavior to produce an `@`, and we can trigger the Ctrl+Alt+@ shortcut
+    inner.process_key_input(
+        InternalKeyEvent {
+            event_type: KeyEventType::KeyPressed,
+            key_event: KeyEvent {
+                text: "@".into(),
+                ..Default::default()
+            },
+            text_without_modifiers: "@".into(),
+            ..Default::default()
+        }
+    );
+    assert_matched("Ctrl+Alt+@");
+
+    // But if the text_without_modifiers is "q", then we know that this layout produces
+    // an `@` when AltGr is pressed, and Ctrl+Alt+@ should just be interpreted as `@`
+    inner.process_key_input(
+        InternalKeyEvent {
+            event_type: KeyEventType::KeyPressed,
+            key_event: KeyEvent {
+                text: "@".into(),
+                ..Default::default()
+            },
+            text_without_modifiers: "q".into(),
+            ..Default::default()
+        }
+    );
+    assert_matched("@");
+}
+
+// On a non-windows platform, no special handling for AltGr is needed (it is basically ignored)
+if i_slint_core::detect_operating_system() != i_slint_core::OperatingSystemType::Windows {
+    let instance = TestCase::new().unwrap();
+    let assert_matched = |expected| {
+        assert_eq!(instance.get_matched(), expected);
+        instance.set_matched("".into());
+    };
+    use slint_testing::send_key_combo;
+    use slint::private_unstable_api::re_exports::Key;
+
+    send_key_combo(&instance, [Key::Control, Key::Alt, Key::Q]);
+    assert_matched("Ctrl+Alt+Q");
+
+    send_key_combo(&instance, [Key::Control, Key::Alt, Key::At]);
+    assert_matched("Ctrl+Alt+@");
+
+    send_key_combo(&instance, [Key::Control, Key::Alt, Key::AltGr, Key::At]);
+    assert_matched("Ctrl+Alt+@");
+
+    send_key_combo(&instance, [Key::AltGr, Key::At]);
+    assert_matched("@");
+
+    send_key_combo(&instance, [Key::At]);
+    assert_matched("@");
+}
+```
+*/

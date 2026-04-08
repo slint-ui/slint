@@ -825,7 +825,8 @@ impl WindowInner {
             self.context().0.modifiers.set(updated_modifier);
         }
 
-        internal_key_event.key_event.modifiers = self.context().0.modifiers.get().into();
+        internal_key_event.key_event.modifiers =
+            self.context().0.modifiers.get().modifiers_for(&internal_key_event);
 
         // Emulate macOS menubar behavior: The OS consumes the event before it reaches any
         // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
