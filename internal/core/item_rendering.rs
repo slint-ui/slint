@@ -277,18 +277,16 @@ fn item_with_children_bounding_rect_transformed(
 
     let children_absolute_transform = transform.then(&children_relative_transform);
 
-    let bounds_with_children = if item_rc.borrow().as_ref().clips_children() {
+    if item_rc.borrow().as_ref().clips_children() {
         bounding.cast()
     } else {
         item_children_bounding_rect_transformed(
-            &item_rc,
+            item_rc,
             window_adapter,
             children_absolute_transform,
         )
         .union(&bounding.cast())
-    };
-
-    bounds_with_children
+    }
 }
 
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this

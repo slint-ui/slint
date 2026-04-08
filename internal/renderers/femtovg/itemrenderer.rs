@@ -19,8 +19,8 @@ use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
-    LogicalVector, RectLengths, ScaleFactor, logical_size_from_api,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    RectLengths, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::{Brush, Color, ImageInner, SharedString};
@@ -1083,17 +1083,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
 
             let layer_image = existing_layer_texture
-                .and_then(|layer_texture| {
+                .filter(|layer_texture| {
                     // If we have an existing layer texture, there must be only one reference from within
                     // the existing cache entry and one through the `existing_layer_texture` variable.
                     // Then it is safe to render new content into it in this callback and when we return
                     // into `get_or_update_cache_entry` the first ref is dropped.
-                    debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
-                    if layer_texture.size() == Some(size.to_untyped()) {
-                        Some(layer_texture)
-                    } else {
-                        None
-                    }
+                    debug_assert_eq!(Rc::strong_count(layer_texture), 2);
+                    layer_texture.size() == Some(size.to_untyped())
                 })
                 .or_else(|| {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
