@@ -5086,11 +5086,11 @@ dependencies = [
 name = "i-slint-common"
 version = "1.16.0"
 dependencies = [
+ "derive_more",
  "fontique",
  "htmlparser",
  "pulldown-cmark",
  "skrifa",
- "thiserror 2.0.18",
 ]
 
 [[package]]
