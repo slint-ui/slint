@@ -28,6 +28,9 @@ pub mod rust;
 #[cfg(feature = "rust")]
 pub mod rust_live_preview;
 
+#[cfg(feature = "go")]
+pub mod go;
+
 #[cfg(feature = "python")]
 pub mod python;
 
@@ -37,6 +40,8 @@ pub enum OutputFormat {
     Cpp(cpp::Config),
     #[cfg(feature = "rust")]
     Rust,
+    #[cfg(feature = "go")]
+    Go,
     Interpreter,
     Llr,
     #[cfg(feature = "python")]
@@ -52,6 +57,8 @@ impl OutputFormat {
             }
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
+            #[cfg(feature = "go")]
+            Some("go") => Some(Self::Go),
             #[cfg(feature = "python")]
             Some("py") => Some(Self::Python),
             _ => None,
@@ -67,6 +74,8 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            #[cfg(feature = "go")]
+            "go" | "golang" => Ok(Self::Go),
             "llr" => Ok(Self::Llr),
             #[cfg(feature = "python")]
             "python" => Ok(Self::Python),
@@ -94,6 +103,11 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "go")]
+        OutputFormat::Go => {
+            let output = go::generate(doc, compiler_config, destination_path)?;
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {

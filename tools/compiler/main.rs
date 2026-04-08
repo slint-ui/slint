@@ -137,6 +137,7 @@ fn main() -> std::io::Result<()> {
     let mut format = args.format.clone().unwrap_or_else(|| {
         match std::path::Path::new(&args.output).extension().and_then(|ext| ext.to_str()) {
             Some("rs") => generator::OutputFormat::Rust,
+            Some("go") => generator::OutputFormat::Go,
             Some("py") => generator::OutputFormat::Python,
             _ => generator::OutputFormat::Cpp(Default::default()),
         }

@@ -8,7 +8,7 @@ use core::ptr::NonNull;
 use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
-use std::ffi::c_void;
+use std::ffi::{CString, c_void};
 use vtable::VRef;
 
 /// Construct a new Value in the given memory location
@@ -1013,6 +1013,370 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_functions
         def.as_component_definition().global_functions(std::str::from_utf8(&global_name).unwrap())
     {
         names.extend(name_it.map(|name| name.into()));
+        true
+    } else {
+        false
+    }
+}
+
+fn slint_go_strdup(text: impl AsRef<str>) -> *mut core::ffi::c_char {
+    CString::new(text.as_ref()).unwrap().into_raw()
+}
+
+/// Frees a C string previously returned by the Slint Go FFI.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_string_free(value: *mut core::ffi::c_char) {
+    if !value.is_null() {
+        drop(unsafe { CString::from_raw(value) });
+    }
+}
+
+/// Compiles Slint source code into a compilation result handle for Go bindings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compile_source(
+    source: Slice<u8>,
+    path: Slice<u8>,
+) -> *mut CompilationResult {
+    let result = spin_on::spin_on(Compiler::default().build_from_source(
+        std::str::from_utf8(&source).unwrap().to_owned(),
+        std::path::PathBuf::from(std::str::from_utf8(&path).unwrap()),
+    ));
+    Box::into_raw(Box::new(result))
+}
+
+/// Compiles a Slint file from disk into a compilation result handle for Go bindings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compile_path(path: Slice<u8>) -> *mut CompilationResult {
+    let result = spin_on::spin_on(
+        Compiler::default()
+            .build_from_path(std::path::PathBuf::from(std::str::from_utf8(&path).unwrap())),
+    );
+    Box::into_raw(Box::new(result))
+}
+
+/// Destroys a compilation result returned by the Slint Go FFI.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compilation_result_destructor(result: *mut CompilationResult) {
+    if !result.is_null() {
+        drop(unsafe { Box::from_raw(result) });
+    }
+}
+
+/// Returns true if the compilation result contains at least one error diagnostic.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compilation_result_has_errors(
+    result: *const CompilationResult,
+) -> bool {
+    unsafe { &*result }.has_errors()
+}
+
+/// Returns diagnostics as a human-readable string. The caller owns the returned buffer.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compilation_result_diagnostics(
+    result: *const CompilationResult,
+) -> *mut core::ffi::c_char {
+    let diagnostics = unsafe { &*result }
+        .diagnostics()
+        .map(|diagnostic| {
+            let (line, column) = diagnostic.line_column();
+            match diagnostic.source_file() {
+                Some(path) => std::format!(
+                    "{}:{}:{}: {:?}: {}",
+                    path.display(),
+                    line,
+                    column,
+                    diagnostic.level(),
+                    diagnostic.message()
+                ),
+                None => std::format!("{:?}: {}", diagnostic.level(), diagnostic.message()),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    slint_go_strdup(diagnostics)
+}
+
+/// Retrieves a compiled component definition by name from a compilation result.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compilation_result_component(
+    result: *const CompilationResult,
+    name: Slice<u8>,
+) -> *mut ComponentDefinition {
+    unsafe { &*result }
+        .component(std::str::from_utf8(&name).unwrap())
+        .map(|definition| Box::into_raw(Box::new(definition)))
+        .unwrap_or(core::ptr::null_mut())
+}
+
+/// Destroys a component definition returned by the Slint Go FFI.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_definition_destructor(
+    definition: *mut ComponentDefinition,
+) {
+    if !definition.is_null() {
+        drop(unsafe { Box::from_raw(definition) });
+    }
+}
+
+/// Creates a component instance from a component definition. Returns null on failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_definition_create(
+    definition: *const ComponentDefinition,
+) -> *mut ComponentInstance {
+    unsafe { &*definition }
+        .create()
+        .ok()
+        .map(|instance| Box::into_raw(Box::new(instance)))
+        .unwrap_or(core::ptr::null_mut())
+}
+
+/// Destroys a component instance returned by the Slint Go FFI.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_destructor(instance: *mut ComponentInstance) {
+    if !instance.is_null() {
+        drop(unsafe { Box::from_raw(instance) });
+    }
+}
+
+/// Shows a component instance. Returns false on platform failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_show(
+    instance: *const ComponentInstance,
+) -> bool {
+    unsafe { &*instance }.show().is_ok()
+}
+
+/// Hides a component instance. Returns false on platform failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_hide(
+    instance: *const ComponentInstance,
+) -> bool {
+    unsafe { &*instance }.hide().is_ok()
+}
+
+/// Runs a component instance. Returns false on platform failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_run(
+    instance: *const ComponentInstance,
+) -> bool {
+    unsafe { &*instance }.run().is_ok()
+}
+
+/// Gets a public property from a component instance. Returns null if the property does not exist.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_get_property(
+    instance: *const ComponentInstance,
+    name: Slice<u8>,
+) -> *mut Value {
+    unsafe { &*instance }
+        .get_property(std::str::from_utf8(&name).unwrap())
+        .ok()
+        .map(|value| Box::into_raw(Box::new(value)))
+        .unwrap_or(core::ptr::null_mut())
+}
+
+/// Sets a public property on a component instance. Returns false on failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_set_property(
+    instance: *const ComponentInstance,
+    name: Slice<u8>,
+    value: *const Value,
+) -> bool {
+    unsafe { &*instance }
+        .set_property(std::str::from_utf8(&name).unwrap(), unsafe { (&*value).clone() })
+        .is_ok()
+}
+
+/// Invokes a public callback or function. Returns null if the callable does not exist.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_invoke(
+    instance: *const ComponentInstance,
+    name: Slice<u8>,
+    args: Slice<*mut Value>,
+) -> *mut Value {
+    let args = args.iter().map(|value| unsafe { (&**value).clone() }).collect::<Vec<_>>();
+    unsafe { &*instance }
+        .invoke(std::str::from_utf8(&name).unwrap(), &args)
+        .ok()
+        .map(|value| Box::into_raw(Box::new(value)))
+        .unwrap_or(core::ptr::null_mut())
+}
+
+/// Gets a public property from an exported global singleton. Returns null if it does not exist.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_get_global_property(
+    instance: *const ComponentInstance,
+    global: Slice<u8>,
+    property: Slice<u8>,
+) -> *mut Value {
+    unsafe { &*instance }
+        .get_global_property(
+            std::str::from_utf8(&global).unwrap(),
+            std::str::from_utf8(&property).unwrap(),
+        )
+        .ok()
+        .map(|value| Box::into_raw(Box::new(value)))
+        .unwrap_or(core::ptr::null_mut())
+}
+
+/// Sets a public property on an exported global singleton. Returns false on failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_set_global_property(
+    instance: *const ComponentInstance,
+    global: Slice<u8>,
+    property: Slice<u8>,
+    value: *const Value,
+) -> bool {
+    unsafe { &*instance }
+        .set_global_property(
+            std::str::from_utf8(&global).unwrap(),
+            std::str::from_utf8(&property).unwrap(),
+            unsafe { (&*value).clone() },
+        )
+        .is_ok()
+}
+
+/// Invokes a public callback or function on an exported global singleton.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_invoke_global(
+    instance: *const ComponentInstance,
+    global: Slice<u8>,
+    callable: Slice<u8>,
+    args: Slice<*mut Value>,
+) -> *mut Value {
+    let args = args.iter().map(|value| unsafe { (&**value).clone() }).collect::<Vec<_>>();
+    unsafe { &*instance }
+        .invoke_global(
+            std::str::from_utf8(&global).unwrap(),
+            std::str::from_utf8(&callable).unwrap(),
+            &args,
+        )
+        .ok()
+        .map(|value| Box::into_raw(Box::new(value)))
+        .unwrap_or(core::ptr::null_mut())
+}
+
+type SlintGoCallback =
+    extern "C" fn(token: usize, args: *const *mut Value, arg_len: usize) -> *mut Value;
+
+struct SlintGoCallbackHolder {
+    token: usize,
+    callback: SlintGoCallback,
+}
+
+impl SlintGoCallbackHolder {
+    fn invoke(&self, args: &[Value]) -> Value {
+        let mut raw_args =
+            args.iter().cloned().map(|value| Box::into_raw(Box::new(value))).collect::<Vec<_>>();
+        let result = (self.callback)(self.token, raw_args.as_ptr(), raw_args.len());
+        raw_args.drain(..).for_each(|value| drop(unsafe { Box::from_raw(value) }));
+        if result.is_null() { Value::Void } else { *unsafe { Box::from_raw(result) } }
+    }
+}
+
+/// Installs a callback handler on a component instance.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_set_callback(
+    instance: *const ComponentInstance,
+    name: Slice<u8>,
+    token: usize,
+    callback: SlintGoCallback,
+) -> bool {
+    let holder = SlintGoCallbackHolder { token, callback };
+    unsafe { &*instance }
+        .set_callback(std::str::from_utf8(&name).unwrap(), move |args| holder.invoke(args))
+        .is_ok()
+}
+
+/// Installs a callback handler on an exported global singleton.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_set_global_callback(
+    instance: *const ComponentInstance,
+    global: Slice<u8>,
+    name: Slice<u8>,
+    token: usize,
+    callback: SlintGoCallback,
+) -> bool {
+    let holder = SlintGoCallbackHolder { token, callback };
+    unsafe { &*instance }
+        .set_global_callback(
+            std::str::from_utf8(&global).unwrap(),
+            std::str::from_utf8(&name).unwrap(),
+            move |args| holder.invoke(args),
+        )
+        .is_ok()
+}
+
+/// Creates a new void value handle.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_new() -> *mut Value {
+    Box::into_raw(Box::new(Value::Void))
+}
+
+/// Clones a value handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_clone(value: *const Value) -> *mut Value {
+    Box::into_raw(Box::new(unsafe { (&*value).clone() }))
+}
+
+/// Destroys a value handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_destructor(value: *mut Value) {
+    if !value.is_null() {
+        drop(unsafe { Box::from_raw(value) });
+    }
+}
+
+/// Creates a number value handle.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_new_number(value: f64) -> *mut Value {
+    Box::into_raw(Box::new(Value::Number(value)))
+}
+
+/// Creates a string value handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_new_string(value: Slice<u8>) -> *mut Value {
+    Box::into_raw(Box::new(Value::String(std::str::from_utf8(&value).unwrap().into())))
+}
+
+/// Creates a bool value handle.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_new_bool(value: bool) -> *mut Value {
+    Box::into_raw(Box::new(Value::Bool(value)))
+}
+
+/// Returns the public type classification for a value handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_type(value: *const Value) -> ValueType {
+    unsafe { &*value }.value_type()
+}
+
+/// Converts a string or enum value to a newly allocated C string. Returns null if not applicable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_to_string(value: *const Value) -> *mut core::ffi::c_char {
+    match unsafe { &*value } {
+        Value::String(string) => slint_go_strdup(string.as_str()),
+        Value::EnumerationValue(_, value) => slint_go_strdup(value),
+        _ => core::ptr::null_mut(),
+    }
+}
+
+/// Extracts a number from a value. Returns false if the value is not numeric.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_to_number(value: *const Value, out: *mut f64) -> bool {
+    if let Value::Number(number) = unsafe { &*value } {
+        unsafe { *out = *number };
+        true
+    } else {
+        false
+    }
+}
+
+/// Extracts a bool from a value. Returns false if the value is not bool.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_to_bool(value: *const Value, out: *mut bool) -> bool {
+    if let Value::Bool(boolean) = unsafe { &*value } {
+        unsafe { *out = *boolean };
         true
     } else {
         false
