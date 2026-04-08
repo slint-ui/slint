@@ -2,7 +2,17 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.3.0]
+## [0.4.0]
+
+ - Bumped the `const-field-offset` dependency to 0.2 (breaking change in the
+   `FIELD_OFFSETS` API).
+ - Use absolute `::core::` paths in the generated code to avoid conflicts when
+   user code declares a type named `core`.
+ - Upgraded to edition 2024.
+ - The minimum supported Rust version is now 1.85.
+ - Fixed clippy warnings in `vtable-macro`.
+
+## [0.3.0] - 2025-06-16
 
  - Don't automatically add "extern C" to the function that do not have it.
 
