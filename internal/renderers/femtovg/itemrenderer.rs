@@ -1135,7 +1135,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
             Some(ItemGraphicsCacheEntry::TextureWithOrigin {
                 texture: layer_image,
-                origin: local_physical_origin,
+                origin: -local_physical_origin,
             })
         });
 
