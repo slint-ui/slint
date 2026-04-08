@@ -226,7 +226,9 @@ impl MudaAdapter {
                 } else {
                     self.menu = Some(muda::Menu::new());
 
-                    if muda_type == MudaType::Menubar && let Some(menu) = self.menu.as_ref() {
+                    if muda_type == MudaType::Menubar
+                        && let Some(menu) = self.menu.as_ref()
+                    {
                         #[cfg(target_os = "windows")]
                         if let RawWindowHandle::Win32(handle) =
                             winit_window.window_handle().unwrap().as_raw()
@@ -237,8 +239,7 @@ impl MudaAdapter {
                                 None => muda::MenuTheme::Auto,
                             };
                             unsafe {
-                                menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme)
-                                    .unwrap()
+                                menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap()
                             };
                         }
 
@@ -253,14 +254,14 @@ impl MudaAdapter {
                 if let Some(menu) = self.menu.as_ref() {
                     for e in menu_entries {
                         menu.append(&*generate_menu_entry(
-                                vtable::VRc::borrow(&menu_tree),
-                                &e,
-                                0,
-                                &mut self.entries,
-                                &window_id,
-                                muda_type,
-                            ))
-                            .unwrap();
+                            vtable::VRc::borrow(&menu_tree),
+                            &e,
+                            0,
+                            &mut self.entries,
+                            &window_id,
+                            muda_type,
+                        ))
+                        .unwrap();
                     }
                 }
             };
@@ -293,11 +294,10 @@ impl MudaAdapter {
             i_slint_core::items::ColorScheme::Light => muda::MenuTheme::Light,
             i_slint_core::items::ColorScheme::Unknown | _ => muda::MenuTheme::Auto,
         };
-        if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() && let Some(menu) = self.menu.as_ref() {
-            unsafe {
-                menu.set_theme_for_hwnd(handle.hwnd.get(), theme)
-                    .unwrap()
-            };
+        if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw()
+            && let Some(menu) = self.menu.as_ref()
+        {
+            unsafe { menu.set_theme_for_hwnd(handle.hwnd.get(), theme).unwrap() };
         }
     }
 
