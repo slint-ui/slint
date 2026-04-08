@@ -116,8 +116,9 @@ impl i_slint_core::platform::Platform for TestingBackend {
             .map(|q| Box::new(q.clone()) as Box<dyn i_slint_core::platform::EventLoopProxy>)
     }
 
-    fn open_url(&self, url: &str) {
+    fn open_url(&self, url: &str) -> Result<(), PlatformError> {
         *self.open_url.borrow_mut() = Some(url.into());
+        Ok(())
     }
 }
 

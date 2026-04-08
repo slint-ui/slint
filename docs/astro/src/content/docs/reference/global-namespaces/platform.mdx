@@ -36,8 +36,9 @@ determine the currently used scheme.
 
 ## Functions
 
-### open-url(url: string)
+### open-url(url: string) -> bool
 Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
+Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
 
 ```slint playground
 import { Button } from "std-widgets.slint";

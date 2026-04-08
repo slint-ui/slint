@@ -168,6 +168,6 @@ pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
 
-pub fn open_url(url: &str, window: &crate::api::Window) {
+pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
     crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }
