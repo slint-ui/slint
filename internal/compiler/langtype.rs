@@ -209,27 +209,27 @@ impl Type {
     pub fn is_property_type(&self) -> bool {
         match self {
             Self::Float32
-                | Self::Int32
-                | Self::String
-                | Self::Color
-                | Self::ComponentFactory
-                | Self::Duration
-                | Self::Angle
-                | Self::PhysicalLength
-                | Self::LogicalLength
-                | Self::Rem
-                | Self::Percent
-                | Self::Image
-                | Self::Bool
-                | Self::Easing
-                | Self::Enumeration(_)
-                | Self::Keys
-                | Self::ElementReference
-                | Self::Struct { .. }
-                | Self::Array(_)
-                | Self::Brush
-                | Self::InferredProperty
-                | Self::StyledText => true,
+            | Self::Int32
+            | Self::String
+            | Self::Color
+            | Self::ComponentFactory
+            | Self::Duration
+            | Self::Angle
+            | Self::PhysicalLength
+            | Self::LogicalLength
+            | Self::Rem
+            | Self::Percent
+            | Self::Image
+            | Self::Bool
+            | Self::Easing
+            | Self::Enumeration(_)
+            | Self::Keys
+            | Self::ElementReference
+            | Self::Struct { .. }
+            | Self::Array(_)
+            | Self::Brush
+            | Self::InferredProperty
+            | Self::StyledText => true,
             Self::Optional(inner) => inner.is_property_type(),
             _ => false,
         }
