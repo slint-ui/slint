@@ -268,13 +268,13 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
-    pub viewport_y: LocalMemberReference,
-    pub viewport_height: LocalMemberReference,
-    pub viewport_width: LocalMemberReference,
+    pub viewport_y: MemberReference,
+    pub viewport_height: MemberReference,
+    pub viewport_width: MemberReference,
     /// The ListView's inner visible height (not counting eventual scrollbar)
-    pub listview_height: LocalMemberReference,
+    pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
-    pub listview_width: LocalMemberReference,
+    pub listview_width: MemberReference,
 
     // In the repeated component context
     pub prop_y: MemberReference,

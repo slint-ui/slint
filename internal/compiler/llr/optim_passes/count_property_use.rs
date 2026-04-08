@@ -43,11 +43,11 @@ pub fn count_property_use(root: &CompilationUnit) {
         for (idx, r) in sc.repeated.iter_enumerated() {
             r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
-                visit_property(&lv.viewport_y.clone().into(), ctx);
-                visit_property(&lv.viewport_width.clone().into(), ctx);
-                visit_property(&lv.viewport_height.clone().into(), ctx);
-                visit_property(&lv.listview_width.clone().into(), ctx);
-                visit_property(&lv.listview_height.clone().into(), ctx);
+                visit_property(&lv.viewport_y, ctx);
+                visit_property(&lv.viewport_width, ctx);
+                visit_property(&lv.viewport_height, ctx);
+                visit_property(&lv.listview_width, ctx);
+                visit_property(&lv.listview_height, ctx);
 
                 let parent_ctx = ParentScope::new(ctx, Some(idx));
                 let rep_ctx = EvaluationContext::new_sub_component(
