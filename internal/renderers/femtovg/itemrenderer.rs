@@ -1075,11 +1075,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let origin = bounding_rect.origin;
-            // We need to offset to the origin of the geometry inside the bounds
             let geometry_origin = item_rc.geometry().origin;
             let local_logical_origin: LogicalPoint =
                 euclid::point2(geometry_origin.x - origin.x, geometry_origin.y - origin.y);
+
+            // We want the `0,0` point to be at the origin of the item's geometry, but that may
+            // not be the same as the leftmost point of the rendered graphics. This calculates the
+            // offset from the leftmost point of the rendered graphics to the `0,0` point, see
+            // below.
             let local_physical_origin: PhysicalPoint = local_logical_origin * self.scale_factor;
+
             let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
 
             let layer_image = existing_layer_texture
@@ -1108,6 +1113,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
                 canvas.clear_rect(0, 0, size.width, size.height, femtovg::Color::rgba(0, 0, 0, 0));
 
+                // We offset by `local_physical_origin` which will bring the `0,0` point in from the edge
+                // of the canvas such that any items rendered at negative offsets will still be within
+                // the canvas bounds.
                 canvas.translate(local_physical_origin.x, local_physical_origin.y);
             }
 
@@ -1135,6 +1143,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
             Some(ItemGraphicsCacheEntry::TextureWithOrigin {
                 texture: layer_image,
+                // This will cause the transformation done above to be undone when rendering this texture to
+                // the screen/a parent layer
                 origin: -local_physical_origin,
             })
         });
