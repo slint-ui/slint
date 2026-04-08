@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import "../../../examples/carousel/ui/fonts/Roboto-Regular.ttf";
+// This fixture is derived from Roboto-Regular.ttf and carries an explicit line gap,
+// so the first-line trim changes the preferred height by a measurable pixel.
+import "fixtures/Roboto-Test-LineGap.ttf";
 
 export component TestCase inherits Window {
     width: 200px;
     height: 80px;
-    default-font-family: "Roboto";
+    default-font-family: "Roboto Test LineGap";
     default-font-size: 20px;
 
     t := Text {
@@ -15,17 +17,12 @@ export component TestCase inherits Window {
 
     out property <length> preferred-text-height: t.preferred-height;
     out property <length> metrics-text-height: t.font-metrics.ascent - t.font-metrics.descent;
+    out property <bool> test: preferred-text-height == 22px && metrics-text-height == 20px;
 }
 
 /*
 ```rust
 let instance = TestCase::new().unwrap();
-let preferred = instance.get_preferred_text_height();
-let metrics = instance.get_metrics_text_height();
-let expected = metrics.ceil();
-assert!(
-    (preferred - expected).abs() < 0.01,
-    "preferred-height ({preferred}) != ceil(metrics-height) ({expected}), raw metrics-height: {metrics}"
-);
+assert!(instance.get_test());
 ```
 */
