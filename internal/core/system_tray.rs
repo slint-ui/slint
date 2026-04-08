@@ -1,11 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#[cfg(any(feature = "system-tray-ksni", feature = "system-tray-tray-icon"))]
 use crate::graphics::Image;
-
-#[cfg(not(any(feature = "system-tray-ksni", feature = "system-tray-tray-icon")))]
-compile_error!("Either system-tray-ksni or system-tray-tray-icon must be set");
 
 #[cfg(feature = "system-tray-ksni")]
 use ksni::blocking::TrayMethods;
@@ -32,28 +28,32 @@ impl ksni::Tray for KsniTray {
     }
 }
 
-#[derive(Debug)]
-pub enum Event {
-    #[cfg(feature = "system-tray-tray-icon")]
-    TrayIcon(tray_icon::TrayIconEvent),
-    #[cfg(feature = "system-tray-tray-icon")]
-    TrayIconMenu(tray_icon::menu::MenuEvent),
-}
-
 pub struct Params<'a> {
     pub icon: &'a Image,
     pub title: &'a str,
 }
 
 pub struct SystemTray {
-    #[cfg(feature = "system-tray-tray-icon")]
+    #[cfg(all(
+        feature = "system-tray-tray-icon",
+        any(target_os = "macos", target_os = "windows")
+    ))]
     tray_icon: tray_icon::TrayIcon,
     #[cfg(feature = "system-tray-ksni")]
     _tray: ksni::blocking::Handle<KsniTray>,
 }
 
 impl SystemTray {
-    #[cfg(any(feature = "system-tray-ksni", feature = "system-tray-tray-icon"))]
+    #[cfg_attr(
+        not(any(
+            feature = "system-tray-ksni",
+            all(
+                feature = "system-tray-tray-icon",
+                any(target_os = "macos", target_os = "windows")
+            )
+        )),
+        allow(unused)
+    )]
     pub fn new(params: Params) -> Result<Self, Error> {
         #[cfg(feature = "system-tray-ksni")]
         {
@@ -74,8 +74,24 @@ impl SystemTray {
             return Ok(Self { _tray: tray });
         }
 
-        #[cfg(feature = "system-tray-tray-icon")]
+        #[cfg(all(
+            feature = "system-tray-tray-icon",
+            any(target_os = "macos", target_os = "windows")
+        ))]
         {
+            fn icon_to_tray_icon(icon: &Image) -> Result<tray_icon::Icon, Error> {
+                let pixel_buffer = icon.to_rgba8().ok_or(Error::Rgba8)?;
+
+                let rgba = pixel_buffer.as_bytes();
+                let width = pixel_buffer.width() as u32;
+                let height = pixel_buffer.height() as u32;
+
+                let tray_icon = tray_icon::Icon::from_rgba(rgba.to_vec(), width, height)
+                    .map_err(Error::BadIcon)?;
+
+                Ok(tray_icon)
+            }
+
             let icon = icon_to_tray_icon(params.icon)?;
 
             let tray_icon = tray_icon::TrayIconBuilder::new()
@@ -86,6 +102,15 @@ impl SystemTray {
 
             return Ok(Self { tray_icon });
         }
+
+        #[cfg(not(any(
+            feature = "system-tray-ksni",
+            all(
+                feature = "system-tray-tray-icon",
+                any(target_os = "macos", target_os = "windows")
+            )
+        )))]
+        return Ok(Self {});
     }
 }
 
@@ -93,27 +118,13 @@ impl SystemTray {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[cfg(feature = "system-tray-tray-icon")]
+    #[cfg(all(feature = "system-tray-tray-icon", any(target_os = "macos", target_os = "windows")))]
     #[display("Bad icon: {}", 0)]
     BadIcon(tray_icon::BadIcon),
-    #[cfg(feature = "system-tray-tray-icon")]
+    #[cfg(all(feature = "system-tray-tray-icon", any(target_os = "macos", target_os = "windows")))]
     #[display("Build error: {}", 0)]
     BuildError(tray_icon::Error),
     #[cfg(feature = "system-tray-ksni")]
     #[display("Build error: {}", 0)]
     KsniBuildError(ksni::Error),
-}
-
-#[cfg(feature = "system-tray-tray-icon")]
-fn icon_to_tray_icon(icon: &Image) -> Result<tray_icon::Icon, Error> {
-    let pixel_buffer = icon.to_rgba8().ok_or(Error::Rgba8)?;
-
-    let rgba = pixel_buffer.as_bytes();
-    let width = pixel_buffer.width() as u32;
-    let height = pixel_buffer.height() as u32;
-
-    let tray_icon =
-        tray_icon::Icon::from_rgba(rgba.to_vec(), width, height).map_err(Error::BadIcon)?;
-
-    Ok(tray_icon)
 }
