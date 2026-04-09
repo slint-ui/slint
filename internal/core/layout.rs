@@ -1347,9 +1347,10 @@ mod flexbox_taffy {
         pub container_height: Option<Coord>,
     }
 
-    /// Build a taffy tree from Slint layout constraints
+    /// Build a taffy tree from Slint layout constraints.
+    /// The NodeContext (usize) stores the original child index for measure callbacks.
     pub struct FlexboxTaffyBuilder {
-        pub taffy: TaffyTree<()>,
+        pub taffy: TaffyTree<usize>,
         pub children: Vec<NodeId>,
         pub container: NodeId,
         /// Maps taffy child position -> original cell index (empty if no reordering needed)
@@ -1359,7 +1360,7 @@ mod flexbox_taffy {
     impl FlexboxTaffyBuilder {
         /// Create a new flexbox layout tree from item constraints
         pub fn new(params: FlexboxLayoutParams) -> Self {
-            let mut taffy = TaffyTree::<()>::new();
+            let mut taffy = TaffyTree::<usize>::new();
 
             // Create child nodes from Slint constraints
             let mut children: Vec<NodeId> = params
@@ -1391,64 +1392,68 @@ mod flexbox_taffy {
                     };
 
                     taffy
-                        .new_leaf(Style {
-                            flex_basis,
-                            size: Size {
-                                width: match params.flex_direction {
-                                    TaffyFlexDirection::Column
-                                    | TaffyFlexDirection::ColumnReverse => {
-                                        if preferred_width > 0 as Coord {
-                                            Dimension::length(preferred_width as _)
-                                        } else {
-                                            Dimension::auto()
+                        .new_leaf_with_context(
+                            Style {
+                                flex_basis,
+                                size: Size {
+                                    width: match params.flex_direction {
+                                        TaffyFlexDirection::Column
+                                        | TaffyFlexDirection::ColumnReverse => {
+                                            if preferred_width > 0 as Coord {
+                                                Dimension::length(preferred_width as _)
+                                            } else {
+                                                Dimension::auto()
+                                            }
                                         }
-                                    }
-                                    _ => Dimension::auto(),
-                                },
-                                height: match params.flex_direction {
-                                    TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                                        if preferred_height > 0 as Coord {
-                                            Dimension::length(preferred_height as _)
-                                        } else {
-                                            Dimension::auto()
+                                        _ => Dimension::auto(),
+                                    },
+                                    height: match params.flex_direction {
+                                        TaffyFlexDirection::Row
+                                        | TaffyFlexDirection::RowReverse => {
+                                            if preferred_height > 0 as Coord {
+                                                Dimension::length(preferred_height as _)
+                                            } else {
+                                                Dimension::auto()
+                                            }
                                         }
-                                    }
-                                    _ => Dimension::auto(),
+                                        _ => Dimension::auto(),
+                                    },
                                 },
-                            },
-                            min_size: Size {
-                                width: Dimension::length(h_constraint.min as _),
-                                height: Dimension::length(
-                                    v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
-                                ),
-                            },
-                            max_size: Size {
-                                width: if h_constraint.max < Coord::MAX {
-                                    Dimension::length(h_constraint.max as _)
-                                } else {
-                                    Dimension::auto()
+                                min_size: Size {
+                                    width: Dimension::length(h_constraint.min as _),
+                                    height: Dimension::length(
+                                        v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
+                                    ),
                                 },
-                                height: if let Some(vc) = v_constraint {
-                                    if vc.max < Coord::MAX {
-                                        Dimension::length(vc.max as _)
+                                max_size: Size {
+                                    width: if h_constraint.max < Coord::MAX {
+                                        Dimension::length(h_constraint.max as _)
                                     } else {
                                         Dimension::auto()
-                                    }
-                                } else {
-                                    Dimension::auto()
+                                    },
+                                    height: if let Some(vc) = v_constraint {
+                                        if vc.max < Coord::MAX {
+                                            Dimension::length(vc.max as _)
+                                        } else {
+                                            Dimension::auto()
+                                        }
+                                    } else {
+                                        Dimension::auto()
+                                    },
                                 },
+                                flex_grow: cell_h.flex_grow,
+                                flex_shrink: cell_h.flex_shrink,
+                                align_self: match cell_h.flex_align_self {
+                                    FlexboxLayoutAlignSelf::Auto => None,
+                                    FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
+                                    FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
+                                    FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
+                                    FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
+                                },
+                                ..Default::default()
                             },
-                            flex_grow: cell_h.flex_grow,
-                            flex_shrink: cell_h.flex_shrink,
-                            align_self: match cell_h.flex_align_self {
-                                FlexboxLayoutAlignSelf::Auto => None,
-                                FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
-                                FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
-                                FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
-                                FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
-                            },
-                            ..Default::default()
-                        })
+                            idx,
+                        )
                         .unwrap() // cannot fail
                 })
                 .collect();
@@ -1533,27 +1538,64 @@ mod flexbox_taffy {
             Self { taffy, children, container, order_map }
         }
 
-        /// Compute the layout with the given available space
-        pub fn compute_layout(&mut self, available_width: Coord, available_height: Coord) {
-            self.taffy
-                .compute_layout(
-                    self.container,
-                    taffy::prelude::Size {
-                        width: if available_width < Coord::MAX {
-                            AvailableSpace::Definite(available_width as _)
-                        } else {
-                            AvailableSpace::MaxContent
+        /// Compute the layout with the given available space.
+        ///
+        /// The optional `measure` callback is called by taffy for leaf nodes
+        /// that need dynamic height-for-width (or width-for-height) measurement.
+        /// It receives `(child_index, known_width, known_height)` where `known_width`
+        /// / `known_height` are `Some` if taffy has already determined that dimension,
+        /// and returns `(width, height)`.
+        pub fn compute_layout(
+            &mut self,
+            available_width: Coord,
+            available_height: Coord,
+            measure: Option<&mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord)>,
+        ) {
+            let available_space = taffy::prelude::Size {
+                width: if available_width < Coord::MAX {
+                    AvailableSpace::Definite(available_width as _)
+                } else {
+                    AvailableSpace::MaxContent
+                },
+                height: if available_height < Coord::MAX {
+                    AvailableSpace::Definite(available_height as _)
+                } else {
+                    AvailableSpace::MaxContent
+                },
+            };
+
+            if let Some(measure) = measure {
+                self.taffy
+                    .compute_layout_with_measure(
+                        self.container,
+                        available_space,
+                        |known_dimensions, _available_space, _node_id, node_context, _style| {
+                            if let Some(&mut child_index) = node_context {
+                                let known_w = known_dimensions.width.map(|w| w as Coord);
+                                let known_h = known_dimensions.height.map(|h| h as Coord);
+                                let (w, h) = measure(child_index, known_w, known_h);
+                                taffy::prelude::Size { width: w as f32, height: h as f32 }
+                            } else {
+                                taffy::prelude::Size::ZERO
+                            }
                         },
-                        height: if available_height < Coord::MAX {
-                            AvailableSpace::Definite(available_height as _)
-                        } else {
-                            AvailableSpace::MaxContent
+                    )
+                    .unwrap_or_else(|e| {
+                        crate::debug_log!("FlexboxLayout computation error: {}", e);
+                    });
+            } else {
+                self.taffy
+                    .compute_layout_with_measure(
+                        self.container,
+                        available_space,
+                        |_known_dimensions, _available_space, _node_id, _node_context, _style| {
+                            taffy::prelude::Size::ZERO
                         },
-                    },
-                )
-                .unwrap_or_else(|e| {
-                    crate::debug_log!("FlexboxLayout computation error: {}", e);
-                });
+                    )
+                    .unwrap_or_else(|e| {
+                        crate::debug_log!("FlexboxLayout computation error: {}", e);
+                    });
+            }
         }
 
         /// Get the computed container size
@@ -1698,7 +1740,7 @@ pub fn solve_flexbox_layout(
         }
     };
 
-    builder.compute_layout(available_width, available_height);
+    builder.compute_layout(available_width, available_height, None);
 
     // Extract results using the cache generator to handle repeaters.
     // If `order` sorting was applied, we need to collect results by original index first,
@@ -1843,7 +1885,7 @@ pub fn flexbox_layout_info(
         }
     };
 
-    builder.compute_layout(available_width, available_height);
+    builder.compute_layout(available_width, available_height, None);
 
     let preferred = if is_main_axis {
         // For main-axis, container_size() returns max(content, available_space) for
