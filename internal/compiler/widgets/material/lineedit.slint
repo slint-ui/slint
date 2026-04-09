@@ -72,6 +72,7 @@ export component LineEdit uses { LineEditInterface from base } {
                 hide-password-image: @image-url("_visibility_off.svg");
                 colorize: base.text-color;
                 show-password <=> base.password-revealed;
+                clicked => { base.focus(); }
             }
         }
     }

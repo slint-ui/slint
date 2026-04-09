@@ -165,12 +165,14 @@ export component LineEditPasswordIcon inherits Image {
     in-out property <bool> show-password;
     in property <image> show-password-image;
     in property <image> hide-password-image;
+    callback clicked();
 
     source: show-password ? hide-password-image : show-password-image;
     vertical-alignment: center;
     TouchArea {
         clicked => {
             root.show-password = !root.show-password;
+            root.clicked();
         }
     }
 }
