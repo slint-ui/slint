@@ -1678,6 +1678,29 @@ pub fn instantiate(
         }
     }
 
+    #[cfg(slint_debug_property)]
+    {
+        let component_id = description.original.id.as_str();
+
+        // Set debug names on custom (root element) properties
+        for (prop_name, prop_info) in &description.custom_properties {
+            let name = format!("{}.{}", component_id, prop_name);
+            unsafe {
+                let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(prop_info.offset));
+                prop_info.prop.set_debug_name(item, name);
+            }
+        }
+
+        // Set debug names on built-in item properties
+        for (item_name, item_within_component) in &description.items {
+            let item = unsafe { item_within_component.item_from_item_tree(instance_ref.as_ptr()) };
+            for (prop_name, prop_rtti) in &item_within_component.rtti.properties {
+                let name = format!("{}::{}.{}", component_id, item_name, prop_name);
+                prop_rtti.set_debug_name(item, name);
+            }
+        }
+    }
+
     generator::handle_property_bindings_init(
         &description.original,
         |elem, prop_name, binding| unsafe {

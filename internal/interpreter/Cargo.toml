@@ -169,6 +169,9 @@ i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true 
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = { workspace = true }
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)"] }
+
 [package.metadata.docs.rs]
 features = ["display-diagnostics", "document-features", "raw-window-handle-06"]
 rustdoc-args = ["--generate-link-to-definition"]
