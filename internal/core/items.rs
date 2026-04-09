@@ -1814,7 +1814,7 @@ pub struct SystemTray {
     pub icon: Property<crate::graphics::Image>,
     pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
-    data: SystemTrayData,
+    data: SystemTrayDataBox,
 }
 
 impl Item for SystemTray {
