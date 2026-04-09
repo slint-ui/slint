@@ -17,6 +17,7 @@ use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
 use core::pin::Pin;
+use std::println;
 use vtable::*;
 
 #[repr(C)]
@@ -169,6 +170,7 @@ pub type ItemTreeWeak = vtable::VWeak<ItemTreeVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the ItemTree.
 pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<WindowAdapterRc>) {
+    println!("register_item_tree: {:?}", item_tree_rc);
     let c = vtable::VRc::borrow_pin(item_tree_rc);
     let item_tree = c.as_ref().get_item_tree();
     item_tree.iter().enumerate().for_each(|(tree_index, node)| {
@@ -190,6 +192,7 @@ pub fn unregister_item_tree<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
+    println!("unregister_item_tree: {:?}", item_tree.as_ptr());
     window_adapter.renderer().free_graphics_resources(
         item_tree,
         &mut item_array.iter().map(|item| item.apply_pin(base)),

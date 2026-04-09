@@ -163,6 +163,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
         window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
+        // println!("Window event. Window Id: {:?}. Event: {:?}", window_id, event);
         let Some(window) = self.shared_backend_data.window_by_id(window_id) else {
             if let Some(handler) = self.custom_application_handler.as_mut() {
                 handler.window_event(event_loop, window_id, None, None, &event);

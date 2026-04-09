@@ -445,6 +445,7 @@ pub struct SoftwareRenderer {
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     #[cfg(feature = "systemfonts")]
     text_layout_cache: sharedparley::TextLayoutCache,
+    name: &'static str,
 }
 
 impl Default for SoftwareRenderer {
@@ -458,6 +459,7 @@ impl Default for SoftwareRenderer {
             repaint_buffer_type: Default::default(),
             #[cfg(feature = "systemfonts")]
             text_layout_cache: Default::default(),
+            name: "default name",
         }
     }
 }
