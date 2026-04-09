@@ -15,7 +15,7 @@ name = "system_tray"
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["renderer-femtovg", "backend-winit-x11", "compat-1-2"] }
-i-slint-core = { workspace = true, features = ["system-tray", "system-tray-ksni"] }
+i-slint-core = { workspace = true, features = ["system-tray"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

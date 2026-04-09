@@ -3,16 +3,16 @@
 
 use crate::graphics::Image;
 
-#[cfg(feature = "system-tray-ksni")]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use ksni::blocking::TrayMethods;
 
-#[cfg(feature = "system-tray-ksni")]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 struct KsniTray {
     icon: ksni::Icon,
     title: std::string::String,
 }
 
-#[cfg(feature = "system-tray-ksni")]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 impl ksni::Tray for KsniTray {
     fn id(&self) -> std::string::String {
         // This cannot be empty.
@@ -34,28 +34,15 @@ pub struct Params<'a> {
 }
 
 pub struct SystemTray {
-    #[cfg(all(
-        feature = "system-tray-tray-icon",
-        any(target_os = "macos", target_os = "windows")
-    ))]
-    tray_icon: tray_icon::TrayIcon,
-    #[cfg(feature = "system-tray-ksni")]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    _tray_icon: tray_icon::TrayIcon,
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     _tray: ksni::blocking::Handle<KsniTray>,
 }
 
 impl SystemTray {
-    #[cfg_attr(
-        not(any(
-            feature = "system-tray-ksni",
-            all(
-                feature = "system-tray-tray-icon",
-                any(target_os = "macos", target_os = "windows")
-            )
-        )),
-        allow(unused)
-    )]
     pub fn new(params: Params) -> Result<Self, Error> {
-        #[cfg(feature = "system-tray-ksni")]
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         {
             let pixel_buffer = params.icon.to_rgba8().ok_or(Error::Rgba8)?;
 
@@ -74,10 +61,7 @@ impl SystemTray {
             Ok(Self { _tray: tray })
         }
 
-        #[cfg(all(
-            feature = "system-tray-tray-icon",
-            any(target_os = "macos", target_os = "windows")
-        ))]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
             fn icon_to_tray_icon(icon: &Image) -> Result<tray_icon::Icon, Error> {
                 let pixel_buffer = icon.to_rgba8().ok_or(Error::Rgba8)?;
@@ -100,17 +84,8 @@ impl SystemTray {
                 .build()
                 .map_err(Error::BuildError)?;
 
-            Ok(Self { tray_icon })
+            Ok(Self { _tray_icon: tray_icon })
         }
-
-        #[cfg(not(any(
-            feature = "system-tray-ksni",
-            all(
-                feature = "system-tray-tray-icon",
-                any(target_os = "macos", target_os = "windows")
-            )
-        )))]
-        Ok(Self {})
     }
 }
 
@@ -118,13 +93,13 @@ impl SystemTray {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[cfg(all(feature = "system-tray-tray-icon", any(target_os = "macos", target_os = "windows")))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[display("Bad icon: {}", 0)]
     BadIcon(tray_icon::BadIcon),
-    #[cfg(all(feature = "system-tray-tray-icon", any(target_os = "macos", target_os = "windows")))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[display("Build error: {}", 0)]
     BuildError(tray_icon::Error),
-    #[cfg(feature = "system-tray-ksni")]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     #[display("Build error: {}", 0)]
     KsniBuildError(ksni::Error),
 }
