@@ -1266,7 +1266,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
     let (align_self_ty, align_self_default) = default_align_self();
 
     let grow = prop_ref("flex-grow").unwrap_or(llr_Expression::NumberLiteral(0.0));
-    let shrink = prop_ref("flex-shrink").unwrap_or(llr_Expression::NumberLiteral(0.0));
+    let shrink = prop_ref("flex-shrink").unwrap_or(llr_Expression::NumberLiteral(1.0));
     let basis = prop_ref("flex-basis").unwrap_or(llr_Expression::NumberLiteral(-1.0));
     let align_self = prop_ref("flex-align-self").unwrap_or(align_self_default);
     let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));

@@ -406,7 +406,7 @@ fn flexbox_layout_data(
                 &expr_eval,
             );
             let flex_grow = layout_elem.flex_grow.as_ref().map(&expr_eval).unwrap_or(0.0);
-            let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(0.0);
+            let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(1.0);
             let flex_basis = layout_elem.flex_basis.as_ref().map(&expr_eval).unwrap_or(-1.0);
             let align_self = layout_elem
                 .align_self

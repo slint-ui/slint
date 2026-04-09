@@ -1175,7 +1175,7 @@ impl Default for FlexboxLayoutItemInfo {
         Self {
             constraint: LayoutInfo::default(),
             flex_grow: 0.0,
-            flex_shrink: 0.0,
+            flex_shrink: 1.0,
             flex_basis: -1 as _,
             flex_align_self: FlexboxLayoutAlignSelf::Auto,
             flex_order: 0,
