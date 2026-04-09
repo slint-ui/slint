@@ -39,6 +39,7 @@ pub use crate::menus::MenuItem;
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -1775,22 +1776,52 @@ declare_item_vtable! {
 }
 
 #[repr(C)]
+/// Wraps the internal data structure for the SystemTray
+pub struct SystemTrayDataBox(core::ptr::NonNull<SystemTrayData>);
+
+impl Default for SystemTrayDataBox {
+    fn default() -> Self {
+        SystemTrayDataBox(Box::leak(Box::<SystemTrayData>::default()).into())
+    }
+}
+impl Drop for SystemTrayDataBox {
+    fn drop(&mut self) {
+        // Safety: the self.0 was constructed from a Box::leak in SystemTrayDataBox::default
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+
+impl core::ops::Deref for SystemTrayDataBox {
+    type Target = SystemTrayData;
+    fn deref(&self) -> &Self::Target {
+        // Safety: initialized in SystemTrayDataBox::default
+        unsafe { self.0.as_ref() }
+    }
+}
+
+#[derive(Default)]
+pub struct SystemTrayData {
+    #[cfg(feature = "system-tray")]
+    inner: std::cell::OnceCell<crate::system_tray::SystemTray>,
+    #[cfg_attr(not(feature = "system-tray"), allow(unused))]
+    change_tracker: crate::properties::ChangeTracker,
+}
+
+#[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct SystemTray {
     pub icon: Property<crate::graphics::Image>,
     pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
-    #[cfg(feature = "system-tray")]
-    inner: std::cell::OnceCell<crate::system_tray::SystemTray>,
-    change_tracker: crate::properties::ChangeTracker,
+    data: SystemTrayData,
 }
 
 impl Item for SystemTray {
     #[cfg_attr(not(feature = "system-tray"), allow(unused))]
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         #[cfg(feature = "system-tray")]
-        self.change_tracker.init_delayed(
+        self.data.change_tracker.init_delayed(
             self_rc.downgrade(),
             |_| true,
             |self_weak, has_icon| {
@@ -1813,7 +1844,7 @@ impl Item for SystemTray {
                         Err(err) => panic!("{}", err),
                     };
 
-                let _ = tray.inner.set(system_tray);
+                let _ = tray.data.inner.set(system_tray);
             },
         );
     }
