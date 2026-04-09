@@ -254,14 +254,6 @@ pub fn render_component_items(
     renderer.restore_state();
 }
 
-/// Compute the bounding rect of this item and all its children. Remember to run this via `evaluate_no_tracking`.
-pub fn item_with_children_bounding_rect(
-    item_rc: &ItemRc,
-    window_adapter: &WindowAdapterRc,
-) -> LogicalRect {
-    item_with_children_bounding_rect_transformed(item_rc, window_adapter, Default::default())
-}
-
 fn item_with_children_bounding_rect_transformed(
     item_rc: &ItemRc,
     window_adapter: &WindowAdapterRc,

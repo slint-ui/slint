@@ -1083,8 +1083,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
 
-            let geometry_origin = item_rc.geometry().origin;
-            let local_logical_origin = (geometry_origin - bounding_rect.origin).to_point();
+            let local_logical_origin = bounding_rect.origin;
 
             // We want the `0,0` point to be at the origin of the item's geometry, but that may
             // not be the same as the leftmost point of the rendered graphics. This calculates the
@@ -1123,7 +1122,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 // We offset by `local_physical_origin` which will bring the `0,0` point in from the edge
                 // of the canvas such that any items rendered at negative offsets will still be within
                 // the canvas bounds.
-                canvas.translate(local_physical_origin.x, local_physical_origin.y);
+                canvas.translate(-local_physical_origin.x, -local_physical_origin.y);
             }
 
             *self.state.last_mut().unwrap() = State {
@@ -1152,7 +1151,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 texture: layer_image,
                 // This will cause the transformation done above to be undone when rendering this texture to
                 // the screen/a parent layer
-                origin: -local_physical_origin,
+                origin: local_physical_origin,
             })
         });
 
@@ -1169,12 +1168,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let current_clip = self.get_current_clip();
         if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
             i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_with_children_bounding_rect(
-                    item_rc,
-                    &window_adapter,
-                )
-                .intersection(&current_clip)
-                .unwrap_or_default()
+                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
+                    .intersection(&current_clip)
+                    .unwrap_or_default()
             })
         }) && let Some(layer_size) = layer_image.size()
         {

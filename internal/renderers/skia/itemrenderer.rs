@@ -333,12 +333,9 @@ impl<'a> SkiaItemRenderer<'a> {
         let current_clip = self.get_current_clip();
         if let Some((layer_offset, layer_image)) = self.render_layer(item_rc, &|| {
             i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_with_children_bounding_rect(
-                    item_rc,
-                    &window_adapter,
-                )
-                .intersection(&current_clip)
-                .unwrap_or_default()
+                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
+                    .intersection(&current_clip)
+                    .unwrap_or_default()
             })
         }) {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
