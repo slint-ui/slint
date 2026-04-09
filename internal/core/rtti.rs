@@ -139,6 +139,10 @@ pub trait PropertyInfo<Item, Value> {
     #[allow(unsafe_code)]
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
 
+    /// Set the debug name of this property (only effective with `cfg(slint_debug_property)`)
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, _item: Pin<&Item>, _name: alloc::string::String) {}
+
     /// Prepare the property for two way binding and return the "common" shared property in the TwoWayBinding
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>>;
 
@@ -191,6 +195,11 @@ where
     }
     fn offset(&self) -> usize {
         self.get_byte_offset()
+    }
+
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, item: Pin<&Item>, name: alloc::string::String) {
+        self.apply_pin(item).debug_name.replace(name);
     }
 
     #[allow(unsafe_code)]
@@ -335,6 +344,11 @@ where
     }
     fn offset(&self) -> usize {
         self.get_byte_offset()
+    }
+
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, item: Pin<&Item>, name: alloc::string::String) {
+        self.0.set_debug_name(item, name);
     }
 
     #[allow(unsafe_code)]
