@@ -1345,6 +1345,9 @@ mod flexbox_taffy {
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
+        /// When true, set the cross-axis dimension to `auto` for all items
+        /// so that the measure callback can compute it dynamically (height-for-width).
+        pub use_measure_for_cross_axis: bool,
     }
 
     /// Build a taffy tree from Slint layout constraints.
@@ -1399,7 +1402,11 @@ mod flexbox_taffy {
                                     width: match params.flex_direction {
                                         TaffyFlexDirection::Column
                                         | TaffyFlexDirection::ColumnReverse => {
-                                            if preferred_width > 0 as Coord {
+                                            // Cross-axis for column: use auto when measure
+                                            // callback will compute it dynamically
+                                            if params.use_measure_for_cross_axis {
+                                                Dimension::auto()
+                                            } else if preferred_width > 0 as Coord {
                                                 Dimension::length(preferred_width as _)
                                             } else {
                                                 Dimension::auto()
@@ -1410,7 +1417,11 @@ mod flexbox_taffy {
                                     height: match params.flex_direction {
                                         TaffyFlexDirection::Row
                                         | TaffyFlexDirection::RowReverse => {
-                                            if preferred_height > 0 as Coord {
+                                            // Cross-axis for row: use auto when measure
+                                            // callback will compute it dynamically
+                                            if params.use_measure_for_cross_axis {
+                                                Dimension::auto()
+                                            } else if preferred_height > 0 as Coord {
                                                 Dimension::length(preferred_height as _)
                                             } else {
                                                 Dimension::auto()
@@ -1721,6 +1732,7 @@ pub fn solve_flexbox_layout_with_measure(
         if data.height > 0 as Coord { Some(data.height) } else { None },
     );
 
+    let use_measure = measure.is_some();
     let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
         cells_h: &data.cells_h,
         cells_v: &data.cells_v,
@@ -1735,6 +1747,7 @@ pub fn solve_flexbox_layout_with_measure(
         flex_direction: taffy_direction,
         container_width,
         container_height,
+        use_measure_for_cross_axis: use_measure,
     });
 
     let (available_width, available_height) = match data.direction {
@@ -1936,6 +1949,7 @@ pub fn flexbox_layout_info_cross_axis(
         flex_direction: taffy_direction,
         container_width,
         container_height,
+        use_measure_for_cross_axis: false,
     });
 
     let (available_width, available_height) = match direction {

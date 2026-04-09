@@ -553,14 +553,32 @@ fn recurse_expression(
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
-            // Visit all layout geometry dependencies
+            // Visit layout geometry dependencies
             if matches!(expr, Expression::SolveFlexboxLayout(..)) {
-                // FlexboxLayout needs both width and height
-                if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
-                    vis(&nr.clone().into(), P);
-                }
-                if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
-                    vis(&nr.clone().into(), P);
+                // The solve only needs the main-axis dimension (width for row,
+                // height for column). The cross-axis dimension is determined by
+                // the content, not constrained by the container.
+                use crate::layout::FlexboxAxisRelation;
+                match layout.axis_relation(Orientation::Horizontal) {
+                    FlexboxAxisRelation::MainAxis => {
+                        if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                            vis(&nr.clone().into(), P);
+                        }
+                    }
+                    FlexboxAxisRelation::CrossAxis => {
+                        if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
+                            vis(&nr.clone().into(), P);
+                        }
+                    }
+                    FlexboxAxisRelation::Unknown => {
+                        // Runtime direction: conservatively depend on both
+                        if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
+                            vis(&nr.clone().into(), P);
+                        }
+                        if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
+                            vis(&nr.clone().into(), P);
+                        }
+                    }
                 }
             } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
                 use crate::layout::FlexboxAxisRelation;
