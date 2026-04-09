@@ -547,7 +547,7 @@ impl Expression {
 
         let path = std::path::Path::new(&s);
 
-        let (resolved_path, resolved_path_string) = if crate::pathutils::is_absolute(&path) {
+        let (resolved_path, resolved_path_string) = if crate::pathutils::is_absolute(path) {
             (path.to_owned(), s)
         } else {
             let resolved_path = ctx
