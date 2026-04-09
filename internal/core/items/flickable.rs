@@ -586,6 +586,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                inner.pressed_time = None;
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
                 } else {
