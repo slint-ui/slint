@@ -586,7 +586,16 @@ impl FlickableData {
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                if inner.capture_events.is_some() {
+                let intercept = if let Some(c) = inner.capture_events {
+                    if c == CaptureEvents::MouseOrTouchScreen {
+                        inner.capture_events = None;
+                    }
+                    true
+                } else {
+                    false
+                };
+                inner.pressed_time = None;
+                if intercept {
                     InputEventFilterResult::Intercept
                 } else {
                     InputEventFilterResult::ForwardEvent
