@@ -562,34 +562,58 @@ fn recurse_expression(
                 if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
                     vis(&nr.clone().into(), P);
                 }
-            } else if let Expression::ComputeFlexboxLayoutInfo(_, _orientation) = expr {
-                // Technically, due to wrapping, there's a dependency on width for the vertical orientation (for Rows/RowsReverse)
-                // or a dependency on height for the horizontal orientation (for Columns/ColumnsReverse).
-                // But since the flex direction, which can be changed at runtime, we don't know which one will apply.
-                // And doing both leads to binding loops...
-                // We could detect the case of a constant flex direction (like in lower_layout_expression.rs) but
-                // that still wouldn't fix the case of runtime direction changes...
-                /*if *orientation == Orientation::Vertical
-                    && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
-                {
-                    vis(&nr.clone().into(), P);
+            } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
+                use crate::layout::FlexboxAxisRelation;
+                match layout.axis_relation(*orientation) {
+                    FlexboxAxisRelation::MainAxis => {
+                        // Main axis: only visit same-axis item dependencies
+                        visit_layout_items_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            *orientation,
+                            vis,
+                        );
+                    }
+                    FlexboxAxisRelation::CrossAxis => {
+                        // Cross axis: the runtime uses a heuristic for the main-axis
+                        // constraint (no dependency on the perpendicular dimension).
+                        // Visit both orientations' item dependencies (taffy needs both
+                        // for the heuristic wrapping computation).
+                        visit_layout_items_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Horizontal,
+                            vis,
+                        );
+                        visit_layout_items_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Vertical,
+                            vis,
+                        );
+                    }
+                    FlexboxAxisRelation::Unknown => {
+                        // Unknown direction: conservatively visit both orientations
+                        // and perpendicular dimensions
+                        if *orientation == Orientation::Vertical
+                            && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                        {
+                            vis(&nr.clone().into(), P);
+                        }
+                        if *orientation == Orientation::Horizontal
+                            && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                        {
+                            vis(&nr.clone().into(), P);
+                        }
+                        visit_layout_items_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Horizontal,
+                            vis,
+                        );
+                        visit_layout_items_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Vertical,
+                            vis,
+                        );
+                    }
                 }
-                if *orientation == Orientation::Horizontal
-                    && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
-                {
-                    vis(&nr.clone().into(), P);
-                }*/
-                // Visit item dependencies for relevant orientations
-                visit_layout_items_dependencies(
-                    layout.elems.iter().map(|fi| &fi.item),
-                    Orientation::Horizontal,
-                    vis,
-                );
-                visit_layout_items_dependencies(
-                    layout.elems.iter().map(|fi| &fi.item),
-                    Orientation::Vertical,
-                    vis,
-                );
             }
             let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;

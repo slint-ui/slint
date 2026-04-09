@@ -11,7 +11,6 @@ use i_slint_compiler::layout::{
 };
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core::Coord;
 use i_slint_core::items::{DialogButtonRole, FlexboxLayoutDirection, ItemRc};
 use i_slint_core::layout::{self as core_layout, GridLayoutInputData, GridLayoutOrganizedData};
 use i_slint_core::model::RepeatedItemTree;
@@ -311,47 +310,26 @@ pub(crate) fn compute_flexbox_layout_info(
         });
 
     if is_main_axis {
-        // Main axis: use simple layout info (no constraint needed)
-        // This avoids reading the perpendicular dimension and prevents circular dependencies
-        core_layout::flexbox_layout_info(
-            Slice::from(cells_h.as_slice()),
-            Slice::from(cells_v.as_slice()),
-            spacing_h,
-            spacing_v,
-            &padding_h,
-            &padding_v,
-            to_runtime(orientation),
-            direction,
-            Coord::MAX,
+        let (cells, spacing, padding) = match orientation {
+            Orientation::Horizontal => (&cells_h, spacing_h, &padding_h),
+            Orientation::Vertical => (&cells_v, spacing_v, &padding_v),
+        };
+        core_layout::flexbox_layout_info_main_axis(
+            Slice::from(cells.as_slice()),
+            spacing,
+            padding,
             flex_wrap,
         )
         .into()
     } else {
-        // Cross axis: need constraint to handle wrapping
-        // Only read the constraint dimension here (the main-axis dimension of the flexbox)
-        let constraint_size = match orientation {
-            Orientation::Horizontal => {
-                // Cross-axis for Column: need height
-                let height_ref = &flexbox_layout.geometry.rect.height_reference;
-                height_ref.as_ref().map(&expr_eval).unwrap_or(0.)
-            }
-            Orientation::Vertical => {
-                // Cross-axis for Row: need width
-                let width_ref = &flexbox_layout.geometry.rect.width_reference;
-                width_ref.as_ref().map(&expr_eval).unwrap_or(0.)
-            }
-        };
-
-        core_layout::flexbox_layout_info(
+        core_layout::flexbox_layout_info_cross_axis(
             Slice::from(cells_h.as_slice()),
             Slice::from(cells_v.as_slice()),
             spacing_h,
             spacing_v,
             &padding_h,
             &padding_v,
-            to_runtime(orientation),
             direction,
-            constraint_size,
             flex_wrap,
         )
         .into()
