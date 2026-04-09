@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 package main
 
 import (
@@ -118,7 +121,6 @@ func newBuildConfig(root string, outputFile string) (*buildConfig, error) {
 	objDir := filepath.Join(buildRoot, "obj", targetID)
 	distDir := filepath.Join(buildRoot, "dist", targetID)
 	profile := buildProfile()
-
 	return &buildConfig{
 		goos:        goos,
 		goarch:      goarch,

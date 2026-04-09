@@ -493,7 +493,9 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)LICENSE$", LicenseLocation::NoLicense),
             ("(^|/)LICENSE\\.QT$", LicenseLocation::NoLicense),
             ("(^|/)README$", LicenseLocation::NoLicense),
+            ("(^|/)go\\.mod$", LicenseLocation::NoLicense),
             ("(^|/)\\.eslintrc\\.yml$", LicenseLocation::NoLicense),
+            ("(^|/)\\.gitkeep$", LicenseLocation::NoLicense),
             ("(^|/)memory\\.x$", LicenseLocation::NoLicense), // third-party file
             ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
             ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
@@ -513,6 +515,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
             ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
             ("^docs/quickstart/theme/", LicenseLocation::NoLicense),
+            ("^examples/go/", LicenseLocation::NoLicense),
             ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
             // directory based matches
             ("(^|/)LICENSES/", LicenseLocation::NoLicense),
@@ -528,6 +531,8 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
             ("\\.gltf$", LicenseLocation::NoLicense),
+            ("\\.slint\\.go$", LicenseLocation::NoLicense),
+            ("\\.go$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.icns$", LicenseLocation::NoLicense),
             ("\\.ico$", LicenseLocation::NoLicense),
             ("\\.vscodeignore$", LicenseLocation::NoLicense),

@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 package main
 
 //go:generate go run github.com/slint-ui/slint/api/go/cmd/slint-go -o ui/app.slint.go app.slint
