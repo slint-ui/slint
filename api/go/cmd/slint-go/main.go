@@ -29,7 +29,7 @@ type buildConfig struct {
 
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "../../.."))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "../../../.."))
 }
 
 func run(dir string, env []string, name string, args ...string) error {
@@ -90,11 +90,11 @@ func rustTargetForGo(root string, goos string, goarch string) (string, error) {
 }
 
 func buildProfile() string {
-	profile := envOrDefault("SLINT_BUILD_PROFILE", "debug")
-	if profile == "release" {
+	profile := envOrDefault("SLINT_BUILD_PROFILE", "release")
+	if profile == "debug" {
 		return profile
 	}
-	return "debug"
+	return "release"
 }
 
 func targetGoOS() string {
