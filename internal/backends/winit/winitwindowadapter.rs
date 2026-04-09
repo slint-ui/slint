@@ -1471,7 +1471,8 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                             format!("Winit backend failed to find a suitable renderer: {e}")
                         })
                     },
-                    |renderer| {
+                    |mut renderer| {
+                        renderer.set_name("Popup renderer");
                         Ok(WinitWindowAdapter::new(
                             self.shared_backend_data.clone(),
                             renderer,

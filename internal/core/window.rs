@@ -31,6 +31,7 @@ use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
+use std::println;
 use vtable::VRcMapped;
 
 pub mod popup;
@@ -1255,6 +1256,7 @@ impl WindowInner {
         parent_item: &ItemRc,
         is_menu: bool,
     ) -> NonZeroU32 {
+        println!("Show popup: {:?}", popup_componentrc);
         let position = parent_item
             .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
@@ -1357,6 +1359,10 @@ impl WindowInner {
                 PopupWindowLocation::ChildWindow(rect.origin)
             }
             Some(window_adapter) => {
+                println!(
+                    "Newly created window adapter Renderer: {}",
+                    window_adapter.renderer().name()
+                );
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
                 PopupWindowLocation::TopLevel(window_adapter)
             }
@@ -1366,6 +1372,10 @@ impl WindowInner {
             .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
             .map(|item| item.downgrade())
             .unwrap_or_default();
+
+        let mut result = None;
+        popup_component.as_ref().window_adapter(false, &mut result);
+        println!("Popup component renderer: {}", result.unwrap().renderer().name());
 
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,

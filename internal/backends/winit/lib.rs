@@ -71,11 +71,9 @@ mod renderer {
             active_event_loop: &dyn ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
         ) -> Result<Arc<dyn winit::window::Window>, PlatformError>;
-        fn name(&self) -> &'static str {
-            "No Name provided"
-        }
+        fn name(&self) -> &'static str;
 
-        fn set_name(&mut self) {}
+        fn set_name(&mut self, name: &'static str);
     }
 
     #[cfg(enable_femtovg_renderer)]
