@@ -163,13 +163,13 @@ fn split_members(
             Type::Callback(function) => callbacks.push(GoCallable {
                 slint_name: property.name.clone(),
                 go_name: exported_ident(&property.name),
-                args: function.args.iter().cloned().collect(),
+                args: function.args.to_vec(),
                 return_type: function.return_type.clone(),
             }),
             Type::Function(function) => functions.push(GoCallable {
                 slint_name: property.name.clone(),
                 go_name: exported_ident(&property.name),
-                args: function.args.iter().cloned().collect(),
+                args: function.args.to_vec(),
                 return_type: function.return_type.clone(),
             }),
             _ => go_properties.push(GoProperty {
@@ -712,7 +712,7 @@ pub fn generate(
             }
             Type::Enumeration(en) => go_enums.push(GoEnum {
                 name: en.name.clone(),
-                variants: en.values.iter().cloned().collect(),
+                variants: en.values.to_vec(),
                 aliases: enum_aliases.remove(&en.name).unwrap_or_default(),
             }),
             _ => {}
