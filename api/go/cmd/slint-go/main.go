@@ -304,7 +304,6 @@ func readPackageName(outputFile string) (string, error) {
 func unixSharedFlags(config *buildConfig) string {
 	flags := []string{
 		"-L${SRCDIR}/.slint-build/dist/" + config.targetID,
-		"-Wl,-rpath,${SRCDIR}/.slint-build/dist/" + config.targetID,
 		"-lslint_cpp",
 	}
 	if config.goos == "linux" {
