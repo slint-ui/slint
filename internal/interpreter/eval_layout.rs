@@ -424,6 +424,17 @@ fn flexbox_layout_data(
     let mut cells_v = Vec::with_capacity(flexbox_layout.elems.len());
     let mut repeated_indices = Vec::new();
 
+    // First pass: collect horizontal layout_info for all children (no cycle risk)
+    // and flex properties. Store element refs for the second pass.
+    struct ChildInfo {
+        flex_grow: f32,
+        flex_shrink: f32,
+        flex_basis: f32,
+        flex_align_self: i_slint_core::items::FlexboxLayoutAlignSelf,
+        flex_order: i32,
+    }
+    let mut static_children: Vec<Option<ChildInfo>> = Vec::new(); // None = repeater
+
     for layout_elem in &flexbox_layout.elems {
         if layout_elem.item.element.borrow().repeated.is_some() {
             let component_vec = repeater_instances(component, &layout_elem.item.element);
@@ -435,6 +446,9 @@ fn flexbox_layout_data(
             cells_v.extend(component_vec.iter().map(|x| {
                 x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
             }));
+            for _ in 0..component_vec.len() {
+                static_children.push(None);
+            }
         } else {
             let mut layout_info_h = get_layout_info(
                 &layout_elem.item.element,
@@ -446,20 +460,11 @@ fn flexbox_layout_data(
                 &mut layout_info_h,
                 &layout_elem.item.constraints,
                 Orientation::Horizontal,
-                &expr_eval,
+                expr_eval,
             );
-            let mut layout_info_v = get_layout_info(
-                &layout_elem.item.element,
-                component,
-                &window_adapter,
-                Orientation::Vertical,
-            );
-            fill_layout_info_constraints(
-                &mut layout_info_v,
-                &layout_elem.item.constraints,
-                Orientation::Vertical,
-                &expr_eval,
-            );
+            // Don't collect cells_v in the first pass — it may trigger a circular
+            // dependency for height-for-width items (Text with wrap, Image).
+            // The second pass fills in cells_v with the width constraint.
             let flex_grow = layout_elem.flex_grow.as_ref().map(&expr_eval).unwrap_or(0.0);
             let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(1.0);
             let flex_basis = layout_elem.flex_basis.as_ref().map(&expr_eval).unwrap_or(-1.0);
@@ -473,24 +478,62 @@ fn flexbox_layout_data(
                         .unwrap()
                 })
                 .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::default());
-            let order = layout_elem.order.as_ref().map(&expr_eval).unwrap_or(0.0) as i32;
-            let item_info = core_layout::FlexboxLayoutItemInfo {
+            let order = layout_elem.order.as_ref().map(expr_eval).unwrap_or(0.0) as i32;
+            cells_h.push(core_layout::FlexboxLayoutItemInfo {
                 constraint: layout_info_h,
                 flex_grow,
                 flex_shrink,
                 flex_basis,
                 flex_align_self: align_self,
                 flex_order: order,
-            };
-            cells_h.push(item_info);
-            cells_v.push(core_layout::FlexboxLayoutItemInfo {
-                constraint: layout_info_v,
+            });
+            // Placeholder for cells_v — filled in second pass
+            cells_v.push(core_layout::FlexboxLayoutItemInfo::default());
+            static_children.push(Some(ChildInfo {
                 flex_grow,
                 flex_shrink,
                 flex_basis,
                 flex_align_self: align_self,
                 flex_order: order,
-            });
+            }));
+        }
+    }
+
+    // Second pass: collect vertical layout_info with the horizontal preferred
+    // size as constraint. This allows Text with word-wrap and Image with aspect
+    // ratio to compute their height correctly without reading the width property.
+    let mut cell_idx = 0usize;
+    for layout_elem in &flexbox_layout.elems {
+        if layout_elem.item.element.borrow().repeated.is_some() {
+            let component_vec = repeater_instances(component, &layout_elem.item.element);
+            cell_idx += component_vec.len();
+            // repeater cells_v already filled in first pass
+        } else {
+            let width_constraint = cells_h[cell_idx].constraint.preferred_bounded();
+            let mut layout_info_v = get_layout_info_with_constraint(
+                &layout_elem.item.element,
+                component,
+                &window_adapter,
+                Orientation::Vertical,
+                width_constraint,
+            );
+            fill_layout_info_constraints(
+                &mut layout_info_v,
+                &layout_elem.item.constraints,
+                Orientation::Vertical,
+                expr_eval,
+            );
+            if let Some(info) = &static_children[cell_idx] {
+                cells_v[cell_idx] = core_layout::FlexboxLayoutItemInfo {
+                    constraint: layout_info_v,
+                    flex_grow: info.flex_grow,
+                    flex_shrink: info.flex_shrink,
+                    flex_basis: info.flex_basis,
+                    flex_align_self: info.flex_align_self,
+                    flex_order: info.flex_order,
+                };
+            }
+            cell_idx += 1;
         }
     }
 
@@ -973,6 +1016,16 @@ pub(crate) fn get_layout_info(
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
+    get_layout_info_with_constraint(elem, component, window_adapter, orientation, -1.)
+}
+
+fn get_layout_info_with_constraint(
+    elem: &ElementRc,
+    component: InstanceRef,
+    window_adapter: &Rc<dyn WindowAdapter>,
+    orientation: Orientation,
+    cross_axis_constraint: f32,
+) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
     if let Some(nr) = elem.layout_info_prop(orientation) {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
@@ -987,7 +1040,7 @@ pub(crate) fn get_layout_info(
         unsafe {
             item.item_from_item_tree(component.as_ptr()).as_ref().layout_info(
                 to_runtime(orientation),
-                -1., // unconstrained
+                cross_axis_constraint,
                 window_adapter,
                 &ItemRc::new(vtable::VRc::into_dyn(item_comp), item.item_index()),
             )
