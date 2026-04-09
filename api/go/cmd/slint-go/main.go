@@ -22,6 +22,7 @@ type buildConfig struct {
 	targetID    string
 	rustTarget  string
 	profile     string
+	features    []string
 	outputFile  string
 	outputDir   string
 	buildRoot   string
@@ -110,7 +111,29 @@ func targetGoArch() string {
 	return envOrDefault("SLINT_GOARCH", runtime.GOARCH)
 }
 
-func newBuildConfig(root string, outputFile string) (*buildConfig, error) {
+func mergeFeatures(flagValue string) []string {
+	combined := make([]string, 0)
+	seen := map[string]struct{}{}
+	appendFeatures := func(features []string) {
+		for _, feature := range features {
+			feature = strings.TrimSpace(feature)
+			if feature == "" {
+				continue
+			}
+			if _, ok := seen[feature]; ok {
+				continue
+			}
+			seen[feature] = struct{}{}
+			combined = append(combined, feature)
+		}
+	}
+
+	appendFeatures([]string{"interpreter"})
+	appendFeatures(strings.Split(flagValue, ","))
+	return combined
+}
+
+func newBuildConfig(root string, outputFile string, featureFlag string) (*buildConfig, error) {
 	goos := targetGoOS()
 	goarch := targetGoArch()
 	rustTarget, err := rustTargetForGo(root, goos, goarch)
@@ -129,6 +152,7 @@ func newBuildConfig(root string, outputFile string) (*buildConfig, error) {
 		targetID:    targetID,
 		rustTarget:  rustTarget,
 		profile:     profile,
+		features:    mergeFeatures(featureFlag),
 		outputFile:  outputFile,
 		outputDir:   outputDir,
 		buildRoot:   buildRoot,
@@ -146,8 +170,8 @@ func buildEnv(config *buildConfig) []string {
 
 func cargoArgs(config *buildConfig, packageName string) []string {
 	args := []string{"build", "-p", packageName, "--target", config.rustTarget}
-	if packageName == "slint-cpp" {
-		args = append(args, "--features", "interpreter")
+	if packageName == "slint-cpp" && len(config.features) > 0 {
+		args = append(args, "--features", strings.Join(config.features, ","))
 	}
 	if config.profile == "release" {
 		args = append(args, "--release")
@@ -399,11 +423,13 @@ func writeRuntimeFiles(packageName string, config *buildConfig, staticName strin
 
 func main() {
 	var output string
+	var featureFlag string
 	flag.StringVar(&output, "o", "", "output Go file")
+	flag.StringVar(&featureFlag, "features", os.Getenv("SLINT_FEATURES"), "additional cargo features for slint-cpp (also accepts SLINT_FEATURES)")
 	flag.Parse()
 
 	if output == "" || flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: SLINT_GOOS=<goos> SLINT_GOARCH=<goarch> slint-go -o <output.go> <input.slint>")
+		fmt.Fprintln(os.Stderr, "usage: SLINT_GOOS=<goos> SLINT_GOARCH=<goarch> SLINT_FEATURES=<feature,...> slint-go [-features <feature,...>] -o <output.go> <input.slint>")
 		os.Exit(2)
 	}
 
@@ -419,7 +445,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	config, err := newBuildConfig(root, output)
+	config, err := newBuildConfig(root, output, featureFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to determine build configuration: %v\n", err)
 		os.Exit(1)
