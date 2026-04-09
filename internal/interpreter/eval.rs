@@ -1537,8 +1537,11 @@ fn call_builtin_function(
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             let component = local_context.component_instance;
-            if let [Expression::ElementReference(item)] = arguments {
+            if let [Expression::ElementReference(item), constraint_expr] = arguments {
                 generativity::make_guard!(guard);
+
+                let constraint: f32 =
+                    eval_expression(constraint_expr, local_context).try_into().unwrap_or(-1.);
 
                 let item = item.upgrade().unwrap();
                 let enclosing_component = enclosing_component_for_element(&item, component, guard);
@@ -1552,7 +1555,7 @@ fn call_builtin_function(
                     .as_ref()
                     .layout_info(
                         crate::eval_layout::to_runtime(orient),
-                        -1., // unconstrained
+                        constraint,
                         &window_adapter,
                         &ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index()),
                     )

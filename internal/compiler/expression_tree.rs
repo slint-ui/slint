@@ -216,7 +216,7 @@ declare_builtin_function_types!(
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type().into(),
+    ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),

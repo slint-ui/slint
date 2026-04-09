@@ -723,6 +723,18 @@ pub fn implicit_layout_info_call(
     orientation: Orientation,
     filter: BuiltinFilter,
 ) -> Option<Expression> {
+    implicit_layout_info_call_with_constraint(elem, orientation, filter, None)
+}
+
+/// Like `implicit_layout_info_call`, but with an optional cross-axis constraint.
+/// When `constraint` is Some, it's passed as the cross_axis_constraint parameter
+/// to Item::layout_info for height-for-width support.
+pub fn implicit_layout_info_call_with_constraint(
+    elem: &ElementRc,
+    orientation: Orientation,
+    filter: BuiltinFilter,
+    constraint: Option<Expression>,
+) -> Option<Expression> {
     let mut elem_it = elem.clone();
     loop {
         return match &elem_it.clone().borrow().base_type {
@@ -790,7 +802,10 @@ pub fn implicit_layout_info_call(
             }
             _ => Some(Expression::FunctionCall {
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
-                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                arguments: vec![
+                    Expression::ElementReference(Rc::downgrade(elem)),
+                    constraint.unwrap_or(Expression::NumberLiteral(-1., Unit::None)),
+                ],
                 source_location: None,
             }),
         };

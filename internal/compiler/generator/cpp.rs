@@ -4603,12 +4603,13 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            if let [llr::Expression::PropertyReference(pr)] = arguments {
+            if let [llr::Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let native = native_prop_info(pr, ctx).0;
                 let item_rc = access_item_rc(pr, ctx);
+                let constraint = compile_expression(constraint_expr, ctx);
                 access_member(pr, ctx).then(|item|
                 format!(
-                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, &{window}, {item_rc})",
+                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
                     vt = native.cpp_vtable_getter,
                     ty = native.class_name,
                     o = to_cpp_orientation(orient),
