@@ -35,6 +35,7 @@ jobs:
               uses: pyvista/setup-headless-display-action@v4
             - uses: actions/setup-go@v6
               id: go-install
+              go-version: '1.26'
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-go-v0-${{ steps.go-install.outputs.go-version }}
