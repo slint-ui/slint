@@ -10,9 +10,18 @@ export component LineEditBase implements LineEditInterface inherits Rectangle {
     text <=> text-input.text;
     enabled <=> text-input.enabled;
     has-focus: text-input.has-focus;
-    input-type <=> text-input.input-type;
+    in property <InputType> input-type;
+    // When true, the password input shows as plain text.
+    // Cleared automatically on focus loss.
+    in-out property <bool> password-revealed: false;
     horizontal-alignment <=> text-input.horizontal-alignment;
     read-only <=> text-input.read-only;
+
+    changed has-focus => {
+        if !self.has-focus {
+            self.password-revealed = false;
+        }
+    }
 
     in-out property <brush> placeholder-color;
     in property <int> font-weight <=> text-input.font-weight;
@@ -111,6 +120,7 @@ export component LineEditBase implements LineEditInterface inherits Rectangle {
             vertical-alignment: center;
             single-line: true;
             color: root.text-color;
+            input-type: root.password-revealed ? InputType.text : root.input-type;
             // Disable TextInput's built-in accessibility support as the widget takes care of that.
             accessible-role: none;
 
@@ -152,16 +162,17 @@ export component LineEditClearIcon inherits Image {
 }
 
 export component LineEditPasswordIcon inherits Image {
-    callback show-password-changed(bool);
-    in property <bool> show-password;
+    in-out property <bool> show-password;
     in property <image> show-password-image;
     in property <image> hide-password-image;
+    callback clicked();
 
     source: show-password ? hide-password-image : show-password-image;
     vertical-alignment: center;
     TouchArea {
         clicked => {
-            root.show-password-changed(!show-password);
+            root.show-password = !root.show-password;
+            root.clicked();
         }
     }
 }
