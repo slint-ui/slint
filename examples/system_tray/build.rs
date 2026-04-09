@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-    slint_build::compile("example.slint").unwrap();
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 }
