@@ -1702,7 +1702,24 @@ pub fn solve_flexbox_layout(
     data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
-    solve_flexbox_layout_with_measure(data, repeater_indices, None)
+    // Build a simple measure callback from the pre-computed cells data.
+    // This enables height-for-width: taffy calls back with the actual
+    // assigned width, and we return the pre-computed height from cells_v.
+    // The cells_v heights were computed with the horizontal preferred size
+    // as constraint, which is a good approximation.
+    let mut measure = |child_index: usize,
+                       known_w: Option<Coord>,
+                       known_h: Option<Coord>|
+     -> (Coord, Coord) {
+        let w = known_w.unwrap_or_else(|| {
+            data.cells_h.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        let h = known_h.unwrap_or_else(|| {
+            data.cells_v.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        (w, h)
+    };
+    solve_flexbox_layout_with_measure(data, repeater_indices, Some(&mut measure))
 }
 
 /// Solve a FlexboxLayout using Taffy
