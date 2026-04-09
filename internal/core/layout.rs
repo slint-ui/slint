@@ -1549,7 +1549,9 @@ mod flexbox_taffy {
             &mut self,
             available_width: Coord,
             available_height: Coord,
-            measure: Option<&mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord)>,
+            mut measure: Option<
+                &mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord),
+            >,
         ) {
             let available_space = taffy::prelude::Size {
                 width: if available_width < Coord::MAX {
@@ -1563,39 +1565,26 @@ mod flexbox_taffy {
                     AvailableSpace::MaxContent
                 },
             };
-
-            if let Some(measure) = measure {
-                self.taffy
-                    .compute_layout_with_measure(
-                        self.container,
-                        available_space,
-                        |known_dimensions, _available_space, _node_id, node_context, _style| {
-                            if let Some(&mut child_index) = node_context {
-                                let known_w = known_dimensions.width.map(|w| w as Coord);
-                                let known_h = known_dimensions.height.map(|h| h as Coord);
-                                let (w, h) = measure(child_index, known_w, known_h);
-                                taffy::prelude::Size { width: w as f32, height: h as f32 }
-                            } else {
-                                taffy::prelude::Size::ZERO
-                            }
-                        },
-                    )
-                    .unwrap_or_else(|e| {
-                        crate::debug_log!("FlexboxLayout computation error: {}", e);
-                    });
-            } else {
-                self.taffy
-                    .compute_layout_with_measure(
-                        self.container,
-                        available_space,
-                        |_known_dimensions, _available_space, _node_id, _node_context, _style| {
+            self.taffy
+                .compute_layout_with_measure(
+                    self.container,
+                    available_space,
+                    |known_dimensions, _available_space, _node_id, node_context, _style| {
+                        if let (Some(measure), Some(&mut child_index)) =
+                            (measure.as_deref_mut(), node_context)
+                        {
+                            let known_w = known_dimensions.width.map(|w| w as Coord);
+                            let known_h = known_dimensions.height.map(|h| h as Coord);
+                            let (w, h) = measure(child_index, known_w, known_h);
+                            taffy::prelude::Size { width: w as f32, height: h as f32 }
+                        } else {
                             taffy::prelude::Size::ZERO
-                        },
-                    )
-                    .unwrap_or_else(|e| {
-                        crate::debug_log!("FlexboxLayout computation error: {}", e);
-                    });
-            }
+                        }
+                    },
+                )
+                .unwrap_or_else(|e| {
+                    crate::debug_log!("FlexboxLayout computation error: {}", e);
+                });
         }
 
         /// Get the computed container size
@@ -1689,11 +1678,28 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
     }
 }
 
-/// Solve a FlexboxLayout using Taffy
-/// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
+/// Measure callback for height-for-width items in a FlexboxLayout.
+///
+/// Called by taffy during the flex solve for items that need dynamic sizing.
+/// Receives `(child_index, known_width, known_height)` where `known_width`/`known_height`
+/// are `Some` if taffy has already determined that dimension.
+/// Returns `(width, height)`.
+pub type FlexboxMeasureFn<'a> =
+    Option<&'a mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord)>;
+
 pub fn solve_flexbox_layout(
     data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
+) -> SharedVector<Coord> {
+    solve_flexbox_layout_with_measure(data, repeater_indices, None)
+}
+
+/// Solve a FlexboxLayout using Taffy
+/// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
+pub fn solve_flexbox_layout_with_measure(
+    data: &FlexboxLayoutData,
+    repeater_indices: Slice<u32>,
+    measure: FlexboxMeasureFn<'_>,
 ) -> SharedVector<Coord> {
     // 4 values per item: x, y, width, height
     let mut result = SharedVector::<Coord>::default();
@@ -1740,7 +1746,7 @@ pub fn solve_flexbox_layout(
         }
     };
 
-    builder.compute_layout(available_width, available_height, None);
+    builder.compute_layout(available_width, available_height, measure);
 
     // Extract results using the cache generator to handle repeaters.
     // If `order` sorting was applied, we need to collect results by original index first,
@@ -2019,13 +2025,71 @@ pub(crate) mod ffi {
         super::box_layout_info_ortho(cells, padding)
     }
 
+    /// The measure callback for C FFI. Returns (width, height) via out pointers.
+    /// `known_width`/`known_height` are negative if not determined yet.
+    /// A null function pointer means no measure callback.
+    pub type FlexboxMeasureFnC = unsafe extern "C" fn(
+        user_data: *mut core::ffi::c_void,
+        child_index: usize,
+        known_width: Coord,
+        known_height: Coord,
+        out_width: *mut Coord,
+        out_height: *mut Coord,
+    );
+
     #[unsafe(no_mangle)]
+    #[allow(unsafe_code)]
     pub extern "C" fn slint_solve_flexbox_layout(
         data: &FlexboxLayoutData,
         repeater_indices: Slice<u32>,
         result: &mut SharedVector<Coord>,
+        measure_fn: *const core::ffi::c_void,
+        measure_user_data: *mut core::ffi::c_void,
     ) {
-        *result = super::solve_flexbox_layout(data, repeater_indices)
+        // Safety: measure_fn, when non-null, is a valid FlexboxMeasureFnC function pointer
+        // passed as *const c_void because cbindgen can't represent Option<fn pointer> in C++.
+        const {
+            assert!(
+                core::mem::size_of::<*const core::ffi::c_void>()
+                    == core::mem::size_of::<FlexboxMeasureFnC>()
+            );
+        }
+        let measure_fn: Option<FlexboxMeasureFnC> = if measure_fn.is_null() {
+            None
+        } else {
+            Some(unsafe {
+                core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
+            })
+        };
+        if let Some(c_measure) = measure_fn {
+            let mut measure = |child_index: usize,
+                               known_w: Option<Coord>,
+                               known_h: Option<Coord>|
+             -> (Coord, Coord) {
+                let mut out_w: Coord = 0 as _;
+                let mut out_h: Coord = 0 as _;
+                // Safety: c_measure is a valid function pointer provided by the caller,
+                // and out_w/out_h are valid mutable pointers.
+                unsafe {
+                    c_measure(
+                        measure_user_data,
+                        child_index,
+                        known_w.unwrap_or(-1 as _),
+                        known_h.unwrap_or(-1 as _),
+                        &mut out_w,
+                        &mut out_h,
+                    );
+                }
+                (out_w, out_h)
+            };
+            *result = super::solve_flexbox_layout_with_measure(
+                data,
+                repeater_indices,
+                Some(&mut measure),
+            );
+        } else {
+            *result = super::solve_flexbox_layout(data, repeater_indices);
+        }
     }
 
     #[unsafe(no_mangle)]

@@ -202,7 +202,7 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexboxL
     SharedVector<float> result;
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
-    cbindgen_private::slint_solve_flexbox_layout(&data, ri, &result);
+    cbindgen_private::slint_solve_flexbox_layout(&data, ri, &result, nullptr, nullptr);
     return result;
 }
 
