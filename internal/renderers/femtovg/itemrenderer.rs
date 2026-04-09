@@ -1169,7 +1169,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
             i_slint_core::properties::evaluate_no_tracking(|| {
                 i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
-                    .intersection(&current_clip)
+                    .intersection(&current_clip.union(&item_rc.geometry()))
                     .unwrap_or_default()
             })
         }) && let Some(layer_size) = layer_image.size()
