@@ -1,3 +1,3 @@
 module github.com/slint-ui/slint
 
-go 1.21
+go 1.23
