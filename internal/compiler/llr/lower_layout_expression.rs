@@ -671,24 +671,15 @@ fn flexbox_layout_data(
             output: llr_ArrayOutput::Slice,
         };
         // For cells_v, pass each child's horizontal preferred size as the
-        // cross-axis constraint. This enables height-for-width for Text with
-        // word-wrap and Image with aspect ratio, without circular dependencies.
+        // cross-axis constraint for items that need height-for-width (Text with
+        // word-wrap, Image with aspect ratio). Only do this for builtin items
+        // with implicit sizing — not for components, which would create cycles.
         let cells_v = llr_Expression::Array {
             values: layout
                 .elems
                 .iter()
                 .map(|li| {
-                    // Get the horizontal layout_info expression to extract preferred size
-                    let h_info = crate::layout::implicit_layout_info_call(
-                        &li.item.element,
-                        Orientation::Horizontal,
-                        crate::layout::BuiltinFilter::All,
-                    );
-                    let constraint =
-                        h_info.map(|expr| crate::expression_tree::Expression::StructFieldAccess {
-                            base: Box::new(expr),
-                            name: "preferred".into(),
-                        });
+                    let constraint = cross_axis_constraint_expr(&li.item.element);
                     let layout_info_v = get_layout_info_with_constraint(
                         &li.item.element,
                         ctx,
@@ -738,17 +729,7 @@ fn flexbox_layout_data(
                     &item.item.constraints,
                     Orientation::Horizontal,
                 );
-                // Pass horizontal preferred size as constraint for vertical
-                let h_info = crate::layout::implicit_layout_info_call(
-                    &item.item.element,
-                    Orientation::Horizontal,
-                    crate::layout::BuiltinFilter::All,
-                );
-                let constraint =
-                    h_info.map(|expr| crate::expression_tree::Expression::StructFieldAccess {
-                        base: Box::new(expr),
-                        name: "preferred".into(),
-                    });
+                let constraint = cross_axis_constraint_expr(&item.item.element);
                 let layout_info_v = get_layout_info_with_constraint(
                     &item.item.element,
                     ctx,
@@ -1094,6 +1075,35 @@ fn generate_layout_padding_and_spacing(
     );
 
     (padding, spacing)
+}
+
+/// For elements that benefit from a cross-axis constraint (Text with word-wrap,
+/// Image with aspect ratio), returns the horizontal preferred size expression
+/// to use as the constraint. Returns None for components with layout_info_prop
+/// (which would create cycles) and items with hardcoded layout info.
+fn cross_axis_constraint_expr(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
+    if elem.borrow().layout_info_prop(Orientation::Vertical).is_some() {
+        return None;
+    }
+    if !matches!(
+        crate::layout::implicit_layout_info_call(
+            elem,
+            Orientation::Vertical,
+            crate::layout::BuiltinFilter::All,
+        ),
+        Some(crate::expression_tree::Expression::FunctionCall { .. })
+    ) {
+        return None;
+    }
+    crate::layout::implicit_layout_info_call(
+        elem,
+        Orientation::Horizontal,
+        crate::layout::BuiltinFilter::All,
+    )
+    .map(|expr| crate::expression_tree::Expression::StructFieldAccess {
+        base: Box::new(expr),
+        name: "preferred".into(),
+    })
 }
 
 fn layout_geometry_size(
