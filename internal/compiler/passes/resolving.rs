@@ -2286,7 +2286,12 @@ pub fn resolve_two_way_binding(
                 }
             }
             if let Some(result) = unwrap_fields(&expression) {
-                if report_error && expression.ty() != ctx.property_type {
+                let expr_ty = expression.ty();
+                if report_error
+                    && expr_ty != ctx.property_type
+                    && !(expr_ty.can_convert(&ctx.property_type)
+                        && ctx.property_type.can_convert(&expr_ty))
+                {
                     ctx.diag.push_error(
                         "The property does not have the same type as the bound property".into(),
                         &node,

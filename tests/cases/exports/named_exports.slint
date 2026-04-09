@@ -16,14 +16,40 @@ export { TestCase as NamedTestCase }
 /*
 
 ```cpp
+ExportedStruct deprecated_value;
+(void)deprecated_value;
+assert(ExportEnum::Bonjour == NamedEnum::Bonjour);
+
+struct ExportedStruct { };
+enum class ExportEnum { Hello, Bonjour };
+
 auto handle = NamedTestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_en() == NamedEnum::Bonjour);
+NamedStruct value;
+instance.set_st(value);
 ```
 
 ```rust
-let instance = NamedTestCase::new().unwrap();
-assert_eq!(instance.get_en(), NamedEnum::Bonjour);
+#[allow(deprecated)]
+{
+    let deprecated_value: ExportedStruct = NamedStruct::default();
+    let deprecated_enum = ExportEnum::Bonjour;
+    assert_eq!(deprecated_value, NamedStruct::default());
+    assert_eq!(deprecated_enum, NamedEnum::Bonjour);
+}
+
+{
+    fn assert_named_exports_still_work<ExportedStruct, ExportEnum>() {
+        let _ = core::marker::PhantomData::<ExportedStruct>;
+        let _ = core::marker::PhantomData::<ExportEnum>;
+        let instance = NamedTestCase::new().unwrap();
+        assert_eq!(instance.get_en(), NamedEnum::Bonjour);
+        instance.set_st(NamedStruct::default());
+    }
+
+    assert_named_exports_still_work::<(), ()>();
+}
 ```
 
 */

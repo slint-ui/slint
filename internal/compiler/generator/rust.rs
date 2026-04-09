@@ -195,7 +195,7 @@ pub fn generate(
             .collect::<Vec<_>>()
     };
 
-    let (structs_and_enums_ids, inner_module) =
+    let (mut structs_and_enums_ids, inner_module) =
         generate_types(&doc.used_types.borrow().structs_and_enums);
 
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
@@ -238,6 +238,13 @@ pub fn generate(
 
     let resource_symbols = generate_resources(doc);
     let named_exports = generate_named_exports(&doc.exports);
+    let deprecated_named_export_aliases = generate_deprecated_named_export_aliases(&doc.exports);
+    let deprecated_aliases = deprecated_named_export_aliases.aliases;
+    structs_and_enums_ids.retain(|id| {
+        let id = id.to_string();
+        let id = id.strip_prefix("r#").unwrap_or(&id);
+        !deprecated_named_export_aliases.hidden_type_exports.contains(id)
+    });
     // The inner module was meant to be internal private, but projects have been reaching into it
     // so we can't change the name of this module
     let generated_mod = doc
@@ -266,6 +273,7 @@ pub fn generate(
         }
         #[allow(unused_imports)]
         pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)* #(#global_exports,)*};
+        #(#deprecated_aliases)*
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     })
@@ -4531,6 +4539,45 @@ pub fn generate_named_exports(exports: &crate::object_tree::Exports) -> Vec<Toke
             quote!(#type_id as #export_id)
         })
         .collect::<Vec<_>>()
+}
+
+pub struct DeprecatedNamedExportAliases {
+    aliases: Vec<TokenStream>,
+    hidden_type_exports: BTreeSet<SmolStr>,
+}
+
+pub fn generate_deprecated_named_export_aliases(
+    exports: &crate::object_tree::Exports,
+) -> DeprecatedNamedExportAliases {
+    let mut aliases = Vec::new();
+    let mut hidden_type_exports = BTreeSet::new();
+
+    for export in exports.iter() {
+        let (original_name, export_name) = match &export.1 {
+            Either::Right(Type::Struct(s)) if s.node().is_some() => {
+                let StructName::User { name, .. } = &s.name else { continue };
+                (name, &export.0.name)
+            }
+            Either::Right(Type::Enumeration(en)) => (&en.name, &export.0.name),
+            _ => continue,
+        };
+
+        if original_name == export_name || exports.find(original_name.as_str()).is_some() {
+            continue;
+        }
+
+        hidden_type_exports.insert(original_name.clone());
+
+        let original_id = ident(original_name);
+        let export_id = ident(export_name);
+        let message = format!("'{original_name}' is re-exported as '{export_name}'");
+        aliases.push(quote! {
+            #[deprecated(note = #message)]
+            pub type #original_id = #export_id;
+        });
+    }
+
+    DeprecatedNamedExportAliases { aliases, hidden_type_exports }
 }
 
 fn remove_parenthesis(
