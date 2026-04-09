@@ -62,6 +62,7 @@ impl Item for TouchArea {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -295,6 +296,7 @@ impl Item for KeyBinding {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: crate::items::Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::layout::LayoutInfo {
@@ -505,6 +507,7 @@ impl Item for FocusScope {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -722,6 +725,7 @@ impl Item for SwipeGestureHandler {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -998,6 +1002,7 @@ impl Item for ScaleRotateGestureHandler {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {

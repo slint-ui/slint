@@ -69,6 +69,7 @@ impl Item for ComplexText {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -78,6 +79,7 @@ impl Item for ComplexText {
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -247,6 +249,7 @@ impl Item for StyledTextItem {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -256,6 +259,7 @@ impl Item for StyledTextItem {
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -465,6 +469,7 @@ impl Item for SimpleText {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -474,6 +479,7 @@ impl Item for SimpleText {
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -626,6 +632,7 @@ fn text_layout_info(
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
+    cross_axis_constraint: Coord,
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
@@ -655,8 +662,14 @@ fn text_layout_info(
         Orientation::Vertical => {
             let h = match text.wrap() {
                 TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
-                TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
+                wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                    let w = if cross_axis_constraint >= 0 as Coord {
+                        LogicalLength::new(cross_axis_constraint)
+                    } else {
+                        width.get()
+                    };
+                    implicit_size(Some(w), wrap).height
+                }
             }
             .ceil();
             LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -757,6 +770,7 @@ impl Item for TextInput {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -783,11 +797,13 @@ impl Item for TextInput {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                    TextWrap::WordWrap => {
-                        implicit_size(Some(self.width()), TextWrap::WordWrap).height
-                    }
-                    TextWrap::CharWrap => {
-                        implicit_size(Some(self.width()), TextWrap::CharWrap).height
+                    wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                        let w = if cross_axis_constraint >= 0 as Coord {
+                            LogicalLength::new(cross_axis_constraint)
+                        } else {
+                            self.width()
+                        };
+                        implicit_size(Some(w), wrap).height
                     }
                 }
                 .ceil();
