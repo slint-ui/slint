@@ -255,7 +255,7 @@ item_layout_info(VT *itemvtable, ItemType *item_ptr, cbindgen_private::Orientati
                  uint32_t item_index)
 {
     cbindgen_private::ItemRc item_rc { component_rc, item_index };
-    return itemvtable->layout_info({ itemvtable, item_ptr }, orientation, window_adapter, &item_rc);
+    return itemvtable->layout_info({ itemvtable, item_ptr }, orientation, -1., window_adapter, &item_rc);
 }
 } // namespace private_api
 

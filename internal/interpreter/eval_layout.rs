@@ -224,25 +224,88 @@ pub(crate) fn solve_flexbox_layout(
     let (padding_v, spacing_v) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
 
-    core_layout::solve_flexbox_layout(
-        &core_layout::FlexboxLayoutData {
-            width: width_ref.as_ref().map(&expr_eval).unwrap_or(0.),
-            height: height_ref.as_ref().map(&expr_eval).unwrap_or(0.),
-            spacing_h,
-            spacing_v,
-            padding_h,
-            padding_v,
-            alignment,
-            direction,
-            align_content,
-            align_items,
-            flex_wrap,
-            cells_h: Slice::from(cells_h.as_slice()),
-            cells_v: Slice::from(cells_v.as_slice()),
-        },
-        Slice::from(repeated_indices.as_slice()),
-    )
-    .into()
+    let data = core_layout::FlexboxLayoutData {
+        width: width_ref.as_ref().map(&expr_eval).unwrap_or(0.),
+        height: height_ref.as_ref().map(&expr_eval).unwrap_or(0.),
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        alignment,
+        direction,
+        align_content,
+        align_items,
+        flex_wrap,
+        cells_h: Slice::from(cells_h.as_slice()),
+        cells_v: Slice::from(cells_v.as_slice()),
+    };
+    let ri = Slice::from(repeated_indices.as_slice());
+
+    // Collect element info for measure callbacks (height-for-width support).
+    let window_adapter = component.window_adapter();
+    let mut child_elem_ids: Vec<Option<smol_str::SmolStr>> = Vec::new();
+    for layout_elem in &flexbox_layout.elems {
+        if layout_elem.item.element.borrow().repeated.is_some() {
+            let component_vec = repeater_instances(component, &layout_elem.item.element);
+            for _ in 0..component_vec.len() {
+                child_elem_ids.push(None);
+            }
+        } else {
+            child_elem_ids.push(Some(layout_elem.item.element.borrow().id.clone()));
+        }
+    }
+
+    // Build measure callback that computes constrained layout_info for items
+    // that support height-for-width (Text with wrap, Image with aspect ratio).
+    // This avoids the circular dependency where layout_info reads the item's
+    // width property, which itself comes from the layout cache being computed.
+    let mut measure = |child_index: usize,
+                       known_w: Option<f32>,
+                       known_h: Option<f32>|
+     -> (f32, f32) {
+        let default_w = cells_h.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
+        let default_h = cells_v.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
+        let w = known_w.unwrap_or(default_w);
+        let h = known_h.unwrap_or(default_h);
+
+        let elem_id = match child_elem_ids.get(child_index) {
+            Some(Some(id)) => id,
+            _ => return (w, h),
+        };
+        let item_within = match component.description.items.get(elem_id.as_str()) {
+            Some(i) => i,
+            None => return (w, h),
+        };
+
+        // Call layout_info with cross-axis constraint through the VTable
+        if known_w.is_some() && known_h.is_none() {
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+            let v_info = item.as_ref().layout_info(
+                to_runtime(Orientation::Vertical),
+                w,
+                &window_adapter,
+                &item_rc,
+            );
+            return (w, v_info.preferred_bounded());
+        }
+        if known_h.is_some() && known_w.is_none() {
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+            let h_info = item.as_ref().layout_info(
+                to_runtime(Orientation::Horizontal),
+                h,
+                &window_adapter,
+                &item_rc,
+            );
+            return (h_info.preferred_bounded(), h);
+        }
+        (w, h)
+    };
+
+    core_layout::solve_flexbox_layout_with_measure(&data, ri, Some(&mut measure)).into()
 }
 
 fn flexbox_layout_direction(
@@ -924,6 +987,7 @@ pub(crate) fn get_layout_info(
         unsafe {
             item.item_from_item_tree(component.as_ptr()).as_ref().layout_info(
                 to_runtime(orientation),
+                -1., // unconstrained
                 window_adapter,
                 &ItemRc::new(vtable::VRc::into_dyn(item_comp), item.item_index()),
             )

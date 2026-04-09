@@ -3524,7 +3524,7 @@ fn compile_builtin_function_call(
                 item.then(|item| {
                     let item_rc = access_item_rc(pr, ctx);
                     quote!(
-                        sp::Item::layout_info(#item, #orient, #window_adapter_tokens, &#item_rc)
+                        sp::Item::layout_info(#item, #orient, -1., #window_adapter_tokens, &#item_rc)
                     )
                 })
             } else {

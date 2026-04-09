@@ -1552,6 +1552,7 @@ fn call_builtin_function(
                     .as_ref()
                     .layout_info(
                         crate::eval_layout::to_runtime(orient),
+                        -1., // unconstrained
                         &window_adapter,
                         &ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index()),
                     )

@@ -113,6 +113,7 @@ impl Item for NativeLineEdit {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {

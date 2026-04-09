@@ -132,10 +132,14 @@ pub struct ItemVTable {
     #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
 
-    /// We would need max/min/preferred size, and all layout info
+    /// We would need max/min/preferred size, and all layout info.
+    /// `cross_axis_constraint` is the available width when querying vertical
+    /// layout info, enabling height-for-width (Text word-wrap, Image aspect
+    /// ratio). Negative values mean unconstrained.
     pub layout_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> LayoutInfo,
@@ -226,6 +230,7 @@ impl Item for Empty {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -329,6 +334,7 @@ impl Item for Rectangle {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -441,6 +447,7 @@ impl Item for BasicBorderRectangle {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -566,6 +573,7 @@ impl Item for BorderRectangle {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -714,6 +722,7 @@ impl Item for Clip {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -837,6 +846,7 @@ impl Item for Opacity {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -966,6 +976,7 @@ impl Item for Layer {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1072,6 +1083,7 @@ impl Item for Transform {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1241,6 +1253,7 @@ impl Item for WindowItem {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1486,6 +1499,7 @@ impl Item for ContextMenu {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1686,6 +1700,7 @@ impl Item for BoxShadow {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
