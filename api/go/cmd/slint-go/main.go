@@ -351,7 +351,7 @@ func staticFlags(config *buildConfig, staticName string) string {
 }
 
 func windowsSharedFlags(config *buildConfig, copied []string) string {
-	flags := []string{"${SRCDIR}/.slint-build/dist/" + config.targetID, "slint_cpp.dll"}
+	flags := []string{"${SRCDIR}/.slint-build/dist/" + config.targetID + "/slint_cpp.dll"}
 	for _, name := range copied {
 		if strings.HasSuffix(name, ".dll") {
 			continue
