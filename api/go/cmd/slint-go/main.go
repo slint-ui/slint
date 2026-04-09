@@ -61,6 +61,8 @@ func rustHostTarget(root string) (string, error) {
 	}
 	for line := range strings.Lines(string(output)) {
 		if value, ok := strings.CutPrefix(strings.TrimSpace(line), "host: "); ok {
+			// replace x86_64-pc-windows-msvc into x86_64-pc-windows-gnu
+			value = strings.ReplaceAll(value, "-msvc", "-gnu")
 			return value, nil
 		}
 	}
@@ -325,7 +327,7 @@ func staticFlags(config *buildConfig, staticName string) string {
 }
 
 func windowsSharedFlags(config *buildConfig, copied []string) string {
-	flags := []string{"-L${SRCDIR}/.slint-build/dist/" + config.targetID, "-lslint_cpp"}
+	flags := []string{"${SRCDIR}/.slint-build/dist/" + config.targetID, "slint_cpp.dll"}
 	for _, name := range copied {
 		if strings.HasSuffix(name, ".dll") {
 			continue
