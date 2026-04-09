@@ -381,84 +381,63 @@ pub(super) fn compute_flexbox_layout_info(
 ) -> llr_Expression {
     let fld = flexbox_layout_data(layout, ctx);
 
-    // Try to determine direction at compile time from constant binding.
-    let compile_time_direction =
-        match layout.direction.as_ref() {
-            None => Some(crate::layout::FlexboxLayoutDirection::Row),
-            Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
-                match &binding.borrow().expression {
-                    crate::expression_tree::Expression::EnumerationValue(ev) => match ev.value {
-                        0 => Some(crate::layout::FlexboxLayoutDirection::Row),
-                        1 => Some(crate::layout::FlexboxLayoutDirection::RowReverse),
-                        2 => Some(crate::layout::FlexboxLayoutDirection::Column),
-                        3 => Some(crate::layout::FlexboxLayoutDirection::ColumnReverse),
-                        _ => None,
-                    },
-                    _ => None,
-                }
-            }),
-        };
+    match layout.axis_relation(orientation) {
+        crate::layout::FlexboxAxisRelation::MainAxis => {
+            compute_flexbox_layout_info_for_direction(layout, orientation, false, fld, ctx)
+        }
+        crate::layout::FlexboxAxisRelation::CrossAxis => {
+            compute_flexbox_layout_info_for_direction(layout, orientation, true, fld, ctx)
+        }
+        crate::layout::FlexboxAxisRelation::Unknown => {
+            // Direction is not known at compile time - generate runtime conditional
+            // This ensures we only read the constraint (width/height) in the branch where it's needed
+            let row_expr = compute_flexbox_layout_info_for_direction(
+                layout,
+                orientation,
+                orientation == Orientation::Vertical, // cross-axis if orientation is vertical
+                fld.clone(),
+                ctx,
+            );
+            let col_expr = compute_flexbox_layout_info_for_direction(
+                layout,
+                orientation,
+                orientation == Orientation::Horizontal, // cross-axis if orientation is horizontal
+                fld,
+                ctx,
+            );
 
-    if let Some(direction) = compile_time_direction {
-        // If direction is known at compile time, we can optimize by only generating
-        let is_cross_axis = matches!(
-            (direction, orientation),
-            (crate::layout::FlexboxLayoutDirection::Row, Orientation::Vertical)
-                | (crate::layout::FlexboxLayoutDirection::RowReverse, Orientation::Vertical)
-                | (crate::layout::FlexboxLayoutDirection::Column, Orientation::Horizontal)
-                | (crate::layout::FlexboxLayoutDirection::ColumnReverse, Orientation::Horizontal)
-        );
-        compute_flexbox_layout_info_for_direction(layout, orientation, is_cross_axis, fld, ctx)
-    } else {
-        // Direction is not known at compile time - generate runtime conditional
-        // This ensures we only read the constraint (width/height) in the branch where it's needed
+            // Condition: direction == Row || direction == RowReverse
+            let direction_enum =
+                crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutDirection.clone());
+            let direction_ref = llr_Expression::PropertyReference(
+                ctx.map_property_reference(layout.direction.as_ref().unwrap()),
+            );
 
-        let row_expr = compute_flexbox_layout_info_for_direction(
-            layout,
-            orientation,
-            orientation == Orientation::Vertical, // cross-axis if orientation is vertical
-            fld.clone(),
-            ctx,
-        );
-        let col_expr = compute_flexbox_layout_info_for_direction(
-            layout,
-            orientation,
-            orientation == Orientation::Horizontal, // cross-axis if orientation is horizontal
-            fld,
-            ctx,
-        );
+            let is_row_condition = llr_Expression::BinaryExpression {
+                lhs: Box::new(llr_Expression::BinaryExpression {
+                    lhs: Box::new(direction_ref.clone()),
+                    rhs: Box::new(llr_Expression::EnumerationValue(EnumerationValue {
+                        value: 0, // FlexboxLayoutDirection::Row
+                        enumeration: direction_enum.clone(),
+                    })),
+                    op: '=',
+                }),
+                rhs: Box::new(llr_Expression::BinaryExpression {
+                    lhs: Box::new(direction_ref),
+                    rhs: Box::new(llr_Expression::EnumerationValue(EnumerationValue {
+                        value: 1, // FlexboxLayoutDirection::RowReverse
+                        enumeration: direction_enum,
+                    })),
+                    op: '=',
+                }),
+                op: '|',
+            };
 
-        // Condition: direction == Row || direction == RowReverse
-        let direction_enum =
-            crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutDirection.clone());
-        let direction_ref = llr_Expression::PropertyReference(
-            ctx.map_property_reference(layout.direction.as_ref().unwrap()),
-        );
-
-        let is_row_condition = llr_Expression::BinaryExpression {
-            lhs: Box::new(llr_Expression::BinaryExpression {
-                lhs: Box::new(direction_ref.clone()),
-                rhs: Box::new(llr_Expression::EnumerationValue(EnumerationValue {
-                    value: 0, // FlexboxLayoutDirection::Row
-                    enumeration: direction_enum.clone(),
-                })),
-                op: '=',
-            }),
-            rhs: Box::new(llr_Expression::BinaryExpression {
-                lhs: Box::new(direction_ref),
-                rhs: Box::new(llr_Expression::EnumerationValue(EnumerationValue {
-                    value: 1, // FlexboxLayoutDirection::RowReverse
-                    enumeration: direction_enum,
-                })),
-                op: '=',
-            }),
-            op: '|',
-        };
-
-        llr_Expression::Condition {
-            condition: Box::new(is_row_condition),
-            true_expr: Box::new(row_expr),
-            false_expr: Box::new(col_expr),
+            llr_Expression::Condition {
+                condition: Box::new(is_row_condition),
+                true_expr: Box::new(row_expr),
+                false_expr: Box::new(col_expr),
+            }
         }
     }
 }
@@ -476,23 +455,9 @@ fn compute_flexbox_layout_info_for_direction(
         generate_layout_padding_and_spacing(&layout.geometry, Orientation::Vertical, ctx);
 
     if is_cross_axis {
-        // Cross-axis: need constraint to handle wrapping
-
-        // For cross-axis, pass the perpendicular dimension as constraint
-        let constraint_size = match orientation {
-            Orientation::Horizontal => {
-                layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx)
-            }
-            Orientation::Vertical => {
-                layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx)
-            }
-        };
-
-        let orientation_expr = llr_Expression::EnumerationValue(EnumerationValue {
-            value: orientation as usize,
-            enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
-        });
-
+        // Cross-axis layout info: uses both axes' cells and computes the main-axis
+        // preferred size internally as the taffy constraint, avoiding any dependency
+        // on the parent's solved dimensions.
         let arguments = vec![
             fld.cells_h,
             fld.cells_v,
@@ -500,9 +465,7 @@ fn compute_flexbox_layout_info_for_direction(
             spacing_v,
             padding_h,
             padding_v,
-            orientation_expr,
             fld.direction,
-            constraint_size,
             fld.flex_wrap,
         ];
 
@@ -514,53 +477,56 @@ fn compute_flexbox_layout_info_for_direction(
                     repeater_indices_var_name: None,
                     elements,
                     sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "flexbox_layout_info".into(),
+                        function: "flexbox_layout_info_cross_axis".into(),
                         arguments,
                         return_ty: crate::typeregister::layout_info_type().into(),
                     }),
                 }
             }
             None => llr_Expression::ExtraBuiltinFunctionCall {
-                function: "flexbox_layout_info".into(),
+                function: "flexbox_layout_info_cross_axis".into(),
                 arguments,
                 return_ty: crate::typeregister::layout_info_type().into(),
             },
         }
     } else {
-        // Main axis: determine minimum size
-        let arguments = vec![
-            fld.cells_h,
-            fld.cells_v,
-            spacing_h,
-            spacing_v,
-            padding_h,
-            padding_v,
-            llr_Expression::EnumerationValue(EnumerationValue {
-                value: orientation as usize,
-                enumeration: crate::typeregister::BUILTIN.with(|e| e.enums.Orientation.clone()),
-            }),
-            fld.direction,
-            llr_Expression::NumberLiteral(f32::MAX.into()),
-            fld.flex_wrap,
-        ];
+        // Main axis: only needs same-axis cells, avoiding cross-axis binding loop.
+        let (cells, spacing, padding) = match orientation {
+            Orientation::Horizontal => (fld.cells_h, spacing_h, padding_h),
+            Orientation::Vertical => (fld.cells_v, spacing_v, padding_v),
+        };
 
         match fld.compute_cells {
             Some((cells_h_var, cells_v_var, elements)) => {
+                let cells_var = match orientation {
+                    Orientation::Horizontal => cells_h_var.clone(),
+                    Orientation::Vertical => cells_v_var.clone(),
+                };
                 llr_Expression::WithFlexboxLayoutItemInfo {
                     cells_h_variable: cells_h_var,
                     cells_v_variable: cells_v_var,
                     repeater_indices_var_name: None,
                     elements,
                     sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "flexbox_layout_info".into(),
-                        arguments,
+                        function: "flexbox_layout_info_main_axis".into(),
+                        arguments: vec![
+                            llr_Expression::ReadLocalVariable {
+                                name: cells_var.into(),
+                                ty: Type::Array(Rc::new(
+                                    crate::typeregister::flexbox_layout_item_info_type(),
+                                )),
+                            },
+                            spacing,
+                            padding,
+                            fld.flex_wrap,
+                        ],
                         return_ty: crate::typeregister::layout_info_type().into(),
                     }),
                 }
             }
             None => llr_Expression::ExtraBuiltinFunctionCall {
-                function: "flexbox_layout_info".into(),
-                arguments,
+                function: "flexbox_layout_info_main_axis".into(),
+                arguments: vec![cells, spacing, padding, fld.flex_wrap],
                 return_ty: crate::typeregister::layout_info_type().into(),
             },
         }

@@ -1773,27 +1773,88 @@ pub fn solve_flexbox_layout_with_measure(
     result
 }
 
-/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexboxLayout
-/// This handles both main-axis (simple) and cross-axis (wrapping-aware) cases.
-/// The constraint_size is the perpendicular dimension to orientation:
-/// - For Horizontal orientation: constraint_size is height
-/// - For Vertical orientation: constraint_size is width
+/// Return main-axis LayoutInfo for a FlexboxLayout.
+/// Only needs the same-axis cells, avoiding a cross-axis binding loop.
+pub fn flexbox_layout_info_main_axis(
+    cells: Slice<FlexboxLayoutItemInfo>,
+    spacing: Coord,
+    padding: &Padding,
+    flex_wrap: FlexboxLayoutWrap,
+) -> LayoutInfo {
+    let extra_pad = padding.begin + padding.end;
+    if cells.is_empty() {
+        return LayoutInfo {
+            min: extra_pad,
+            preferred: extra_pad,
+            max: extra_pad,
+            ..Default::default()
+        };
+    }
+    let num_spacings = cells.len().saturating_sub(1) as Coord;
+    let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>() + spacing * num_spacings + extra_pad
+    } else {
+        // Wrapping: the widest single item must fit
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+    };
+    let preferred = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+        // No wrapping: all items on one line
+        cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+            + spacing * num_spacings
+            + extra_pad
+    } else {
+        // Wrapping: estimate a roughly square layout using only main-axis sizes.
+        // Approximate total area assuming each item is square (width == height),
+        // then take sqrt to get a reasonable main-axis extent.
+        let total_area: Coord = cells
+            .iter()
+            .map(|c| {
+                let w = c.constraint.preferred_bounded();
+                w * w
+            })
+            .sum();
+        let count = cells.len();
+        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    };
+    let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
+    LayoutInfo {
+        min,
+        max: Coord::MAX,
+        min_percent: 0 as _,
+        max_percent: 100 as _,
+        preferred,
+        stretch,
+    }
+}
+
+/// Return cross-axis LayoutInfo for a FlexboxLayout.
 ///
-/// The constraint_size is ignored for main-axis calculation.
-pub fn flexbox_layout_info(
+/// This computes the intrinsic cross-axis size without depending on the
+/// parent's solved dimensions, avoiding circular dependencies when layouts
+/// query a FlexboxLayout child's preferred size. Instead of reading the
+/// parent's assigned width/height, it computes the main-axis preferred size
+/// internally (via the same heuristic as `flexbox_layout_info_main_axis`)
+/// and uses that as the constraint for taffy's wrapping calculation.
+pub fn flexbox_layout_info_cross_axis(
     cells_h: Slice<FlexboxLayoutItemInfo>,
     cells_v: Slice<FlexboxLayoutItemInfo>,
     spacing_h: Coord,
     spacing_v: Coord,
     padding_h: &Padding,
     padding_v: &Padding,
-    orientation: Orientation,
     direction: FlexboxLayoutDirection,
-    constraint_size: Coord,
     flex_wrap: FlexboxLayoutWrap,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
+        let orientation = match direction {
+            FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+                Orientation::Vertical
+            }
+            FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+                Orientation::Horizontal
+            }
+        };
         let padding = match orientation {
             Orientation::Horizontal => padding_h,
             Orientation::Vertical => padding_v,
@@ -1802,52 +1863,43 @@ pub fn flexbox_layout_info(
         return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
     }
 
-    let (cells, padding, spacing) = match orientation {
-        Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
-        Orientation::Vertical => (&cells_v, padding_v, spacing_v),
-    };
-    let extra_pad = padding.begin + padding.end;
-
-    // Determine if we're asking for main-axis or cross-axis
-    let is_main_axis = matches!(
-        (direction, orientation),
-        (FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse, Orientation::Horizontal)
-            | (
-                FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse,
-                Orientation::Vertical
-            )
-    );
-
-    let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) && is_main_axis {
-        // No wrapping: items must all fit in one line, min = sum of minimums + spacing
-        cells.iter().map(|c| c.constraint.min).sum::<Coord>()
-            + spacing * (cells.len().saturating_sub(1)) as Coord
-            + extra_pad
-    } else {
-        // Wrapping (or cross-axis): the widest/tallest single item must fit
-        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
-    };
-
-    // The main-axis constraint determines how items wrap.
-    let main_axis_constraint = if is_main_axis {
-        // Note that constraint_size is not used for the main axis
-        if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
-            // No wrapping: items won't wrap regardless of size, use max content
-            Coord::MAX
-        } else {
-            // Use sqrt of total item area as an approximation.
-            let total_area = cells_h
-                .iter()
-                .map(|c| c.constraint.preferred_bounded())
-                .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
-                .map(|(h, v)| h * v)
-                .sum::<Coord>();
-            let count = cells.len();
-            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    // Determine which axis is cross
+    let (cross_cells, cross_padding) = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => (&cells_v, padding_v),
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (&cells_h, padding_h)
         }
+    };
+    let cross_extra_pad = cross_padding.begin + cross_padding.end;
+
+    let min = cross_cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+        + cross_extra_pad;
+
+    // Compute the main-axis preferred size to use as the constraint for taffy,
+    // using the same heuristic as flexbox_layout_info_main_axis.
+    let (main_cells, main_spacing, main_padding) = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (&cells_h, spacing_h, padding_h)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (&cells_v, spacing_v, padding_v)
+        }
+    };
+    let main_extra_pad = main_padding.begin + main_padding.end;
+    let main_axis_constraint = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+        Coord::MAX
     } else {
-        // For cross-axis queries, use the provided constraint_size.
-        constraint_size
+        // Use actual item areas (main * cross) for the heuristic, since both
+        // axes' cells are available here (unlike flexbox_layout_info_main_axis).
+        let total_area: Coord = main_cells
+            .iter()
+            .zip(cross_cells.iter())
+            .map(|(m, c)| m.constraint.preferred_bounded() * c.constraint.preferred_bounded())
+            .sum();
+        let count = main_cells.len();
+        Float::sqrt(total_area as f32) as Coord
+            + main_spacing * (count - 1) as Coord
+            + main_extra_pad
     };
 
     let taffy_direction = match direction {
@@ -1893,42 +1945,25 @@ pub fn flexbox_layout_info(
 
     builder.compute_layout(available_width, available_height, None);
 
-    let preferred = if is_main_axis {
-        // For main-axis, container_size() returns max(content, available_space) for
-        // multi-line layouts, giving back our approximation unchanged. Scan child
-        // positions to find the actual extent of the widest row.
-        let mut min_pos = Coord::MAX;
-        let mut max_end = 0.0 as Coord;
-        for i in 0..cells_h.len() {
-            let (x, y, w, h) = builder.child_geometry(i);
-            let (pos, size) = match orientation {
-                Orientation::Horizontal => (x, w),
-                Orientation::Vertical => (y, h),
-            };
-            min_pos = min_pos.min(pos);
-            max_end = max_end.max(pos + size);
-        }
-        (max_end - min_pos) + padding.begin + padding.end
-    } else {
-        // For cross-axis, the queried dimension is Auto so container_size() returns
-        // the content-based size directly.
-        let (total_width, total_height) = builder.container_size();
-        match orientation {
-            Orientation::Horizontal => total_width,
-            Orientation::Vertical => total_height,
+    let (total_width, total_height) = builder.container_size();
+    let cross_orientation = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => Orientation::Vertical,
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            Orientation::Horizontal
         }
     };
-
-    let stretch =
-        if is_main_axis { cells.iter().map(|c| c.constraint.stretch).sum::<f32>() } else { 0.0 };
+    let preferred = match cross_orientation {
+        Orientation::Horizontal => total_width,
+        Orientation::Vertical => total_height,
+    };
 
     LayoutInfo {
         min,
-        max: Coord::MAX, // TODO?
+        max: Coord::MAX,
         min_percent: 0 as _,
         max_percent: 100 as _,
         preferred,
-        stretch,
+        stretch: 0.0,
     }
 }
 
@@ -2093,30 +2128,30 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    /// Return LayoutInfo for a FlexboxLayout with runtime direction support.
-    pub extern "C" fn slint_flexbox_layout_info(
+    /// Return main-axis LayoutInfo for a FlexboxLayout (single-axis, no cross-axis dependency).
+    pub extern "C" fn slint_flexbox_layout_info_main_axis(
+        cells: Slice<FlexboxLayoutItemInfo>,
+        spacing: Coord,
+        padding: &Padding,
+        flex_wrap: FlexboxLayoutWrap,
+    ) -> LayoutInfo {
+        super::flexbox_layout_info_main_axis(cells, spacing, padding, flex_wrap)
+    }
+
+    #[unsafe(no_mangle)]
+    /// Return cross-axis LayoutInfo for a FlexboxLayout.
+    pub extern "C" fn slint_flexbox_layout_info_cross_axis(
         cells_h: Slice<FlexboxLayoutItemInfo>,
         cells_v: Slice<FlexboxLayoutItemInfo>,
         spacing_h: Coord,
         spacing_v: Coord,
         padding_h: &Padding,
         padding_v: &Padding,
-        orientation: Orientation,
         direction: FlexboxLayoutDirection,
-        constraint_size: Coord,
         flex_wrap: FlexboxLayoutWrap,
     ) -> LayoutInfo {
-        super::flexbox_layout_info(
-            cells_h,
-            cells_v,
-            spacing_h,
-            spacing_v,
-            padding_h,
-            padding_v,
-            orientation,
-            direction,
-            constraint_size,
-            flex_wrap,
+        super::flexbox_layout_info_cross_axis(
+            cells_h, cells_v, spacing_h, spacing_v, padding_h, padding_v, direction, flex_wrap,
         )
     }
 }
