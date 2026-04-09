@@ -3518,13 +3518,14 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            if let [Expression::PropertyReference(pr)] = arguments {
+            if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let item = access_member(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
+                let constraint = compile_expression(constraint_expr, ctx);
                 item.then(|item| {
                     let item_rc = access_item_rc(pr, ctx);
                     quote!(
-                        sp::Item::layout_info(#item, #orient, -1., #window_adapter_tokens, &#item_rc)
+                        sp::Item::layout_info(#item, #orient, #constraint as _, #window_adapter_tokens, &#item_rc)
                     )
                 })
             } else {

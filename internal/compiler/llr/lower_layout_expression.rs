@@ -670,16 +670,31 @@ fn flexbox_layout_data(
             element_ty: element_ty.clone(),
             output: llr_ArrayOutput::Slice,
         };
+        // For cells_v, pass each child's horizontal preferred size as the
+        // cross-axis constraint. This enables height-for-width for Text with
+        // word-wrap and Image with aspect ratio, without circular dependencies.
         let cells_v = llr_Expression::Array {
             values: layout
                 .elems
                 .iter()
                 .map(|li| {
-                    let layout_info_v = get_layout_info(
+                    // Get the horizontal layout_info expression to extract preferred size
+                    let h_info = crate::layout::implicit_layout_info_call(
+                        &li.item.element,
+                        Orientation::Horizontal,
+                        crate::layout::BuiltinFilter::All,
+                    );
+                    let constraint =
+                        h_info.map(|expr| crate::expression_tree::Expression::StructFieldAccess {
+                            base: Box::new(expr),
+                            name: "preferred".into(),
+                        });
+                    let layout_info_v = get_layout_info_with_constraint(
                         &li.item.element,
                         ctx,
                         &li.item.constraints,
                         Orientation::Vertical,
+                        constraint,
                     );
                     let flex_props = flex_prop(li, ctx);
                     make_flexbox_cell_data_struct(layout_info_v, flex_props)
@@ -723,11 +738,23 @@ fn flexbox_layout_data(
                     &item.item.constraints,
                     Orientation::Horizontal,
                 );
-                let layout_info_v = get_layout_info(
+                // Pass horizontal preferred size as constraint for vertical
+                let h_info = crate::layout::implicit_layout_info_call(
+                    &item.item.element,
+                    Orientation::Horizontal,
+                    crate::layout::BuiltinFilter::All,
+                );
+                let constraint =
+                    h_info.map(|expr| crate::expression_tree::Expression::StructFieldAccess {
+                        base: Box::new(expr),
+                        name: "preferred".into(),
+                    });
+                let layout_info_v = get_layout_info_with_constraint(
                     &item.item.element,
                     ctx,
                     &item.item.constraints,
                     Orientation::Vertical,
+                    constraint,
                 );
                 let flex_props = flex_prop(item, ctx);
                 elements.push(Either::Left((
@@ -1086,14 +1113,25 @@ pub fn get_layout_info(
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
 ) -> llr_Expression {
+    get_layout_info_with_constraint(elem, ctx, constraints, orientation, None)
+}
+
+fn get_layout_info_with_constraint(
+    elem: &ElementRc,
+    ctx: &mut ExpressionLoweringCtx,
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+    constraint: Option<crate::expression_tree::Expression>,
+) -> llr_Expression {
     let layout_info = if let Some(layout_info_prop) = &elem.borrow().layout_info_prop(orientation) {
         llr_Expression::PropertyReference(ctx.map_property_reference(layout_info_prop))
     } else {
         super::lower_expression::lower_expression(
-            &crate::layout::implicit_layout_info_call(
+            &crate::layout::implicit_layout_info_call_with_constraint(
                 elem,
                 orientation,
                 crate::layout::BuiltinFilter::All,
+                constraint,
             )
             .unwrap(),
             ctx,

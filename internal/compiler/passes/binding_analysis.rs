@@ -657,7 +657,7 @@ fn recurse_expression(
         } => vis(&nr.clone().into(), P),
         Expression::FunctionCall { function: Callable::Builtin(b), arguments, .. } => match b {
             BuiltinFunction::ImplicitLayoutInfo(orientation) => {
-                if let [Expression::ElementReference(item)] = arguments.as_slice() {
+                if let [Expression::ElementReference(item), ..] = arguments.as_slice() {
                     visit_implicit_layout_info_dependencies(
                         *orientation,
                         &item.upgrade().unwrap(),

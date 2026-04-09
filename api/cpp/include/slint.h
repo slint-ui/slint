@@ -251,11 +251,12 @@ inline T layout_cache_grid_repeater_access(const SharedVector<T> &cache, size_t 
 template<typename VT, typename ItemType>
 inline cbindgen_private::LayoutInfo
 item_layout_info(VT *itemvtable, ItemType *item_ptr, cbindgen_private::Orientation orientation,
-                 WindowAdapterRc *window_adapter, const ItemTreeRc &component_rc,
-                 uint32_t item_index)
+                 float cross_axis_constraint, WindowAdapterRc *window_adapter,
+                 const ItemTreeRc &component_rc, uint32_t item_index)
 {
     cbindgen_private::ItemRc item_rc { component_rc, item_index };
-    return itemvtable->layout_info({ itemvtable, item_ptr }, orientation, -1., window_adapter, &item_rc);
+    return itemvtable->layout_info({ itemvtable, item_ptr }, orientation, cross_axis_constraint,
+                                   window_adapter, &item_rc);
 }
 } // namespace private_api
 
