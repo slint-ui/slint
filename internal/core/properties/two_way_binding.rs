@@ -612,4 +612,3 @@ fn test_two_way_with_map_dependency_list_transfer() {
     // its DependencyNode::remove would panic in debug_assert_valid if
     // the dependency list was not properly transferred.
 }
-
