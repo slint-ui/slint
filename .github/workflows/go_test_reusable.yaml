@@ -40,11 +40,12 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-go-v0-${{ steps.go-install.outputs.go-version }}
+                  target: ${{ runner.os == 'Windows' && 'x86_64-pc-windows-gnu' || '' }}
             - name: Run Go package tests
               working-directory: api/go
               run: go test ./...
             - name: Run Go test driver
-              run: cargo test --verbose -p test-driver-go
+              run: ${{ runner.os == 'Windows' && 'cargo test --verbose -p test-driver-go --target x86_64-pc-windows-gnu' || 'cargo test --verbose -p test-driver-go' }}
             - name: Generate Go example
               working-directory: examples/go/hello
               env:
