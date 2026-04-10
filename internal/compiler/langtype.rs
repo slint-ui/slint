@@ -674,6 +674,7 @@ pub enum BuiltinPrivateStruct {
     DropEvent,
     TableColumn,
     MenuEntry,
+    SystemTrayListItem,
     Edges,
     InternalKeyEvent,
 }

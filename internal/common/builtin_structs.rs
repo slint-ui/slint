@@ -198,6 +198,18 @@ macro_rules! for_each_builtin_structs {
                 private {}
             }
 
+            /// An item in the menu of a system tray icon
+            struct SystemTrayListItem {
+                @name = BuiltinPrivateStruct::SystemTrayListItem,
+                export {
+                    /// The text of the menu item
+                    label: SharedString,
+                    /// whether the menu item is enabled
+                    enabled: bool,
+                }
+                private {}
+            }
+
             /// A structure representing the four edges of an axis-aligned rectangle
             struct Edges {
                 @name = BuiltinPrivateStruct::Edges,
