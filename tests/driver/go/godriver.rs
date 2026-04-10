@@ -383,6 +383,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let output = std::process::Command::new("go")
         .arg("run")
+        .arg("-tags")
+        .arg("slint_testing")
         .arg(".")
         .current_dir(dir.path())
         .env("GOCACHE", &go_cache)

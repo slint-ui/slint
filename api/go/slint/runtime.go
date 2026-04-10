@@ -207,10 +207,6 @@ func CompilePath(path string) (*CompilationResult, error) {
 	return result, nil
 }
 
-func InitTestingBackend() {
-	C.slint_testing_init_backend()
-}
-
 func (r *CompilationResult) Diagnostics() string {
 	return takeCString(C.slint_go_compilation_result_diagnostics(r.raw()))
 }
