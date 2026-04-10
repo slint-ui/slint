@@ -1,20 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::graphics::Image;
+use crate::{
+    SharedString,
+    graphics::Image,
+    model::{Model, ModelRc},
+};
+use std::string::ToString;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use ksni::TrayMethods;
-
-struct MenuItem {
-    label: std::string::String,
-}
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 struct KsniTray {
     icon: ksni::Icon,
     title: std::string::String,
-    menu: std::vec::Vec<MenuItem>,
+    menu: std::vec::Vec<SharedString>,
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -35,8 +36,8 @@ impl ksni::Tray for KsniTray {
     fn menu(&self) -> std::vec::Vec<ksni::MenuItem<KsniTray>> {
         self.menu
             .iter()
-            .map(|item| {
-                ksni::menu::StandardItem { label: item.label.clone(), ..Default::default() }.into()
+            .map(|label| {
+                ksni::menu::StandardItem { label: label.to_string(), ..Default::default() }.into()
             })
             .collect()
     }
@@ -45,6 +46,7 @@ impl ksni::Tray for KsniTray {
 pub struct Params<'a> {
     pub icon: &'a Image,
     pub title: &'a str,
+    pub menu: ModelRc<SharedString>,
 }
 
 pub struct SystemTray {
@@ -71,11 +73,7 @@ impl SystemTray {
             let tray = KsniTray {
                 icon: ksni::Icon { width, height, data },
                 title: params.title.into(),
-                menu: std::vec![
-                    MenuItem { label: std::format!("Item A") },
-                    MenuItem { label: std::format!("Item B") },
-                    MenuItem { label: std::format!("Item B") }
-                ],
+                menu: params.menu.iter().collect(),
             };
 
             let tray = crate::context::with_global_context(

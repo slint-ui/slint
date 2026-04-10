@@ -1813,6 +1813,7 @@ pub struct SystemTrayData {
 pub struct SystemTray {
     pub icon: Property<crate::graphics::Image>,
     pub title: Property<SharedString>,
+    pub menu: Property<crate::model::ModelRc<SharedString>>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayDataBox,
 }
@@ -1839,6 +1840,7 @@ impl Item for SystemTray {
                     match crate::system_tray::SystemTray::new(crate::system_tray::Params {
                         icon: &tray.icon(),
                         title: &tray.title(),
+                        menu: tray.menu(),
                     }) {
                         Ok(system_tray) => system_tray,
                         Err(err) => panic!("{}", err),
