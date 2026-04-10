@@ -356,23 +356,51 @@ fn emit_enum(out: &mut String, go_enum: &GoEnum) -> std::fmt::Result {
     Ok(())
 }
 
-fn builtin_go_enums() -> Vec<GoEnum> {
+fn builtin_go_enums(existing_names: &HashSet<String>) -> Vec<GoEnum> {
     let mut enums = Vec::new();
     macro_rules! collect_enums {
         ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
             $(
-                enums.push(GoEnum {
-                    name: SmolStr::new_static(stringify!($Name)),
-                    variants: vec![
-                        $(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#")).into(),)*
-                    ],
-                    aliases: Vec::new(),
-                });
+                {
+                    let name = SmolStr::new_static(stringify!($Name));
+                    if !existing_names.contains(&exported_ident(&name)) {
+                        enums.push(GoEnum {
+                            name,
+                            variants: vec![
+                                $(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#")).into(),)*
+                            ],
+                            aliases: Vec::new(),
+                        });
+                    }
+                }
             )*
         };
     }
     i_slint_common::for_each_enums!(collect_enums);
     enums
+}
+
+fn go_string_literal(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{08}' => out.push_str("\\b"),
+            '\u{0c}' => out.push_str("\\f"),
+            ch if ch.is_control() => {
+                use std::fmt::Write as _;
+                write!(out, "\\u{:04x}", ch as u32).expect("writing into a string should not fail");
+            }
+            ch => out.push(ch),
+        }
+    }
+    out.push('"');
+    out
 }
 
 fn emit_global_wrapper(
@@ -721,10 +749,12 @@ pub fn generate(
 
     let mut go_structs = Vec::new();
     let mut go_enums = Vec::new();
+    let mut exported_type_names = HashSet::new();
     for ty in &doc.used_types.borrow().structs_and_enums {
         match ty {
             Type::Struct(s) => {
                 let StructName::User { name, .. } = &s.name else { continue };
+                exported_type_names.insert(exported_ident(name));
                 go_structs.push(GoStruct {
                     name: name.clone(),
                     fields: s
@@ -738,15 +768,18 @@ pub fn generate(
                     aliases: struct_aliases.remove(name).unwrap_or_default(),
                 });
             }
-            Type::Enumeration(en) => go_enums.push(GoEnum {
-                name: en.name.clone(),
-                variants: en.values.to_vec(),
-                aliases: enum_aliases.remove(&en.name).unwrap_or_default(),
-            }),
+            Type::Enumeration(en) => {
+                exported_type_names.insert(exported_ident(&en.name));
+                go_enums.push(GoEnum {
+                    name: en.name.clone(),
+                    variants: en.values.to_vec(),
+                    aliases: enum_aliases.remove(&en.name).unwrap_or_default(),
+                })
+            }
             _ => {}
         }
     }
-    go_enums.extend(builtin_go_enums());
+    go_enums.extend(builtin_go_enums(&exported_type_names));
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
@@ -806,9 +839,9 @@ pub fn generate(
         writeln!(output, ")")?;
         writeln!(output)?;
 
-        writeln!(output, "var generatedSource = {:?}", source)?;
+        writeln!(output, "var generatedSource = {}", go_string_literal(source))?;
         writeln!(output)?;
-        writeln!(output, "var generatedSourcePathRelative = {:?}", source_path)?;
+        writeln!(output, "var generatedSourcePathRelative = {}", go_string_literal(&source_path))?;
         writeln!(output)?;
         writeln!(output, "var generatedCompilationOnce sync.Once")?;
         writeln!(output, "var generatedCompilation *slint.CompilationResult")?;
