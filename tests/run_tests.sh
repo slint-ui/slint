@@ -6,7 +6,7 @@ set -eu
 unset CDPATH
 
 usage() {
-  echo "Usage: $0 <rust|cpp|interpreter|python|nodejs> [<filter>] [<cargo test args>...]" >&2
+  echo "Usage: $0 <rust|cpp|interpreter|python|nodejs|go> [<filter>] [<cargo test args>...]" >&2
 }
 
 fatal() {
@@ -23,7 +23,7 @@ fi
 driver="$1"
 
 case "$driver" in
-  rust|cpp|interpreter|python|nodejs) ;;
+  rust|cpp|interpreter|python|nodejs|go) ;;
   *)
     fatal "Invalid driver: $driver"
     ;;

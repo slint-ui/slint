@@ -241,7 +241,7 @@ fn go_type_name(ty: &Type) -> String {
         | Type::Percent
         | Type::Rem
         | Type::UnitProduct(_) => "float64".into(),
-        Type::Enumeration(en) if en.node.is_some() => exported_ident(&en.name),
+        Type::Enumeration(en) => exported_ident(&en.name),
         Type::Void => "slint.Value".into(),
         _ => "slint.Value".into(),
     }
@@ -289,7 +289,7 @@ fn emit_value_from_expr(
         | Type::UnitProduct(_) => {
             writeln!(out, "{indent}return {value_expr}.Number()")?;
         }
-        Type::Enumeration(en) if en.node.is_some() => {
+        Type::Enumeration(en) => {
             let enum_name = exported_ident(&en.name);
             writeln!(out, "{indent}s, err := {value_expr}.String()")?;
             writeln!(out, "{indent}if err != nil {{")?;
@@ -354,6 +354,25 @@ fn emit_enum(out: &mut String, go_enum: &GoEnum) -> std::fmt::Result {
         writeln!(out)?;
     }
     Ok(())
+}
+
+fn builtin_go_enums() -> Vec<GoEnum> {
+    let mut enums = Vec::new();
+    macro_rules! collect_enums {
+        ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+            $(
+                enums.push(GoEnum {
+                    name: SmolStr::new_static(stringify!($Name)),
+                    variants: vec![
+                        $(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#")).into(),)*
+                    ],
+                    aliases: Vec::new(),
+                });
+            )*
+        };
+    }
+    i_slint_common::for_each_enums!(collect_enums);
+    enums
 }
 
 fn emit_global_wrapper(
@@ -544,13 +563,16 @@ fn emit_invoke_method(
         if args.is_empty() {
             writeln!(
                 out,
-                "\tvalue, err := c.inner.InvokeGlobal({:?}, {:?})",
-                global_name, callable.slint_name
+                "\t{}, err := c.inner.InvokeGlobal({:?}, {:?})",
+                if matches!(callable.return_type, Type::Void) { "_" } else { "value" },
+                global_name,
+                callable.slint_name
             )?;
         } else {
             writeln!(
                 out,
-                "\tvalue, err := c.inner.InvokeGlobal({:?}, {:?}, {})",
+                "\t{}, err := c.inner.InvokeGlobal({:?}, {:?}, {})",
+                if matches!(callable.return_type, Type::Void) { "_" } else { "value" },
                 global_name,
                 callable.slint_name,
                 args.join(", ")
@@ -558,11 +580,17 @@ fn emit_invoke_method(
         }
     } else {
         if args.is_empty() {
-            writeln!(out, "\tvalue, err := c.inner.Invoke({:?})", callable.slint_name)?;
+            writeln!(
+                out,
+                "\t{}, err := c.inner.Invoke({:?})",
+                if matches!(callable.return_type, Type::Void) { "_" } else { "value" },
+                callable.slint_name
+            )?;
         } else {
             writeln!(
                 out,
-                "\tvalue, err := c.inner.Invoke({:?}, {})",
+                "\t{}, err := c.inner.Invoke({:?}, {})",
+                if matches!(callable.return_type, Type::Void) { "_" } else { "value" },
                 callable.slint_name,
                 args.join(", ")
             )?;
@@ -718,6 +746,7 @@ pub fn generate(
             _ => {}
         }
     }
+    go_enums.extend(builtin_go_enums());
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 

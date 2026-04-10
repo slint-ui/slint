@@ -80,5 +80,6 @@ SlintGoValueType slint_go_value_type(const SlintGoValue *value);
 char *slint_go_value_to_string(const SlintGoValue *value);
 bool slint_go_value_to_number(const SlintGoValue *value, double *out);
 bool slint_go_value_to_bool(const SlintGoValue *value, bool *out);
+void slint_testing_init_backend(void);
 
 extern SlintGoValue *slintGoInvokeCallback(uintptr_t token, SlintGoValue **args, uintptr_t arg_len);

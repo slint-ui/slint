@@ -10928,6 +10928,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-driver-go"
+version = "1.16.0"
+dependencies = [
+ "i-slint-compiler",
+ "scopeguard",
+ "slint-cpp",
+ "spin_on",
+ "tempfile",
+ "test_driver_lib",
+]
+
+[[package]]
 name = "test-driver-interpreter"
 version = "1.17.0"
 dependencies = [

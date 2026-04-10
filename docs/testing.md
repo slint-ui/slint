@@ -115,6 +115,15 @@ Each test is run in a different node process.
 cargo  test -p test-driver-nodejs
 ```
 
+### Go driver
+
+This is used to test the Go API. It takes the ```` ```go ```` blocks in comments, generates Go
+bindings for the `.slint` file, and runs the resulting Go program in a separate process.
+
+```
+cargo test -p test-driver-go
+```
+
 ## Screenshot tests
 
 This is used to test renderer backends. At the moment it supports the `SoftwareRenderer`. Each `.slint` file in `tests/screenshots/cases` will be loaded
