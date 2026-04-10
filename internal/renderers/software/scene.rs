@@ -473,7 +473,7 @@ impl SharedBufferCommand {
             SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => SceneTexture {
                 data: &b.as_bytes()[start..end],
                 pixel_stride: stride as u16,
-                format: TexturePixelFormat::AlphaMap,
+                format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
             SharedBufferData::AlphaMap { data, width } => SceneTexture {

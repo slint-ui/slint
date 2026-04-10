@@ -280,6 +280,19 @@ pub(super) fn draw_texture_line(
                     pix.blend(c);
                 }
             }
+            TexturePixelFormat::Gray8 => {
+                for pix in line_buffer {
+                    let pos = pos(1).0;
+                    let v = data[pos];
+                    if alpha == 0xff {
+                        *pix = TargetPixel::from_rgb(v, v, v);
+                    } else {
+                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha, v, v, v,
+                        )));
+                    }
+                }
+            }
             TexturePixelFormat::SignedDistanceField => {
                 const RANGE: i32 = 6;
                 let factor = (362 * 256 / delta.0) * RANGE; // 362 ≃ 255 * sqrt(2)

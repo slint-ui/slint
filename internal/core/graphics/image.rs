@@ -251,6 +251,8 @@ pub enum TexturePixelFormat {
     /// and i8::MAX corresponds to 3 pixels inside the shape.
     /// The array must be width * height +1 bytes long. (the extra bit is read but never used)
     SignedDistanceField,
+    /// Grayscale. 8bits. Each pixel is a luminance value rendered as (v, v, v, 255).
+    Gray8,
 }
 
 impl TexturePixelFormat {
@@ -262,6 +264,7 @@ impl TexturePixelFormat {
             TexturePixelFormat::RgbaPremultiplied => 4,
             TexturePixelFormat::AlphaMap => 1,
             TexturePixelFormat::SignedDistanceField => 1,
+            TexturePixelFormat::Gray8 => 1,
         }
     }
 }
@@ -522,6 +525,15 @@ impl ImageInner {
                                         b: (col.blue as u32 * a / (255 * 255)) as u8,
                                         a: (a / 255) as u8,
                                     }
+                                });
+                                slice.fill_with(|| iter.next().unwrap());
+                            }
+                            TexturePixelFormat::Gray8 => {
+                                let mut iter = source.iter().map(|v| Rgba8Pixel {
+                                    r: *v,
+                                    g: *v,
+                                    b: *v,
+                                    a: 255,
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }

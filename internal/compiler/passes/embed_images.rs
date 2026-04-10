@@ -268,6 +268,7 @@ fn generate_texture(
         assert!(right > left); // otherwise we would have a transparent image
     }
     let mut is_opaque = true;
+    let mut is_grayscale = true;
     enum ColorState {
         Unset,
         Different,
@@ -283,6 +284,9 @@ fn generate_texture(
             }
             if alpha == 0 {
                 continue;
+            }
+            if p[0] != p[1] || p[1] != p[2] {
+                is_grayscale = false;
             }
             let get_pixel = || match source_format {
                 SourceFormat::RgbaPremultiplied => <[u8; 3]>::try_from(&p.0[0..3])
@@ -311,6 +315,8 @@ fn generate_texture(
 
     let format = if let ColorState::Rgb(c) = color {
         PixelFormat::AlphaMap(c)
+    } else if is_opaque && is_grayscale {
+        PixelFormat::Gray8
     } else if is_opaque {
         PixelFormat::Rgb
     } else {
@@ -364,6 +370,7 @@ fn convert_image(
             })
             .collect(),
         (_, PixelFormat::AlphaMap(_)) => i.pixels().map(|(_, _, p)| p[3]).collect(),
+        (_, PixelFormat::Gray8) => i.pixels().map(|(_, _, p)| p[0]).collect(),
     }
 }
 

@@ -69,6 +69,7 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
                 quote!(sp::TexturePixelFormat::RgbaPremultiplied)
             }
             AlphaMap(_) => quote!(sp::TexturePixelFormat::AlphaMap),
+            Gray8 => quote!(sp::TexturePixelFormat::Gray8),
         };
         tokens.extend(tks);
     }

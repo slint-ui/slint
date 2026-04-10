@@ -121,7 +121,7 @@ impl DrawTextureArgs {
                     }
                     SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => TextureData::new(
                         &b.as_bytes()[start..end],
-                        TexturePixelFormat::AlphaMap,
+                        TexturePixelFormat::Gray8,
                         stride,
                         size,
                     ),
