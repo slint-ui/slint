@@ -524,7 +524,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                                 "data": b64,
                                 "mimeType": "image/png"
                             })];
-                            if !meta.as_object().map_or(true, |o| o.is_empty()) {
+                            if !meta.as_object().is_none_or(|o| o.is_empty()) {
                                 blocks.push(serde_json::json!({
                                     "type": "text",
                                     "text": serde_json::to_string_pretty(&meta).unwrap()
