@@ -63,6 +63,7 @@ path = [
   "rustfmt.toml",
   "*.md",
   "go.mod",
+  "go.sum",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

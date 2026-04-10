@@ -494,6 +494,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("(^|/)LICENSE\\.QT$", LicenseLocation::NoLicense),
             ("(^|/)README$", LicenseLocation::NoLicense),
             ("(^|/)go\\.mod$", LicenseLocation::NoLicense),
+            ("(^|/)go\\.sum$", LicenseLocation::NoLicense),
             ("(^|/)\\.eslintrc\\.yml$", LicenseLocation::NoLicense),
             ("(^|/)\\.gitkeep$", LicenseLocation::NoLicense),
             ("(^|/)memory\\.x$", LicenseLocation::NoLicense), // third-party file
