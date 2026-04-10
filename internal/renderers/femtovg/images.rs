@@ -324,6 +324,10 @@ fn image_buffer_to_image_source(
             },
             femtovg::ImageFlags::PREMULTIPLIED,
         ),
+        SharedImageBuffer::Gray8(_) => {
+            unimplemented!("Gray8 images are not supported by the femtovg renderer")
+        }
+    }
     }
 }
 
