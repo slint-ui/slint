@@ -39,6 +39,7 @@ pub use crate::menus::MenuItem;
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
+use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -1772,6 +1773,168 @@ impl ItemConsts for BoxShadow {
 
 declare_item_vtable! {
     fn slint_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
+}
+
+#[repr(C)]
+/// Wraps the internal data structure for the SystemTray
+pub struct SystemTrayDataBox(core::ptr::NonNull<SystemTrayData>);
+
+impl Default for SystemTrayDataBox {
+    fn default() -> Self {
+        SystemTrayDataBox(Box::leak(Box::<SystemTrayData>::default()).into())
+    }
+}
+impl Drop for SystemTrayDataBox {
+    fn drop(&mut self) {
+        // Safety: the self.0 was constructed from a Box::leak in SystemTrayDataBox::default
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+
+impl core::ops::Deref for SystemTrayDataBox {
+    type Target = SystemTrayData;
+    fn deref(&self) -> &Self::Target {
+        // Safety: initialized in SystemTrayDataBox::default
+        unsafe { self.0.as_ref() }
+    }
+}
+
+#[derive(Default)]
+pub struct SystemTrayData {
+    #[cfg(feature = "system-tray")]
+    inner: std::cell::OnceCell<crate::system_tray::SystemTray>,
+    #[cfg_attr(not(feature = "system-tray"), allow(unused))]
+    change_tracker: crate::properties::ChangeTracker,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct SystemTray {
+    pub icon: Property<crate::graphics::Image>,
+    pub title: Property<SharedString>,
+    pub cached_rendering_data: CachedRenderingData,
+    data: SystemTrayDataBox,
+}
+
+impl Item for SystemTray {
+    #[cfg_attr(not(feature = "system-tray"), allow(unused))]
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        #[cfg(feature = "system-tray")]
+        self.data.change_tracker.init_delayed(
+            self_rc.downgrade(),
+            |_| true,
+            |self_weak, has_icon| {
+                let Some(tray_rc) = self_weak.upgrade() else {
+                    return;
+                };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                    return;
+                };
+                if !*has_icon {
+                    return;
+                }
+                let tray = tray.as_pin_ref();
+                let system_tray =
+                    match crate::system_tray::SystemTray::new(crate::system_tray::Params {
+                        icon: &tray.icon(),
+                        title: &tray.title(),
+                    }) {
+                        Ok(system_tray) => system_tray,
+                        Err(err) => panic!("{}", err),
+                    };
+
+                let _ = tray.data.inner.set(system_tray);
+            },
+        );
+    }
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for SystemTray {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_SystemTrayVTable() -> SystemTrayVTable for SystemTray
 }
 
 declare_item_vtable! {

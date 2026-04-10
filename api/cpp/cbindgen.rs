@@ -320,6 +320,7 @@ fn gen_corelib(
         "Layer",
         "ContextMenu",
         "MenuItem",
+        "SystemTray",
     ];
 
     config.export.include = [
