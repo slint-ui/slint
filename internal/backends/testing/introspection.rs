@@ -259,9 +259,7 @@ impl IntrospectionState {
                 x: window.position().x,
                 y: window.position().y,
             }),
-            root_element_handle: Some(index_to_handle(
-                self.root_element_handle(window_index)?,
-            )),
+            root_element_handle: Some(index_to_handle(self.root_element_handle(window_index)?)),
         })
     }
 
@@ -270,8 +268,7 @@ impl IntrospectionState {
         window_index: generational_arena::Index,
         image_mime_type: &str,
     ) -> Result<proto::TakeSnapshotResponse, String> {
-        let window_contents_as_encoded_image =
-            self.take_snapshot(window_index, image_mime_type)?;
+        let window_contents_as_encoded_image = self.take_snapshot(window_index, image_mime_type)?;
         Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
     }
 }
