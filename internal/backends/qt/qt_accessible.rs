@@ -336,6 +336,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Groupbox => QAccessible_Role_Grouping,
                     i_slint_core::items::AccessibleRole::Image => QAccessible_Role_Graphic,
                     i_slint_core::items::AccessibleRole::RadioButton => QAccessible_Role_RadioButton,
+                    i_slint_core::items::AccessibleRole::RadioGroup => QAccessible_Role_Grouping,
                     _ => QAccessible_Role_NoRole,
                 }
             });

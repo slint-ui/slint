@@ -12,6 +12,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
             "import {{
                 Button, CheckBox, ComboBox, DatePickerPopup, LineEdit, ProgressIndicator, ScrollView,
                 Slider, SpinBox, Spinner, StandardButton, StandardListView, StandardTableView,
+                RadioButton, RadioGroup,
                 Switch, TabWidget, TextEdit, TimePickerPopup}} from\"std-widgets.slint\";
             component Example {{\n{snippet}\n}}"
         )

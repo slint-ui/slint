@@ -530,6 +530,7 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::ListItem => Role::ListBoxOption,
                     i_slint_core::items::AccessibleRole::Image => Role::Image,
                     i_slint_core::items::AccessibleRole::RadioButton => Role::RadioButton,
+                    i_slint_core::items::AccessibleRole::RadioGroup => Role::Group,
                     _ => Role::Unknown,
                 },
                 item.accessible_string_property(
