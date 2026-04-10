@@ -47,6 +47,8 @@ jobs:
               run: cargo test --verbose -p test-driver-go
             - name: Generate Go example
               working-directory: examples/go/hello
+              env:
+                  SLINT_FEATURES: ${{ runner.os == 'Windows' && 'backend-winit,renderer-software' || '' }}
               run: go generate
             - name: Build Go example dynamically
               working-directory: examples/go/hello
