@@ -5927,11 +5927,15 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5b29c089f14ce24c5b25d9bdcb265413b5e0c3df0871823e0d96bd83bc52a24"
 dependencies = [
+ "async-executor",
+ "async-io 2.6.0",
+ "async-lock",
+ "futures-channel",
+ "futures-lite",
  "futures-util",
  "once_cell",
  "pastey 0.2.1",
  "serde",
- "tokio",
  "zbus",
 ]
 
@@ -11278,7 +11282,6 @@ dependencies = [
  "signal-hook-registry",
  "socket2 0.6.3",
  "tokio-macros",
- "tracing",
  "windows-sys 0.61.2",
 ]
 
@@ -13968,7 +13971,6 @@ dependencies = [
  "rustix 1.1.4",
  "serde",
  "serde_repr",
- "tokio",
  "tracing",
  "uds_windows",
  "uuid",

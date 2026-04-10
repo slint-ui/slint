@@ -4,12 +4,17 @@
 use crate::graphics::Image;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use ksni::blocking::TrayMethods;
+use ksni::TrayMethods;
+
+struct MenuItem {
+    label: std::string::String,
+}
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 struct KsniTray {
     icon: ksni::Icon,
     title: std::string::String,
+    menu: std::vec::Vec<MenuItem>,
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -26,6 +31,15 @@ impl ksni::Tray for KsniTray {
     fn icon_pixmap(&self) -> std::vec::Vec<ksni::Icon> {
         std::vec![self.icon.clone()]
     }
+
+    fn menu(&self) -> std::vec::Vec<ksni::MenuItem<KsniTray>> {
+        self.menu
+            .iter()
+            .map(|item| {
+                ksni::menu::StandardItem { label: item.label.clone(), ..Default::default() }.into()
+            })
+            .collect()
+    }
 }
 
 pub struct Params<'a> {
@@ -37,7 +51,7 @@ pub struct SystemTray {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     _tray_icon: tray_icon::TrayIcon,
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    _tray: ksni::blocking::Handle<KsniTray>,
+    _tray: crate::future::JoinHandle<ksni::Handle<KsniTray>>,
 }
 
 impl SystemTray {
@@ -54,10 +68,31 @@ impl SystemTray {
                 pixel.rotate_right(1) // rgba to argb
             }
 
-            let tray =
-                KsniTray { icon: ksni::Icon { width, height, data }, title: params.title.into() }
-                    .spawn()
-                    .map_err(Error::KsniBuildError)?;
+            let tray = KsniTray {
+                icon: ksni::Icon { width, height, data },
+                title: params.title.into(),
+                menu: std::vec![
+                    MenuItem { label: std::format!("Item A") },
+                    MenuItem { label: std::format!("Item B") },
+                    MenuItem { label: std::format!("Item B") }
+                ],
+            };
+
+            let tray = crate::context::with_global_context(
+                || panic!(""),
+                |ctx| {
+                    ctx.spawn_local(async move {
+                        match tray.spawn().await {
+                            Ok(handle) => handle,
+                            Err(error) => {
+                                panic!("{}", error);
+                            }
+                        }
+                    })
+                },
+            )
+            .map_err(Error::PlatformError)?
+            .map_err(Error::EventLoopError)?;
             Ok(Self { _tray: tray })
         }
 
@@ -99,7 +134,8 @@ pub enum Error {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[display("Build error: {}", 0)]
     BuildError(tray_icon::Error),
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    #[display("Build error: {}", 0)]
-    KsniBuildError(ksni::Error),
+    #[display("{}", 0)]
+    PlatformError(crate::platform::PlatformError),
+    #[display("{}", 0)]
+    EventLoopError(crate::api::EventLoopError),
 }
