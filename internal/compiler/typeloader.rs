@@ -990,7 +990,10 @@ impl TypeLoader {
                 return HashSet::new();
             }
         } else {
-            return HashSet::new();
+            // If a document is not in the TypeLoader, it may still have dependencies,
+            // as another document may have tried to import it, but it failed (e.g. the file didn't exist).
+            // So still invalidate all dependencies, even if the file is not in the TypeLoader.
+            // (Fallthrough)
         }
         let deps = self.all_documents.dependencies.remove(path).unwrap_or_default();
         let mut extra_deps = HashSet::new();
@@ -1100,7 +1103,18 @@ impl TypeLoader {
         std::future::poll_fn(|cx| {
             dependencies_futures.retain_mut(|fut| {
                 let core::task::Poll::Ready((mut import, doc_path)) = fut.as_mut().poll(cx) else { return true; };
-                let Some(doc_path) = doc_path else { return false };
+                let doc_path = match doc_path {
+                    Ok(doc_path) => doc_path,
+                    Err(Some(doc_path)) => {
+                        // Even if the import failed (e.g. the file doesn't exist), we need to add it to the document imports so that
+                        // the dependency graph is correct and we can retry loading the document if the imported file changes or is created.
+                        import.file = doc_path.to_string_lossy().into_owned();
+                        imports.push(import);
+
+                        return false;
+                    }
+                    Err(None) => return false,
+                };
                 let mut state = state.borrow_mut();
                 let state: &mut BorrowedTypeLoader<'a> = &mut state;
                 let Some(doc) = state.tl.get_document(&doc_path) else {
@@ -1187,8 +1201,8 @@ impl TypeLoader {
             match Self::ensure_document_loaded(&state, file_to_import, None, Default::default())
                 .await
             {
-                Some(doc_path) => doc_path,
-                None => return None,
+                Ok(doc_path) => doc_path,
+                Err(_) => return None,
             };
 
         let Some(doc) = self.get_document(&doc_path) else {
@@ -1225,13 +1239,15 @@ impl TypeLoader {
         }
     }
 
+    /// Returns whether the file was succesfully loaded.
+    /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
         import_token: Option<NodeOrToken>,
         mut import_stack: HashSet<PathBuf>,
-    ) -> Option<PathBuf> {
+    ) -> Result<PathBuf, Option<PathBuf>> {
         let mut borrowed_state = state.borrow_mut();
 
         let mut resolved = false;
@@ -1280,7 +1296,8 @@ impl TypeLoader {
                     let path = crate::pathutils::join(
                         &crate::pathutils::dirname(&base_path),
                         Path::new(file_to_import),
-                    )?;
+                    )
+                    .ok_or(None)?;
                     (path, None)
                 }
             }
@@ -1291,7 +1308,7 @@ impl TypeLoader {
                 format!("Recursive import of \"{}\"", path_canon.display()),
                 &import_token,
             );
-            return None;
+            return Err(Some(path_canon));
         }
 
         drop(borrowed_state);
@@ -1326,7 +1343,7 @@ impl TypeLoader {
         })
         .await;
         if is_loaded {
-            return Some(path_canon);
+            return Ok(path_canon);
         }
 
         let doc_node = if let Some((doc_node, errors)) = doc_node {
@@ -1359,18 +1376,14 @@ impl TypeLoader {
                     if !resolved
                         && matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
                 {
+                    let import_kind =
+                        if file_to_import.starts_with('@') { "library" } else { "include" };
                     state.borrow_mut().diag.push_error(
-                            if file_to_import.starts_with('@') {
-                                format!(
-                                    "Cannot find requested import \"{file_to_import}\" in the library search path",
-                                )
-                            } else {
-                                format!(
-                                    "Cannot find requested import \"{file_to_import}\" in the include search path",
-                                )
-                            },
-                            &import_token,
-                        );
+                        format!(
+                            "Cannot find requested import \"{file_to_import}\" in the {import_kind} search path",
+                        ),
+                        &import_token,
+                    );
                     None
                 }
                 Err(err) => {
@@ -1407,7 +1420,7 @@ impl TypeLoader {
             x.wake();
         }
 
-        ok.then_some(path_canon)
+        if ok { Ok(path_canon) } else { Err(Some(path_canon)) }
     }
 
     /// Load a file, and its dependency, running only the import passes.
