@@ -98,6 +98,18 @@ fn runtime_flags(goos: &str, target_id: &str, dist_dir: &Path) -> String {
             .into_iter()
             .map(ToString::to_string),
         ),
+        "darwin" => flags.extend(
+            [
+                "-framework CoreGraphics",
+                "-framework CoreText",
+                "-framework Foundation",
+                "-framework Carbon",
+                "-framework CoreVideo",
+                "-framework OpenGL",
+            ]
+            .into_iter()
+            .map(ToString::to_string),
+        ),
         _ => {}
     }
     flags.join(" ")
