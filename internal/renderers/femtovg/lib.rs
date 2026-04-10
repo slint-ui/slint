@@ -433,16 +433,6 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
     fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
         if let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok()) {
-            // Treat a resize as a fresh surface frame. FemtoVG keeps layer textures, uploaded
-            // images and shaped text caches across frames, but during interactive resizes on
-            // Linux these cached artifacts can be reused against a newly-sized surface and show
-            // transient text tearing. Dropping the caches here forces the next frame to rebuild
-            // against the resized surface.
-            self.graphics_backend.with_graphics_api(|_| {
-                self.graphics_cache.clear_all();
-                self.texture_cache.borrow_mut().clear();
-            })?;
-            self.text_layout_cache.clear_all();
             self.graphics_backend.resize(width, height)?;
         };
         Ok(())

@@ -934,6 +934,10 @@ pub enum GlyphBrush {
     Stroke(femtovg::Paint),
 }
 
+fn snap_text_glyph_coordinate(coordinate: f32) -> f32 {
+    coordinate.round()
+}
+
 impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRenderer<'a, R> {
     type PlatformBrush = GlyphBrush;
 
@@ -986,8 +990,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
         let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
-            x: glyph.x,
-            y: glyph.y + y_offset.get(),
+            // FemtoVG rasterizes glyph atlases in physical pixels. During centered layouts the
+            // glyph run can land on half-pixel coordinates while the window is resized, which
+            // causes transient sampling artifacts. Snap the baseline positions to physical pixels
+            // before handing them to FemtoVG.
+            x: snap_text_glyph_coordinate(glyph.x),
+            y: snap_text_glyph_coordinate(glyph.y + y_offset.get()),
             glyph_id: glyph.id as u16,
         });
 
@@ -1024,6 +1032,19 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         );
 
         self.canvas.borrow_mut().fill_path(&path, &paint);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::snap_text_glyph_coordinate;
+
+    #[test]
+    fn glyph_coordinates_are_snapped_to_physical_pixels() {
+        assert_eq!(snap_text_glyph_coordinate(0.49), 0.0);
+        assert_eq!(snap_text_glyph_coordinate(0.5), 1.0);
+        assert_eq!(snap_text_glyph_coordinate(10.5), 11.0);
+        assert_eq!(snap_text_glyph_coordinate(-0.5), -1.0);
     }
 }
 
