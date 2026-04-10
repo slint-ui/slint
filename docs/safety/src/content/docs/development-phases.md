@@ -10,7 +10,7 @@ description: Development phases for Slint SC.
 
 A ticket, also known as a Github Issue, should describe the work necessary to be done. The ticket should also contain the motivation for the change, and a proposed solution.
 
-The ticket should detail the impact of the change on the safety of the system. It should also detail how the change will be tested.
+The ticket should detail the impact of the change on the safety of the system.
 
 Once the ticket has been scoped and approved, Code Development may begin.
 
