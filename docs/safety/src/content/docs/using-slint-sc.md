@@ -64,7 +64,7 @@ Safety-oriented analysis shall be carried out at the software architectural leve
 
 ## Using Slint SC in a project
 
-* **ID** : UC_ADD_SLINT_TO_PROJECT
+* **ID** : UC_ADD_SLINT_SC_TO_PROJECT
 * **Input** : Cargo.toml file in the root of a rust project file tree
 * **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
 * **Environment Constraints**: (TODO)
