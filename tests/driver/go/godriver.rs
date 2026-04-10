@@ -369,7 +369,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     go_mod_tidy(dir.path(), &go_cache, &go_mod_cache).map_err(std::io::Error::other)?;
 
     if keep_temp_files {
-        println!("Leaving temporary files behind for {} : {}", testcase.absolute_path.display(), dir.path().display());
+        println!(
+            "Leaving temporary files behind for {} : {}",
+            testcase.absolute_path.display(),
+            dir.path().display()
+        );
     }
 
     let output = std::process::Command::new("go")
