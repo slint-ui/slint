@@ -56,7 +56,11 @@ jobs:
               run: go generate
             - name: Build Go example dynamically
               working-directory: examples/go/hello
+              env:
+                  CGO_ENABLED: "1"
               run: go build -o slint-shared .
             - name: Build Go example statically
               working-directory: examples/go/hello
+              env:
+                  CGO_ENABLED: "1"
               run: go build -o slint-static -tags slint_static .

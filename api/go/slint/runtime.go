@@ -64,11 +64,16 @@ const (
 )
 
 var callbackSequence atomic.Uintptr
+var emptyByteSentinel byte
+var emptyValueSentinel *C.SlintGoValue
 
 func makeByteSlice(value string) (C.SlintGoByteSlice, []byte) {
 	buf := []byte(value)
 	if len(buf) == 0 {
-		return C.SlintGoByteSlice{}, buf
+		return C.SlintGoByteSlice{
+			ptr: (*C.uint8_t)(unsafe.Pointer(&emptyByteSentinel)),
+			len: 0,
+		}, buf
 	}
 	return C.SlintGoByteSlice{
 		ptr: (*C.uint8_t)(unsafe.Pointer(&buf[0])),
@@ -78,7 +83,10 @@ func makeByteSlice(value string) (C.SlintGoByteSlice, []byte) {
 
 func makeValueSlice(values []Value) (C.SlintGoValueSlice, []*C.SlintGoValue) {
 	if len(values) == 0 {
-		return C.SlintGoValueSlice{}, nil
+		return C.SlintGoValueSlice{
+			ptr: (**C.SlintGoValue)(unsafe.Pointer(&emptyValueSentinel)),
+			len: 0,
+		}, nil
 	}
 	raw := make([]*C.SlintGoValue, len(values))
 	for i, value := range values {
