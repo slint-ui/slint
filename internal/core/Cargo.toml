@@ -148,7 +148,7 @@ taffy = { version = "0.9", default-features = false, features = ["flexbox", "taf
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-tray-icon = { version = "0.21", optional = true }
+tray-icon = { git = "https://github.com/expenses/tray-icon", branch = "optional-gtk", optional = true }
 
 [target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies]
 ksni = { version = "0.3.3", optional = true, features = ["blocking"] }
