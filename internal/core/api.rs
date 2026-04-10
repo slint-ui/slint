@@ -15,7 +15,7 @@ use alloc::string::String;
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
 pub use crate::graphics::{
-    Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
+    Brush, Color, Gray8Pixel, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
     SharedPixelBuffer,
 };
 pub use crate::input::Keys;
