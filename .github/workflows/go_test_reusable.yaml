@@ -44,6 +44,9 @@ jobs:
             - name: Run Go package tests
               working-directory: api/go
               run: go test ./...
+            - name: Prebuild slint-cpp for Go test driver
+              if: runner.os == 'Windows'
+              run: cargo build --verbose -p slint-cpp --target x86_64-pc-windows-gnu --no-default-features --features interpreter,testing,backend-testing
             - name: Run Go test driver
               run: ${{ runner.os == 'Windows' && 'cargo test --verbose -p test-driver-go --target x86_64-pc-windows-gnu' || 'cargo test --verbose -p test-driver-go' }}
             - name: Generate Go example

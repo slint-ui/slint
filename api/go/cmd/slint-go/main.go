@@ -247,16 +247,13 @@ func sharedArtifactNames(goos string) []string {
 	case "darwin":
 		return []string{"libslint_cpp.dylib"}
 	case "windows":
-		return []string{"slint_cpp.dll", "slint_cpp.dll.a", "slint_cpp.lib"}
+		return []string{"slint_cpp.dll", "slint_cpp.dll.a"}
 	default:
 		return []string{"libslint_cpp.so"}
 	}
 }
 
 func staticArtifactNames(goos string) []string {
-	if goos == "windows" {
-		return []string{"slint_cpp.lib", "libslint_cpp.a"}
-	}
 	return []string{"libslint_cpp.a"}
 }
 
