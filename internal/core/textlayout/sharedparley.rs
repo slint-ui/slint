@@ -278,11 +278,8 @@ impl LayoutWithoutLineBreaksBuilder {
                 }
             }
 
-            for span in formatting {
-                // parley asserts style runs are non-empty.
-                if span.range.is_empty() {
-                    continue;
-                }
+            // filter empty ranges otherwise parley asserts
+            for span in formatting.into_iter().filter(|s| !s.range.is_empty()) {
                 match span.style {
                     Style::Emphasis => {
                         builder.push(
