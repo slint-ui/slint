@@ -492,6 +492,7 @@ fn generate_shared_globals(
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
+            // Used for the set component call later
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
             #(#[allow(dead_code)]
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
