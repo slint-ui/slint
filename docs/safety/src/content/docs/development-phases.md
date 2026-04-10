@@ -16,7 +16,7 @@ Once the ticket has been scoped and approved, Code Development may begin.
 
 # Phase 2: Code Development
 
-During this phase, the developer will implement the changes described in the ticket. The work should be done in a local branch.
+During this phase, the developer will implement the changes described in the ticket.
 
 (TODO: add naming convention of git branches here?)
 
