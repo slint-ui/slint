@@ -1,0 +1,153 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that the layout sizes are correct
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export global Properties {
+    in-out property <bool> popup-initialized: false;
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+
+    in-out property <bool> button-in-popup-pressed: false;
+}
+export component TestCase {
+    in-out property <bool> show-buttons;
+
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    width: 600px;
+    height: 400px;
+
+    VerticalBox {
+        Button {
+            text: "Show popup";
+
+            clicked => {
+                debug("Show popup");
+                popup.show();
+            }
+        }
+
+        Button {
+            text: "Show second popup";
+
+            clicked => {
+                debug("Show second popup");
+            }
+        }
+
+        Button {
+            text: "Show dialog";
+
+            clicked => {
+                debug("Show Dialog");
+            }
+        }
+    }
+
+    popup := PopupWindow {
+        // x: parent.width - 100px;
+        // y: parent.height;
+
+        changed width => {
+            Properties.popup-width = self.width;
+        }
+
+        changed height => {
+            Properties.popup-height = self.height;
+        }
+      
+        // close-on-click: false;
+        // close-policy: PopupClosePolicy.no-auto-close;
+        close-policy: PopupClosePolicy.close-on-click-outside;
+
+        init => {
+            Properties.popup-initialized = true;
+            debug("Popup initialized");
+            debug("Text input size: ", ti.width, ", ", ti.height);
+        }
+         
+        content := Rectangle {
+            border-width: 1px;
+            border-color: black;
+            background: green;
+        
+
+          VerticalBox {
+                ti:= TextInput {
+                    width: 100px;
+                    text: "Hello";
+                }
+                if root.show-buttons : HorizontalBox {
+                    Button {
+                        text: "Button top"; 
+                    }
+
+                    Button {
+                        text: "Button top"; 
+                    }
+
+                    Button {
+                        text: "Button bottom"; 
+                    }
+                }
+
+                Button {
+                    text: root.show-buttons ? "Hide Buttons" : "Show buttons";
+
+                    clicked => {
+                        debug(self.text);
+                        Properties.button-in-popup-pressed = true;
+                        root.show-buttons = !root.show-buttons;
+                    }
+                }
+
+                if root.show-buttons : HorizontalBox {
+                    Button {
+                        text: "Button bottom"; 
+                    }
+
+                    Button {
+                        text: "Button bottom"; 
+                    }
+
+                    Button {
+                        text: "Button bottom"; 
+                    }
+                }
+            }
+          
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), false);
+
+instance.invoke_show_popup();
+slint_testing::mock_elapsed_time(500);
+
+let window = instance.window();
+let pressed_position = LogicalPosition::new(50., 30.);
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_in_popup_pressed(), true);
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 67.);
+
+```
+
+*/
