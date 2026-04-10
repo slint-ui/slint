@@ -218,6 +218,10 @@ impl WindowAdapter for TestingWindow {
 }
 
 impl RendererSealed for TestingWindow {
+    fn set_name(&mut self, _name: &'static str) {}
+    fn name(&self) -> &'static str {
+        ""
+    }
     fn text_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
