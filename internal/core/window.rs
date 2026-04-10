@@ -189,7 +189,7 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     /// Shows the popup created with create_popup_window_adapter()
     /// `geometry` is the location of the popup in the window coordinate
-    fn show_popup(&self, window_adapter: Rc<dyn WindowAdapter>, geometry: LogicalRect);
+    fn show_popup(&self, _window_adapter: Rc<dyn WindowAdapter>, _geometry: LogicalRect) {}
 
     /// Set the mouse cursor
     // TODO: Make the enum public and make public
