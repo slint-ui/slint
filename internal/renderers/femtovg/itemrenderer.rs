@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
+use femtovg::Transform2D;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
@@ -993,7 +994,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
 
         let mut canvas = self.canvas.borrow_mut();
 
-        match &mut brush {
+        // When rendering text, the canvas needs to be aligned to the pixel grid.
+        Self::align_canvas_during(&mut *canvas, |canvas| match &mut brush {
             GlyphBrush::Fill(paint) => {
                 paint.set_font_size(font_size.get());
                 canvas.fill_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
@@ -1002,7 +1004,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
                 paint.set_font_size(font_size.get());
                 canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
-        }
+        })
     }
 
     fn fill_rectangle(
@@ -1023,7 +1025,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
             physical_rect.height(),
         );
 
-        self.canvas.borrow_mut().fill_path(&path, &paint);
+        // When rendering text we align to the pixel grid, so do the same for underlines,
+        // selection, etc.
+        Self::align_canvas_during(&mut *self.canvas.borrow_mut(), |canvas| {
+            canvas.fill_path(&path, &paint)
+        });
     }
 }
 
@@ -1057,6 +1063,37 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             }],
             metrics: RenderingMetrics { layers_created: Some(0), ..Default::default() },
         }
+    }
+
+    // In some cases (e.g. when rendering text), the canvas needs to be aligned to the pixel grid.
+    // Otherwise, even with nearest-neighbor scaling, the glyphs can have strange artifacts, as
+    // the nearest-neighbor algorithm is unstable if the pixel coordinate is at exactly 0.5px,
+    // which is very noticable with text.
+    //
+    // Note that this will currently only align the canvas if it is not rotated and not scaled.
+    fn align_canvas_during<Result>(
+        canvas: &mut Canvas<R>,
+        fun: impl FnOnce(&mut Canvas<R>) -> Result,
+    ) -> Result {
+        let original_transform = canvas.transform();
+        let [a, b, c, d, x, y] = original_transform.0;
+
+        let is_translate_only =
+            a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
+        if !is_translate_only {
+            return fun(canvas);
+        }
+
+        let floored_transform =
+            Transform2D::new(a.round(), b.round(), c.round(), d.round(), x.round(), y.round());
+        canvas.reset_transform();
+        canvas.set_transform(&floored_transform);
+
+        let result = fun(canvas);
+
+        canvas.reset_transform();
+        canvas.set_transform(&original_transform);
+        result
     }
 
     fn render_layer(
