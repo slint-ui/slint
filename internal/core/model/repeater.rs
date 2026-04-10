@@ -454,7 +454,13 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
         if index < inner.layout_state.offset {
-            if index + count < inner.layout_state.offset {
+            if index + count <= inner.layout_state.offset {
+                // Entirely before the visible range: shift the offset.
+                inner.layout_state.offset += count;
+                self.is_dirty.set(true);
+                for c in inner.instances.iter_mut() {
+                    c.0 = RepeatedInstanceState::Dirty;
+                }
                 return;
             }
             count -= inner.layout_state.offset - index;
@@ -479,10 +485,17 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
         if index < inner.layout_state.offset {
-            if index + count < inner.layout_state.offset {
+            if index + count <= inner.layout_state.offset {
+                // Entirely before the visible range: shift the offset.
+                inner.layout_state.offset -= count;
+                self.is_dirty.set(true);
+                for c in inner.instances.iter_mut() {
+                    c.0 = RepeatedInstanceState::Dirty;
+                }
                 return;
             }
             count -= inner.layout_state.offset - index;
+            inner.layout_state.offset = index;
             index = 0;
         } else {
             index -= inner.layout_state.offset;

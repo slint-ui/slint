@@ -278,7 +278,8 @@ impl LayoutWithoutLineBreaksBuilder {
                 }
             }
 
-            for span in formatting {
+            // filter empty ranges otherwise parley will panic on assert
+            for span in formatting.into_iter().filter(|s| !s.range.is_empty()) {
                 match span.style {
                     Style::Emphasis => {
                         builder.push(
@@ -778,7 +779,8 @@ impl TextParagraph {
                 PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(glyph_run.offset()),
-                        para_y + PhysicalLength::new(run.font_size() - metrics.underline_offset),
+                        para_y
+                            + PhysicalLength::new(glyph_run.baseline() - metrics.underline_offset),
                     ),
                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                 ),
@@ -792,7 +794,9 @@ impl TextParagraph {
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(glyph_run.offset()),
                         para_y
-                            + PhysicalLength::new(run.font_size() - metrics.strikethrough_offset),
+                            + PhysicalLength::new(
+                                glyph_run.baseline() - metrics.strikethrough_offset,
+                            ),
                     ),
                     PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
                 ),
