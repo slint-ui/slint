@@ -125,9 +125,7 @@ fn write_runtime_files(
         runtime_flags(goos, target_id, &staged_dist)
     );
     std::fs::write(ui_dir.join("runtime.go"), contents)
-        .map_err(|err| {
-            format!("failed to write Go runtime file in {}: {err}", ui_dir.display())
-        })?;
+        .map_err(|err| format!("failed to write Go runtime file in {}: {err}", ui_dir.display()))?;
 
     Ok(())
 }
@@ -345,8 +343,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let goarch = host_goarch().map_err(std::io::Error::other)?;
     let target_id = target_id(goos, goarch);
     let cpp_lib_dir = cpp_lib_path();
-    write_runtime_files(&ui_dir, goos, &target_id, &cpp_lib_dir)
-        .map_err(std::io::Error::other)?;
+    write_runtime_files(&ui_dir, goos, &target_id, &cpp_lib_dir).map_err(std::io::Error::other)?;
     let staged_dist = ui_dir.join(".slint-build").join("dist").join(&target_id);
     let go_cache = go_build_cache(&target_id).map_err(std::io::Error::other)?;
     let go_mod_cache = go_mod_cache().map_err(std::io::Error::other)?;
