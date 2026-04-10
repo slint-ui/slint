@@ -8,7 +8,7 @@ description: Development phases for Slint SC.
 
 # Phase 1: Ticket Approval
 
-A ticket describing the necessary work must be created and approved. The ticket should contain a description of the change, the motivation for the change, and a proposed solution.
+A ticket, also known as a Github Issue, should describe the work necessary to be done. The ticket should also contain the motivation for the change, and a proposed solution.
 
 The ticket should detail the impact of the change on the safety of the system. It should also detail how the change will be tested.
 
