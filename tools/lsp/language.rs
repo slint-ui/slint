@@ -31,10 +31,10 @@ use lsp_types::request::{
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
-    DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
-    PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
-    Url, WorkDoneProgressOptions,
+    DocumentSymbol, DocumentSymbolResponse, FileChangeType, InitializeParams, InitializeResult,
+    OneOf, Position, PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions,
+    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerInfo,
+    TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
 };
 
 use std::collections::HashMap;
@@ -127,7 +127,11 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
         let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![lsp_types::FileSystemWatcher {
                 glob_pattern: lsp_types::GlobPattern::String("**/*".to_string()),
-                kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
+                kind: Some(
+                    lsp_types::WatchKind::Change
+                        | lsp_types::WatchKind::Delete
+                        | lsp_types::WatchKind::Create,
+                ),
             }],
         };
         let server_notifier = { ctx.server_notifier.clone() };
@@ -929,10 +933,14 @@ pub async fn trigger_file_watcher(
 ) -> common::Result<()> {
     if !ctx.open_urls.contains(&url) {
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
-        if typ == lsp_types::FileChangeType::DELETED {
-            delete_document(ctx, url).await?;
-        } else {
-            drop_document(ctx, url).await?;
+        match typ {
+            FileChangeType::DELETED => delete_document(ctx, url).await?,
+            // If the file was newly created, we still need to drop it as another file may
+            // already depend on it by trying to import it before it exists.
+            // This is especially common on file renames.
+            // See also #11304
+            FileChangeType::CHANGED | FileChangeType::CREATED => drop_document(ctx, url).await?,
+            _ => tracing::warn!("Unknown file change type: {:?} for {url}", typ),
         }
     } else {
         tracing::trace!("Ignoring file watcher event for open document: {url}");
