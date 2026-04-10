@@ -5,6 +5,9 @@ use i_slint_compiler::{CompilerConfiguration, diagnostics::BuildDiagnostics, gen
 use std::error::Error;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
+
+static GO_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 fn root_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -291,6 +294,8 @@ fn go_mod_tidy(dir: &Path, go_cache: &Path, go_mod_cache: &Path) -> Result<(), S
 }
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
+    let _guard = GO_TEST_LOCK.lock().unwrap();
+
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
     let include_paths =
