@@ -1161,22 +1161,23 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window_or_none.set_window_level(new_window_level);
         }
 
-        let mut width = window_item.width().get() as f32;
-        let mut height = window_item.height().get() as f32;
+        let mut current_width = window_item.width().get() as f32;
+        let mut current_height = window_item.height().get() as f32;
         let mut must_resize = false;
         let existing_size = self.size.get().to_logical(sf);
-
-        if width <= 0. || height <= 0. {
+        if current_width <= 0. || current_height <= 0. {
             must_resize = true;
-            if width <= 0. {
-                width = existing_size.width;
+            if current_width <= 0. {
+                current_width = existing_size.width;
             }
-            if height <= 0. {
-                height = existing_size.height;
+            if current_height <= 0. {
+                current_height = existing_size.height;
             }
         }
 
         let constraints = properties.layout_constraints();
+        let mut width = constraints.preferred.width;
+        let mut height = constraints.preferred.height;
         if let Some(min) = constraints.min {
             width = width.max(min.width);
             height = height.max(min.height)
@@ -1185,6 +1186,8 @@ impl WindowAdapter for WinitWindowAdapter {
             width = width.min(max.width);
             height = height.min(max.height)
         }
+        must_resize = must_resize || width != current_width || height != current_height;
+
         // Adjust the size of the window to the value of the width and height property (if these property are changed from .slint).
         // But not if there is a pending resize in flight as that resize will reset these properties back
         if ((existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1.)
