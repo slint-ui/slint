@@ -2,20 +2,27 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
+    SharedVector,
     graphics::Image,
     items::SystemTrayListItem,
     model::{Model, ModelRc},
 };
-use std::string::ToString;
+use std::string::{String, ToString};
+use std::vec::Vec;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use ksni::TrayMethods;
+
+struct MenuItem {
+    label: String,
+    enabled: bool,
+}
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 struct KsniTray {
     icon: ksni::Icon,
     title: std::string::String,
-    menu: std::vec::Vec<SystemTrayListItem>,
+    menu: Vec<MenuItem>,
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -38,7 +45,7 @@ impl ksni::Tray for KsniTray {
             .iter()
             .map(|item| {
                 ksni::menu::StandardItem {
-                    label: item.label.to_string(),
+                    label: item.label.clone(),
                     enabled: item.enabled,
                     ..Default::default()
                 }
@@ -51,7 +58,7 @@ impl ksni::Tray for KsniTray {
 pub struct Params<'a> {
     pub icon: &'a Image,
     pub title: &'a str,
-    pub menu: ModelRc<SystemTrayListItem>,
+    pub menu: (),
 }
 
 pub struct SystemTray {
@@ -78,7 +85,7 @@ impl SystemTray {
             let tray = KsniTray {
                 icon: ksni::Icon { width, height, data },
                 title: params.title.into(),
-                menu: params.menu.iter().collect(),
+                menu: panic!(),
             };
 
             let tray = crate::context::with_global_context(

@@ -263,12 +263,6 @@ component MenuItem {
     //-is_non_item_type
 }
 
-component SystemTrayListItem {
-    in property <string> label;
-    in property <bool> enabled: true;
-    //-is_non_item_type
-}
-
 component MenuSeparator {
     //-disallow_global_types_as_child_elements
     //-is_non_item_type
@@ -839,5 +833,5 @@ export global NativePalette {
 export component SystemTray {
     in property <image> icon;
     in property <string> title;
-    in property <[SystemTrayListItem]> menu;
+    in property <[MenuEntry]> menu;
 }
