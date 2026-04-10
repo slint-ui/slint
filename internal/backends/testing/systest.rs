@@ -12,6 +12,7 @@ use std::rc::Rc;
 
 use crate::ElementHandle;
 use crate::introspection::{self, IntrospectionState, proto};
+use introspection::{handle_to_index, index_to_handle};
 
 struct TestingClient {
     state: Rc<IntrospectionState>,
@@ -69,7 +70,7 @@ impl TestingClient {
                     .collect(),
             }),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
-                Resp::WindowProperties(self.window_properties(handle_to_index(
+                Resp::WindowProperties(self.state.window_properties(handle_to_index(
                     window_handle.ok_or_else(|| {
                         "window properties request missing window handle".to_string()
                     })?,
@@ -123,13 +124,13 @@ impl TestingClient {
                 window_handle,
                 image_mime_type,
             }) => {
-                Resp::TakeSnapshotResponse(self.take_snapshot(
+                Resp::TakeSnapshotResponse(self.state.take_snapshot_response(
                     handle_to_index(
                         window_handle.ok_or_else(|| {
                             "grab window request missing window handle".to_string()
                         })?,
                     ),
-                    image_mime_type,
+                    &image_mime_type,
                 )?)
             }
             Req::RequestElementClick(proto::RequestElementClick {
@@ -180,34 +181,6 @@ impl TestingClient {
                 })
             }
         })
-    }
-
-    fn window_properties(
-        &self,
-        window_index: generational_arena::Index,
-    ) -> Result<proto::WindowPropertiesResponse, String> {
-        let adapter = self.state.window_adapter(window_index)?;
-        let window = adapter.window();
-        Ok(proto::WindowPropertiesResponse {
-            is_fullscreen: window.is_fullscreen(),
-            is_maximized: window.is_maximized(),
-            is_minimized: window.is_minimized(),
-            size: Some(send_physical_size(window.size())),
-            position: Some(send_physical_position(window.position())),
-            root_element_handle: Some(index_to_handle(
-                self.state.root_element_handle(window_index)?,
-            )),
-        })
-    }
-
-    fn take_snapshot(
-        &self,
-        window_index: generational_arena::Index,
-        image_mime_type: String,
-    ) -> Result<proto::TakeSnapshotResponse, String> {
-        let window_contents_as_encoded_image =
-            self.state.take_snapshot(window_index, &image_mime_type)?;
-        Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
     }
 
     fn element(
@@ -310,22 +283,6 @@ async fn message_loop(
     stream.shutdown(std::net::Shutdown::Both).ok();
 }
 
-fn index_to_handle(index: generational_arena::Index) -> proto::Handle {
-    introspection::index_to_handle(index)
-}
-
-fn handle_to_index(handle: proto::Handle) -> generational_arena::Index {
-    introspection::handle_to_index(handle)
-}
-
-fn send_physical_size(sz: i_slint_core::api::PhysicalSize) -> proto::PhysicalSize {
-    proto::PhysicalSize { width: sz.width, height: sz.height }
-}
-
-fn send_physical_position(pos: i_slint_core::api::PhysicalPosition) -> proto::PhysicalPosition {
-    proto::PhysicalPosition { x: pos.x, y: pos.y }
-}
-
 fn convert_logical_position(pos: proto::LogicalPosition) -> i_slint_core::api::LogicalPosition {
     i_slint_core::api::LogicalPosition { x: pos.x, y: pos.y }
 }
@@ -389,23 +346,4 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }
         }
     })
-}
-
-#[test]
-fn test_accessibility_role_mapping_complete() {
-    macro_rules! test_accessibility_enum_mapping_inner {
-        (AccessibleRole, $($Value:ident,)*) => {
-            $(assert!(introspection::convert_to_proto_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
-        };
-        ($_:ident, $($Value:ident,)*) => {};
-    }
-
-    macro_rules! test_accessibility_enum_mapping {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
-            $(
-                test_accessibility_enum_mapping_inner!($Name, $($Value,)*);
-            )*
-        };
-    }
-    i_slint_common::for_each_enums!(test_accessibility_enum_mapping);
 }

@@ -240,6 +240,40 @@ impl IntrospectionState {
         window.dispatch_event(event);
         Ok(())
     }
+
+    pub fn window_properties(
+        &self,
+        window_index: generational_arena::Index,
+    ) -> Result<proto::WindowPropertiesResponse, String> {
+        let adapter = self.window_adapter(window_index)?;
+        let window = adapter.window();
+        Ok(proto::WindowPropertiesResponse {
+            is_fullscreen: window.is_fullscreen(),
+            is_maximized: window.is_maximized(),
+            is_minimized: window.is_minimized(),
+            size: Some(proto::PhysicalSize {
+                width: window.size().width,
+                height: window.size().height,
+            }),
+            position: Some(proto::PhysicalPosition {
+                x: window.position().x,
+                y: window.position().y,
+            }),
+            root_element_handle: Some(index_to_handle(
+                self.root_element_handle(window_index)?,
+            )),
+        })
+    }
+
+    pub fn take_snapshot_response(
+        &self,
+        window_index: generational_arena::Index,
+        image_mime_type: &str,
+    ) -> Result<proto::TakeSnapshotResponse, String> {
+        let window_contents_as_encoded_image =
+            self.take_snapshot(window_index, image_mime_type)?;
+        Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
+    }
 }
 
 // ============================================================================
@@ -427,4 +461,23 @@ pub(crate) fn index_to_handle(index: generational_arena::Index) -> proto::Handle
 
 pub(crate) fn handle_to_index(handle: proto::Handle) -> generational_arena::Index {
     generational_arena::Index::from_raw_parts(handle.index as usize, handle.generation)
+}
+
+#[test]
+fn test_accessibility_role_mapping_complete() {
+    macro_rules! test_accessibility_enum_mapping_inner {
+        (AccessibleRole, $($Value:ident,)*) => {
+            $(assert!(convert_to_proto_accessible_role(i_slint_core::items::AccessibleRole::$Value).is_some());)*
+        };
+        ($_:ident, $($Value:ident,)*) => {};
+    }
+
+    macro_rules! test_accessibility_enum_mapping {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $(
+                test_accessibility_enum_mapping_inner!($Name, $($Value,)*);
+            )*
+        };
+    }
+    i_slint_common::for_each_enums!(test_accessibility_enum_mapping);
 }

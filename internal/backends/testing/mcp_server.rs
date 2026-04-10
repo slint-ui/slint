@@ -21,14 +21,7 @@ use serde_json::Value;
 use std::rc::Rc;
 
 use crate::introspection::{self, IntrospectionState, proto};
-
-fn handle_to_index(handle: proto::Handle) -> generational_arena::Index {
-    introspection::handle_to_index(handle)
-}
-
-fn index_to_handle(index: generational_arena::Index) -> proto::Handle {
-    introspection::index_to_handle(index)
-}
+use introspection::{handle_to_index, index_to_handle};
 
 // ============================================================================
 // Tool definitions (schema for tools/list)
@@ -211,24 +204,7 @@ async fn handle_tool_call(
             let p: proto::RequestWindowProperties = deserialize_params(args)?;
             let window_index =
                 handle_to_index(p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?);
-            let adapter = state.window_adapter(window_index)?;
-            let window = adapter.window();
-            let response = proto::WindowPropertiesResponse {
-                is_fullscreen: window.is_fullscreen(),
-                is_maximized: window.is_maximized(),
-                is_minimized: window.is_minimized(),
-                size: Some(proto::PhysicalSize {
-                    width: window.size().width,
-                    height: window.size().height,
-                }),
-                position: Some(proto::PhysicalPosition {
-                    x: window.position().x,
-                    y: window.position().y,
-                }),
-                root_element_handle: Some(index_to_handle(
-                    state.root_element_handle(window_index)?,
-                )),
-            };
+            let response = state.window_properties(window_index)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -337,7 +313,8 @@ async fn handle_tool_call(
             let p: proto::RequestTakeSnapshot = deserialize_params(args)?;
             let window_index =
                 handle_to_index(p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?);
-            let png_data = state.take_snapshot(window_index, "image/png")?;
+            let response = state.take_snapshot_response(window_index, "image/png")?;
+            let png_data = response.window_contents_as_encoded_image;
             Ok(ToolResult::Image {
                 meta: serde_json::json!({ "sizeBytes": png_data.len() }),
                 png_data,
