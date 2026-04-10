@@ -227,7 +227,9 @@ impl MudaAdapter {
         if let Some(menubar) = menubar.as_deref() {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
-                vtable::VRc::borrow(&menubar).sub_menu(None, &mut menu_entries);
+                if vtable::VRc::borrow(&menubar).visible() {
+                    vtable::VRc::borrow(&menubar).sub_menu(None, &mut menu_entries);
+                }
                 let window_id = u64::from(winit_window.id()).to_string();
                 for e in menu_entries {
                     self.menu
