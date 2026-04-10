@@ -510,6 +510,21 @@ fn generate_shared_globals(
                 _self
             }
 
+            #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
+                let _self = sp::Rc::new(Self {
+                    #(#global_names : self.#global_names.clone(),)*
+                    #(#from_library_global_names : self.#from_library_global_names.clone(),)*
+                    window_adapter: ::core::default::Default::default(),
+                    root_item_tree_weak: self.root_item_tree_weak.clone(),
+                    #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
+                });
+                _self.window_adapter
+                    .set(window_adapter)
+                    .map_err(|_| ())
+                    .expect("The window adapter should not be initialized before this call");
+                _self
+            }
+
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
@@ -835,7 +850,7 @@ fn generate_sub_component(
                 root,
                 Some(&ParentScope::new(&ctx, None)),
                 None,
-                false,
+                true,
             )
         })
         .chain(component.menu_item_trees.iter().map(|tree| {
@@ -1678,7 +1693,7 @@ fn generate_item_tree(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
-    is_popup_menu: bool,
+    is_popup: bool,
 ) -> TokenStream {
     let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
@@ -1691,14 +1706,14 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
-    let globals = if is_popup_menu {
+    let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
     };
-    let globals_arg = is_popup_menu.then(|| quote!(globals: sp::Rc<SharedGlobals>));
+    let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
@@ -3237,7 +3252,14 @@ fn compile_builtin_function_call(
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
-                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
+                    let globals = if let Some(window_adapter) = sp::WindowInner::from_pub(#window_adapter_tokens.window()).create_popup_window_adapter() {
+                        let globals = #component_access_tokens.globals.get().unwrap().clone_with_window_adapter(window_adapter);
+                        globals
+                    } else {
+                        #component_access_tokens.globals.get().unwrap().clone()
+                    };
+
+                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {

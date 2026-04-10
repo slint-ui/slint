@@ -14,6 +14,7 @@ use std::sync::Arc;
 use euclid::approxeq::ApproxEq;
 
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::lengths::LogicalRect;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
@@ -1431,22 +1432,13 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
-    fn create_popup(
-        &self,
-        geometry: i_slint_core::lengths::LogicalRect,
-    ) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             use crate::winit::window::WindowType;
             use raw_window_handle::HasWindowHandle;
-            use winit::dpi::{LogicalPosition, LogicalSize, Position};
-
-            let size = LogicalSize::new(geometry.width(), geometry.height());
-            let position = LogicalPosition::new(geometry.origin.x, geometry.origin.y);
 
             let mut window_attributes = WindowAttributes::default()
                 .with_title("child window")
-                .with_surface_size(size)
-                .with_position(Position::Logical(position.cast()))
                 .with_decorations(false)
                 .with_visible(true)
                 .as_type(WindowType::Popup);
@@ -1493,6 +1485,38 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
         }
         None
+    }
+
+    fn show_popup(&self, window_adapter: Rc<dyn WindowAdapter>, geometry: LogicalRect) {
+        use winit::dpi::{LogicalPosition, LogicalSize, Position};
+        let size = LogicalSize::new(geometry.width(), geometry.height());
+        let position = LogicalPosition::new(geometry.origin.x, geometry.origin.y);
+        // .with_position(Position::Logical(position.cast()))
+
+        use std::borrow::BorrowMut;
+
+        let winit_window = window_adapter
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
+            .and_then(|w| w.self_weak.upgrade())
+            .unwrap();
+        let mut w2 = winit_window.clone();
+        let winit_window_or_none = w2.borrow_mut().winit_window_or_none.borrow_mut();
+        if let WinitWindowOrNone::None(ref attributes) = *winit_window_or_none {
+            attributes.borrow_mut().position = Some(Position::Logical(position.cast()));
+            attributes.borrow_mut().surface_size = Some(size.into());
+
+            // window_adapter.set_visible(true);
+            winit_window
+                .clone()
+                .shared_backend_data
+                .inactive_windows
+                .borrow_mut()
+                .push(Rc::downgrade(&winit_window));
+        } else {
+            // Shall never happen
+            assert!(false);
+        }
     }
 
     #[cfg(muda)]
