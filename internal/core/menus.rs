@@ -52,7 +52,7 @@ pub struct MenuFromItemTree {
     next_id: Cell<usize>,
     tracker: Pin<Box<PropertyTracker>>,
     condition: Option<Pin<Box<Property<bool>>>>,
-    visible: bool
+    visible: bool,
 }
 
 impl MenuFromItemTree {
@@ -64,7 +64,7 @@ impl MenuFromItemTree {
             tracker: Box::pin(PropertyTracker::default()),
             next_id: 0.into(),
             condition: None,
-            visible: true
+            visible: true,
         }
     }
 
@@ -82,7 +82,7 @@ impl MenuFromItemTree {
             tracker: Box::pin(PropertyTracker::default()),
             next_id: 0.into(),
             condition: Some(cond_prop),
-            visible: true
+            visible: true,
         }
     }
 
