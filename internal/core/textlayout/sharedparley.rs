@@ -278,7 +278,7 @@ impl LayoutWithoutLineBreaksBuilder {
                 }
             }
 
-            // filter empty ranges otherwise parley asserts
+            // filter empty ranges otherwise parley will panic on assert
             for span in formatting.into_iter().filter(|s| !s.range.is_empty()) {
                 match span.style {
                     Style::Emphasis => {
