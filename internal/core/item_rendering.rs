@@ -118,6 +118,7 @@ impl<T> ItemCache<T> {
 
     /// free the whole cache
     pub fn clear_all(&self) {
+        println!("Clear complete cache");
         self.map.borrow_mut().clear();
     }
 
@@ -127,11 +128,14 @@ impl<T> ItemCache<T> {
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
         let component_ptr: *const _ =
             crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
+        for k in self.map.borrow_mut().keys() {
+            println!("component_destroyed. Map containing keys: {:?}", k);
+        }
         let res = self.map.borrow_mut().remove(&component_ptr);
         if res.is_some() {
             println!("Component destroyed successfully")
         } else {
-            println!("Component destroyed failed. Ptr not found")
+            println!("Component destroyed failed. Ptr not found: {:?}", component_ptr)
         }
     }
 
@@ -183,6 +187,7 @@ impl<T> ItemCache<T> {
                 std::collections::hash_map::Entry::Vacant(_) => {
                     drop(borrowed);
                     let new_entry = crate::graphics::CachedGraphicsData::new(update_fn);
+                    println!("Cache insert component: {:?}", component);
                     self.map.borrow_mut().get_mut(&component).unwrap().insert(index, new_entry);
                 }
             }

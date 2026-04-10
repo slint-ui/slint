@@ -196,7 +196,7 @@ pub fn unregister_item_tree<Base>(
     window_adapter: &WindowAdapterRc,
 ) {
     println!(
-        "unregister_item_tree: {:?}. Renderer name: {}",
+        "unregister_item_tree: Item Tree Ptr: {:?}. Renderer name: {}",
         item_tree.as_ptr(),
         window_adapter.renderer().name()
     );
