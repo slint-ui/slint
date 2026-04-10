@@ -310,3 +310,65 @@ fn preview_file_recompiled_when_dependency_changes() {
         "Preview file should be in pending_recompile when its dependency changes"
     );
 }
+
+/// Test for issue #11304
+/// When a file is renamed in the editor first, and then is renamed on disk accordingly (i.e.
+/// "appears" as a new file).
+mod missing_imports {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn load_document_with_missing_import() -> (Context, PathBuf, Url) {
+        let mut ctx = mock_context();
+
+        let dir = std::env::current_dir().unwrap().join("xxx");
+
+        // Load main.slint that imports dep.slint, which does not yet exist.
+        let (main_url, diag) = load(
+            &mut ctx,
+            &dir.join("main.slint"),
+            r#"import { Dep } from "dep.slint"; export component Main { Dep { } }"#,
+        );
+        assert!(
+            !diag[&main_url].is_empty(),
+            "Expected diagnostics for missing import, got: {diag:?}"
+        );
+        (ctx, dir, main_url)
+    }
+
+    #[test]
+    fn created_in_editor() {
+        let (mut ctx, dir, main_url) = load_document_with_missing_import();
+
+        // Now "create" dep.slint by opening it (simulating a DidOpenTextDocument / file rename).
+        let (dep_url, diag) = load(&mut ctx, &dir.join("dep.slint"), r#"export component Dep { }"#);
+
+        assert!(diag[&dep_url].is_empty(), "dep.slint should have no errors");
+        assert!(
+            diag[&main_url].is_empty(),
+            "main.slint should have no errors after dep.slint is created"
+        );
+    }
+
+    #[test]
+    fn created_outside_editor() {
+        let (mut ctx, dir, main_url) = load_document_with_missing_import();
+
+        // Simulate that the file was opened via load_document
+        ctx.open_urls.insert(main_url.clone());
+
+        let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
+        spin_on::spin_on(crate::language::trigger_file_watcher(
+            &mut ctx,
+            dep_url,
+            lsp_types::FileChangeType::CREATED,
+        ))
+        .unwrap();
+
+        assert!(
+            ctx.pending_recompile.contains(&main_url),
+            "main.slint should be scheduled for recompilation when dep.slint is created outside the editor"
+        );
+    }
+}
