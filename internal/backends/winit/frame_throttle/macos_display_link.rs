@@ -7,7 +7,9 @@ use i_slint_core as corelib;
 use i_slint_core::platform::WindowAdapter as _;
 use objc2::rc::Retained;
 use objc2::runtime::AnyClass;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{
+    ClassType, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel,
+};
 use objc2_foundation::{NSObject, NSObjectProtocol, NSRunLoop, NSRunLoopCommonModes};
 use objc2_quartz_core::CADisplayLink;
 
@@ -81,8 +83,12 @@ pub(super) fn try_create(
     let mtm = MainThreadMarker::new().expect("frame throttle must be created on main thread");
 
     let target = DisplayLinkTarget::new(mtm, window_adapter);
-    let display_link =
-        unsafe { CADisplayLink::displayLinkWithTarget_selector(&target, sel!(tick:)) };
+    // Use msg_send! instead of the typed wrapper because the wrapper panics
+    // on NULL, which happens in headless CI environments without a display.
+    let display_link: Option<Retained<CADisplayLink>> = unsafe {
+        msg_send![CADisplayLink::class(), displayLinkWithTarget: &*target, selector: sel!(tick:)]
+    };
+    let display_link = display_link?;
 
     // Use NSRunLoopCommonModes so the callback fires during modal tracking loops
     // (context menus, window resize, etc.)
