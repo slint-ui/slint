@@ -1436,19 +1436,13 @@ fn test_drag_touch_area() {
     let ta = ElementHandle::find_by_element_id(&app, "App::ta").next().unwrap();
 
     // Drag from center (100,100) to (150,100) — 50px horizontal drag.
-    ta.mock_drag(
-        LogicalPosition::new(150.0, 100.0),
-        PointerEventButton::Left,
-    );
+    ta.mock_drag(LogicalPosition::new(150.0, 100.0), PointerEventButton::Left);
 
     assert!(app.get_move_count() > 0, "moved callback should have fired");
     // The last move should land at the target position (within the element, so
     // target minus element origin = 150 - 0 = 150).
     let last_x = app.get_last_x();
-    assert!(
-        (last_x - 150.0).abs() < 1.0,
-        "last mouse-x should be near 150, got {last_x}"
-    );
+    assert!((last_x - 150.0).abs() < 1.0, "last mouse-x should be near 150, got {last_x}");
 }
 
 #[test]
@@ -1486,10 +1480,7 @@ fn test_drag_zero_distance() {
     // Drag to the element's own center — zero distance.
     let center = ta.absolute_position();
     let sz = ta.size();
-    let target = LogicalPosition::new(
-        center.x + sz.width / 2.0,
-        center.y + sz.height / 2.0,
-    );
+    let target = LogicalPosition::new(center.x + sz.width / 2.0, center.y + sz.height / 2.0);
     ta.mock_drag(target, PointerEventButton::Left);
 
     assert!(app.get_was_pressed(), "press event should have fired");

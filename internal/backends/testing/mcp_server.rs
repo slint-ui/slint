@@ -364,20 +364,24 @@ async fn handle_tool_call(
                     serde_json::from_value(v.clone())
                         .map_err(|e| format!("invalid elementHandle: {e}"))
                 })?;
-            let target_x: f32 = args
-                .get("targetX")
-                .and_then(|v| v.as_f64())
-                .ok_or_else(|| "missing targetX".to_string())? as f32;
-            let target_y: f32 = args
-                .get("targetY")
-                .and_then(|v| v.as_f64())
-                .ok_or_else(|| "missing targetY".to_string())? as f32;
+            let target_x: f32 =
+                args.get("targetX")
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| "missing targetX".to_string())? as f32;
+            let target_y: f32 =
+                args.get("targetY")
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| "missing targetY".to_string())? as f32;
             let button_str = args.get("button").and_then(|v| v.as_str()).unwrap_or("Left");
             let button = match button_str {
                 "Left" => i_slint_core::platform::PointerEventButton::Left,
                 "Right" => i_slint_core::platform::PointerEventButton::Right,
                 "Middle" => i_slint_core::platform::PointerEventButton::Middle,
-                other => return Err(format!("Unknown button: {other}. Use 'Left', 'Right', or 'Middle'.")),
+                other => {
+                    return Err(format!(
+                        "Unknown button: {other}. Use 'Left', 'Right', or 'Middle'."
+                    ));
+                }
             };
             let element_index = handle_to_index(element_handle);
             let element = state.element("drag_element", element_index)?;
