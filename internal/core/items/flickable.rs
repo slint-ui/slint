@@ -6,11 +6,11 @@
 //! The `Flickable` item
 
 use super::{
-    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
-    VoidArg,
+    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton,
+    PropertyAnimation, RenderingResult, VoidArg,
 };
-use crate::animations::Instant;
 use crate::animations::physics_simulation;
+use crate::animations::{EasingCurve, Instant};
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -23,6 +23,7 @@ use crate::lengths::{
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::timers::{Timer, TimerMode};
 use crate::window::WindowAdapter;
 use crate::{Callback, Coord, Property};
 use alloc::boxed::Box;
@@ -44,6 +45,10 @@ use data_ringbuffer::PositionTimeRingBuffer;
 /// so that the simulation stops at some point if it didn't reach the limit
 /// The unit is: LogicalPixel/s^2
 const DECELERATION: f32 = 2000.;
+/// Fixed-duration animation used for wheel scrolling, where we don't have enough phase
+/// information to derive a fling velocity.
+const WHEEL_SCROLL_DURATION: i32 = 180;
+const WHEEL_SCROLL_EASING: EasingCurve = EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]);
 /// The maximum duration between a move and a release event to start an animation
 /// If the duration is larger than this value, no animation will be executed because
 /// it is not desired
@@ -375,7 +380,7 @@ enum CaptureEvents {
     MouseWheel,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct FlickableDataInner {
     /// The position in which the press was made
     pressed_pos: LogicalPoint,
@@ -394,9 +399,19 @@ struct FlickableDataInner {
     /// Ringbuffer to store the last move events. From those data the velocity can be
     /// calculated required for the animation after the release event
     position_time_rb: PositionTimeRingBuffer<5>,
+    /// Emits `flicked` once more when a wheel animation has settled.
+    wheel_animation_end_timer: Option<Timer>,
 }
 
 impl FlickableDataInner {
+    fn wheel_scroll_animation() -> PropertyAnimation {
+        PropertyAnimation {
+            duration: WHEEL_SCROLL_DURATION,
+            easing: WHEEL_SCROLL_EASING,
+            ..Default::default()
+        }
+    }
+
     fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
         self.last_scroll_event.is_some_and(|(last_time, last_position)| {
             // Note: Squared length for MCU support, which use i32 coords.
@@ -426,6 +441,23 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
+        if phase == TouchPhase::Ended {
+            self.capture_events = None;
+            return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
+                InputEventResult::EventAccepted
+            } else {
+                InputEventResult::EventIgnored
+            };
+        }
+
+        if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+            // Release the capture immediately, this event is not meant for this Flickable.
+            self.capture_events = None;
+            self.last_scroll_event = None;
+            self.stop_wheel_animation_end_timer();
+            return InputEventResult::EventIgnored;
+        }
+
         let old_pos = LogicalPoint::from_lengths(
             (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get(),
             (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get(),
@@ -438,50 +470,60 @@ impl FlickableDataInner {
 
         match phase {
             TouchPhase::Cancelled => {
-                if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
-                    // Release the capture immediately, this event is not meant for this Flickable.
-                    self.last_scroll_event = None;
-                    return InputEventResult::EventIgnored;
-                }
-
-                viewport_x.set(new_pos.x_length());
-                viewport_y.set(new_pos.y_length());
+                let animation = Self::wheel_scroll_animation();
+                viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
+                viewport_y.set_animated_value(new_pos.y_length(), animation);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
+                self.stop_wheel_animation_end_timer();
                 self.position_time_rb = PositionTimeRingBuffer::default();
                 self.capture_events = Some(CaptureEvents::MouseWheel);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
-                if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
-                    // Release the capture immediately, this event is not meant for this Flickable.
-                    self.last_scroll_event = None;
-                    return InputEventResult::EventIgnored;
-                }
-
-                self.position_time_rb.push(crate::animations::current_tick(), new_pos);
-                viewport_x.set(new_pos.x_length());
-                viewport_y.set(new_pos.y_length());
+                let animation = Self::wheel_scroll_animation();
+                viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
+                viewport_y.set_animated_value(new_pos.y_length(), animation);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
-            TouchPhase::Ended => {
-                self.animate(flick, flick_rc);
-                self.capture_events = None;
-            }
+            TouchPhase::Ended => unreachable!(),
         }
 
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
         if flicked {
             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+            self.schedule_wheel_animation_end_callback(flick_rc);
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
             // out (by not updating the last_scroll_event)
             InputEventResult::EventAccepted
         } else {
+            self.last_scroll_event = None;
+            self.stop_wheel_animation_end_timer();
             InputEventResult::EventIgnored
         }
+    }
+
+    fn stop_wheel_animation_end_timer(&mut self) {
+        if let Some(timer) = self.wheel_animation_end_timer.take() {
+            timer.stop();
+        }
+    }
+
+    fn schedule_wheel_animation_end_callback(&mut self, flick_rc: &ItemRc) {
+        let timer = self.wheel_animation_end_timer.get_or_insert_default();
+        let flick_weak = flick_rc.downgrade();
+        timer.start(
+            TimerMode::SingleShot,
+            Duration::from_millis(WHEEL_SCROLL_DURATION as u64),
+            move || {
+                let Some(flick_rc) = flick_weak.upgrade() else { return };
+                let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
+                (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick.as_pin_ref()).call(&());
+            },
+        );
     }
 
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
@@ -529,7 +571,7 @@ impl FlickableDataInner {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct FlickableData {
     inner: RefCell<FlickableDataInner>,
     /// Tracker that tracks the property to make sure that the flickable is in bounds
@@ -563,6 +605,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+                inner.stop_wheel_animation_end_timer();
                 inner.position_time_rb = PositionTimeRingBuffer::default();
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());

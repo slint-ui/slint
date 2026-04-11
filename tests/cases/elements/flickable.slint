@@ -240,6 +240,14 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 use slint::{LogicalPosition, platform::{WindowEvent, Key} };
 let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+slint_testing::mock_elapsed_time(50);
+assert!(instance.get_offset_x() > 0.);
+assert!(instance.get_offset_y() > 0.);
+assert!(instance.get_offset_x() < 30.);
+assert!(instance.get_offset_y() < 50.);
+slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_offset_x(), 30.);
 assert_eq!(instance.get_offset_y(), 50.);
 
@@ -249,6 +257,12 @@ if !cfg!(target_os = "macos") {
     slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
     instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 15.0, delta_y: -60.0 });
     slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+    assert_eq!(instance.get_offset_x(), 30.);
+    assert_eq!(instance.get_offset_y(), 50.);
+    slint_testing::mock_elapsed_time(50);
+    assert!(instance.get_offset_x() > 30.);
+    assert!(instance.get_offset_y() < 50.);
+    slint_testing::mock_elapsed_time(500);
     assert_eq!(instance.get_offset_x(), 30. + 60.);
     assert_eq!(instance.get_offset_y(), 50. - 15.);
 }
@@ -265,7 +279,9 @@ assert_eq!(instance.get_flicked(), 0);
 // test scrolling behaviour
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 dbg!(instance.get_flicked());
-assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
+assert_eq!(instance.get_flicked(), 0); // first callback fires at animation start
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_flicked(), -3000050); // second callback fires once the wheel animation settled
 instance.set_flicked(0);
 
 // test dragging bevaviour
@@ -294,7 +310,9 @@ assert_eq!(instance.get_flicked(), 0);
 // test scrolling behaviour
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 dbg!(instance.get_flicked());
-assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
+assert_eq!(instance.get_flicked(), 0); // first callback fires at animation start
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_flicked(), -3000050); // second callback fires once the wheel animation settled
 instance.set_flicked(0);
 
 // test dragging bevaviour
@@ -400,4 +418,3 @@ assert_eq!(instance.get_double_clicked(), 0);
 ```
 
 */
-
