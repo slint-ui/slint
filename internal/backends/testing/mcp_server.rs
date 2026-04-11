@@ -132,6 +132,20 @@ fn tool_definitions() -> Value {
                 }
             },
             {
+                "name": "drag_element",
+                "description": "Simulate a drag gesture from the element's center to a target position (logical coordinates). The pointer is pressed at the element center, moved in interpolated steps to the target, then released. Use for sliders, scrollable areas, drag handles, or any element that responds to pointer movement while pressed.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "elementHandle": handle_schema.clone(),
+                        "targetX": { "type": "number", "description": "Target X position in logical coordinates." },
+                        "targetY": { "type": "number", "description": "Target Y position in logical coordinates." },
+                        "button": { "type": "string", "description": "'Left' (default), 'Right', or 'Middle'." }
+                    },
+                    "required": ["elementHandle", "targetX", "targetY"]
+                }
+            },
+            {
                 "name": "invoke_accessibility_action",
                 "description": "Invoke an accessibility action: 'Default_' (activate buttons, toggle checkboxes), 'Increment'/'Decrement' (sliders, spinboxes), 'Expand' (combo boxes). Preferred over click_element when the element's role suggests a semantic action.",
                 "inputSchema": {
@@ -340,6 +354,40 @@ async fn handle_tool_call(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
+        // Custom tool: manual parameter parsing because the MCP schema uses flat
+        // targetX/targetY fields rather than the proto's nested LogicalPosition target.
+        "drag_element" => {
+            let element_handle: proto::Handle = args
+                .get("elementHandle")
+                .ok_or_else(|| "missing elementHandle".to_string())
+                .and_then(|v| {
+                    serde_json::from_value(v.clone())
+                        .map_err(|e| format!("invalid elementHandle: {e}"))
+                })?;
+            let target_x: f32 = args
+                .get("targetX")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| "missing targetX".to_string())? as f32;
+            let target_y: f32 = args
+                .get("targetY")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| "missing targetY".to_string())? as f32;
+            let button_str = args.get("button").and_then(|v| v.as_str()).unwrap_or("Left");
+            let button = match button_str {
+                "Left" => i_slint_core::platform::PointerEventButton::Left,
+                "Right" => i_slint_core::platform::PointerEventButton::Right,
+                "Middle" => i_slint_core::platform::PointerEventButton::Middle,
+                other => return Err(format!("Unknown button: {other}. Use 'Left', 'Right', or 'Middle'.")),
+            };
+            let element_index = handle_to_index(element_handle);
+            let element = state.element("drag_element", element_index)?;
+            let target = i_slint_core::api::LogicalPosition::new(target_x, target_y);
+            element.drag(target, button).await;
+            let response = proto::ElementDragResponse {};
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
         "invoke_accessibility_action" => {
             let p: proto::RequestInvokeElementAccessibilityAction = deserialize_params(args)?;
             let element_index = handle_to_index(
@@ -467,7 +515,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "4. Drill down: use query_element_descendants to search by type, ID, or accessible role; or find_elements_by_id for known IDs\n",
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
-                    "7. Interact: click_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
+                    "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
                     "8. take_screenshot again to verify the effect\n\n",
 
                     "# Handle format\n\n",
@@ -500,7 +548,8 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- After clicking or setting values, take a screenshot to verify the visual result.\n",
                     "- For text input: find the TextInput element, then use set_element_value to set its content.\n",
                     "- For buttons: use click_element, or invoke_accessibility_action with 'Default_' for the default action.\n",
-                    "- For sliders: use invoke_accessibility_action with 'Increment'/'Decrement', or set_element_value with the numeric value as a string.\n",
+                    "- For sliders: use invoke_accessibility_action with 'Increment'/'Decrement', set_element_value with the numeric value as a string, or drag_element to drag the thumb to a position.\n",
+                    "- For drag gestures (scrollable areas, drag handles, custom sliders): use drag_element with the target position in logical coordinates.\n",
                     "- For checkboxes/switches: use click_element or invoke_accessibility_action with 'Default_'.\n"
                 )
             }),

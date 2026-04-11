@@ -161,6 +161,12 @@ message RequestElementClick {
     PointerEventButton button = 3;
 }
 
+message RequestElementDrag {
+    Handle element_handle = 1;
+    LogicalPosition target = 2;
+    PointerEventButton button = 3;
+}
+
 message RequestDispatchWindowEvent {
     Handle window_handle = 1;
     WindowEvent event = 2;
@@ -184,6 +190,7 @@ message RequestToAUT {
         RequestElementClick request_element_click = 8;
         RequestDispatchWindowEvent request_dispatch_window_event = 9;
         RequestQueryElementDescendants request_query_element_descendants = 10;
+        RequestElementDrag request_element_drag = 11;
     }
 }
 
@@ -268,6 +275,9 @@ message TakeSnapshotResponse {
 message ElementClickResponse {
 }
 
+message ElementDragResponse {
+}
+
 message DispatchWindowEventResponse {
 }
 
@@ -288,5 +298,6 @@ message AUTResponse {
         ElementClickResponse element_click_response = 9;
         DispatchWindowEventResponse dispatch_window_event_response = 10;
         ElementQueryResponse element_query_response = 11;
+        ElementDragResponse element_drag_response = 12;
     }
 }
