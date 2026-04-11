@@ -108,10 +108,13 @@ fn find_binding_expression(
     let be = elem.bindings.get(&property_name).map(|be| be.borrow().clone())?;
     if matches!(be.expression, expression_tree::Expression::Invalid) {
         for twb in &be.two_way_bindings {
+            let expression_tree::TwoWayBinding::Property { property, field_access } = twb else {
+                continue;
+            };
             if let Some(mut e) =
-                find_binding_expression(&twb.property.element(), twb.property.name().as_str())
+                find_binding_expression(&property.element(), property.name().as_str())
             {
-                for f in &twb.field_access {
+                for f in field_access {
                     e = expression_tree::Expression::StructFieldAccess {
                         base: e.into(),
                         name: f.clone(),
