@@ -215,6 +215,35 @@ struct Property
                 del_fn, intercept_fn, intercept_binding_fn);
     }
 
+    /// Bind `prop` two-way to a value stored in a model row. `getter` reads
+    /// the current row value; `setter` writes a new value back into the row.
+    template<typename Getter, typename Setter>
+    static void link_two_way_to_model_data(const Property<T> *prop, Getter getter, Setter setter)
+    {
+        struct ModelTwoWayBinding
+        {
+            Getter getter;
+            Setter setter;
+        };
+        cbindgen_private::slint_property_set_binding(
+                &prop->inner,
+                [](void *user_data, void *value) {
+                    auto self = reinterpret_cast<ModelTwoWayBinding *>(user_data);
+                    *reinterpret_cast<T *>(value) = self->getter();
+                },
+                new ModelTwoWayBinding { std::move(getter), std::move(setter) },
+                [](void *user_data) { delete reinterpret_cast<ModelTwoWayBinding *>(user_data); },
+                [](void *user_data, const void *value) {
+                    auto self = reinterpret_cast<ModelTwoWayBinding *>(user_data);
+                    self->setter(*reinterpret_cast<const T *>(value));
+                    return true;
+                },
+                [](void *, void *) -> bool {
+                    // Cannot rebind a property already two-way bound to a model.
+                    std::abort();
+                });
+    }
+
     /// Internal (private) constructor used by link_two_way
     explicit Property(cbindgen_private::PropertyHandleOpaque inner, T value)
         : inner(inner), value(std::move(value))
