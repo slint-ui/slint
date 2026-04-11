@@ -246,7 +246,7 @@ MCP configuration:
 
 ### Available Tools
 
-The MCP server exposes 11 tools for UI introspection and interaction:
+The MCP server exposes 12 tools for UI introspection and interaction:
 
 | Tool | Description |
 |------|-------------|
@@ -258,6 +258,7 @@ The MCP server exposes 11 tools for UI introspection and interaction:
 | `query_element_descendants` | Search descendants using a query pipeline (by type, ID, or role) |
 | `take_screenshot` | Capture a PNG screenshot of a window |
 | `click_element` | Simulate a mouse click on an element |
+| `drag_element` | Simulate a drag gesture from an element's center to a target position |
 | `invoke_accessibility_action` | Invoke a semantic action (Default, Increment, Decrement, Expand) |
 | `set_element_value` | Set the accessible value of an element (text, slider value, etc.) |
 | `dispatch_key_event` | Send a keyboard event to a window |
@@ -268,7 +269,7 @@ The MCP server exposes 11 tools for UI introspection and interaction:
 2. `get_window_properties` → get the `rootElementHandle`
 3. `get_element_tree` → explore the UI hierarchy
 4. `query_element_descendants` or `find_elements_by_id` → locate specific elements
-5. `click_element` / `set_element_value` / `invoke_accessibility_action` → interact
+5. `click_element` / `drag_element` / `set_element_value` / `invoke_accessibility_action` → interact
 6. `take_screenshot` → verify the visual result
 
 For a detailed description of the architecture and internals, see

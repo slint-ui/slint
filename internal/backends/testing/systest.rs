@@ -151,6 +151,21 @@ impl TestingClient {
                 }
                 Resp::ElementClickResponse(proto::ElementClickResponse {})
             }
+            Req::RequestElementDrag(proto::RequestElementDrag {
+                element_handle,
+                target,
+                button,
+            }) => {
+                let element = self.element("element drag request", element_handle)?;
+                let button = introspection::convert_pointer_event_button(
+                    proto::PointerEventButton::try_from(button)
+                        .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
+                );
+                let target = target.ok_or_else(|| "element drag request missing target".to_string())?;
+                let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
+                element.drag(target, button).await;
+                Resp::ElementDragResponse(proto::ElementDragResponse {})
+            }
             Req::RequestDispatchWindowEvent(proto::RequestDispatchWindowEvent {
                 window_handle,
                 event,
