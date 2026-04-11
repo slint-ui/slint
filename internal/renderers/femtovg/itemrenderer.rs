@@ -198,6 +198,37 @@ fn clip_path_for_rect_alike_item(
     rect_with_radius_to_path(clip_rect, radius)
 }
 
+fn text_transform_without_uniform_scale(
+    transform: femtovg::Transform2D,
+) -> Option<(f32, femtovg::Transform2D)> {
+    let femtovg::Transform2D([a, b, c, d, x, y]) = transform;
+    let scale_x = a.hypot(b);
+    let scale_y = c.hypot(d);
+
+    if !scale_x.is_finite() || !scale_y.is_finite() || scale_x <= 0. || scale_y <= 0. {
+        return None;
+    }
+
+    let uniform_scale = (scale_x + scale_y) * 0.5;
+    let scale_diff = (scale_x - scale_y).abs();
+
+    if scale_diff > uniform_scale * 0.01 || (uniform_scale - 1.).abs() <= f32::EPSILON {
+        return None;
+    }
+
+    Some((
+        uniform_scale,
+        femtovg::Transform2D::new(
+            a / uniform_scale,
+            b / uniform_scale,
+            c / uniform_scale,
+            d / uniform_scale,
+            x,
+            y,
+        ),
+    ))
+}
+
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub fn global_alpha_transparent(&self) -> bool {
         self.state.last().unwrap().global_alpha == 0.0
@@ -984,24 +1015,36 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
+        let mut canvas = self.canvas.borrow_mut();
+        let (font_scale, transform) = text_transform_without_uniform_scale(canvas.transform())
+            .unwrap_or((1., canvas.transform()));
+
+        if font_scale != 1. {
+            // Draw glyphs at the scaled size and keep only rotation in the transform.
+            canvas.save();
+            canvas.reset_transform();
+            canvas.set_transform(&transform);
+        }
 
         let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
-            x: glyph.x,
-            y: glyph.y + y_offset.get(),
+            x: glyph.x * font_scale,
+            y: (glyph.y + y_offset.get()) * font_scale,
             glyph_id: glyph.id as u16,
         });
 
-        let mut canvas = self.canvas.borrow_mut();
-
         match &mut brush {
             GlyphBrush::Fill(paint) => {
-                paint.set_font_size(font_size.get());
+                paint.set_font_size(font_size.get() * font_scale);
                 canvas.fill_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
             GlyphBrush::Stroke(paint) => {
-                paint.set_font_size(font_size.get());
+                paint.set_font_size(font_size.get() * font_scale);
                 canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
+        }
+
+        if font_scale != 1. {
+            canvas.restore();
         }
     }
 
@@ -1536,4 +1579,49 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
 pub fn to_femtovg_color(col: &Color) -> femtovg::Color {
     femtovg::Color::rgba(col.red(), col.green(), col.blue(), col.alpha())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::text_transform_without_uniform_scale;
+
+    #[test]
+    fn identity_transform_needs_no_adjustment() {
+        assert!(text_transform_without_uniform_scale(femtovg::Transform2D::identity()).is_none());
+    }
+
+    #[test]
+    fn extracts_uniform_scale_and_preserves_translation() {
+        let transform = femtovg::Transform2D::new(3.0, 0.0, 0.0, 3.0, 10.0, 20.0);
+        let (scale, adjusted) =
+            text_transform_without_uniform_scale(transform).expect("uniform scale should extract");
+
+        assert_eq!(scale, 3.0);
+        assert_eq!(adjusted, femtovg::Transform2D::new(1.0, 0.0, 0.0, 1.0, 10.0, 20.0));
+    }
+
+    #[test]
+    fn keeps_uniform_scaled_rotation() {
+        let angle = 30f32.to_radians();
+        let (sin, cos) = angle.sin_cos();
+        let transform =
+            femtovg::Transform2D::new(2.0 * cos, 2.0 * sin, -2.0 * sin, 2.0 * cos, 4.0, -7.0);
+
+        let (scale, adjusted) = text_transform_without_uniform_scale(transform)
+            .expect("scaled rotation should extract");
+
+        assert!((scale - 2.0).abs() < 0.001);
+        assert!((adjusted.0[0] - cos).abs() < 0.001);
+        assert!((adjusted.0[1] - sin).abs() < 0.001);
+        assert!((adjusted.0[2] + sin).abs() < 0.001);
+        assert!((adjusted.0[3] - cos).abs() < 0.001);
+        assert_eq!(adjusted.0[4], 4.0);
+        assert_eq!(adjusted.0[5], -7.0);
+    }
+
+    #[test]
+    fn rejects_non_uniform_scale() {
+        let transform = femtovg::Transform2D::new(3.0, 0.0, 0.0, 2.0, 0.0, 0.0);
+        assert!(text_transform_without_uniform_scale(transform).is_none());
+    }
 }
