@@ -1,98 +1,43 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-extern crate alloc;
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-use event_queue::QueueEntry;
-use event_queue::SafeUiEventLoopProxy;
+use slint_sc::{SliceBuffer, TargetPixel};
 
-struct Platform {
-    scale_factor: f32,
-    window: Rc<slint::platform::software_renderer::MinimalSoftwareWindow>,
+/// Monotonic milliseconds since `slint_app_main` was called.
+pub fn duration_since_start_ms() -> u32 {
+    (unsafe { slint_safeui_platform_duration_since_start() }) as u32
 }
 
-impl slint::platform::Platform for Platform {
-    fn create_window_adapter(
-        &self,
-    ) -> Result<alloc::rc::Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        Ok(self.window.clone())
+/// Blocks the current task for at most `max_wait_ms` milliseconds, or until
+/// [`slint_safeui_platform_wake`] is called from another context.
+pub fn wait_for_events_ms(max_wait_ms: i32) {
+    unsafe { slint_safeui_platform_wait_for_events(max_wait_ms) };
+}
+
+/// Dispatch every callback posted to the static queue since the last call.
+pub fn drain_events() {
+    for cb in event_queue::take_queue() {
+        // SAFETY: the producer of the callback guaranteed the pointer is
+        // valid until it runs.
+        unsafe { (cb.callback)(cb.user_data) };
     }
+}
 
-    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        self.window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
-            scale_factor: self.scale_factor,
-        });
-
-        let mut width: u32 = 0;
-        let mut height: u32 = 0;
-        unsafe {
-            slint_safeui_platform_get_screen_size(&mut width as *mut _, &mut height as *mut _);
-        }
-
-        self.window.set_size(slint::WindowSize::Physical(slint::PhysicalSize::new(width, height)));
-        self.window.request_redraw();
-
-        loop {
-            slint::platform::update_timers_and_animations();
-
-            // Process all pending queue entries (FFI callbacks, Rust
-            // closures, quit signals).
-            for entry in event_queue::take_queue() {
-                match entry {
-                    QueueEntry::Quit => return Ok(()),
-                    QueueEntry::Callback(f) => f(),
-                    QueueEntry::FfiCallback(ffi_cb) => {
-                        // SAFETY: The C caller guaranteed that callback is a
-                        // valid function pointer and user_data remains valid
-                        // until invocation.
-                        unsafe { (ffi_cb.callback)(ffi_cb.user_data) };
-                    }
-                }
-            }
-
-            self.window.draw_if_needed(|renderer| {
-                render_wrapper::<crate::pixels::PlatformPixel, _>(&|buffer, pixel_stride| {
-                    renderer.render(buffer, pixel_stride);
-                })
-            });
-
-            let mut next_timeout = slint::platform::duration_until_next_timer_update();
-
-            if self.window.has_active_animations() {
-                let frame_duration = core::time::Duration::from_millis(16);
-                next_timeout = Some(match next_timeout {
-                    Some(x) => x.min(frame_duration),
-                    None => frame_duration,
-                })
-            }
-
-            unsafe {
-                slint_safeui_platform_wait_for_events(
-                    next_timeout.map_or(-1, |dur| dur.as_millis() as i32),
-                )
-            };
-        }
-    }
-
-    fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
-        Some(Box::new(SafeUiEventLoopProxy))
-    }
-
-    fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(unsafe {
-            slint_safeui_platform_duration_since_start() as u64
-        })
-    }
+/// Borrow the framebuffer from firmware and call `draw` with a
+/// [`SliceBuffer`] spanning it so the application can render into it.
+pub fn render_frame(draw: impl Fn(&mut SliceBuffer<'_, crate::pixels::PlatformPixel>)) {
+    render_wrapper::<crate::pixels::PlatformPixel, _>(&|pixels, pixel_stride| {
+        let height = pixels.len() / pixel_stride;
+        let mut buffer = SliceBuffer::new(pixels, pixel_stride, height);
+        draw(&mut buffer);
+    });
 }
 
 mod event_queue {
     use core::{cell::RefCell, ffi::c_void};
 
-    use alloc::boxed::Box;
     use critical_section::Mutex;
     use heapless::Deque;
 
@@ -130,60 +75,11 @@ mod event_queue {
         }
     }
 
-    /// A single entry in the unified event queue.
-    ///
-    /// Both FFI callbacks (from C firmware) and Rust closures (from
-    /// `EventLoopProxy`) are stored as variants.
-    pub enum QueueEntry {
-        Quit,
-        Callback(Box<dyn FnOnce() + Send>),
-        FfiCallback(FfiCallback),
-    }
-
-    /// Static unified event queue. FFI producers push via
-    /// [`slint_safeui_invoke_from_event_loop`], Rust producers via
-    /// [`SafeUiEventLoopProxy`]. The consumer ([`take_queue`]) runs
-    /// on the Slint event loop.
-    static EVENT_QUEUE: Mutex<RefCell<Deque<QueueEntry, QUEUE_CAPACITY>>> =
+    /// Static FFI event queue. Producers push via
+    /// [`slint_safeui_invoke_from_event_loop`]; the consumer
+    /// ([`take_queue`]) runs on the Slint event loop.
+    static EVENT_QUEUE: Mutex<RefCell<Deque<FfiCallback, QUEUE_CAPACITY>>> =
         Mutex::new(RefCell::new(Deque::new()));
-
-    /// Proxy for injecting events from Rust code into the Slint event loop.
-    ///
-    /// This is returned by `Platform::new_event_loop_proxy()` and enables
-    /// `slint::invoke_from_event_loop()` and `slint::quit_event_loop()`.
-    #[derive(Clone)]
-    pub struct SafeUiEventLoopProxy;
-
-    impl slint::platform::EventLoopProxy for SafeUiEventLoopProxy {
-        fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-            let result = critical_section::with(|cs| {
-                EVENT_QUEUE
-                    .borrow_ref_mut(cs)
-                    .push_back(QueueEntry::Quit)
-                    .map_err(|_| slint::EventLoopError::EventLoopTerminated)
-            });
-            if result.is_ok() {
-                wake_event_loop();
-            }
-            result
-        }
-
-        fn invoke_from_event_loop(
-            &self,
-            event: Box<dyn FnOnce() + Send>,
-        ) -> Result<(), slint::EventLoopError> {
-            let result = critical_section::with(|cs| {
-                EVENT_QUEUE
-                    .borrow_ref_mut(cs)
-                    .push_back(QueueEntry::Callback(event))
-                    .map_err(|_| slint::EventLoopError::EventLoopTerminated)
-            });
-            if result.is_ok() {
-                wake_event_loop();
-            }
-            result
-        }
-    }
 
     /// Schedule a callback to run on the Slint event loop thread.
     ///
@@ -210,11 +106,10 @@ mod event_queue {
         drop_user_data: Option<unsafe extern "C" fn(*mut c_void)>,
     ) -> i32 {
         let ffi_cb = FfiCallback { callback, user_data, drop_user_data };
-        let entry = QueueEntry::FfiCallback(ffi_cb);
 
         let result = critical_section::with(|cs| {
             let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
-            match queue.push_back(entry) {
+            match queue.push_back(ffi_cb) {
                 Ok(()) => {
                     // Wake the Slint event loop so it drains promptly.
                     wake_event_loop();
@@ -235,10 +130,8 @@ mod event_queue {
     /// Take all pending entries from the queue under a single short critical
     /// section.
     ///
-    /// Must be called from the Slint event loop thread. The caller is
-    /// responsible for iterating the returned deque and handling each
-    /// [`QueueEntry`] variant.
-    pub fn take_queue() -> Deque<QueueEntry, QUEUE_CAPACITY> {
+    /// Must be called from the Slint event loop thread.
+    pub fn take_queue() -> Deque<FfiCallback, QUEUE_CAPACITY> {
         critical_section::with(|cs| {
             let mut queue = EVENT_QUEUE.borrow_ref_mut(cs);
             core::mem::replace(&mut *queue, Deque::new())
@@ -248,7 +141,7 @@ mod event_queue {
 
 fn render_wrapper<P, F>(f: &F)
 where
-    P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
+    P: TargetPixel,
     F: Fn(&mut [P], usize),
 {
     let user_data = f as *const _ as *const core::ffi::c_void;
@@ -259,7 +152,7 @@ where
         byte_size: core::ffi::c_uint,
         pixel_stride: core::ffi::c_uint,
     ) where
-        P: slint::platform::software_renderer::TargetPixel + bytemuck::Pod,
+        P: TargetPixel,
         F: Fn(&mut [P], usize),
     {
         let buffer = unsafe {
@@ -273,18 +166,6 @@ where
     }
 
     unsafe { slint_safeui_platform_render(user_data, Some(c_render_wrap::<P, F>)) }
-}
-
-pub fn slint_init_safeui_platform(width: u32, height: u32, scale_factor: f32) {
-    let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
-        slint::platform::software_renderer::RepaintBufferType::NewBuffer,
-    );
-
-    window.set_size(slint::PhysicalSize { width, height });
-
-    let platform = Platform { scale_factor, window };
-
-    slint::platform::set_platform(Box::new(platform)).unwrap();
 }
 
 #[cfg(feature = "panic-handler")]
@@ -345,44 +226,4 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     };
 
     loop {}
-}
-
-mod allocator {
-    use core::alloc::Layout;
-    use core::ffi::c_void;
-    unsafe extern "C" {
-        pub fn free(p: *mut c_void);
-        pub fn malloc(size: usize) -> *mut c_void;
-    }
-
-    struct CAlloc;
-    unsafe impl core::alloc::GlobalAlloc for CAlloc {
-        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            let align = layout.align();
-            if align <= core::mem::size_of::<usize>() {
-                unsafe { malloc(layout.size()) as *mut u8 }
-            } else {
-                // Ideally we'd use aligned_alloc, but that function caused heap corruption with esp-idf
-                let ptr = unsafe { malloc(layout.size() + align) as *mut u8 };
-                let shift = align - (ptr as usize % align);
-                let ptr = unsafe { ptr.add(shift) };
-                unsafe { core::ptr::write(ptr.sub(1), shift as u8) };
-                ptr
-            }
-        }
-        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-            unsafe {
-                let align = layout.align();
-                if align <= core::mem::size_of::<usize>() {
-                    free(ptr as *mut c_void);
-                } else {
-                    let shift = core::ptr::read(ptr.sub(1)) as usize;
-                    free(ptr.sub(shift) as *mut c_void);
-                }
-            }
-        }
-    }
-
-    #[global_allocator]
-    static ALLOCATOR: CAlloc = CAlloc;
 }

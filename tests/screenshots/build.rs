@@ -25,6 +25,9 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "skia")]
     gen_skia(&mut generated_file)?;
 
+    #[cfg(feature = "slint-sc")]
+    gen_slint_sc(&mut generated_file)?;
+
     generated_file.flush()?;
 
     Ok(())
@@ -86,16 +89,7 @@ fn gen_software(generated_file: &mut impl Write) -> std::io::Result<()> {
         let skip_line_by_line =
             if source.contains("SKIP_LINE_BY_LINE") { "#[cfg(false)]" } else { "" };
 
-        let needle = "SIZE=";
-        let (size_w, size_h) = source.find(needle).map_or((64, 64), |p| {
-            source[p + needle.len()..]
-                .find(char::is_whitespace)
-                .and_then(|end| source[p + needle.len()..][..end].split_once('x'))
-                .and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)))
-                .unwrap_or_else(|| {
-                    panic!("Cannot parse {needle} for {}", testcase.relative_path.display())
-                })
-        });
+        let (size_w, size_h) = parse_size_marker(source.as_str(), &testcase.relative_path);
 
         let mut output = BufWriter::new(std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
@@ -133,11 +127,28 @@ fn gen_software(generated_file: &mut impl Write) -> std::io::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "software")]
-fn generate_source(
+/// Parses the `// SIZE=WxH` marker commonly placed at the top of a test
+/// `.slint` case.  Defaults to 64x64 when the marker is missing.
+#[cfg(any(feature = "software", feature = "slint-sc"))]
+fn parse_size_marker(source: &str, relative_path: &std::path::Path) -> (u32, u32) {
+    let needle = "SIZE=";
+    source.find(needle).map_or((64, 64), |p| {
+        source[p + needle.len()..]
+            .find(char::is_whitespace)
+            .and_then(|end| source[p + needle.len()..][..end].split_once('x'))
+            .and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)))
+            .unwrap_or_else(|| panic!("Cannot parse {needle} for {}", relative_path.display()))
+    })
+}
+
+/// Compiles a test `.slint` case through one of the Rust-family generators
+/// and writes the result to `output`.
+#[cfg(any(feature = "software", feature = "slint-sc"))]
+fn compile_to_rust(
     source: &str,
     output: &mut impl Write,
-    testcase: test_driver_lib::TestCase,
+    testcase: &test_driver_lib::TestCase,
+    format: i_slint_compiler::generator::OutputFormat,
     scale_factor: f32,
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
@@ -148,12 +159,13 @@ fn generate_source(
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
-    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
+    let mut compiler_config = CompilerConfiguration::new(format.clone());
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
+    compiler_config.safety_critical = matches!(format, generator::OutputFormat::SlintSc);
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
@@ -164,13 +176,97 @@ fn generate_source(
         diag.print();
     }
 
-    generator::generate(
-        generator::OutputFormat::Rust,
+    generator::generate(format, output, None, &root_component, &loader.compiler_config)?;
+    Ok(())
+}
+
+#[cfg(feature = "software")]
+fn generate_source(
+    source: &str,
+    output: &mut impl Write,
+    testcase: test_driver_lib::TestCase,
+    scale_factor: f32,
+) -> Result<(), std::io::Error> {
+    compile_to_rust(
+        source,
         output,
-        None,
-        &root_component,
-        &loader.compiler_config,
-    )?;
+        &testcase,
+        i_slint_compiler::generator::OutputFormat::Rust,
+        scale_factor,
+    )
+}
+
+/// For every case under `cases/slint-sc/`, compile it through the SlintSc
+/// generator and emit a `#[test]` that renders into an RGBA8 buffer and
+/// feeds it to the regular `testing::compare_images` — no forked driver,
+/// and the reference PNG is the same one the software renderer uses.
+#[cfg(feature = "slint-sc")]
+fn gen_slint_sc(generated_file: &mut impl Write) -> std::io::Result<()> {
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "software"].iter().collect();
+
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases/slint-sc")? {
+        let reference_path = references_root_dir
+            .join("slint-sc")
+            .join(testcase.relative_path.clone())
+            .with_extension("png")
+            .to_str()
+            .unwrap()
+            .escape_default()
+            .to_string();
+        let reference_path = format!("\"{reference_path}\"");
+
+        println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
+
+        let module_name = testcase.identifier();
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let (size_w, size_h) = parse_size_marker(&source, &testcase.relative_path);
+
+        let sc_file_name = format!("{module_name}_sc.rs");
+        let sc_path = Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(&sc_file_name);
+        let sc_output = std::fs::File::create(&sc_path)?;
+        compile_to_rust(
+            &source,
+            &mut BufWriter::new(sc_output),
+            &testcase,
+            i_slint_compiler::generator::OutputFormat::SlintSc,
+            1.0,
+        )
+        .unwrap_or_else(|e| {
+            panic!("Failed to compile {} via slint-sc: {e}", testcase.relative_path.display())
+        });
+
+        writeln!(
+            generated_file,
+            "mod sc_{module_name}_mod {{
+                include!(concat!(env!(\"OUT_DIR\"), \"/{sc_file_name}\"));
+
+                #[test]
+                fn sc_{module_name}() {{
+                    const W: u32 = {size_w};
+                    const H: u32 = {size_h};
+                    let mut pixels = vec![slint_sc::Rgba8Pixel::default(); (W * H) as usize];
+                    {{
+                        let mut buffer = slint_sc::SliceBuffer::new(&mut pixels, W as usize, H as usize);
+                        TestCase::new().render(&mut buffer);
+                    }}
+                    let mut rgba = i_slint_core::graphics::SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(W, H);
+                    for (d, s) in rgba.make_mut_slice().iter_mut().zip(pixels.iter()) {{
+                        *d = i_slint_core::graphics::Rgba8Pixel {{ r: s.r, g: s.g, b: s.b, a: s.a }};
+                    }}
+                    if let Err(reason) = crate::testing::compare_images(
+                        {reference_path},
+                        &rgba,
+                        crate::testing::RenderingRotation::NoRotation,
+                        &crate::testing::TestCaseOptions::default(),
+                    ) {{
+                        panic!(\"slint-sc screenshot mismatch for {{}}: {{}}\", {reference_path}, reason);
+                    }}
+                }}
+            }}"
+        )?;
+    }
+
     Ok(())
 }
 

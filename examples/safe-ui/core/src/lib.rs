@@ -23,12 +23,12 @@ compile_error!(
     "Must enable exactly one pixel format: pixel-bgra8888, pixel-rgb565 or pixel-rgb888"
 );
 
-extern crate alloc;
-
 pub mod pixels;
 pub mod platform;
 
-slint::include_modules!();
+use slint_sc::Color;
+
+slint_sc::include_modules!();
 
 pub const WIDTH_PIXELS: u32 = match option_env!("SAFE_UI_WIDTH") {
     Some(s) => parse_u32(s),
@@ -45,15 +45,50 @@ pub const SCALE_FACTOR: f32 = match option_env!("SAFE_UI_SCALE_FACTOR") {
     None => 2.0,
 };
 
+const COLOR_ROTATION_INTERVAL_MS: u32 = 1000;
+
+const PALETTE: [Color; 3] = [
+    Color::from_rgb_u8(0, 255, 0),
+    Color::from_rgb_u8(255, 165, 0),
+    Color::from_rgb_u8(255, 0, 0),
+];
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_app_main() {
-    platform::slint_init_safeui_platform(WIDTH_PIXELS, HEIGHT_PIXELS, SCALE_FACTOR);
+    let window = MainWindow::new();
 
-    let app = MainWindow::new().unwrap();
+    let mut last_rotation_ms: u32 = 0;
+    let mut palette_offset: usize = 0;
+    apply_colors(&window, palette_offset);
 
-    app.show().unwrap();
+    let mut request_redraw = true;
 
-    app.run().unwrap();
+    loop {
+        platform::drain_events();
+
+        let now_ms = platform::duration_since_start_ms();
+        if now_ms.wrapping_sub(last_rotation_ms) >= COLOR_ROTATION_INTERVAL_MS {
+            last_rotation_ms = now_ms;
+            palette_offset = (palette_offset + 1) % PALETTE.len();
+            apply_colors(&window, palette_offset);
+            request_redraw = true;
+        }
+
+        if request_redraw {
+            request_redraw = false;
+            platform::render_frame(|buffer| window.render(buffer));
+        }
+
+        let elapsed = now_ms.wrapping_sub(last_rotation_ms);
+        let next_timeout_ms = COLOR_ROTATION_INTERVAL_MS.saturating_sub(elapsed);
+        platform::wait_for_events_ms(next_timeout_ms as i32);
+    }
+}
+
+fn apply_colors(window: &MainWindow, offset: usize) {
+    window.set_color_0(PALETTE[offset % PALETTE.len()]);
+    window.set_color_1(PALETTE[(offset + 1) % PALETTE.len()]);
+    window.set_color_2(PALETTE[(offset + 2) % PALETTE.len()]);
 }
 
 const fn parse_u32(s: &str) -> u32 {

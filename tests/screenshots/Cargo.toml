@@ -18,9 +18,13 @@ path = "main.rs"
 name = "test-driver-screenshot"
 
 [features]
-default = ["skia", "software"]
+default = ["skia", "software", "slint-sc"]
 software = ["slint/renderer-software", "dep:i-slint-compiler"]
 skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
+# slint-sc does not depend on `software`: the screenshot driver
+# (`slint_sc.rs`) does its own byte-for-byte PNG comparison via the
+# `image` crate, so the software renderer is not pulled in.
+slint-sc = ["dep:slint-sc", "dep:i-slint-compiler"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
@@ -28,6 +32,7 @@ i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
 i-slint-renderer-skia = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
+slint-sc = { path = "../../api/slint-sc", optional = true }
 
 image = { workspace = true }
 crossterm = "0.29"

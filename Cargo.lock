@@ -10205,6 +10205,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-sc"
+version = "1.16.0"
+
+[[package]]
 name = "slint-tr-extractor"
 version = "1.16.0"
 dependencies = [
@@ -10976,9 +10980,19 @@ dependencies = [
  "image",
  "slint",
  "slint-interpreter",
+ "slint-sc",
  "spin_on",
  "test_driver_lib",
  "walkdir",
+]
+
+[[package]]
+name = "test-driver-slint-sc"
+version = "1.16.0"
+dependencies = [
+ "slint-build",
+ "slint-sc",
+ "test_driver_lib",
 ]
 
 [[package]]

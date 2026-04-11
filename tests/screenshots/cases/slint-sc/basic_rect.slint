@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=64x64
+// Uses only the Slint SC supported subset: Window, Rectangle.
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: #101020;
+
+    Rectangle {
+        x: 5px;
+        y: 5px;
+        width: 20px;
+        height: 20px;
+        background: #ff0000;
+    }
+
+    Rectangle {
+        x: 30px;
+        y: 5px;
+        width: 20px;
+        height: 20px;
+        background: #00ff00;
+    }
+
+    Rectangle {
+        x: 5px;
+        y: 30px;
+        width: 20px;
+        height: 20px;
+        background: #0000ff;
+    }
+
+    Rectangle {
+        x: 30px;
+        y: 30px;
+        width: 20px;
+        height: 20px;
+        background: #ffffff;
+    }
+}

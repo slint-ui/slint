@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-sc"
+description = "Safety-critical subset of Slint: a minimal no_std, no_alloc, dependency-free GUI runtime (prototype)"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "rendering::engine", "no-std", "embedded"]
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = []

@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=64x48
+// A cute cat built out of overlapping compile-time SVGs.
+// The two eyes share a single `property <image>` so the generator has to
+// resolve `Image { source: eye; }` back to the static texture through
+// the property reference.
+// All `#` characters in SVG fill attributes are URL-encoded as `%23` so
+// the data URL parser doesn't treat them as a fragment identifier.
+export component TestCase inherits Window {
+    width: 64px;
+    height: 48px;
+    background: #cfe8ff;
+
+    // Shared between the left and right eye.
+    property <image> eye: @image-url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'><circle cx='5' cy='5' r='4.5' fill='white' stroke='black' stroke-width='0.8'/><circle cx='5.5' cy='5.5' r='1.7' fill='black'/></svg>");
+
+    // Head — oval.
+    Image {
+        x: 10px;
+        y: 10px;
+        width: 44px;
+        height: 32px;
+        source: @image-url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='32'><ellipse cx='22' cy='18' rx='21' ry='13' fill='%23e0a86b' stroke='%235a3a1a' stroke-width='1'/></svg>");
+    }
+
+    // Left ear (triangle).
+    Image {
+        x: 10px;
+        y: 2px;
+        width: 14px;
+        height: 14px;
+        source: @image-url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14'><polygon points='2,13 7,2 12,13' fill='%23e0a86b' stroke='%235a3a1a' stroke-width='1'/><polygon points='5,12 7,6 9,12' fill='%23f2c9a0'/></svg>");
+    }
+
+    // Right ear — same shape as the left one (no transforms in the
+    // subset) so we just draw an identical triangle at a different x.
+    Image {
+        x: 40px;
+        y: 2px;
+        width: 14px;
+        height: 14px;
+        source: @image-url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14'><polygon points='2,13 7,2 12,13' fill='%23e0a86b' stroke='%235a3a1a' stroke-width='1'/><polygon points='5,12 7,6 9,12' fill='%23f2c9a0'/></svg>");
+    }
+
+    // Left eye — shared property.
+    Image {
+        x: 18px;
+        y: 18px;
+        width: 10px;
+        height: 10px;
+        source: eye;
+    }
+
+    // Right eye — same property, same bytes, same static texture.
+    Image {
+        x: 36px;
+        y: 18px;
+        width: 10px;
+        height: 10px;
+        source: eye;
+    }
+
+    // Pink nose.
+    Image {
+        x: 28px;
+        y: 28px;
+        width: 8px;
+        height: 6px;
+        source: @image-url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='6'><polygon points='1,1 7,1 4,5' fill='%23f08090' stroke='%235a3a1a' stroke-width='0.6'/></svg>");
+    }
+
+    // Smile — a quadratic curve below the nose.
+    Image {
+        x: 26px;
+        y: 32px;
+        width: 12px;
+        height: 6px;
+        source: @image-url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='6'><path d='M 1 1 Q 6 7 11 1' fill='none' stroke='%235a3a1a' stroke-width='1'/></svg>");
+    }
+}

@@ -1,0 +1,25 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "test-driver-slint-sc"
+description = "Driver for the slint-sc integration tests"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "test-driver-slint-sc"
+
+[dependencies]
+slint-sc = { path = ".." }
+
+[build-dependencies]
+slint-build = { path = "../../rs/build" }
+test_driver_lib = { path = "../../../tests/driver/driverlib" }

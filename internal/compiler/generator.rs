@@ -27,6 +27,8 @@ pub mod cpp_live_preview;
 pub mod rust;
 #[cfg(feature = "rust")]
 pub mod rust_live_preview;
+#[cfg(feature = "rust")]
+pub mod slint_sc;
 
 #[cfg(feature = "python")]
 pub mod python;
@@ -37,6 +39,8 @@ pub enum OutputFormat {
     Cpp(cpp::Config),
     #[cfg(feature = "rust")]
     Rust,
+    #[cfg(feature = "rust")]
+    SlintSc,
     Interpreter,
     Llr,
     #[cfg(feature = "python")]
@@ -67,6 +71,8 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            #[cfg(feature = "rust")]
+            "slint-sc" | "rust-sc" => Ok(Self::SlintSc),
             "llr" => Ok(Self::Llr),
             #[cfg(feature = "python")]
             "python" => Ok(Self::Python),
@@ -94,6 +100,11 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "rust")]
+        OutputFormat::SlintSc => {
+            let output = slint_sc::generate(doc, compiler_config)?;
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {

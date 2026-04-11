@@ -4,7 +4,6 @@
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use slint::platform::software_renderer::TargetPixel;
 use slint_safeui_core::pixels::PlatformPixel;
 use slint_safeui_core::{HEIGHT_PIXELS, SCALE_FACTOR, WIDTH_PIXELS};
 
@@ -52,7 +51,7 @@ fn convert_to_rgb8(pixels: &[PlatformPixel]) -> Vec<slint::Rgb8Pixel> {
 
             #[cfg(feature = "pixel-rgb888")]
             {
-                pixel
+                slint::Rgb8Pixel { r: pixel.r, g: pixel.g, b: pixel.b }
             }
         })
         .collect()
@@ -85,8 +84,16 @@ extern "C" fn slint_safeui_platform_render(
     ),
 ) {
     let mut pixels =
-        vec![PlatformPixel::background(); PIXEL_STRIDE as usize * SCALED_HEIGHT as usize];
-    let pixel_bytes: &mut [u8] = bytemuck::cast_slice_mut(&mut pixels);
+        vec![PlatformPixel::default(); PIXEL_STRIDE as usize * SCALED_HEIGHT as usize];
+    // SAFETY: `PlatformPixel` is `repr(transparent)` over a primitive integer
+    // or `repr(C)` with `u8` fields, so the `Vec` is a dense byte buffer of
+    // size `len * size_of::<PlatformPixel>()`.
+    let pixel_bytes: &mut [u8] = unsafe {
+        core::slice::from_raw_parts_mut(
+            pixels.as_mut_ptr().cast::<u8>(),
+            core::mem::size_of_val::<[PlatformPixel]>(&pixels),
+        )
+    };
     render_fn(
         user_data,
         pixel_bytes.as_mut_ptr() as *mut core::ffi::c_char,

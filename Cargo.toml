@@ -8,6 +8,8 @@ members = [
   'api/rs/build',
   'api/rs/macros',
   'api/rs/slint',
+  'api/slint-sc',
+  'api/slint-sc/tests',
   'api/python/slint',
   'api/wasm-interpreter',
   'editors/zed',

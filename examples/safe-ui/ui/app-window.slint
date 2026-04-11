@@ -1,40 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { AboutSlint, VerticalBox } from "std-widgets.slint";
-
 export component MainWindow inherits Window {
-    // Window width and height are set here for preview only
-    // width and heigth are set at RT via rust
     width: 320px;
     height: 240px;
 
     background: #ff000047;
 
-    VerticalBox {
-        AboutSlint {
-            preferred-height: 150px;
-        }
-    }
-
-    property <[color]> colors: [Colors.green, Colors.orange, Colors.red];
-    property <int> idx: 0;
-
-    Timer {
-        running: true;
-        interval: 1s;
-        triggered => {
-            idx = (idx + 1).mod(colors.length);
-        }
-    }
+    in property <color> color-0: Colors.green;
+    in property <color> color-1: Colors.orange;
+    in property <color> color-2: Colors.red;
 
     first := Rectangle {
         x: 0px;
         y: 0px;
         width: 40px;
         height: self.width;
-        border-radius: self.width / 2;
-        background: colors[idx.mod(colors.length)];
+        background: color-0;
     }
 
     second := Rectangle {
@@ -42,8 +24,7 @@ export component MainWindow inherits Window {
         y: 0px;
         width: 40px;
         height: self.width;
-        border-radius: self.width / 2;
-        background: colors[(idx + 1).mod(colors.length)];
+        background: color-1;
     }
 
     third := Rectangle {
@@ -51,7 +32,14 @@ export component MainWindow inherits Window {
         y: 0px;
         width: 40px;
         height: self.width;
-        border-radius: self.width / 2;
-        background: colors[(idx + 2).mod(colors.length)];
+        background: color-2;
+    }
+
+    Image {
+        x: 160px;
+        y: 0px;
+        width: 64px;
+        height: 64px;
+        source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
     }
 }

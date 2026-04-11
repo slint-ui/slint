@@ -5,6 +5,10 @@
 members = ["core", "simulator"]
 resolver = "2"
 
+[workspace.package]
+edition = "2024"
+version = "1.16.0"
+
 [profile.release]
 panic = "abort"
 opt-level = "s"

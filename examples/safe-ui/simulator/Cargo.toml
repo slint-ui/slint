@@ -3,8 +3,8 @@
 
 [package]
 name = "slint-safeui-simulator"
-version = "1.16.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 publish = false
 license = "MIT"
 
@@ -15,10 +15,9 @@ pixel-rgb565 = ["slint-safeui-core/pixel-rgb565"]
 pixel-rgb888 = ["slint-safeui-core/pixel-rgb888"]
 
 [dependencies]
-bytemuck = "1.24.0"
 critical-section = { version = "1.2.0", features = ["std"] }
 slint = { path = "../../../api/rs/slint" }
-slint-safeui-core = { path = "../core", features = ["std"] }
+slint-safeui-core = { path = "../core" }
 i-slint-backend-selector = { path = "../../../internal/backends/selector", default-features = false }
 
 smol = "2.0.0"

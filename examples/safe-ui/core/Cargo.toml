@@ -3,8 +3,8 @@
 
 [package]
 name = "slint-safeui-core"
-version = "1.16.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 publish = false
 build = "build.rs"
 license = "MIT"
@@ -17,21 +17,18 @@ crate-type = ["rlib", "staticlib"]
 [features]
 default = []
 cs-cortex-m = ["cortex-m/critical-section-single-core"]
-libm = ["slint/libm"]
-std = ["slint/std"]
 panic-handler = []
 pixel-bgra8888 = []
 pixel-rgb565 = []
 pixel-rgb888 = []
 
 [dependencies]
-bytemuck = "1.24.0"
 critical-section = "1.2.0"
 cortex-m = { version = "0.7.7", optional = true }
 heapless = "0.9.2"
 riscv = { version = "0.16.0", optional = true }
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "unsafe-single-threaded"] }
+slint-sc = { path = "../../../api/slint-sc" }
 
 [build-dependencies]
 bindgen = "0.72.1"
-slint-build = { path = "../../../api/rs/build", features = ["sdf-fonts"] }
+slint-build = { path = "../../../api/rs/build" }

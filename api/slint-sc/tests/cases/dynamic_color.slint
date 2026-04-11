@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component DynamicColor inherits Window {
+    width: 4px;
+    height: 4px;
+    background: #000000;
+
+    in property <color> rect-color: #ff0000;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 4px;
+        height: 4px;
+        background: rect-color;
+    }
+}
+
+/*
+```rust
+const W: usize = 4;
+const H: usize = 4;
+let mut data = vec![Rgba8Pixel::default(); W * H];
+let mut buffer = SliceBuffer::new(&mut data, W, H);
+
+let window = DynamicColor::new();
+window.render(&mut buffer);
+assert_eq!(buffer.line_slice(2)[2], Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 });
+
+window.set_rect_color(Color::from_rgb_u8(0, 128, 0));
+window.render(&mut buffer);
+assert_eq!(buffer.line_slice(2)[2], Rgba8Pixel { r: 0, g: 128, b: 0, a: 255 });
+```
+*/

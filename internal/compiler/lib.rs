@@ -183,6 +183,13 @@ pub struct CompilerConfiguration {
 
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
+
+    /// Enable safety-critical mode: the Slint SC generator is used instead
+    /// of the normal Rust generator, and only a tiny subset of the language
+    /// is accepted (`Window` / `Rectangle` / `Image` and a few properties).
+    ///
+    /// See `docs/safety/` for the rationale behind this flag.
+    pub safety_critical: bool,
 }
 
 impl CompilerConfiguration {
@@ -270,6 +277,7 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            safety_critical: false,
         }
     }
 }
@@ -281,6 +289,13 @@ fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> typeloader::TypeLoader {
+    #[cfg(feature = "software-renderer")]
+    if compiler_config.safety_critical {
+        // Slint SC embeds images as pre-rendered textures, just like the
+        // software renderer path.  Force the setting so users don't have to
+        // remember to combine two flags.
+        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
+    }
     #[cfg(feature = "software-renderer")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer

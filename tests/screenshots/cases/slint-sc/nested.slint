@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=64x64
+// Exercises tree traversal (parent + child rectangle), sibling overlap,
+// the opaque fast path and the alpha-blending path, all in one scene.
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: #ffffff;
+
+    // Opaque blue base rectangle with an opaque cyan child sitting on top.
+    Rectangle {
+        x: 4px;
+        y: 4px;
+        width: 36px;
+        height: 36px;
+        background: #2060c0;
+
+        Rectangle {
+            x: 6px;
+            y: 6px;
+            width: 20px;
+            height: 20px;
+            background: #30d0f0;
+        }
+    }
+
+    // Sibling: half-transparent red, overlapping the blue so the alpha
+    // blender has to mix real pixels rather than just copy the source.
+    Rectangle {
+        x: 24px;
+        y: 24px;
+        width: 36px;
+        height: 36px;
+        background: #ff000080;
+    }
+}

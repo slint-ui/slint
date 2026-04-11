@@ -250,6 +250,21 @@ impl CompilerConfiguration {
         config.rust_module = Some(rust_module.to_string());
         Self { config }
     }
+    /// Enables the Slint SC (safety-critical) code generator.
+    ///
+    /// When enabled, the `.slint` file is compiled through a drastically
+    /// reduced subset of the Slint language — see `docs/safety/` and the
+    /// [`slint-sc`](https://docs.rs/slint-sc) crate.  The generated code
+    /// depends on `slint_sc` instead of `slint`.
+    ///
+    /// This is currently a prototype and the API surface is unstable.
+    #[must_use]
+    pub fn with_safety_critical(self, enable: bool) -> Self {
+        let mut config = self.config;
+        config.safety_critical = enable;
+        Self { config }
+    }
+
     /// Configures the compiler to use Signed Distance Field (SDF) encoding for fonts.
     ///
     /// This flag only takes effect when `embed_resources` is set to [`EmbedResourcesKind::EmbedForSoftwareRenderer`],
@@ -582,8 +597,13 @@ pub fn compile_with_output_path(
     let output_file =
         std::fs::File::create(&output_rust_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
-    let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
-        .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
+    let generated = if loader.compiler_config.safety_critical {
+        i_slint_compiler::generator::slint_sc::generate(&doc, &loader.compiler_config)
+            .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?
+    } else {
+        i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
+            .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?
+    };
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 

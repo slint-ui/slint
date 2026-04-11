@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 #[cfg(feature = "pixel-bgra8888")]
-mod bgra8888;
-
-#[cfg(feature = "pixel-bgra8888")]
-pub type PlatformPixel = crate::pixels::bgra8888::Bgra8888Pixel;
+pub type PlatformPixel = slint_sc::Bgra8Pixel;
 #[cfg(feature = "pixel-rgb565")]
-pub type PlatformPixel = slint::platform::software_renderer::Rgb565Pixel;
+pub type PlatformPixel = slint_sc::Rgb565Pixel;
 #[cfg(feature = "pixel-rgb888")]
-pub type PlatformPixel = slint::Rgb8Pixel;
+pub type PlatformPixel = slint_sc::Rgb8Pixel;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
