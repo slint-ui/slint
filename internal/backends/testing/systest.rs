@@ -161,7 +161,8 @@ impl TestingClient {
                     proto::PointerEventButton::try_from(button)
                         .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
                 );
-                let target = target.ok_or_else(|| "element drag request missing target".to_string())?;
+                let target =
+                    target.ok_or_else(|| "element drag request missing target".to_string())?;
                 let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
                 element.drag(target, button).await;
                 Resp::ElementDragResponse(proto::ElementDragResponse {})
