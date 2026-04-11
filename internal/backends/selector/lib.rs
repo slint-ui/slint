@@ -173,10 +173,11 @@ pub fn with_global_context<R>(f: impl FnOnce(&SlintContext) -> R) -> Result<R, P
     }
 
     #[cfg(feature = "mcp")]
-    if result.is_ok() && platform_created {
-        if let Err(e) = i_slint_backend_testing::mcp_server::init() {
-            i_slint_core::debug_log!("MCP server init failed: {e:?}");
-        }
+    if result.is_ok()
+        && platform_created
+        && let Err(e) = i_slint_backend_testing::mcp_server::init()
+    {
+        i_slint_core::debug_log!("MCP server init failed: {e:?}");
     }
 
     result
