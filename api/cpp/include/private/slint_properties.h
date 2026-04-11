@@ -201,7 +201,13 @@ struct Property
                     },
                     new BindingMapper { t2_binding, self->map_to, self->map_from },
                     [](void *user_data) { delete reinterpret_cast<BindingMapper *>(user_data); },
-                    nullptr, nullptr);
+                    [](void *user_data, const void *value) {
+                        auto self = reinterpret_cast<BindingMapper *>(user_data);
+                        T2 sub_value = self->map_to(*reinterpret_cast<const T *>(value));
+                        return cbindgen_private::slint_property_intercept_set_binding(
+                                self->t2_binding, &sub_value);
+                    },
+                    nullptr);
             return true;
         };
 
