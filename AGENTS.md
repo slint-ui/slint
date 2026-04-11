@@ -89,7 +89,7 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
   - `android-activity/` - Android platform support
   - `linuxkms/` - Linux KMS/DRM direct rendering
   - `selector/` - Runtime backend selection
-  - `testing/` - Testing backend for automated tests
+  - `testing/` - Testing backend for automated tests, system testing (protobuf/TCP), and embedded MCP server for AI-assisted UI introspection
 
 - **`internal/renderers/`** - Rendering engines:
   - `femtovg/` - OpenGL ES 2.0
@@ -179,4 +179,5 @@ For tasks requiring deeper architectural understanding, see:
 - **`docs/development/text-layout.md`** - Text shaping, line breaking, paragraph layout, styled text parsing. Load when working on `internal/core/textlayout/` or text rendering.
 - **`docs/development/window-backend-integration.md`** - WindowAdapter trait, Platform trait, WindowEvent, popup management, backend implementations. Load when working on `internal/core/window.rs` or `internal/backends/`.
 - **`docs/development/lsp-architecture.md`** - LSP server, code completion, hover, semantic tokens, live preview. Load when working on `tools/lsp/` or IDE tooling.
+- **`docs/development/mcp-server.md`** - Embedded MCP server architecture, shared introspection layer, handle/arena system, HTTP transport, adding tools. Load when working on `internal/backends/testing/mcp_server.rs`, `introspection.rs`, or MCP-related features.
 - **`docs/development/ffi-language-bindings.md`** - C++/Node.js/Python bindings, cbindgen, FFI patterns, adding new cross-language APIs. Load when working on `api/` or internal FFI modules.
