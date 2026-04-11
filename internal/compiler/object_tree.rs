@@ -2432,12 +2432,28 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .for_each(|c| recurse_elem_including_sub_components_no_borrow(c, state, vis));
 }
 
-/// This visit the binding attached to this element, but does not recurse in children elements
-/// Also does not recurse within the expressions.
+/// Visit the model expression of `elem`, if `elem` is the body of a `for`.
 ///
-/// This code will temporarily move the bindings or states member so it can call the visitor without
-/// maintaining a borrow on the RefCell.
-pub fn visit_element_expressions(
+/// The expression is temporarily moved out of `repeated.model` so the visitor
+/// can mutate it without holding a borrow on `elem`.
+pub fn visit_repeater_model_expression(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+) {
+    let repeated = elem
+        .borrow_mut()
+        .repeated
+        .as_mut()
+        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
+    if let Some((mut model, is_cond)) = repeated {
+        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
+        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
+    }
+}
+
+/// Like [`visit_element_expressions`] but skips the repeater model
+/// expression. Use [`visit_repeater_model_expression`] separately for that.
+pub fn visit_element_expressions_excluding_repeater_model(
     elem: &ElementRc,
     mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
 ) {
@@ -2449,6 +2465,17 @@ pub fn visit_element_expressions(
             vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
                 elem.borrow().lookup_property(name).property_type
             });
+
+            for twb in &mut expr.borrow_mut().two_way_bindings {
+                if let expression_tree::TwoWayBinding::ModelData { repeated_element, .. } = twb {
+                    let mut e =
+                        Expression::RepeaterModelReference { element: repeated_element.clone() };
+                    vis(&mut e, None, &|| Type::Invalid);
+                    if let Expression::RepeaterModelReference { element } = e {
+                        *repeated_element = element;
+                    }
+                }
+            }
 
             match &mut expr.borrow_mut().animation {
                 Some(PropertyAnimation::Static(e)) => visit_element_expressions_simple(e, vis),
@@ -2463,15 +2490,6 @@ pub fn visit_element_expressions(
         }
     }
 
-    let repeated = elem
-        .borrow_mut()
-        .repeated
-        .as_mut()
-        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
-    if let Some((mut model, is_cond)) = repeated {
-        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
-        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
-    }
     visit_element_expressions_simple(elem, &mut vis);
 
     for expr in elem.borrow().change_callbacks.values() {
@@ -2507,6 +2525,14 @@ pub fn visit_element_expressions(
             vis(e, None, &|| Type::Void);
         }
     }
+}
+
+pub fn visit_element_expressions(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+) {
+    visit_repeater_model_expression(elem, &mut vis);
+    visit_element_expressions_excluding_repeater_model(elem, &mut vis);
 }
 
 pub fn visit_named_references_in_expression(
@@ -2610,8 +2636,10 @@ pub fn visit_all_named_references_in_element(
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {
-        for nr in &mut expr.borrow_mut().two_way_bindings {
-            vis(&mut nr.property);
+        for twb in &mut expr.borrow_mut().two_way_bindings {
+            if let expression_tree::TwoWayBinding::Property { property, .. } = twb {
+                vis(property);
+            }
         }
     }
 
