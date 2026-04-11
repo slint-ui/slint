@@ -159,6 +159,16 @@ pub unsafe extern "C" fn slint_property_evaluate_binding(binding: *mut c_void, v
     unsafe { ((*b).vtable.evaluate)(b, value) };
 }
 
+/// Call `intercept_set` on a raw binding, returning whether the binding accepted the write
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_intercept_set_binding(
+    binding: *mut c_void,
+    value: *const c_void,
+) -> bool {
+    let b = binding as *mut BindingHolder;
+    unsafe { ((*b).vtable.intercept_set)(b, value) }
+}
+
 /// Returns whether the property behind this handle is marked as dirty
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
