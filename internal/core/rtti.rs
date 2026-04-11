@@ -155,6 +155,16 @@ pub trait PropertyInfo<Item, Value> {
         property2: Pin<Rc<Property<Value>>>,
         mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
     );
+
+    /// Install a two-way binding between this property and a row of a model.
+    /// `getter` reads the current row value (or `None` if the row no longer
+    /// exists); `setter` writes a new value back into the row.
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<&Item>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    );
 }
 
 impl<Item: 'static, T, Value> PropertyInfo<Item, Value> for FieldOffset<Item, Property<T>>
@@ -257,6 +267,19 @@ where
                 );
             }
         }
+    }
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<&Item>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    ) {
+        self.apply_pin(item).link_two_way_to_model_data(
+            (),
+            move |_| getter().and_then(|v| v.try_into().ok()),
+            move |_, v: &T| setter(&v.clone().try_into().unwrap_or_default()),
+        );
     }
 }
 
@@ -370,6 +393,15 @@ where
         mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
     ) {
         self.0.link_two_way_with_map(item, property2, mapper)
+    }
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<&Item>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    ) {
+        self.0.link_two_way_to_model_data(item, getter, setter)
     }
 }
 
