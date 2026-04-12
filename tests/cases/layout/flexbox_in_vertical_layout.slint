@@ -58,15 +58,10 @@ export component TestCase inherits Window {
     }
 
     // --- Wide state: all items fit on one row ---
-    // Note: the flex items are correctly positioned on one row, but the
-    // VerticalLayout may allocate more height than needed because the
-    // flex's preferred-height uses a heuristic (no actual width available
-    // at layout_info time). We check that text.y >= 50px (below the flex
-    // items) but don't require the exact value.
     out property <bool> wide_r1_ok: r1.x == 0px && r1.y == 0px;
     out property <bool> wide_r2_ok: r2.x == 110px && r2.y == 0px;
     out property <bool> wide_r3_ok: r3.x == 220px && r3.y == 0px;
-    out property <bool> wide_text_ok: text.y >= 50px;
+    out property <bool> wide_text_ok: text.x == 0px && text.y == 50px;
     out property <bool> wide_ok: wide_r1_ok && wide_r2_ok && wide_r3_ok && wide_text_ok;
 
     // --- Narrow state: each item gets its own row ---
