@@ -591,9 +591,10 @@ public:
     /// directions in logical pixels.
     /// \a scroll_phase represents the current phase of scrolling. If no phase is
     /// available like for mouse scroll wheels, use the default
-    void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y,
-                                       slint::cbindgen_private::types::TouchPhase scroll_phase =
-                                               slint::cbindgen_private::types::TouchPhase::Moved)
+    void
+    dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y,
+                                  slint::cbindgen_private::types::TouchPhase scroll_phase =
+                                          slint::cbindgen_private::types::TouchPhase::Cancelled)
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Wheel(

@@ -399,8 +399,8 @@ struct FlickableDataInner {
     /// Ringbuffer to store the last move events. From those data the velocity can be
     /// calculated required for the animation after the release event
     position_time_rb: PositionTimeRingBuffer<5>,
-    /// Emits `flicked` once more when a wheel animation has settled.
-    wheel_animation_end_timer: Option<Timer>,
+    /// Emits `flicked` once more when a standalone wheel animation has settled.
+    wheel_animation_end_timer: Timer,
 }
 
 impl FlickableDataInner {
@@ -442,6 +442,9 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         if phase == TouchPhase::Ended {
+            if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
+                self.animate(flick, flick_rc);
+            }
             self.capture_events = None;
             return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
                 InputEventResult::EventAccepted
@@ -450,7 +453,10 @@ impl FlickableDataInner {
             };
         }
 
-        if !Self::is_allowed_scroll_direction(flick, delta, flick_rc) {
+        if phase != TouchPhase::Started
+            && delta != LogicalVector::default()
+            && !Self::is_allowed_scroll_direction(flick, delta, flick_rc)
+        {
             // Release the capture immediately, this event is not meant for this Flickable.
             self.capture_events = None;
             self.last_scroll_event = None;
@@ -467,12 +473,13 @@ impl FlickableDataInner {
         let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
         let old_pos = (viewport_x.get(), viewport_y.get());
+        let mut schedule_wheel_animation_end_callback = false;
 
         match phase {
             TouchPhase::Cancelled => {
-                let animation = Self::wheel_scroll_animation();
-                viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
-                viewport_y.set_animated_value(new_pos.y_length(), animation);
+                self.stop_wheel_animation_end_timer();
+                viewport_x.set(new_pos.x_length());
+                viewport_y.set(new_pos.y_length());
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
@@ -482,9 +489,17 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
-                let animation = Self::wheel_scroll_animation();
-                viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
-                viewport_y.set_animated_value(new_pos.y_length(), animation);
+                if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
+                    self.position_time_rb.push(crate::animations::current_tick(), new_pos);
+                    viewport_x.set(new_pos.x_length());
+                    viewport_y.set(new_pos.y_length());
+                } else {
+                    self.stop_wheel_animation_end_timer();
+                    let animation = Self::wheel_scroll_animation();
+                    viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
+                    viewport_y.set_animated_value(new_pos.y_length(), animation);
+                    schedule_wheel_animation_end_callback = true;
+                }
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Ended => unreachable!(),
@@ -493,7 +508,9 @@ impl FlickableDataInner {
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
         if flicked {
             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
-            self.schedule_wheel_animation_end_callback(flick_rc);
+            if schedule_wheel_animation_end_callback {
+                self.schedule_wheel_animation_end_callback(flick_rc);
+            }
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
@@ -507,15 +524,12 @@ impl FlickableDataInner {
     }
 
     fn stop_wheel_animation_end_timer(&mut self) {
-        if let Some(timer) = self.wheel_animation_end_timer.take() {
-            timer.stop();
-        }
+        self.wheel_animation_end_timer.stop();
     }
 
     fn schedule_wheel_animation_end_callback(&mut self, flick_rc: &ItemRc) {
-        let timer = self.wheel_animation_end_timer.get_or_insert_default();
         let flick_weak = flick_rc.downgrade();
-        timer.start(
+        self.wheel_animation_end_timer.start(
             TimerMode::SingleShot,
             Duration::from_millis(WHEEL_SCROLL_DURATION as u64),
             move || {
