@@ -1392,6 +1392,65 @@ fn call_builtin_function(
                 }
             }
         }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context);
+
+            model.push_row(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+             let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i as usize,
+                _ => panic!("Second argument not an integer: {:?}", arguments[0]),
+            };
+
+            model.remove_row(index);
+
+            model.iter().for_each(|item| println!("{item:?}"));
+
+            model.as_any()
+                .downcast_ref::<corelib::model::SharedVectorModel<Value>>()
+                .expect("Couldn't get the array from the model in ArrayRemove");
+
+            Value::Void
+        }
+
+        BuiltinFunction::ArrayInsert => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayInsert")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context) {
+                Value::Number(i) => i as usize,
+                _ => panic!("Second argument not an integer: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[2], local_context);
+
+            model.insert_row(index, value);
+
+            Value::Void
+        }
         BuiltinFunction::Rgb => {
             let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();

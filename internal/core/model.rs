@@ -144,6 +144,29 @@ pub trait Model {
         );
     }
 
+    /// Add a new row to the model.
+    ///
+    /// This function should be called on a model that supports multiple rows of data, otherwise
+    /// it might panic.
+    fn push_row(&self, data: Self::Data) {
+        self.set_row_data(self.row_count(), data);
+    }
+
+    /// Insert a new row at the specified index and move the next rows by 1 step to the right.
+    ///
+    /// This function should be called on a model that supports multiple rows of data, otherwise
+    /// it might panic.
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        if row < self.row_count() {
+            for i in (row..self.row_count()).rev() {
+                if let Some(d) = self.row_data(i) {
+                    self.set_row_data(i + 1, d);
+                }
+            }
+        }
+        self.set_row_data(row, data);
+    }
+
     /// The implementation should return a reference to its [`ModelNotify`] field.
     ///
     /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.

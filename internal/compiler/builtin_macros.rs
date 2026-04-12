@@ -88,6 +88,9 @@ pub fn lower_macro(
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::ArrayPush => array_push_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::ArrayRemove => array_remove_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::ArrayInsert => array_insert_macro(n, sub_expr.collect(), diag),
     }
 }
 
@@ -375,6 +378,116 @@ fn debug_macro(
         arguments: vec![
             string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String)),
         ],
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn array_push_macro(
+    node: &dyn Spanned,
+    mut args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 2 {
+        diag.push_error(
+            format!(
+                "This method needs 1 argument but {} were provided",
+                if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
+            ),
+            node
+        );
+        return Expression::Invalid;
+    }
+
+    let element_type = match args[0].0.ty() {
+        Type::Array(t) => (*t).clone(),
+        _ => {
+            diag.push_error(
+                format!("push() was called on a non-array: {:?}", args[0].0),
+                node
+            );
+            return Expression::Invalid;
+        }
+    };
+
+    let (model_expr, _) = args.remove(0);
+    let (value_expr, value_node) = args.remove(0);
+    let value = value_expr.maybe_convert_to(element_type, &value_node, diag);
+    Expression::FunctionCall {
+        function: Callable::Builtin(BuiltinFunction::ArrayPush),
+        arguments: vec![model_expr, value],
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn array_remove_macro(
+    node: &dyn Spanned,
+    mut args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 2 {
+        diag.push_error(
+            format!(
+                "This method needs 1 argument but {} were provided",
+                if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
+            ),
+            node
+        );
+        return Expression::Invalid;
+    }
+
+    if !matches!(args[0].0.ty(), Type::Array(_)) {
+        diag.push_error(
+            format!("remove() was called on a non-array: {:?}", args[0].0),
+            node
+        );
+        return Expression::Invalid;
+    }
+
+    let (model_expr, _) = args.remove(0);
+    let (index_expr, index_node) = args.remove(0);
+    let index = index_expr.maybe_convert_to(Type::Int32, &index_node, diag);
+    Expression::FunctionCall {
+        function: Callable::Builtin(BuiltinFunction::ArrayRemove),
+        arguments: vec![model_expr, index],
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn array_insert_macro(
+    node: &dyn Spanned,
+    mut args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 3 {
+        diag.push_error(
+            format!(
+                "This method needs 2 argument but {} were provided",
+                if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
+            ),
+            node
+        );
+        return Expression::Invalid;
+    }
+
+    let element_type = match args[0].0.ty() {
+        Type::Array(t) => (*t).clone(),
+        _ => {
+            diag.push_error(
+                format!("push() was called on a non-array: {:?}", args[0].0),
+                node
+            );
+            return Expression::Invalid;
+        }
+    };
+
+    let (model_expr, _) = args.remove(0);
+    let (index_expr, index_node) = args.remove(0);
+    let (value_expr, value_node) = args.remove(0);
+    let index = index_expr.maybe_convert_to(Type::Int32, &index_node, diag);
+    let value = value_expr.maybe_convert_to(element_type, &value_node, diag);
+    Expression::FunctionCall {
+        function: Callable::Builtin(BuiltinFunction::ArrayInsert),
+        arguments: vec![model_expr, index, value],
         source_location: Some(node.to_source_location()),
     }
 }

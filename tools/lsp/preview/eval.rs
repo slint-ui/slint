@@ -621,6 +621,69 @@ fn handle_builtin_function(
                 _ => Value::Void,
             }
         }
+        BuiltinFunction::ArrayPush => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayPush")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let value = eval_expression(&arguments[1], local_context, None);
+
+
+            model.as_any()
+                .downcast_ref::<i_slint_core::model::SharedVectorModel<Value>>()
+                .expect("ArrayPush only works on mutable arrays")
+                .push(value);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+
+            let index = match eval_expression(&arguments[1], local_context, None) {
+                Value::Number(i) => i as usize,
+                _ => panic!("Second argument not an integer: {:?}", arguments[0]),
+            };
+
+            model.as_any()
+                .downcast_ref::<i_slint_core::model::SharedVectorModel<Value>>()
+                .expect("ArrayRemove only works on mutable arrays")
+                .remove(index);
+
+            Value::Void
+        }
+        BuiltinFunction::ArrayRemove => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ArrayRemove")
+            }
+
+            let model = match eval_expression(&arguments[0], local_context, None) {
+                Value::Model(m) => m,
+                _ => panic!("First argument not an array: {:?}", arguments[0]),
+            };
+            let index = match eval_expression(&arguments[1], local_context, None) {
+                Value::Number(i) => i as usize,
+                _ => panic!("Second argument not an integer: {:?}", arguments[0]),
+            };
+            let value=  eval_expression(&arguments[2], local_context, None);
+
+            model.as_any()
+                .downcast_ref::<i_slint_core::model::SharedVectorModel<Value>>()
+                .expect("ArrayRemove only works on mutable arrays")
+                .insert(index, value);
+
+            Value::Void
+        }
         BuiltinFunction::Rgb => {
             let r: i32 =
                 eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
