@@ -322,6 +322,19 @@ pub(crate) fn compute_flexbox_layout_info(
         )
         .into()
     } else {
+        // Read the perpendicular (main-axis) dimension as constraint for cross-axis info.
+        // For row flex, cross-axis is vertical, perpendicular is width.
+        // For column flex, cross-axis is horizontal, perpendicular is height.
+        let constraint_size = match orientation {
+            Orientation::Horizontal => {
+                let height_ref = &flexbox_layout.geometry.rect.height_reference;
+                height_ref.as_ref().map(&expr_eval).unwrap_or(0.)
+            }
+            Orientation::Vertical => {
+                let width_ref = &flexbox_layout.geometry.rect.width_reference;
+                width_ref.as_ref().map(&expr_eval).unwrap_or(0.)
+            }
+        };
         core_layout::flexbox_layout_info_cross_axis(
             Slice::from(cells_h.as_slice()),
             Slice::from(cells_v.as_slice()),
@@ -331,6 +344,7 @@ pub(crate) fn compute_flexbox_layout_info(
             &padding_v,
             direction,
             flex_wrap,
+            constraint_size,
         )
         .into()
     }

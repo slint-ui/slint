@@ -455,9 +455,18 @@ fn compute_flexbox_layout_info_for_direction(
         generate_layout_padding_and_spacing(&layout.geometry, Orientation::Vertical, ctx);
 
     if is_cross_axis {
-        // Cross-axis layout info: uses both axes' cells and computes the main-axis
-        // preferred size internally as the taffy constraint, avoiding any dependency
-        // on the parent's solved dimensions.
+        // Cross-axis layout info: pass the main-axis container dimension as constraint
+        // for accurate wrapping. Falls back to heuristic if the constraint is unavailable
+        // (e.g., due to circular dependency in nested perpendicular flexboxes).
+        let constraint_size = match orientation {
+            Orientation::Horizontal => {
+                layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx)
+            }
+            Orientation::Vertical => {
+                layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx)
+            }
+        };
+
         let arguments = vec![
             fld.cells_h,
             fld.cells_v,
@@ -467,6 +476,7 @@ fn compute_flexbox_layout_info_for_direction(
             padding_v,
             fld.direction,
             fld.flex_wrap,
+            constraint_size,
         ];
 
         match fld.compute_cells {

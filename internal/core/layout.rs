@@ -1781,12 +1781,12 @@ pub fn flexbox_layout_info_main_axis(
 
 /// Return cross-axis LayoutInfo for a FlexboxLayout.
 ///
-/// This computes the intrinsic cross-axis size without depending on the
-/// parent's solved dimensions, avoiding circular dependencies when layouts
-/// query a FlexboxLayout child's preferred size. Instead of reading the
-/// parent's assigned width/height, it computes the main-axis preferred size
-/// internally (via the same heuristic as `flexbox_layout_info_main_axis`)
-/// and uses that as the constraint for taffy's wrapping calculation.
+/// `constraint_size` is the main-axis container dimension (width for row,
+/// height for column). When valid (> 0 and < MAX), it's used as the taffy
+/// constraint for accurate wrapping. When invalid (e.g. 0, negative, or
+/// MAX — which can happen due to circular dependencies in nested
+/// perpendicular flexboxes), falls back to a heuristic based on
+/// `flexbox_layout_info_main_axis`.
 pub fn flexbox_layout_info_cross_axis(
     cells_h: Slice<FlexboxLayoutItemInfo>,
     cells_v: Slice<FlexboxLayoutItemInfo>,
@@ -1796,6 +1796,7 @@ pub fn flexbox_layout_info_cross_axis(
     padding_v: &Padding,
     direction: FlexboxLayoutDirection,
     flex_wrap: FlexboxLayoutWrap,
+    constraint_size: Coord,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
@@ -1838,7 +1839,10 @@ pub fn flexbox_layout_info_cross_axis(
         }
     };
     let main_extra_pad = main_padding.begin + main_padding.end;
-    let main_axis_constraint = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+    let main_axis_constraint = if constraint_size > 0 as Coord && constraint_size < Coord::MAX {
+        // Use the actual container main-axis dimension (accurate)
+        constraint_size
+    } else if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
         Coord::MAX
     } else {
         // Use actual item areas (main * cross) for the heuristic, since both
@@ -2043,9 +2047,18 @@ pub(crate) mod ffi {
         padding_v: &Padding,
         direction: FlexboxLayoutDirection,
         flex_wrap: FlexboxLayoutWrap,
+        constraint_size: Coord,
     ) -> LayoutInfo {
         super::flexbox_layout_info_cross_axis(
-            cells_h, cells_v, spacing_h, spacing_v, padding_h, padding_v, direction, flex_wrap,
+            cells_h,
+            cells_v,
+            spacing_h,
+            spacing_v,
+            padding_h,
+            padding_v,
+            direction,
+            flex_wrap,
+            constraint_size,
         )
     }
 }

@@ -574,10 +574,18 @@ fn recurse_expression(
                         );
                     }
                     FlexboxAxisRelation::CrossAxis => {
-                        // Cross axis: the runtime uses a heuristic for the main-axis
-                        // constraint (no dependency on the perpendicular dimension).
-                        // Visit both orientations' item dependencies (taffy needs both
-                        // for the heuristic wrapping computation).
+                        // Cross axis: depends on the perpendicular (main-axis) dimension
+                        // for accurate wrapping.
+                        if *orientation == Orientation::Vertical
+                            && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                        {
+                            vis(&nr.clone().into(), P);
+                        }
+                        if *orientation == Orientation::Horizontal
+                            && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                        {
+                            vis(&nr.clone().into(), P);
+                        }
                         visit_layout_items_dependencies(
                             layout.elems.iter().map(|fi| &fi.item),
                             Orientation::Horizontal,

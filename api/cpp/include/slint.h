@@ -222,11 +222,13 @@ flexbox_layout_info_cross_axis(cbindgen_private::Slice<cbindgen_private::Flexbox
                                const cbindgen_private::Padding &padding_h,
                                const cbindgen_private::Padding &padding_v,
                                cbindgen_private::FlexboxLayoutDirection direction,
-                               cbindgen_private::FlexboxLayoutWrap flex_wrap)
+                               cbindgen_private::FlexboxLayoutWrap flex_wrap,
+                               float constraint_size)
 {
     return cbindgen_private::slint_flexbox_layout_info_cross_axis(cells_h, cells_v, spacing_h,
                                                                    spacing_v, &padding_h, &padding_v,
-                                                                   direction, flex_wrap);
+                                                                   direction, flex_wrap,
+                                                                   constraint_size);
 }
 
 /// Access the layout cache of an item within a repeater (standard cache)
