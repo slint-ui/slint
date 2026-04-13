@@ -3791,8 +3791,7 @@ fn compile_builtin_function_call(
 
             let current_sub_component = ctx.current_sub_component().unwrap();
             let item_tree_id = inner_component_id(
-                &ctx.compilation_unit.sub_components
-                    [current_sub_component.menu_item_trees[0].root],
+                &ctx.compilation_unit.sub_components[current_sub_component.menu_item_trees[0].root],
             );
 
             quote!({
