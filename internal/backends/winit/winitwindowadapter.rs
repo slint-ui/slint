@@ -1497,6 +1497,8 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         let size = LogicalSize::new(geometry.width(), geometry.height());
         let position = LogicalPosition::new(geometry.origin.x, geometry.origin.y);
 
+        println!("Winit Window Adapter show_popup(). Size: {:?}", size);
+
         let winit_window = window_adapter
             .internal(i_slint_core::InternalToken)
             .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
