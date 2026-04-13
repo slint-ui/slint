@@ -68,4 +68,21 @@ assert_eq(instance.get_popup_counter(), 12);
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_popup_counter(), 22);
 ```
+
+```js
+let instance = new slint.TestCase({});
+
+assert.equal(instance.popup_counter, 0);
+instance.show_popup();
+assert.equal(instance.popup_counter, 1);
+
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.popup_counter, 11);
+
+instance.show_popup();
+assert.equal(instance.popup_counter, 12);
+
+slintlib.private_api.send_mouse_click(instance, 15., 15.);
+assert.equal(instance.popup_counter, 22);
+```
 */
