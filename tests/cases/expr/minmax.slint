@@ -35,4 +35,18 @@ assert.equal(instance.t1, 98.5);
 assert(instance.t2);
 assert(instance.test);
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.Equal(98.5, t1)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.True(t2)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

@@ -37,4 +37,13 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_test(), true);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

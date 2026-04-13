@@ -95,4 +95,51 @@ assert.equal(instance.sub_foo1, 15);
 assert.equal(instance.sub_foo2, 15);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+subWidth1, err := instance.GetSubWidth1()
+assertion.NoError(err)
+assertion.Equal(80.0, subWidth1)
+subWidth2, err := instance.GetSubWidth2()
+assertion.NoError(err)
+assertion.Equal(80.0, subWidth2)
+assertion.NoError(instance.SetSubWidth1(99.0))
+subWidth1, err = instance.GetSubWidth1()
+assertion.NoError(err)
+assertion.Equal(99.0, subWidth1)
+subWidth2, err = instance.GetSubWidth2()
+assertion.NoError(err)
+assertion.Equal(99.0, subWidth2)
+
+assertion.NoError(instance.SetSubWidth2(23.0))
+subWidth1, err = instance.GetSubWidth1()
+assertion.NoError(err)
+assertion.Equal(99.0, subWidth1)
+subWidth2, err = instance.GetSubWidth2()
+assertion.NoError(err)
+assertion.Equal(23.0, subWidth2)
+assertion.NoError(instance.SetSubWidth1(88.0))
+subWidth1, err = instance.GetSubWidth1()
+assertion.NoError(err)
+assertion.Equal(88.0, subWidth1)
+subWidth2, err = instance.GetSubWidth2()
+assertion.NoError(err)
+assertion.Equal(23.0, subWidth2)
+
+subFoo1, err := instance.GetSubFoo1()
+assertion.NoError(err)
+assertion.Equal(44.0, subFoo1)
+subFoo2, err := instance.GetSubFoo2()
+assertion.NoError(err)
+assertion.Equal(44.0, subFoo2)
+assertion.NoError(instance.SetSubFoo1(15.0))
+subFoo1, err = instance.GetSubFoo1()
+assertion.NoError(err)
+assertion.Equal(15.0, subFoo1)
+subFoo2, err = instance.GetSubFoo2()
+assertion.NoError(err)
+assertion.Equal(15.0, subFoo2)
+```
+
 */

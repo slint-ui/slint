@@ -50,4 +50,35 @@ assert.equal(instance.MyGlobal.hello, 100);
 assert.equal(instance.GlobalAlias.hello, 100);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+testGlobalPropValue, err := instance.GetTestGlobalPropValue()
+assertion.NoError(err)
+assertion.False(testGlobalPropValue)
+
+myGlobal := instance.MyGlobal()
+hello, err := myGlobal.GetHello()
+assertion.NoError(err)
+assertion.Equal(42.0, hello)
+
+globalAlias := instance.GlobalAlias()
+hello, err = globalAlias.GetHello()
+assertion.NoError(err)
+assertion.Equal(42.0, hello)
+
+assertion.NoError(myGlobal.SetHello(100.0))
+testGlobalPropValue, err = instance.GetTestGlobalPropValue()
+assertion.NoError(err)
+assertion.True(testGlobalPropValue)
+
+hello, err = myGlobal.GetHello()
+assertion.NoError(err)
+assertion.Equal(100.0, hello)
+hello, err = globalAlias.GetHello()
+assertion.NoError(err)
+assertion.Equal(100.0, hello)
+```
+
 */

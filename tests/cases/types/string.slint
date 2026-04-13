@@ -50,4 +50,27 @@ assert(!instance.e2);
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+p1, err := instance.GetP1()
+assertion.NoError(err)
+assertion.Equal("hello", p1)
+p2, err := instance.GetP2()
+assertion.NoError(err)
+assertion.Equal("fox:🦊", p2)
+p3, err := instance.GetP3()
+assertion.NoError(err)
+assertion.Equal("with\"quote\\\"\b", p3)
+e1, err := instance.GetE1()
+assertion.NoError(err)
+assertion.True(e1)
+e2, err := instance.GetE2()
+assertion.NoError(err)
+assertion.False(e2)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

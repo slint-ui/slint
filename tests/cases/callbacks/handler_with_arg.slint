@@ -96,6 +96,49 @@ assert.equal(callback_3_int_value, 55); // same as before
 
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+callback3Emitted := 0
+var callback3StringValue string
+var callback3IntValue float64
+assertion.NoError(instance.OnTestCallback3(func(a float64, b string) {
+	callback3Emitted++
+	callback3StringValue = b
+	callback3IntValue = a
+}))
+
+assertion.NoError(instance.SetCallbackEmissionCount(0))
+callbackEmissionCount, err := instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(0.0, callbackEmissionCount)
+
+assertion.NoError(instance.InvokeTestCallback(42.0))
+callbackEmissionCount, err = instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(1.0, callbackEmissionCount)
+assertion.Equal(0, callback3Emitted)
+
+assertion.NoError(instance.InvokeTestCallback2("hello"))
+callbackEmissionCount, err = instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(88.0, callbackEmissionCount)
+assertion.Equal(1, callback3Emitted)
+assertion.Equal("hello", callback3StringValue)
+assertion.Equal(55.0, callback3IntValue)
+
+assertion.NoError(instance.SetCallbackEmissionCount(0))
+assertion.NoError(instance.OnTestCallback2(func(a string) {
+	callback3Emitted += 100
+	callback3StringValue = a
+}))
+assertion.NoError(instance.InvokeTestCallback2("salùt"))
+assertion.Equal(101, callback3Emitted)
+assertion.Equal("salùt", callback3StringValue)
+assertion.Equal(55.0, callback3IntValue)
+```
+
 
 
 */

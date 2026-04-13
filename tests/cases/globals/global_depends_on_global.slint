@@ -54,4 +54,18 @@ instance.set_a(4);
 assert.equal(instance.value1, 4 + 13);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+value1, err := instance.GetValue1()
+assertion.NoError(err)
+assertion.Equal(16.0, value1)
+
+assertion.NoError(instance.InvokeSetA(4.0))
+value1, err = instance.GetValue1()
+assertion.NoError(err)
+assertion.Equal(17.0, value1)
+```
+
 */

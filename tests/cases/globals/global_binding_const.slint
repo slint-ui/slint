@@ -48,4 +48,17 @@ assert.equal(instance.value3, 82);
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+value3, err := instance.GetValue3()
+assertion.NoError(err)
+assertion.Equal(82.0, value3)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

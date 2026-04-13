@@ -49,4 +49,18 @@ instance.condition = true;
 assert.equal(instance.checksum, 33333);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+checksum, err := instance.GetChecksum()
+assertion.NoError(err)
+assertion.Equal(55555.0, checksum)
+
+assertion.NoError(instance.SetCondition(true))
+checksum, err = instance.GetChecksum()
+assertion.NoError(err)
+assertion.Equal(33333.0, checksum)
+```
+
 */

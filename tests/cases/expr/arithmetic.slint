@@ -73,4 +73,38 @@ assert.equal(instance.a, (((42 + 8) * 10) / 2) - 3);
 
 assert.equal(instance.len, ((25.+1.)/2. - 3.) * 3.);
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.Equal(-40.0, t1)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.Equal(7499.0, t2)
+t5, err := instance.GetT5()
+assertion.NoError(err)
+assertion.Equal(13.0, t5)
+
+assertion.NoError(instance.SetA(42.0))
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.Equal(42.0-(3+2*(42.0+2.0)), t3)
+t4, err := instance.GetT4()
+assertion.NoError(err)
+assertion.Equal(-1090.0, t4)
+t5, err = instance.GetT5()
+assertion.NoError(err)
+assertion.Equal(433.0, t5)
+
+assertion.NoError(instance.InvokeFoo())
+a, err := instance.GetA()
+assertion.NoError(err)
+assertion.Equal((((42.0 + 8.0) * 10.0) / 2.0) - 3.0, a)
+
+lenValue, err := instance.GetLen()
+assertion.NoError(err)
+assertion.Equal(((25.0+1.0)/2.0-3.0)*3.0, lenValue)
+```
 */
