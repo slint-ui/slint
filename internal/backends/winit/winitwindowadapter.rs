@@ -394,6 +394,10 @@ impl WinitWindowAdapter {
             ),
         });
 
+        // The renderer must be set, because otherwise for text layout infos the scale factor is not available
+        <Self as WindowAdapter>::renderer(&self_rc)
+            .set_window_adapter(&(self_rc.clone() as Rc<dyn WindowAdapter>));
+
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
 
         self_rc
