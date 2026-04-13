@@ -3903,12 +3903,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "generativity"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5881e4c3c2433fe4905bb19cfd2b5d49d4248274862b68c27c33d9ba4e13f9ec"
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10095,7 +10089,6 @@ version = "1.16.0"
 dependencies = [
  "derive_more",
  "document-features",
- "generativity",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
@@ -10112,6 +10105,7 @@ dependencies = [
  "serde_json",
  "smol_str 0.3.2",
  "spin_on",
+ "typed-index-collections",
  "unicode-segmentation",
  "vtable",
  "web-sys",

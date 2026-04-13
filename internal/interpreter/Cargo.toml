@@ -144,7 +144,6 @@ i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 vtable = { workspace = true }
 
 derive_more = { workspace = true, features = ["std", "error"] }
-generativity = "1"
 lyon_path = { workspace = true }
 once_cell = "1.5"
 serde_json = { workspace = true, optional = true }
@@ -153,6 +152,7 @@ spin_on = { workspace = true, optional = true }
 raw-window-handle-06 = { workspace = true, optional = true }
 itertools = { workspace = true }
 smol_str = { workspace = true }
+typed-index-collections = { workspace = true }
 unicode-segmentation = { workspace = true }
 
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }

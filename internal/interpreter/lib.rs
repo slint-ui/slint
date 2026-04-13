@@ -79,17 +79,23 @@ compile_error!(
 );
 
 mod api;
-mod dynamic_item_tree;
-mod dynamic_type;
+mod bindings;
+mod component;
+mod erased;
 mod eval;
 mod eval_layout;
-mod global_component;
+mod globals;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
+mod instance;
+mod item_holder;
+mod item_registry;
+mod item_tree_vtable;
 #[cfg(feature = "internal-json")]
 pub mod json;
 #[cfg(feature = "internal-live-preview")]
 pub mod live_preview;
+mod public_api;
 mod value_model;
 
 #[doc(inline)]

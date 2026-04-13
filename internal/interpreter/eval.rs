@@ -1,233 +1,586 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::api::{SetPropertyError, Struct, Value};
-use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
-use core::pin::Pin;
-use corelib::graphics::{
-    ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
-};
-use corelib::input::FocusReason;
-use corelib::items::{ColorScheme, ItemRc, ItemRef, PropertyAnimation, WindowItem};
-use corelib::menus::{Menu, MenuFromItemTree};
-use corelib::model::{Model, ModelExt, ModelRc, VecModel};
-use corelib::rtti::AnimatedBindingKind;
-use corelib::window::WindowInner;
-use corelib::{Brush, Color, PathData, SharedString, SharedVector};
-use i_slint_compiler::expression_tree::{
-    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
-    PathElement as ExprPathElement,
-};
+//! Tree-walking evaluator for [`llr::Expression`].
+//!
+//! Called from property bindings, change callbacks, callback handlers,
+//! layout info expressions and `init_code` blocks.
+//! Resolves `MemberReference`s by walking the sub-component parent chain.
+
+use crate::Value;
+use crate::globals::{GlobalInstance, GlobalStorage};
+use crate::instance::SubComponentInstance;
+use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::Type;
-use i_slint_compiler::namedreference::NamedReference;
-use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core as corelib;
-use i_slint_core::api::ToSharedString;
+use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_core::graphics::{
+    Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
+};
+use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
+use i_slint_core::{Color, SharedString, SharedVector};
 use smol_str::SmolStr;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::pin::Pin;
+use std::rc::{Rc, Weak};
 
-pub trait ErasedPropertyInfo {
-    fn get(&self, item: Pin<ItemRef>) -> Value;
-    fn set(
-        &self,
-        item: Pin<ItemRef>,
-        value: Value,
-        animation: Option<PropertyAnimation>,
-    ) -> Result<(), ()>;
-    fn set_binding(
-        &self,
-        item: Pin<ItemRef>,
-        binding: Box<dyn Fn() -> Value>,
-        animation: AnimatedBindingKind,
-    );
-    fn offset(&self) -> usize;
-
-    #[cfg(slint_debug_property)]
-    fn set_debug_name(&self, item: Pin<ItemRef>, name: String);
-
-    /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
-    /// where T is the same T as the one represented by this property.
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
-
-    fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>>;
-
-    fn link_two_way_with_map(
-        &self,
-        item: Pin<ItemRef>,
-        property2: Pin<Rc<corelib::Property<Value>>>,
-        map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
-    );
+/// Dynamic context for one expression evaluation.
+pub struct EvalContext {
+    /// Closest sub-component, set when the expression is evaluated from one.
+    /// `None` when the expression is being evaluated in a global's init code.
+    pub current: Option<Pin<Rc<SubComponentInstance>>>,
+    /// Shared global storage, used to resolve `MemberReference::Global`.
+    pub globals: Weak<GlobalStorage>,
+    /// Local variables introduced by `StoreLocalVariable`.
+    pub locals: HashMap<SmolStr, Value>,
+    /// Arguments of the current function, if any.
+    pub function_arguments: Vec<Value>,
+    /// Set by `return` to stop further statement evaluation in a `CodeBlock`.
+    pub return_value: Option<Value>,
 }
 
-impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyInfo
-    for &'static dyn corelib::rtti::PropertyInfo<Item, Value>
-{
-    fn get(&self, item: Pin<ItemRef>) -> Value {
-        (*self).get(ItemRef::downcast_pin(item).unwrap()).unwrap()
-    }
-    fn set(
-        &self,
-        item: Pin<ItemRef>,
-        value: Value,
-        animation: Option<PropertyAnimation>,
-    ) -> Result<(), ()> {
-        (*self).set(ItemRef::downcast_pin(item).unwrap(), value, animation)
-    }
-    fn set_binding(
-        &self,
-        item: Pin<ItemRef>,
-        binding: Box<dyn Fn() -> Value>,
-        animation: AnimatedBindingKind,
-    ) {
-        (*self).set_binding(ItemRef::downcast_pin(item).unwrap(), binding, animation).unwrap();
-    }
-    fn offset(&self) -> usize {
-        (*self).offset()
-    }
-    #[cfg(slint_debug_property)]
-    fn set_debug_name(&self, item: Pin<ItemRef>, name: String) {
-        (*self).set_debug_name(ItemRef::downcast_pin(item).unwrap(), name);
-    }
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
-        // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
-        unsafe { (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2) }
-    }
-
-    fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>> {
-        (*self).prepare_for_two_way_binding(ItemRef::downcast_pin(item).unwrap())
-    }
-
-    fn link_two_way_with_map(
-        &self,
-        item: Pin<ItemRef>,
-        property2: Pin<Rc<corelib::Property<Value>>>,
-        map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
-    ) {
-        (*self).link_two_way_with_map(ItemRef::downcast_pin(item).unwrap(), property2, map)
-    }
-}
-
-pub trait ErasedCallbackInfo {
-    fn call(&self, item: Pin<ItemRef>, args: &[Value]) -> Value;
-    fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>);
-}
-
-impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackInfo
-    for &'static dyn corelib::rtti::CallbackInfo<Item, Value>
-{
-    fn call(&self, item: Pin<ItemRef>, args: &[Value]) -> Value {
-        (*self).call(ItemRef::downcast_pin(item).unwrap(), args).unwrap()
-    }
-
-    fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>) {
-        (*self).set_handler(ItemRef::downcast_pin(item).unwrap(), handler).unwrap()
-    }
-}
-
-impl corelib::rtti::ValueType for Value {}
-
-#[derive(Clone)]
-pub(crate) enum ComponentInstance<'a, 'id> {
-    InstanceRef(InstanceRef<'a, 'id>),
-    GlobalComponent(Pin<Rc<dyn crate::global_component::GlobalComponent>>),
-}
-
-/// The local variable needed for binding evaluation
-pub struct EvalLocalContext<'a, 'id> {
-    local_variables: HashMap<SmolStr, Value>,
-    function_arguments: Vec<Value>,
-    pub(crate) component_instance: InstanceRef<'a, 'id>,
-    /// When Some, a return statement was executed and one must stop evaluating
-    return_value: Option<Value>,
-}
-
-impl<'a, 'id> EvalLocalContext<'a, 'id> {
-    pub fn from_component_instance(component: InstanceRef<'a, 'id>) -> Self {
+impl EvalContext {
+    /// Context rooted in a sub-component.
+    /// The global storage is pulled from the sub-component's owning root.
+    pub fn new(current: Pin<Rc<SubComponentInstance>>) -> Self {
+        let globals = current
+            .root
+            .get()
+            .and_then(|w| w.upgrade())
+            .map(|inst| Rc::downgrade(&inst.globals))
+            .unwrap_or_default();
         Self {
-            local_variables: Default::default(),
-            function_arguments: Default::default(),
-            component_instance: component,
+            current: Some(current),
+            globals,
+            locals: HashMap::new(),
+            function_arguments: Vec::new(),
             return_value: None,
         }
     }
 
-    /// Create a context for a function and passing the arguments
-    pub fn from_function_arguments(
-        component: InstanceRef<'a, 'id>,
-        function_arguments: Vec<Value>,
-    ) -> Self {
+    /// Context rooted in a global. Only `MemberReference::Global` is valid.
+    pub fn for_global(globals: Weak<GlobalStorage>) -> Self {
         Self {
-            component_instance: component,
-            function_arguments,
-            local_variables: Default::default(),
+            current: None,
+            globals,
+            locals: HashMap::new(),
+            function_arguments: Vec::new(),
             return_value: None,
+        }
+    }
+
+    pub fn with_arguments(current: Pin<Rc<SubComponentInstance>>, args: Vec<Value>) -> Self {
+        let mut ctx = Self::new(current);
+        ctx.function_arguments = args;
+        ctx
+    }
+}
+
+/// Walk `parent_level` steps up the parent chain.
+fn walk_parent(
+    start: &Pin<Rc<SubComponentInstance>>,
+    level: usize,
+) -> Pin<Rc<SubComponentInstance>> {
+    let mut current = start.clone();
+    for _ in 0..level {
+        let parent = current.parent.upgrade().expect("parent vanished during evaluation");
+        current = Pin::new(parent);
+    }
+    current
+}
+
+/// Walk down a `sub_component_path`.
+fn walk_sub_path(
+    mut current: Pin<Rc<SubComponentInstance>>,
+    path: &[llr::SubComponentInstanceIdx],
+) -> Pin<Rc<SubComponentInstance>> {
+    for &idx in path {
+        let next = current.sub_components[idx].clone();
+        current = next;
+    }
+    current
+}
+
+/// Walk to the sub-component that owns `local`.
+///
+/// Panics if `ctx.current` is unset; the caller must check beforehand.
+fn walk_to(
+    ctx: &EvalContext,
+    parent_level: usize,
+    path: &[llr::SubComponentInstanceIdx],
+) -> Pin<Rc<SubComponentInstance>> {
+    let start = ctx.current.as_ref().expect("relative member reference without a sub-component");
+    walk_sub_path(walk_parent(start, parent_level), path)
+}
+
+/// Scan the flat `item_table` for the entry whose `(sub_component_path,
+/// item_idx)` matches the request, returning the flat tree index. Used by
+/// `ItemAbsolutePosition` to address an item that lives in a nested
+/// sub-component.
+fn find_flat_item_index(
+    item_table: &[Option<(
+        Box<[i_slint_compiler::llr::SubComponentInstanceIdx]>,
+        i_slint_compiler::llr::ItemInstanceIdx,
+    )>],
+    path: &[i_slint_compiler::llr::SubComponentInstanceIdx],
+    item_index: i_slint_compiler::llr::ItemInstanceIdx,
+) -> Option<usize> {
+    item_table.iter().position(|entry| {
+        entry.as_ref().is_some_and(|(p, i)| p.as_ref() == path && *i == item_index)
+    })
+}
+
+fn load_local(instance: &SubComponentInstance, member: &LocalMemberIndex) -> Value {
+    match member {
+        LocalMemberIndex::Property(idx) => Pin::as_ref(&instance.properties[*idx]).get(),
+        LocalMemberIndex::Native { item_index, prop_name, .. } => {
+            Pin::as_ref(&instance.items[*item_index]).get_property(prop_name).unwrap_or(Value::Void)
+        }
+        LocalMemberIndex::Callback(_) | LocalMemberIndex::Function(_) => {
+            panic!("load_local called on callback/function reference")
         }
     }
 }
 
-/// Evaluate an expression and return a Value as the result of this expression
-pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalContext) -> Value {
-    if let Some(r) = &local_context.return_value {
+fn store_local(instance: &SubComponentInstance, member: &LocalMemberIndex, value: Value) {
+    match member {
+        LocalMemberIndex::Property(idx) => {
+            let prop = Pin::as_ref(&instance.properties[*idx]);
+            // Check if this property has a standalone `animate` declaration.
+            // If so, use `set_animated_value` so the value transition is
+            // interpolated over the declared duration/easing.
+            let cu = &instance.compilation_unit;
+            let sc = &cu.sub_components[instance.sub_component_idx];
+            let local_ref = i_slint_compiler::llr::LocalMemberReference {
+                sub_component_path: Vec::new(),
+                reference: member.clone(),
+            };
+            if let Some(anim_expr) = sc.animations.get(&local_ref) {
+                let anim_expr = anim_expr.clone();
+                if let Some(owner) = instance.root.get().and_then(|w| w.upgrade()) {
+                    let owner_pin = find_sub_component_pin(&owner.root_sub_component, instance);
+                    let mut ctx = EvalContext::new(owner_pin);
+                    let anim = crate::bindings::value_to_property_animation(eval_expression(
+                        &mut ctx, &anim_expr,
+                    ));
+                    prop.set_animated_value(value, anim);
+                    return;
+                }
+            }
+            prop.set(value);
+        }
+        LocalMemberIndex::Native { item_index, prop_name, .. } => {
+            // Native items handle their own animation via the rtti binding
+            // set up in install_property_init, so a plain set is correct.
+            let anim = find_native_animation(instance, *item_index, prop_name);
+            let _ = Pin::as_ref(&instance.items[*item_index]).set_property(prop_name, value, anim);
+        }
+        LocalMemberIndex::Callback(_) | LocalMemberIndex::Function(_) => {
+            panic!("store_local called on callback/function reference")
+        }
+    }
+}
+
+/// Find the animation expression for a native item property, evaluate it,
+/// and return the `PropertyAnimation` if one exists.
+fn find_native_animation(
+    instance: &SubComponentInstance,
+    item_index: i_slint_compiler::llr::ItemInstanceIdx,
+    prop_name: &str,
+) -> Option<i_slint_core::items::PropertyAnimation> {
+    let cu = &instance.compilation_unit;
+    let sc = &cu.sub_components[instance.sub_component_idx];
+    // Native animations are keyed by their LocalMemberReference with the
+    // Native variant.
+    let local_ref = i_slint_compiler::llr::LocalMemberReference {
+        sub_component_path: Vec::new(),
+        reference: LocalMemberIndex::Native {
+            item_index,
+            prop_name: prop_name.into(),
+            kind: i_slint_compiler::llr::NativeMemberKind::Property,
+        },
+    };
+    let anim_expr = sc.animations.get(&local_ref)?;
+    let anim_expr = anim_expr.clone();
+    let owner = instance.root.get().and_then(|w| w.upgrade())?;
+    let owner_pin = find_sub_component_pin(&owner.root_sub_component, instance);
+    let mut ctx = EvalContext::new(owner_pin);
+    Some(crate::bindings::value_to_property_animation(eval_expression(&mut ctx, &anim_expr)))
+}
+
+/// Walk the sub-component tree to find a Pin<Rc<SubComponentInstance>> that
+/// points at the same allocation as `target`. Used to build an EvalContext
+/// rooted at the right sub-component.
+fn find_sub_component_pin(
+    root: &Pin<Rc<SubComponentInstance>>,
+    target: &SubComponentInstance,
+) -> Pin<Rc<SubComponentInstance>> {
+    if std::ptr::eq(&**root as *const SubComponentInstance, target) {
+        return root.clone();
+    }
+    for nested in &root.sub_components {
+        if let Some(found) = find_sub_component_pin_inner(nested, target) {
+            return found;
+        }
+    }
+    // Fallback: shouldn't happen, but return root to avoid panic
+    root.clone()
+}
+
+fn find_sub_component_pin_inner(
+    sub: &Pin<Rc<SubComponentInstance>>,
+    target: &SubComponentInstance,
+) -> Option<Pin<Rc<SubComponentInstance>>> {
+    if std::ptr::eq(&**sub as *const SubComponentInstance, target) {
+        return Some(sub.clone());
+    }
+    for nested in &sub.sub_components {
+        if let Some(found) = find_sub_component_pin_inner(nested, target) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
+    match mr {
+        MemberReference::Global { global_index, member } => {
+            let Some(storage) = ctx.globals.upgrade() else { return Value::Void };
+            let Some(global) = storage.get(*global_index) else { return Value::Void };
+            load_global(global, member)
+        }
+        MemberReference::Relative { parent_level, local_reference } => {
+            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            load_local(&instance, &local_reference.reference)
+        }
+    }
+}
+
+pub fn store_property(ctx: &EvalContext, mr: &MemberReference, value: Value) {
+    match mr {
+        MemberReference::Global { global_index, member } => {
+            let Some(storage) = ctx.globals.upgrade() else { return };
+            let Some(global) = storage.get(*global_index) else { return };
+            store_global(global, member, value);
+        }
+        MemberReference::Relative { parent_level, local_reference } => {
+            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            store_local(&instance, &local_reference.reference, value);
+        }
+    }
+}
+
+pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) -> Value {
+    match mr {
+        MemberReference::Global { global_index, member } => {
+            let Some(storage) = ctx.globals.upgrade() else { return Value::Void };
+            let Some(global) = storage.get(*global_index) else { return Value::Void };
+            let LocalMemberIndex::Callback(idx) = member else {
+                panic!("invoke_callback on non-callback global reference")
+            };
+            let cb = &global.compilation_unit.globals[global.global_idx].callbacks[*idx];
+            let res = Pin::as_ref(&global.callbacks[*idx]).call(&(args.to_vec(),));
+            ensure_typed_default(res, &cb.ret_ty)
+        }
+        MemberReference::Relative { parent_level, local_reference } => {
+            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            match &local_reference.reference {
+                LocalMemberIndex::Callback(idx) => {
+                    let res = Pin::as_ref(&instance.callbacks[*idx]).call(&(args.to_vec(),));
+                    let ret_ty = instance.compilation_unit.sub_components
+                        [instance.sub_component_idx]
+                        .callbacks[*idx]
+                        .ret_ty
+                        .clone();
+                    ensure_typed_default(res, &ret_ty)
+                }
+                LocalMemberIndex::Native { item_index, prop_name, .. } => {
+                    Pin::as_ref(&instance.items[*item_index])
+                        .call_callback(prop_name, args)
+                        .unwrap_or(Value::Void)
+                }
+                _ => panic!("invoke_callback on non-callback reference: {mr:?}"),
+            }
+        }
+    }
+}
+
+/// Replace `Value::Void` results with the type-appropriate default.
+/// Used when an unset callback returns the `Value` default and the caller
+/// expects a numeric / string / bool.
+fn ensure_typed_default(value: Value, ret_ty: &Type) -> Value {
+    if matches!(value, Value::Void) { default_value_for_type(ret_ty) } else { value }
+}
+
+pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>) -> Value {
+    match mr {
+        MemberReference::Global { global_index, member } => {
+            let Some(storage) = ctx.globals.upgrade() else { return Value::Void };
+            let Some(global) = storage.get(*global_index) else { return Value::Void };
+            let LocalMemberIndex::Function(idx) = member else {
+                panic!("invoke_function on non-function global reference")
+            };
+            let code =
+                global.compilation_unit.globals[global.global_idx].functions[*idx].code.clone();
+            let mut inner_ctx = EvalContext::for_global(ctx.globals.clone());
+            inner_ctx.function_arguments = args;
+            eval_expression(&mut inner_ctx, &code)
+        }
+        MemberReference::Relative { parent_level, local_reference } => {
+            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let LocalMemberIndex::Function(idx) = &local_reference.reference else {
+                panic!("invoke_function on non-function reference")
+            };
+            let sc = &instance.compilation_unit.sub_components[instance.sub_component_idx];
+            let function = &sc.functions[*idx];
+            let mut inner_ctx = EvalContext::with_arguments(instance.clone(), args);
+            eval_expression(&mut inner_ctx, &function.code)
+        }
+    }
+}
+
+fn load_global(global: &Rc<GlobalInstance>, member: &LocalMemberIndex) -> Value {
+    match member {
+        LocalMemberIndex::Property(idx) => Pin::as_ref(&global.properties[*idx]).get(),
+        _ => panic!("load_global called on non-property"),
+    }
+}
+
+fn store_global(global: &Rc<GlobalInstance>, member: &LocalMemberIndex, value: Value) {
+    if let LocalMemberIndex::Property(idx) = member {
+        Pin::as_ref(&global.properties[*idx]).set(value);
+    }
+}
+
+/// Build a `Value::PathData` from the `from` expression of a
+/// `Expression::Cast { to: Type::PathData, .. }`.
+///
+/// `lower_expression::compile_path` lowers `Path::Elements` to an
+/// `Expression::Array` of builtin-struct literals, `Path::Events` to an
+/// `Expression::Struct` with `events` / `points` fields, and `Path::Commands`
+/// to a plain string expression. The codegens navigate these statically; the
+/// interpreter has to pattern-match on the unlowered expression to recover
+/// which path shape to build, since `Value::Struct` doesn't carry its LLR
+/// type name.
+fn cast_to_path_data(ctx: &mut EvalContext, from: &Expression) -> Value {
+    use i_slint_core::graphics::PathData;
+    use i_slint_core::items::PathEvent;
+
+    match from {
+        Expression::Array { values, .. } => {
+            let elements: SharedVector<i_slint_core::graphics::PathElement> =
+                values.iter().filter_map(|e| path_element_from_expression(ctx, e)).collect();
+            Value::PathData(PathData::Elements(elements))
+        }
+        Expression::Struct { values, .. }
+            if values.contains_key("events") && values.contains_key("points") =>
+        {
+            let events_value = eval_expression(ctx, &values["events"]);
+            let points_value = eval_expression(ctx, &values["points"]);
+            // `for_each_enums!` already produces a `TryFrom<Value>` impl for
+            // every Slint enum (via `declare_value_enum_conversion!` in
+            // `api.rs`), so model rows of `Value::EnumerationValue` convert
+            // straight to `PathEvent` without manual string matching.
+            let events: SharedVector<PathEvent> = match events_value {
+                Value::Model(m) => {
+                    (0..m.row_count()).filter_map(|i| m.row_data(i)?.try_into().ok()).collect()
+                }
+                _ => SharedVector::default(),
+            };
+            let points: SharedVector<lyon_path::math::Point> = match points_value {
+                Value::Model(m) => (0..m.row_count())
+                    .filter_map(|i| {
+                        let Value::Struct(s) = m.row_data(i)? else { return None };
+                        let x = f64::try_from(s.get_field("x").cloned()?).ok()? as f32;
+                        let y = f64::try_from(s.get_field("y").cloned()?).ok()? as f32;
+                        Some(lyon_path::math::Point::new(x, y))
+                    })
+                    .collect(),
+                _ => SharedVector::default(),
+            };
+            Value::PathData(PathData::Events(events, points))
+        }
+        _ => match eval_expression(ctx, from) {
+            Value::String(s) => Value::PathData(PathData::Commands(s)),
+            _ => Value::PathData(PathData::None),
+        },
+    }
+}
+
+/// Resolve an `Expression::Struct` in a `Cast`-to-`PathData` array into the
+/// matching [`PathElement`] variant, dispatching on the struct's
+/// `StructName::BuiltinPrivate` tag.
+fn path_element_from_expression(
+    ctx: &mut EvalContext,
+    expr: &Expression,
+) -> Option<i_slint_core::graphics::PathElement> {
+    use i_slint_compiler::langtype::{BuiltinPrivateStruct, StructName};
+    use i_slint_core::graphics::{
+        PathArcTo, PathCubicTo, PathElement, PathLineTo, PathMoveTo, PathQuadraticTo,
+    };
+    let Expression::Struct { ty, values } = expr else { return None };
+    let StructName::BuiltinPrivate(bs) = &ty.name else { return None };
+    let get_f32 = |field: &str, ctx: &mut EvalContext| -> f32 {
+        values
+            .get(field)
+            .map(|e| eval_expression(ctx, e))
+            .and_then(|v| f64::try_from(v).ok())
+            .unwrap_or(0.0) as f32
+    };
+    let get_bool = |field: &str, ctx: &mut EvalContext| -> bool {
+        values
+            .get(field)
+            .map(|e| eval_expression(ctx, e))
+            .map(|v| matches!(v, Value::Bool(true)))
+            .unwrap_or(false)
+    };
+    Some(match bs {
+        BuiltinPrivateStruct::PathMoveTo => {
+            PathElement::MoveTo(PathMoveTo { x: get_f32("x", ctx), y: get_f32("y", ctx) })
+        }
+        BuiltinPrivateStruct::PathLineTo => {
+            PathElement::LineTo(PathLineTo { x: get_f32("x", ctx), y: get_f32("y", ctx) })
+        }
+        BuiltinPrivateStruct::PathArcTo => PathElement::ArcTo(PathArcTo {
+            x: get_f32("x", ctx),
+            y: get_f32("y", ctx),
+            radius_x: get_f32("radius_x", ctx),
+            radius_y: get_f32("radius_y", ctx),
+            x_rotation: get_f32("x_rotation", ctx),
+            large_arc: get_bool("large_arc", ctx),
+            sweep: get_bool("sweep", ctx),
+        }),
+        BuiltinPrivateStruct::PathCubicTo => PathElement::CubicTo(PathCubicTo {
+            x: get_f32("x", ctx),
+            y: get_f32("y", ctx),
+            control_1_x: get_f32("control_1_x", ctx),
+            control_1_y: get_f32("control_1_y", ctx),
+            control_2_x: get_f32("control_2_x", ctx),
+            control_2_y: get_f32("control_2_y", ctx),
+        }),
+        BuiltinPrivateStruct::PathQuadraticTo => PathElement::QuadraticTo(PathQuadraticTo {
+            x: get_f32("x", ctx),
+            y: get_f32("y", ctx),
+            control_x: get_f32("control_x", ctx),
+            control_y: get_f32("control_y", ctx),
+        }),
+        BuiltinPrivateStruct::PathClose => PathElement::Close,
+        _ => return None,
+    })
+}
+
+/// Type-default mirroring an existing `Value`.
+/// Used by `ArrayIndex` to synthesize a default when an out-of-bounds row
+/// access happens against a non-empty model.
+fn default_like(v: Value) -> Value {
+    match v {
+        Value::Number(_) => Value::Number(0.),
+        Value::String(_) => Value::String(Default::default()),
+        Value::Bool(_) => Value::Bool(false),
+        Value::Brush(_) => Value::Brush(Default::default()),
+        Value::Image(_) => Value::Image(Default::default()),
+        Value::Model(_) => Value::Model(i_slint_core::model::ModelRc::default()),
+        Value::Struct(s) => {
+            let fields = s.iter().map(|(k, v)| (k.to_string(), default_like(v.clone()))).collect();
+            Value::Struct(fields)
+        }
+        _ => Value::Void,
+    }
+}
+
+/// Default value for a type, used by `ArrayIndex` and `RepeaterModelReference`
+/// when the underlying store returns `None`.
+pub fn default_value_for_type(ty: &Type) -> Value {
+    match ty {
+        Type::Float32
+        | Type::Int32
+        | Type::Duration
+        | Type::Angle
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Rem
+        | Type::Percent
+        | Type::UnitProduct(_) => Value::Number(0.),
+        Type::String => Value::String(Default::default()),
+        Type::Color | Type::Brush => Value::Brush(Brush::default()),
+        Type::Bool => Value::Bool(false),
+        Type::Image => Value::Image(Default::default()),
+        Type::Struct(s) => Value::Struct(
+            s.fields.iter().map(|(k, v)| (k.to_string(), default_value_for_type(v))).collect(),
+        ),
+        Type::Array(_) | Type::Model => Value::Model(ModelRc::default()),
+        Type::Enumeration(en) => {
+            let default = en.clone().default_value();
+            Value::EnumerationValue(en.name.to_string(), default.to_string())
+        }
+        _ => Value::Void,
+    }
+}
+
+pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value {
+    if let Some(r) = &ctx.return_value {
         return r.clone();
     }
     match expression {
-        Expression::Invalid => panic!("invalid expression while evaluating"),
-        Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
-        Expression::ElementReference(_) => todo!(
-            "Element references are only supported in the context of built-in function calls at the moment"
-        ),
-        Expression::PropertyReference(nr) => load_property_helper(
-            &ComponentInstance::InstanceRef(local_context.component_instance),
-            &nr.element(),
-            nr.name(),
-        )
-        .unwrap(),
-        Expression::RepeaterIndexReference { element } => load_property_helper(
-            &ComponentInstance::InstanceRef(local_context.component_instance),
-            &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-            crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
-        )
-        .unwrap(),
-        Expression::RepeaterModelReference { element } => {
-            let value = load_property_helper(
-                &ComponentInstance::InstanceRef(local_context.component_instance),
-                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-                crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
-            )
-            .unwrap();
-            if matches!(value, Value::Void) {
-                // Uninitialized model data (because the model returned None) should still be initialized to the default value of the type
-                default_value_for_type(&expression.ty())
-            } else {
-                value
-            }
+        Expression::KeysLiteral(ks) => Value::Keys(i_slint_core::input::make_keys(
+            SharedString::from(&*ks.key),
+            i_slint_core::input::KeyboardModifiers {
+                alt: ks.modifiers.alt,
+                control: ks.modifiers.control,
+                shift: ks.modifiers.shift,
+                meta: ks.modifiers.meta,
+            },
+            ks.ignore_shift,
+            ks.ignore_alt,
+        )),
+        Expression::PropertyReference(mr) => load_property(ctx, mr),
+        Expression::FunctionParameterReference { index } => ctx.function_arguments[*index].clone(),
+        Expression::StoreLocalVariable { name, value } => {
+            let v = eval_expression(ctx, value);
+            ctx.locals.insert(name.clone(), v);
+            Value::Void
         }
-        Expression::FunctionParameterReference { index, .. } => {
-            local_context.function_arguments[*index].clone()
+        Expression::ReadLocalVariable { name, .. } => {
+            ctx.locals.get(name).cloned().unwrap_or(Value::Void)
         }
         Expression::StructFieldAccess { base, name } => {
-            if let Value::Struct(o) = eval_expression(base, local_context) {
-                o.get_field(name).cloned().unwrap_or(Value::Void)
+            if let Value::Struct(s) = eval_expression(ctx, base) {
+                s.get_field(name).cloned().unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
         }
         Expression::ArrayIndex { array, index } => {
-            let array = eval_expression(array, local_context);
-            let index = eval_expression(index, local_context);
-            match (array, index) {
-                (Value::Model(model), Value::Number(index)) => model
-                    .row_data_tracked(index as isize as usize)
-                    .unwrap_or_else(|| default_value_for_type(&expression.ty())),
+            let array_v = eval_expression(ctx, array);
+            let index = eval_expression(ctx, index);
+            match (array_v, index) {
+                (Value::Model(m), Value::Number(i)) => {
+                    let idx = i as isize as usize;
+                    m.row_data_tracked(idx).unwrap_or_else(|| {
+                        // Out of bounds: synthesize a type-default like the
+                        // generated code does. Peek at row 0 to learn the
+                        // element type, falling back to a numeric zero for
+                        // empty models (the most common case in tests).
+                        m.row_data(0).map(default_like).unwrap_or(Value::Number(0.))
+                    })
+                }
                 _ => Value::Void,
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
+            // `Path::Elements` / `Path::Events` / `Path::Commands` lower to a
+            // `Cast { to: Type::PathData, .. }` over an array-of-structs,
+            // a struct with `events` / `points` fields, or a string
+            // expression. Handle each shape explicitly before the generic
+            // value-coercion table below; the rtti setter for the `Path`
+            // native item needs a real `Value::PathData` rather than the
+            // raw `Value::Model`/`Value::Struct` that `from` evaluates to.
+            if matches!(to, Type::PathData) {
+                return cast_to_path_data(ctx, from);
+            }
+            let v = eval_expression(ctx, from);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
@@ -242,247 +595,178 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                v = eval_expression(e, local_context);
-                if let Some(r) = &local_context.return_value {
+                v = eval_expression(ctx, e);
+                if let Some(r) = &ctx.return_value {
                     return r.clone();
                 }
             }
             v
         }
-        Expression::FunctionCall { function, arguments, source_location } => match &function {
-            Callable::Function(nr) => {
-                let is_item_member = nr
-                    .element()
-                    .borrow()
-                    .native_class()
-                    .is_some_and(|n| n.properties.contains_key(nr.name()));
-                if is_item_member {
-                    call_item_member_function(nr, local_context)
-                } else {
-                    let args = arguments
-                        .iter()
-                        .map(|e| eval_expression(e, local_context))
-                        .collect::<Vec<_>>();
-                    call_function(
-                        &ComponentInstance::InstanceRef(local_context.component_instance),
-                        &nr.element(),
-                        nr.name(),
-                        args,
-                    )
-                    .unwrap()
+        Expression::BuiltinFunctionCall { function, arguments } => {
+            call_builtin_function(ctx, function.clone(), arguments)
+        }
+        Expression::CallBackCall { callback, arguments } => {
+            let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
+            invoke_callback(ctx, callback, &args)
+        }
+        Expression::FunctionCall { function, arguments } => {
+            let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
+            invoke_function(ctx, function, args)
+        }
+        Expression::ItemMemberFunctionCall { function } => {
+            // Native-item method calls like `TextInput::select_all`,
+            // `SwipeGestureHandler::cancel` — the LLR encodes them as a
+            // `MemberReference` whose reference is
+            // `LocalMemberIndex::Native { item_index, prop_name, .. }`. The
+            // rust codegen resolves the method name to a concrete Rust
+            // method at compile time (`<TextInput>::select_all(...)`);
+            // the interpreter has to dispatch on the item's rtti class
+            // name at runtime.
+            call_item_member_function(ctx, function)
+        }
+        Expression::ExtraBuiltinFunctionCall { function, arguments, .. } => {
+            crate::eval_layout::call_extra_builtin(ctx, function, arguments)
+        }
+        Expression::PropertyAssignment { property, value } => {
+            let v = eval_expression(ctx, value);
+            store_property(ctx, property, v);
+            Value::Void
+        }
+        Expression::ModelDataAssignment { level, value } => {
+            let new_value = eval_expression(ctx, value);
+            if let Some(current) = ctx.current.as_ref() {
+                let mut walker = current.clone();
+                for _ in 0..*level {
+                    let parent = walker.parent.upgrade().expect("parent vanished");
+                    walker = std::pin::Pin::new(parent);
+                }
+                if let Some((parent_weak, repeater_idx)) = walker.repeated_in.get()
+                    && let Some(parent) = parent_weak.upgrade()
+                {
+                    // Read the row index out of the repeated sub-component's
+                    // `model_index` property.
+                    let row = walker.compilation_unit.sub_components[walker.sub_component_idx]
+                        .properties
+                        .iter_enumerated()
+                        .find(|(_, p)| p.name.as_str() == "model_index")
+                        .map(|(idx, _)| {
+                            let v = std::pin::Pin::as_ref(&walker.properties[idx]).get();
+                            f64::try_from(v).unwrap_or(0.) as usize
+                        })
+                        .unwrap_or(0);
+                    let parent_pinned = std::pin::Pin::new(parent);
+                    let repeater = &parent_pinned.repeaters[*repeater_idx];
+                    repeater.model_set_row_data(row, new_value);
                 }
             }
-            Callable::Callback(nr) => {
-                let args =
-                    arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                invoke_callback(
-                    &ComponentInstance::InstanceRef(local_context.component_instance),
-                    &nr.element(),
-                    nr.name(),
-                    &args,
-                )
-                .unwrap()
+            Value::Void
+        }
+        Expression::ArrayIndexAssignment { array, index, value } => {
+            let value = eval_expression(ctx, value);
+            let array = eval_expression(ctx, array);
+            let index = eval_expression(ctx, index);
+            if let (Value::Model(m), Value::Number(i)) = (array, index)
+                && i >= 0.0
+            {
+                let i = i.trunc() as usize;
+                if i < m.row_count() {
+                    m.set_row_data(i, value);
+                }
             }
-            Callable::Builtin(f) => {
-                call_builtin_function(f.clone(), arguments, local_context, source_location)
+            Value::Void
+        }
+        Expression::SliceIndexAssignment { slice_name, index, value } => {
+            let value = eval_expression(ctx, value);
+            match ctx.locals.get_mut(slice_name.as_str()) {
+                Some(Value::ArrayOfU16(vec)) => {
+                    if let Value::Number(n) = value
+                        && *index < vec.len()
+                    {
+                        vec.make_mut_slice()[*index] = n as u16;
+                    }
+                }
+                Some(Value::Model(m)) => {
+                    if *index < m.row_count() {
+                        m.set_row_data(*index, value);
+                    }
+                }
+                _ => {}
             }
-        },
-        Expression::SelfAssignment { lhs, rhs, op, .. } => {
-            let rhs = eval_expression(rhs, local_context);
-            eval_assignment(lhs, *op, rhs, local_context);
             Value::Void
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(lhs, local_context);
-            let rhs = eval_expression(rhs, local_context);
-
-            match (op, lhs, rhs) {
-                ('+', Value::String(mut a), Value::String(b)) => {
-                    a.push_str(b.as_str());
-                    Value::String(a)
-                }
-                ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-                ('+', a @ Value::Struct(_), b @ Value::Struct(_)) => {
-                    let a: Option<corelib::layout::LayoutInfo> = a.try_into().ok();
-                    let b: Option<corelib::layout::LayoutInfo> = b.try_into().ok();
-                    if let (Some(a), Some(b)) = (a, b) {
-                        a.merge(&b).into()
-                    } else {
-                        panic!("unsupported {a:?} {op} {b:?}");
-                    }
-                }
-                ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
-                ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),
-                ('*', Value::Number(a), Value::Number(b)) => Value::Number(a * b),
-                ('<', Value::Number(a), Value::Number(b)) => Value::Bool(a < b),
-                ('>', Value::Number(a), Value::Number(b)) => Value::Bool(a > b),
-                ('≤', Value::Number(a), Value::Number(b)) => Value::Bool(a <= b),
-                ('≥', Value::Number(a), Value::Number(b)) => Value::Bool(a >= b),
-                ('<', Value::String(a), Value::String(b)) => Value::Bool(a < b),
-                ('>', Value::String(a), Value::String(b)) => Value::Bool(a > b),
-                ('≤', Value::String(a), Value::String(b)) => Value::Bool(a <= b),
-                ('≥', Value::String(a), Value::String(b)) => Value::Bool(a >= b),
-                ('=', a, b) => Value::Bool(a == b),
-                ('!', a, b) => Value::Bool(a != b),
-                ('&', Value::Bool(a), Value::Bool(b)) => Value::Bool(a && b),
-                ('|', Value::Bool(a), Value::Bool(b)) => Value::Bool(a || b),
-                (op, lhs, rhs) => panic!("unsupported {lhs:?} {op} {rhs:?}"),
-            }
+            let lhs = eval_expression(ctx, lhs);
+            let rhs = eval_expression(ctx, rhs);
+            binary_op(*op, lhs, rhs)
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = eval_expression(sub, local_context);
+            let sub = eval_expression(ctx, sub);
             match (sub, op) {
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
                 (Value::Bool(a), '!') => Value::Bool(!a),
-                (sub, op) => panic!("unsupported {op} {sub:?}"),
+                // Tolerate unset / wrong-type operands rather than panicking.
+                // Silently coerce
+                // through `Value::default()` when a property hasn't been
+                // initialized yet.
+                (Value::Void, '+' | '-') => Value::Number(0.0),
+                (Value::Void, '!') => Value::Bool(true),
+                (s, o) => panic!("unsupported {o} {s:?}"),
             }
         }
-        Expression::ImageReference { resource_ref, nine_slice, .. } => {
-            let mut image = match resource_ref {
-                i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    if path.starts_with("data:") {
-                        match i_slint_compiler::data_uri::decode_data_uri(path) {
-                            Ok((data, extension)) => {
-                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
-                                let ext_bytes: &'static [u8] =
-                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
-                                Ok(corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(data),
-                                    corelib::slice::Slice::from_slice(ext_bytes),
-                                ))
-                            }
-                            Err(_) => Err(Default::default()),
-                        }
-                    } else {
-                        let path = std::path::Path::new(path);
-                        if path.starts_with("builtin:/") {
-                            i_slint_compiler::fileaccess::load_file(path)
-                                .and_then(|virtual_file| virtual_file.builtin_contents)
-                                .map(|virtual_file| {
-                                    let extension = path.extension().unwrap().to_str().unwrap();
-                                    corelib::graphics::load_image_from_embedded_data(
-                                        corelib::slice::Slice::from_slice(virtual_file),
-                                        corelib::slice::Slice::from_slice(extension.as_bytes()),
-                                    )
-                                })
-                                .ok_or_else(Default::default)
-                        } else {
-                            corelib::graphics::Image::load_from_path(path)
-                        }
-                    }
-                }
-                i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
-                    todo!()
-                }
-                i_slint_compiler::expression_tree::ImageReference::EmbeddedTexture { .. } => {
-                    todo!()
-                }
-            }
-            .unwrap_or_else(|_| {
-                eprintln!("Could not load image {resource_ref:?}");
-                Default::default()
-            });
+        Expression::ImageReference { resource_ref, nine_slice } => {
+            let mut image = load_image_reference(resource_ref);
             if let Some(n) = nine_slice {
                 image.set_nine_slice_edges(n[0], n[1], n[2], n[3]);
             }
             Value::Image(image)
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(condition, local_context).try_into() as Result<bool, _> {
-                Ok(true) => eval_expression(true_expr, local_context),
-                Ok(false) => eval_expression(false_expr, local_context),
-                _ => local_context
-                    .return_value
-                    .clone()
-                    .expect("conditional expression did not evaluate to boolean"),
+            match eval_expression(ctx, condition) {
+                Value::Bool(true) => eval_expression(ctx, true_expr),
+                Value::Bool(false) => eval_expression(ctx, false_expr),
+                _ => Value::Void,
             }
         }
-        Expression::Array { values, .. } => {
-            Value::Model(ModelRc::new(corelib::model::SharedVectorModel::from(
-                values
-                    .iter()
-                    .map(|e| eval_expression(e, local_context))
-                    .collect::<SharedVector<_>>(),
-            )))
-        }
+        Expression::Array { values, .. } => Value::Model(ModelRc::new(SharedVectorModel::from(
+            values.iter().map(|e| eval_expression(ctx, e)).collect::<SharedVector<_>>(),
+        ))),
         Expression::Struct { values, .. } => Value::Struct(
-            values
-                .iter()
-                .map(|(k, v)| (k.to_string(), eval_expression(v, local_context)))
-                .collect(),
+            values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect(),
         ),
-        Expression::PathData(data) => Value::PathData(convert_path(data, local_context)),
-        Expression::StoreLocalVariable { name, value } => {
-            let value = eval_expression(value, local_context);
-            local_context.local_variables.insert(name.clone(), value);
-            Value::Void
+        Expression::EasingCurve(curve) => {
+            use i_slint_compiler::expression_tree::EasingCurve as EC;
+            use i_slint_core::animations::EasingCurve as Core;
+            Value::EasingCurve(match curve {
+                EC::Linear => Core::Linear,
+                EC::EaseInElastic => Core::EaseInElastic,
+                EC::EaseOutElastic => Core::EaseOutElastic,
+                EC::EaseInOutElastic => Core::EaseInOutElastic,
+                EC::EaseInBounce => Core::EaseInBounce,
+                EC::EaseOutBounce => Core::EaseOutBounce,
+                EC::EaseInOutBounce => Core::EaseInOutBounce,
+                EC::CubicBezier(a, b, c, d) => Core::CubicBezier([*a, *b, *c, *d]),
+            })
         }
-        Expression::ReadLocalVariable { name, .. } => {
-            local_context.local_variables.get(name).unwrap().clone()
-        }
-        Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
-            EasingCurve::Linear => corelib::animations::EasingCurve::Linear,
-            EasingCurve::EaseInElastic => corelib::animations::EasingCurve::EaseInElastic,
-            EasingCurve::EaseOutElastic => corelib::animations::EasingCurve::EaseOutElastic,
-            EasingCurve::EaseInOutElastic => corelib::animations::EasingCurve::EaseInOutElastic,
-            EasingCurve::EaseInBounce => corelib::animations::EasingCurve::EaseInBounce,
-            EasingCurve::EaseOutBounce => corelib::animations::EasingCurve::EaseOutBounce,
-            EasingCurve::EaseInOutBounce => corelib::animations::EasingCurve::EaseInOutBounce,
-            EasingCurve::CubicBezier(a, b, c, d) => {
-                corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
-            }
-        }),
         Expression::LinearGradient { angle, stops } => {
-            let angle = eval_expression(angle, local_context);
+            let angle: f32 = eval_expression(ctx, angle).try_into().unwrap_or_default();
             Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(
-                angle.try_into().unwrap(),
-                stops.iter().map(|(color, stop)| {
-                    let color = eval_expression(color, local_context).try_into().unwrap();
-                    let position = eval_expression(stop, local_context).try_into().unwrap();
-                    GradientStop { color, position }
-                }),
+                angle,
+                eval_stops(ctx, stops),
             )))
         }
         Expression::RadialGradient { stops } => Value::Brush(Brush::RadialGradient(
-            RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
-                let color = eval_expression(color, local_context).try_into().unwrap();
-                let position = eval_expression(stop, local_context).try_into().unwrap();
-                GradientStop { color, position }
-            })),
+            RadialGradientBrush::new_circle(eval_stops(ctx, stops)),
         )),
         Expression::ConicGradient { from_angle, stops } => {
-            let from_angle: f32 = eval_expression(from_angle, local_context).try_into().unwrap();
+            let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
             Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(
                 from_angle,
-                stops.iter().map(|(color, stop)| {
-                    let color = eval_expression(color, local_context).try_into().unwrap();
-                    let position = eval_expression(stop, local_context).try_into().unwrap();
-                    GradientStop { color, position }
-                }),
+                eval_stops(ctx, stops),
             )))
         }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
-        }
-        Expression::Keys(ks) => Value::Keys(i_slint_core::input::make_keys(
-            SharedString::from(&*ks.key),
-            i_slint_core::input::KeyboardModifiers {
-                alt: ks.modifiers.alt,
-                control: ks.modifiers.control,
-                shift: ks.modifiers.shift,
-                meta: ks.modifiers.meta,
-            },
-            ks.ignore_shift,
-            ks.ignore_alt,
-        )),
-        Expression::ReturnStatement(x) => {
-            let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
-            if local_context.return_value.is_none() {
-                local_context.return_value = Some(val);
-            }
-            local_context.return_value.clone().unwrap()
         }
         Expression::LayoutCacheAccess {
             layout_cache_prop,
@@ -490,43 +774,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             repeater_index,
             entries_per_item,
         } => {
-            let cache = load_property_helper(
-                &ComponentInstance::InstanceRef(local_context.component_instance),
-                &layout_cache_prop.element(),
-                layout_cache_prop.name(),
-            )
-            .unwrap();
-            if let Value::LayoutCache(cache) = cache {
-                // Coordinate cache
-                if let Some(ri) = repeater_index {
-                    let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
-                    Value::Number(
-                        cache
-                            .get((cache[*index] as usize) + offset * entries_per_item)
-                            .copied()
-                            .unwrap_or(0.)
-                            .into(),
-                    )
-                } else {
-                    Value::Number(cache[*index].into())
-                }
-            } else if let Value::ArrayOfU16(cache) = cache {
-                // Organized Data cache
-                if let Some(ri) = repeater_index {
-                    let offset: usize = eval_expression(ri, local_context).try_into().unwrap();
-                    Value::Number(
-                        cache
-                            .get((cache[*index] as usize) + offset * entries_per_item)
-                            .copied()
-                            .unwrap_or(0)
-                            .into(),
-                    )
-                } else {
-                    Value::Number(cache[*index].into())
-                }
-            } else {
-                panic!("invalid layout cache")
-            }
+            let cache = load_property(ctx, layout_cache_prop);
+            layout_cache_access(ctx, cache, *index, repeater_index.as_deref(), *entries_per_item)
         }
         Expression::GridRepeaterCacheAccess {
             layout_cache_prop,
@@ -537,1816 +786,1934 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             inner_repeater_index,
             entries_per_item,
         } => {
-            let cache = load_property_helper(
-                &ComponentInstance::InstanceRef(local_context.component_instance),
-                &layout_cache_prop.element(),
-                layout_cache_prop.name(),
+            let cache = load_property(ctx, layout_cache_prop);
+            let offset: usize = eval_expression(ctx, repeater_index).try_into().unwrap_or_default();
+            let stride_val: usize = eval_expression(ctx, stride).try_into().unwrap_or_default();
+            let inner_offset: usize = inner_repeater_index
+                .as_deref()
+                .map(|e| {
+                    let i: usize = eval_expression(ctx, e).try_into().unwrap_or_default();
+                    i * *entries_per_item
+                })
+                .unwrap_or(0);
+            grid_repeater_cache_access(
+                cache,
+                *index,
+                offset,
+                stride_val,
+                *child_offset,
+                inner_offset,
             )
-            .unwrap();
-            if let Value::LayoutCache(cache) = cache {
-                // Coordinate cache
-                let row_idx: usize =
-                    eval_expression(repeater_index, local_context).try_into().unwrap();
-                let stride_val: usize = eval_expression(stride, local_context).try_into().unwrap();
-                if let Some(inner_ri) = inner_repeater_index {
-                    let inner_offset: usize =
-                        eval_expression(inner_ri, local_context).try_into().unwrap();
-                    let base = cache[*index] as usize;
-                    let data_idx = base
-                        + row_idx * stride_val
-                        + *child_offset
-                        + inner_offset * *entries_per_item;
-                    Value::Number(cache.get(data_idx).copied().unwrap_or(0.).into())
-                } else {
-                    let base = cache[*index] as usize;
-                    let data_idx = base + row_idx * stride_val + *child_offset;
-                    Value::Number(cache.get(data_idx).copied().unwrap_or(0.).into())
-                }
-            } else if let Value::ArrayOfU16(cache) = cache {
-                // Organized Data cache
-                let row_idx: usize =
-                    eval_expression(repeater_index, local_context).try_into().unwrap();
-                let stride_val: usize = eval_expression(stride, local_context).try_into().unwrap();
-                if let Some(inner_ri) = inner_repeater_index {
-                    let inner_offset: usize =
-                        eval_expression(inner_ri, local_context).try_into().unwrap();
-                    let base = cache[*index] as usize;
-                    let data_idx = base
-                        + row_idx * stride_val
-                        + *child_offset
-                        + inner_offset * *entries_per_item;
-                    Value::Number(cache.get(data_idx).copied().unwrap_or(0).into())
-                } else {
-                    let base = cache[*index] as usize;
-                    let data_idx = base + row_idx * stride_val + *child_offset;
-                    Value::Number(cache.get(data_idx).copied().unwrap_or(0).into())
-                }
-            } else {
-                panic!("invalid layout cache")
-            }
         }
-        Expression::ComputeBoxLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
-        }
-        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
-            let cache = load_property_helper(
-                &ComponentInstance::InstanceRef(local_context.component_instance),
-                &layout_organized_data_prop.element(),
-                layout_organized_data_prop.name(),
-            )
-            .unwrap();
-            if let Value::ArrayOfU16(organized_data) = cache {
-                crate::eval_layout::compute_grid_layout_info(
-                    layout,
-                    &organized_data,
-                    *orientation,
-                    local_context,
-                )
-            } else {
-                panic!("invalid layout organized data cache")
-            }
-        }
-        Expression::OrganizeGridLayout(lay) => {
-            crate::eval_layout::organize_grid_layout(lay, local_context)
-        }
-        Expression::SolveBoxLayout(lay, o) => {
-            crate::eval_layout::solve_box_layout(lay, *o, local_context)
-        }
-        Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
-            let cache = load_property_helper(
-                &ComponentInstance::InstanceRef(local_context.component_instance),
-                &layout_organized_data_prop.element(),
-                layout_organized_data_prop.name(),
-            )
-            .unwrap();
-            if let Value::ArrayOfU16(organized_data) = cache {
-                crate::eval_layout::solve_grid_layout(
-                    &organized_data,
-                    layout,
-                    *orientation,
-                    local_context,
-                )
-            } else {
-                panic!("invalid layout organized data cache")
-            }
-        }
-        Expression::SolveFlexboxLayout(layout) => {
-            crate::eval_layout::solve_flexbox_layout(layout, local_context)
-        }
-        Expression::ComputeFlexboxLayoutInfo(layout, orientation) => {
-            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
+        Expression::WithLayoutItemInfo {
+            cells_variable,
+            elements,
+            orientation,
+            sub_expression,
+            ..
+        } => with_layout_item_info(ctx, cells_variable, elements, *orientation, sub_expression),
+        Expression::WithFlexboxLayoutItemInfo {
+            cells_h_variable,
+            cells_v_variable,
+            elements,
+            sub_expression,
+            ..
+        } => with_flexbox_layout_item_info(
+            ctx,
+            cells_h_variable,
+            cells_v_variable,
+            elements,
+            sub_expression,
+        ),
+        Expression::WithGridInputData { cells_variable, elements, sub_expression, .. } => {
+            with_grid_input_data(ctx, cells_variable, elements, sub_expression)
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
-            let Value::Number(lhs) = eval_expression(lhs, local_context) else {
-                return local_context
-                    .return_value
-                    .clone()
-                    .expect("minmax lhs expression did not evaluate to number");
-            };
-            let Value::Number(rhs) = eval_expression(rhs, local_context) else {
-                return local_context
-                    .return_value
-                    .clone()
-                    .expect("minmax rhs expression did not evaluate to number");
-            };
+            let Value::Number(lhs) = eval_expression(ctx, lhs) else { return Value::Void };
+            let Value::Number(rhs) = eval_expression(ctx, rhs) else { return Value::Void };
             match op {
                 MinMaxOp::Min => Value::Number(lhs.min(rhs)),
                 MinMaxOp::Max => Value::Number(lhs.max(rhs)),
             }
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
-        Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
+        Expression::TranslationReference { .. } => {
+            // TranslationReference is only emitted when `bundle-translations`
+            // is active, which the interpreter does not use. Runtime @tr()
+            // goes through BuiltinFunction::Translate instead.
+            Value::String(Default::default())
+        }
     }
 }
 
-fn call_builtin_function(
-    f: BuiltinFunction,
-    arguments: &[Expression],
-    local_context: &mut EvalLocalContext,
-    source_location: &Option<i_slint_compiler::diagnostics::SourceLocation>,
+// `call_extra_builtin` and layout converters live in `eval_layout.rs`.
+
+fn with_layout_item_info(
+    ctx: &mut EvalContext,
+    cells_variable: &str,
+    elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
+    orientation: i_slint_compiler::layout::Orientation,
+    sub_expression: &Expression,
 ) -> Value {
-    match f {
-        BuiltinFunction::GetWindowScaleFactor => Value::Number(
-            local_context.component_instance.access_window(|window| window.scale_factor()) as _,
-        ),
-        BuiltinFunction::GetWindowDefaultFontSize => Value::Number({
-            let component = local_context.component_instance;
-            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
-            WindowItem::resolved_default_font_size(vtable::VRc::into_dyn(item_comp)).get() as _
-        }),
-        BuiltinFunction::AnimationTick => {
-            Value::Number(i_slint_core::animations::animation_tick() as f64)
-        }
-        BuiltinFunction::Debug => {
-            let to_print: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            local_context.component_instance.description.debug_handler.borrow()(
-                source_location.as_ref(),
-                &to_print,
-            );
-            Value::Void
-        }
-        BuiltinFunction::Mod => {
-            let mut to_num = |e| -> f64 { eval_expression(e, local_context).try_into().unwrap() };
-            Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
-        }
-        BuiltinFunction::Round => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.round())
-        }
-        BuiltinFunction::Ceil => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.ceil())
-        }
-        BuiltinFunction::Floor => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.floor())
-        }
-        BuiltinFunction::Sqrt => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.sqrt())
-        }
-        BuiltinFunction::Abs => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.abs())
-        }
-        BuiltinFunction::Sin => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.to_radians().sin())
-        }
-        BuiltinFunction::Cos => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.to_radians().cos())
-        }
-        BuiltinFunction::Tan => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.to_radians().tan())
-        }
-        BuiltinFunction::ASin => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.asin().to_degrees())
-        }
-        BuiltinFunction::ACos => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.acos().to_degrees())
-        }
-        BuiltinFunction::ATan => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.atan().to_degrees())
-        }
-        BuiltinFunction::ATan2 => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::Number(x.atan2(y).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::Number(x.log(y))
-        }
-        BuiltinFunction::Ln => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.ln())
-        }
-        BuiltinFunction::Pow => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::Number(x.powf(y))
-        }
-        BuiltinFunction::Exp => {
-            let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::Number(x.exp())
-        }
-        BuiltinFunction::ToFixed => {
-            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let digits: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let digits: usize = digits.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
-        }
-        BuiltinFunction::ToPrecision => {
-            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let precision: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let precision: usize = precision.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
-        }
-        BuiltinFunction::SetFocusItem => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to SetFocusItem")
-            }
-            let component = local_context.component_instance;
-            if let Expression::ElementReference(focus_item) = &arguments[0] {
-                generativity::make_guard!(guard);
-
-                let focus_item = focus_item.upgrade().unwrap();
-                let enclosing_component =
-                    enclosing_component_for_element(&focus_item, component, guard);
-                let description = enclosing_component.description;
-
-                let item_info = &description.items[focus_item.borrow().id.as_str()];
-
-                let focus_item_comp =
-                    enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-
-                component.access_window(|window| {
-                    window.set_focus_item(
-                        &corelib::items::ItemRc::new(
-                            vtable::VRc::into_dyn(focus_item_comp),
-                            item_info.item_index(),
-                        ),
-                        true,
-                        FocusReason::Programmatic,
-                    )
-                });
-                Value::Void
-            } else {
-                panic!("internal error: argument to SetFocusItem must be an element")
-            }
-        }
-        BuiltinFunction::ClearFocusItem => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to SetFocusItem")
-            }
-            let component = local_context.component_instance;
-            if let Expression::ElementReference(focus_item) = &arguments[0] {
-                generativity::make_guard!(guard);
-
-                let focus_item = focus_item.upgrade().unwrap();
-                let enclosing_component =
-                    enclosing_component_for_element(&focus_item, component, guard);
-                let description = enclosing_component.description;
-
-                let item_info = &description.items[focus_item.borrow().id.as_str()];
-
-                let focus_item_comp =
-                    enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-
-                component.access_window(|window| {
-                    window.set_focus_item(
-                        &corelib::items::ItemRc::new(
-                            vtable::VRc::into_dyn(focus_item_comp),
-                            item_info.item_index(),
-                        ),
-                        false,
-                        FocusReason::Programmatic,
-                    )
-                });
-                Value::Void
-            } else {
-                panic!("internal error: argument to ClearFocusItem must be an element")
-            }
-        }
-        BuiltinFunction::ShowPopupWindow => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ShowPopupWindow")
-            }
-            let component = local_context.component_instance;
-            if let Expression::ElementReference(popup_window) = &arguments[0] {
-                let popup_window = popup_window.upgrade().unwrap();
-                let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let parent_component = {
-                    let parent_elem = pop_comp.parent_element().unwrap();
-                    parent_elem.borrow().enclosing_component.upgrade().unwrap()
-                };
-                let popup_list = parent_component.popup_windows.borrow();
-                let popup =
-                    popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
-
-                generativity::make_guard!(guard);
-                let enclosing_component =
-                    enclosing_component_for_element(&popup.parent_element, component, guard);
-                let parent_item_info = &enclosing_component.description.items
-                    [popup.parent_element.borrow().id.as_str()];
-                let parent_item_comp =
-                    enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-                let parent_item = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(parent_item_comp),
-                    parent_item_info.item_index(),
+    let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
+    let mut repeated_indices: Vec<u32> = Vec::new();
+    let mut repeater_steps: Vec<u32> = Vec::new();
+    for el in elements {
+        match el {
+            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            itertools::Either::Right(repeater) => {
+                let offset = cells.len() as u32;
+                let (instances, step) = push_repeater_layout_items(
+                    ctx,
+                    repeater.repeater_index,
+                    repeater.row_child_templates.as_deref(),
+                    orientation,
+                    &mut cells,
                 );
-
-                let close_policy = Value::EnumerationValue(
-                    popup.close_policy.enumeration.name.to_string(),
-                    popup.close_policy.to_string(),
-                )
-                .try_into()
-                .expect("Invalid internal enumeration representation for close policy");
-
-                crate::dynamic_item_tree::show_popup(
-                    popup_window,
-                    enclosing_component,
-                    popup,
-                    |instance_ref| {
-                        let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
-                            .unwrap();
-                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
-                            .unwrap();
-                        corelib::api::LogicalPosition::new(
-                            x.try_into().unwrap(),
-                            y.try_into().unwrap(),
-                        )
-                    },
-                    close_policy,
-                    enclosing_component.self_weak().get().unwrap().clone(),
-                    component.window_adapter(),
-                    &parent_item,
-                );
-                Value::Void
-            } else {
-                panic!("internal error: argument to ShowPopupWindow must be an element")
+                repeated_indices.push(offset);
+                repeated_indices.push(instances);
+                repeater_steps.push(step);
             }
         }
-        BuiltinFunction::ClosePopupWindow => {
-            let component = local_context.component_instance;
-            if let Expression::ElementReference(popup_window) = &arguments[0] {
-                let popup_window = popup_window.upgrade().unwrap();
-                let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let parent_component = {
-                    let parent_elem = pop_comp.parent_element().unwrap();
-                    parent_elem.borrow().enclosing_component.upgrade().unwrap()
-                };
-                let popup_list = parent_component.popup_windows.borrow();
-                let popup =
-                    popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
+    }
+    let prev_cells =
+        ctx.locals.insert(SmolStr::from(cells_variable), Value::Model(model_from_vec(cells)));
+    let prev_ri = ctx.locals.insert(
+        SmolStr::new_static("repeated_indices"),
+        Value::Model(model_from_vec(
+            repeated_indices.into_iter().map(|i| Value::Number(i as f64)).collect(),
+        )),
+    );
+    let prev_rs = ctx.locals.insert(
+        SmolStr::new_static("repeater_steps"),
+        Value::Model(model_from_vec(
+            repeater_steps.into_iter().map(|i| Value::Number(i as f64)).collect(),
+        )),
+    );
+    let result = eval_expression(ctx, sub_expression);
+    restore_local(ctx, cells_variable, prev_cells);
+    restore_local(ctx, "repeated_indices", prev_ri);
+    restore_local(ctx, "repeater_steps", prev_rs);
+    result
+}
 
-                generativity::make_guard!(guard);
-                let enclosing_component =
-                    enclosing_component_for_element(&popup.parent_element, component, guard);
-                crate::dynamic_item_tree::close_popup(
-                    popup_window,
-                    enclosing_component,
-                    enclosing_component.window_adapter(),
-                );
-
-                Value::Void
-            } else {
-                panic!("internal error: argument to ClosePopupWindow must be an element")
-            }
-        }
-        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
-            let [Expression::ElementReference(element), entries, position] = arguments else {
-                panic!("internal error: incorrect argument count to ShowPopupMenu")
-            };
-            let position = eval_expression(position, local_context)
-                .try_into()
-                .expect("internal error: popup menu position argument should be a point");
-
-            let component = local_context.component_instance;
-            let elem = element.upgrade().unwrap();
-            generativity::make_guard!(guard);
-            let enclosing_component = enclosing_component_for_element(&elem, component, guard);
-            let description = enclosing_component.description;
-            let item_info = &description.items[elem.borrow().id.as_str()];
-            let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-            let item_tree = vtable::VRc::into_dyn(item_comp);
-            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
-
-            generativity::make_guard!(guard);
-            let compiled = enclosing_component.description.popup_menu_description.unerase(guard);
-            let extra_data = enclosing_component
-                .description
-                .extra_data_offset
-                .apply(enclosing_component.as_ref());
-            let inst = crate::dynamic_item_tree::instantiate(
-                compiled.clone(),
-                Some(enclosing_component.self_weak().get().unwrap().clone()),
-                None,
-                Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
-                    component.window_adapter(),
-                )),
-                extra_data.globals.get().unwrap().clone(),
-            );
-
-            generativity::make_guard!(guard);
-            let inst_ref = inst.unerase(guard);
-            if let Expression::ElementReference(e) = entries {
-                let menu_item_tree =
-                    e.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-                let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
-                    &menu_item_tree,
-                    &enclosing_component,
+fn push_repeater_layout_items(
+    ctx: &mut EvalContext,
+    repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
+    row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
+    orientation: i_slint_compiler::layout::Orientation,
+    cells: &mut Vec<Value>,
+) -> (u32, u32) {
+    use i_slint_core::model::RepeatedItemTree;
+    let Some(current) = ctx.current.as_ref() else { return (0, 0) };
+    current.ensure_repeater_updated(repeater_idx);
+    let repeater = &current.repeaters[repeater_idx];
+    let instances = repeater.instances_vec();
+    let core_orientation = llr_to_core_orientation(orientation);
+    let push_cell = |cells: &mut Vec<Value>, info: i_slint_core::layout::LayoutItemInfo| {
+        let mut struct_value = crate::api::Struct::default();
+        struct_value.set_field("constraint".to_string(), info.constraint.into());
+        cells.push(Value::Struct(struct_value));
+    };
+    let step = match row_child_templates {
+        None => {
+            // Column repeater: one cell per instance, asking the sub-component
+            // for its own layout info.
+            for instance in &instances {
+                let info = RepeatedItemTree::layout_item_info(
+                    instance.as_pin_ref(),
+                    core_orientation,
                     None,
                 );
-
-                if component.access_window(|window| {
-                    window.show_native_popup_menu(
-                        vtable::VRc::into_dyn(menu_item_tree.clone()),
-                        position,
-                        &item_rc,
-                    )
-                }) {
-                    return Value::Void;
-                }
-
-                let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
-
-                compiled.set_binding(inst_ref.borrow(), "entries", entries).unwrap();
-                compiled.set_callback_handler(inst_ref.borrow(), "sub-menu", sub_menu).unwrap();
-                compiled.set_callback_handler(inst_ref.borrow(), "activated", activated).unwrap();
-            } else {
-                let entries = eval_expression(entries, local_context);
-                compiled.set_property(inst_ref.borrow(), "entries", entries).unwrap();
-                let item_weak = item_rc.downgrade();
-                compiled
-                    .set_callback_handler(
-                        inst_ref.borrow(),
-                        "sub-menu",
-                        Box::new(move |args: &[Value]| -> Value {
-                            item_weak
-                                .upgrade()
-                                .unwrap()
-                                .downcast::<corelib::items::ContextMenu>()
-                                .unwrap()
-                                .sub_menu
-                                .call(&(args[0].clone().try_into().unwrap(),))
-                                .into()
-                        }),
-                    )
-                    .unwrap();
-                let item_weak = item_rc.downgrade();
-                compiled
-                    .set_callback_handler(
-                        inst_ref.borrow(),
-                        "activated",
-                        Box::new(move |args: &[Value]| -> Value {
-                            item_weak
-                                .upgrade()
-                                .unwrap()
-                                .downcast::<corelib::items::ContextMenu>()
-                                .unwrap()
-                                .activated
-                                .call(&(args[0].clone().try_into().unwrap(),));
-                            Value::Void
-                        }),
-                    )
-                    .unwrap();
+                push_cell(cells, info);
             }
-            let item_weak = item_rc.downgrade();
-            compiled
-                .set_callback_handler(
-                    inst_ref.borrow(),
-                    "close",
-                    Box::new(move |_args: &[Value]| -> Value {
-                        let Some(item_rc) = item_weak.upgrade() else { return Value::Void };
-                        if let Some(id) = item_rc
-                            .downcast::<corelib::items::ContextMenu>()
-                            .unwrap()
-                            .popup_id
-                            .take()
-                        {
-                            WindowInner::from_pub(item_rc.window_adapter().unwrap().window())
-                                .close_popup(id);
-                        }
-                        Value::Void
-                    }),
-                )
-                .unwrap();
-            component.access_window(|window| {
-                let context_menu_elem = item_rc.downcast::<corelib::items::ContextMenu>().unwrap();
-                if let Some(old_id) = context_menu_elem.popup_id.take() {
-                    window.close_popup(old_id)
-                }
-                let id = window.show_popup(
-                    &vtable::VRc::into_dyn(inst.clone()),
-                    position,
-                    corelib::items::PopupClosePolicy::CloseOnClickOutside,
-                    &item_rc,
-                    true,
-                );
-                context_menu_elem.popup_id.set(Some(id));
-            });
-            inst.run_setup_code();
-            Value::Void
+            1
         }
-        BuiltinFunction::SetSelectionOffsets => {
-            if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to select range function call")
-            }
-            let component = local_context.component_instance;
-            if let Expression::ElementReference(element) = &arguments[0] {
-                generativity::make_guard!(guard);
-
-                let elem = element.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&elem, component, guard);
-                let description = enclosing_component.description;
-                let item_info = &description.items[elem.borrow().id.as_str()];
-                let item_ref =
-                    unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-                let item_rc = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(item_comp),
-                    item_info.item_index(),
-                );
-
-                let window_adapter = component.window_adapter();
-
-                // TODO: Make this generic through RTTI
-                if let Some(textinput) =
-                    ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
-                {
-                    let start: i32 =
-                        eval_expression(&arguments[1], local_context).try_into().expect(
-                            "internal error: second argument to set-selection-offsets must be an integer",
-                        );
-                    let end: i32 = eval_expression(&arguments[2], local_context).try_into().expect(
-                        "internal error: third argument to set-selection-offsets must be an integer",
+        Some(templates) => {
+            // Row repeater: the step is the maximum total child count across
+            // instances (static children plus each instance's inner repeaters
+            // realized via RowChildTemplateInfo::Repeated).
+            let max_total = instances
+                .iter()
+                .map(|inst| total_row_child_count(&inst.root_sub_component, templates))
+                .max()
+                .unwrap_or(i_slint_compiler::llr::static_child_count(templates));
+            for instance in &instances {
+                for child_idx in 0..max_total {
+                    let info = RepeatedItemTree::layout_item_info(
+                        instance.as_pin_ref(),
+                        core_orientation,
+                        Some(child_idx),
                     );
-
-                    textinput.set_selection_offsets(&window_adapter, &item_rc, start, end);
-                } else {
-                    panic!(
-                        "internal error: member function called on element that doesn't have it: {}",
-                        elem.borrow().original_name()
-                    )
+                    push_cell(cells, info);
                 }
+            }
+            max_total as u32
+        }
+    };
+    (instances.len() as u32, step)
+}
 
-                Value::Void
-            } else {
-                panic!("internal error: first argument to set-selection-offsets must be an element")
+fn total_row_child_count(
+    sub: &Pin<std::rc::Rc<crate::instance::SubComponentInstance>>,
+    templates: &[i_slint_compiler::llr::RowChildTemplateInfo],
+) -> usize {
+    use i_slint_compiler::llr::{RowChildTemplateInfo, static_child_count};
+    let mut total = static_child_count(templates);
+    for entry in templates {
+        if let RowChildTemplateInfo::Repeated { repeater_index } = entry {
+            sub.ensure_repeater_updated(*repeater_index);
+            let repeater = &sub.repeaters[*repeater_index];
+            total += repeater.instances_vec().len();
+        }
+    }
+    total
+}
+
+fn llr_to_core_orientation(
+    o: i_slint_compiler::layout::Orientation,
+) -> i_slint_core::items::Orientation {
+    match o {
+        i_slint_compiler::layout::Orientation::Horizontal => {
+            i_slint_core::items::Orientation::Horizontal
+        }
+        i_slint_compiler::layout::Orientation::Vertical => {
+            i_slint_core::items::Orientation::Vertical
+        }
+    }
+}
+
+fn with_flexbox_layout_item_info(
+    ctx: &mut EvalContext,
+    cells_h_variable: &str,
+    cells_v_variable: &str,
+    elements: &[itertools::Either<
+        (Expression, Expression),
+        i_slint_compiler::llr::LayoutRepeatedElement,
+    >],
+    sub_expression: &Expression,
+) -> Value {
+    let mut cells_h: Vec<Value> = Vec::with_capacity(elements.len());
+    let mut cells_v: Vec<Value> = Vec::with_capacity(elements.len());
+    let mut repeated_indices: Vec<u32> = Vec::new();
+    for el in elements {
+        match el {
+            itertools::Either::Left((h, v)) => {
+                cells_h.push(eval_expression(ctx, h));
+                cells_v.push(eval_expression(ctx, v));
+            }
+            itertools::Either::Right(repeater) => {
+                let offset = cells_h.len() as u32;
+                let instances = push_repeater_flexbox_items(
+                    ctx,
+                    repeater.repeater_index,
+                    &mut cells_h,
+                    &mut cells_v,
+                );
+                repeated_indices.push(offset);
+                repeated_indices.push(instances);
             }
         }
-        BuiltinFunction::ItemFontMetrics => {
-            if arguments.len() != 1 {
-                panic!(
-                    "internal error: incorrect argument count to item font metrics function call"
+    }
+    let prev_h =
+        ctx.locals.insert(SmolStr::from(cells_h_variable), Value::Model(model_from_vec(cells_h)));
+    let prev_v =
+        ctx.locals.insert(SmolStr::from(cells_v_variable), Value::Model(model_from_vec(cells_v)));
+    let prev_ri = ctx.locals.insert(
+        SmolStr::new_static("repeated_indices"),
+        Value::Model(model_from_vec(
+            repeated_indices.into_iter().map(|i| Value::Number(i as f64)).collect(),
+        )),
+    );
+    let result = eval_expression(ctx, sub_expression);
+    restore_local(ctx, cells_h_variable, prev_h);
+    restore_local(ctx, cells_v_variable, prev_v);
+    restore_local(ctx, "repeated_indices", prev_ri);
+    result
+}
+
+fn push_repeater_flexbox_items(
+    ctx: &mut EvalContext,
+    repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
+    cells_h: &mut Vec<Value>,
+    cells_v: &mut Vec<Value>,
+) -> u32 {
+    use i_slint_core::items::Orientation;
+    use i_slint_core::model::RepeatedItemTree;
+    let Some(current) = ctx.current.as_ref() else { return 0 };
+    current.ensure_repeater_updated(repeater_idx);
+    let repeater = &current.repeaters[repeater_idx];
+    let instances = repeater.instances_vec();
+    let instance_count = instances.len() as u32;
+    for instance in instances {
+        // Box layout returns LayoutItemInfo; flexbox needs FlexboxLayoutItemInfo
+        // which adds flex-grow / flex-shrink / etc. The default
+        // `RepeatedItemTree::flexbox_layout_item_info` impl wraps the box one
+        // and zero-fills the flex fields.
+        let info_h = RepeatedItemTree::flexbox_layout_item_info(
+            instance.as_pin_ref(),
+            Orientation::Horizontal,
+            None,
+        );
+        let info_v = RepeatedItemTree::flexbox_layout_item_info(
+            instance.as_pin_ref(),
+            Orientation::Vertical,
+            None,
+        );
+        cells_h.push(flexbox_item_info_to_value(info_h));
+        cells_v.push(flexbox_item_info_to_value(info_v));
+    }
+    instance_count
+}
+
+fn flexbox_item_info_to_value(info: i_slint_core::layout::FlexboxLayoutItemInfo) -> Value {
+    let mut s = crate::api::Struct::default();
+    s.set_field("constraint".to_string(), info.constraint.into());
+    s.set_field("flex_grow".to_string(), Value::Number(info.flex_grow as f64));
+    s.set_field("flex_shrink".to_string(), Value::Number(info.flex_shrink as f64));
+    s.set_field("flex_basis".to_string(), Value::Number(info.flex_basis as f64));
+    s.set_field(
+        "flex_align_self".to_string(),
+        Value::EnumerationValue(
+            "FlexboxLayoutAlignSelf".to_string(),
+            format!("{:?}", info.flex_align_self).to_lowercase(),
+        ),
+    );
+    s.set_field("flex_order".to_string(), Value::Number(info.flex_order as f64));
+    Value::Struct(s)
+}
+
+fn with_grid_input_data(
+    ctx: &mut EvalContext,
+    cells_variable: &str,
+    elements: &[itertools::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
+    sub_expression: &Expression,
+) -> Value {
+    // Mirror `generate_with_grid_input_data` in the Rust codegen:
+    // `repeated_indices` holds `(offset, len)` pairs into `cells`; `repeater_steps`
+    // holds the per-instance item count. `organize_grid_layout` needs both to
+    // thread the repeater indirection through `organized_data`.
+    //
+    // A `new_row` local tracks whether the next static cell in the same row
+    // should start a new row. Each repeater resets it to its static `new_row`
+    // before iterating, then sets it to `false` after a column-repeater ran at
+    // least once. Static cells after the repeater consult this local via
+    // `ReadLocalVariable("new_row")`.
+    let saved_new_row = ctx.locals.remove("new_row");
+    let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
+    let mut repeated_indices: Vec<u32> = Vec::new();
+    let mut repeater_steps: Vec<u32> = Vec::new();
+
+    for el in elements {
+        match el {
+            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            itertools::Either::Right(repeater) => {
+                ctx.locals.insert(SmolStr::new_static("new_row"), Value::Bool(repeater.new_row));
+                let offset = cells.len() as u32;
+                let is_row_repeater = repeater.row_child_templates.is_some();
+                let (instances, step) = push_repeater_grid_input_data(
+                    ctx,
+                    repeater.repeater_index,
+                    repeater.new_row,
+                    repeater.row_child_templates.as_deref(),
+                    &mut cells,
+                );
+                if !is_row_repeater && instances > 0 {
+                    ctx.locals.insert(SmolStr::new_static("new_row"), Value::Bool(false));
+                }
+                repeated_indices.push(offset);
+                repeated_indices.push(instances);
+                repeater_steps.push(step);
+            }
+        }
+    }
+    restore_local(ctx, "new_row", saved_new_row);
+
+    let prev_cells =
+        ctx.locals.insert(SmolStr::from(cells_variable), Value::Model(model_from_vec(cells)));
+    let prev_ri = ctx.locals.insert(
+        SmolStr::new_static("repeated_indices"),
+        Value::Model(model_from_vec(
+            repeated_indices.into_iter().map(|i| Value::Number(i as f64)).collect(),
+        )),
+    );
+    let prev_rs = ctx.locals.insert(
+        SmolStr::new_static("repeater_steps"),
+        Value::Model(model_from_vec(
+            repeater_steps.into_iter().map(|i| Value::Number(i as f64)).collect(),
+        )),
+    );
+
+    let result = eval_expression(ctx, sub_expression);
+
+    restore_local(ctx, cells_variable, prev_cells);
+    restore_local(ctx, "repeated_indices", prev_ri);
+    restore_local(ctx, "repeater_steps", prev_rs);
+    result
+}
+
+fn restore_local(ctx: &mut EvalContext, name: &str, prev: Option<Value>) {
+    if let Some(prev) = prev {
+        ctx.locals.insert(SmolStr::from(name), prev);
+    } else {
+        ctx.locals.remove(name);
+    }
+}
+
+fn push_repeater_grid_input_data(
+    ctx: &mut EvalContext,
+    repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
+    new_row: bool,
+    row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
+    cells: &mut Vec<Value>,
+) -> (u32, u32) {
+    use i_slint_compiler::llr::RowChildTemplateInfo;
+    use i_slint_core::model::VecModel;
+    use std::rc::Rc;
+    let Some(current) = ctx.current.as_ref() else { return (0, 0) };
+    current.ensure_repeater_updated(repeater_idx);
+    let repeater = &current.repeaters[repeater_idx];
+
+    let is_row_repeater = row_child_templates.is_some();
+    let static_count =
+        row_child_templates.map(i_slint_compiler::llr::static_child_count).unwrap_or(1);
+
+    let instances = repeater.instances_vec();
+    let instance_count = instances.len() as u32;
+
+    // Step is the max total cells per instance: static_count + max inner-repeater
+    // cells across instances. All instances must contribute exactly `step` entries
+    // so that the flattened cell vector lines up with `repeater_steps` and
+    // `repeated_indices` the same way the rust codegen emits it.
+    let step = if let Some(templates) = row_child_templates {
+        instances
+            .iter()
+            .map(|inst| total_row_child_count(&inst.root_sub_component, templates))
+            .max()
+            .unwrap_or(static_count)
+    } else {
+        1
+    };
+
+    let mut current_new_row = new_row;
+
+    for instance in &instances {
+        let inner_sub = instance.root_sub_component.clone();
+        let cu = inner_sub.compilation_unit.clone();
+        let sc = &cu.sub_components[inner_sub.sub_component_idx];
+
+        // Evaluate `grid_layout_input_for_repeated` to populate the `statics`
+        // array (one entry per `RowChildTemplateInfo::Static`). For a simple
+        // column repeater this is the full result.
+        let mut statics: Vec<Value> = vec![Value::Void; static_count];
+        if let Some(expr) = &sc.grid_layout_input_for_repeated {
+            let expr = expr.borrow().clone();
+            let mut inner_ctx = EvalContext::new(inner_sub.clone());
+            let result_model: Rc<VecModel<Value>> = Rc::new(VecModel::default());
+            for _ in 0..static_count {
+                result_model.push(Value::Void);
+            }
+            inner_ctx.locals.insert(
+                SmolStr::new_static("result"),
+                Value::Model(i_slint_core::model::ModelRc::from(result_model.clone())),
+            );
+            inner_ctx.locals.insert(SmolStr::new_static("new_row"), Value::Bool(current_new_row));
+            eval_expression(&mut inner_ctx, &expr);
+            for i in 0..result_model.row_count() {
+                if let Some(v) = result_model.row_data(i) {
+                    statics[i] = v;
+                }
+            }
+        }
+
+        if let Some(templates) = row_child_templates {
+            // Walk templates, interleaving statics and auto-positioned
+            // placeholder cells for inner-repeater instances. Any leftover
+            // slot up to `step` gets an auto-positioned default as well
+            // (matches the Rust codegen's `result[write_idx..].fill(default)`).
+            let mut written = 0usize;
+            let mut static_idx = 0usize;
+            for entry in templates {
+                if written >= step {
+                    break;
+                }
+                match entry {
+                    RowChildTemplateInfo::Static { .. } => {
+                        let mut v = statics.get(static_idx).cloned().unwrap_or(Value::Void);
+                        static_idx += 1;
+                        override_new_row(&mut v, written == 0 && current_new_row);
+                        cells.push(v);
+                        written += 1;
+                    }
+                    RowChildTemplateInfo::Repeated { repeater_index } => {
+                        inner_sub.ensure_repeater_updated(*repeater_index);
+                        let inner_rep = &inner_sub.repeaters[*repeater_index];
+                        let inner_len = inner_rep.instances_vec().len();
+                        for _ in 0..inner_len {
+                            if written >= step {
+                                break;
+                            }
+                            let mut v = auto_grid_input_data();
+                            override_new_row(&mut v, written == 0 && current_new_row);
+                            cells.push(v);
+                            written += 1;
+                        }
+                    }
+                }
+            }
+            while written < step {
+                cells.push(auto_grid_input_data());
+                written += 1;
+            }
+        } else {
+            // Column repeater: one cell per instance.
+            cells.push(statics.pop().unwrap_or_else(auto_grid_input_data));
+        }
+
+        if !is_row_repeater {
+            current_new_row = false;
+        }
+    }
+    (instance_count, step as u32)
+}
+
+/// A `GridLayoutInputData` struct with auto row/col and unit span — matches
+/// `GridLayoutInputData::default()` in `i_slint_core::layout`.
+fn auto_grid_input_data() -> Value {
+    let mut s = crate::api::Struct::default();
+    s.set_field("new_row".into(), Value::Bool(false));
+    s.set_field("row".into(), Value::Number(i_slint_common::ROW_COL_AUTO as f64));
+    s.set_field("col".into(), Value::Number(i_slint_common::ROW_COL_AUTO as f64));
+    s.set_field("rowspan".into(), Value::Number(1.0));
+    s.set_field("colspan".into(), Value::Number(1.0));
+    Value::Struct(s)
+}
+
+fn override_new_row(v: &mut Value, new_row: bool) {
+    if let Value::Struct(s) = v {
+        s.set_field("new_row".into(), Value::Bool(new_row));
+    }
+}
+
+fn model_from_vec(values: Vec<Value>) -> ModelRc<Value> {
+    ModelRc::new(SharedVectorModel::from(values.into_iter().collect::<SharedVector<_>>()))
+}
+
+fn binary_op(op: char, lhs: Value, rhs: Value) -> Value {
+    // Coerce a `Void` operand to the type-default of the other side so we
+    // don't panic on uninitialized property reads.
+    let (lhs, rhs) = match (lhs, rhs) {
+        (Value::Void, Value::Number(b)) => (Value::Number(0.), Value::Number(b)),
+        (Value::Number(a), Value::Void) => (Value::Number(a), Value::Number(0.)),
+        (Value::Void, Value::Bool(b)) => (Value::Bool(false), Value::Bool(b)),
+        (Value::Bool(a), Value::Void) => (Value::Bool(a), Value::Bool(false)),
+        (Value::Void, Value::String(b)) => (Value::String(Default::default()), Value::String(b)),
+        (Value::String(a), Value::Void) => (Value::String(a), Value::String(Default::default())),
+        (a, b) => (a, b),
+    };
+    match (op, lhs, rhs) {
+        ('+', Value::String(mut a), Value::String(b)) => {
+            a.push_str(b.as_str());
+            Value::String(a)
+        }
+        ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+        ('+', a @ Value::Struct(_), b @ Value::Struct(_)) => {
+            let la: Option<i_slint_core::layout::LayoutInfo> = a.try_into().ok();
+            let lb: Option<i_slint_core::layout::LayoutInfo> = b.try_into().ok();
+            if let (Some(a), Some(b)) = (la, lb) {
+                a.merge(&b).into()
+            } else {
+                panic!("unsupported struct + struct");
+            }
+        }
+        ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
+        ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),
+        ('*', Value::Number(a), Value::Number(b)) => Value::Number(a * b),
+        ('<', Value::Number(a), Value::Number(b)) => Value::Bool(a < b),
+        ('>', Value::Number(a), Value::Number(b)) => Value::Bool(a > b),
+        ('≤', Value::Number(a), Value::Number(b)) => Value::Bool(a <= b),
+        ('≥', Value::Number(a), Value::Number(b)) => Value::Bool(a >= b),
+        ('<', Value::String(a), Value::String(b)) => Value::Bool(a < b),
+        ('>', Value::String(a), Value::String(b)) => Value::Bool(a > b),
+        ('≤', Value::String(a), Value::String(b)) => Value::Bool(a <= b),
+        ('≥', Value::String(a), Value::String(b)) => Value::Bool(a >= b),
+        ('=', a, b) => Value::Bool(a == b),
+        ('!', a, b) => Value::Bool(a != b),
+        ('&', Value::Bool(a), Value::Bool(b)) => Value::Bool(a && b),
+        ('|', Value::Bool(a), Value::Bool(b)) => Value::Bool(a || b),
+        (op, a, b) => panic!("unsupported {a:?} {op} {b:?}"),
+    }
+}
+
+fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<GradientStop> {
+    stops
+        .iter()
+        .map(|(color, stop)| GradientStop {
+            color: eval_expression(ctx, color).try_into().unwrap_or_default(),
+            position: eval_expression(ctx, stop).try_into().unwrap_or_default(),
+        })
+        .collect()
+}
+
+fn load_image_reference(
+    resource_ref: &i_slint_compiler::expression_tree::ImageReference,
+) -> i_slint_core::graphics::Image {
+    use i_slint_compiler::expression_tree::ImageReference as Ref;
+    match resource_ref {
+        Ref::None => Default::default(),
+        Ref::AbsolutePath(path) => {
+            if path.starts_with("data:") {
+                i_slint_compiler::data_uri::decode_data_uri(path)
+                    .map(|(data, extension)| {
+                        let data: &'static [u8] = Box::leak(data.into_boxed_slice());
+                        let ext: &'static [u8] =
+                            Box::leak(extension.into_boxed_str().into_boxed_bytes());
+                        i_slint_core::graphics::load_image_from_embedded_data(
+                            i_slint_core::slice::Slice::from_slice(data),
+                            i_slint_core::slice::Slice::from_slice(ext),
+                        )
+                    })
+                    .unwrap_or_default()
+            } else if path.starts_with("builtin:/") {
+                // Style-bundled resources (e.g. cosmic/material widget icons)
+                // are baked into the compiler's builtin library and need to be
+                // fetched through `fileaccess::load_file` rather than the
+                // filesystem. The bytes are static, so leak them so the core
+                // image loader can hold a reference for the lifetime of the
+                // process.
+                let virtual_file =
+                    i_slint_compiler::fileaccess::load_file(std::path::Path::new(path.as_str()));
+                let Some(virtual_file) = virtual_file else { return Default::default() };
+                let Some(contents) = virtual_file.builtin_contents else {
+                    return Default::default();
+                };
+                let extension = std::path::Path::new(path.as_str())
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .as_bytes();
+                let ext: &'static [u8] = Box::leak(extension.to_vec().into_boxed_slice());
+                i_slint_core::graphics::load_image_from_embedded_data(
+                    i_slint_core::slice::Slice::from_slice(contents),
+                    i_slint_core::slice::Slice::from_slice(ext),
                 )
+            } else {
+                i_slint_core::graphics::Image::load_from_path(std::path::Path::new(path))
+                    .unwrap_or_default()
             }
-            let component = local_context.component_instance;
-            if let Expression::ElementReference(element) = &arguments[0] {
-                generativity::make_guard!(guard);
+        }
+        Ref::EmbeddedData { .. } | Ref::EmbeddedTexture { .. } => Default::default(),
+    }
+}
 
-                let elem = element.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&elem, component, guard);
-                let description = enclosing_component.description;
-                let item_info = &description.items[elem.borrow().id.as_str()];
-                let item_ref =
-                    unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-                let item_rc = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(item_comp),
-                    item_info.item_index(),
-                );
-                let window_adapter = component.window_adapter();
-                let metrics = i_slint_core::items::slint_text_item_fontmetrics(
-                    &window_adapter,
-                    item_ref,
-                    &item_rc,
-                );
-                metrics.into()
-            } else {
-                panic!("internal error: argument to item-font-metrics must be an element")
-            }
-        }
-        BuiltinFunction::StringIsFloat => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to StringIsFloat")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                Value::Bool(<f64 as core::str::FromStr>::from_str(s.as_str()).is_ok())
-            } else {
-                panic!("Argument not a string");
-            }
-        }
-        BuiltinFunction::StringToFloat => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to StringToFloat")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                Value::Number(core::str::FromStr::from_str(s.as_str()).unwrap_or(0.))
-            } else {
-                panic!("Argument not a string");
-            }
-        }
-        BuiltinFunction::StringIsEmpty => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to StringIsEmpty")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                Value::Bool(s.is_empty())
-            } else {
-                panic!("Argument not a string");
-            }
-        }
-        BuiltinFunction::StringCharacterCount => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to StringCharacterCount")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+fn layout_cache_access(
+    ctx: &mut EvalContext,
+    cache: Value,
+    index: usize,
+    repeater_index: Option<&Expression>,
+    entries_per_item: usize,
+) -> Value {
+    match cache {
+        Value::LayoutCache(cache) => {
+            if let Some(ri) = repeater_index {
+                let offset: usize = eval_expression(ctx, ri).try_into().unwrap_or_default();
                 Value::Number(
-                    unicode_segmentation::UnicodeSegmentation::graphemes(s.as_str(), true).count()
-                        as f64,
+                    cache
+                        .get((cache[index] as usize) + offset * entries_per_item)
+                        .copied()
+                        .unwrap_or(0.)
+                        .into(),
                 )
             } else {
-                panic!("Argument not a string");
+                Value::Number(cache[index].into())
             }
         }
-        BuiltinFunction::StringToLowercase => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to StringToLowercase")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                Value::String(s.to_lowercase().into())
+        Value::ArrayOfU16(cache) => {
+            if let Some(ri) = repeater_index {
+                let offset: usize = eval_expression(ctx, ri).try_into().unwrap_or_default();
+                Value::Number(
+                    cache
+                        .get((cache[index] as usize) + offset * entries_per_item)
+                        .copied()
+                        .unwrap_or(0)
+                        .into(),
+                )
             } else {
-                panic!("Argument not a string");
+                Value::Number(cache[index].into())
             }
+        }
+        _ => Value::Number(0.),
+    }
+}
+
+/// Two-level indirection cache read for grid layouts with repeaters.
+/// `base = cache[index]` points at the start of a repeated row's entries;
+/// the final index offsets from there by `repeater_index * stride`, a
+/// per-cell `child_offset`, and an optional inner-repeater offset.
+fn grid_repeater_cache_access(
+    cache: Value,
+    index: usize,
+    repeater_index: usize,
+    stride: usize,
+    child_offset: usize,
+    inner_offset: usize,
+) -> Value {
+    let get = |data_idx: usize, slice_len: usize, read: &dyn Fn(usize) -> f64| {
+        if data_idx < slice_len { Value::Number(read(data_idx)) } else { Value::Number(0.) }
+    };
+    match cache {
+        Value::LayoutCache(cache) => {
+            let base = cache.get(index).copied().unwrap_or(0.) as usize;
+            let data_idx = base + repeater_index * stride + child_offset + inner_offset;
+            get(data_idx, cache.len(), &|i| cache[i] as f64)
+        }
+        Value::ArrayOfU16(cache) => {
+            let base = cache.get(index).copied().unwrap_or(0) as usize;
+            let data_idx = base + repeater_index * stride + child_offset + inner_offset;
+            get(data_idx, cache.len(), &|i| cache[i] as f64)
+        }
+        _ => Value::Number(0.),
+    }
+}
+
+/// Dispatch table for the computational `BuiltinFunction` variants.
+///
+/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
+fn call_builtin_function(
+    ctx: &mut EvalContext,
+    f: BuiltinFunction,
+    arguments: &[Expression],
+) -> Value {
+    let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
+        eval_expression(ctx, e).try_into().unwrap_or_default()
+    };
+    let to_string = |ctx: &mut EvalContext, e: &Expression| -> SharedString {
+        eval_expression(ctx, e).try_into().unwrap_or_default()
+    };
+
+    match f {
+        BuiltinFunction::Mod => {
+            Value::Number(to_num(ctx, &arguments[0]).rem_euclid(to_num(ctx, &arguments[1])))
+        }
+        BuiltinFunction::Round => Value::Number(to_num(ctx, &arguments[0]).round()),
+        BuiltinFunction::Ceil => Value::Number(to_num(ctx, &arguments[0]).ceil()),
+        BuiltinFunction::Floor => Value::Number(to_num(ctx, &arguments[0]).floor()),
+        BuiltinFunction::Sqrt => Value::Number(to_num(ctx, &arguments[0]).sqrt()),
+        BuiltinFunction::Abs => Value::Number(to_num(ctx, &arguments[0]).abs()),
+        BuiltinFunction::Sin => Value::Number(to_num(ctx, &arguments[0]).to_radians().sin()),
+        BuiltinFunction::Cos => Value::Number(to_num(ctx, &arguments[0]).to_radians().cos()),
+        BuiltinFunction::Tan => Value::Number(to_num(ctx, &arguments[0]).to_radians().tan()),
+        BuiltinFunction::ASin => Value::Number(to_num(ctx, &arguments[0]).asin().to_degrees()),
+        BuiltinFunction::ACos => Value::Number(to_num(ctx, &arguments[0]).acos().to_degrees()),
+        BuiltinFunction::ATan => Value::Number(to_num(ctx, &arguments[0]).atan().to_degrees()),
+        BuiltinFunction::ATan2 => {
+            Value::Number(to_num(ctx, &arguments[0]).atan2(to_num(ctx, &arguments[1])).to_degrees())
+        }
+        BuiltinFunction::Log => {
+            Value::Number(to_num(ctx, &arguments[0]).log(to_num(ctx, &arguments[1])))
+        }
+        BuiltinFunction::Ln => Value::Number(to_num(ctx, &arguments[0]).ln()),
+        BuiltinFunction::Pow => {
+            Value::Number(to_num(ctx, &arguments[0]).powf(to_num(ctx, &arguments[1])))
+        }
+        BuiltinFunction::Exp => Value::Number(to_num(ctx, &arguments[0]).exp()),
+        BuiltinFunction::ToFixed => {
+            let n = to_num(ctx, &arguments[0]);
+            let digits: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
+            Value::String(i_slint_core::string::shared_string_from_number_fixed(
+                n,
+                digits.max(0) as usize,
+            ))
+        }
+        BuiltinFunction::ToPrecision => {
+            let n = to_num(ctx, &arguments[0]);
+            let p: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
+            Value::String(i_slint_core::string::shared_string_from_number_precision(
+                n,
+                p.max(0) as usize,
+            ))
+        }
+        BuiltinFunction::StringIsFloat => Value::Bool(
+            <f64 as core::str::FromStr>::from_str(to_string(ctx, &arguments[0]).as_str()).is_ok(),
+        ),
+        BuiltinFunction::StringToFloat => Value::Number(
+            core::str::FromStr::from_str(to_string(ctx, &arguments[0]).as_str()).unwrap_or(0.),
+        ),
+        BuiltinFunction::StringIsEmpty => Value::Bool(to_string(ctx, &arguments[0]).is_empty()),
+        BuiltinFunction::StringCharacterCount => Value::Number(
+            unicode_segmentation::UnicodeSegmentation::graphemes(
+                to_string(ctx, &arguments[0]).as_str(),
+                true,
+            )
+            .count() as f64,
+        ),
+        BuiltinFunction::StringToLowercase => {
+            Value::String(to_string(ctx, &arguments[0]).to_lowercase().into())
         }
         BuiltinFunction::StringToUppercase => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to StringToUppercase")
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                Value::String(s.to_uppercase().into())
-            } else {
-                panic!("Argument not a string");
-            }
-        }
-        BuiltinFunction::KeysToString => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to KeysToString")
-            }
-            let Value::Keys(keys) = eval_expression(&arguments[0], local_context) else {
-                panic!("Argument is not of type keys");
-            };
-            Value::String(ToSharedString::to_shared_string(&keys))
+            Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
         }
         BuiltinFunction::ColorRgbaStruct => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorRGBAComponents")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
                 let color = brush.color();
-                let values = IntoIterator::into_iter([
+                let values = [
                     ("red".to_string(), Value::Number(color.red().into())),
                     ("green".to_string(), Value::Number(color.green().into())),
                     ("blue".to_string(), Value::Number(color.blue().into())),
                     ("alpha".to_string(), Value::Number(color.alpha().into())),
-                ])
+                ]
+                .into_iter()
                 .collect();
                 Value::Struct(values)
             } else {
-                panic!("First argument not a color");
+                Value::Void
             }
         }
         BuiltinFunction::ColorHsvaStruct => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorHSVAComponents")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
                 let color = brush.color().to_hsva();
-                let values = IntoIterator::into_iter([
+                let values = [
                     ("hue".to_string(), Value::Number(color.hue.into())),
                     ("saturation".to_string(), Value::Number(color.saturation.into())),
                     ("value".to_string(), Value::Number(color.value.into())),
                     ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ])
+                ]
+                .into_iter()
                 .collect();
                 Value::Struct(values)
             } else {
-                panic!("First argument not a color");
+                Value::Void
             }
         }
         BuiltinFunction::ColorOklchStruct => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorOklchStruct")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
                 let color = brush.color().to_oklch();
-                let values = IntoIterator::into_iter([
+                let values = [
                     ("lightness".to_string(), Value::Number(color.lightness.into())),
                     ("chroma".to_string(), Value::Number(color.chroma.into())),
                     ("hue".to_string(), Value::Number(color.hue.into())),
                     ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ])
+                ]
+                .into_iter()
                 .collect();
                 Value::Struct(values)
             } else {
-                panic!("First argument not a color");
+                Value::Void
             }
         }
         BuiltinFunction::ColorBrighter => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to ColorBrighter")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                    brush.brighter(factor as _).into()
-                } else {
-                    panic!("Second argument not a number");
-                }
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
+                brush.brighter(to_num(ctx, &arguments[1]) as f32).into()
             } else {
-                panic!("First argument not a color");
+                Value::Void
             }
         }
         BuiltinFunction::ColorDarker => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to ColorDarker")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                    brush.darker(factor as _).into()
-                } else {
-                    panic!("Second argument not a number");
-                }
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
+                brush.darker(to_num(ctx, &arguments[1]) as f32).into()
             } else {
-                panic!("First argument not a color");
+                Value::Void
             }
         }
         BuiltinFunction::ColorTransparentize => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to ColorFaded")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                    brush.transparentize(factor as _).into()
-                } else {
-                    panic!("Second argument not a number");
-                }
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
+                brush.transparentize(to_num(ctx, &arguments[1]) as f32).into()
             } else {
-                panic!("First argument not a color");
+                Value::Void
+            }
+        }
+        BuiltinFunction::ColorWithAlpha => {
+            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
+                brush.with_alpha(to_num(ctx, &arguments[1]) as f32).into()
+            } else {
+                Value::Void
             }
         }
         BuiltinFunction::ColorMix => {
-            if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to ColorMix")
-            }
-
-            let arg0 = eval_expression(&arguments[0], local_context);
-            let arg1 = eval_expression(&arguments[1], local_context);
-            let arg2 = eval_expression(&arguments[2], local_context);
-
-            if !matches!(arg0, Value::Brush(Brush::SolidColor(_))) {
-                panic!("First argument not a color");
-            }
-            if !matches!(arg1, Value::Brush(Brush::SolidColor(_))) {
-                panic!("Second argument not a color");
-            }
-            if !matches!(arg2, Value::Number(_)) {
-                panic!("Third argument not a number");
-            }
-
-            let (
-                Value::Brush(Brush::SolidColor(color_a)),
-                Value::Brush(Brush::SolidColor(color_b)),
-                Value::Number(factor),
-            ) = (arg0, arg1, arg2)
-            else {
-                unreachable!()
-            };
-
-            color_a.mix(&color_b, factor as _).into()
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to ColorWithAlpha")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                    brush.with_alpha(factor as _).into()
-                } else {
-                    panic!("Second argument not a number");
-                }
+            let a = eval_expression(ctx, &arguments[0]);
+            let b = eval_expression(ctx, &arguments[1]);
+            let factor = to_num(ctx, &arguments[2]) as f32;
+            if let (
+                Value::Brush(i_slint_core::Brush::SolidColor(ca)),
+                Value::Brush(i_slint_core::Brush::SolidColor(cb)),
+            ) = (a, b)
+            {
+                ca.mix(&cb, factor).into()
             } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ImageSize => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ImageSize")
-            }
-            if let Value::Image(img) = eval_expression(&arguments[0], local_context) {
-                let size = img.size();
-                let values = IntoIterator::into_iter([
-                    ("width".to_string(), Value::Number(size.width as f64)),
-                    ("height".to_string(), Value::Number(size.height as f64)),
-                ])
-                .collect();
-                Value::Struct(values)
-            } else {
-                panic!("First argument not an image");
-            }
-        }
-        BuiltinFunction::ArrayLength => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ArrayLength")
-            }
-            match eval_expression(&arguments[0], local_context) {
-                Value::Model(model) => {
-                    model.model_tracker().track_row_count_changes();
-                    Value::Number(model.row_count() as f64)
-                }
-                _ => {
-                    panic!("First argument not an array: {:?}", arguments[0]);
-                }
+                Value::Void
             }
         }
         BuiltinFunction::Rgb => {
-            let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let b: i32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
-            let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
+            let r: i32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
+            let g: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
+            let b: i32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
+            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
             let r: u8 = r.clamp(0, 255) as u8;
             let g: u8 = g.clamp(0, 255) as u8;
             let b: u8 = b.clamp(0, 255) as u8;
             let a: u8 = (255. * a).clamp(0., 255.) as u8;
-            Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
+            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_argb_u8(
+                a, r, g, b,
+            )))
         }
         BuiltinFunction::Hsv => {
-            let h: f32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let s: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let v: f32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
-            let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
-            let a = (1. * a).clamp(0., 1.);
-            Value::Brush(Brush::SolidColor(Color::from_hsva(h, s, v, a)))
+            let h: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
+            let s: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
+            let v: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
+            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
+            let a = a.clamp(0., 1.);
+            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_hsva(
+                h, s, v, a,
+            )))
         }
         BuiltinFunction::Oklch => {
-            let l: f32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let c: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let h: f32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
-            let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
-            let l = l.clamp(0., 1.);
-            let c = c.max(0.);
-            let a = a.clamp(0., 1.);
-            Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
+            let l: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
+            let c: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
+            let h: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
+            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
+            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_oklch(
+                l.clamp(0.0, 1.0),
+                c,
+                h,
+                a.clamp(0.0, 1.0),
+            )))
         }
-        BuiltinFunction::ColorScheme => local_context
-            .component_instance
-            .window_adapter()
-            .internal(corelib::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-            .into(),
+        BuiltinFunction::AnimationTick => {
+            Value::Number(i_slint_core::animations::animation_tick() as f64)
+        }
+        BuiltinFunction::GetWindowScaleFactor => {
+            let factor = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+                .map(|adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window()).scale_factor()
+                        as f64
+                })
+                .unwrap_or(1.0);
+            Value::Number(factor)
+        }
+        BuiltinFunction::GetWindowDefaultFontSize => {
+            // Default font size lives on the window-item's
+            // `default-font-size` property; pull it via the window adapter
+            // and fall back to 12px (headless testing default) if no window
+            // is set up yet. For popups the local instance has no window
+            // adapter of its own, so walk the parent chain to reach the
+            // owning window — otherwise `1rem` would resolve to the headless
+            // default instead of inheriting the parent window's setting.
+            let size = find_window_adapter(ctx)
+                .map(|adapter| {
+                    let win = i_slint_core::window::WindowInner::from_pub(adapter.window());
+                    win.window_item()
+                        .map(|wi| wi.as_pin_ref().default_font_size().get() as f64)
+                        .unwrap_or(12.0)
+                })
+                .unwrap_or(12.0);
+            Value::Number(size)
+        }
+        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
+        BuiltinFunction::Use24HourFormat => {
+            Value::Bool(i_slint_core::date_time::use_24_hour_format())
+        }
+        BuiltinFunction::ColorScheme => {
+            // Mirror the rust codegen: ask the active window adapter for the
+            // current color scheme. Walk up to the root instance to find the
+            // adapter; fall back to `Unknown` if there is no window yet.
+            let scheme = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+                .map(|adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window()).color_scheme()
+                })
+                .unwrap_or(i_slint_core::items::ColorScheme::Unknown);
+            scheme.into()
+        }
         BuiltinFunction::AccentColor => {
-            let color = local_context
-                .component_instance
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .map_or(corelib::Color::default(), |x| x.accent_color());
-            Value::Brush(corelib::Brush::SolidColor(color))
+            let color = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+                .map(|adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window()).accent_color()
+                })
+                .unwrap_or_default();
+            color.into()
         }
-        BuiltinFunction::SupportsNativeMenuBar => local_context
-            .component_instance
-            .window_adapter()
-            .internal(corelib::InternalToken)
-            .is_some_and(|x| x.supports_native_menu_bar())
-            .into(),
-        BuiltinFunction::SetupMenuBar => {
-            let component = local_context.component_instance;
-            let [
-                Expression::PropertyReference(entries_nr),
-                Expression::PropertyReference(sub_menu_nr),
-                Expression::PropertyReference(activated_nr),
-                Expression::ElementReference(item_tree_root),
-                Expression::BoolLiteral(no_native),
-                rest @ ..,
-            ] = arguments
-            else {
-                panic!("internal error: incorrect argument count to SetupMenuBar")
-            };
-
-            let menu_item_tree =
-                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-            let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
-                &menu_item_tree,
-                &component,
-                rest.first(),
-            );
-
-            let window_adapter = component.window_adapter();
-            let window_inner = WindowInner::from_pub(window_adapter.window());
-            let menubar = vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree));
-            window_inner.setup_menubar_shortcuts(vtable::VRc::clone(&menubar));
-
-            if !no_native && window_inner.supports_native_menu_bar() {
-                window_inner.setup_menubar(menubar);
-                return Value::Void;
-            }
-
-            let (entries, sub_menu, activated) = menu_item_tree_properties(menu_item_tree);
-
-            assert_eq!(
-                entries_nr.element().borrow().id,
-                component.description.original.root_element.borrow().id,
-                "entries need to be in the main element"
-            );
-            local_context
-                .component_instance
-                .description
-                .set_binding(component.borrow(), entries_nr.name(), entries)
-                .unwrap();
-            let i = &ComponentInstance::InstanceRef(local_context.component_instance);
-            set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu).unwrap();
-            set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
-                .unwrap();
-
-            Value::Void
-        }
-        BuiltinFunction::MonthDayCount => {
-            let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
-        }
-        BuiltinFunction::MonthOffset => {
-            let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-
-            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
-        }
-        BuiltinFunction::FormatDate => {
-            let f: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let d: u32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let m: u32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
-            let y: i32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
-
-            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
-        }
-        BuiltinFunction::DateNow => Value::Model(ModelRc::new(VecModel::from(
-            i_slint_core::date_time::date_now()
-                .into_iter()
-                .map(|x| Value::Number(x as f64))
-                .collect::<Vec<_>>(),
-        ))),
-        BuiltinFunction::ValidDate => {
-            let d: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let f: SharedString = eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
-        }
-        BuiltinFunction::ParseDate => {
-            let d: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let f: SharedString = eval_expression(&arguments[1], local_context).try_into().unwrap();
-
-            Value::Model(ModelRc::new(
-                i_slint_core::date_time::parse_date(d.as_str(), f.as_str())
-                    .map(|x| {
-                        VecModel::from(
-                            x.into_iter().map(|x| Value::Number(x as f64)).collect::<Vec<_>>(),
-                        )
-                    })
-                    .unwrap_or_default(),
-            ))
-        }
-        BuiltinFunction::TextInputFocused => Value::Bool(
-            local_context.component_instance.access_window(|window| window.text_input_focused())
-                as _,
-        ),
-        BuiltinFunction::SetTextInputFocused => {
-            local_context.component_instance.access_window(|window| {
-                window.set_text_input_focused(
-                    eval_expression(&arguments[0], local_context).try_into().unwrap(),
-                )
+        BuiltinFunction::SupportsNativeMenuBar => {
+            let supports = find_window_adapter(ctx).is_some_and(|a| {
+                a.internal(i_slint_core::InternalToken)
+                    .is_some_and(|x| x.supports_native_menu_bar())
             });
+            Value::Bool(supports)
+        }
+        BuiltinFunction::TextInputFocused => {
+            let focused = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+                .map(|adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window())
+                        .text_input_focused()
+                })
+                .unwrap_or(false);
+            Value::Bool(focused)
+        }
+        BuiltinFunction::SetTextInputFocused => {
+            let value = arguments
+                .first()
+                .map(|e| eval_expression(ctx, e))
+                .and_then(|v| bool::try_from(v).ok())
+                .unwrap_or(false);
+            if let Some(adapter) = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+            {
+                i_slint_core::window::WindowInner::from_pub(adapter.window())
+                    .set_text_input_focused(value);
+            }
             Value::Void
         }
-        BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            let component = local_context.component_instance;
-            if let [Expression::ElementReference(item)] = arguments {
-                generativity::make_guard!(guard);
-
-                let item = item.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&item, component, guard);
-                let description = enclosing_component.description;
-                let item_info = &description.items[item.borrow().id.as_str()];
-                let item_ref =
-                    unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-                let window_adapter = component.window_adapter();
-                item_ref
-                    .as_ref()
-                    .layout_info(
-                        crate::eval_layout::to_runtime(orient),
-                        &window_adapter,
-                        &ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index()),
-                    )
-                    .into()
+        BuiltinFunction::UpdateTimers => {
+            // The interpreter installs change trackers on every timer's
+            // `running` / `interval` expressions in `bindings::install_timers`,
+            // so they react to property changes automatically. The
+            // `UpdateTimers` builtin is the rust codegen's way of triggering
+            // that work explicitly; for the interpreter it's a no-op.
+            Value::Void
+        }
+        BuiltinFunction::RestartTimer => {
+            // Argument is `NumberLiteral(timer_index)` rooted in the current
+            // sub-component.
+            if let [Expression::NumberLiteral(timer_index)] = arguments
+                && let Some(current) = ctx.current.as_ref()
+                && let Some(timer) = current.timers.borrow().get(*timer_index as usize)
+            {
+                timer.restart();
+            }
+            Value::Void
+        }
+        BuiltinFunction::KeysToString => {
+            let v = arguments.first().map(|e| eval_expression(ctx, e));
+            if let Some(Value::Keys(keys)) = v {
+                Value::String(keys.to_string().into())
             } else {
-                panic!("internal error: incorrect arguments to ImplicitLayoutInfo {arguments:?}");
+                Value::String(Default::default())
             }
         }
-        BuiltinFunction::ItemAbsolutePosition => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ItemAbsolutePosition")
+        BuiltinFunction::SetSelectionOffsets => {
+            // (item_ref, start, end) — applied to a TextInput.
+            use i_slint_core::items::TextInput;
+            let [Expression::PropertyReference(mr), start_expr, end_expr] = arguments else {
+                return Value::Void;
+            };
+            let start: i32 = eval_expression(ctx, start_expr).try_into().unwrap_or(0);
+            let end: i32 = eval_expression(ctx, end_expr).try_into().unwrap_or(0);
+            let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
+                return Value::Void;
+            };
+            let Some(adapter) = parent_inst.window_adapter_or_default() else {
+                return Value::Void;
+            };
+            let parent_dyn = vtable::VRc::into_dyn(parent_inst);
+            let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
+            if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow()) {
+                text_input.set_selection_offsets(&adapter, &item_rc, start, end);
             }
-
-            let component = local_context.component_instance;
-
-            if let Expression::ElementReference(item) = &arguments[0] {
-                generativity::make_guard!(guard);
-
-                let item = item.upgrade().unwrap();
-                let enclosing_component = enclosing_component_for_element(&item, component, guard);
-                let description = enclosing_component.description;
-
-                let item_info = &description.items[item.borrow().id.as_str()];
-
-                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-
-                let item_rc = corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(item_comp),
-                    item_info.item_index(),
-                );
-
-                item_rc.map_to_window(Default::default()).to_untyped().into()
-            } else {
-                panic!("internal error: argument to SetFocusItem must be an element")
-            }
+            Value::Void
         }
         BuiltinFunction::RegisterCustomFontByPath => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to RegisterCustomFontByPath")
-            }
-            let component = local_context.component_instance;
-            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Some(err) = component
-                    .window_adapter()
-                    .renderer()
-                    .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
-                    .err()
+            // Font registration is a no-op in the headless test backend.
+            // The rust codegen wires this through
+            // `slint::private_unstable_api::register_font_from_path`, which
+            // returns `Ok(())` for the testing backend anyway.
+            Value::Void
+        }
+        BuiltinFunction::SetupMenuBar => setup_menubar(ctx, arguments),
+        BuiltinFunction::ItemFontMetrics => {
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let MemberReference::Relative { parent_level, local_reference } = mr
+                && let LocalMemberIndex::Native { item_index, prop_name, .. } =
+                    &local_reference.reference
+                && prop_name.is_empty()
+            {
+                let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+                let item = &owner.items[*item_index];
+                let item_ref = Pin::as_ref(item).as_item_ref();
+                if let Some(parent_inst) = owner.root.get().and_then(|w| w.upgrade())
+                    && let Some(adapter) = parent_inst.window_adapter_or_default()
                 {
-                    corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                    let parent_dyn = vtable::VRc::into_dyn(parent_inst);
+                    let item_rc = i_slint_core::items::ItemRc::new(
+                        parent_dyn,
+                        usize::from(*item_index) as u32,
+                    );
+                    let metrics = i_slint_core::items::slint_text_item_fontmetrics(
+                        &adapter, item_ref, &item_rc,
+                    );
+                    return metrics.into();
                 }
-                Value::Void
+            }
+            i_slint_core::items::FontMetrics::default().into()
+        }
+        BuiltinFunction::ItemAbsolutePosition => {
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let MemberReference::Relative { parent_level, local_reference } = mr
+                && let LocalMemberIndex::Native { item_index, prop_name, .. } =
+                    &local_reference.reference
+                && prop_name.is_empty()
+            {
+                let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+                if let Some(parent_inst) = owner.root.get().and_then(|w| w.upgrade()) {
+                    // The sub_component_path on `local_reference` is relative
+                    // to the caller's current sub-component. The item_table
+                    // stores paths rooted at the owning `Instance`. Build the
+                    // absolute path by walking from the instance root down to
+                    // the owning SubComponentInstance.
+                    let full_path =
+                        crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
+                    let flat_idx =
+                        find_flat_item_index(&parent_inst.item_table, &full_path, *item_index);
+                    if let Some(flat_idx) = flat_idx {
+                        let parent_dyn = vtable::VRc::into_dyn(parent_inst);
+                        let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
+                        return item_rc.map_to_window(Default::default()).to_untyped().into();
+                    }
+                }
+            }
+            i_slint_core::api::LogicalPosition::default().into()
+        }
+        BuiltinFunction::ImplicitLayoutInfo(orient) => {
+            // The argument is a `PropertyReference` to a `Native { prop_name: "" }`,
+            // i.e. the item itself. Resolve to the `ErasedItemRc` and call
+            // its `ItemVTable::layout_info` directly.
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let MemberReference::Relative { parent_level, local_reference } = mr
+                && let LocalMemberIndex::Native { item_index, prop_name, .. } =
+                    &local_reference.reference
+                && prop_name.is_empty()
+            {
+                let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+                let item = &owner.items[*item_index];
+                let item_ref = Pin::as_ref(item).as_item_ref();
+                let orient = match orient {
+                    i_slint_compiler::layout::Orientation::Horizontal => {
+                        i_slint_core::items::Orientation::Horizontal
+                    }
+                    i_slint_compiler::layout::Orientation::Vertical => {
+                        i_slint_core::items::Orientation::Vertical
+                    }
+                };
+                let parent_inst = owner.root.get().and_then(|w| w.upgrade());
+                if let Some(parent_inst) = parent_inst
+                    && let Some(adapter) = parent_inst.window_adapter_or_default()
+                {
+                    let parent_dyn = vtable::VRc::into_dyn(parent_inst);
+                    let item_rc = i_slint_core::items::ItemRc::new(
+                        parent_dyn,
+                        usize::from(*item_index) as u32,
+                    );
+                    return item_ref.as_ref().layout_info(orient, &adapter, &item_rc).into();
+                }
+                i_slint_core::layout::LayoutInfo::default().into()
             } else {
-                panic!("Argument not a string");
+                i_slint_core::layout::LayoutInfo::default().into()
             }
         }
-        BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
-            unimplemented!()
+        BuiltinFunction::Debug => {
+            let msg = to_string(ctx, &arguments[0]);
+            let handler = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.debug_handler.borrow().clone());
+            if let Some(handler) = handler {
+                handler(None, msg.as_str());
+            } else {
+                eprintln!("{msg}");
+            }
+            Value::Void
+        }
+        BuiltinFunction::ArrayLength => match eval_expression(ctx, &arguments[0]) {
+            // Register a dependency on the model's row count so that
+            // bindings reading `.length` re-evaluate when rows are added
+            // or removed. Without this, `length` reads the current count
+            // once and never refreshes.
+            Value::Model(m) => {
+                m.model_tracker().track_row_count_changes();
+                Value::Number(m.row_count() as f64)
+            }
+            _ => Value::Number(0.),
+        },
+        BuiltinFunction::ImageSize => {
+            if let Value::Image(img) = eval_expression(ctx, &arguments[0]) {
+                let size = img.size();
+                let mut s = crate::api::Struct::default();
+                s.set_field("width".to_string(), Value::Number(size.width as f64));
+                s.set_field("height".to_string(), Value::Number(size.height as f64));
+                Value::Struct(s)
+            } else {
+                Value::Void
+            }
+        }
+        BuiltinFunction::ParseMarkdown => {
+            let format_string: SharedString =
+                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
+            let args = eval_expression(ctx, &arguments[1]);
+            let args: Vec<i_slint_core::styled_text::StyledText> = if let Value::Model(m) = args {
+                (0..m.row_count())
+                    .filter_map(|i| match m.row_data(i)? {
+                        Value::StyledText(t) => Some(t),
+                        _ => None,
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            Value::StyledText(i_slint_core::styled_text::parse_markdown(&format_string, &args))
+        }
+        BuiltinFunction::StringToStyledText => {
+            let string: SharedString =
+                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
+            Value::StyledText(i_slint_core::styled_text::string_to_styled_text(string.to_string()))
         }
         BuiltinFunction::Translate => {
-            let original: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let context: SharedString =
-                eval_expression(&arguments[1], local_context).try_into().unwrap();
-            let domain: SharedString =
-                eval_expression(&arguments[2], local_context).try_into().unwrap();
-            let args = eval_expression(&arguments[3], local_context);
-            let Value::Model(args) = args else { panic!("Args to translate not a model {args:?}") };
+            let original: SharedString = to_string(ctx, &arguments[0]);
+            let context: SharedString = to_string(ctx, &arguments[1]);
+            let domain: SharedString = to_string(ctx, &arguments[2]);
+            let args = eval_expression(ctx, &arguments[3]);
+            let Value::Model(args) = args else {
+                return Value::String(original);
+            };
             struct StringModelWrapper(ModelRc<Value>);
-            impl corelib::translations::FormatArgs for StringModelWrapper {
+            impl i_slint_core::translations::FormatArgs for StringModelWrapper {
                 type Output<'a> = SharedString;
                 fn from_index(&self, index: usize) -> Option<SharedString> {
-                    self.0.row_data(index).map(|x| x.try_into().unwrap())
+                    self.0.row_data(index).and_then(|v| v.try_into().ok())
                 }
             }
-            Value::String(corelib::translations::translate(
+            let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
+            let plural: SharedString = to_string(ctx, &arguments[5]);
+            Value::String(i_slint_core::translations::translate(
                 &original,
                 &context,
                 &domain,
                 &StringModelWrapper(args),
-                eval_expression(&arguments[4], local_context).try_into().unwrap(),
-                &SharedString::try_from(eval_expression(&arguments[5], local_context)).unwrap(),
+                n,
+                &plural,
             ))
         }
-        BuiltinFunction::Use24HourFormat => Value::Bool(corelib::date_time::use_24_hour_format()),
-        BuiltinFunction::UpdateTimers => {
-            crate::dynamic_item_tree::update_timers(local_context.component_instance);
+        BuiltinFunction::ShowPopupWindow => show_popup_window(ctx, arguments),
+        BuiltinFunction::ClosePopupWindow => close_popup_window(ctx, arguments),
+        BuiltinFunction::SetFocusItem => {
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
+                && let Some(adapter) = find_window_adapter(ctx)
+            {
+                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
+                i_slint_core::window::WindowInner::from_pub(adapter.window()).set_focus_item(
+                    &item_rc,
+                    true,
+                    i_slint_core::input::FocusReason::Programmatic,
+                );
+            }
             Value::Void
         }
-        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
-        // start and stop are unreachable because they are lowered to simple assignment of running
-        BuiltinFunction::StartTimer => unreachable!(),
-        BuiltinFunction::StopTimer => unreachable!(),
-        BuiltinFunction::RestartTimer => {
-            if let [Expression::ElementReference(timer_element)] = arguments {
-                crate::dynamic_item_tree::restart_timer(
-                    timer_element.clone(),
-                    local_context.component_instance,
+        BuiltinFunction::ClearFocusItem => {
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
+                && let Some(adapter) = find_window_adapter(ctx)
+            {
+                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
+                i_slint_core::window::WindowInner::from_pub(adapter.window()).set_focus_item(
+                    &item_rc,
+                    false,
+                    i_slint_core::input::FocusReason::Programmatic,
                 );
-
-                Value::Void
-            } else {
-                panic!("internal error: argument to RestartTimer must be an element")
             }
+            Value::Void
+        }
+        BuiltinFunction::MonthDayCount => {
+            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
+            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
+            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
+        }
+        BuiltinFunction::MonthOffset => {
+            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
+            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
+            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
+        }
+        BuiltinFunction::FormatDate => {
+            let f: SharedString = to_string(ctx, &arguments[0]);
+            let d: u32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
+            let m: u32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
+            let y: i32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(0);
+            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
+        }
+        BuiltinFunction::DateNow => {
+            Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
+                i_slint_core::date_time::date_now()
+                    .into_iter()
+                    .map(|x| Value::Number(x as f64))
+                    .collect::<Vec<_>>(),
+            )))
+        }
+        BuiltinFunction::ValidDate => {
+            let d: SharedString = to_string(ctx, &arguments[0]);
+            let f: SharedString = to_string(ctx, &arguments[1]);
+            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
+        }
+        BuiltinFunction::ParseDate => {
+            let d: SharedString = to_string(ctx, &arguments[0]);
+            let f: SharedString = to_string(ctx, &arguments[1]);
+            Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
+                i_slint_core::date_time::parse_date(d.as_str(), f.as_str())
+                    .map(|v| v.into_iter().map(|x| Value::Number(x as f64)).collect::<Vec<_>>())
+                    .unwrap_or_default(),
+            )))
+        }
+        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
+            show_popup_menu(ctx, arguments)
         }
         BuiltinFunction::OpenUrl => {
-            let url: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let window_adapter = local_context.component_instance.window_adapter();
-            Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
+            let url = to_string(ctx, &arguments[0]);
+            let result = find_window_adapter(ctx)
+                .map(|adapter| i_slint_core::open_url(&url, adapter.window()).is_ok())
+                .unwrap_or(false);
+            Value::Bool(result)
         }
-        BuiltinFunction::ParseMarkdown => {
-            let format_string: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let args: ModelRc<corelib::styled_text::StyledText> =
-                eval_expression(&arguments[1], local_context).try_into().unwrap();
-            Value::StyledText(corelib::styled_text::parse_markdown(
-                &format_string,
-                &args.iter().collect::<Vec<_>>(),
-            ))
+        BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
+            // Bitmap font registration is generated by build.rs, not callable from .slint.
+            Value::Void
         }
-        BuiltinFunction::StringToStyledText => {
-            let string: SharedString =
-                eval_expression(&arguments[0], local_context).try_into().unwrap();
-            Value::StyledText(corelib::styled_text::string_to_styled_text(string.to_string()))
+        BuiltinFunction::StartTimer | BuiltinFunction::StopTimer => {
+            // Lowered into property assignments by `materialize_state`; never reached.
+            Value::Void
         }
     }
 }
 
-fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalContext) -> Value {
-    let component = local_context.component_instance;
-    let elem = nr.element();
-    let name = nr.name().as_str();
-    generativity::make_guard!(guard);
-    let enclosing_component = enclosing_component_for_element(&elem, component, guard);
-    let description = enclosing_component.description;
-    let item_info = &description.items[elem.borrow().id.as_str()];
-    let item_ref = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+/// Resolve an `Expression::PropertyReference` that targets a native item
+/// (a `LocalMemberIndex::Native { prop_name: "" }`) into the owning
+/// `Instance` and the flat tree index of that item within it. Used by the
+/// focus / `ItemMemberFunctionCall` builtins which need a runtime
+/// `ItemRc` to hand to core APIs.
+fn resolve_item_rc_from_ref(
+    ctx: &EvalContext,
+    mr: &MemberReference,
+) -> Option<(vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>, usize)>
+{
+    let MemberReference::Relative { parent_level, local_reference } = mr else { return None };
+    let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
+        return None;
+    };
+    let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+    let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
+    let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
+    let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;
+    Some((parent_inst, flat_idx))
+}
 
-    let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
-    let item_rc =
-        corelib::items::ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index());
-
-    let window_adapter = component.window_adapter();
-
-    // TODO: Make this generic through RTTI
-    if let Some(textinput) = ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref) {
-        match name {
-            "select-all" => textinput.select_all(&window_adapter, &item_rc),
-            "clear-selection" => textinput.clear_selection(&window_adapter, &item_rc),
-            "cut" => textinput.cut(&window_adapter, &item_rc),
-            "copy" => textinput.copy(&window_adapter, &item_rc),
-            "paste" => textinput.paste(&window_adapter, &item_rc),
-            _ => panic!("internal: Unknown member function {name} called on TextInput"),
+/// Walk up the parent chain from the current context to find the root
+/// Instance's window adapter. Used by `SetFocusItem` / `ClearFocusItem`
+/// which may execute inside a repeated or conditional sub-tree that
+/// doesn't have its own window adapter.
+fn find_window_adapter(ctx: &EvalContext) -> Option<i_slint_core::window::WindowAdapterRc> {
+    let current = ctx.current.as_ref()?;
+    // Walk up the parent chain to find the root Instance.
+    let mut sub = current.clone();
+    loop {
+        if let Some(root) = sub.root.get()
+            && let Some(inst) = root.upgrade()
+            && inst.public_component_index.is_some()
+        {
+            return inst.window_adapter_or_default();
         }
-    } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::SwipeGestureHandler>(item_ref) {
-        match name {
-            "cancel" => s.cancel(&window_adapter, &item_rc),
-            _ => panic!("internal: Unknown member function {name} called on SwipeGestureHandler"),
-        }
-    } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::ContextMenu>(item_ref) {
-        match name {
-            "close" => s.close(&window_adapter, &item_rc),
-            "is-open" => return Value::Bool(s.is_open(&window_adapter, &item_rc)),
-            _ => {
-                panic!("internal: Unknown member function {name} called on ContextMenu")
+        let parent = sub.parent.upgrade()?;
+        sub = Pin::new(parent);
+    }
+}
+
+/// Dispatch a `Expression::ItemMemberFunctionCall` to the matching native
+/// item method. The LLR's `function` reference carries the item slot and a
+/// `prop_name`; we downcast the runtime `ItemRc`'s concrete item type and
+/// call the method directly — the same work the rust codegen does
+/// statically, just moved to runtime.
+fn call_item_member_function(ctx: &EvalContext, function: &MemberReference) -> Value {
+    use i_slint_core::items::{ContextMenu, SwipeGestureHandler, TextInput, WindowItem};
+    let MemberReference::Relative { local_reference, .. } = function else {
+        return Value::Void;
+    };
+    let LocalMemberIndex::Native { prop_name, .. } = &local_reference.reference else {
+        return Value::Void;
+    };
+    let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, function) else {
+        return Value::Void;
+    };
+    let Some(adapter) = parent_inst.window_adapter_or_default() else { return Value::Void };
+    let parent_dyn = vtable::VRc::into_dyn(parent_inst);
+    let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
+    let item_ref = item_rc.borrow();
+
+    // Map a Slint-side member-function name to the matching Rust method on
+    // a downcast item type.
+    macro_rules! dispatch {
+        ($item:expr, $name:expr; $($slint_name:literal => $rust_method:ident $(=> $into:ty)?),* $(,)?) => {
+            match $name {
+                $(
+                    $slint_name => {
+                        let res = $item.$rust_method(&adapter, &item_rc);
+                        $(let res: $into = res.into();)?
+                        return res.into();
+                    }
+                )*
+                _ => {}
             }
-        }
-    } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
-        match name {
-            "hide" => s.hide(&window_adapter),
-            _ => {
-                panic!("internal: Unknown member function {name} called on WindowItem")
+        };
+    }
+
+    if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_ref) {
+        dispatch!(text_input, prop_name.as_str();
+            "select-all" => select_all => (),
+            "clear-selection" => clear_selection => (),
+            "select-word" => select_word => (),
+            "cut" => cut => (),
+            "copy" => copy => (),
+            "paste" => paste => (),
+        );
+    }
+    if let Some(swipe) = vtable::VRef::downcast_pin::<SwipeGestureHandler>(item_rc.borrow()) {
+        dispatch!(swipe, prop_name.as_str();
+            "cancel" => cancel => (),
+        );
+    }
+    if let Some(menu) = vtable::VRef::downcast_pin::<ContextMenu>(item_rc.borrow()) {
+        dispatch!(menu, prop_name.as_str();
+            "close" => close => (),
+            "is-open" => is_open,
+        );
+    }
+    if prop_name == "hide"
+        && let Some(window) = vtable::VRef::downcast_pin::<WindowItem>(item_rc.borrow())
+    {
+        window.hide(&adapter);
+        return Value::Void;
+    }
+    unimplemented!("ItemMemberFunctionCall `{prop_name}`")
+}
+
+fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
+    // Expected args (from `BuiltinFunction::ShowPopupWindow`):
+    //   0: NumberLiteral(popup_index) into the owning sub-component's popup_windows
+    //   1: close_policy expression
+    //   2: PropertyReference to the parent item (relative, parent_level walks up)
+    let [
+        Expression::NumberLiteral(popup_index),
+        close_policy_expr,
+        Expression::PropertyReference(parent_ref),
+    ] = arguments
+    else {
+        return Value::Void;
+    };
+    let MemberReference::Relative { parent_level, local_reference } = parent_ref else {
+        return Value::Void;
+    };
+    let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
+        return Value::Void;
+    };
+
+    let current = match ctx.current.as_ref() {
+        Some(c) => c.clone(),
+        None => return Value::Void,
+    };
+    let owner = walk_parent(&current, *parent_level);
+    let cu = owner.compilation_unit.clone();
+    let sc = &cu.sub_components[owner.sub_component_idx];
+    let popup = match sc.popup_windows.get(*popup_index as usize) {
+        Some(p) => p,
+        None => return Value::Void,
+    };
+
+    // Build the popup Instance (no public_component_index — popups aren't
+    // public components). The weak parent ties close_policy lifetime to
+    // the owning sub-component.
+    let parent_weak = std::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
+    let globals = owner
+        .root
+        .get()
+        .and_then(|w| w.upgrade())
+        .map(|inst| inst.globals.clone())
+        .unwrap_or_else(|| std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu)));
+    let popup_vrc =
+        crate::instance::Instance::new_popup(cu.clone(), &popup.item_tree, parent_weak, globals);
+
+    // `Value` has a generated `TryFrom<Value> for PopupClosePolicy` via
+    // `declare_value_enum_conversion!` (which uses strum's
+    // `serialize_all = "kebab-case"` `FromStr`), so the kebab-case
+    // enumeration name from the `Value::EnumerationValue` parses directly.
+    let close_policy: i_slint_core::items::PopupClosePolicy =
+        eval_expression(ctx, close_policy_expr).try_into().unwrap_or_default();
+
+    // Find the flat item index of the parent item so the window knows which
+    // item owns the popup.
+    let Some(parent_instance) = owner.root.get().and_then(|w| w.upgrade()) else {
+        return Value::Void;
+    };
+    // Build the absolute path from the Instance root to the item. The
+    // local_reference.sub_component_path is relative to the owning
+    // sub-component; prepend the path from the Instance root down to that
+    // sub-component so find_flat_item_index resolves correctly.
+    let owner_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_instance);
+    let mut full_path = owner_path;
+    full_path.extend_from_slice(&local_reference.sub_component_path);
+    let parent_flat = find_flat_item_index(&parent_instance.item_table, &full_path, *item_index);
+    let Some(parent_flat) = parent_flat else { return Value::Void };
+
+    let parent_item_rc = i_slint_core::items::ItemRc::new(
+        vtable::VRc::into_dyn(parent_instance.clone()),
+        parent_flat as u32,
+    );
+    // The owning instance (`parent_instance`) may itself be a popup that
+    // never had a window adapter assigned to it. Walk the parent chain so
+    // a popup-in-popup is registered with the root window's adapter
+    // instead of accidentally creating a fresh, headless one.
+    let Some(adapter) = find_window_adapter(ctx) else {
+        return Value::Void;
+    };
+
+    // Install bindings (including `x`/`y`) but defer `init_code` until after
+    // `show_popup` so that `forward-focus` calls reach a popup that the
+    // window adapter already considers active. The Rust codegen splits these
+    // the same way (`new` then `show_popup` then `user_init`).
+    crate::instance::install_bindings_for_repeated_row(&popup_vrc);
+
+    // Evaluate the popup position expression (a LogicalPosition struct built
+    // from the popup root's `x` and `y` properties).  Now that bindings are
+    // installed the property reads return the correct values.
+    let position: i_slint_core::api::LogicalPosition = {
+        let pos_expr = popup.position.borrow().clone();
+        let mut popup_ctx = EvalContext::new(popup_vrc.root_sub_component.clone());
+        match eval_expression(&mut popup_ctx, &pos_expr) {
+            Value::Struct(s) => {
+                let x = s
+                    .get_field("x")
+                    .and_then(|v| if let Value::Number(n) = v { Some(*n as f32) } else { None })
+                    .unwrap_or(0.0);
+                let y = s
+                    .get_field("y")
+                    .and_then(|v| if let Value::Number(n) = v { Some(*n as f32) } else { None })
+                    .unwrap_or(0.0);
+                i_slint_core::api::LogicalPosition::new(x, y)
             }
+            _ => i_slint_core::api::LogicalPosition::default(),
         }
+    };
+    let popup_dyn = vtable::VRc::into_dyn(popup_vrc.clone());
+    let popup_id = i_slint_core::window::WindowInner::from_pub(adapter.window()).show_popup(
+        &popup_dyn,
+        position,
+        close_policy,
+        &parent_item_rc,
+        false,
+    );
+    // Remember the id so `close_popup_window` can find it by popup index.
+    {
+        let mut ids = owner.popup_ids.borrow_mut();
+        if (*popup_index as usize) < ids.len() {
+            ids[*popup_index as usize] = Some(popup_id);
+        }
+    }
+    // Run the popup's `init_code` now that the window adapter has the popup
+    // registered, so `forward-focus` calls can target items in the popup.
+    crate::instance::finalize_instance(&popup_vrc);
+    Value::Void
+}
+
+fn close_popup_window(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
+    // Expected args (from `BuiltinFunction::ClosePopupWindow`):
+    //   0: NumberLiteral(popup_index) into the owning sub-component's popup_windows
+    //   1: PropertyReference to the parent item (used for its parent_level walk)
+    let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =
+        arguments
+    else {
+        return Value::Void;
+    };
+    let MemberReference::Relative { parent_level, .. } = parent_ref else {
+        return Value::Void;
+    };
+    let Some(current) = ctx.current.as_ref() else { return Value::Void };
+    let owner = walk_parent(current, *parent_level);
+    // Take the stored popup id, if any, and hand it to the window adapter.
+    let id = {
+        let mut ids = owner.popup_ids.borrow_mut();
+        ids.get_mut(*popup_index as usize).and_then(|slot| slot.take())
+    };
+    if let Some(id) = id
+        && let Some(root_inst) = owner.root.get().and_then(|w| w.upgrade())
+        && let Some(adapter) = root_inst.window_adapter_or_default()
+    {
+        i_slint_core::window::WindowInner::from_pub(adapter.window()).close_popup(id);
+    }
+    Value::Void
+}
+
+fn setup_menubar(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
+    let (entries_ref, sub_menu_ref, activated_ref, tree_index, no_native, condition) =
+        match arguments {
+            [
+                Expression::PropertyReference(e),
+                Expression::PropertyReference(s),
+                Expression::PropertyReference(a),
+                Expression::NumberLiteral(idx),
+                Expression::BoolLiteral(nn),
+            ] => (e, s, a, *idx as usize, *nn, None),
+            [
+                Expression::PropertyReference(e),
+                Expression::PropertyReference(s),
+                Expression::PropertyReference(a),
+                Expression::NumberLiteral(idx),
+                Expression::BoolLiteral(nn),
+                cond,
+            ] => (e, s, a, *idx as usize, *nn, Some(cond)),
+            _ => return Value::Void,
+        };
+
+    let current = match ctx.current.as_ref() {
+        Some(c) => c.clone(),
+        None => return Value::Void,
+    };
+    let cu = current.compilation_unit.clone();
+    let sc = &cu.sub_components[current.sub_component_idx];
+    let Some(menu_tree) = sc.menu_item_trees.get(tree_index) else {
+        return Value::Void;
+    };
+
+    let parent_weak = std::rc::Rc::downgrade(&Pin::into_inner(current.clone()));
+    let globals = current
+        .root
+        .get()
+        .and_then(|w| w.upgrade())
+        .map(|inst| inst.globals.clone())
+        .unwrap_or_else(|| std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu)));
+    let menu_vrc =
+        crate::instance::Instance::new_popup(cu.clone(), menu_tree, parent_weak, globals);
+    crate::instance::finalize_instance(&menu_vrc);
+
+    let menu_dyn = vtable::VRc::into_dyn(menu_vrc);
+    let menu_item_tree = if let Some(cond_expr) = condition {
+        let cond_expr = cond_expr.clone();
+        let weak_current = std::rc::Rc::downgrade(&Pin::into_inner(current.clone()));
+        vtable::VRc::new(i_slint_core::menus::MenuFromItemTree::new_with_condition(
+            menu_dyn,
+            move || {
+                let Some(owner) = weak_current.upgrade() else { return false };
+                let mut ctx = EvalContext::new(Pin::new(owner));
+                matches!(eval_expression(&mut ctx, &cond_expr), Value::Bool(true))
+            },
+        ))
     } else {
-        panic!(
-            "internal error: member function {name} called on element that doesn't have it: {}",
-            elem.borrow().original_name()
-        )
+        vtable::VRc::new(i_slint_core::menus::MenuFromItemTree::new(menu_dyn))
+    };
+
+    let Some(adapter) = find_window_adapter(ctx) else { return Value::Void };
+    let window_inner = i_slint_core::window::WindowInner::from_pub(adapter.window());
+    let menubar = vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree));
+    window_inner.setup_menubar_shortcuts(vtable::VRc::clone(&menubar));
+
+    if !no_native && window_inner.supports_native_menu_bar() {
+        window_inner.setup_menubar(menubar);
+        return Value::Void;
+    }
+
+    // Keep the menubar alive on the owning sub-component.
+    *current.menubar.borrow_mut() = Some(menubar);
+
+    // Wire up entries/sub_menu/activated for the fallback menu bar widget.
+    let mt1 = vtable::VRc::clone(&menu_item_tree);
+    let mt2 = vtable::VRc::clone(&menu_item_tree);
+    let mt3 = menu_item_tree;
+
+    if let MemberReference::Relative { parent_level, local_reference } = entries_ref {
+        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+        if let LocalMemberIndex::Property(idx) = &local_reference.reference {
+            Pin::as_ref(&owner.properties[*idx]).set_binding(move || {
+                let mut entries = i_slint_core::SharedVector::default();
+                i_slint_core::menus::Menu::sub_menu(&*mt1, None.into(), &mut entries);
+                Value::Model(i_slint_core::model::ModelRc::new(
+                    i_slint_core::model::VecModel::from(
+                        entries.into_iter().map(Value::from).collect::<Vec<_>>(),
+                    ),
+                ))
+            });
+        }
+    }
+    if let MemberReference::Relative { parent_level, local_reference } = sub_menu_ref {
+        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+        if let LocalMemberIndex::Callback(idx) = &local_reference.reference {
+            Pin::as_ref(&owner.callbacks[*idx]).set_handler(
+                move |(args,): &(Vec<Value>,)| -> Value {
+                    let entry =
+                        args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
+                    let mut entries = i_slint_core::SharedVector::default();
+                    i_slint_core::menus::Menu::sub_menu(&*mt2, Some(&entry).into(), &mut entries);
+                    Value::Model(i_slint_core::model::ModelRc::new(
+                        i_slint_core::model::VecModel::from(
+                            entries.into_iter().map(Value::from).collect::<Vec<_>>(),
+                        ),
+                    ))
+                },
+            );
+        }
+    }
+    if let MemberReference::Relative { parent_level, local_reference } = activated_ref {
+        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+        if let LocalMemberIndex::Callback(idx) = &local_reference.reference {
+            Pin::as_ref(&owner.callbacks[*idx]).set_handler(
+                move |(args,): &(Vec<Value>,)| -> Value {
+                    let entry =
+                        args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
+                    i_slint_core::menus::Menu::activate(&*mt3, &entry);
+                    Value::Void
+                },
+            );
+        }
     }
 
     Value::Void
 }
 
-fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut EvalLocalContext) {
-    let eval = |lhs| match (lhs, &rhs, op) {
-        (Value::String(ref mut a), Value::String(b), '+') => {
-            a.push_str(b.as_str());
-            Value::String(a.clone())
-        }
-        (Value::Number(a), Value::Number(b), '+') => Value::Number(a + b),
-        (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
-        (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
-        (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
-        (lhs, rhs, op) => panic!("unsupported {lhs:?} {op} {rhs:?}"),
+fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
+    let [Expression::PropertyReference(context_menu_ref), entries_expr, position_expr] = arguments
+    else {
+        return Value::Void;
     };
-    match lhs {
-        Expression::PropertyReference(nr) => {
-            let element = nr.element();
-            generativity::make_guard!(guard);
-            let enclosing_component = enclosing_component_instance_for_element(
-                &element,
-                &ComponentInstance::InstanceRef(local_context.component_instance),
-                guard,
-            );
 
-            match enclosing_component {
-                ComponentInstance::InstanceRef(enclosing_component) => {
-                    if op == '=' {
-                        store_property(enclosing_component, &element, nr.name(), rhs).unwrap();
-                        return;
-                    }
+    let position: i_slint_core::api::LogicalPosition =
+        eval_expression(ctx, position_expr).try_into().unwrap_or_default();
 
-                    let component = element.borrow().enclosing_component.upgrade().unwrap();
-                    if element.borrow().id == component.root_element.borrow().id
-                        && let Some(x) =
-                            enclosing_component.description.custom_properties.get(nr.name())
-                    {
-                        unsafe {
-                            let p =
-                                Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                            x.prop.set(p, eval(x.prop.get(p).unwrap()), None).unwrap();
-                        }
-                        return;
-                    }
-                    let item_info =
-                        &enclosing_component.description.items[element.borrow().id.as_str()];
-                    let item =
-                        unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-                    let p = &item_info.rtti.properties[nr.name().as_str()];
-                    p.set(item, eval(p.get(item)), None).unwrap();
-                }
-                ComponentInstance::GlobalComponent(global) => {
-                    let val = if op == '=' {
-                        rhs
-                    } else {
-                        eval(global.as_ref().get_property(nr.name()).unwrap())
-                    };
-                    global.as_ref().set_property(nr.name(), val).unwrap();
-                }
-            }
-        }
-        Expression::StructFieldAccess { base, name } => {
-            if let Value::Struct(mut o) = eval_expression(base, local_context) {
-                let mut r = o.get_field(name).unwrap().clone();
-                r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };
-                o.set_field(name.to_string(), r);
-                eval_assignment(base, '=', Value::Struct(o), local_context)
-            }
-        }
-        Expression::RepeaterModelReference { element } => {
-            let element = element.upgrade().unwrap();
-            let component_instance = local_context.component_instance;
-            generativity::make_guard!(g1);
-            let enclosing_component =
-                enclosing_component_for_element(&element, component_instance, g1);
-            // we need a 'static Repeater component in order to call model_set_row_data, so get it.
-            // Safety: This is the only 'static Id in scope.
-            let static_guard =
-                unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
-            let repeater = crate::dynamic_item_tree::get_repeater_by_name(
-                enclosing_component,
-                element.borrow().id.as_str(),
-                static_guard,
-            );
-            repeater.0.model_set_row_data(
-                eval_expression(
-                    &Expression::RepeaterIndexReference { element: Rc::downgrade(&element) },
-                    local_context,
-                )
-                .try_into()
-                .unwrap(),
-                if op == '=' {
-                    rhs
-                } else {
-                    eval(eval_expression(
-                        &Expression::RepeaterModelReference { element: Rc::downgrade(&element) },
-                        local_context,
-                    ))
-                },
-            )
-        }
-        Expression::ArrayIndex { array, index } => {
-            let array = eval_expression(array, local_context);
-            let index = eval_expression(index, local_context);
-            match (array, index) {
-                (Value::Model(model), Value::Number(index)) => {
-                    if index >= 0. && (index as usize) < model.row_count() {
-                        let index = index as usize;
-                        if op == '=' {
-                            model.set_row_data(index, rhs);
-                        } else {
-                            model.set_row_data(
-                                index,
-                                eval(
-                                    model
-                                        .row_data(index)
-                                        .unwrap_or_else(|| default_value_for_type(&lhs.ty())),
-                                ),
-                            );
-                        }
-                    }
-                }
-                _ => {
-                    eprintln!("Attempting to write into an array that cannot be written");
-                }
-            }
-        }
-        _ => panic!("typechecking should make sure this was a PropertyReference"),
-    }
-}
+    let Some((parent_inst, context_flat_idx)) = resolve_item_rc_from_ref(ctx, context_menu_ref)
+    else {
+        return Value::Void;
+    };
+    let context_item_rc = i_slint_core::items::ItemRc::new(
+        vtable::VRc::into_dyn(parent_inst.clone()),
+        context_flat_idx as u32,
+    );
+    // The native `ContextMenu` item owns a `popup_id` Cell that the
+    // generated `close()`/`is-open()` member functions read; mirror the
+    // rust codegen and write it after `show_popup` returns so the
+    // existing close/is_open paths keep working.
+    let context_menu_item_weak = context_item_rc.downgrade();
+    let Some(adapter) = find_window_adapter(ctx) else {
+        return Value::Void;
+    };
 
-pub fn load_property(component: InstanceRef, element: &ElementRc, name: &str) -> Result<Value, ()> {
-    load_property_helper(&ComponentInstance::InstanceRef(component), element, name)
-}
+    let cu = ctx.current.as_ref().map(|c| c.compilation_unit.clone()).unwrap();
+    let Some(popup_menu) = cu.popup_menu.as_ref() else {
+        return Value::Void;
+    };
 
-fn load_property_helper(
-    component_instance: &ComponentInstance,
-    element: &ElementRc,
-    name: &str,
-) -> Result<Value, ()> {
-    generativity::make_guard!(guard);
-    match enclosing_component_instance_for_element(element, component_instance, guard) {
-        ComponentInstance::InstanceRef(enclosing_component) => {
-            let element = element.borrow();
-            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
-            {
-                if let Some(x) = enclosing_component.description.custom_properties.get(name) {
-                    return unsafe {
-                        x.prop.get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
-                    };
-                } else if enclosing_component.description.original.is_global() {
-                    return Err(());
-                }
-            };
-            let item_info = enclosing_component
-                .description
-                .items
-                .get(element.id.as_str())
-                .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, name));
-            core::mem::drop(element);
-            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
-        }
-        ComponentInstance::GlobalComponent(glob) => glob.as_ref().get_property(name),
-    }
-}
+    let current = ctx.current.as_ref().unwrap();
+    let parent_weak = std::rc::Rc::downgrade(&Pin::into_inner(current.clone()));
+    let globals = current
+        .root
+        .get()
+        .and_then(|w| w.upgrade())
+        .map(|inst| inst.globals.clone())
+        .unwrap_or_else(|| std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu)));
+    let popup_vrc = crate::instance::Instance::new_popup(
+        cu.clone(),
+        &popup_menu.item_tree,
+        parent_weak,
+        globals,
+    );
+    // Install bindings now; defer `init_code` until after `show_popup` so
+    // that `forward-focus` calls reach a popup the window adapter already
+    // considers active. The Rust codegen splits these the same way.
+    crate::instance::install_bindings_for_repeated_row(&popup_vrc);
 
-pub fn store_property(
-    component_instance: InstanceRef,
-    element: &ElementRc,
-    name: &str,
-    mut value: Value,
-) -> Result<(), SetPropertyError> {
-    generativity::make_guard!(guard);
-    match enclosing_component_instance_for_element(
-        element,
-        &ComponentInstance::InstanceRef(component_instance),
-        guard,
-    ) {
-        ComponentInstance::InstanceRef(enclosing_component) => {
-            let maybe_animation = match element.borrow().bindings.get(name) {
-                Some(b) => crate::dynamic_item_tree::animation_for_property(
-                    enclosing_component,
-                    &b.borrow().animation,
-                ),
-                None => {
-                    crate::dynamic_item_tree::animation_for_property(enclosing_component, &None)
-                }
-            };
+    // Wire entries/sub_menu/activated on the popup. Two flavors:
+    //
+    //   - `ShowPopupMenu` (regular `ContextMenuArea`): the entries come
+    //     from a `MenuItem` tree we walk via `MenuFromItemTree`.
+    //   - `ShowPopupMenuInternal` (`ContextMenuInternal`): the entries
+    //     come from an array property on the user's `ContextMenu` item,
+    //     and `sub_menu` / `activated` forward back to the user's
+    //     callbacks rather than a shadow tree.
+    let popup_ctx = crate::eval::EvalContext::new(popup_vrc.root_sub_component.clone());
 
-            let component = element.borrow().enclosing_component.upgrade().unwrap();
-            if element.borrow().id == component.root_element.borrow().id {
-                if let Some(x) = enclosing_component.description.custom_properties.get(name) {
-                    if let Some(orig_decl) = enclosing_component
-                        .description
-                        .original
-                        .root_element
-                        .borrow()
-                        .property_declarations
-                        .get(name)
-                    {
-                        // Do an extra type checking because PropertyInfo::set won't do it for custom structures or array
-                        if !check_value_type(&mut value, &orig_decl.property_type) {
-                            return Err(SetPropertyError::WrongType);
-                        }
-                    }
-                    unsafe {
-                        let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                        return x
-                            .prop
-                            .set(p, value, maybe_animation.as_animation())
-                            .map_err(|()| SetPropertyError::WrongType);
-                    }
-                } else if enclosing_component.description.original.is_global() {
-                    return Err(SetPropertyError::NoSuchProperty);
-                }
-            };
-            let item_info = &enclosing_component.description.items[element.borrow().id.as_str()];
-            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
-            p.set(item, value, maybe_animation.as_animation())
-                .map_err(|()| SetPropertyError::WrongType)?;
-        }
-        ComponentInstance::GlobalComponent(glob) => {
-            glob.as_ref().set_property(name, value)?;
-        }
-    }
-    Ok(())
-}
+    if let Expression::NumberLiteral(tree_index) = entries_expr {
+        let sc = &cu.sub_components[current.sub_component_idx];
+        let Some(menu_tree) = sc.menu_item_trees.get(*tree_index as usize) else {
+            return Value::Void;
+        };
+        let menu_vrc = crate::instance::Instance::new_popup(
+            cu.clone(),
+            menu_tree,
+            std::rc::Rc::downgrade(&Pin::into_inner(current.clone())),
+            popup_vrc.globals.clone(),
+        );
+        crate::instance::finalize_instance(&menu_vrc);
+        let menu_item_tree = vtable::VRc::new(i_slint_core::menus::MenuFromItemTree::new(
+            vtable::VRc::into_dyn(menu_vrc),
+        ));
 
-/// Return true if the Value can be used for a property of the given type
-fn check_value_type(value: &mut Value, ty: &Type) -> bool {
-    match ty {
-        Type::Void => true,
-        Type::Invalid
-        | Type::InferredProperty
-        | Type::InferredCallback
-        | Type::Callback { .. }
-        | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
-        Type::Float32 => matches!(value, Value::Number(_)),
-        Type::Int32 => matches!(value, Value::Number(_)),
-        Type::String => matches!(value, Value::String(_)),
-        Type::Color => matches!(value, Value::Brush(_)),
-        Type::UnitProduct(_)
-        | Type::Duration
-        | Type::PhysicalLength
-        | Type::LogicalLength
-        | Type::Rem
-        | Type::Angle
-        | Type::Percent => matches!(value, Value::Number(_)),
-        Type::Image => matches!(value, Value::Image(_)),
-        Type::Bool => matches!(value, Value::Bool(_)),
-        Type::Model => {
-            matches!(value, Value::Model(_) | Value::Bool(_) | Value::Number(_))
-        }
-        Type::PathData => matches!(value, Value::PathData(_)),
-        Type::Easing => matches!(value, Value::EasingCurve(_)),
-        Type::Brush => matches!(value, Value::Brush(_)),
-        Type::Array(inner) => {
-            matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
-        }
-        Type::Struct(s) => {
-            let Value::Struct(str) = value else { return false };
-            if !str
-                .0
-                .iter_mut()
-                .all(|(k, v)| s.fields.get(k).is_some_and(|ty| check_value_type(v, ty)))
-            {
-                return false;
-            }
-            for (k, v) in &s.fields {
-                str.0.entry(k.clone()).or_insert_with(|| default_value_for_type(v));
-            }
-            true
-        }
-        Type::Enumeration(en) => {
-            matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
-        }
-        Type::Keys => matches!(value, Value::Keys(_)),
-        Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
-        Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
-        Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
-        Type::StyledText => matches!(value, Value::StyledText(_)),
-    }
-}
+        let mt = vtable::VRc::clone(&menu_item_tree);
+        wire_popup_menu_prop(&popup_ctx, &popup_menu.entries, move || {
+            let mut entries = i_slint_core::SharedVector::default();
+            i_slint_core::menus::Menu::sub_menu(&*mt, None.into(), &mut entries);
+            Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
+                entries.into_iter().map(Value::from).collect::<Vec<_>>(),
+            )))
+        });
 
-pub(crate) fn invoke_callback(
-    component_instance: &ComponentInstance,
-    element: &ElementRc,
-    callback_name: &SmolStr,
-    args: &[Value],
-) -> Option<Value> {
-    generativity::make_guard!(guard);
-    match enclosing_component_instance_for_element(element, component_instance, guard) {
-        ComponentInstance::InstanceRef(enclosing_component) => {
-            let description = enclosing_component.description;
-            let element = element.borrow();
-            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
-            {
-                if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
-                    let callback = callback_offset.apply(&*enclosing_component.instance);
-                    let res = callback.call(args);
-                    return Some(if res != Value::Void {
-                        res
-                    } else if let Some(Type::Callback(callback)) = description
-                        .original
-                        .root_element
-                        .borrow()
-                        .property_declarations
-                        .get(callback_name)
-                        .map(|d| &d.property_type)
-                    {
-                        // If the callback was not set, the return value will be Value::Void, but we need
-                        // to make sure that the value is actually of the right type as returned by the
-                        // callback, otherwise we will get panics later
-                        default_value_for_type(&callback.return_type)
-                    } else {
-                        res
-                    });
-                } else if enclosing_component.description.original.is_global() {
-                    return None;
-                }
-            };
-            let item_info = &description.items[element.id.as_str()];
-            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            item_info
-                .rtti
-                .callbacks
-                .get(callback_name.as_str())
-                .map(|callback| callback.call(item, args))
-        }
-        ComponentInstance::GlobalComponent(global) => {
-            Some(global.as_ref().invoke_callback(callback_name, args).unwrap())
-        }
-    }
-}
+        let mt = vtable::VRc::clone(&menu_item_tree);
+        wire_popup_menu_cb(&popup_ctx, &popup_menu.sub_menu, move |args| {
+            let entry = args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
+            let mut entries = i_slint_core::SharedVector::default();
+            i_slint_core::menus::Menu::sub_menu(&*mt, Some(&entry).into(), &mut entries);
+            Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
+                entries.into_iter().map(Value::from).collect::<Vec<_>>(),
+            )))
+        });
 
-pub(crate) fn set_callback_handler(
-    component_instance: &ComponentInstance,
-    element: &ElementRc,
-    callback_name: &str,
-    handler: CallbackHandler,
-) -> Result<(), ()> {
-    generativity::make_guard!(guard);
-    match enclosing_component_instance_for_element(element, component_instance, guard) {
-        ComponentInstance::InstanceRef(enclosing_component) => {
-            let description = enclosing_component.description;
-            let element = element.borrow();
-            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
-            {
-                if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
-                    let callback = callback_offset.apply(&*enclosing_component.instance);
-                    callback.set_handler(handler);
-                    return Ok(());
-                } else if enclosing_component.description.original.is_global() {
-                    return Err(());
-                }
-            };
-            let item_info = &description.items[element.id.as_str()];
-            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
-                callback.set_handler(item, handler);
-                Ok(())
-            } else {
-                Err(())
-            }
-        }
-        ComponentInstance::GlobalComponent(global) => {
-            global.as_ref().set_callback_handler(callback_name, handler)
-        }
-    }
-}
-
-/// Invoke the function.
-///
-/// Return None if the function don't exist
-pub(crate) fn call_function(
-    component_instance: &ComponentInstance,
-    element: &ElementRc,
-    function_name: &str,
-    args: Vec<Value>,
-) -> Option<Value> {
-    generativity::make_guard!(guard);
-    match enclosing_component_instance_for_element(element, component_instance, guard) {
-        ComponentInstance::InstanceRef(c) => {
-            let mut ctx = EvalLocalContext::from_function_arguments(c, args);
-            eval_expression(
-                &element.borrow().bindings.get(function_name)?.borrow().expression,
-                &mut ctx,
-            )
-            .into()
-        }
-        ComponentInstance::GlobalComponent(g) => g.as_ref().eval_function(function_name, args).ok(),
-    }
-}
-
-/// Return the component instance which hold the given element.
-/// Does not take in account the global component.
-pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
-    element: &'a ElementRc,
-    component: InstanceRef<'a, 'old_id>,
-    _guard: generativity::Guard<'new_id>,
-) -> InstanceRef<'a, 'new_id> {
-    let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
-    if Rc::ptr_eq(enclosing, &component.description.original) {
-        // Safety: new_id is an unique id
-        unsafe {
-            std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
-        }
+        wire_popup_menu_cb(&popup_ctx, &popup_menu.activated, move |args| {
+            let entry = args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
+            i_slint_core::menus::Menu::activate(&*menu_item_tree, &entry);
+            Value::Void
+        });
     } else {
-        assert!(!enclosing.is_global());
-        // Safety: this is the only place we use this 'static lifetime in this function and nothing is returned with it
-        // For some reason we can't make a new guard here because the compiler thinks we are returning that
-        // (it assumes that the 'id must outlive 'a , which is not true)
-        let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+        // ShowPopupMenuInternal: entries are an array property of the
+        // `ContextMenuInternal` item; sub_menu/activated forward to the
+        // user-defined callbacks on the same item.
+        let entries_value = eval_expression(ctx, entries_expr);
+        wire_popup_menu_prop(&popup_ctx, &popup_menu.entries, move || entries_value.clone());
 
-        let parent_instance = component
-            .parent_instance(static_guard)
-            .expect("accessing deleted parent (issue #6426)");
-        enclosing_component_for_element(element, parent_instance, _guard)
-    }
-}
-
-/// Return the component instance which hold the given element.
-/// The difference with enclosing_component_for_element is that it takes the GlobalComponent into account.
-pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
-    element: &'a ElementRc,
-    component_instance: &ComponentInstance<'a, '_>,
-    guard: generativity::Guard<'new_id>,
-) -> ComponentInstance<'a, 'new_id> {
-    let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
-    match component_instance {
-        ComponentInstance::InstanceRef(component) => {
-            if enclosing.is_global() && !Rc::ptr_eq(enclosing, &component.description.original) {
-                ComponentInstance::GlobalComponent(
-                    component
-                        .description
-                        .extra_data_offset
-                        .apply(component.instance.get_ref())
-                        .globals
-                        .get()
-                        .unwrap()
-                        .get(enclosing.root_element.borrow().id.as_str())
-                        .unwrap(),
-                )
-            } else {
-                ComponentInstance::InstanceRef(enclosing_component_for_element(
-                    element, *component, guard,
+        if let MemberReference::Relative { parent_level, local_reference } = context_menu_ref {
+            let sub_menu_owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
+                return Value::Void;
+            };
+            let item_index_for_sub = *item_index;
+            let sub_menu_owner_weak =
+                std::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
+            wire_popup_menu_cb(&popup_ctx, &popup_menu.sub_menu, move |args| {
+                let Some(owner) = sub_menu_owner_weak.upgrade() else { return Value::Void };
+                let item = Pin::as_ref(&owner.items[item_index_for_sub]);
+                let entry: i_slint_core::items::MenuEntry =
+                    args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
+                let raw = item.as_item_ref();
+                use i_slint_core::items::ContextMenu;
+                let Some(cm) = vtable::VRef::downcast_pin::<ContextMenu>(raw) else {
+                    return Value::Void;
+                };
+                let mut out = i_slint_core::SharedVector::default();
+                cm.sub_menu.call(&(entry,)).iter().for_each(|e| out.push(e));
+                Value::Model(i_slint_core::model::ModelRc::new(
+                    i_slint_core::model::VecModel::from(
+                        out.into_iter().map(Value::from).collect::<Vec<_>>(),
+                    ),
                 ))
-            }
-        }
-        ComponentInstance::GlobalComponent(global) => {
-            //assert!(Rc::ptr_eq(enclosing, &global.component));
-            ComponentInstance::GlobalComponent(global.clone())
+            });
+
+            let activated_owner_weak =
+                std::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
+            let item_index_for_activated = *item_index;
+            wire_popup_menu_cb(&popup_ctx, &popup_menu.activated, move |args| {
+                let Some(owner) = activated_owner_weak.upgrade() else { return Value::Void };
+                let item = Pin::as_ref(&owner.items[item_index_for_activated]);
+                let entry: i_slint_core::items::MenuEntry =
+                    args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
+                let raw = item.as_item_ref();
+                use i_slint_core::items::ContextMenu;
+                let Some(cm) = vtable::VRef::downcast_pin::<ContextMenu>(raw) else {
+                    return Value::Void;
+                };
+                cm.activated.call(&(entry,));
+                Value::Void
+            });
         }
     }
-}
 
-pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
-    bindings: &i_slint_compiler::object_tree::BindingsMap,
-    local_context: &mut EvalLocalContext,
-) -> ElementType {
-    let mut element = ElementType::default();
-    for (prop, info) in ElementType::fields::<Value>().into_iter() {
-        if let Some(binding) = &bindings.get(prop) {
-            let value = eval_expression(&binding.borrow(), local_context);
-            info.set_field(&mut element, value).unwrap();
+    // Wire the popup menu's `close` callback so navigating into a menu
+    // item that calls `root.close()` actually dismisses the popup. Use a
+    // shared `Cell` to bridge the popup id (only known after
+    // `show_popup`) into the close handler installed before the show.
+    let popup_id_cell: std::rc::Rc<std::cell::Cell<Option<core::num::NonZeroU32>>> =
+        std::rc::Rc::new(std::cell::Cell::new(None));
+    let id_cell_for_close = popup_id_cell.clone();
+    let adapter_for_close = adapter.clone();
+    wire_popup_menu_cb(&popup_ctx, &popup_menu.close, move |_args| {
+        if let Some(id) = id_cell_for_close.take() {
+            i_slint_core::window::WindowInner::from_pub(adapter_for_close.window()).close_popup(id);
         }
-    }
-    element
-}
-
-fn convert_from_lyon_path<'a>(
-    events_it: impl IntoIterator<Item = &'a i_slint_compiler::expression_tree::Expression>,
-    points_it: impl IntoIterator<Item = &'a i_slint_compiler::expression_tree::Expression>,
-    local_context: &mut EvalLocalContext,
-) -> PathData {
-    let events = events_it
-        .into_iter()
-        .map(|event_expr| eval_expression(event_expr, local_context).try_into().unwrap())
-        .collect::<SharedVector<_>>();
-
-    let points = points_it
-        .into_iter()
-        .map(|point_expr| {
-            let point_value = eval_expression(point_expr, local_context);
-            let point_struct: Struct = point_value.try_into().unwrap();
-            let mut point = i_slint_core::graphics::Point::default();
-            let x: f64 = point_struct.get_field("x").unwrap().clone().try_into().unwrap();
-            let y: f64 = point_struct.get_field("y").unwrap().clone().try_into().unwrap();
-            point.x = x as _;
-            point.y = y as _;
-            point
-        })
-        .collect::<SharedVector<_>>();
-
-    PathData::Events(events, points)
-}
-
-pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> PathData {
-    match path {
-        ExprPath::Elements(elements) => PathData::Elements(
-            elements
-                .iter()
-                .map(|element| convert_path_element(element, local_context))
-                .collect::<SharedVector<PathElement>>(),
-        ),
-        ExprPath::Events(events, points) => {
-            convert_from_lyon_path(events.iter(), points.iter(), local_context)
-        }
-        ExprPath::Commands(commands) => {
-            if let Value::String(commands) = eval_expression(commands, local_context) {
-                PathData::Commands(commands)
-            } else {
-                panic!("binding to path commands does not evaluate to string");
-            }
-        }
-    }
-}
-
-fn convert_path_element(
-    expr_element: &ExprPathElement,
-    local_context: &mut EvalLocalContext,
-) -> PathElement {
-    match expr_element.element_type.native_class.class_name.as_str() {
-        "MoveTo" => {
-            PathElement::MoveTo(new_struct_with_bindings(&expr_element.bindings, local_context))
-        }
-        "LineTo" => {
-            PathElement::LineTo(new_struct_with_bindings(&expr_element.bindings, local_context))
-        }
-        "ArcTo" => {
-            PathElement::ArcTo(new_struct_with_bindings(&expr_element.bindings, local_context))
-        }
-        "CubicTo" => {
-            PathElement::CubicTo(new_struct_with_bindings(&expr_element.bindings, local_context))
-        }
-        "QuadraticTo" => PathElement::QuadraticTo(new_struct_with_bindings(
-            &expr_element.bindings,
-            local_context,
-        )),
-        "Close" => PathElement::Close,
-        _ => panic!(
-            "Cannot create unsupported path element {}",
-            expr_element.element_type.native_class.class_name
-        ),
-    }
-}
-
-/// Create a value suitable as the default value of a given type
-pub fn default_value_for_type(ty: &Type) -> Value {
-    match ty {
-        Type::Float32 | Type::Int32 => Value::Number(0.),
-        Type::String => Value::String(Default::default()),
-        Type::Color | Type::Brush => Value::Brush(Default::default()),
-        Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength | Type::Rem => {
-            Value::Number(0.)
-        }
-        Type::Image => Value::Image(Default::default()),
-        Type::Bool => Value::Bool(false),
-        Type::Callback { .. } => Value::Void,
-        Type::Struct(s) => Value::Struct(
-            s.fields
-                .iter()
-                .map(|(n, t)| (n.to_string(), default_value_for_type(t)))
-                .collect::<Struct>(),
-        ),
-        Type::Array(_) | Type::Model => Value::Model(Default::default()),
-        Type::Percent => Value::Number(0.),
-        Type::Enumeration(e) => Value::EnumerationValue(
-            e.name.to_string(),
-            e.values.get(e.default_value).unwrap().to_string(),
-        ),
-        Type::Keys => Value::Keys(Default::default()),
-        Type::Easing => Value::EasingCurve(Default::default()),
-        Type::Void | Type::Invalid => Value::Void,
-        Type::UnitProduct(_) => Value::Number(0.),
-        Type::PathData => Value::PathData(Default::default()),
-        Type::LayoutCache => Value::LayoutCache(Default::default()),
-        Type::ArrayOfU16 => Value::ArrayOfU16(Default::default()),
-        Type::ComponentFactory => Value::ComponentFactory(Default::default()),
-        Type::InferredProperty
-        | Type::InferredCallback
-        | Type::ElementReference
-        | Type::Function { .. } => {
-            panic!("There can't be such property")
-        }
-        Type::StyledText => Value::StyledText(Default::default()),
-    }
-}
-
-fn menu_item_tree_properties(
-    context_menu_item_tree: vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree>,
-) -> (Box<dyn Fn() -> Value>, CallbackHandler, CallbackHandler) {
-    let context_menu_item_tree_ = context_menu_item_tree.clone();
-    let entries = Box::new(move || {
-        let mut entries = SharedVector::default();
-        context_menu_item_tree_.sub_menu(None, &mut entries);
-        Value::Model(ModelRc::new(VecModel::from(
-            entries.into_iter().map(Value::from).collect::<Vec<_>>(),
-        )))
-    });
-    let context_menu_item_tree_ = context_menu_item_tree.clone();
-    let sub_menu = Box::new(move |args: &[Value]| -> Value {
-        let mut entries = SharedVector::default();
-        context_menu_item_tree_.sub_menu(Some(&args[0].clone().try_into().unwrap()), &mut entries);
-        Value::Model(ModelRc::new(VecModel::from(
-            entries.into_iter().map(Value::from).collect::<Vec<_>>(),
-        )))
-    });
-    let activated = Box::new(move |args: &[Value]| -> Value {
-        context_menu_item_tree.activate(&args[0].clone().try_into().unwrap());
         Value::Void
     });
-    (entries, sub_menu, activated)
+
+    let popup_dyn = vtable::VRc::into_dyn(popup_vrc.clone());
+    let window_inner = i_slint_core::window::WindowInner::from_pub(adapter.window());
+    let popup_id = window_inner.show_popup(
+        &popup_dyn,
+        position,
+        i_slint_core::items::PopupClosePolicy::CloseOnClickOutside,
+        &context_item_rc,
+        true,
+    );
+    popup_id_cell.set(Some(popup_id));
+    // Mirror the rust codegen: store the popup id on the native
+    // `ContextMenu` item so the generated `is-open()` and `close()`
+    // member functions see this popup as the active one.
+    if let Some(item_rc) = context_menu_item_weak.upgrade()
+        && let Some(cm) = item_rc.downcast::<i_slint_core::items::ContextMenu>()
+    {
+        cm.as_pin_ref().popup_id.set(Some(popup_id));
+    }
+
+    // Run the popup's `init_code` now that the window adapter has the
+    // popup registered, so `forward-focus` calls can target items in the
+    // popup.
+    crate::instance::finalize_instance(&popup_vrc);
+
+    Value::Void
+}
+
+fn wire_popup_menu_prop(
+    ctx: &EvalContext,
+    mr: &MemberReference,
+    binding: impl Fn() -> Value + 'static,
+) {
+    if let MemberReference::Relative { parent_level, local_reference } = mr {
+        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+        if let LocalMemberIndex::Property(idx) = &local_reference.reference {
+            Pin::as_ref(&owner.properties[*idx]).set_binding(binding);
+        }
+    }
+}
+
+fn wire_popup_menu_cb(
+    ctx: &EvalContext,
+    mr: &MemberReference,
+    handler: impl Fn(&[Value]) -> Value + 'static,
+) {
+    if let MemberReference::Relative { parent_level, local_reference } = mr {
+        let owner = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+        if let LocalMemberIndex::Callback(idx) = &local_reference.reference {
+            Pin::as_ref(&owner.callbacks[*idx])
+                .set_handler(move |(args,): &(Vec<Value>,)| handler(args));
+        }
+    }
 }

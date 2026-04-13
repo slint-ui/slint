@@ -3,7 +3,7 @@
 
 //! This is an internal module that contains the [`LiveReloadingComponent`] struct.
 
-use crate::dynamic_item_tree::WindowOptions;
+use crate::api::WindowOptions;
 use core::cell::RefCell;
 use core::task::Waker;
 use i_slint_core::api::{ComponentHandle, PlatformError};

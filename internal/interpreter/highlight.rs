@@ -1,41 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module contains the code for the highlight of some elements
+//! Highlight support for running component instances.
+//!
+//! Walks the LLR `debug_info` side table to map either a source location
+//! or an object-tree `ElementRc` back to runtime flat item indices, then
+//! reads geometries via `ItemRc::geometry()` and transforms them through
+//! `map_to_item_tree`.
 
-use crate::dynamic_item_tree::{DynamicComponentVRc, ItemTreeBox};
-use i_slint_compiler::object_tree::{Component, Element, ElementRc};
+use crate::instance::Instance;
+use i_slint_compiler::llr::{ItemInstanceIdx, SubComponentIdx, SubComponentInstanceIdx};
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::graphics::euclid;
+use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect};
-use smol_str::SmolStr;
-use std::cell::RefCell;
 use std::path::Path;
-use std::rc::Rc;
 use vtable::VRc;
 
-fn normalize_repeated_element(element: ElementRc) -> ElementRc {
-    if element.borrow().repeated.is_some()
-        && let i_slint_compiler::langtype::ElementType::Component(base) =
-            &element.borrow().base_type
-        && base.parent_element().is_some()
-    {
-        return base.root_element.clone();
-    }
-
-    element
-}
-
-/// The rectangle of an element, which may be rotated around its center
+/// The rectangle of an element, which may be rotated around its center.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct HighlightedRect {
-    /// The element's geometry
+    /// The element's geometry.
     pub rect: LogicalRect,
-    /// In degrees, around the center of the element
+    /// In degrees, around the center of the element.
     pub angle: f32,
 }
 impl HighlightedRect {
-    /// return true if the point is inside the (potentially rotated) rectangle
+    /// Returns true if `position` lies inside the (potentially rotated) rectangle.
     pub fn contains(&self, position: LogicalPoint) -> bool {
         let center = self.rect.center();
         let rotation = euclid::Rotation2D::radians((-self.angle).to_radians());
@@ -44,207 +36,258 @@ impl HighlightedRect {
     }
 }
 
-fn collect_highlight_data(
-    component: &DynamicComponentVRc,
-    elements: &[std::rc::Weak<RefCell<Element>>],
-) -> Vec<HighlightedRect> {
-    let component_instance = VRc::downgrade(component);
-    let component_instance = component_instance.upgrade().unwrap();
-    generativity::make_guard!(guard);
-    let c = component_instance.unerase(guard);
-    let mut values = Vec::new();
-    for element in elements.iter().filter_map(|e| e.upgrade()) {
-        let element = normalize_repeated_element(element);
-        if let Some(repeater_path) = repeater_path(&element) {
-            fill_highlight_data(
-                &repeater_path,
-                &element,
-                &c,
-                &c,
-                ElementPositionFilter::IncludeClipped,
-                &mut values,
-            );
-        }
-    }
-    values
-}
-
-pub(crate) fn component_positions(
-    component_instance: &DynamicComponentVRc,
-    path: &Path,
-    offset: u32,
-) -> Vec<HighlightedRect> {
-    generativity::make_guard!(guard);
-    let c = component_instance.unerase(guard);
-
-    let elements =
-        find_element_node_at_source_code_position(&c.description().original, path, offset);
-    collect_highlight_data(
-        component_instance,
-        &elements.into_iter().map(|(e, _)| Rc::downgrade(&e)).collect::<Vec<_>>(),
-    )
-}
-
-/// Argument to filter the elements in the [`element_positions`] function
+/// Argument to filter the elements returned by the highlight helpers.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ElementPositionFilter {
-    /// Include all elements
+    /// Include all elements.
     IncludeClipped,
-    /// Exclude elements that are not visible because they are clipped
+    /// Exclude elements clipped by an ancestor `Clip` / `Flickable`.
     ExcludeClipped,
 }
 
-/// Return the positions of all instances of a specific element
-pub fn element_positions(
-    component_instance: &DynamicComponentVRc,
+/// Match the given `ElementRc` by its `element_hash` and return the
+/// screen rectangles of every runtime item that shares it.
+pub(crate) fn element_positions(
+    instance: &VRc<ItemTreeVTable, Instance>,
     element: &ElementRc,
-    filter_clipped: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
-    generativity::make_guard!(guard);
-    let c = component_instance.unerase(guard);
-
-    let mut values = Vec::new();
-
-    let element = normalize_repeated_element(element.clone());
-    if let Some(repeater_path) = repeater_path(&element) {
-        fill_highlight_data(&repeater_path, &element, &c, &c, filter_clipped, &mut values);
-    }
-    values
+    // Match by the element's source location: the LLR copies the same
+    // `source_location` onto every item it lowers, and the object tree
+    // element keeps the original node. `element_hash` would be more
+    // compact but depends on the `inject_debug_hooks` pass, which
+    // doesn't always reach every element — layout lowering, property
+    // hoisting, etc. create new elements after the pass — so
+    // source-location comparison is more reliable.
+    //
+    // For a user-level component instantiation (e.g. `Button { }` in
+    // source), the element itself has no native item — the runtime items
+    // live inside the wrapped sub-component. Walk into `base_type` until
+    // we land on an element the LLR actually lowered.
+    let target = walk_to_native_root(element);
+    let Some(debug_first) = target.borrow().debug.first().cloned() else {
+        return Vec::new();
+    };
+    let path = debug_first.node.source_file.path().to_path_buf();
+    let offset: u32 = debug_first.node.text_range().start().into();
+    positions_by_source(instance, &path, offset)
 }
 
-pub(crate) fn element_node_at_source_code_position(
-    component_instance: &DynamicComponentVRc,
-    path: &Path,
-    offset: u32,
-) -> Vec<(ElementRc, usize)> {
-    generativity::make_guard!(guard);
-    let c = component_instance.unerase(guard);
-
-    find_element_node_at_source_code_position(&c.description().original, path, offset)
-}
-
-fn fill_highlight_data(
-    repeater_path: &[SmolStr],
-    element: &ElementRc,
-    component_instance: &ItemTreeBox,
-    root_component_instance: &ItemTreeBox,
-    filter_clipped: ElementPositionFilter,
-    values: &mut Vec<HighlightedRect>,
-) {
-    if element.borrow().repeated.is_some() {
-        // avoid a panic
-        return;
-    }
-
-    if let [first, rest @ ..] = repeater_path {
-        generativity::make_guard!(guard);
-        let rep = crate::dynamic_item_tree::get_repeater_by_name(
-            component_instance.borrow_instance(),
-            first.as_str(),
-            guard,
-        );
-        for idx in rep.0.range() {
-            if let Some(c) = rep.0.instance_at(idx) {
-                generativity::make_guard!(guard);
-                fill_highlight_data(
-                    rest,
-                    element,
-                    &c.unerase(guard),
-                    root_component_instance,
-                    filter_clipped,
-                    values,
-                );
+/// Descend into `base_type = Component(_)` wrappers until the element
+/// points at a native item. `Button { }` in source yields an object-tree
+/// element whose `debug[0]` sits at the user's call site but whose
+/// concrete runtime items belong to the wrapped component — chase the
+/// chain so our source-location lookup lands on a real LLR item.
+fn walk_to_native_root(element: &ElementRc) -> ElementRc {
+    let mut current = element.clone();
+    loop {
+        let next = {
+            let b = current.borrow();
+            if let i_slint_compiler::langtype::ElementType::Component(c) = &b.base_type {
+                Some(c.root_element.clone())
+            } else {
+                None
             }
-        }
-    } else {
-        let vrc = VRc::into_dyn(
-            component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
-        );
-        let root_vrc = VRc::into_dyn(
-            root_component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
-        );
-        let index = element.borrow().item_index.get().copied().unwrap();
-        let item_rc = ItemRc::new(vrc.clone(), index);
-        if filter_clipped == ElementPositionFilter::IncludeClipped || item_rc.is_visible() {
-            let geometry = item_rc.geometry();
-            if geometry.size.is_empty() {
-                return;
-            }
-            let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
-            let top_right = item_rc.map_to_item_tree(
-                geometry.origin + euclid::vec2(geometry.size.width, 0.),
-                &root_vrc,
-            );
-            let delta = top_right - origin;
-            let width = delta.length();
-            let height = geometry.size.height * width / geometry.size.width;
-            // Compute the angle between the origin(top-right) and top-left corner
-            let angle_rad = delta.y.atan2(delta.x);
-            let (sin, cos) = angle_rad.sin_cos();
-            let center = euclid::point2(
-                origin.x + (width / 2.0) * cos - (height / 2.0) * sin,
-                origin.y + (width / 2.0) * sin + (height / 2.0) * cos,
-            );
-            values.push(HighlightedRect {
-                rect: LogicalRect {
-                    origin: center - euclid::vec2(width / 2.0, height / 2.0),
-                    size: euclid::size2(width, height),
-                },
-                angle: angle_rad.to_degrees(),
-            });
+        };
+        match next {
+            Some(n) => current = n,
+            None => return current,
         }
     }
 }
 
-// Go over all elements in original to find the one that is highlighted
-fn find_element_node_at_source_code_position(
-    component: &Rc<Component>,
+/// Return the geometry of every runtime item whose source location covers
+/// the given `(path, offset)` pair.
+pub(crate) fn component_positions(
+    instance: &VRc<ItemTreeVTable, Instance>,
     path: &Path,
     offset: u32,
-) -> Vec<(ElementRc, usize)> {
-    let mut result = Vec::new();
-    i_slint_compiler::object_tree::recurse_elem_including_sub_components(
-        component,
-        &(),
-        &mut |elem, &()| {
-            if elem.borrow().repeated.is_some() {
-                return;
+) -> Vec<HighlightedRect> {
+    let cu = &instance.root_sub_component.compilation_unit;
+    let mut results = Vec::new();
+    for sc_idx in 0..cu.sub_components.len() {
+        let sc_idx: SubComponentIdx = sc_idx.into();
+        let sc = &cu.sub_components[sc_idx];
+        let Some(debug) = sc.debug_info.as_ref() else { continue };
+        for (local_idx, item_dbg) in debug.items.iter_enumerated() {
+            let Some(loc_path) = item_dbg.source_location.source_file.as_ref().map(|f| f.path())
+            else {
+                continue;
+            };
+            if loc_path != path {
+                continue;
             }
-            for (index, node_path, node_range) in
-                elem.borrow().debug.iter().enumerate().map(|(i, n)| {
-                    let text_range = n
-                        .node
-                        .QualifiedName()
-                        .map(|n| n.text_range())
-                        .or_else(|| {
-                            n.node
-                                .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
-                                .map(|n| n.text_range())
-                        })
-                        .expect("A Element must contain a LBrace somewhere pretty early");
-
-                    (i, n.node.source_file.path(), text_range)
-                })
-            {
-                if node_path == path && node_range.contains(offset.into()) {
-                    result.push((elem.clone(), index));
+            let span_start = item_dbg.source_location.span.offset as u32;
+            if span_start > offset {
+                continue;
+            }
+            for flat_idx in find_flat_indices_for_item(instance, sc_idx, local_idx) {
+                if let Some(rect) = item_flat_index_to_rect(instance, flat_idx) {
+                    results.push(rect);
                 }
             }
-        },
-    );
+        }
+    }
+    results
+}
+
+/// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
+/// the given source offset. Uses the `TypeLoader` stored on the instance
+/// (if available) to walk the original object-tree `Document`.
+pub(crate) fn element_node_at_source_code_position(
+    instance: &VRc<ItemTreeVTable, Instance>,
+    path: &Path,
+    offset: u32,
+) -> Vec<(ElementRc, usize)> {
+    let Some(type_loader) = instance.type_loader.as_ref() else {
+        return Vec::new();
+    };
+    let Some(doc) = type_loader.get_document(path) else {
+        return Vec::new();
+    };
+    let mut result = Vec::new();
+    // `inner_components` contains every component defined in the file
+    // (both exported and non-exported), so iterating it covers all
+    // source locations without duplication.
+    for component in &doc.inner_components {
+        find_element_node_at_source_code_position(component, path, offset, &mut result);
+    }
     result
 }
 
-fn repeater_path(elem: &ElementRc) -> Option<Vec<SmolStr>> {
-    let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(parent) = enclosing.parent_element() {
-        // This is not a repeater, it might be a popup menu which is not supported ATM
-        parent.borrow().repeated.as_ref()?;
+fn find_element_node_at_source_code_position(
+    component: &std::rc::Rc<i_slint_compiler::object_tree::Component>,
+    path: &Path,
+    offset: u32,
+    result: &mut Vec<(ElementRc, usize)>,
+) {
+    // Use plain recurse_elem (no sub-component descent) because we already
+    // iterate all components in the document individually.
+    i_slint_compiler::object_tree::recurse_elem(&component.root_element, &(), &mut |elem, &()| {
+        if elem.borrow().repeated.is_some() {
+            return;
+        }
+        for (index, node_path, node_range) in
+            elem.borrow().debug.iter().enumerate().map(|(i, n)| {
+                let text_range = n
+                    .node
+                    .QualifiedName()
+                    .map(|n| n.text_range())
+                    .or_else(|| {
+                        n.node
+                            .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
+                            .map(|n| n.text_range())
+                    })
+                    .expect("An Element must contain a LBrace somewhere");
+                (i, n.node.source_file.path(), text_range)
+            })
+        {
+            if node_path == path && node_range.contains(offset.into()) {
+                result.push((elem.clone(), index));
+            }
+        }
+    });
+}
 
-        let mut r = repeater_path(&parent)?;
-        r.push(parent.borrow().id.clone());
-        Some(r)
-    } else {
-        Some(Vec::new())
+/// Scan the instance's flat `item_table` and return every flat index
+/// whose entry points at `(sub_component_path → target_sc_idx, target_local)`.
+fn find_flat_indices_for_item(
+    instance: &VRc<ItemTreeVTable, Instance>,
+    target_sc_idx: SubComponentIdx,
+    target_local: ItemInstanceIdx,
+) -> Vec<usize> {
+    let cu = &instance.root_sub_component.compilation_unit;
+    let mut out = Vec::new();
+    for (flat, entry) in instance.item_table.iter().enumerate() {
+        let Some((path, local_idx)) = entry.as_ref() else { continue };
+        if *local_idx != target_local {
+            continue;
+        }
+        if sub_component_idx_at_path(cu, instance.root_sub_component.sub_component_idx, path)
+            == target_sc_idx
+        {
+            out.push(flat);
+        }
     }
+    out
+}
+
+/// Walk the LLR sub_components tree to resolve `path` into its concrete
+/// [`SubComponentIdx`].
+fn sub_component_idx_at_path(
+    cu: &i_slint_compiler::llr::CompilationUnit,
+    root_idx: SubComponentIdx,
+    path: &[SubComponentInstanceIdx],
+) -> SubComponentIdx {
+    let mut current = root_idx;
+    for &instance_idx in path {
+        let nested = &cu.sub_components[current].sub_components[instance_idx];
+        current = nested.ty;
+    }
+    current
+}
+
+fn item_flat_index_to_rect(
+    instance: &VRc<ItemTreeVTable, Instance>,
+    flat_idx: usize,
+) -> Option<HighlightedRect> {
+    let vrc = VRc::into_dyn(instance.clone());
+    let item_rc = ItemRc::new(vrc.clone(), flat_idx as u32);
+    let geometry = item_rc.geometry();
+    if geometry.size.is_empty() {
+        return None;
+    }
+    let origin = item_rc.map_to_item_tree(geometry.origin, &vrc);
+    let top_right =
+        item_rc.map_to_item_tree(geometry.origin + euclid::vec2(geometry.size.width, 0.), &vrc);
+    let delta = top_right - origin;
+    let width = delta.length();
+    let height = if geometry.size.width == 0.0 {
+        0.0
+    } else {
+        geometry.size.height * width / geometry.size.width
+    };
+    let angle_rad = delta.y.atan2(delta.x);
+    let (sin, cos) = angle_rad.sin_cos();
+    let center = euclid::point2(
+        origin.x + (width / 2.0) * cos - (height / 2.0) * sin,
+        origin.y + (width / 2.0) * sin + (height / 2.0) * cos,
+    );
+    Some(HighlightedRect {
+        rect: LogicalRect {
+            origin: center - euclid::vec2(width / 2.0, height / 2.0),
+            size: euclid::size2(width, height),
+        },
+        angle: angle_rad.to_degrees(),
+    })
+}
+
+fn positions_by_source(
+    instance: &VRc<ItemTreeVTable, Instance>,
+    target_path: &Path,
+    target_offset: u32,
+) -> Vec<HighlightedRect> {
+    let cu = &instance.root_sub_component.compilation_unit;
+    let mut results = Vec::new();
+    for sc_idx in 0..cu.sub_components.len() {
+        let sc_idx: SubComponentIdx = sc_idx.into();
+        let sc = &cu.sub_components[sc_idx];
+        let Some(debug) = sc.debug_info.as_ref() else { continue };
+        for (local_idx, item_dbg) in debug.items.iter_enumerated() {
+            let Some(source_file) = item_dbg.source_location.source_file.as_ref() else {
+                continue;
+            };
+            if source_file.path() != target_path {
+                continue;
+            }
+            if item_dbg.source_location.span.offset as u32 != target_offset {
+                continue;
+            }
+            for flat_idx in find_flat_indices_for_item(instance, sc_idx, local_idx) {
+                if let Some(rect) = item_flat_index_to_rect(instance, flat_idx) {
+                    results.push(rect);
+                }
+            }
+        }
+    }
+    results
 }
