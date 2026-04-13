@@ -4,7 +4,6 @@
 use crate::{
     SharedVector,
     graphics::Image,
-    items::SystemTrayListItem,
     model::{Model, ModelRc},
 };
 use std::string::{String, ToString};
