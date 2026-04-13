@@ -809,7 +809,7 @@ impl<'a, T> EvaluationContext<'a, T> {
             LocalMemberIndex::Property(property_index) => &sc.properties[*property_index].ty,
             LocalMemberIndex::Function(function_index) => &sc.functions[*function_index].ret_ty,
             LocalMemberIndex::Callback(callback_index) => &sc.callbacks[*callback_index].ty,
-            LocalMemberIndex::Native { item_index, prop_name } => {
+            LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;

@@ -288,7 +288,7 @@ fn print_local_ref<T>(
             LocalMemberIndex::Function(function_index) => {
                 write!(f, "{}", sc.functions[*function_index].name)
             }
-            LocalMemberIndex::Native { item_index, prop_name } => {
+            LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 let i = &sc.items[*item_index];
                 write!(f, "{}.{}", i.name, prop_name)
             }

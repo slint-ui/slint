@@ -166,7 +166,28 @@ pub enum LocalMemberIndex {
     Native {
         item_index: ItemInstanceIdx,
         prop_name: SmolStr,
+        /// Disambiguates rtti property bindings from rtti callback
+        /// handlers (and from member-function calls handled by
+        /// `Expression::ItemMemberFunctionCall`). Lowering resolves
+        /// this from the element's declared property type; codegens
+        /// and the interpreter dispatch on it rather than probing
+        /// the rtti tables by name.
+        kind: NativeMemberKind,
     },
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NativeMemberKind {
+    /// A regular `Property` on the native item (`TouchArea.pressed`,
+    /// `Rectangle.background`, etc.).
+    Property,
+    /// A `Callback` on the native item (`TouchArea.clicked`,
+    /// `Window.close-requested`).
+    Callback,
+    /// A function exposed through the native item's property table
+    /// with a `Type::Function` declaration (`TextInput.select-all`).
+    /// Only reached via `Expression::ItemMemberFunctionCall`.
+    Function,
 }
 impl LocalMemberIndex {
     pub fn property(&self) -> Option<PropertyIdx> {
