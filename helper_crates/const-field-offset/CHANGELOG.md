@@ -10,7 +10,7 @@
    code with many fields.
  - The derive macro now uses `core::mem::offset_of!` instead of computing the
    `repr(C)` layout manually.
- - The minimum supported Rust version is now 1.85.
+ - The minimum supported Rust version is now 1.88.
  - Removed the unused `field-offset-trait` feature.
  - Upgraded to edition 2024.
 
