@@ -3779,6 +3779,7 @@ fn compile_builtin_function_call(
                     .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
             })
         }
+        BuiltinFunction::SetupSystemTray => todo!(),
         BuiltinFunction::MonthDayCount => {
             let (m, y) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))

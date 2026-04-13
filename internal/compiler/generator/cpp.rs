@@ -4375,6 +4375,7 @@ fn compile_builtin_function_call(
                 }}")
             }
         }
+        BuiltinFunction::SetupSystemTray => todo!(),
         BuiltinFunction::Use24HourFormat => {
             "slint::cbindgen_private::slint_date_time_use_24_hour_format()".to_string()
         }

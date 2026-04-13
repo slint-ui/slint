@@ -1479,6 +1479,7 @@ fn call_builtin_function(
 
             Value::Void
         }
+        BuiltinFunction::SetupSystemTray => todo!(),
         BuiltinFunction::MonthDayCount => {
             let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
