@@ -31,6 +31,7 @@ system-testing = [
   "byteorder",
   "image",
   "prost-build",
+  "prost-types",
   "pbjson-build",
   "protox",
 ]
@@ -46,6 +47,7 @@ mcp = [
   "base64",
   "httparse",
   "prost-build",
+  "prost-types",
   "pbjson-build",
   "protox",
 ]
@@ -70,6 +72,7 @@ include_dir = { version = "0.7", optional = true }
 [build-dependencies]
 prost = { version = "0.14", optional = true }
 prost-build = { version = "0.14", optional = true }
+prost-types = { version = "0.14", optional = true }
 pbjson-build = { version = "0.9", optional = true }
 protox = { version = "0.9", optional = true }
 
