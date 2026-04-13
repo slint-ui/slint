@@ -1060,7 +1060,7 @@ fn public_api(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in public_properties {
+    for (name, p) in public_properties {
         let prop = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -1069,7 +1069,7 @@ fn public_api(
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1077,7 +1077,7 @@ fn public_api(
                     #prop.call(&(#(#args_name,)*))
                 }
             ));
-            let on_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Handler);
+            let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             let tracker_access = access_callback_tracker(&p.prop, ctx);
             let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
@@ -1099,7 +1099,7 @@ fn public_api(
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1110,7 +1110,7 @@ fn public_api(
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 
-            let getter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Getter);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
 
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
@@ -1123,7 +1123,7 @@ fn public_api(
                 }
             ));
 
-            let setter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Setter);
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             if !p.read_only {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(

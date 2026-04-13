@@ -3458,7 +3458,7 @@ fn generate_public_api_for_properties(
     private_properties: &llr::PrivateProperties,
     ctx: &EvaluationContext,
 ) {
-    for p in public_properties {
+    for (name, p) in public_properties {
         let access = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -3476,7 +3476,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {}",
                         param_types
@@ -3502,7 +3502,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Handler),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Handler),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -3527,7 +3527,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -3550,7 +3550,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Getter),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Getter),
                     signature: format!("() const -> {}", &cpp_property_type),
                     statements: Some(prop_getter),
                     ..Default::default()
@@ -3566,7 +3566,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
+                        name: accessor_names::cpp_accessor_name(name, AccessorKind::Setter),
                         signature: format!("(const {} &value) const -> void", &cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
@@ -3576,9 +3576,9 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Private,
                     Declaration::Function(Function {
-                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
+                        name: accessor_names::cpp_accessor_name(name, AccessorKind::Setter),
                         signature: format!(
-                            "(const {cpp_property_type} &) const = SLINT_DELETED_FUNCTION(\"property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter\")", p.name
+                            "(const {cpp_property_type} &) const = SLINT_DELETED_FUNCTION(\"property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter\")", name
                         ),
                         ..Default::default()
                     }),
