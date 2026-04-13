@@ -208,10 +208,10 @@ impl MudaAdapter {
             }
         }
 
-        if let Some(menu_tree) = menu_tree.as_deref() {
+        if let Some(menu_tree) = menu_tree {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
-                vtable::VRc::borrow(&menu_tree).sub_menu(None, &mut menu_entries);
+                vtable::VRc::borrow(menu_tree).sub_menu(None, &mut menu_entries);
 
                 if menu_entries.is_empty() && muda_type == MudaType::Menubar {
                     self.menu = None;
@@ -256,7 +256,7 @@ impl MudaAdapter {
                 if let Some(menu) = self.menu.as_ref() {
                     for e in menu_entries {
                         menu.append(&*generate_menu_entry(
-                            vtable::VRc::borrow(&menu_tree),
+                            vtable::VRc::borrow(menu_tree),
                             &e,
                             0,
                             &mut self.entries,
@@ -282,7 +282,7 @@ impl MudaAdapter {
 
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
         let Some(entry) = &self.entries.get(entry_id) else { return };
-        vtable::VRc::borrow(&menubar).activate(entry);
+        vtable::VRc::borrow(menubar).activate(entry);
     }
 
     #[cfg(target_os = "windows")]
