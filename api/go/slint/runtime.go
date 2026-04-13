@@ -5,6 +5,7 @@ package slint
 
 /*
 #cgo CFLAGS: -I${SRCDIR}
+#include <stdlib.h>
 #include "bridge.h"
 */
 import "C"
@@ -13,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sync/atomic"
 	"unsafe"
 )
 
@@ -42,7 +42,15 @@ type ComponentDefinition struct {
 }
 
 type ComponentInstance struct {
-	handle *componentInstanceHandle
+	handle    *componentInstanceHandle
+	callbacks map[string]*callbackWrapper
+}
+
+func (i *ComponentInstance) release() {
+	for _, w := range i.callbacks {
+		w.release()
+	}
+	i.callbacks = nil
 }
 
 type Value struct {
@@ -63,7 +71,6 @@ const (
 	ValueTypeOther  ValueType = -1
 )
 
-var callbackSequence atomic.Uintptr
 var emptyByteSentinel byte
 var emptyValueSentinel *C.SlintGoValue
 
@@ -132,11 +139,15 @@ func wrapComponentInstance(ptr *C.SlintGoComponentInstance) *ComponentInstance {
 	if ptr == nil {
 		return nil
 	}
-	handle := &componentInstanceHandle{ptr: ptr}
-	runtime.SetFinalizer(handle, func(handle *componentInstanceHandle) {
-		C.slint_go_component_instance_destructor(handle.ptr)
+	instance := &ComponentInstance{
+		handle:    &componentInstanceHandle{ptr: ptr},
+		callbacks: map[string]*callbackWrapper{},
+	}
+	runtime.SetFinalizer(instance, func(instance *ComponentInstance) {
+		instance.release()
+		C.slint_go_component_instance_destructor(instance.raw())
 	})
-	return &ComponentInstance{handle: handle}
+	return instance
 }
 
 func wrapValue(ptr *C.SlintGoValue) Value {
@@ -334,26 +345,76 @@ func (i *ComponentInstance) InvokeGlobal(global string, callable string, args ..
 }
 
 func (i *ComponentInstance) SetCallback(name string, handler func([]Value) Value) error {
-	token := registerCallback(handler)
+	wrapper := newCallbackWrapper(handler)
 	nameSlice, nameBuf := makeByteSlice(name)
-	ok := C.slint_go_component_instance_set_callback(i.raw(), nameSlice, C.uintptr_t(token), (C.SlintGoCallback)(C.slintGoInvokeCallback))
+	ok := C.slint_go_component_instance_set_callback(
+		i.raw(),
+		nameSlice,
+		// Not pretty, but we use uintptr_t instead of passing unsafe.Pointer directly.
+		// Otherwise, a panic occurs because the objects inside callbackWrapper are not pinned. (runtime error: argument of cgo function has Go pointer to unpinned Go pointer)
+		// This is fine because cgo does not access any of the fields of that struct.
+		C.uintptr_t(uintptr(unsafe.Pointer(wrapper))),
+		(C.SlintGoCallback)(C.slintGoInvokeCallback),
+	)
 	runtime.KeepAlive(nameBuf)
 	if !bool(ok) {
 		return fmt.Errorf("slint: failed to set callback %q", name)
 	}
+	callbackKey := "local:" + name
+	if prev, has := i.callbacks[callbackKey]; has {
+		prev.release()
+	}
+	i.callbacks[callbackKey] = wrapper
+
+	return nil
+}
+
+func (i *ComponentInstance) SetLocalCallback(name string, handler func([]Value) Value) error {
+	wrapper := newCallbackWrapper(handler)
+	nameSlice, nameBuf := makeByteSlice(name)
+	ok := C.slint_go_component_instance_set_callback(
+		i.raw(),
+		nameSlice,
+		C.uintptr_t(uintptr(unsafe.Pointer(wrapper))),
+		(C.SlintGoCallback)(C.slintGoInvokeCallback),
+	)
+	runtime.KeepAlive(nameBuf)
+	if !bool(ok) {
+		return fmt.Errorf("slint: failed to set callback %q", name)
+	}
+
+	callbackKey := "local:" + name
+	if prev, has := i.callbacks[callbackKey]; has {
+		prev.release()
+	}
+	i.callbacks[callbackKey] = wrapper
+
 	return nil
 }
 
 func (i *ComponentInstance) SetGlobalCallback(global string, name string, handler func([]Value) Value) error {
-	token := registerCallback(handler)
+	wrapper := newCallbackWrapper(handler)
 	globalSlice, globalBuf := makeByteSlice(global)
 	nameSlice, nameBuf := makeByteSlice(name)
-	ok := C.slint_go_component_instance_set_global_callback(i.raw(), globalSlice, nameSlice, C.uintptr_t(token), (C.SlintGoCallback)(C.slintGoInvokeCallback))
+	ok := C.slint_go_component_instance_set_global_callback(
+		i.raw(),
+		globalSlice,
+		nameSlice,
+		C.uintptr_t(uintptr(unsafe.Pointer(wrapper))),
+		(C.SlintGoCallback)(C.slintGoInvokeCallback),
+	)
 	runtime.KeepAlive(globalBuf)
 	runtime.KeepAlive(nameBuf)
 	if !bool(ok) {
 		return fmt.Errorf("slint: failed to set global callback %q.%q", global, name)
 	}
+
+	callbackKey := "global:" + global + "\x00" + name
+	if prev, has := i.callbacks[callbackKey]; has {
+		prev.release()
+	}
+	i.callbacks[callbackKey] = wrapper
+
 	return nil
 }
 

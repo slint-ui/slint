@@ -25,7 +25,7 @@ typedef struct SlintGoValueSlice
 
 typedef int8_t SlintGoValueType;
 
-typedef SlintGoValue *(*SlintGoCallback)(uintptr_t token, SlintGoValue **args, uintptr_t arg_len);
+typedef SlintGoValue *(*SlintGoCallback)(void *user_data, SlintGoValue **args, uintptr_t arg_len);
 
 void slint_go_string_free(char *value);
 
@@ -64,11 +64,11 @@ SlintGoValue *slint_go_component_instance_invoke_global(const SlintGoComponentIn
                                                         SlintGoByteSlice callable,
                                                         SlintGoValueSlice args);
 bool slint_go_component_instance_set_callback(const SlintGoComponentInstance *instance,
-                                              SlintGoByteSlice name, uintptr_t token,
+                                              SlintGoByteSlice name, uintptr_t user_data,
                                               SlintGoCallback callback);
 bool slint_go_component_instance_set_global_callback(const SlintGoComponentInstance *instance,
                                                      SlintGoByteSlice global, SlintGoByteSlice name,
-                                                     uintptr_t token, SlintGoCallback callback);
+                                                     uintptr_t user_data, SlintGoCallback callback);
 
 SlintGoValue *slint_go_value_new(void);
 SlintGoValue *slint_go_value_clone(const SlintGoValue *value);
@@ -82,4 +82,4 @@ bool slint_go_value_to_number(const SlintGoValue *value, double *out);
 bool slint_go_value_to_bool(const SlintGoValue *value, bool *out);
 void slint_testing_init_backend(void);
 
-extern SlintGoValue *slintGoInvokeCallback(uintptr_t token, SlintGoValue **args, uintptr_t arg_len);
+extern SlintGoValue *slintGoInvokeCallback(void *user_data, SlintGoValue **args, uintptr_t arg_len);

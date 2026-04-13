@@ -10,22 +10,33 @@ package slint
 import "C"
 
 import (
-	"sync"
+	"runtime"
 	"unsafe"
 )
 
-var callbackRegistry sync.Map
+type callbackWrapper struct {
+	handler func([]Value) Value
+	pinner  runtime.Pinner
+}
 
-func registerCallback(handler func([]Value) Value) uintptr {
-	token := callbackSequence.Add(1)
-	callbackRegistry.Store(token, handler)
-	return token
+func newCallbackWrapper(handler func([]Value) Value) *callbackWrapper {
+	wrapper := &callbackWrapper{handler: handler}
+	wrapper.pinner.Pin(wrapper)
+	return wrapper
+}
+
+func (c *callbackWrapper) release() {
+	c.pinner.Unpin()
 }
 
 //export slintGoInvokeCallback
-func slintGoInvokeCallback(token C.uintptr_t, args **C.SlintGoValue, argLen C.uintptr_t) *C.SlintGoValue {
-	handlerValue, ok := callbackRegistry.Load(uintptr(token))
-	if !ok {
+func slintGoInvokeCallback(userData unsafe.Pointer, args **C.SlintGoValue, argLen C.uintptr_t) *C.SlintGoValue {
+	if userData == nil {
+		return C.slint_go_value_new()
+	}
+
+	wrapper := (*callbackWrapper)(userData)
+	if wrapper == nil || wrapper.handler == nil {
 		return C.slint_go_value_new()
 	}
 
@@ -38,7 +49,7 @@ func slintGoInvokeCallback(token C.uintptr_t, args **C.SlintGoValue, argLen C.ui
 		}
 	}
 
-	result := handlerValue.(func([]Value) Value)(values)
+	result := wrapper.handler(values)
 	if result.raw() == nil {
 		return C.slint_go_value_new()
 	}
