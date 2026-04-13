@@ -177,6 +177,7 @@ assert_eq!(instance.global::<Properties<'_>>().get_button_top_visible(), true);
 window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left }); // To trigger recalculation
 slint_testing::mock_elapsed_time(500);
 
+// TODO: does not work yet, because the resize changed is not send by the popup!
 let horizontal_box_height = padding + button_height + padding;
 assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), padding + text_height + spacing + horizontal_box_height + spacing + button_height + padding);
 
