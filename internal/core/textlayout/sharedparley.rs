@@ -190,7 +190,10 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
+        // Keep Parley's layout metrics fractional and snap only at paint time. This avoids
+        // quantizing line metrics here and then effectively quantizing again in the renderer.
+        let mut builder =
+            layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
@@ -494,24 +497,14 @@ fn layout(
             PhysicalLength::new(p.layout.full_width())
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
-    let full_height = paragraphs
+    let height = paragraphs
         .last()
         .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
-    // Parley's LineMetrics include half the leading above the first line. We remove that gap so the
-    // legacy preferred height/positioning is based on the typographic height rather than the taller
-    // line box.
-    let first_line_top_trim = paragraphs
-        .first()
-        .and_then(|first_para| first_para.layout.lines().next())
-        .map_or(PhysicalLength::zero(), |first_line| {
-            PhysicalLength::new((first_line.metrics().leading / 2.0).max(0.0))
-        });
-    let height = (full_height - first_line_top_trim).max(PhysicalLength::zero());
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
         (Some(max_height), TextVerticalAlignment::Bottom) => max_height - height,
         (None, _) | (Some(_), TextVerticalAlignment::Top) => PhysicalLength::zero(),
-    } - first_line_top_trim;
+    };
 
     Layout { paragraphs, y_offset, elision_info, max_width, height, max_physical_height }
 }
