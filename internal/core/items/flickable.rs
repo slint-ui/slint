@@ -23,7 +23,6 @@ use crate::lengths::{
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::timers::{Timer, TimerMode};
 use crate::window::WindowAdapter;
 use crate::{Callback, Coord, Property};
 use alloc::boxed::Box;
@@ -399,8 +398,6 @@ struct FlickableDataInner {
     /// Ringbuffer to store the last move events. From those data the velocity can be
     /// calculated required for the animation after the release event
     position_time_rb: PositionTimeRingBuffer<5>,
-    /// Emits `flicked` once more when a standalone wheel animation has settled.
-    wheel_animation_end_timer: Timer,
 }
 
 impl FlickableDataInner {
@@ -460,7 +457,6 @@ impl FlickableDataInner {
             // Release the capture immediately, this event is not meant for this Flickable.
             self.capture_events = None;
             self.last_scroll_event = None;
-            self.stop_wheel_animation_end_timer();
             return InputEventResult::EventIgnored;
         }
 
@@ -473,17 +469,14 @@ impl FlickableDataInner {
         let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
         let old_pos = (viewport_x.get(), viewport_y.get());
-        let mut schedule_wheel_animation_end_callback = false;
 
         match phase {
             TouchPhase::Cancelled => {
-                self.stop_wheel_animation_end_timer();
                 viewport_x.set(new_pos.x_length());
                 viewport_y.set(new_pos.y_length());
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
-                self.stop_wheel_animation_end_timer();
                 self.position_time_rb = PositionTimeRingBuffer::default();
                 self.capture_events = Some(CaptureEvents::MouseWheel);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
@@ -494,11 +487,9 @@ impl FlickableDataInner {
                     viewport_x.set(new_pos.x_length());
                     viewport_y.set(new_pos.y_length());
                 } else {
-                    self.stop_wheel_animation_end_timer();
                     let animation = Self::wheel_scroll_animation();
                     viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
                     viewport_y.set_animated_value(new_pos.y_length(), animation);
-                    schedule_wheel_animation_end_callback = true;
                 }
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
@@ -508,9 +499,6 @@ impl FlickableDataInner {
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
         if flicked {
             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
-            if schedule_wheel_animation_end_callback {
-                self.schedule_wheel_animation_end_callback(flick_rc);
-            }
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
@@ -518,26 +506,8 @@ impl FlickableDataInner {
             InputEventResult::EventAccepted
         } else {
             self.last_scroll_event = None;
-            self.stop_wheel_animation_end_timer();
             InputEventResult::EventIgnored
         }
-    }
-
-    fn stop_wheel_animation_end_timer(&mut self) {
-        self.wheel_animation_end_timer.stop();
-    }
-
-    fn schedule_wheel_animation_end_callback(&mut self, flick_rc: &ItemRc) {
-        let flick_weak = flick_rc.downgrade();
-        self.wheel_animation_end_timer.start(
-            TimerMode::SingleShot,
-            Duration::from_millis(WHEEL_SCROLL_DURATION as u64),
-            move || {
-                let Some(flick_rc) = flick_weak.upgrade() else { return };
-                let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
-                (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick.as_pin_ref()).call(&());
-            },
-        );
     }
 
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
@@ -619,7 +589,6 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                inner.stop_wheel_animation_end_timer();
                 inner.position_time_rb = PositionTimeRingBuffer::default();
                 inner.pressed_pos = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());

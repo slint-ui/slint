@@ -256,7 +256,7 @@ if !cfg!(target_os = "macos") {
 
 ```rust
 // Test 2b
-// Standalone wheel move events animate and emit flicked again on settle
+// Standalone wheel move events animate without a synthetic settle callback
 use slint_testing::{LogicalPoint, MouseEvent, TouchPhase};
 let instance = TestCase::new().unwrap();
 let window = instance.window();
@@ -280,7 +280,7 @@ assert!(instance.get_offset_y() < 50.);
 slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_offset_x(), 30.);
 assert_eq!(instance.get_offset_y(), 50.);
-assert_eq!(instance.get_flicked(), -3000050);
+assert_eq!(instance.get_flicked(), 0);
 ```
 
 ```rust
