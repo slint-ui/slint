@@ -411,32 +411,21 @@ public class SlintAndroidJavaHelper {
             }
         });
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity.getWindow().getDecorView().getRootView()
-                    .setWindowInsetsAnimationCallback(
-                            new WindowInsetsAnimation.Callback(
-                                    WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-                                @Override
-                                public WindowInsets onProgress(WindowInsets insets,
-                                        java.util.List<WindowInsetsAnimation> runningAnimations) {
-                                    mActivity.runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            Insets safeAreaInsets = insets.getInsets(WindowInsets.Type.systemBars());
-                                            Insets keyboardAreaInsets = insets.getInsets(WindowInsets.Type.ime());
-                                            Rect windowRect = get_view_rect();
+            View rootView = activity.getWindow().getDecorView().getRootView();
 
-                                            SlintAndroidJavaHelper.setInsets(
-                                                    windowRect.top, windowRect.left,
-                                                    windowRect.bottom, windowRect.right,
-                                                    safeAreaInsets.top, safeAreaInsets.left,
-                                                    safeAreaInsets.bottom, safeAreaInsets.right,
-                                                    keyboardAreaInsets.top, keyboardAreaInsets.left,
-                                                    keyboardAreaInsets.bottom, keyboardAreaInsets.right);
-                                        }
-                                    });
-                                    return insets;
-                                }
-                            });
+            // Some OEM ROMs hide the IME surface if the only inset source is the animation
+            // callback below, so install a plain listener as well.
+            rootView.setOnApplyWindowInsetsListener((v, insets) -> dispatchInsets(insets));
+
+            rootView.setWindowInsetsAnimationCallback(
+                    new WindowInsetsAnimation.Callback(
+                            WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                        @Override
+                        public WindowInsets onProgress(WindowInsets insets,
+                                java.util.List<WindowInsetsAnimation> runningAnimations) {
+                            return dispatchInsets(insets);
+                        }
+                    });
         } else {
             activity.getWindow().getDecorView().getRootView().getViewTreeObserver()
                     .addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -491,6 +480,20 @@ public class SlintAndroidJavaHelper {
                         }
                     });
         }
+    }
+
+    private WindowInsets dispatchInsets(WindowInsets insets) {
+        Insets safeAreaInsets = insets.getInsets(WindowInsets.Type.systemBars());
+        Insets keyboardAreaInsets = insets.getInsets(WindowInsets.Type.ime());
+        Rect windowRect = get_view_rect();
+        SlintAndroidJavaHelper.setInsets(
+                windowRect.top, windowRect.left,
+                windowRect.bottom, windowRect.right,
+                safeAreaInsets.top, safeAreaInsets.left,
+                safeAreaInsets.bottom, safeAreaInsets.right,
+                keyboardAreaInsets.top, keyboardAreaInsets.left,
+                keyboardAreaInsets.bottom, keyboardAreaInsets.right);
+        return insets;
     }
 
     public void show_keyboard() {
