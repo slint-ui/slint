@@ -32,19 +32,7 @@ The MCP server is controlled by two layers:
 
 ### Enabling for a Slint Application
 
-Since the `mcp` feature is not plumbed through the public `slint` crate, users enable it directly on the backend selector:
-
-```toml
-[dependencies]
-slint = "x.y.z"
-i-slint-backend-selector = { version = "=x.y.z", features = ["mcp"] }
-```
-
-Then run with:
-
-```sh
-SLINT_MCP_PORT=8080 cargo run -p my-app
-```
+See the [README](../../internal/backends/testing/README.md#enabling-the-mcp-server) for setup instructions.
 
 ## Initialization Flow
 
@@ -109,9 +97,7 @@ The HTTP server is built directly on `async-net` (async TCP) and `httparse` (HTT
 
 ### Tool Dispatch
 
-Tool calls arrive as `tools/call` JSON-RPC methods. The `handle_tool_call()` function dispatches by tool name. Most tools deserialize parameters into proto types (leveraging `pbjson`-generated `Deserialize` impls), call methods on `IntrospectionState`, and serialize the response back to JSON.
-
-Two tools (`get_element_tree` and `dispatch_key_event`) use custom parameter handling rather than proto types, since they don't have direct protobuf equivalents.
+Tool calls arrive as `tools/call` JSON-RPC methods. The `handle_tool_call()` function dispatches by tool name. All tools deserialize parameters into proto request types (leveraging `pbjson`-generated `Deserialize` impls), call methods on `IntrospectionState`, and serialize the response back to JSON.
 
 ### MCP Instructions
 
@@ -129,8 +115,8 @@ The MCP transport uses the `serde_json`-based serialization, while the system-te
 
 ## Adding a New Tool
 
-1. If the tool maps to a proto request/response, add the message types to `slint_systest.proto`. Otherwise, handle parameters manually in `handle_tool_call()`.
-2. Add a tool definition entry in `tool_definitions()` with name, description, and input schema.
+1. Add request and response message types to `slint_systest.proto`. The build pipeline will auto-generate the JSON schema for the MCP tool's `inputSchema`.
+2. Add a `ToolDef` entry to the `TOOLS` table in `mcp_server.rs` with name, description, proto request type, and optional fields.
 3. Add a match arm in `handle_tool_call()`.
 4. If the tool needs new introspection capabilities, add methods to `IntrospectionState` in `introspection.rs` so both transports can use them.
 5. Update the `instructions` string in the `initialize` response if the new tool changes the recommended workflow.
