@@ -178,14 +178,18 @@ pub trait WindowAdapterInternal: core::any::Any {
     }
 
     /// Create a window for a popup.
-    ///
-    /// `geometry` is the location of the popup in the window coordinate
+    /// This function will create only the window adapter but does not show the popup it self
+    /// Pass the result to show_popup
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
+
+    /// Shows the popup created with create_popup_window_adapter()
+    /// `geometry` is the location and size of the popup in the window coordinate
+    fn show_popup(&self, _window_adapter: Rc<dyn WindowAdapter>, _geometry: LogicalRect) {}
 
     /// Set the mouse cursor
     // TODO: Make the enum public and make public
@@ -1338,6 +1342,14 @@ impl WindowInner {
                 .collect()
         });
     }
+    /// Create a new popup window adapter
+    /// This window adapter can be used on a popup component and shown with show_popup()
+    pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if let Some(s) = self.window_adapter().internal(crate::InternalToken) {
+            return s.create_popup_window_adapter();
+        }
+        None
+    }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
@@ -1433,28 +1445,32 @@ impl WindowInner {
             self.window_adapter()
         };
 
+        let mut popup_window_adapter = None;
+        ItemTreeRc::borrow_pin(popup_componentrc)
+            .as_ref()
+            .window_adapter(false, &mut popup_window_adapter);
+        let popup_window_adapter = popup_window_adapter.unwrap(); // TODO: it must be there because we set the global
+
         // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
         // of the current window
-        let location = match parent_window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
-        {
-            None => {
-                let clip = LogicalRect::new(
-                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                );
-                let rect = popup::place_popup(
-                    popup::Placement::Fixed(LogicalRect::new(position, size)),
-                    &Some(clip),
-                );
-                self.window_adapter().request_redraw();
-                PopupWindowLocation::ChildWindow(rect.origin)
-            }
-            Some(window_adapter) => {
-                WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                PopupWindowLocation::TopLevel(window_adapter)
-            }
+        let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
+            let clip = LogicalRect::new(
+                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+            );
+            let rect = popup::place_popup(
+                popup::Placement::Fixed(LogicalRect::new(position, size)),
+                &Some(clip),
+            );
+            self.window_adapter().request_redraw();
+            PopupWindowLocation::ChildWindow(rect.origin)
+        } else {
+            WindowInner::from_pub(popup_window_adapter.window()).set_component(popup_componentrc);
+            parent_window_adapter
+                .internal(crate::InternalToken)
+                .unwrap()
+                .show_popup(popup_window_adapter.clone(), LogicalRect::new(position, size));
+            PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 
         let focus_item = self
