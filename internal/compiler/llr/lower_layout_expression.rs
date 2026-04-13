@@ -302,7 +302,7 @@ pub(super) fn solve_flexbox_layout(
         generate_layout_padding_and_spacing(&layout.geometry, Orientation::Horizontal, ctx);
     let (padding_v, spacing_v) =
         generate_layout_padding_and_spacing(&layout.geometry, Orientation::Vertical, ctx);
-    let fld = flexbox_layout_data(layout, ctx);
+    let fld = flexbox_layout_data(layout, ctx, CellsVConstraint::ContainerWidth);
     let width = layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
     let height = layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
     let data = make_struct(
@@ -379,7 +379,7 @@ pub(super) fn compute_flexbox_layout_info(
     orientation: Orientation,
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
-    let fld = flexbox_layout_data(layout, ctx);
+    let fld = flexbox_layout_data(layout, ctx, CellsVConstraint::ItemPreferredWidth);
 
     match layout.axis_relation(orientation) {
         crate::layout::FlexboxAxisRelation::MainAxis => {
@@ -561,9 +561,20 @@ struct FlexboxLayoutDataResult {
     )>,
 }
 
+/// Controls how cells_v width constraint is determined for column-direction flex.
+enum CellsVConstraint {
+    /// Use the item's own preferred width (safe for ComputeFlexboxLayoutInfo,
+    /// avoids cycle when parent queries the flex's preferred width).
+    ItemPreferredWidth,
+    /// Use the container's width (accurate for SolveFlexboxLayout, since the
+    /// container width is already set by the parent at solve time).
+    ContainerWidth,
+}
+
 fn flexbox_layout_data(
     layout: &crate::layout::FlexboxLayout,
     ctx: &mut ExpressionLoweringCtx,
+    cells_v_constraint: CellsVConstraint,
 ) -> FlexboxLayoutDataResult {
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
@@ -651,6 +662,12 @@ fn flexbox_layout_data(
             }
         };
 
+    let use_container_width = matches!(cells_v_constraint, CellsVConstraint::ContainerWidth)
+        && matches!(
+            layout.axis_relation(Orientation::Vertical),
+            crate::layout::FlexboxAxisRelation::MainAxis
+        );
+
     if repeater_count == 0 {
         let cells_h = llr_Expression::Array {
             values: layout
@@ -670,16 +687,25 @@ fn flexbox_layout_data(
             element_ty: element_ty.clone(),
             output: llr_ArrayOutput::Slice,
         };
-        // For cells_v, pass each child's horizontal preferred size as the
-        // cross-axis constraint for items that need height-for-width (Text with
-        // word-wrap, Image with aspect ratio). Only do this for builtin items
-        // with implicit sizing — not for components, which would create cycles.
+        // For cells_v, pass a width constraint for items that need
+        // height-for-width (Text with word-wrap, Image with aspect ratio).
+        // In column direction, items get stretched to the container's width,
+        // so use that as the constraint. Otherwise use the item's own
+        // preferred horizontal size.
         let cells_v = llr_Expression::Array {
             values: layout
                 .elems
                 .iter()
                 .map(|li| {
-                    let constraint = cross_axis_constraint_expr(&li.item.element);
+                    let constraint = if use_container_width {
+                        cross_axis_constraint_expr(&li.item.element).and_then(|_| {
+                            layout.geometry.rect.width_reference.as_ref().map(|nr| {
+                                crate::expression_tree::Expression::PropertyReference(nr.clone())
+                            })
+                        })
+                    } else {
+                        cross_axis_constraint_expr(&li.item.element)
+                    };
                     let layout_info_v = get_layout_info_with_constraint(
                         &li.item.element,
                         ctx,
@@ -729,7 +755,15 @@ fn flexbox_layout_data(
                     &item.item.constraints,
                     Orientation::Horizontal,
                 );
-                let constraint = cross_axis_constraint_expr(&item.item.element);
+                let constraint = if use_container_width {
+                    cross_axis_constraint_expr(&item.item.element).and_then(|_| {
+                        layout.geometry.rect.width_reference.as_ref().map(|nr| {
+                            crate::expression_tree::Expression::PropertyReference(nr.clone())
+                        })
+                    })
+                } else {
+                    cross_axis_constraint_expr(&item.item.element)
+                };
                 let layout_info_v = get_layout_info_with_constraint(
                     &item.item.element,
                     ctx,

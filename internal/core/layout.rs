@@ -1402,10 +1402,8 @@ mod flexbox_taffy {
                                     width: match params.flex_direction {
                                         TaffyFlexDirection::Column
                                         | TaffyFlexDirection::ColumnReverse => {
-                                            // Cross-axis for column: use auto when measure
-                                            // callback will compute it dynamically
-                                            if params.use_measure_for_cross_axis {
-                                                Dimension::auto()
+                                            if let Some(cw) = params.container_width {
+                                                Dimension::length(cw as _)
                                             } else if preferred_width > 0 as Coord {
                                                 Dimension::length(preferred_width as _)
                                             } else {
