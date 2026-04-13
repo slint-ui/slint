@@ -1256,11 +1256,14 @@ pub unsafe extern "C" fn slint_go_component_instance_invoke_global(
         .unwrap_or(core::ptr::null_mut())
 }
 
-type SlintGoCallback =
-    extern "C" fn(token: usize, args: *const *mut Value, arg_len: usize) -> *mut Value;
+type SlintGoCallback = extern "C" fn(
+    user_data: *mut core::ffi::c_void,
+    args: *const *mut Value,
+    arg_len: usize,
+) -> *mut Value;
 
 struct SlintGoCallbackHolder {
-    token: usize,
+    user_data: usize,
     callback: SlintGoCallback,
 }
 
@@ -1268,7 +1271,7 @@ impl SlintGoCallbackHolder {
     fn invoke(&self, args: &[Value]) -> Value {
         let mut raw_args =
             args.iter().cloned().map(|value| Box::into_raw(Box::new(value))).collect::<Vec<_>>();
-        let result = (self.callback)(self.token, raw_args.as_ptr(), raw_args.len());
+        let result = (self.callback)(self.user_data as *mut core::ffi::c_void, raw_args.as_ptr(), raw_args.len());
         raw_args.drain(..).for_each(|value| drop(unsafe { Box::from_raw(value) }));
         if result.is_null() { Value::Void } else { *unsafe { Box::from_raw(result) } }
     }
@@ -1279,10 +1282,10 @@ impl SlintGoCallbackHolder {
 pub unsafe extern "C" fn slint_go_component_instance_set_callback(
     instance: *const ComponentInstance,
     name: Slice<u8>,
-    token: usize,
+    user_data: usize,
     callback: SlintGoCallback,
 ) -> bool {
-    let holder = SlintGoCallbackHolder { token, callback };
+    let holder = SlintGoCallbackHolder { user_data, callback };
     unsafe { &*instance }
         .set_callback(std::str::from_utf8(&name).unwrap(), move |args| holder.invoke(args))
         .is_ok()
@@ -1294,10 +1297,10 @@ pub unsafe extern "C" fn slint_go_component_instance_set_global_callback(
     instance: *const ComponentInstance,
     global: Slice<u8>,
     name: Slice<u8>,
-    token: usize,
+    user_data: usize,
     callback: SlintGoCallback,
 ) -> bool {
-    let holder = SlintGoCallbackHolder { token, callback };
+    let holder = SlintGoCallbackHolder { user_data, callback };
     unsafe { &*instance }
         .set_global_callback(
             std::str::from_utf8(&global).unwrap(),
