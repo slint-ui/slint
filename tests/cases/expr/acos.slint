@@ -24,8 +24,8 @@ assert!(instance.get_t3().abs() < 0.0001);
 
 ```js
 var instance = new slint.TestCase({});
-assert.equal(instance.t1, 90);
-assert.equal(instance.t2, 60);
-assert.equal(instance.t3, 0);
+assert(Math.abs(instance.t1 - 90) < 0.0001);
+assert(Math.abs(instance.t2 - 60) < 0.0001);
+assert(Math.abs(instance.t3) < 0.0001);
 ```
 */

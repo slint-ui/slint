@@ -30,7 +30,9 @@ assert_eq!(instance.get_yy(), 7500 - 2500/2); // even if time has passed, since 
 slint_testing::mock_elapsed_time(500);
 instance.set_xx(1000);
 slint_testing::mock_elapsed_time(250);
-assert_eq!(instance.get_yy(), 9063);
+// Tolerate ±1 rounding: rust uses Property<i32>::interpolate, which rounds
+// the delta; other codegens interpolate in floats and truncate.
+assert!((instance.get_yy() - 9063).abs() <= 1);
 slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_yy(), 10000);
 ```

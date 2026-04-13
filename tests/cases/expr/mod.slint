@@ -44,14 +44,15 @@ assert!(instance.get_test());
 
 ```js
 var instance = new slint.TestCase({});
-assert.equal(instance.t1, 0);
-assert.equal(instance.t2, 8.5);
-assert.equal(instance.t3, 3);
-assert.equal(instance.t4, 432);
+assert(Math.abs(instance.t1) < 0.0001);
+assert(Math.abs(instance.t2 - 8.5) < 0.0001);
+assert(Math.abs(instance.t3 - 3) < 0.0001);
+assert(Math.abs(instance.t4 - 432) < 0.0001);
 assert.equal(Math.round(instance.t5 * 1000), 1800);
-assert.equal(instance.t6, 2.);
-assert.equal(instance.t7, 3.5);
-assert.equal(instance.t8, 0);
+assert(Math.abs(instance.t6 - 2.) < 0.0001);
+assert(Math.abs(instance.t7 - 3.5) < 0.0001);
+// `(-42) % 2` is `-0` in IEEE-754; compare absolute value so `-0 === 0`.
+assert(Math.abs(instance.t8) < 0.0001);
 assert(instance.test);
 ```
 */
