@@ -6,8 +6,8 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 use crate::api::{
-    CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
-    WindowPosition, WindowSize,
+    CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
+    PlatformError, Window, WindowPosition, WindowSize,
 };
 use crate::graphics::Color;
 use crate::input::{
@@ -1462,12 +1462,10 @@ impl WindowInner {
             PopupWindowLocation::ChildWindow(rect.origin)
         } else {
             WindowInner::from_pub(popup_window_adapter.window()).set_component(popup_componentrc);
+            popup_window_adapter.window().set_position(LogicalPosition::from_euclid(position));
             popup_window_adapter
                 .window()
-                .set_position(LogicalPosition::new(position.x, position.y));
-            popup_window_adapter.window().set_size(WindowSize::Logical(
-                crate::api::LogicalSize::new(size.width, size.height),
-            ));
+                .set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
 
             popup_window_adapter.set_visible(true).expect("Unable to show popup");
             PopupWindowLocation::TopLevel(popup_window_adapter)
