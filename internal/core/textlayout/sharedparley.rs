@@ -190,7 +190,7 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
+        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
