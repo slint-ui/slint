@@ -413,8 +413,11 @@ pub unsafe extern "C" fn slint_property_set_state_binding(
     }
 
     let c_state_binding = CStateBinding { binding, user_data, drop_user_data };
-    let bind_callable =
-        StateInfoBinding { dirty_time: Cell::new(None), binding: move || c_state_binding.call() };
+    let bind_callable = StateInfoBinding {
+        dirty_time: Cell::new(None),
+        binding: move || c_state_binding.call(),
+        _phantom: core::marker::PhantomData::<fn() -> StateInfo>,
+    };
     unsafe { handle.0.set_binding(bind_callable) }
 }
 

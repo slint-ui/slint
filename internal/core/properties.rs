@@ -1121,20 +1121,27 @@ pub struct StateInfo {
     pub change_time: crate::animations::Instant,
 }
 
-struct StateInfoBinding<F> {
+struct StateInfoBinding<F, T> {
     dirty_time: Cell<Option<crate::animations::Instant>>,
     binding: F,
+    _phantom: core::marker::PhantomData<fn() -> T>,
 }
 
-unsafe impl<F: Fn() -> i32> crate::properties::BindingCallable<StateInfo> for StateInfoBinding<F> {
-    fn evaluate(self: Pin<&Self>, value: &mut StateInfo) -> BindingResult {
+unsafe impl<F: Fn() -> i32, T> crate::properties::BindingCallable<T> for StateInfoBinding<F, T>
+where
+    T: Default + From<StateInfo> + 'static,
+    StateInfo: TryFrom<T>,
+{
+    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
         let new_state = (self.binding)();
         let timestamp = self.dirty_time.take();
-        if new_state != value.current_state {
-            value.previous_state = value.current_state;
-            value.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
-            value.current_state = new_state;
+        let mut state_info: StateInfo = core::mem::take(value).try_into().unwrap_or_default();
+        if new_state != state_info.current_state {
+            state_info.previous_state = state_info.current_state;
+            state_info.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
+            state_info.current_state = new_state;
         }
+        *value = T::from(state_info);
         BindingResult::KeepBinding
     }
 
@@ -1145,10 +1152,21 @@ unsafe impl<F: Fn() -> i32> crate::properties::BindingCallable<StateInfo> for St
     }
 }
 
-/// Sets a binding that returns a state to a StateInfo property
-pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn() -> i32 + 'static) {
-    let bind_callable = StateInfoBinding { dirty_time: Cell::new(None), binding };
-    // Safety: The StateInfoBinding is a BindingCallable for type StateInfo
+/// Sets a binding that returns a state index to a property that stores
+/// state-tracking information. The property type `T` must be convertible
+/// to/from [`StateInfo`] — the generated code uses `Property<StateInfo>`
+/// directly, while the interpreter uses `Property<Value>` with the
+/// conversion going through `Value::Struct`.
+pub fn set_state_binding<T>(property: Pin<&Property<T>>, binding: impl Fn() -> i32 + 'static)
+where
+    T: Default + From<StateInfo> + 'static,
+    StateInfo: TryFrom<T>,
+{
+    let bind_callable = StateInfoBinding {
+        dirty_time: Cell::new(None),
+        binding,
+        _phantom: core::marker::PhantomData,
+    };
     unsafe {
         property.handle.set_binding(
             bind_callable,
