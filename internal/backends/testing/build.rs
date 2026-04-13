@@ -32,10 +32,7 @@ fn main() {
 /// Generate JSON schemas for proto Request* messages, used by the MCP server
 /// to build tool definitions from the proto source of truth.
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
-fn generate_mcp_schemas(
-    fds: &prost_types::FileDescriptorSet,
-    out_dir: &std::path::Path,
-) {
+fn generate_mcp_schemas(fds: &prost_types::FileDescriptorSet, out_dir: &std::path::Path) {
     use std::fmt::Write;
 
     let file_desc = fds
@@ -48,8 +45,7 @@ fn generate_mcp_schemas(
     let mut enums = std::collections::HashMap::new();
     for e in &file_desc.enum_type {
         let name = e.name.as_deref().unwrap_or_default();
-        let variants: Vec<String> =
-            e.value.iter().filter_map(|v| v.name.clone()).collect();
+        let variants: Vec<String> = e.value.iter().filter_map(|v| v.name.clone()).collect();
         enums.insert(name.to_string(), variants);
     }
 
@@ -62,11 +58,7 @@ fn generate_mcp_schemas(
 
     // Generate JSON schema strings for each Request* message
     let mut code = String::new();
-    writeln!(
-        &mut code,
-        "/// Auto-generated from slint_systest.proto — do not edit."
-    )
-    .unwrap();
+    writeln!(&mut code, "/// Auto-generated from slint_systest.proto — do not edit.").unwrap();
     writeln!(
         &mut code,
         "pub fn proto_input_schema(message_name: &str) -> Option<serde_json::Value> {{"
@@ -81,11 +73,7 @@ fn generate_mcp_schemas(
         }
 
         let schema = message_to_json_schema(msg, &messages, &enums);
-        writeln!(
-            &mut code,
-            "        {msg_name:?} => Some(serde_json::json!({schema})),"
-        )
-        .unwrap();
+        writeln!(&mut code, "        {msg_name:?} => Some(serde_json::json!({schema})),").unwrap();
     }
 
     writeln!(&mut code, "        _ => None,").unwrap();
@@ -94,11 +82,8 @@ fn generate_mcp_schemas(
 
     // Also generate a list of field names (camelCase) for each message
     writeln!(&mut code).unwrap();
-    writeln!(
-        &mut code,
-        "/// Returns the camelCase field names of a proto request message."
-    )
-    .unwrap();
+    writeln!(&mut code, "/// Returns the camelCase field names of a proto request message.")
+        .unwrap();
     writeln!(
         &mut code,
         "pub fn proto_field_names(message_name: &str) -> Option<&'static [&'static str]> {{"
@@ -111,26 +96,17 @@ fn generate_mcp_schemas(
         if !msg_name.starts_with("Request") {
             continue;
         }
-        let fields: Vec<String> = msg
-            .field
-            .iter()
-            .filter_map(|f| f.name.as_ref().map(|n| snake_to_camel(n)))
-            .collect();
+        let fields: Vec<String> =
+            msg.field.iter().filter_map(|f| f.name.as_ref().map(|n| snake_to_camel(n))).collect();
         let fields_str: Vec<String> = fields.iter().map(|f| format!("{f:?}")).collect();
-        writeln!(
-            &mut code,
-            "        {msg_name:?} => Some(&[{}]),",
-            fields_str.join(", ")
-        )
-        .unwrap();
+        writeln!(&mut code, "        {msg_name:?} => Some(&[{}]),", fields_str.join(", ")).unwrap();
     }
 
     writeln!(&mut code, "        _ => None,").unwrap();
     writeln!(&mut code, "    }}").unwrap();
     writeln!(&mut code, "}}").unwrap();
 
-    std::fs::write(out_dir.join("mcp_schemas.rs"), code)
-        .expect("failed to write mcp_schemas.rs");
+    std::fs::write(out_dir.join("mcp_schemas.rs"), code).expect("failed to write mcp_schemas.rs");
 }
 
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
@@ -170,21 +146,16 @@ fn message_to_json_schema(
                 // pbjson serializes 64-bit integers as strings
                 r#"{"type": "string"}"#.to_string()
             }
-            prost_types::field_descriptor_proto::Type::Bool => {
-                r#"{"type": "boolean"}"#.to_string()
-            }
+            prost_types::field_descriptor_proto::Type::Bool => r#"{"type": "boolean"}"#.to_string(),
             prost_types::field_descriptor_proto::Type::String => {
                 r#"{"type": "string"}"#.to_string()
             }
-            prost_types::field_descriptor_proto::Type::Bytes => {
-                r#"{"type": "string"}"#.to_string()
-            }
+            prost_types::field_descriptor_proto::Type::Bytes => r#"{"type": "string"}"#.to_string(),
             prost_types::field_descriptor_proto::Type::Enum => {
                 let type_name = field.type_name.as_deref().unwrap_or_default();
                 let short_name = type_name.rsplit('.').next().unwrap_or(type_name);
                 if let Some(variants) = enums.get(short_name) {
-                    let vs: Vec<String> =
-                        variants.iter().map(|v| format!("{v:?}")).collect();
+                    let vs: Vec<String> = variants.iter().map(|v| format!("{v:?}")).collect();
                     format!(r#"{{"type": "string", "enum": [{}]}}"#, vs.join(", "))
                 } else {
                     r#"{"type": "string"}"#.to_string()

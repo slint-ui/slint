@@ -135,7 +135,9 @@ fn tool_definitions() -> Value {
                 if !required.is_empty() {
                     schema.as_object_mut().unwrap().insert(
                         "required".to_string(),
-                        Value::Array(required.into_iter().map(|s| Value::String(s.into())).collect()),
+                        Value::Array(
+                            required.into_iter().map(|s| Value::String(s.into())).collect(),
+                        ),
                     );
                 }
             }
@@ -319,10 +321,8 @@ async fn handle_tool_call(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             );
             let element = state.element("drag_element", element_index)?;
-            let target_pos =
-                p.target.ok_or_else(|| "missing target position".to_string())?;
-            let target =
-                i_slint_core::api::LogicalPosition::new(target_pos.x, target_pos.y);
+            let target_pos = p.target.ok_or_else(|| "missing target position".to_string())?;
+            let target = i_slint_core::api::LogicalPosition::new(target_pos.x, target_pos.y);
             let button = proto::PointerEventButton::try_from(p.button)
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
             let button = introspection::convert_pointer_event_button(button);
@@ -360,26 +360,19 @@ async fn handle_tool_call(
         }
         "dispatch_key_event" => {
             let p: proto::RequestDispatchKeyEvent = deserialize_params(args)?;
-            let window_index = handle_to_index(
-                p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
-            );
+            let window_index =
+                handle_to_index(p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?);
             let event_type = proto::KeyEventType::try_from(p.event_type)
                 .map_err(|_| format!("invalid eventType value: {}", p.event_type))?;
             let events: Vec<i_slint_core::platform::WindowEvent> = match event_type {
                 proto::KeyEventType::Press => {
-                    vec![i_slint_core::platform::WindowEvent::KeyPressed {
-                        text: p.text.into(),
-                    }]
+                    vec![i_slint_core::platform::WindowEvent::KeyPressed { text: p.text.into() }]
                 }
                 proto::KeyEventType::Release => {
-                    vec![i_slint_core::platform::WindowEvent::KeyReleased {
-                        text: p.text.into(),
-                    }]
+                    vec![i_slint_core::platform::WindowEvent::KeyReleased { text: p.text.into() }]
                 }
                 proto::KeyEventType::PressAndRelease => vec![
-                    i_slint_core::platform::WindowEvent::KeyPressed {
-                        text: p.text.clone().into(),
-                    },
+                    i_slint_core::platform::WindowEvent::KeyPressed { text: p.text.clone().into() },
                     i_slint_core::platform::WindowEvent::KeyReleased { text: p.text.into() },
                 ],
             };
