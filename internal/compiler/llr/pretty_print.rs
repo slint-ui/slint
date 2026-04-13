@@ -131,7 +131,11 @@ impl PrettyPrinter<'_> {
                 }
                 None => {}
             }
-            writeln!(self.writer, ";{}", if init.is_constant { " /*const*/" } else { "" })?
+            writeln!(
+                self.writer,
+                ";{}",
+                if init.kind == super::BindingKind::Constant { " /*const*/" } else { "" }
+            )?
         }
         for (p, a) in &sc.animations {
             self.indent()?;
@@ -309,7 +313,7 @@ impl PrettyPrinter<'_> {
                         "{}: {}{};",
                         global.properties[*p].name,
                         DisplayExpression(&init.expression.borrow(), &ctx,),
-                        if init.is_constant { "/*const*/" } else { "" }
+                        if init.kind == super::BindingKind::Constant { "/*const*/" } else { "" }
                     )?;
                 }
                 LocalMemberIndex::Callback(c) => {
