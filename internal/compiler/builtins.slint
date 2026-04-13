@@ -833,5 +833,6 @@ export global NativePalette {
 export component SystemTray {
     in property <image> icon;
     in property <string> title;
-    in property <[MenuEntry]> menu;
+    //-disallow_global_types_as_child_elements
+    Menu { }
 }
