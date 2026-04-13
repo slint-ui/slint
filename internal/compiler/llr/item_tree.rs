@@ -643,10 +643,16 @@ impl CompilationUnit {
 /// Depending on the type, this can also be a Callback or a Function
 #[derive(Debug, Clone)]
 pub struct PublicProperty {
-    pub name: SmolStr,
+    /// The identifier as written in the `.slint` source, preserving any
+    /// hyphens and the original casing. The interpreter's public API
+    /// returns this form in the property list so that callers see the same
+    /// name they wrote.
+    pub display_name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
     pub read_only: bool,
 }
-pub type PublicProperties = Vec<PublicProperty>;
+/// Public properties of a component or global, keyed by the normalized
+/// identifier (underscores). Iteration order is by sorted key.
+pub type PublicProperties = BTreeMap<SmolStr, PublicProperty>;
 pub type PrivateProperties = Vec<(SmolStr, Type)>;

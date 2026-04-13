@@ -59,9 +59,9 @@ impl From<&PyProperty> for python_ast::Field {
     }
 }
 
-impl From<&llr::PublicProperty> for PyProperty {
-    fn from(llr_prop: &llr::PublicProperty) -> Self {
-        Self { name: ident(&llr_prop.name), ty: python_type_name(&llr_prop.ty) }
+impl From<(&SmolStr, &llr::PublicProperty)> for PyProperty {
+    fn from((name, llr_prop): (&SmolStr, &llr::PublicProperty)) -> Self {
+        Self { name: ident(name), ty: python_type_name(&llr_prop.ty) }
     }
 }
 

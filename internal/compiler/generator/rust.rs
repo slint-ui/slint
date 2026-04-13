@@ -722,8 +722,8 @@ fn public_api(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in public_properties {
-        let prop_ident = ident(&p.name);
+    for (name, p) in public_properties {
+        let prop_ident = ident(name);
         let prop = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {

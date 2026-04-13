@@ -15,13 +15,13 @@ pub fn count_property_use(root: &CompilationUnit) {
     // 1. the public properties
     for c in &root.public_components {
         let root_ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
-        for p in c.public_properties.iter().filter(|p| !p.prop.is_function()) {
+        for p in c.public_properties.values().filter(|p| !p.prop.is_function()) {
             visit_property(&p.prop, &root_ctx);
         }
     }
     for (idx, g) in root.globals.iter_enumerated().filter(|(_, g)| g.exported) {
         let ctx = EvaluationContext::new_global(root, idx, ());
-        for p in g.public_properties.iter().filter(|p| !p.prop.is_function()) {
+        for p in g.public_properties.values().filter(|p| !p.prop.is_function()) {
             visit_property(&p.prop, &ctx);
         }
     }

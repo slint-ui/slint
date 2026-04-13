@@ -1064,12 +1064,15 @@ fn lower_global_expressions(
                         &NamedReference::new(&global.root_element, p.clone()),
                         state,
                     );
-                    PublicProperty {
-                        name: p.clone(),
-                        ty: c.ty.clone(),
-                        prop: property_reference,
-                        read_only: c.property_visibility == PropertyVisibility::Output,
-                    }
+                    (
+                        p.clone(),
+                        PublicProperty {
+                            display_name: p.clone(),
+                            ty: c.ty.clone(),
+                            prop: property_reference,
+                            read_only: c.property_visibility == PropertyVisibility::Output,
+                        },
+                    )
                 })
                 .collect()
         }
@@ -1142,12 +1145,27 @@ fn public_properties(
                 &NamedReference::new(&component.root_element, p.clone()),
                 state,
             );
-            PublicProperty {
-                name: p.clone(),
-                ty: c.property_type.clone(),
-                prop: property_reference,
-                read_only: c.visibility == PropertyVisibility::Output,
-            }
+            // Recover the source-form identifier from the declaration node
+            // (preserves dashes and the original casing). Fall back to the
+            // normalized key if no node is attached.
+            let display_name = c
+                .node
+                .as_ref()
+                .and_then(|n| {
+                    n.child_node(crate::parser::SyntaxKind::DeclaredIdentifier)
+                        .and_then(|n| n.child_token(crate::parser::SyntaxKind::Identifier))
+                })
+                .map(|tok| SmolStr::new(tok.text()))
+                .unwrap_or_else(|| p.clone());
+            (
+                p.clone(),
+                PublicProperty {
+                    display_name,
+                    ty: c.property_type.clone(),
+                    prop: property_reference,
+                    read_only: c.visibility == PropertyVisibility::Output,
+                },
+            )
         })
         .collect()
 }

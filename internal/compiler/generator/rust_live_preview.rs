@@ -93,9 +93,9 @@ fn generate_public_component(
     };
 
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in &llr.public_properties {
-        let prop_name = p.name.as_str();
-        let prop_ident = ident(&p.name);
+    for (name, p) in &llr.public_properties {
+        let prop_name = name.as_str();
+        let prop_ident = ident(name);
 
         if let Type::Callback(callback) = &p.ty {
             let callback_args =
@@ -254,9 +254,9 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
     }
     let global_name = global.name.as_str();
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
-    for p in &global.public_properties {
-        let prop_name = p.name.as_str();
-        let prop_ident = ident(&p.name);
+    for (name, p) in &global.public_properties {
+        let prop_name = name.as_str();
+        let prop_ident = ident(name);
 
         if let Type::Callback(callback) = &p.ty {
             let callback_args =

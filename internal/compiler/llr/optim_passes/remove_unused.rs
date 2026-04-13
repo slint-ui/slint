@@ -268,7 +268,7 @@ mod visitor {
         visitor: &mut (impl Visitor + ?Sized),
     ) {
         let scope = EvaluationScope::SubComponent(item_tree.root, None);
-        for p in public_properties {
+        for p in public_properties.values_mut() {
             visit_public_property(p, &scope, state, visitor);
         }
     }
@@ -454,7 +454,7 @@ mod visitor {
             })
             .collect();
 
-        for p in public_properties {
+        for p in public_properties.values_mut() {
             visit_public_property(p, &scope, state, visitor);
         }
     }
@@ -472,7 +472,7 @@ mod visitor {
     }
 
     pub fn visit_public_property(
-        PublicProperty { name: _, ty: _, prop, read_only: _ }: &mut PublicProperty,
+        PublicProperty { prop, .. }: &mut PublicProperty,
         scope: &EvaluationScope,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),

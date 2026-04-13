@@ -280,8 +280,7 @@ fn generate_public_api_for_properties(
     public_properties: &llr::PublicProperties,
     private_properties: &llr::PrivateProperties,
 ) {
-    for p in public_properties {
-        let prop_name = &p.name;
+    for (prop_name, p) in public_properties {
         let prop_ident = concatenate_ident(prop_name);
 
         if let Type::Callback(callback) = &p.ty {
@@ -326,7 +325,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("on_{}", concatenate_ident(&p.name)),
+                    name: format_smolstr!("on_{}", concatenate_ident(prop_name)),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -353,7 +352,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{}", concatenate_ident(&p.name)),
+                    name: format_smolstr!("invoke_{}", concatenate_ident(prop_name)),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -405,7 +404,7 @@ fn generate_public_api_for_properties(
                     Declaration::Function(Function {
                         name: format_smolstr!("set_{}", &prop_ident),
                         signature: format!(
-                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
+                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", prop_name
                         ),
                         ..Default::default()
                     }),
