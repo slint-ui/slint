@@ -211,11 +211,9 @@ pub fn embed_glyphs<'a>(
     }
 
     let register_embedded_font = |path: &std::path::Path, embedded_bitmap_font: BitmapFont| {
-        let resource_id = doc.embedded_file_resources.borrow().len();
-        doc.embedded_file_resources.borrow_mut().insert(
-            format!("{}@w{}", path.to_string_lossy(), embedded_bitmap_font.weight).into(),
+        let resource_id = doc.embedded_file_resources.borrow_mut().push_and_get_key(
             crate::embedded_resources::EmbeddedResources {
-                id: resource_id,
+                path: Some(path.to_string_lossy().as_ref().into()),
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
                     embedded_bitmap_font,
                 ),
@@ -225,7 +223,7 @@ pub fn embed_glyphs<'a>(
         for c in doc.exported_roots() {
             c.init_code.borrow_mut().font_registration_code.push(Expression::FunctionCall {
                 function: BuiltinFunction::RegisterBitmapFont.into(),
-                arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
+                arguments: vec![Expression::NumberLiteral(resource_id.0 as _, Unit::None)],
                 source_location: None,
             });
         }

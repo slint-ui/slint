@@ -107,8 +107,22 @@ pub enum EmbeddedResourcesKind {
 
 #[derive(Debug, Clone)]
 pub struct EmbeddedResources {
-    /// unique integer id, that can be used by the generator for symbol generation.
-    pub id: usize,
+    /// Path on disk of the resource, or `None` for in-memory payloads such as data URIs.
+    pub path: Option<smol_str::SmolStr>,
 
     pub kind: EmbeddedResourcesKind,
 }
+
+/// Index of an [`EmbeddedResources`] entry in [`crate::object_tree::Document::embedded_file_resources`].
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    derive_more::Into,
+    derive_more::From,
+    derive_more::Display,
+)]
+pub struct EmbeddedResourcesIdx(pub usize);

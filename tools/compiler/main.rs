@@ -237,9 +237,10 @@ fn main() -> std::io::Result<()> {
                 write!(cursor, " {}", x.display())?;
             }
         }
-        for resource in doc.embedded_file_resources.borrow().keys() {
-            if !fileaccess::load_file(std::path::Path::new(resource))
-                .is_some_and(|f| f.is_builtin())
+        for er in doc.embedded_file_resources.borrow().iter() {
+            if let Some(resource) = er.path.as_deref()
+                && !fileaccess::load_file(std::path::Path::new(resource))
+                    .is_some_and(|f| f.is_builtin())
             {
                 write!(cursor, " {resource}")?;
             }
