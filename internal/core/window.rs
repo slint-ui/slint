@@ -1449,7 +1449,8 @@ impl WindowInner {
         ItemTreeRc::borrow_pin(popup_componentrc)
             .as_ref()
             .window_adapter(false, &mut popup_window_adapter);
-        let popup_window_adapter = popup_window_adapter.unwrap(); // It must be there because we set the global
+        let popup_window_adapter =
+            popup_window_adapter.expect("It must be there because we set the global");
 
         // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
         // of the current window
