@@ -1491,12 +1491,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     fn show_popup(&self, window_adapter: Rc<dyn WindowAdapter>, geometry: LogicalRect) {
+        use std::borrow::BorrowMut;
         use winit::dpi::{LogicalPosition, LogicalSize, Position};
+
         let size = LogicalSize::new(geometry.width(), geometry.height());
         let position = LogicalPosition::new(geometry.origin.x, geometry.origin.y);
-        // .with_position(Position::Logical(position.cast()))
-
-        use std::borrow::BorrowMut;
 
         let winit_window = window_adapter
             .internal(i_slint_core::InternalToken)
