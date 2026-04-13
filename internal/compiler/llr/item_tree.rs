@@ -432,6 +432,10 @@ pub struct SubComponent {
     pub element_infos: BTreeMap<u32, String>,
 
     pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
+
+    /// Populated when `CompilerConfiguration::debug_info` is set.
+    /// The interpreter uses it for highlighting and live preview.
+    pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
 }
 
 #[derive(Debug)]

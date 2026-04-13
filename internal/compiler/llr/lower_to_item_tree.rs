@@ -300,6 +300,12 @@ fn lower_sub_component(
         accessible_prop: Default::default(),
         element_infos: Default::default(),
         prop_analysis: Default::default(),
+        debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
+            source_location: crate::diagnostics::Spanned::to_source_location(
+                &*component.root_element.borrow(),
+            ),
+            items: Default::default(),
+        }),
     };
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = TiVec::new();
@@ -411,6 +417,17 @@ fn lower_sub_component(
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
                 });
+                if let Some(debug_info) = sub_component.debug_info.as_mut() {
+                    let primary = elem.debug.first();
+                    let source_location = crate::diagnostics::Spanned::to_source_location(&*elem);
+                    let added_index =
+                        debug_info.items.push_and_get_key(super::debug_info::ItemDebugInfo {
+                            source_location,
+                            qualified_id: primary.and_then(|d| d.qualified_id.clone()),
+                            element_hash: primary.map(|d| d.element_hash).unwrap_or_default(),
+                        });
+                    debug_assert_eq!(added_index, item_index);
+                }
                 mapping
                     .element_mapping
                     .insert(element.clone().into(), LoweredElement::NativeItem { item_index });

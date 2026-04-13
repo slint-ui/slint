@@ -3,6 +3,7 @@
 
 //! The Low Level Representation module
 
+pub mod debug_info;
 mod expression;
 pub use expression::*;
 mod item_tree;

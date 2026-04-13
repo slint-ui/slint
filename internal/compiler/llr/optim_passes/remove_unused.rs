@@ -305,6 +305,7 @@ mod visitor {
             element_infos: _,
             row_child_templates: _,
             prop_analysis,
+            debug_info: _,
         }: &mut SubComponent,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
