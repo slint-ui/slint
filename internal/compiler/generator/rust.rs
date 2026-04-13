@@ -1327,7 +1327,12 @@ fn generate_sub_component(
 
         if let Some(item_index) = repeated.container_item_index {
             let embed_item = access_local_member(
-                &llr::LocalMemberIndex::Native { item_index, prop_name: Default::default() }.into(),
+                &llr::LocalMemberIndex::Native {
+                    item_index,
+                    prop_name: Default::default(),
+                    kind: llr::NativeMemberKind::Property,
+                }
+                .into(),
                 &ctx,
             );
 
@@ -3000,7 +3005,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         },
                     )
                 }
-                llr::LocalMemberIndex::Native { item_index, prop_name } => {
+                llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                     let (compo_path, sub_component) = follow_sub_component_path(
                         ctx.compilation_unit,
                         ctx.parent_sub_component_idx(*parent_level).unwrap(),
@@ -3157,7 +3162,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, prop_name: _ } = &local_reference.reference
+    let llr::LocalMemberIndex::Native { item_index, prop_name: _, .. } = &local_reference.reference
     else {
         unreachable!()
     };

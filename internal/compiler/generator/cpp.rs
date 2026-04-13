@@ -70,7 +70,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> String 
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, prop_name: _ } = &local_reference.reference
+    let llr::LocalMemberIndex::Native { item_index, prop_name: _, .. } = &local_reference.reference
     else {
         unreachable!()
     };
@@ -3668,7 +3668,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         let function_name = ident(&sub_component.functions[*function_index].name);
                         path.with_member(format!("->{compo_path}fn_{function_name}"))
                     }
-                    llr::LocalMemberIndex::Native { item_index, prop_name } => {
+                    llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         let item_name = field_name(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
                             || matches!(
@@ -3908,7 +3908,8 @@ fn native_prop_info<'a, 'b>(
     let llr::MemberReference::Relative { parent_level, local_reference } = item_ref else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, prop_name } = &local_reference.reference else {
+    let llr::LocalMemberIndex::Native { item_index, prop_name, .. } = &local_reference.reference
+    else {
         unreachable!()
     };
 

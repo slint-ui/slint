@@ -166,16 +166,28 @@ impl LoweredSubComponentMapping {
                 }
                 unreachable!()
             }
-            LoweredElement::NativeItem { item_index } => MemberReference::Relative {
-                parent_level: 0,
-                local_reference: LocalMemberReference {
-                    sub_component_path: Vec::new(),
-                    reference: LocalMemberIndex::Native {
-                        item_index: *item_index,
-                        prop_name: from.name().clone(),
+            LoweredElement::NativeItem { item_index } => {
+                // The element's declared property type is authoritative:
+                // probing the rtti tables by name at install time would pick
+                // the wrong side when a name exists in both the property and
+                // callback tables.
+                let kind = match element.borrow().lookup_property(from.name()).property_type {
+                    Type::Callback(..) => super::NativeMemberKind::Callback,
+                    Type::Function(..) => super::NativeMemberKind::Function,
+                    _ => super::NativeMemberKind::Property,
+                };
+                MemberReference::Relative {
+                    parent_level: 0,
+                    local_reference: LocalMemberReference {
+                        sub_component_path: Vec::new(),
+                        reference: LocalMemberIndex::Native {
+                            item_index: *item_index,
+                            prop_name: from.name().clone(),
+                            kind,
+                        },
                     },
-                },
-            },
+                }
+            }
             LoweredElement::Repeated { .. } => {
                 panic!(
                     "Trying to map property {from:?} on a repeated element {} of type {:?}",
