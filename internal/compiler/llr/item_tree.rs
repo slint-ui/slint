@@ -104,18 +104,27 @@ pub enum Animation {
     Transition(Expression),
 }
 
+/// How a property binding should be installed at runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindingKind {
+    /// A constant expression — can be evaluated once with `set`.
+    Constant,
+    /// A normal binding — install with `set_binding`.
+    Normal,
+    /// A state binding — the expression returns `i32` (the state index)
+    /// but the property stores a `StateInfo` struct. Install with
+    /// `set_state_binding` which tracks `previous_state` and `change_time`.
+    State,
+}
+
 #[derive(Debug, Clone)]
 pub struct BindingExpression {
     pub expression: MutExpression,
     pub animation: Option<Animation>,
-    /// When true, we can initialize the property with `set` otherwise, `set_binding` must be used
-    pub is_constant: bool,
-    /// When true, the expression is a "state binding".  Despite the type of the expression being a integer
-    /// the property is of type StateInfo and the `set_state_binding` need to be used on the property
-    pub is_state_info: bool,
+    pub kind: BindingKind,
 
-    /// The amount of time this binding is used
-    /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
+    /// The amount of time this binding is used.
+    /// Only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass.
     pub use_count: Cell<usize>,
 }
 
