@@ -254,34 +254,6 @@ pub fn render_component_items(
     renderer.restore_state();
 }
 
-fn item_with_children_bounding_rect_transformed(
-    item_rc: &ItemRc,
-    window_adapter: &WindowAdapterRc,
-    transform: crate::lengths::ItemTransform,
-) -> LogicalRect {
-    let item_geom = item_rc.geometry();
-
-    if item_rc.borrow().as_ref().clips_children() {
-        transform.outer_transformed_rect(&item_geom.cast()).cast()
-    } else {
-        let bounding = item_rc.bounding_rect(&item_geom, window_adapter);
-        let bounding = transform.outer_transformed_rect(&bounding.cast());
-        let children_relative_transform = item_rc
-            .children_transform()
-            .unwrap_or_default()
-            .then_translate(item_geom.origin.to_vector().cast());
-
-        let children_absolute_transform = transform.then(&children_relative_transform);
-
-        item_children_bounding_rect_transformed(
-            item_rc,
-            window_adapter,
-            children_absolute_transform,
-        )
-        .union(&bounding.cast())
-    }
-}
-
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
 pub fn item_children_bounding_rect(
@@ -317,6 +289,34 @@ fn item_children_bounding_rect_transformed(
     );
 
     bounding_rect
+}
+
+fn item_with_children_bounding_rect_transformed(
+    item_rc: &ItemRc,
+    window_adapter: &WindowAdapterRc,
+    transform: crate::lengths::ItemTransform,
+) -> LogicalRect {
+    let item_geom = item_rc.geometry();
+
+    if item_rc.borrow().as_ref().clips_children() {
+        transform.outer_transformed_rect(&item_geom.cast()).cast()
+    } else {
+        let bounding = item_rc.bounding_rect(&item_geom, window_adapter);
+        let bounding = transform.outer_transformed_rect(&bounding.cast());
+        let children_relative_transform = item_rc
+            .children_transform()
+            .unwrap_or_default()
+            .then_translate(item_geom.origin.to_vector().cast());
+
+        let children_absolute_transform = transform.then(&children_relative_transform);
+
+        item_children_bounding_rect_transformed(
+            item_rc,
+            window_adapter,
+            children_absolute_transform,
+        )
+        .union(&bounding.cast())
+    }
 }
 
 /// Trait for an item that represent a Rectangle to the Renderer
