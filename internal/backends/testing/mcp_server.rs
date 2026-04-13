@@ -24,166 +24,131 @@ use crate::introspection::{self, IntrospectionState, proto};
 use introspection::{handle_to_index, index_to_handle};
 
 // ============================================================================
-// Tool definitions (schema for tools/list)
+// Tool definitions (schema driven by proto messages)
 // ============================================================================
 
-fn tool_definitions() -> Value {
-    let handle_schema = serde_json::json!({
-        "type": "object",
-        "properties": {
-            "index": { "type": "string", "description": "Arena index (uint64 as string)" },
-            "generation": { "type": "string", "description": "Arena generation (uint64 as string)" }
-        },
-        "required": ["index", "generation"]
-    });
+mod mcp_schemas {
+    include!(concat!(env!("OUT_DIR"), "/mcp_schemas.rs"));
+}
 
-    serde_json::json!({
-        "tools": [
-            {
-                "name": "list_windows",
-                "description": "List all open windows. Returns an array of window handles. Call this first to discover available windows.",
-                "inputSchema": { "type": "object", "properties": {} }
-            },
-            {
-                "name": "get_window_properties",
-                "description": "Get a window's physical size (pixels), position, fullscreen/maximized/minimized state, and rootElementHandle — the entry point for element tree traversal.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "windowHandle": handle_schema.clone()
-                    },
-                    "required": ["windowHandle"]
-                }
-            },
-            {
-                "name": "get_element_tree",
-                "description": "Get a flat list of elements in the subtree rooted at the given element. Each entry includes type names, IDs, accessibility properties, geometry, and a handle for further queries. Use maxElements to control the result size (default: 200, max: 1000). If truncated is true, there are more elements — use query_element_descendants for targeted searches instead.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone(),
-                        "maxElements": { "type": "integer", "description": "Maximum elements to return (default: 200, max: 1000)." }
-                    },
-                    "required": ["elementHandle"]
-                }
-            },
-            {
-                "name": "get_element_properties",
-                "description": "Get full details of a single element: type names and IDs (including inherited bases), all accessible properties (role, label, value, description, checked, enabled, read-only, placeholder, value min/max/step), logical size and position, computed opacity, and layout kind.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone()
-                    },
-                    "required": ["elementHandle"]
-                }
-            },
-            {
-                "name": "find_elements_by_id",
-                "description": "Find elements by qualified ID (format: 'ComponentName::element-id', e.g. 'App::my-button'). Returns element handles. Use get_element_tree first to discover available IDs.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "windowHandle": handle_schema.clone(),
-                        "elementsId": { "type": "string", "description": "Qualified element ID (e.g. 'App::my-button')." }
-                    },
-                    "required": ["windowHandle", "elementsId"]
-                }
-            },
-            {
-                "name": "query_element_descendants",
-                "description": "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, or {\"matchElementAccessibleRole\": \"Button\"}. More efficient than get_element_tree for targeted lookups.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone(),
-                        "queryStack": {
-                            "type": "array",
-                            "description": "Query pipeline: array of objects, each with exactly one instruction field.",
-                            "items": { "type": "object" }
-                        },
-                        "findAll": { "type": "boolean", "description": "Return all matches (default: true). Set to false for first match only." }
-                    },
-                    "required": ["elementHandle", "queryStack"]
-                }
-            },
-            {
-                "name": "take_screenshot",
-                "description": "Capture a PNG screenshot of a window. Returns an MCP image content block rendered inline by the client. Use after interactions to verify visual results.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "windowHandle": handle_schema.clone()
-                    },
-                    "required": ["windowHandle"]
-                }
-            },
-            {
-                "name": "click_element",
-                "description": "Simulate a mouse click at the center of an element. Omit action/button for a left single-click (the most common case).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone(),
-                        "action": { "type": "string", "description": "'SingleClick' (default) or 'DoubleClick'." },
-                        "button": { "type": "string", "description": "'Left' (default), 'Right', or 'Middle'." }
-                    },
-                    "required": ["elementHandle"]
-                }
-            },
-            {
-                "name": "drag_element",
-                "description": "Simulate a drag gesture from the element's center to a target position (logical coordinates). The pointer is pressed at the element center, moved in interpolated steps to the target, then released. Use for sliders, scrollable areas, drag handles, or any element that responds to pointer movement while pressed.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone(),
-                        "targetX": { "type": "number", "description": "Target X position in logical coordinates." },
-                        "targetY": { "type": "number", "description": "Target Y position in logical coordinates." },
-                        "button": { "type": "string", "description": "'Left' (default), 'Right', or 'Middle'." }
-                    },
-                    "required": ["elementHandle", "targetX", "targetY"]
-                }
-            },
-            {
-                "name": "invoke_accessibility_action",
-                "description": "Invoke an accessibility action: 'Default_' (activate buttons, toggle checkboxes), 'Increment'/'Decrement' (sliders, spinboxes), 'Expand' (combo boxes). Preferred over click_element when the element's role suggests a semantic action.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone(),
-                        "action": { "type": "string", "description": "'Default_', 'Increment', 'Decrement', or 'Expand'." }
-                    },
-                    "required": ["elementHandle", "action"]
-                }
-            },
-            {
-                "name": "set_element_value",
-                "description": "Set the accessible value of an element. For text inputs: sets the text content. For sliders: pass the numeric value as a string (e.g. '42'). For other elements: sets whatever the element exposes as its accessible value.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "elementHandle": handle_schema.clone(),
-                        "value": { "type": "string", "description": "The value to set (always a string, even for numeric values)." }
-                    },
-                    "required": ["elementHandle", "value"]
-                }
-            },
-            {
-                "name": "dispatch_key_event",
-                "description": "Send a keyboard event to a window. Use 'press_and_release' (default) for typing characters. Use 'press'/'release' separately for modifier keys or key combinations.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "windowHandle": handle_schema.clone(),
-                        "text": { "type": "string", "description": "The key text (e.g. 'a', 'Enter', '\\t' for tab)." },
-                        "eventType": { "type": "string", "description": "'press_and_release' (default), 'press', or 'release'." }
-                    },
-                    "required": ["windowHandle", "text"]
+/// Metadata for each MCP tool, mapping it to its proto request message.
+struct ToolDef {
+    name: &'static str,
+    description: &'static str,
+    /// Name of the proto Request* message whose fields define the input schema.
+    request_type: &'static str,
+    /// camelCase field names that are optional (everything else is required).
+    optional_fields: &'static [&'static str],
+}
+
+const TOOLS: &[ToolDef] = &[
+    ToolDef {
+        name: "list_windows",
+        description: "List all open windows. Returns an array of window handles. Call this first to discover available windows.",
+        request_type: "RequestWindowListMessage",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "get_window_properties",
+        description: "Get a window's physical size (pixels), position, fullscreen/maximized/minimized state, and rootElementHandle — the entry point for element tree traversal.",
+        request_type: "RequestWindowProperties",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "get_element_tree",
+        description: "Get a flat list of elements in the subtree rooted at the given element. Each entry includes type names, IDs, accessibility properties, geometry, and a handle for further queries. Use maxElements to control the result size (default: 200, max: 1000). If truncated is true, there are more elements — use query_element_descendants for targeted searches instead.",
+        request_type: "RequestGetElementTree",
+        optional_fields: &["maxElements"],
+    },
+    ToolDef {
+        name: "get_element_properties",
+        description: "Get full details of a single element: type names and IDs (including inherited bases), all accessible properties (role, label, value, description, checked, enabled, read-only, placeholder, value min/max/step), logical size and position, computed opacity, and layout kind.",
+        request_type: "RequestElementProperties",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "find_elements_by_id",
+        description: "Find elements by qualified ID (format: 'ComponentName::element-id', e.g. 'App::my-button'). Returns element handles. Use get_element_tree first to discover available IDs.",
+        request_type: "RequestFindElementsById",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "query_element_descendants",
+        description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, or {\"matchElementAccessibleRole\": \"Button\"}. More efficient than get_element_tree for targeted lookups.",
+        request_type: "RequestQueryElementDescendants",
+        optional_fields: &["findAll"],
+    },
+    ToolDef {
+        name: "take_screenshot",
+        description: "Capture a PNG screenshot of a window. Returns an MCP image content block rendered inline by the client. Use after interactions to verify visual results.",
+        request_type: "RequestTakeSnapshot",
+        optional_fields: &["imageMimeType"],
+    },
+    ToolDef {
+        name: "click_element",
+        description: "Simulate a mouse click at the center of an element. Omit action/button for a left single-click (the most common case).",
+        request_type: "RequestElementClick",
+        optional_fields: &["action", "button"],
+    },
+    ToolDef {
+        name: "drag_element",
+        description: "Simulate a drag gesture from the element's center to a target position (logical coordinates). The pointer is pressed at the element center, moved in interpolated steps to the target, then released. Use for sliders, scrollable areas, drag handles, or any element that responds to pointer movement while pressed.",
+        request_type: "RequestElementDrag",
+        optional_fields: &["button"],
+    },
+    ToolDef {
+        name: "invoke_accessibility_action",
+        description: "Invoke an accessibility action: 'Default_' (activate buttons, toggle checkboxes), 'Increment'/'Decrement' (sliders, spinboxes), 'Expand' (combo boxes). Preferred over click_element when the element's role suggests a semantic action.",
+        request_type: "RequestInvokeElementAccessibilityAction",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "set_element_value",
+        description: "Set the accessible value of an element. For text inputs: sets the text content. For sliders: pass the numeric value as a string (e.g. '42'). For other elements: sets whatever the element exposes as its accessible value.",
+        request_type: "RequestSetElementAccessibleValue",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "dispatch_key_event",
+        description: "Send a keyboard event to a window. Use 'PressAndRelease' (default) for typing characters. Use 'Press'/'Release' separately for modifier keys or key combinations.",
+        request_type: "RequestDispatchKeyEvent",
+        optional_fields: &["eventType"],
+    },
+];
+
+fn tool_definitions() -> Value {
+    let tools: Vec<Value> = TOOLS
+        .iter()
+        .map(|def| {
+            let mut schema =
+                mcp_schemas::proto_input_schema(def.request_type).unwrap_or_else(|| {
+                    panic!("no proto schema for {}", def.request_type);
+                });
+
+            // Add "required" array: all fields except those listed as optional
+            if let Some(all_fields) = mcp_schemas::proto_field_names(def.request_type) {
+                let required: Vec<&str> = all_fields
+                    .iter()
+                    .filter(|f| !def.optional_fields.contains(f))
+                    .copied()
+                    .collect();
+                if !required.is_empty() {
+                    schema.as_object_mut().unwrap().insert(
+                        "required".to_string(),
+                        Value::Array(required.into_iter().map(|s| Value::String(s.into())).collect()),
+                    );
                 }
             }
-        ]
-    })
+
+            serde_json::json!({
+                "name": def.name,
+                "description": def.description,
+                "inputSchema": schema,
+            })
+        })
+        .collect();
+
+    serde_json::json!({ "tools": tools })
 }
 
 // ============================================================================
@@ -268,17 +233,11 @@ async fn handle_tool_call(
             ))
         }
         "get_element_tree" => {
-            // Custom tool not in proto — returns flat list of element properties with handles.
-            let element_handle: proto::Handle = args
-                .get("elementHandle")
-                .ok_or_else(|| "missing elementHandle".to_string())
-                .and_then(|v| {
-                    serde_json::from_value(v.clone())
-                        .map_err(|e| format!("invalid elementHandle: {e}"))
-                })?;
+            let p: proto::RequestGetElementTree = deserialize_params(args)?;
+            let element_handle =
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?;
             let max_elements: usize =
-                args.get("maxElements").and_then(|v| v.as_u64()).unwrap_or(200).clamp(1, 1000)
-                    as usize;
+                if p.max_elements == 0 { 200 } else { (p.max_elements as usize).clamp(1, 1000) };
 
             let root_index = handle_to_index(element_handle);
             let root_element = state.element("get_element_tree", root_index)?;
@@ -354,38 +313,19 @@ async fn handle_tool_call(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
-        // Custom tool: manual parameter parsing because the MCP schema uses flat
-        // targetX/targetY fields rather than the proto's nested LogicalPosition target.
         "drag_element" => {
-            let element_handle: proto::Handle = args
-                .get("elementHandle")
-                .ok_or_else(|| "missing elementHandle".to_string())
-                .and_then(|v| {
-                    serde_json::from_value(v.clone())
-                        .map_err(|e| format!("invalid elementHandle: {e}"))
-                })?;
-            let target_x: f32 =
-                args.get("targetX")
-                    .and_then(|v| v.as_f64())
-                    .ok_or_else(|| "missing targetX".to_string())? as f32;
-            let target_y: f32 =
-                args.get("targetY")
-                    .and_then(|v| v.as_f64())
-                    .ok_or_else(|| "missing targetY".to_string())? as f32;
-            let button_str = args.get("button").and_then(|v| v.as_str()).unwrap_or("Left");
-            let button = match button_str {
-                "Left" => i_slint_core::platform::PointerEventButton::Left,
-                "Right" => i_slint_core::platform::PointerEventButton::Right,
-                "Middle" => i_slint_core::platform::PointerEventButton::Middle,
-                other => {
-                    return Err(format!(
-                        "Unknown button: {other}. Use 'Left', 'Right', or 'Middle'."
-                    ));
-                }
-            };
-            let element_index = handle_to_index(element_handle);
+            let p: proto::RequestElementDrag = deserialize_params(args)?;
+            let element_index = handle_to_index(
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
+            );
             let element = state.element("drag_element", element_index)?;
-            let target = i_slint_core::api::LogicalPosition::new(target_x, target_y);
+            let target_pos =
+                p.target.ok_or_else(|| "missing target position".to_string())?;
+            let target =
+                i_slint_core::api::LogicalPosition::new(target_pos.x, target_pos.y);
+            let button = proto::PointerEventButton::try_from(p.button)
+                .map_err(|_| format!("invalid button value: {}", p.button))?;
+            let button = introspection::convert_pointer_event_button(button);
             element.drag(target, button).await;
             let response = proto::ElementDragResponse {};
             Ok(ToolResult::Json(
@@ -419,40 +359,37 @@ async fn handle_tool_call(
             ))
         }
         "dispatch_key_event" => {
-            // Custom tool: simplified key event dispatch (not a direct proto mapping).
-            let window_handle: proto::Handle = args
-                .get("windowHandle")
-                .ok_or_else(|| "missing windowHandle".to_string())
-                .and_then(|v| {
-                    serde_json::from_value(v.clone())
-                        .map_err(|e| format!("invalid windowHandle: {e}"))
-                })?;
-            let text: String = args
-                .get("text")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| "missing text".to_string())?
-                .to_string();
-            let event_type =
-                args.get("eventType").and_then(|v| v.as_str()).unwrap_or("press_and_release");
-
-            let window_index = handle_to_index(window_handle);
+            let p: proto::RequestDispatchKeyEvent = deserialize_params(args)?;
+            let window_index = handle_to_index(
+                p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
+            );
+            let event_type = proto::KeyEventType::try_from(p.event_type)
+                .map_err(|_| format!("invalid eventType value: {}", p.event_type))?;
             let events: Vec<i_slint_core::platform::WindowEvent> = match event_type {
-                "press" => {
-                    vec![i_slint_core::platform::WindowEvent::KeyPressed { text: text.into() }]
+                proto::KeyEventType::Press => {
+                    vec![i_slint_core::platform::WindowEvent::KeyPressed {
+                        text: p.text.into(),
+                    }]
                 }
-                "release" => {
-                    vec![i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() }]
+                proto::KeyEventType::Release => {
+                    vec![i_slint_core::platform::WindowEvent::KeyReleased {
+                        text: p.text.into(),
+                    }]
                 }
-                "press_and_release" => vec![
-                    i_slint_core::platform::WindowEvent::KeyPressed { text: text.clone().into() },
-                    i_slint_core::platform::WindowEvent::KeyReleased { text: text.into() },
+                proto::KeyEventType::PressAndRelease => vec![
+                    i_slint_core::platform::WindowEvent::KeyPressed {
+                        text: p.text.clone().into(),
+                    },
+                    i_slint_core::platform::WindowEvent::KeyReleased { text: p.text.into() },
                 ],
-                other => return Err(format!("Unknown eventType: {other}")),
             };
             for event in events {
                 state.dispatch_window_event(window_index, event)?;
             }
-            Ok(ToolResult::Json(serde_json::json!({ "success": true })))
+            let response = proto::DispatchKeyEventResponse {};
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
         }
         _ => Err(format!("Unknown tool: {name}")),
     }
@@ -534,8 +471,9 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- PointerEventButton: Left, Right, Middle\n",
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
+                    "- KeyEventType: PressAndRelease, Press, Release\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
-                    "Omitted enum fields default to the first value (e.g. Left, SingleClick).\n\n",
+                    "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 
                     "# Query instructions\n\n",
                     "query_element_descendants takes a queryStack array. Each entry is an object with exactly one field:\n",
@@ -1106,6 +1044,36 @@ mod tests {
             assert!(tool.get("name").and_then(|v| v.as_str()).is_some());
             assert!(tool.get("description").and_then(|v| v.as_str()).is_some());
             assert_eq!(tool["inputSchema"]["type"], "object");
+        }
+    }
+
+    #[test]
+    fn test_all_tools_have_proto_schemas() {
+        for def in TOOLS {
+            assert!(
+                mcp_schemas::proto_input_schema(def.request_type).is_some(),
+                "tool {:?} references unknown proto message {:?}",
+                def.name,
+                def.request_type,
+            );
+            assert!(
+                mcp_schemas::proto_field_names(def.request_type).is_some(),
+                "tool {:?} has no field names for {:?}",
+                def.name,
+                def.request_type,
+            );
+            // Verify optional_fields are actual fields of the message
+            let field_names = mcp_schemas::proto_field_names(def.request_type).unwrap();
+            for opt in def.optional_fields {
+                assert!(
+                    field_names.contains(opt),
+                    "tool {:?} lists optional field {:?} not in proto message {:?} (fields: {:?})",
+                    def.name,
+                    opt,
+                    def.request_type,
+                    field_names,
+                );
+            }
         }
     }
 

@@ -78,6 +78,12 @@ message WindowEvent {
     }
 }
 
+enum KeyEventType {
+    PressAndRelease = 0;
+    Press = 1;
+    Release = 2;
+}
+
 enum LayoutKind {
     NotALayout = 0;
     HorizontalLayout = 1;
@@ -172,6 +178,17 @@ message RequestDispatchWindowEvent {
     WindowEvent event = 2;
 }
 
+message RequestDispatchKeyEvent {
+    Handle window_handle = 1;
+    string text = 2;
+    KeyEventType event_type = 3;
+}
+
+message RequestGetElementTree {
+    Handle element_handle = 1;
+    uint32 max_elements = 2;
+}
+
 message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
@@ -191,6 +208,8 @@ message RequestToAUT {
         RequestDispatchWindowEvent request_dispatch_window_event = 9;
         RequestQueryElementDescendants request_query_element_descendants = 10;
         RequestElementDrag request_element_drag = 11;
+        RequestDispatchKeyEvent request_dispatch_key_event = 12;
+        RequestGetElementTree request_get_element_tree = 13;
     }
 }
 
@@ -281,6 +300,12 @@ message ElementDragResponse {
 message DispatchWindowEventResponse {
 }
 
+message DispatchKeyEventResponse {
+}
+
+message GetElementTreeResponse {
+}
+
 message ElementQueryResponse {
     repeated Handle element_handles = 1;
 }
@@ -299,5 +324,7 @@ message AUTResponse {
         DispatchWindowEventResponse dispatch_window_event_response = 10;
         ElementQueryResponse element_query_response = 11;
         ElementDragResponse element_drag_response = 12;
+        DispatchKeyEventResponse dispatch_key_event_response = 13;
+        GetElementTreeResponse get_element_tree_response = 14;
     }
 }
