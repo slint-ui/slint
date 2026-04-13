@@ -1479,7 +1479,31 @@ fn call_builtin_function(
 
             Value::Void
         }
-        BuiltinFunction::SetupSystemTray => todo!(),
+        BuiltinFunction::SetupSystemTray => {
+            let component = local_context.component_instance;
+            let [
+                Expression::PropertyReference(_menu_nr),
+                Expression::ElementReference(item_tree_root),
+            ] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupSystemTray")
+            };
+
+            let menu_item_tree =
+                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+            let menu_item_tree =
+                crate::dynamic_item_tree::make_menu_item_tree(&menu_item_tree, &component, None);
+
+            let (entries, _, _) = menu_item_tree_properties(menu_item_tree);
+
+            local_context
+                .component_instance
+                .description
+                .set_binding(component.borrow(), "menu", entries)
+                .unwrap();
+
+            Value::Void
+        }
         BuiltinFunction::MonthDayCount => {
             let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
             let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
