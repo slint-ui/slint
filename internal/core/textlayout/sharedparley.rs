@@ -192,8 +192,7 @@ impl LayoutWithoutLineBreaksBuilder {
     ) -> parley::RangedBuilder<'a, Brush> {
         // Keep Parley's layout metrics fractional and snap only at paint time. This avoids
         // quantizing line metrics here and then effectively quantizing again in the renderer.
-        let mut builder =
-            layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
+        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
