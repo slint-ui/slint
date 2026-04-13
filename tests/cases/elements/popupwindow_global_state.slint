@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global PopupGlobal {
+    in-out property <int> counter: 0;
+}
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    popup := PopupWindow {
+        x: 10px;
+        y: 10px;
+        width: 30px;
+        height: 30px;
+
+        init => {
+            PopupGlobal.counter += 1;
+        }
+
+        TouchArea {
+            clicked => {
+                PopupGlobal.counter += 10;
+            }
+        }
+    }
+
+    public function show-popup() {
+        popup.show();
+    }
+
+    out property <int> popup-counter: PopupGlobal.counter;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_popup_counter(), 0);
+instance.invoke_show_popup();
+assert_eq!(instance.get_popup_counter(), 1);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_popup_counter(), 11);
+
+instance.invoke_show_popup();
+assert_eq!(instance.get_popup_counter(), 12);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq!(instance.get_popup_counter(), 22);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_popup_counter(), 0);
+instance.invoke_show_popup();
+assert_eq(instance.get_popup_counter(), 1);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_popup_counter(), 11);
+
+instance.invoke_show_popup();
+assert_eq(instance.get_popup_counter(), 12);
+
+slint_testing::send_mouse_click(&instance, 15., 15.);
+assert_eq(instance.get_popup_counter(), 22);
+```
+*/

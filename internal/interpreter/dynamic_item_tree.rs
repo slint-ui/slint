@@ -2631,12 +2631,26 @@ pub fn show_popup(
     compiled.recursively_set_debug_handler(debug_handler);
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
+    // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
+    let globals = if let Some(window_adapter) =
+        WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
+    {
+        extra_data.globals.get().unwrap().clone_with_window_adapter(window_adapter)
+    } else {
+        extra_data.globals.get().unwrap().clone()
+    };
+
+    let popup_window_adapter = globals
+        .window_adapter()
+        .and_then(|window_adapter| window_adapter.get().cloned())
+        .unwrap_or_else(|| parent_window_adapter.clone());
+
     let inst = instantiate(
         compiled,
         Some(parent_comp),
         None,
-        Some(&WindowOptions::UseExistingWindow(parent_window_adapter.clone())),
-        extra_data.globals.get().unwrap().clone(),
+        Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
+        globals,
     );
     let pos = {
         generativity::make_guard!(guard);

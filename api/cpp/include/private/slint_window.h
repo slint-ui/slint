@@ -181,6 +181,20 @@ public:
         }
     }
 
+    /// Try to create a window adapter for a popup window.
+    /// Returns std::nullopt if the backend renders popups as child windows.
+    std::optional<WindowAdapterRc> create_popup_window_adapter() const
+    {
+        cbindgen_private::WindowAdapterRcOpaque raw_result;
+        if (cbindgen_private::slint_windowrc_create_popup_window_adapter(&inner, &raw_result)) {
+            std::optional<WindowAdapterRc> result;
+            result.emplace(raw_result); // clone: refcount = 2
+            cbindgen_private::slint_windowrc_drop(&raw_result); // drop original: refcount = 1
+            return result;
+        }
+        return std::nullopt;
+    }
+
     template<typename Component, typename SharedGlobals, typename InitFn>
     uint32_t show_popup_menu(
             SharedGlobals *globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,

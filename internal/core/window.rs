@@ -1966,6 +1966,26 @@ pub mod ffi {
         }
     }
 
+    /// Create a popup window adapter. Returns true if a new adapter was created and written to result.
+    /// Returns false if the backend does not support top-level popups.
+    /// This can be used to set the correct window adapter on a popup component before showing it.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_create_popup_window_adapter(
+        handle: *const WindowAdapterRcOpaque,
+        result: *mut WindowAdapterRcOpaque,
+    ) -> bool {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            match WindowInner::from_pub(window_adapter.window()).create_popup_window_adapter() {
+                Some(wa) => {
+                    core::ptr::write(result as *mut Rc<dyn WindowAdapter>, wa);
+                    true
+                }
+                None => false,
+            }
+        }
+    }
+
     /// Close the popup by the given ID.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_close_popup(

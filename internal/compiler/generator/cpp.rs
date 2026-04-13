@@ -818,6 +818,7 @@ pub fn generate(
     ));
 
     let mut init_global = Vec::new();
+    let mut global_names: Vec<SmolStr> = Vec::new();
 
     for (idx, glob) in llr.globals.iter_enumerated() {
         if !glob.must_generate() {
@@ -836,6 +837,8 @@ pub fn generate(
         file.definitions.extend(glob.aliases.iter().map(|name| {
             Declaration::TypeAlias(TypeAlias { old_name: ident(&glob.name), new_name: ident(name) })
         }));
+
+        global_names.push(name.clone());
 
         globals_struct.members.push((
             Access::Public,
@@ -858,6 +861,42 @@ pub fn generate(
             ..Default::default()
         }),
     ));
+
+    // Build initializer-list string for the clone_with_window_adapter constructor
+    {
+        let global_inits = std::iter::once("root_weak(source.root_weak)".to_string())
+            .chain(global_names.iter().map(|n| format!("{n}(source.{n})")))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let init_list =
+            if global_inits.is_empty() { String::new() } else { format!(" : {global_inits}") };
+
+        // A private constructor for cloning with a different window adapter
+        globals_struct.members.push((
+                Access::Private,
+                Declaration::Function(Function {
+                    name: globals_struct.name.clone(),
+                    is_constructor_or_destructor: true,
+                    signature: format!(
+                        "(const {SHARED_GLOBAL_CLASS}& source, const slint::private_api::WindowAdapterRc& adapter){init_list}"
+                    ),
+                    statements: Some(vec!["m_window.emplace(adapter);".into()]),
+                    ..Default::default()
+                }),
+            ));
+
+        globals_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "clone_with_window_adapter".into(),
+                    signature: format!("(const slint::private_api::WindowAdapterRc& adapter) const -> std::unique_ptr<{SHARED_GLOBAL_CLASS}>"),
+                    statements: Some(vec![format!(
+                        "return std::unique_ptr<{SHARED_GLOBAL_CLASS}>(new {SHARED_GLOBAL_CLASS}(*this, adapter));"
+                    )]),
+                    ..Default::default()
+                }),
+            ));
+    }
 
     file.declarations.push(Declaration::Struct(globals_struct));
 
@@ -1406,7 +1445,7 @@ fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
-    is_popup_menu: bool,
+    is_popup: bool,
     item_tree_class_name: SmolStr,
     field_access: Access,
     file: &mut File,
@@ -1833,9 +1872,30 @@ fn generate_item_tree(
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
     ];
 
+    let is_popup_window = is_popup && parent_ctx.is_some();
+    let is_popup_menu = is_popup && parent_ctx.is_none();
+
+    if is_popup_window {
+        target_struct.members.push((
+            field_access,
+            Declaration::Var(Var {
+                ty: "std::unique_ptr<SharedGlobals>".into(),
+                name: "m_own_globals".into(),
+                ..Default::default()
+            }),
+        ));
+    }
+
     if is_popup_menu {
         create_code.push("self->globals = globals;".into());
         create_parameters.push("const SharedGlobals *globals".into());
+    } else if is_popup_window {
+        create_code.push("self->m_own_globals = std::move(own_globals);".into());
+        create_code.push(
+            "self->globals = self->m_own_globals ? self->m_own_globals.get() : parent->globals;"
+                .into(),
+        );
+        create_parameters.push("std::unique_ptr<SharedGlobals> own_globals".into());
     } else if parent_ctx.is_none() {
         create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
 
@@ -1857,7 +1917,8 @@ fn generate_item_tree(
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
     }
 
-    let global_access = if parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
+    let global_access =
+        if !is_popup && parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
     create_code.extend([
         format!(
             "slint::private_api::register_item_tree(&self_rc.into_dyn(), {global_access}->m_window);",
@@ -1867,7 +1928,7 @@ fn generate_item_tree(
 
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
     // And in PopupWindow this is also called by the runtime
-    if parent_ctx.is_none() && !is_popup_menu {
+    if parent_ctx.is_none() && !is_popup {
         create_code.push("self->user_init();".to_string());
         // initialize the Window in this point to be consistent with Rust
         create_code.push("self->window();".to_string())
@@ -2004,7 +2065,7 @@ fn generate_sub_component(
             &popup.item_tree,
             root,
             Some(&parent_ctx),
-            false,
+            true,
             component_id,
             Access::Public,
             file,
@@ -4436,7 +4497,21 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 component_access.then(|component_access| format!(
-                    "{window}.close_popup({component_access}->popup_id_{popup_index}); {component_access}->popup_id_{popup_index} = {window}.template show_popup<{popup_window_id}>(&*({component_access}), [=](auto self) {{ return {position}; }}, {close_policy}, {{ {parent_component} }})"
+                    // Use a block statement to create own globals and popup instance
+                    "{window}.close_popup({component_access}->popup_id_{popup_index}); \
+                    {{ \
+                        std::unique_ptr<SharedGlobals> _own_globals; \
+                        if (auto _popup_adapter = {window}.create_popup_window_adapter()) {{ \
+                            _own_globals = {component_access}->globals->clone_with_window_adapter(*_popup_adapter); \
+                        }} \
+                        auto _popup_inst = {popup_window_id}::create(&*({component_access}), std::move(_own_globals)); \
+                        auto _popup_dyn = _popup_inst.into_dyn(); \
+                        auto _pos = [=]([[maybe_unused]] auto self) {{ return {position}; }}(_popup_inst); \
+                        auto _parent_item = slint::cbindgen_private::ItemRc{{ {parent_component} }}; \
+                        {component_access}->popup_id_{popup_index} = slint::cbindgen_private::slint_windowrc_show_popup(\
+&({window}.handle()), &_popup_dyn, _pos, {close_policy}, &_parent_item, false); \
+                        _popup_inst->user_init(); \
+                    }}"
                 ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
