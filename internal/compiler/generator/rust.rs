@@ -3779,7 +3779,27 @@ fn compile_builtin_function_call(
                     .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
             })
         }
-        BuiltinFunction::SetupSystemTray => todo!(),
+        BuiltinFunction::SetupSystemTray => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            let [
+                Expression::PropertyReference(_menu_nr),
+                Expression::PropertyReference(item_tree_root),
+            ] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupSystemTray")
+            };
+
+            let current_sub_component = ctx.current_sub_component().unwrap();
+            let item_tree_id = inner_component_id(
+                &ctx.compilation_unit.sub_components
+                    [current_sub_component.menu_item_trees[0].root],
+            );
+
+            quote!({
+                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance))
+            })
+        }
         BuiltinFunction::MonthDayCount => {
             let (m, y) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
