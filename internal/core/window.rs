@@ -19,7 +19,7 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor, PopupClosePolicy};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -179,17 +179,13 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     /// Create a window for a popup.
     /// This function will create only the window adapter but does not show the popup it self
-    /// Pass the result to show_popup
+    /// Use this window adapter to create a new popup window and show it with `show_popup()`
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
     fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
-
-    /// Shows the popup created with create_popup_window_adapter()
-    /// `geometry` is the location of the popup in the window coordinate
-    fn show_popup(&self, _window_adapter: Rc<dyn WindowAdapter>, _geometry: LogicalRect) {}
 
     /// Set the mouse cursor
     // TODO: Make the enum public and make public
@@ -1378,10 +1374,14 @@ impl WindowInner {
                 popup_window_adapter.renderer().name()
             );
             WindowInner::from_pub(popup_window_adapter.window()).set_component(popup_componentrc);
-            parent_window_adapter
-                .internal(crate::InternalToken)
-                .unwrap()
-                .show_popup(popup_window_adapter.clone(), LogicalRect::new(position, size));
+            popup_window_adapter
+                .window()
+                .set_position(LogicalPosition::new(position.x, position.y));
+            popup_window_adapter.window().set_size(WindowSize::Logical(
+                crate::api::LogicalSize::new(size.width, size.height),
+            ));
+
+            popup_window_adapter.set_visible(true).expect("Unable to show popup");
             PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 

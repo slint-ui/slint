@@ -2127,22 +2127,6 @@ impl WindowAdapterInternal for QtWindow {
         Some(popup_window as _)
     }
 
-    fn show_popup(&self, window_adapter: Rc<dyn WindowAdapter>, geometry: LogicalRect) {
-        let popup_window: Rc<QtWindow> = window_adapter
-            .internal(i_slint_core::InternalToken)
-            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<QtWindow>())
-            .and_then(|qt| qt.self_weak.upgrade())
-            .unwrap();
-        let popup_ptr = popup_window.widget_ptr();
-        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
-        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
-            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
-            popup_ptr->show();
-        }};
-    }
-
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let widget_ptr = self.widget_ptr();
         //unidirectional resize cursors are replaced with bidirectional ones

@@ -1490,39 +1490,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         None
     }
 
-    fn show_popup(&self, window_adapter: Rc<dyn WindowAdapter>, geometry: LogicalRect) {
-        use std::borrow::BorrowMut;
-        use winit::dpi::{LogicalPosition, LogicalSize, Position};
-
-        let size = LogicalSize::new(geometry.width(), geometry.height());
-        let position = LogicalPosition::new(geometry.origin.x, geometry.origin.y);
-
-        println!("Winit Window Adapter show_popup(). Size: {:?}", size);
-
-        let winit_window = window_adapter
-            .internal(i_slint_core::InternalToken)
-            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
-            .and_then(|w| w.self_weak.upgrade())
-            .unwrap();
-        let mut w2 = winit_window.clone();
-        let winit_window_or_none = w2.borrow_mut().winit_window_or_none.borrow_mut();
-        if let WinitWindowOrNone::None(ref attributes) = *winit_window_or_none {
-            attributes.borrow_mut().position = Some(Position::Logical(position.cast()));
-            attributes.borrow_mut().surface_size = Some(size.into());
-
-            // window_adapter.set_visible(true);
-            winit_window
-                .clone()
-                .shared_backend_data
-                .inactive_windows
-                .borrow_mut()
-                .push(Rc::downgrade(&winit_window));
-        } else {
-            // Shall never happen
-            assert!(false);
-        }
-    }
-
     #[cfg(muda)]
     fn show_native_popup_menu(
         &self,
