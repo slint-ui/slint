@@ -187,11 +187,28 @@ pub(crate) fn solve_flexbox_layout(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
 
-    let (cells_h, cells_v, repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
-
     let width_ref = &flexbox_layout.geometry.rect.width_reference;
     let height_ref = &flexbox_layout.geometry.rect.height_reference;
+    let direction = flexbox_layout_direction(flexbox_layout, local_context);
+
+    // For column direction, pass the container width so cells_v can use it
+    // as the constraint for height-for-width items (items stretch to it).
+    let container_width_for_cells = match direction {
+        i_slint_core::items::FlexboxLayoutDirection::Column
+        | i_slint_core::items::FlexboxLayoutDirection::ColumnReverse => {
+            width_ref.as_ref().map(&expr_eval)
+        }
+        _ => None,
+    };
+
+    let (cells_h, cells_v, repeated_indices) = flexbox_layout_data(
+        flexbox_layout,
+        component,
+        &expr_eval,
+        local_context,
+        container_width_for_cells,
+    );
+
     let alignment = flexbox_layout
         .geometry
         .alignment
@@ -199,7 +216,6 @@ pub(crate) fn solve_flexbox_layout(
         .map_or(i_slint_core::items::LayoutAlignment::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
-    let direction = flexbox_layout_direction(flexbox_layout, local_context);
     let align_content = flexbox_layout
         .align_content
         .as_ref()
@@ -345,7 +361,7 @@ pub(crate) fn compute_flexbox_layout_info(
     };
 
     let (cells_h, cells_v, _repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
+        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, None);
 
     // Get the direction from the property binding
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
@@ -418,6 +434,7 @@ fn flexbox_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     _local_context: &mut EvalLocalContext,
+    container_width: Option<f32>,
 ) -> (Vec<core_layout::FlexboxLayoutItemInfo>, Vec<core_layout::FlexboxLayoutItemInfo>, Vec<u32>) {
     let window_adapter = component.window_adapter();
     let mut cells_h = Vec::with_capacity(flexbox_layout.elems.len());
@@ -499,9 +516,9 @@ fn flexbox_layout_data(
         }
     }
 
-    // Second pass: collect vertical layout_info with the horizontal preferred
-    // size as constraint. This allows Text with word-wrap and Image with aspect
-    // ratio to compute their height correctly without reading the width property.
+    // Second pass: collect vertical layout_info with a width constraint.
+    // For column direction, use the container width (items get stretched to it).
+    // Otherwise use the item's horizontal preferred size.
     let mut cell_idx = 0usize;
     for layout_elem in &flexbox_layout.elems {
         if layout_elem.item.element.borrow().repeated.is_some() {
@@ -509,7 +526,8 @@ fn flexbox_layout_data(
             cell_idx += component_vec.len();
             // repeater cells_v already filled in first pass
         } else {
-            let width_constraint = cells_h[cell_idx].constraint.preferred_bounded();
+            let width_constraint =
+                container_width.unwrap_or_else(|| cells_h[cell_idx].constraint.preferred_bounded());
             let mut layout_info_v = get_layout_info_with_constraint(
                 &layout_elem.item.element,
                 component,

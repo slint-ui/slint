@@ -555,9 +555,11 @@ fn recurse_expression(
             }
             // Visit layout geometry dependencies
             if matches!(expr, Expression::SolveFlexboxLayout(..)) {
-                // The solve only needs the main-axis dimension (width for row,
-                // height for column). The cross-axis dimension is determined by
-                // the content, not constrained by the container.
+                // The solve needs the main-axis dimension (width for row,
+                // height for column). For column direction, it also needs
+                // the cross-axis width for height-for-width items, but that
+                // dependency is safe (set by parent before solve) and doesn't
+                // need to be declared here.
                 use crate::layout::FlexboxAxisRelation;
                 match layout.axis_relation(Orientation::Horizontal) {
                     FlexboxAxisRelation::MainAxis => {
