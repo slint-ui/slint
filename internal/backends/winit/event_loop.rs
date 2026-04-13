@@ -268,7 +268,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
                 fn to_slint_key(event: &winit::event::KeyEvent, key_code: &Key) -> SharedString {
                     macro_rules! winit_key_to_char {
-                        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
+                        ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
                             #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                             match key_code {
                                 $( $( $(

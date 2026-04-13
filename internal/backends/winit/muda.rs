@@ -325,9 +325,9 @@ impl MudaAdapter {
 fn key_string_to_key(string: &str) -> muda::accelerator::Key {
     use muda::accelerator::Key;
     macro_rules! key_string_to_code_impl {
-        ($($char:literal # $_name:ident # $($_shifted:ident)? # $($muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
+        ($($char:literal # $_name:ident # $($_shifted:ident)? $(=> $($muda:ident)? # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
             match string.chars().next() {
-                $($(Some($char) => Key::$muda,)?)*
+                $($($(Some($char) => Key::$muda,)?)?)*
                 _ => Key::Character(string.to_owned()),
             }
         };
