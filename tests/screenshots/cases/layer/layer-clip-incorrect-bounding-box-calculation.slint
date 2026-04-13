@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for issue #10277: the bounding box was calculated incorrectly
+// for text in some cases.
+
+// Software renderer uses i16 physical coordinates and has no layer cache.
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+    
+    Rectangle {
+        cache-rendering-hint: true;
+        width: parent.width;
+        height: parent.height / 2;
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            width: parent.width * 60%;
+
+            Rectangle {
+                width: 120px;
+                height: 40px;
+
+                Text {
+                    text: "foo";
+                }
+            } 
+        }
+    }
+}
+
