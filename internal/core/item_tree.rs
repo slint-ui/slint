@@ -195,24 +195,18 @@ pub fn unregister_item_tree<Base>(
     window_adapter: &WindowAdapterRc,
 ) {
     item_array.iter().for_each(|item| {
-        item.deinit();
+        item.apply_pin(base).as_ref().deinit(window_adapter);
     });
     window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
         "Fatal error encountered when freeing graphics resources while destroying Slint component",
     );
-
-    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
-    if window_inner.focus_item.borrow().upgrade().is_none() {
-        // There is any item focused anymore. It was deleted before the unregister call
-        // Therefore we can set the text input focused to false to close virtual keyboard or cursors (Android)
-        window_inner.set_text_input_focused(false);
-    }
 
     if let Some(w) = window_adapter.internal(crate::InternalToken) {
         w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
     }
 
     // Close popups that were part of a component that just got deleted
+    let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
     let to_close_popups = window_inner
         .active_popups()
         .iter()

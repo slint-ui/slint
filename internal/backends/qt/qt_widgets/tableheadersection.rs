@@ -25,6 +25,8 @@ impl Item for NativeTableHeaderSection {
         }});
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,

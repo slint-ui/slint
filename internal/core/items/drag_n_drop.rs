@@ -39,6 +39,8 @@ pub struct DragArea {
 impl Item for DragArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _: Orientation,
@@ -224,6 +226,8 @@ pub struct DropArea {
 
 impl Item for DropArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,

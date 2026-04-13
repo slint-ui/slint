@@ -95,6 +95,8 @@ impl Item for Flickable {
         );
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,

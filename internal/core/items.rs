@@ -126,10 +126,10 @@ pub struct ItemVTable {
     /// bindings are set.
     pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
 
-    pub deinit: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapter),
+    pub deinit: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapterRc),
 
     /// offset in bytes from the *const ItemImpl.
-    /// isize::MAX  means None
+    /// usize::MAX  means None
     #[allow(non_upper_case_globals)]
     #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
@@ -224,6 +224,8 @@ pub struct Empty {
 
 impl Item for Empty {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -327,6 +329,8 @@ pub struct Rectangle {
 
 impl Item for Rectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -439,6 +443,8 @@ pub struct BasicBorderRectangle {
 
 impl Item for BasicBorderRectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -564,6 +570,8 @@ pub struct BorderRectangle {
 
 impl Item for BorderRectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -713,6 +721,8 @@ pub struct Clip {
 impl Item for Clip {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
@@ -835,6 +845,8 @@ pub struct Opacity {
 
 impl Item for Opacity {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -965,6 +977,8 @@ pub struct Layer {
 impl Item for Layer {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
@@ -1070,6 +1084,8 @@ pub struct Transform {
 
 impl Item for Transform {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -1238,6 +1254,8 @@ impl Item for WindowItem {
         #[cfg(feature = "std")]
         self.full_screen.set(std::env::var("SLINT_FULLSCREEN").is_ok());
     }
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -1484,6 +1502,8 @@ pub struct ContextMenu {
 impl Item for ContextMenu {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
@@ -1683,6 +1703,8 @@ pub struct BoxShadow {
 
 impl Item for BoxShadow {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,

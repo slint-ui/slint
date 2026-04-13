@@ -59,6 +59,8 @@ pub struct TouchArea {
 impl Item for TouchArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
@@ -295,6 +297,8 @@ pub struct Shortcut {
 impl Item for Shortcut {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: crate::items::Orientation,
@@ -478,6 +482,8 @@ impl FocusScope {
 
 impl Item for FocusScope {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -670,6 +676,8 @@ pub struct SwipeGestureHandler {
 
 impl Item for SwipeGestureHandler {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -945,6 +953,8 @@ pub struct PinchGestureHandler {
 
 impl Item for PinchGestureHandler {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
