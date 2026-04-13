@@ -146,7 +146,9 @@ window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed
 assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
 assert_eq!(instance.global::<Properties<'_>>().get_button_in_popup_pressed(), true);
 
-assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 67.);
+let button_height = 50.;
+let text_height = 17;
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), button_height + text_height);
 
 ```
 
