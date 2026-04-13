@@ -39,6 +39,7 @@ mod lower_property_to_element;
 mod lower_repeated_rows;
 mod lower_shadows;
 mod lower_states;
+mod lower_system_tray;
 mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
@@ -112,6 +113,7 @@ pub async fn run_passes(
     collect_subcomponents::collect_subcomponents(doc);
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
+    lower_system_tray::lower_system_tray(doc, diag);
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
 
