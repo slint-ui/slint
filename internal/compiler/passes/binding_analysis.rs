@@ -616,18 +616,9 @@ fn recurse_expression(
                         );
                     }
                     FlexboxAxisRelation::Unknown => {
-                        // Unknown direction: conservatively visit both orientations
-                        // and perpendicular dimensions
-                        if *orientation == Orientation::Vertical
-                            && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
-                        {
-                            vis(&nr.clone().into(), P);
-                        }
-                        if *orientation == Orientation::Horizontal
-                            && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
-                        {
-                            vis(&nr.clone().into(), P);
-                        }
+                        // Unknown direction: visit both orientations' item
+                        // dependencies but NOT perpendicular dimensions (adding
+                        // those leads to binding loops for runtime direction).
                         visit_layout_items_dependencies(
                             layout.elems.iter().map(|fi| &fi.item),
                             Orientation::Horizontal,
