@@ -7,7 +7,8 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, Unit,
+    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursorInner,
+    Unit,
 };
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
@@ -120,6 +121,7 @@ pub enum BuiltinNamespace {
     Math,
     Key,
     FontWeight,
+    Cursor,
     SlintInternal,
 }
 
@@ -204,6 +206,9 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
                 FontWeightLookup.for_each_entry(ctx, f)
             }
+            LookupResult::Namespace(BuiltinNamespace::Cursor) => {
+                CursorSpecific.for_each_entry(ctx, f)
+            }
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.for_each_entry(ctx, f)
             }
@@ -224,6 +229,7 @@ impl LookupObject for LookupResult {
             LookupResult::Namespace(BuiltinNamespace::FontWeight) => {
                 FontWeightLookup.lookup(ctx, name)
             }
+            LookupResult::Namespace(BuiltinNamespace::Cursor) => CursorSpecific.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
                 SlintInternal.lookup(ctx, name)
             }
@@ -618,6 +624,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Color => ColorSpecific.for_each_entry(ctx, f),
             Type::Brush => ColorSpecific.for_each_entry(ctx, f),
             Type::Easing => EasingSpecific.for_each_entry(ctx, f),
+            Type::Cursor => CursorSpecific.for_each_entry(ctx, f),
             Type::Enumeration(enumeration) => enumeration.clone().for_each_entry(ctx, f),
             _ => None,
         }
@@ -628,6 +635,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
             Type::Color => ColorSpecific.lookup(ctx, name),
             Type::Brush => ColorSpecific.lookup(ctx, name),
             Type::Easing => EasingSpecific.lookup(ctx, name),
+            Type::Cursor => CursorSpecific.lookup(ctx, name),
             Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
             _ => None,
         }
@@ -805,6 +813,27 @@ impl LookupObject for MathFunctions {
     }
 }
 
+struct CursorSpecific;
+impl LookupObject for CursorSpecific {
+    fn for_each_entry<R>(
+        &self,
+        _ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.MouseCursor.clone());
+        let mut cursor = |n, e| f(n, Expression::MouseCursor(MouseCursorInner::BuiltIn(e)).into());
+        dbg!(&e);
+        let mut r = None;
+        for value in &e.values {
+            dbg!(&value);
+            if let Some(enum_value) = e.clone().try_value_from_string(value.as_str()) {
+                r = r.or_else(|| cursor(value, Box::new(Expression::EnumerationValue(enum_value))));
+            }
+        }
+        r.or_else(|| f(&SmolStr::new_static("custom"), BuiltinMacroFunction::CustomCursor.into()))
+    }
+}
+
 struct SlintInternal;
 impl LookupObject for SlintInternal {
     fn for_each_entry<R>(
@@ -917,6 +946,7 @@ impl LookupObject for BuiltinNamespaceLookup {
                     None
                 }
             })
+            .or_else(|| f("MouseCursor", LookupResult::Namespace(BuiltinNamespace::Cursor)))
     }
 }
 

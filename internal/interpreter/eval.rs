@@ -15,8 +15,8 @@ use corelib::rtti::AnimatedBindingKind;
 use corelib::window::WindowInner;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
-    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
-    PathElement as ExprPathElement,
+    BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, MouseCursorInner,
+    Path as ExprPath, PathElement as ExprPathElement,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
@@ -432,6 +432,18 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             EasingCurve::EaseInOutBounce => corelib::animations::EasingCurve::EaseInOutBounce,
             EasingCurve::CubicBezier(a, b, c, d) => {
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
+            }
+        }),
+        Expression::MouseCursor(cursor) => Value::MouseCursorInner(match cursor {
+            MouseCursorInner::BuiltIn(cursor) => corelib::items::MouseCursorInner::BuiltIn(
+                eval_expression(cursor, local_context).try_into().unwrap(),
+            ),
+            MouseCursorInner::CustomCursor { image, hotspot_x, hotspot_y } => {
+                let image = eval_expression(image, local_context).try_into().unwrap();
+                let hotspot_x = eval_expression(hotspot_x, local_context).try_into().unwrap();
+                let hotspot_y = eval_expression(hotspot_y, local_context).try_into().unwrap();
+
+                corelib::items::MouseCursorInner::CustomCursor { image, hotspot_x, hotspot_y }
             }
         }),
         Expression::LinearGradient { angle, stops } => {
@@ -1995,6 +2007,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         }
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
+        Type::Cursor => matches!(value, Value::MouseCursorInner(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
         Type::Array(inner) => {
             matches!(value, Value::Model(m) if m.iter().all(|mut v| check_value_type(&mut v, inner)))
@@ -2313,6 +2326,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         ),
         Type::Keys => Value::Keys(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
+        Type::Cursor => Value::MouseCursorInner(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),

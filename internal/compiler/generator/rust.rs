@@ -24,7 +24,7 @@ use crate::object_tree::Document;
 use crate::typeloader::LibraryInfo;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote};
 use smol_str::SmolStr;
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
@@ -82,6 +82,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::Cursor => Some(quote!(sp::MouseCursor)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
@@ -128,6 +129,7 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
+        Type::Cursor => Some(quote!(sp::MouseCursor)),
         _ => rust_primitive_type(ty),
     }
 }
@@ -2605,6 +2607,32 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     quote!((#compiled_expr).clone())
 }
 
+impl quote::ToTokens for crate::expression_tree::ImageReference {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tks = match self {
+            crate::expression_tree::ImageReference::None => {
+                quote!(sp::Image::default())
+            }
+            crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                let path = path.as_str();
+                quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+            }
+            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                let format = proc_macro2::Literal::byte_string(extension.as_bytes());
+                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
+            }
+            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                quote!(
+                    sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
+                )
+            }
+        };
+        tokens.extend(tks);
+    }
+}
+
 /// Compile `expr` to a Rust expression which may potentially return a reference.
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
@@ -2913,31 +2941,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!( (#op #sub) )
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
-            let image = match resource_ref {
-                crate::expression_tree::ImageReference::None => {
-                    quote!(sp::Image::default())
-                }
-                crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = path.as_str();
-                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
-                }
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                    let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                    quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                    quote!(
-                        sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
-                    )
-                }
-            };
             match &nine_slice {
                 Some([a, b, c, d]) => {
-                    quote! {{ let mut image = #image; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
+                    quote! {{ let mut image = #resource_ref; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
                 }
-                None => image,
+                None => resource_ref.to_token_stream(),
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
@@ -3003,6 +3011,16 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
             quote!(#name)
+        }
+        Expression::MouseCursor(cursor) => match cursor {
+            llr::MouseCursorInner::BuiltIn(expression) => compile_expression(expression, ctx),
+            llr::MouseCursorInner::CustomCursor { image, hotspot_x, hotspot_y } => {
+                let image = compile_expression(image, ctx);
+                let hotspot_x = compile_expression(hotspot_x, ctx);
+                let hotspot_y = compile_expression(hotspot_y, ctx);
+
+                quote!(#image.clone(), #hotspot_x.clone(), #hotspot_y.clone())
+            },
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
             quote!(sp::EasingCurve::Linear)
