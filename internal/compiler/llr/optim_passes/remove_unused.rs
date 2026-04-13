@@ -509,7 +509,7 @@ mod visitor {
     }
 
     pub fn visit_binding_expression(
-        BindingExpression { expression, animation, is_constant: _, is_state_info: _, use_count: _ }: &mut BindingExpression,
+        BindingExpression { expression, animation, kind: _, use_count: _ }: &mut BindingExpression,
         scope: &EvaluationScope,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),

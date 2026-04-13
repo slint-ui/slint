@@ -88,7 +88,7 @@ impl PrettyPrinter<'_> {
                 "{}: {};{}",
                 DisplayPropertyRef(p, &ctx),
                 DisplayExpression(&init.expression.borrow(), &ctx),
-                if init.is_constant { " /*const*/" } else { "" }
+                if init.kind == super::BindingKind::Constant { " /*const*/" } else { "" }
             )?
         }
         for (p, e) in &sc.change_callbacks {
@@ -173,7 +173,7 @@ impl PrettyPrinter<'_> {
                         "{}: {}{};",
                         global.properties[*p].name,
                         DisplayExpression(&init.expression.borrow(), &ctx,),
-                        if init.is_constant { "/*const*/" } else { "" }
+                        if init.kind == super::BindingKind::Constant { "/*const*/" } else { "" }
                     )?;
                 }
                 LocalMemberIndex::Callback(c) => {

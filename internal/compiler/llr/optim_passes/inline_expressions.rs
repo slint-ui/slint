@@ -180,10 +180,7 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
         let prop_info = ctx.property_info(prop);
         if prop_info.analysis.as_ref().is_some_and(|a| !a.is_set && !a.is_set_externally) {
             if let Some((binding, map)) = prop_info.binding {
-                if binding.animation.is_none()
-                    // State info binding are special and the binding cannot be inlined or used.
-                    && !binding.is_state_info
-                {
+                if binding.animation.is_none() && binding.kind != super::super::BindingKind::State {
                     let mapped_ctx = map.map_context(ctx);
                     let cost = expression_cost(&binding.expression.borrow(), &mapped_ctx);
                     let use_count = binding.use_count.get();

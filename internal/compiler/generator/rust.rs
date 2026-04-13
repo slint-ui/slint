@@ -650,28 +650,35 @@ fn handle_property_init(
 
         let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
 
-        init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            let t = rust_property_type(prop_type).unwrap_or(quote!(_));
-            quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
-        } else {
-            let maybe_cast_to_property_type = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
-                // Don't cast if the Rust code is the never type, as with return statements inside a block, the
-                // type of the return expression is `()` instead of `!`.
-                None
-            } else {
-                Some(quote!(as _))
-            };
-
-            let binding_tokens = quote!(move |self_rc| {
-                #init_self_pin_ref
-                (#tokens_for_expression) #maybe_cast_to_property_type
-            });
-
-            if binding_expression.is_state_info {
+        init.push(match binding_expression.kind {
+            llr::BindingKind::Constant => {
+                let t = rust_property_type(prop_type).unwrap_or(quote!(_));
+                quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            }
+            llr::BindingKind::State => {
+                let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
+                    None
+                } else {
+                    Some(quote!(as _))
+                };
+                let binding_tokens = quote!(move |self_rc| {
+                    #init_self_pin_ref
+                    (#tokens_for_expression) #maybe_cast
+                });
                 quote! { {
                     slint::private_unstable_api::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
-            } else {
+            }
+            llr::BindingKind::Normal => {
+                let maybe_cast = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
+                    None
+                } else {
+                    Some(quote!(as _))
+                };
+                let binding_tokens = quote!(move |self_rc| {
+                    #init_self_pin_ref
+                    (#tokens_for_expression) #maybe_cast
+                });
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);

@@ -659,19 +659,24 @@ fn handle_property_init(
     } else {
         let init_expr = compile_expression(&binding_expression.expression.borrow(), ctx);
 
-        init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            format!("{prop_access}.set({init_expr});")
-        } else {
-            let binding_code = format!(
-                "[this]() {{
+        init.push(match binding_expression.kind {
+            llr::BindingKind::Constant => format!("{prop_access}.set({init_expr});"),
+            llr::BindingKind::State => {
+                let binding_code = format!(
+                    "[this]() {{
                             [[maybe_unused]] auto self = this;
                             return {init_expr};
                         }}"
-            );
-
-            if binding_expression.is_state_info {
+                );
                 format!("slint::private_api::set_state_binding({prop_access}, {binding_code});")
-            } else {
+            }
+            llr::BindingKind::Normal => {
+                let binding_code = format!(
+                    "[this]() {{
+                            [[maybe_unused]] auto self = this;
+                            return {init_expr};
+                        }}"
+                );
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
