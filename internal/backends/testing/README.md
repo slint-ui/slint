@@ -219,22 +219,23 @@ slint = "x.y.z"
 i-slint-backend-selector = { version = "=x.y.z", features = ["mcp"] }
 ```
 
-Then set `SLINT_MCP_PORT` when running your application:
+Then set the following environment variables when running your application:
 
 ```sh
-SLINT_MCP_PORT=8080 cargo run -p my-slint-app
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app
 ```
 
-The server binds to `localhost:<port>/mcp` using MCP's Streamable HTTP transport. If
-`SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
+`SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
+metadata into the compiled UI). `SLINT_MCP_PORT` controls which port the MCP server listens on.
+If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
 
 ### Usage with AI Agents
 
-The simplest approach is to tell the agent to run the application with the environment variable
+The simplest approach is to tell the agent to run the application with both environment variables
 set and then interact with it. For example, in Claude Code:
 
-> "Run `SLINT_MCP_PORT=8080 cargo run -p my-app` in the background. The app includes a built-in
-> MCP server. Connect to it and toggle the dark mode switch."
+> "Run `SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-app` in the background. The
+> app includes a built-in MCP server. Connect to it and toggle the dark mode switch."
 
 The agent will discover the MCP endpoint, connect, and use the tools to accomplish the task.
 You can also register the server in your MCP client's configuration if you prefer:
