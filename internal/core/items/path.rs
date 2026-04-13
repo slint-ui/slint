@@ -13,11 +13,12 @@ use super::{
 };
 use crate::graphics::{Brush, PathData, PathDataIterator};
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 
+use crate::items::ImageFit;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, RectLengths,
@@ -44,10 +45,12 @@ pub struct Path {
     pub stroke_width: Property<LogicalLength>,
     pub stroke_line_cap: Property<LineCap>,
     pub stroke_line_join: Property<LineJoin>,
+    pub stroke_miter_limit: Property<f32>,
     pub viewbox_x: Property<f32>,
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,
     pub viewbox_height: Property<f32>,
+    pub fit: Property<ImageFit>,
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -89,7 +92,7 @@ impl Item for Path {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -98,7 +101,7 @@ impl Item for Path {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -179,12 +182,17 @@ impl Path {
             None
         };
 
-        elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox);
+        elements_iter.fit(
+            bounds_width.get() as _,
+            bounds_height.get() as _,
+            maybe_viewbox,
+            self.fit(),
+        );
         (offset, elements_iter).into()
     }
 }
 
 impl ItemConsts for Path {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
-        Path::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

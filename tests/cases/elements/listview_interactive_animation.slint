@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Testing if the animation is applied to the flickable after mouse release
+// Testing if the animation is applied to the flickable after mouse release. In this scenario only the y animation is triggered
+// Because we move with the mouse only straight up
 
 import { ListView } from "std-widgets.slint";
 export component TestCase inherits Window {
@@ -41,10 +42,19 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
     let released_position = LogicalPosition::new(released_x, released_y);
     let button = platform::PointerEventButton::Left;
 
+    const NUM_MOVEMENTS: u64 = 2;
+    const DURATION_MS: u64 = 50;
+    const TIME_TO_RELEASE_MS: u64 = 2; // Below threshold
+    let diff_x = (released_position.x - pressed_position.x) / NUM_MOVEMENTS as f32;
+    let diff_y = (released_position.y - pressed_position.y) / NUM_MOVEMENTS as f32;
+
     window.dispatch_event(platform::WindowEvent::PointerMoved { position: pressed_position });
     window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button });
-    window.dispatch_event(platform::WindowEvent::PointerMoved { position: released_position });
-    slint_testing::mock_elapsed_time(50);
+    for i in 0..NUM_MOVEMENTS {
+        slint_testing::mock_elapsed_time(DURATION_MS / NUM_MOVEMENTS);
+        window.dispatch_event(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(pressed_position.x + i as f32 * diff_x, pressed_position.y + i as f32 * diff_y) });
+    }
+        slint_testing::mock_elapsed_time(TIME_TO_RELEASE_MS);
     window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
 }
 
@@ -64,6 +74,14 @@ send_mouse_press_and_release(&instance, 5., 0., 5., 75.); // Larger y is display
 // let the animation run for a bit
 slint_testing::mock_elapsed_time(100);
 assert!((instance.get_viewport_y() - old_viewport_y) > 75., "Received: {}, Desired: larger than {}", instance.get_viewport_y() - old_viewport_y, 75);
+
+// Now scrolling up again but we hit the viewport limit
+let old_viewport_y = instance.get_viewport_y();
+println!("Old viewport y: {:?}", old_viewport_y);
+send_mouse_press_and_release(&instance, 5., 0., 5., 75.);
+// let the animation run for a bit
+slint_testing::mock_elapsed_time(10000000); // Let the animation finish
+assert_eq!(instance.get_viewport_y(), 0.);
 ```
 
 */

@@ -16,7 +16,7 @@ Layout types:
 - **HorizontalLayout / VerticalLayout** - Linear box layouts
 - **GridLayout** - 2D grid with row/column positioning, spans
 - **Dialog** - Special grid with platform-specific button ordering
-- **FlexBoxLayout** - CSS Flexbox layout
+- **FlexboxLayout** - CSS Flexbox layout
 
 ## Key Files
 
@@ -100,9 +100,9 @@ Grid layouts solve independently for each axis:
 
 Cells with `colspan`/`rowspan` > 1 require iterative constraint distribution.
 
-### FlexBox layout
+### Flexbox layout
 
-FlexBox layout is solved in both axes simultaneously.
+Flexbox layout is solved in both axes simultaneously.
 The layouting algorithm is provided by the `taffy` crate, which implements the CSS flexbox algorithm.
 
 ## Compile-Time Lowering
@@ -130,7 +130,7 @@ Child x/y/width/height bound to cache access expressions
 | `OrganizeGridLayout` | Compute cell row/column assignments |
 | `SolveBoxLayout`     | Compute positions and sizes for items in a box layout |
 | `SolveGridLayout`    | Compute positions and sizes for items in a grid layout |
-| `SolveFlexBoxLayout` | Compute positions and sizes for items in a flexbox layout |
+| `SolveFlexboxLayout` | Compute positions and sizes for items in a flexbox layout |
 | `ComputeLayoutInfo`  | Calculate combined constraints |
 | `LayoutCacheAccess`  | Read position/size from cache |
 | `GridRepeaterCacheAccess` | Two-level indirection cache read (for repeaters in grids) |
@@ -200,7 +200,7 @@ Access: `cache[index]` where `index = child_idx * 2` for pos, `child_idx * 2 + 1
 
 ### Standard cache (box layouts)
 
-Used by `HorizontalLayout`/`VerticalLayout`/`FlexBoxLayout` (via `LayoutCacheGenerator`).
+Used by `HorizontalLayout`/`VerticalLayout`/`FlexboxLayout` (via `LayoutCacheGenerator`).
 Static children occupy a fixed slot; each repeater instance contributes exactly one cell (one pos +
 one size). When repeaters are present, their instances are stored in a contiguous block at
 the end of the cache, with a jump cell in the static region pointing to the start of that

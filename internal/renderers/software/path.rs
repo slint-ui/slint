@@ -7,7 +7,7 @@ use super::PhysicalRect;
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use alloc::vec;
 use alloc::vec::Vec;
-use zeno::{Fill, Mask, Stroke};
+use zeno::{Cap, Fill, Join, Mask, Stroke, Style};
 
 pub use zeno::Command;
 
@@ -170,14 +170,24 @@ pub fn render_stroked_path<T: TargetPixel>(
     clip_geometry: &PhysicalRect,
     color: PremultipliedRgbaColor,
     stroke_width: f32,
+    stroke_line_cap: i_slint_core::items::LineCap,
+    stroke_line_join: i_slint_core::items::LineJoin,
+    stroke_miter_limit: f32,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    render_path_with_style(
-        commands,
-        path_geometry,
-        clip_geometry,
-        color,
-        zeno::Style::Stroke(Stroke::new(stroke_width)),
-        buffer,
-    );
+    let mut stroke = Stroke::new(stroke_width);
+    stroke
+        .cap(match stroke_line_cap {
+            i_slint_core::items::LineCap::Round => Cap::Round,
+            i_slint_core::items::LineCap::Square => Cap::Square,
+            i_slint_core::items::LineCap::Butt | _ => Cap::Butt,
+        })
+        .join(match stroke_line_join {
+            i_slint_core::items::LineJoin::Round => Join::Round,
+            i_slint_core::items::LineJoin::Bevel => Join::Bevel,
+            i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
+        })
+        .miter_limit(stroke_miter_limit);
+    let style = Style::Stroke(stroke);
+    render_path_with_style(commands, path_geometry, clip_geometry, color, style, buffer);
 }

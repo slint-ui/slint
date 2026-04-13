@@ -16,10 +16,6 @@ use crate::langtype::{
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
-use crate::object_tree::interfaces::{
-    apply_implements_specifier, apply_interface_default_property_values, apply_uses_statement,
-    get_implemented_interface, validate_function_implementations_for_interface,
-};
 use crate::parser;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -280,7 +276,11 @@ impl Document {
     }
 
     pub fn exported_roots(&self) -> impl DoubleEndedIterator<Item = Rc<Component>> + '_ {
-        self.exports.iter().filter_map(|e| e.1.as_ref().left()).filter(|c| !c.is_global()).cloned()
+        self.exports
+            .iter()
+            .filter_map(|e| e.1.as_ref().left())
+            .filter(|c| !c.is_global() && !c.is_interface())
+            .cloned()
     }
 
     /// This is the component that is going to be instantiated by the interpreter
@@ -393,7 +393,7 @@ pub struct Component {
     pub root_element: ElementRc,
 
     /// The parent element within the parent component if this component represents a repeated element
-    pub parent_element: Weak<RefCell<Element>>,
+    pub parent_element: RefCell<ElementWeak>,
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
@@ -474,7 +474,7 @@ impl Component {
                 *qualified_id = format_smolstr!("{}::{}", c.id, qualified_id);
             }
         });
-        apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
+        interfaces::apply_uses_statement(&c.root_element, node.UsesSpecifier(), tr, diag);
         c
     }
 
@@ -515,6 +515,15 @@ impl Component {
             }
         });
         count
+    }
+
+    /// Convenience accessor to get the parent element if this component is a repeated component, or None otherwise.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the Self::parent_element member is currently mutably borrowed
+    pub fn parent_element(&self) -> Option<ElementRc> {
+        self.parent_element.borrow().upgrade()
     }
 }
 
@@ -749,7 +758,7 @@ impl ElementDebugInfo {
                     Orientation::Vertical => info.push_str("v-box"),
                 },
                 Layout::GridLayout(_) => info.push_str("grid"),
-                Layout::FlexBoxLayout(_) => info.push_str("flex-box"),
+                Layout::FlexboxLayout(_) => info.push_str("flex-box"),
             }
         }
         info
@@ -770,7 +779,7 @@ pub struct Element {
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: BindingsMap,
     pub change_callbacks: BTreeMap<SmolStr, RefCell<Vec<Expression>>>,
-    pub property_analysis: RefCell<HashMap<SmolStr, PropertyAnalysis>>,
+    pub property_analysis: RefCell<BTreeMap<SmolStr, PropertyAnalysis>>,
 
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
@@ -868,7 +877,7 @@ pub fn pretty_print(
         write!(f, ":")?;
         if let ElementType::Component(base) = &e.base_type {
             write!(f, "(base) ")?;
-            if base.parent_element.upgrade().is_some() {
+            if base.parent_element().is_some() {
                 pretty_print(f, &base.root_element.borrow(), indentation)?;
                 return Ok(());
             }
@@ -1119,8 +1128,17 @@ impl Element {
             ..Default::default()
         };
 
-        let implemented_interface = get_implemented_interface(&r, &node, tr, diag);
-        apply_implements_specifier(&mut r, &implemented_interface, diag);
+        let mut property_bindings: Vec<(
+            SmolStr,
+            syntax_nodes::BindingExpression,
+            syntax_nodes::DeclaredIdentifier,
+        )> = Vec::new();
+
+        let mut two_way_bindings: Vec<(
+            SmolStr,
+            syntax_nodes::TwoWayBinding,
+            syntax_nodes::DeclaredIdentifier,
+        )> = Vec::new();
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
@@ -1211,27 +1229,38 @@ impl Element {
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
-                match r.bindings.entry(prop_name.clone().into()) {
-                    Entry::Vacant(e) => {
-                        e.insert(BindingExpression::new_uncompiled(csn.into()).into());
-                    }
-                    Entry::Occupied(_) => {
-                        diag.push_error(
-                            "Duplicated property binding".into(),
-                            &prop_decl.DeclaredIdentifier(),
-                        );
-                    }
+                property_bindings.push((
+                    prop_name.clone().into(),
+                    csn,
+                    prop_decl.DeclaredIdentifier(),
+                ));
+            }
+
+            if let Some(csn) = prop_decl.TwoWayBinding() {
+                two_way_bindings.push((prop_name.into(), csn, prop_decl.DeclaredIdentifier()));
+            }
+        }
+
+        let implemented_interface = interfaces::get_implemented_interface(&r, &node, tr, diag);
+        interfaces::apply_properties(&mut r, &implemented_interface, diag);
+
+        for (prop_name, csn, source) in property_bindings {
+            match r.bindings.entry(prop_name.clone()) {
+                Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_uncompiled(csn.into()).into());
+                }
+                Entry::Occupied(_) => {
+                    diag.push_error("Duplicated property binding".into(), &source);
                 }
             }
-            if let Some(csn) = prop_decl.TwoWayBinding()
-                && r.bindings
-                    .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()).into())
-                    .is_some()
+        }
+
+        for (prop_name, csn, source) in two_way_bindings {
+            if r.bindings
+                .insert(prop_name, BindingExpression::new_uncompiled(csn.into()).into())
+                .is_some()
             {
-                diag.push_error(
-                    "Duplicated property binding".into(),
-                    &prop_decl.DeclaredIdentifier(),
-                );
+                diag.push_error("Duplicated property binding".into(), &source);
             }
         }
 
@@ -1336,6 +1365,8 @@ impl Element {
                 },
             );
         }
+
+        interfaces::apply_callbacks(&mut r, &implemented_interface, diag);
 
         for func in node.Function() {
             let name =
@@ -1726,8 +1757,8 @@ impl Element {
             }
         }
 
-        apply_interface_default_property_values(&mut r.borrow_mut(), &implemented_interface);
-        validate_function_implementations_for_interface(&r.borrow(), &implemented_interface, diag);
+        interfaces::apply_default_property_values(&r, &implemented_interface);
+        interfaces::validate_function_implementations(&r.borrow(), &implemented_interface, diag);
 
         r
     }
@@ -1767,8 +1798,16 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let e = Element::from_sub_element_node(
+            node.SubElement(),
+            parent.borrow().base_type.clone(),
+            component_child_insertion_point,
+            is_in_legacy_component,
+            diag,
+            tr,
+        );
         let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
-            Some(ListViewInfo {
+            let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
                     parent,
@@ -1777,7 +1816,12 @@ impl Element {
                 viewport_width: NamedReference::new(parent, SmolStr::new_static("viewport-width")),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
-            })
+            };
+            // these properties are set by the ListView layouting code
+            lvi.viewport_height.mark_as_set();
+            lvi.viewport_width.mark_as_set();
+            e.borrow().geometry_props.as_ref().unwrap().y.mark_as_set();
+            Some(lvi)
         } else {
             None
         };
@@ -1794,14 +1838,6 @@ impl Element {
             is_conditional_element: false,
             is_listview,
         };
-        let e = Element::from_sub_element_node(
-            node.SubElement(),
-            parent.borrow().base_type.clone(),
-            component_child_insertion_point,
-            is_in_legacy_component,
-            diag,
-            tr,
-        );
         e.borrow_mut().repeated = Some(rei);
         e
     }
@@ -2053,10 +2089,10 @@ impl Element {
     }
 }
 
-/// For FlexBoxLayout, suggest Slint property names for CSS properties.
+/// For FlexboxLayout, suggest Slint property names for CSS properties.
 fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Option<String> {
     let base_name = base_type.to_smolstr();
-    if base_name != "FlexBoxLayout" {
+    if base_name != "FlexboxLayout" {
         return None;
     }
     match property_name {
@@ -2319,7 +2355,7 @@ pub fn recurse_elem_including_sub_components<State>(
         ));
         if elem.borrow().repeated.is_some()
             && let ElementType::Component(base) = &elem.borrow().base_type
-            && base.parent_element.upgrade().is_some()
+            && base.parent_element().is_some()
         {
             recurse_elem_including_sub_components(base, state, vis);
         }
@@ -2359,7 +2395,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
         let base = if elem.borrow().repeated.is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
+                if base.parent_element().is_some() {
                     Some(base.clone())
                 } else {
                     // The process_repeater_components pass was not run yet
@@ -2480,13 +2516,13 @@ pub fn visit_named_references_in_expression(
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
         Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
-        Expression::ComputeFlexBoxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeFlexboxLayoutInfo(l, _) => l.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
         }
         Expression::SolveBoxLayout(l, _) => l.visit_named_references(vis),
-        Expression::SolveFlexBoxLayout(l) => l.visit_named_references(vis),
+        Expression::SolveFlexboxLayout(l) => l.visit_named_references(vis),
         Expression::SolveGridLayout { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
@@ -2992,8 +3028,18 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             SmolStr::new_static("layoutinfo-h"),
             crate::typeregister::layout_info_type().into(),
         );
-        let expr_h = crate::layout::implicit_layout_info_call(old_root, Orientation::Horizontal);
-        let expr_v = crate::layout::implicit_layout_info_call(old_root, Orientation::Vertical);
+        let expr_h = crate::layout::implicit_layout_info_call(
+            old_root,
+            Orientation::Horizontal,
+            crate::layout::BuiltinFilter::All,
+        )
+        .unwrap();
+        let expr_v = crate::layout::implicit_layout_info_call(
+            old_root,
+            Orientation::Vertical,
+            crate::layout::BuiltinFilter::All,
+        )
+        .unwrap();
         let expr_v =
             BindingExpression::new_with_span(expr_v, old_root.borrow().to_source_location());
         li_v.element().borrow_mut().bindings.insert(li_v.name().clone(), expr_v.into());

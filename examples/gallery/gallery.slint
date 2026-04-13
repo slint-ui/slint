@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { CheckBox, StandardListView } from "std-widgets.slint";
-import { AboutPage, ControlsPage, EasingsPage, ListViewPage, TableViewPage, TableViewPageAdapter, TextEditPage } from "ui/pages/pages.slint";
+import { AboutPage, ControlsPage, EasingsPage, ListViewPage, StyledTextPage, TableViewPage, TableViewPageAdapter, TextEditPage } from "ui/pages/pages.slint";
 import { GallerySettings } from "ui/gallery_settings.slint";
 import { SideBar } from "ui/side_bar.slint";
 
@@ -17,7 +17,10 @@ export component App inherits Window {
     MenuBar {
         Menu {
             title: @tr("MenuBar" => "File");
-            MenuItem { title: @tr("MenuBar" => "Open"); }
+            MenuItem {
+                title: @tr("MenuBar" => "Open");
+                shortcut: @keys(Control + O);
+            }
             Menu {
                 title: @tr("MenuBar" => "Open Recent");
                 for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
@@ -42,7 +45,7 @@ export component App inherits Window {
     HorizontalLayout {
         side-bar := SideBar {
             title: @tr("Slint Widgets Gallery");
-            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "About")];
+            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "StyledText"), @tr("Menu" => "About")];
         }
 
         if(side-bar.current-item == 0) : ControlsPage {}
@@ -50,6 +53,7 @@ export component App inherits Window {
         if(side-bar.current-item == 2) : TableViewPage {}
         if(side-bar.current-item == 3) : TextEditPage {}
         if(side-bar.current-item == 4) : EasingsPage {}
-        if(side-bar.current-item == 5) : AboutPage {}
+        if(side-bar.current-item == 5) : StyledTextPage {}
+        if(side-bar.current-item == 6) : AboutPage {}
     }
 }

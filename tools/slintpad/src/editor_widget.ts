@@ -368,6 +368,7 @@ export class EditorWidget extends Widget {
     #client: MonacoLanguageClient | null = null;
 
     #edit_era: number;
+    #save_timer: ReturnType<typeof setTimeout> | null = null;
 
     #url_mapper: UrlMapper | null = null;
     #extra_file_urls: { [key: string]: string } = {};
@@ -422,8 +423,10 @@ export class EditorWidget extends Widget {
         }
         if (load_url) {
             void this.project_from_url(load_url);
-        } else {
-            void this.set_demo(load_demo ?? "");
+        } else if (load_demo) {
+            void this.set_demo(load_demo);
+        } else if (!this.restore_from_history_state()) {
+            void this.set_demo("");
         }
     }
 
@@ -437,6 +440,12 @@ export class EditorWidget extends Widget {
         this.#tab_panel = new TabPanel({ addButtonEnabled: false });
         this.#layout.addWidget(this.#tab_panel);
 
+        // Dispose the underlying Monaco models so that re-opening the same URI
+        // reads fresh content from the filesystem provider instead of reusing
+        // the stale in-memory model.
+        for (const uri_str of this.#tab_map.keys()) {
+            monaco.editor.getModel(monaco.Uri.parse(uri_str))?.dispose();
+        }
         this.#tab_map.clear();
         this.#extra_file_urls = {};
 
@@ -475,6 +484,10 @@ export class EditorWidget extends Widget {
             internal_file_uri("unknown.slint");
 
         const pane = new EditorPaneWidget(model_ref);
+
+        model_ref.object.textEditorModel?.onDidChangeContent(() => {
+            this.schedule_save_to_history_state();
+        });
 
         this.#tab_map.set(uri.toString(), pane);
         this.#tab_panel!.addWidget(pane);
@@ -537,6 +550,8 @@ export class EditorWidget extends Widget {
             return null;
         }
 
+        // Don't restore the old project on next reload
+        EditorWidget.clear_history_state();
         this.clear_editors();
 
         return (await this.open_tab_from_url(monaco.Uri.parse(uri)))[0];
@@ -577,6 +592,8 @@ export class EditorWidget extends Widget {
     }
 
     public set_demo(location: string): Promise<monaco.Uri | null> {
+        // Don't restore the old project on next reload
+        EditorWidget.clear_history_state();
         if (location) {
             const default_tag = "XXXX_DEFAULT_TAG_XXXX";
             let tag = default_tag.startsWith("XXXX_DEFAULT_TAG_")
@@ -674,6 +691,49 @@ export class EditorWidget extends Widget {
         this.open_file_with_content(internal_uri, doc);
 
         return [internal_uri, doc];
+    }
+
+    private schedule_save_to_history_state() {
+        if (this.#save_timer !== null) {
+            clearTimeout(this.#save_timer);
+        }
+        this.#save_timer = setTimeout(() => {
+            this.#save_timer = null;
+            this.save_to_history_state();
+        }, 500);
+    }
+
+    private save_to_history_state() {
+        const files: { [path: string]: string } = {};
+        for (const [uri_str, pane] of this.#tab_map) {
+            const content = pane.editor.getModel()?.getValue();
+            if (content !== undefined) {
+                const uri = monaco.Uri.parse(uri_str);
+                files[uri.path] = content;
+            }
+        }
+        history.replaceState({ files }, "");
+    }
+
+    private restore_from_history_state(): boolean {
+        const files: { [path: string]: string } | undefined =
+            history.state?.files;
+        if (!files) {
+            return false;
+        }
+        const paths = Object.keys(files);
+        if (paths.length === 0) {
+            return false;
+        }
+        this.clear_editors();
+        for (const path of paths) {
+            this.open_file_with_content(internal_file_uri(path), files[path]);
+        }
+        return true;
+    }
+
+    public static clear_history_state() {
+        history.replaceState(null, "");
     }
 
     public async copy_permalink_to_clipboard() {

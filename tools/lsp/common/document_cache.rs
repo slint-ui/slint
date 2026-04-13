@@ -362,7 +362,7 @@ impl DocumentCache {
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let Some(path) = uri_to_file(url) else {
             // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
-            eprintln!("Failed to convert path for dropping document: {url}");
+            tracing::error!("Failed to convert path for dropping document: {url}");
             return Ok(Default::default());
         };
         Ok(self

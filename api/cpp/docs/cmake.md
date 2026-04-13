@@ -131,12 +131,10 @@ abstraction and window adapter interfaces.
 For more information about the available backends, their system requirements, and configuration
 options, see the {{ '[Backend & Renderers Documentation]({})'.format(slint_href_backends_and_renderers) }}.
 
-By default Slint will include both the Qt and
-[winit](https://crates.io/crates/winit) back-ends -- if both are detected at
-compile time. You can enable or disable back-ends using the
-`SLINT_FEATURE_BACKEND_` features. For example, to exclude the winit back-end,
-you would disable the `SLINT_FEATURE_BACKEND_WINIT` option in your CMake
-project configuration.
+By default Slint will use the [winit](https://crates.io/crates/winit) back-end.
+You can enable additional back-ends using the `SLINT_FEATURE_BACKEND_` features.
+For example, to enable the Qt back-end,
+set the `SLINT_FEATURE_BACKEND_QT` option in your CMake project configuration.
 
 ### Cross-compiling
 

@@ -13,6 +13,7 @@ from typing import Any, List
 from collections.abc import Callable, Buffer, Coroutine
 from enum import Enum, auto
 import gettext
+from . import language as language
 
 class RgbColor:
     red: int
@@ -53,6 +54,18 @@ class Brush:
     def darker(self, factor: float) -> "Brush": ...
     def transparentize(self, amount: float) -> "Brush": ...
     def with_alpha(self, alpha: float) -> "Brush": ...
+    def __eq__(self, other: object) -> bool: ...
+
+class Keys:
+    r"""
+    Represents a key binding created by the `@keys(...)` macro in Slint.
+
+    This is an opaque type. Use `str()` to get a platform-native representation
+    of the key binding (e.g. "Ctrl+A" on Linux/Windows, "⌘A" on macOS).
+    """
+
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
 
 class Image:
@@ -171,6 +184,7 @@ class ValueType(Enum):
     Struct = auto()
     Brush = auto()
     Image = auto()
+    Keys = auto()
 
 class DiagnosticLevel(Enum):
     Error = auto()

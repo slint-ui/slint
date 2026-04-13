@@ -45,6 +45,8 @@ default = []
 i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
 
 num_enum = "0.7"
+icu_normalizer = { workspace = true }
+unicode-segmentation = { workspace = true }
 strum = { workspace = true }
 rowan = { version = "0.16.1" }
 smol_str = { workspace = true }
@@ -79,6 +81,7 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 flate2 = { version = "1.1.5", optional = true }
 base64 = { version = "0.22.1", optional = true }
+data-url = "0.3.2"
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }

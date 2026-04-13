@@ -77,12 +77,13 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 #include <assert.h>
 #include <cmath>
 #include <iostream>
-#include <slint_tests_helpers.h>
+#include <private/slint_tests_helpers.h>
 namespace slint_testing = slint::private_api::testing;
 ",
     )?;
     generated_cpp.write_all(b"int main() {\n    slint::testing::init();\n")?;
-    generated_cpp.write_all(b"    slint::testing::configure_test_fonts();\n")?;
+    generated_cpp
+        .write_all(b"    slint::cbindgen_private::slint_testing_configure_test_fonts();\n")?;
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "cpp") {
         write!(generated_cpp, "  {{\n    {}\n  }}\n", x.source.replace("\n", "\n    "))?;
     }

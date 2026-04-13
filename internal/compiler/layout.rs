@@ -20,7 +20,7 @@ pub enum Orientation {
 }
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq, Default)]
-pub enum FlexDirection {
+pub enum FlexboxLayoutDirection {
     /// Items are laid out in rows (horizontal primary axis)
     #[default]
     Row,
@@ -36,7 +36,7 @@ pub enum FlexDirection {
 pub enum Layout {
     GridLayout(GridLayout),
     BoxLayout(BoxLayout),
-    FlexBoxLayout(FlexBoxLayout),
+    FlexboxLayout(FlexboxLayout),
 }
 
 impl Layout {
@@ -45,7 +45,7 @@ impl Layout {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
-            Layout::FlexBoxLayout(l) => l.visit_named_references(visitor),
+            Layout::FlexboxLayout(l) => l.visit_named_references(visitor),
         }
     }
 }
@@ -55,6 +55,56 @@ impl Layout {
 pub struct LayoutItem {
     pub element: ElementRc,
     pub constraints: LayoutConstraints,
+}
+
+/// A FlexboxLayout child item, wrapping a LayoutItem with flex-specific properties.
+#[derive(Debug, Clone)]
+pub struct FlexboxLayoutItem {
+    pub item: LayoutItem,
+    pub flex_grow: Option<NamedReference>,
+    pub flex_shrink: Option<NamedReference>,
+    pub flex_basis: Option<NamedReference>,
+    pub align_self: Option<NamedReference>,
+    pub order: Option<NamedReference>,
+}
+
+/// A child within a repeated Row in a GridLayout.
+/// Can be either a static item or a nested repeater (`for y in model: ...`).
+#[derive(Debug, Clone)]
+pub enum RowChildTemplate {
+    Static(LayoutItem),
+    Repeated {
+        item: LayoutItem,
+        /// The repeated element (the `for y in ...` element inside the Row)
+        repeated_element: ElementRc,
+    },
+}
+
+impl RowChildTemplate {
+    pub fn layout_item(&self) -> &LayoutItem {
+        match self {
+            RowChildTemplate::Static(item) => item,
+            RowChildTemplate::Repeated { item, .. } => item,
+        }
+    }
+
+    pub fn layout_item_mut(&mut self) -> &mut LayoutItem {
+        match self {
+            RowChildTemplate::Static(item) => item,
+            RowChildTemplate::Repeated { item, .. } => item,
+        }
+    }
+
+    pub fn repeated_element(&self) -> Option<&ElementRc> {
+        match self {
+            RowChildTemplate::Static(_) => None,
+            RowChildTemplate::Repeated { repeated_element, .. } => Some(repeated_element),
+        }
+    }
+
+    pub fn is_repeated(&self) -> bool {
+        self.repeated_element().is_some()
+    }
 }
 
 impl LayoutItem {
@@ -283,7 +333,7 @@ pub struct GridLayoutCell {
     pub row_expr: RowColExpr,
     pub colspan_expr: RowColExpr,
     pub rowspan_expr: RowColExpr,
-    pub child_items: Option<Vec<LayoutItem>>, // for repeated rows
+    pub child_items: Option<Vec<RowChildTemplate>>, // for repeated rows
 }
 
 impl GridLayoutCell {
@@ -302,7 +352,7 @@ impl GridLayoutCell {
         }
         if let Some(children) = &mut self.child_items {
             for child in children {
-                child.constraints.visit_named_references(visitor);
+                child.layout_item_mut().constraints.visit_named_references(visitor);
             }
         }
     }
@@ -498,6 +548,14 @@ pub struct GridLayout {
 }
 
 impl GridLayout {
+    /// Clone each element's cell into a new Rc, breaking any Rc sharing with the original.
+    pub fn clone_cells(&mut self) {
+        for e in &mut self.elems {
+            let cloned = Rc::new(RefCell::new(e.cell.borrow().clone()));
+            e.cell = cloned;
+        }
+    }
+
     pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for elem in &mut self.elems {
             let mut cell = elem.cell.borrow_mut();
@@ -522,7 +580,7 @@ impl GridLayout {
             layout_elem.item.constraints.visit_named_references(visitor);
             if let Some(child_items) = &mut layout_elem.cell.borrow_mut().child_items {
                 for child in child_items {
-                    child.constraints.visit_named_references(visitor);
+                    child.layout_item_mut().constraints.visit_named_references(visitor);
                 }
             }
         }
@@ -548,20 +606,36 @@ impl BoxLayout {
     }
 }
 
-/// Internal representation of a FlexBoxLayout (row or column direction with wrapping)
+/// Internal representation of a FlexboxLayout (row or column direction with wrapping)
 #[derive(Debug, Clone)]
-pub struct FlexBoxLayout {
-    pub elems: Vec<LayoutItem>,
+pub struct FlexboxLayout {
+    pub elems: Vec<FlexboxLayoutItem>,
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
     pub align_items: Option<NamedReference>,
+    pub flex_wrap: Option<NamedReference>,
 }
 
-impl FlexBoxLayout {
+impl FlexboxLayout {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.constraints.visit_named_references(visitor);
+            cell.item.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.flex_grow.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.flex_shrink.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.flex_basis.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.align_self.as_mut() {
+                visitor(&mut *e)
+            }
+            if let Some(e) = cell.order.as_mut() {
+                visitor(&mut *e)
+            }
         }
         self.geometry.visit_named_references(visitor);
         if let Some(e) = self.direction.as_mut() {
@@ -573,11 +647,28 @@ impl FlexBoxLayout {
         if let Some(e) = self.align_items.as_mut() {
             visitor(&mut *e)
         }
+        if let Some(e) = self.flex_wrap.as_mut() {
+            visitor(&mut *e)
+        }
     }
 }
 
-/// Get the implicit layout info of a particular element
-pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
+/// Controls whether `implicit_layout_info_call` returns layout info for builtins
+/// that don't have an intrinsic size (Rectangle, Empty, TouchArea, etc.).
+#[derive(Clone, Copy, PartialEq)]
+pub enum BuiltinFilter {
+    /// Return layout info for all builtins (existing behavior).
+    All,
+    /// Skip builtins whose `default_size_binding` is not `ImplicitSize`.
+    SkipNonImplicit,
+}
+
+/// Get the implicit layout info of a particular element.
+pub fn implicit_layout_info_call(
+    elem: &ElementRc,
+    orientation: Orientation,
+    filter: BuiltinFilter,
+) -> Option<Expression> {
     let mut elem_it = elem.clone();
     loop {
         return match &elem_it.clone().borrow().base_type {
@@ -587,7 +678,10 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to
                         // use `elem` as an element for the PropertyReference, not `root` within the base of elem
                         debug_assert!(Rc::ptr_eq(&nr.element(), &base_comp.root_element));
-                        Expression::PropertyReference(NamedReference::new(elem, nr.name().clone()))
+                        Some(Expression::PropertyReference(NamedReference::new(
+                            elem,
+                            nr.name().clone(),
+                        )))
                     }
                     None => {
                         elem_it = base_comp.root_element.clone();
@@ -608,9 +702,12 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                         | "Clip"
                 ) =>
             {
+                if filter == BuiltinFilter::SkipNonImplicit {
+                    return None;
+                }
                 // hard-code the value for rectangle because many rectangle end up optimized away and we
                 // don't want to depend on the element.
-                Expression::Struct {
+                Some(Expression::Struct {
                     ty: crate::typeregister::layout_info_type(),
                     values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
                         .iter()
@@ -628,13 +725,20 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                                 }),
                         )
                         .collect(),
-                }
+                })
             }
-            _ => Expression::FunctionCall {
+            ElementType::Builtin(base_type)
+                if filter == BuiltinFilter::SkipNonImplicit
+                    && base_type.default_size_binding
+                        != crate::langtype::DefaultSizeBinding::ImplicitSize =>
+            {
+                None
+            }
+            _ => Some(Expression::FunctionCall {
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
-            },
+            }),
         };
     }
 }
@@ -667,7 +771,7 @@ pub fn is_layout(base_type: &ElementType) -> bool {
         ElementType::Builtin(be) => {
             matches!(
                 be.name.as_str(),
-                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexBoxLayout"
+                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout"
             )
         }
         _ => false,

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::input::{FocusEventResult, InternalKeyEvent};
 
 use super::*;
 
@@ -61,7 +61,8 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
 
 impl Item for NativeGroupBox {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
             return make_unique_animated_widget<QGroupBox>(animation_tracker_property_ptr);
         }});
@@ -69,8 +70,8 @@ impl Item for NativeGroupBox {
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(
-            Self::FIELD_OFFSETS.title.apply_pin(self),
-            GroupBoxData::FIELD_OFFSETS.title.apply_pin(shared_data.as_ref()),
+            Self::FIELD_OFFSETS.title().apply_pin(self),
+            GroupBoxData::FIELD_OFFSETS.title().apply_pin(shared_data.as_ref()),
         );
 
         shared_data.paddings.set_binding({
@@ -78,7 +79,7 @@ impl Item for NativeGroupBox {
             move || {
                 let shared_data = shared_data_weak.upgrade().unwrap();
 
-                let text: qttypes::QString = GroupBoxData::FIELD_OFFSETS.title.apply_pin(shared_data.as_ref()).get().as_str().into();
+                let text: qttypes::QString = GroupBoxData::FIELD_OFFSETS.title().apply_pin(shared_data.as_ref()).get().as_str().into();
 
                 cpp!(unsafe [
                     text as "QString"
@@ -110,7 +111,7 @@ impl Item for NativeGroupBox {
             let shared_data = shared_data.clone();
             move || {
                 let margins =
-                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                    GroupBoxData::FIELD_OFFSETS.paddings().apply_pin(shared_data.as_ref()).get();
                 LogicalLength::new(margins.left as _)
             }
         });
@@ -119,7 +120,7 @@ impl Item for NativeGroupBox {
             let shared_data = shared_data.clone();
             move || {
                 let margins =
-                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                    GroupBoxData::FIELD_OFFSETS.paddings().apply_pin(shared_data.as_ref()).get();
                 LogicalLength::new(margins.right as _)
             }
         });
@@ -128,7 +129,7 @@ impl Item for NativeGroupBox {
             let shared_data = shared_data.clone();
             move || {
                 let margins =
-                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                    GroupBoxData::FIELD_OFFSETS.paddings().apply_pin(shared_data.as_ref()).get();
                 LogicalLength::new(margins.top as _)
             }
         });
@@ -136,7 +137,7 @@ impl Item for NativeGroupBox {
         self.native_padding_bottom.set_binding({
             move || {
                 let margins =
-                    GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
+                    GroupBoxData::FIELD_OFFSETS.paddings().apply_pin(shared_data.as_ref()).get();
                 LogicalLength::new(margins.bottom as _)
             }
         });
@@ -183,7 +184,7 @@ impl Item for NativeGroupBox {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -192,7 +193,7 @@ impl Item for NativeGroupBox {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -265,7 +266,7 @@ impl Item for NativeGroupBox {
 
 impl ItemConsts for NativeGroupBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

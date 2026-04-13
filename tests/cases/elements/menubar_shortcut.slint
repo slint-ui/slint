@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> result;
+    in-out property <bool> show-open: false;
+    in-out property <bool> save-enabled: false;
+    in-out property <[keys]> dynamic-shortcuts: [
+        @keys(Control + A),
+        @keys(Control + B),
+    ];
+
+    MenuBar {
+        Menu {
+            title: "File";
+            MenuItem {
+                title: "New";
+                shortcut: @keys(Control + N);
+                activated => { result += self.title; }
+            }
+            if show-open: MenuItem {
+                title: "Open";
+                shortcut: @keys(Control + O);
+                activated => { result += self.title; }
+            }
+            MenuItem {
+                title: "Save";
+                shortcut: @keys(Control + S);
+                enabled: save-enabled;
+                activated => { result += self.title; }
+            }
+            for shortcut[i] in dynamic-shortcuts: MenuItem {
+                title: "shortcut-" + i;
+                shortcut: shortcut;
+                activated => { result += self.title; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+let assert_shortcut = |keys: &[Key], expected: &str| {
+    slint_testing::send_key_combo(&instance, keys.iter().copied());
+    assert_eq!(instance.get_result(), expected);
+    instance.set_result("".into());
+};
+
+assert_shortcut(&[Key::Control, Key::N], "New");
+
+// "Open" is hidden — shortcut must not fire, then show and retry
+assert_shortcut(&[Key::Control, Key::O], "");
+instance.set_show_open(true);
+assert_shortcut(&[Key::Control, Key::O], "Open");
+
+// "Save" is disabled — shortcut must not fire, then enable and retry
+assert_shortcut(&[Key::Control, Key::S], "");
+instance.set_save_enabled(true);
+assert_shortcut(&[Key::Control, Key::S], "Save");
+
+// for-loop items fire, then clear the model and verify they no longer fire
+assert_shortcut(&[Key::Control, Key::A], "shortcut-0");
+assert_shortcut(&[Key::Control, Key::B], "shortcut-1");
+instance.set_dynamic_shortcuts(slint::ModelRc::default());
+assert_shortcut(&[Key::Control, Key::A], "");
+assert_shortcut(&[Key::Control, Key::B], "");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::SharedString ctrl(slint::platform::key_codes::Control);
+auto assert_shortcut = [&](const char *key, const char *expected) {
+    slint_testing::send_key_combo(&instance, { ctrl, key });
+    assert_eq(instance.get_result(), expected);
+    instance.set_result("");
+};
+
+assert_shortcut("N", "New");
+
+// "Open" is hidden — shortcut must not fire, then show and retry
+assert_shortcut("O", "");
+instance.set_show_open(true);
+assert_shortcut("O", "Open");
+
+// "Save" is disabled — shortcut must not fire, then enable and retry
+assert_shortcut("S", "");
+instance.set_save_enabled(true);
+assert_shortcut("S", "Save");
+
+// for-loop items fire, then clear the model and verify they no longer fire
+assert_shortcut("A", "shortcut-0");
+assert_shortcut("B", "shortcut-1");
+instance.set_dynamic_shortcuts(nullptr);
+assert_shortcut("A", "");
+assert_shortcut("B", "");
+```
+
+```js
+var instance = new slint.TestCase();
+const assert_shortcut = (key, expected) => {
+    slintlib.private_api.send_key_combo(instance, ["\u0011", key]);
+    assert.equal(instance.result, expected);
+    instance.result = "";
+};
+
+assert_shortcut("N", "New");
+
+// "Open" is hidden — shortcut must not fire, then show and retry
+assert_shortcut("O", "");
+instance.show_open = true;
+assert_shortcut("O", "Open");
+
+// "Save" is disabled — shortcut must not fire, then enable and retry
+assert_shortcut("S", "");
+instance.save_enabled = true;
+assert_shortcut("S", "Save");
+
+// for-loop items fire, then clear the model and verify they no longer fire
+assert_shortcut("A", "shortcut-0");
+assert_shortcut("B", "shortcut-1");
+instance.dynamic_shortcuts = [];
+assert_shortcut("A", "");
+assert_shortcut("B", "");
+```
+
+*/

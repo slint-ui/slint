@@ -26,20 +26,47 @@ pub struct SubComponentInstanceIdx(usize);
 pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct RepeatedElementIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct GridLayoutChildIdx(usize);
+
+/// Describes one child in a repeated Row template.
+/// Used by code generators to handle any number of interleaved static children and
+/// inner repeaters within a repeated Row in a GridLayout.
+#[derive(Debug, Clone)]
+pub enum RowChildTemplateInfo {
+    /// A static child. `child_index` is an index into `SubComponent::grid_layout_children`.
+    Static { child_index: GridLayoutChildIdx },
+    /// An inner repeated child.
+    Repeated { repeater_index: RepeatedElementIdx },
+}
+
+/// Returns `true` if the optional template list contains at least one inner repeater.
+pub fn has_inner_repeaters(templates: &Option<Vec<RowChildTemplateInfo>>) -> bool {
+    templates
+        .as_ref()
+        .is_some_and(|t| t.iter().any(|e| matches!(e, RowChildTemplateInfo::Repeated { .. })))
+}
+
+/// Count the static children in a template list.
+pub fn static_child_count(templates: &[RowChildTemplateInfo]) -> usize {
+    templates.iter().filter(|e| matches!(e, RowChildTemplateInfo::Static { .. })).count()
+}
 
 #[derive(Debug, Clone)]
 pub struct LayoutRepeatedElement {
     pub repeater_index: RepeatedElementIdx,
-    /// Children count when the repeater contributes multiple children
-    /// (e.g. repeated rows). `None` means a single child per repeater entry.
-    pub repeated_children_count: Option<usize>,
+    /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
+    /// `None` means a single child per repeater entry (no Row with multiple children).
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct GridLayoutRepeatedElement {
     pub new_row: bool,
     pub repeater_index: RepeatedElementIdx,
-    pub repeated_children_count: Option<usize>,
+    /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
+    /// `None` means a single child per repeater entry (no Row with multiple children).
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
 }
 
 impl PropertyIdx {
@@ -241,13 +268,13 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
-    pub viewport_y: LocalMemberReference,
-    pub viewport_height: LocalMemberReference,
-    pub viewport_width: LocalMemberReference,
+    pub viewport_y: MemberReference,
+    pub viewport_height: MemberReference,
+    pub viewport_width: MemberReference,
     /// The ListView's inner visible height (not counting eventual scrollbar)
-    pub listview_height: LocalMemberReference,
+    pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
-    pub listview_width: LocalMemberReference,
+    pub listview_width: MemberReference,
 
     // In the repeated component context
     pub prop_y: MemberReference,
@@ -361,7 +388,7 @@ pub struct SubComponent {
     pub repeated: TiVec<RepeatedElementIdx, RepeatedElement>,
     pub component_containers: Vec<ComponentContainerElement>,
     pub popup_windows: Vec<PopupWindow>,
-    /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupNativeMenuBar
+    /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupMenuBar
     pub menu_item_trees: Vec<ItemTree>,
     pub timers: Vec<Timer>,
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
@@ -384,12 +411,19 @@ pub struct SubComponent {
     pub layout_info_v: MutExpression,
     pub child_of_layout: bool,
     pub grid_layout_input_for_repeated: Option<MutExpression>,
+    /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
+    /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
+    pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
     /// The list of direct grid layout children for a repeated Row.
     /// Used to generate `layout_item_info` which returns layout info for a specific child.
-    pub grid_layout_children: Vec<GridLayoutChildLayoutInfo>,
+    pub grid_layout_children: TiVec<GridLayoutChildIdx, GridLayoutChildLayoutInfo>,
+    /// For repeated Rows with children: template of children in declaration order
+    /// (statics and inner repeaters). Used by code generators to produce
+    /// `grid_layout_input_data` and `layout_item_info`.
+    pub row_child_templates: Option<Vec<RowChildTemplateInfo>>,
 
     /// Maps (item_index, property) to an expression
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
@@ -545,6 +579,9 @@ impl CompilationUnit {
             visitor(&sc.layout_info_h, ctx);
             visitor(&sc.layout_info_v, ctx);
             if let Some(e) = &sc.grid_layout_input_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {

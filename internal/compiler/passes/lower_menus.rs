@@ -534,6 +534,7 @@ fn lower_menu_items(
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
 ) -> Rc<Component> {
+    let in_menubar = parent.borrow().base_type.type_name() == Some("MenuBar");
     let component = Rc::new_cyclic(|component_weak| {
         let root_element = Rc::new(RefCell::new(Element {
             base_type: components.empty.clone(),
@@ -549,6 +550,14 @@ fn lower_menu_items(
                 ));
                 element.borrow_mut().enclosing_component = component_weak.clone();
                 element.borrow_mut().geometry_props = None;
+
+                if !in_menubar && let Some(binding) = element.borrow().bindings.get("shortcut") {
+                    diag.push_error(
+                        "MenuItem shortcuts are currently only supported in the MenuBar".into(),
+                        &*binding.borrow(),
+                    );
+                }
+
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {
                     element.borrow_mut().bindings.insert(
                         "title".into(),
@@ -568,7 +577,7 @@ fn lower_menu_items(
         Component {
             id: SmolStr::default(),
             root_element,
-            parent_element: Rc::downgrade(parent),
+            parent_element: RefCell::new(Rc::downgrade(parent)),
             ..Default::default()
         }
     });

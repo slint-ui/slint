@@ -4,21 +4,28 @@
 //ignore: pyi
 
 export component TestCase inherits Window {
+    property <string> world: "World";
     VerticalLayout {
         s1 := StyledText {
-            text: @markdown("Hello {}", "World");
+            text: @markdown("Hello \{world}");
         }
         s2 := StyledText {
-            text: @markdown("Hello {}", "*World*");
+            text: @markdown("Hello \{"*World*"}");
         }
         s3 := StyledText {
-            text: @markdown("Hello *{}*", "World");
+            text: @markdown("Hello"
+                            " *\{world}*");
         }
         s4 := StyledText {
-            text: @markdown("Hello {}", @markdown("*{}*", "World"));
+            text: @markdown("Hello \{@markdown("*\{world}*")}");
         }
         s5 := StyledText {
-            text: @markdown("*{}* {}", @markdown("**H{}**", "ello"), @markdown("*{}*", "World"));
+            text: @markdown("*\{@markdown("**H\{"ello"}**")}* \{@markdown("*\{world}*")}");
+        }
+        // Regression test for #11321: empty interpolation inside a styled span used to crash parley.
+        s6 := StyledText {
+            text: @markdown("Value : "
+                            "<font color=\"red\">\{""}</font> [\{""}](https://slint.dev)");
         }
     }
 
@@ -31,8 +38,9 @@ export component TestCase inherits Window {
     out property<length> w3: s3.preferred-width;
     out property<length> w4: s4.preferred-width;
     out property<length> w5: s5.preferred-width;
+    out property<length> w6: s6.preferred-width;
 
-    property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 62px;
+    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px;
 }
 
 /*
@@ -46,7 +54,8 @@ assert_eq!(instance.get_w1(), 66.0);
 assert_eq!(instance.get_w2(), 80.0);
 assert_eq!(instance.get_w3(), 64.0);
 assert_eq!(instance.get_w4(), 64.0);
-assert_eq!(instance.get_w5(), 62.0);
+assert_eq!(instance.get_w5(), 65.0);
+assert!(instance.get_test());
 ```
 ```cpp
 auto handle = TestCase::create();
@@ -55,6 +64,7 @@ assert(instance.get_w1() == 66.0);
 assert(instance.get_w2() == 80.0);
 assert(instance.get_w3() == 64.0);
 assert(instance.get_w4() == 64.0);
-assert(instance.get_w5() == 62.0);
+assert(instance.get_w5() == 65.0);
+assert(instance.get_test());
 ```
 */

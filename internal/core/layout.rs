@@ -6,7 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexAlignContent, FlexAlignItems, FlexDirection, LayoutAlignment,
+    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
+    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -16,7 +17,7 @@ use num_traits::Float;
 
 pub use crate::items::Orientation;
 
-/// The constraint that applies to an item
+/// The constraint that applies to a layout
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -464,7 +465,7 @@ pub struct GridLayoutData {
 /// The input data for a cell of a GridLayout, before row/col determination and before H/V split
 /// Used as input to organize_grid_layout()
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct GridLayoutInputData {
     /// whether this cell is the first one in a Row element
     pub new_row: bool,
@@ -477,6 +478,18 @@ pub struct GridLayoutInputData {
     /// Only the u16 range is valid, values outside of that will be clamped with a warning at runtime
     pub colspan: f32,
     pub rowspan: f32,
+}
+
+impl Default for GridLayoutInputData {
+    fn default() -> Self {
+        Self {
+            new_row: false,
+            col: i_slint_common::ROW_COL_AUTO,
+            row: i_slint_common::ROW_COL_AUTO,
+            colspan: 1.0,
+            rowspan: 1.0,
+        }
+    }
 }
 
 /// The organized layout data for a GridLayout, after row/col determination:
@@ -504,7 +517,7 @@ impl GridLayoutOrganizedData {
         // Two-level indirection for repeated items:
         //   jump_pos = (ri_start_cell - cell_nr_adj) * 4
         //   data_base = self[jump_pos]        (base of this repeater's data)
-        //   stride    = step * 4              (computed from repeater_steps)
+        //   stride    = self[jump_pos + 1]    (u16 entries per row = step * 4)
         //   data_idx = data_base + row_in_rep * stride + col_in_rep * 4
         let mut final_idx = 0;
         let mut cell_nr_adj = 0i32; // needs to be signed in case we start with an empty repeater
@@ -527,7 +540,7 @@ impl GridLayoutOrganizedData {
                 let col_in_rep = cell_in_rep % step;
                 let jump_pos = (ri_start_cell - cell_nr_adj) as usize * 4;
                 let data_base = self[jump_pos] as usize;
-                let stride = step as usize * 4;
+                let stride = self[jump_pos + 1] as usize;
                 final_idx = data_base + row_in_rep as usize * stride + col_in_rep as usize * 4;
                 break;
             }
@@ -563,7 +576,7 @@ impl GridLayoutOrganizedData {
 
 /// Two-level indirection organized data generator for grid layouts with repeaters.
 /// Uses 2-level indirection: cache[cache[jump_pos] + ri * stride + col * 4]
-/// Each jump cell stores [data_base, 0, 0, 0] where stride is computed as step * 4.
+/// Each jump cell stores [data_base, stride, 0, 0] where stride = step * 4.
 ///
 /// Layout: [static_cells (4 u16 each)] [jump_cells (4 u16 each, 1 per repeater)]
 ///         [row_data (rep_count * step * 4 u16)] ... (repeated for each repeater)
@@ -615,9 +628,11 @@ impl<'a> OrganizedDataGenerator<'a> {
                 if nr == self.counter {
                     // First cell of this repeater
                     let data_u16_start = self.repeat_u16_offset;
+                    let stride = step * 4;
 
-                    // Write jump cell: [data_base, 0, 0, 0]
+                    // Write jump cell: [data_base, stride, 0, 0]
                     res[self.current_offset * 4] = data_u16_start as _;
+                    res[self.current_offset * 4 + 1] = stride as _;
                     self.current_offset += 1;
                 }
                 if self.counter >= nr {
@@ -964,9 +979,11 @@ impl<'a> GridLayoutCacheGenerator<'a> {
                 if nr == self.counter {
                     // First cell of this repeater
                     let data_f32_start = self.repeat_f32_offset;
+                    let stride = step * 2;
 
-                    // Write jump cell: [data_base, 0]
+                    // Write 1 jump cell (2 f32): [data_base, stride]
                     res[self.current_offset * 2] = data_f32_start as _;
+                    res[self.current_offset * 2 + 1] = stride as _;
                     self.current_offset += 1;
                 }
                 if self.counter >= nr {
@@ -1110,8 +1127,8 @@ pub struct BoxLayoutData<'a> {
 
 #[repr(C)]
 #[derive(Debug)]
-/// The FlexBoxLayoutData is used for a flex layout with wrapping.
-pub struct FlexBoxLayoutData<'a> {
+/// The FlexboxLayoutData is used for a flex layout.
+pub struct FlexboxLayoutData<'a> {
     pub width: Coord,
     pub height: Coord,
     pub spacing_h: Coord,
@@ -1119,38 +1136,79 @@ pub struct FlexBoxLayoutData<'a> {
     pub padding_h: Padding,
     pub padding_v: Padding,
     pub alignment: LayoutAlignment,
-    pub direction: FlexDirection,
-    pub align_content: FlexAlignContent,
-    pub align_items: FlexAlignItems,
+    pub direction: FlexboxLayoutDirection,
+    pub align_content: FlexboxLayoutAlignContent,
+    pub align_items: FlexboxLayoutAlignItems,
+    pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
-    pub cells_h: Slice<'a, LayoutItemInfo>,
+    pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
     /// Vertical constraints (height) for each cell
-    pub cells_v: Slice<'a, LayoutItemInfo>,
+    pub cells_v: Slice<'a, FlexboxLayoutItemInfo>,
 }
 
 #[repr(C)]
-#[derive(Default, Debug, Clone)]
-/// The information about a single item in a layout
-/// For now this only contains the LayoutInfo constraints, but could be extended in the future
+#[derive(Debug, Clone, Default)]
+/// The information about a single item in a box or grid layout
 pub struct LayoutItemInfo {
     pub constraint: LayoutInfo,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+/// The information about a single item in a flexbox layout
+pub struct FlexboxLayoutItemInfo {
+    pub constraint: LayoutInfo,
+    /// Flex grow factor (0 = don't grow, default)
+    pub flex_grow: f32,
+    /// Flex shrink factor (0 = don't shrink, default)
+    pub flex_shrink: f32,
+    /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
+    pub flex_basis: Coord,
+    /// Per-item cross-axis alignment override (Auto = use container's align-items)
+    pub flex_align_self: FlexboxLayoutAlignSelf,
+    /// Visual ordering of flex items (lower values appear first, default 0)
+    pub flex_order: i32,
+}
+
+impl Default for FlexboxLayoutItemInfo {
+    fn default() -> Self {
+        Self {
+            constraint: LayoutInfo::default(),
+            flex_grow: 0.0,
+            flex_shrink: 1.0,
+            flex_basis: -1 as _,
+            flex_align_self: FlexboxLayoutAlignSelf::Auto,
+            flex_order: 0,
+        }
+    }
+}
+
+impl From<LayoutItemInfo> for FlexboxLayoutItemInfo {
+    fn from(info: LayoutItemInfo) -> Self {
+        Self { constraint: info.constraint, ..Default::default() }
+    }
 }
 
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> SharedVector<Coord> {
     let mut result = SharedVector::<Coord>::default();
+    // One element results into two coordinates in the result vector. 1. Position, 2. Size
     result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
 
     if data.cells.is_empty() {
         return result;
     }
 
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let num_spacings = (data.cells.len() - 1) as Coord;
+    let spacings = data.spacing * num_spacings;
+    let content_size = size_without_padding - spacings; // The size the cells can occupy without going outside of the layout
     let mut layout_data: Vec<_> = data
         .cells
         .iter()
         .map(|c| {
-            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100 as Coord);
-            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100 as Coord);
+            let min = c.constraint.min.max(c.constraint.min_percent * content_size / 100 as Coord);
+            let max = c.constraint.max.min(c.constraint.max_percent * content_size / 100 as Coord);
             grid_internal::LayoutData {
                 min,
                 max,
@@ -1161,10 +1219,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
         })
         .collect();
 
-    let size_without_padding = data.size - data.padding.begin - data.padding.end;
     let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
-    let num_spacings = (layout_data.len() - 1) as Coord;
-    let spacings = data.spacing * num_spacings;
 
     let align = match data.alignment {
         LayoutAlignment::Stretch => {
@@ -1239,12 +1294,12 @@ pub fn box_layout_info(
         return info;
     };
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
-    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
+    let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w; // Minimum size of the complete layout
     let max = if is_stretch {
         (cells.iter().map(|c| c.constraint.max).fold(extra_w, Saturating::add)).max(min)
     } else {
         Coord::MAX
-    };
+    }; // Maximum size of the complete layout
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
@@ -1267,26 +1322,26 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexAlignContent, FlexAlignItems, LayoutAlignment, LayoutItemInfo, Padding, Slice,
+        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
+        FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
+        Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
-    use taffy::prelude::{
-        AlignContent, AlignItems, AvailableSpace, Dimension, Display, FlexWrap, LengthPercentage,
-        NodeId, Rect, Size, Style, TaffyTree,
-    };
+    use taffy::prelude::*;
 
     /// Parameters for FlexboxTaffyBuilder::new
-    pub struct FlexBoxLayoutParams<'a> {
-        pub cells_h: &'a Slice<'a, LayoutItemInfo>,
-        pub cells_v: &'a Slice<'a, LayoutItemInfo>,
+    pub struct FlexboxLayoutParams<'a> {
+        pub cells_h: &'a Slice<'a, FlexboxLayoutItemInfo>,
+        pub cells_v: &'a Slice<'a, FlexboxLayoutItemInfo>,
         pub spacing_h: Coord,
         pub spacing_v: Coord,
         pub padding_h: &'a Padding,
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
-        pub align_content: FlexAlignContent,
-        pub align_items: FlexAlignItems,
+        pub align_content: FlexboxLayoutAlignContent,
+        pub align_items: FlexboxLayoutAlignItems,
+        pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
@@ -1297,15 +1352,17 @@ mod flexbox_taffy {
         pub taffy: TaffyTree<()>,
         pub children: Vec<NodeId>,
         pub container: NodeId,
+        /// Maps taffy child position -> original cell index (empty if no reordering needed)
+        pub order_map: Vec<usize>,
     }
 
     impl FlexboxTaffyBuilder {
         /// Create a new flexbox layout tree from item constraints
-        pub fn new(params: FlexBoxLayoutParams) -> Self {
+        pub fn new(params: FlexboxLayoutParams) -> Self {
             let mut taffy = TaffyTree::<()>::new();
 
             // Create child nodes from Slint constraints
-            let children: Vec<NodeId> = params
+            let mut children: Vec<NodeId> = params
                 .cells_h
                 .iter()
                 .enumerate()
@@ -1319,13 +1376,17 @@ mod flexbox_taffy {
                     let preferred_height =
                         v_constraint.map(|vc| vc.preferred_bounded()).unwrap_or(0 as Coord);
 
-                    // flex_basis depends on direction
-                    let flex_basis = match params.flex_direction {
-                        TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                            Dimension::Length(preferred_width as _)
-                        }
-                        TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
-                            Dimension::Length(preferred_height as _)
+                    // flex_basis: use explicit value if set (>= 0), otherwise use preferred size
+                    let flex_basis = if cell_h.flex_basis >= 0 as Coord {
+                        Dimension::length(cell_h.flex_basis as _)
+                    } else {
+                        match params.flex_direction {
+                            TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
+                                Dimension::length(preferred_width as _)
+                            }
+                            TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => {
+                                Dimension::length(preferred_height as _)
+                            }
                         }
                     };
 
@@ -1337,53 +1398,74 @@ mod flexbox_taffy {
                                     TaffyFlexDirection::Column
                                     | TaffyFlexDirection::ColumnReverse => {
                                         if preferred_width > 0 as Coord {
-                                            Dimension::Length(preferred_width as _)
+                                            Dimension::length(preferred_width as _)
                                         } else {
-                                            Dimension::Auto
+                                            Dimension::auto()
                                         }
                                     }
-                                    _ => Dimension::Auto,
+                                    _ => Dimension::auto(),
                                 },
                                 height: match params.flex_direction {
                                     TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
                                         if preferred_height > 0 as Coord {
-                                            Dimension::Length(preferred_height as _)
+                                            Dimension::length(preferred_height as _)
                                         } else {
-                                            Dimension::Auto
+                                            Dimension::auto()
                                         }
                                     }
-                                    _ => Dimension::Auto,
+                                    _ => Dimension::auto(),
                                 },
                             },
                             min_size: Size {
-                                width: Dimension::Length(h_constraint.min as _),
-                                height: Dimension::Length(
+                                width: Dimension::length(h_constraint.min as _),
+                                height: Dimension::length(
                                     v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
                                 ),
                             },
                             max_size: Size {
                                 width: if h_constraint.max < Coord::MAX {
-                                    Dimension::Length(h_constraint.max as _)
+                                    Dimension::length(h_constraint.max as _)
                                 } else {
-                                    Dimension::Auto
+                                    Dimension::auto()
                                 },
                                 height: if let Some(vc) = v_constraint {
                                     if vc.max < Coord::MAX {
-                                        Dimension::Length(vc.max as _)
+                                        Dimension::length(vc.max as _)
                                     } else {
-                                        Dimension::Auto
+                                        Dimension::auto()
                                     }
                                 } else {
-                                    Dimension::Auto
+                                    Dimension::auto()
                                 },
                             },
-                            flex_grow: 0.0,
-                            flex_shrink: 0.0,
+                            flex_grow: cell_h.flex_grow,
+                            flex_shrink: cell_h.flex_shrink,
+                            align_self: match cell_h.flex_align_self {
+                                FlexboxLayoutAlignSelf::Auto => None,
+                                FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
+                                FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
+                                FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
+                                FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
+                            },
                             ..Default::default()
                         })
                         .unwrap() // cannot fail
                 })
                 .collect();
+
+            // Sort children by CSS `order` property if any item has a non-zero order.
+            // Build a mapping from sorted position -> original index.
+            let has_order = params.cells_h.iter().any(|c| c.flex_order != 0);
+            let order_map: Vec<usize> = if has_order {
+                let mut indices: Vec<usize> = (0..children.len()).collect();
+                // sort_by_key is a stable sort, as required by CSS
+                indices.sort_by_key(|&i| params.cells_h.get(i).map_or(0, |c| c.flex_order));
+                let sorted_children: Vec<NodeId> = indices.iter().map(|&i| children[i]).collect();
+                children = sorted_children;
+                indices
+            } else {
+                Vec::new()
+            };
 
             // Create container node
             let container = taffy
@@ -1391,7 +1473,11 @@ mod flexbox_taffy {
                     Style {
                         display: Display::Flex,
                         flex_direction: params.flex_direction,
-                        flex_wrap: FlexWrap::Wrap,
+                        flex_wrap: match params.flex_wrap {
+                            SlintFlexboxLayoutWrap::Wrap => FlexWrap::Wrap,
+                            SlintFlexboxLayoutWrap::NoWrap => FlexWrap::NoWrap,
+                            SlintFlexboxLayoutWrap::WrapReverse => FlexWrap::WrapReverse,
+                        },
                         justify_content: Some(match params.alignment {
                             // Start/End map to FlexStart/FlexEnd to respect flex direction (including reverse)
                             // AlignContent::Start/End would ignore direction and always use writing mode
@@ -1404,36 +1490,39 @@ mod flexbox_taffy {
                             LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         align_items: Some(match params.align_items {
-                            FlexAlignItems::Stretch => AlignItems::Stretch,
-                            FlexAlignItems::Start => AlignItems::FlexStart,
-                            FlexAlignItems::End => AlignItems::FlexEnd,
-                            FlexAlignItems::Center => AlignItems::Center,
+                            FlexboxLayoutAlignItems::Stretch => AlignItems::Stretch,
+                            FlexboxLayoutAlignItems::Start => AlignItems::FlexStart,
+                            FlexboxLayoutAlignItems::End => AlignItems::FlexEnd,
+                            FlexboxLayoutAlignItems::Center => AlignItems::Center,
                         }),
                         align_content: Some(match params.align_content {
-                            FlexAlignContent::Stretch => AlignContent::Stretch,
-                            FlexAlignContent::Start => AlignContent::FlexStart,
-                            FlexAlignContent::End => AlignContent::FlexEnd,
-                            FlexAlignContent::Center => AlignContent::Center,
+                            FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
+                            FlexboxLayoutAlignContent::Start => AlignContent::FlexStart,
+                            FlexboxLayoutAlignContent::End => AlignContent::FlexEnd,
+                            FlexboxLayoutAlignContent::Center => AlignContent::Center,
+                            FlexboxLayoutAlignContent::SpaceBetween => AlignContent::SpaceBetween,
+                            FlexboxLayoutAlignContent::SpaceAround => AlignContent::SpaceAround,
+                            FlexboxLayoutAlignContent::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         gap: Size {
-                            width: LengthPercentage::Length(params.spacing_h as _),
-                            height: LengthPercentage::Length(params.spacing_v as _),
+                            width: LengthPercentage::length(params.spacing_h as _),
+                            height: LengthPercentage::length(params.spacing_v as _),
                         },
                         padding: Rect {
-                            left: LengthPercentage::Length(params.padding_h.begin as _),
-                            right: LengthPercentage::Length(params.padding_h.end as _),
-                            top: LengthPercentage::Length(params.padding_v.begin as _),
-                            bottom: LengthPercentage::Length(params.padding_v.end as _),
+                            left: LengthPercentage::length(params.padding_h.begin as _),
+                            right: LengthPercentage::length(params.padding_h.end as _),
+                            top: LengthPercentage::length(params.padding_v.begin as _),
+                            bottom: LengthPercentage::length(params.padding_v.end as _),
                         },
                         size: Size {
                             width: params
                                 .container_width
-                                .map(|w| Dimension::Length(w as _))
-                                .unwrap_or(Dimension::Auto),
+                                .map(|w| Dimension::length(w as _))
+                                .unwrap_or(Dimension::auto()),
                             height: params
                                 .container_height
-                                .map(|h| Dimension::Length(h as _))
-                                .unwrap_or(Dimension::Auto),
+                                .map(|h| Dimension::length(h as _))
+                                .unwrap_or(Dimension::auto()),
                         },
                         ..Default::default()
                     },
@@ -1441,7 +1530,7 @@ mod flexbox_taffy {
                 )
                 .unwrap(); // cannot fail
 
-            Self { taffy, children, container }
+            Self { taffy, children, container, order_map }
         }
 
         /// Compute the layout with the given available space
@@ -1463,7 +1552,7 @@ mod flexbox_taffy {
                     },
                 )
                 .unwrap_or_else(|e| {
-                    crate::debug_log!("FlexBox layout computation error: {}", e);
+                    crate::debug_log!("FlexboxLayout computation error: {}", e);
                 });
         }
 
@@ -1483,11 +1572,16 @@ mod flexbox_taffy {
                 layout.size.height as Coord,
             )
         }
+
+        /// Map a taffy child index to the original cell index (accounting for `order` sorting).
+        pub fn original_index(&self, taffy_idx: usize) -> usize {
+            if self.order_map.is_empty() { taffy_idx } else { self.order_map[taffy_idx] }
+        }
     }
 }
 
-/// A cache generator for FlexBoxLayout that handles 4 values per item (x, y, width, height)
-struct FlexBoxLayoutCacheGenerator<'a> {
+/// A cache generator for FlexboxLayout that handles 4 values per item (x, y, width, height)
+struct FlexboxLayoutCacheGenerator<'a> {
     // Input
     repeater_indices: &'a [u32],
     // An always increasing counter, the index of the cell being added
@@ -1502,7 +1596,7 @@ struct FlexBoxLayoutCacheGenerator<'a> {
     result: &'a mut SharedVector<Coord>,
 }
 
-impl<'a> FlexBoxLayoutCacheGenerator<'a> {
+impl<'a> FlexboxLayoutCacheGenerator<'a> {
     fn new(repeater_indices: &'a [u32], result: &'a mut SharedVector<Coord>) -> Self {
         // Calculate total repeated cells (count for each repeater)
         let total_repeated_cells: usize = repeater_indices
@@ -1553,10 +1647,10 @@ impl<'a> FlexBoxLayoutCacheGenerator<'a> {
     }
 }
 
-/// Solve a FlexBoxLayout using Taffy
+/// Solve a FlexboxLayout using Taffy
 /// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
 pub fn solve_flexbox_layout(
-    data: &FlexBoxLayoutData,
+    data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
 ) -> SharedVector<Coord> {
     // 4 values per item: x, y, width, height
@@ -1568,10 +1662,10 @@ pub fn solve_flexbox_layout(
     }
 
     let taffy_direction = match data.direction {
-        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
-        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+        FlexboxLayoutDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexboxLayoutDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexboxLayoutDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexboxLayoutDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
     };
 
     let (container_width, container_height) = (
@@ -1579,7 +1673,7 @@ pub fn solve_flexbox_layout(
         if data.height > 0 as Coord { Some(data.height) } else { None },
     );
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
         cells_h: &data.cells_h,
         cells_v: &data.cells_v,
         spacing_h: data.spacing_h,
@@ -1589,29 +1683,49 @@ pub fn solve_flexbox_layout(
         alignment: data.alignment,
         align_content: data.align_content,
         align_items: data.align_items,
+        flex_wrap: data.flex_wrap,
         flex_direction: taffy_direction,
         container_width,
         container_height,
     });
 
     let (available_width, available_height) = match data.direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (data.width, Coord::MAX),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, data.height),
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (data.width, Coord::MAX)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (Coord::MAX, data.height)
+        }
     };
 
     builder.compute_layout(available_width, available_height);
 
-    // Extract results using the cache generator to handle repeaters
-    let mut generator = FlexBoxLayoutCacheGenerator::new(&repeater_indices, &mut result);
-    for idx in 0..data.cells_h.len() {
-        let (x, y, w, h) = builder.child_geometry(idx);
-        generator.add(x, y, w, h);
+    // Extract results using the cache generator to handle repeaters.
+    // If `order` sorting was applied, we need to collect results by original index first,
+    // because the cache generator expects items in their original declaration order.
+    if builder.order_map.is_empty() {
+        let mut generator = FlexboxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        for idx in 0..data.cells_h.len() {
+            let (x, y, w, h) = builder.child_geometry(idx);
+            generator.add(x, y, w, h);
+        }
+    } else {
+        let count = data.cells_h.len();
+        let mut geom = alloc::vec![(0 as Coord, 0 as Coord, 0 as Coord, 0 as Coord); count];
+        for taffy_idx in 0..count {
+            let orig_idx = builder.original_index(taffy_idx);
+            geom[orig_idx] = builder.child_geometry(taffy_idx);
+        }
+        let mut generator = FlexboxLayoutCacheGenerator::new(&repeater_indices, &mut result);
+        for (x, y, w, h) in geom {
+            generator.add(x, y, w, h);
+        }
     }
 
     result
 }
 
-/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexBoxLayout
+/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexboxLayout
 /// This handles both main-axis (simple) and cross-axis (wrapping-aware) cases.
 /// The constraint_size is the perpendicular dimension to orientation:
 /// - For Horizontal orientation: constraint_size is height
@@ -1619,15 +1733,16 @@ pub fn solve_flexbox_layout(
 ///
 /// The constraint_size is ignored for main-axis calculation.
 pub fn flexbox_layout_info(
-    cells_h: Slice<LayoutItemInfo>,
-    cells_v: Slice<LayoutItemInfo>,
+    cells_h: Slice<FlexboxLayoutItemInfo>,
+    cells_v: Slice<FlexboxLayoutItemInfo>,
     spacing_h: Coord,
     spacing_v: Coord,
     padding_h: &Padding,
     padding_v: &Padding,
     orientation: Orientation,
-    direction: FlexDirection,
+    direction: FlexboxLayoutDirection,
     constraint_size: Coord,
+    flex_wrap: FlexboxLayoutWrap,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
@@ -1639,55 +1754,71 @@ pub fn flexbox_layout_info(
         return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
     }
 
-    // Min size is the maximum of any single item (since they can wrap) plus padding
-    let (cells, padding, spacing) = match (direction, orientation) {
-        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
-        | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical) => {
-            (&cells_h, padding_h, spacing_h)
-        }
-        _ => (&cells_v, padding_v, spacing_v),
+    let (cells, padding, spacing) = match orientation {
+        Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
+        Orientation::Vertical => (&cells_v, padding_v, spacing_v),
     };
     let extra_pad = padding.begin + padding.end;
-    let min =
-        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad;
 
     // Determine if we're asking for main-axis or cross-axis
     let is_main_axis = matches!(
         (direction, orientation),
-        (FlexDirection::Row | FlexDirection::RowReverse, Orientation::Horizontal)
-            | (FlexDirection::Column | FlexDirection::ColumnReverse, Orientation::Vertical)
+        (FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse, Orientation::Horizontal)
+            | (
+                FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse,
+                Orientation::Vertical
+            )
     );
 
-    // The main-axis constraint determines how items wrap.
-    // For main-axis queries, use sqrt of total item area as an approximation.
-    // For cross-axis queries, use the provided constraint_size.
-    let main_axis_constraint = if is_main_axis {
-        // constraint_size is not used for the main axis
-        let total_area = cells_h
-            .iter()
-            .map(|c| c.constraint.preferred_bounded())
-            .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
-            .map(|(h, v)| h * v)
-            .sum::<Coord>();
-        let count = cells.len();
-        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) && is_main_axis {
+        // No wrapping: items must all fit in one line, min = sum of minimums + spacing
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>()
+            + spacing * (cells.len().saturating_sub(1)) as Coord
+            + extra_pad
     } else {
+        // Wrapping (or cross-axis): the widest/tallest single item must fit
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+    };
+
+    // The main-axis constraint determines how items wrap.
+    let main_axis_constraint = if is_main_axis {
+        // Note that constraint_size is not used for the main axis
+        if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+            // No wrapping: items won't wrap regardless of size, use max content
+            Coord::MAX
+        } else {
+            // Use sqrt of total item area as an approximation.
+            let total_area = cells_h
+                .iter()
+                .map(|c| c.constraint.preferred_bounded())
+                .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
+                .map(|(h, v)| h * v)
+                .sum::<Coord>();
+            let count = cells.len();
+            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+        }
+    } else {
+        // For cross-axis queries, use the provided constraint_size.
         constraint_size
     };
 
     let taffy_direction = match direction {
-        FlexDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
-        FlexDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
-        FlexDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
-        FlexDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
+        FlexboxLayoutDirection::Row => flexbox_taffy::TaffyFlexDirection::Row,
+        FlexboxLayoutDirection::RowReverse => flexbox_taffy::TaffyFlexDirection::RowReverse,
+        FlexboxLayoutDirection::Column => flexbox_taffy::TaffyFlexDirection::Column,
+        FlexboxLayoutDirection::ColumnReverse => flexbox_taffy::TaffyFlexDirection::ColumnReverse,
     };
 
     let (container_width, container_height) = match direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (Some(main_axis_constraint), None),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (None, Some(main_axis_constraint)),
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (Some(main_axis_constraint), None)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (None, Some(main_axis_constraint))
+        }
     };
 
-    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexBoxLayoutParams {
+    let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
         cells_h: &cells_h,
         cells_v: &cells_v,
         spacing_h,
@@ -1695,16 +1826,21 @@ pub fn flexbox_layout_info(
         padding_h,
         padding_v,
         alignment: LayoutAlignment::Start,
-        align_content: FlexAlignContent::Stretch,
-        align_items: FlexAlignItems::Stretch,
+        align_content: FlexboxLayoutAlignContent::Stretch,
+        align_items: FlexboxLayoutAlignItems::Stretch,
+        flex_wrap,
         flex_direction: taffy_direction,
         container_width,
         container_height,
     });
 
     let (available_width, available_height) = match direction {
-        FlexDirection::Row | FlexDirection::RowReverse => (main_axis_constraint, Coord::MAX),
-        FlexDirection::Column | FlexDirection::ColumnReverse => (Coord::MAX, main_axis_constraint),
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (main_axis_constraint, Coord::MAX)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (Coord::MAX, main_axis_constraint)
+        }
     };
 
     builder.compute_layout(available_width, available_height);
@@ -1843,7 +1979,7 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_solve_flexbox_layout(
-        data: &FlexBoxLayoutData,
+        data: &FlexboxLayoutData,
         repeater_indices: Slice<u32>,
         result: &mut SharedVector<Coord>,
     ) {
@@ -1851,17 +1987,18 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    /// Return LayoutInfo for a FlexBoxLayout with runtime direction support.
+    /// Return LayoutInfo for a FlexboxLayout with runtime direction support.
     pub extern "C" fn slint_flexbox_layout_info(
-        cells_h: Slice<LayoutItemInfo>,
-        cells_v: Slice<LayoutItemInfo>,
+        cells_h: Slice<FlexboxLayoutItemInfo>,
+        cells_v: Slice<FlexboxLayoutItemInfo>,
         spacing_h: Coord,
         spacing_v: Coord,
         padding_h: &Padding,
         padding_v: &Padding,
         orientation: Orientation,
-        direction: FlexDirection,
+        direction: FlexboxLayoutDirection,
         constraint_size: Coord,
+        flex_wrap: FlexboxLayoutWrap,
     ) -> LayoutInfo {
         super::flexbox_layout_info(
             cells_h,
@@ -1873,6 +2010,7 @@ pub(crate) mod ffi {
             orientation,
             direction,
             constraint_size,
+            flex_wrap,
         )
     }
 }
@@ -1948,7 +2086,7 @@ mod tests {
             result.as_slice(),
             &[
                 0, 1, 0, 2, // fixed cell
-                8, 0, 0, 0, // jump cell: data_base=8, stride=4 (step=1, epi=4)
+                8, 4, 0, 0, // jump cell: data_base=8, stride=4 (step=1, epi=4)
                 1, 2, 1, 3, // repeated cell 1
                 1, 1, 2, 4, // repeated cell 2
                 2, 2, 3, 5, // repeated cell 3
@@ -2078,12 +2216,12 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                28, 0, 0, 0, // rep0 jump: data at 28, stride=4 (empty)
+                28, 4, 0, 0, // rep0 jump: data at 28, stride=4 (empty)
                 0, 1, 0, 1, // fixed cell (col=0)
-                28, 0, 0, 0, // rep1 jump: data at 28, stride=4 (4 rows)
+                28, 4, 0, 0, // rep1 jump: data at 28, stride=4 (4 rows)
                 5, 1, 0, 1, // fixed cell (col=5)
-                44, 0, 0, 0, // rep2 jump: data at 44, stride=4 (2 rows)
-                52, 0, 0, 0, // rep3 jump: data at 52, stride=4 (empty)
+                44, 4, 0, 0, // rep2 jump: data at 44, stride=4 (2 rows)
+                52, 4, 0, 0, // rep3 jump: data at 52, stride=4 (empty)
                 8, 1, 0, 1, // fixed cell (col=8)
                 1, 1, 0, 1, // rep1 row 0
                 2, 1, 0, 1, // rep1 row 1
@@ -2156,7 +2294,7 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                4, 0, 0, 0, // jump cell: data at u16 idx 4, stride=8 (=step*4=2*4)
+                4, 8, 0, 0, // jump cell: data at u16 idx 4, stride=8 (=step*4=2*4)
                 0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
                 0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
                 0, 1, 2, 1, 1, 1, 2, 1, // row 2: col 0, col 1
@@ -2215,7 +2353,7 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                2., 0., // jump cell: data at pos 2
+                2., 4., // jump cell: data at pos 2, stride=4 (=step*2=2*2)
                 0., 50., 0., 50., // row 0
                 50., 50., 50., 50., // row 1
                 100., 50., 100., 50., // row 2
@@ -2277,8 +2415,8 @@ mod tests {
         assert_eq!(
             organized_data.as_slice(),
             &[
-                8, 0, 0, 0, // repeater 0 jump: data at 8, stride=8 (=step*4=2*4)
-                32, 0, 0, 0, // repeater 1 jump: data at 32, stride=12 (=step*4=3*4)
+                8, 8, 0, 0, // repeater 0 jump: data at 8, stride=8 (=step*4=2*4)
+                32, 12, 0, 0, // repeater 1 jump: data at 32, stride=12 (=step*4=3*4)
                 // Repeater 0 data
                 0, 1, 0, 1, 1, 1, 0, 1, // row 0: col 0, col 1
                 0, 1, 1, 1, 1, 1, 1, 1, // row 1: col 0, col 1
@@ -2362,8 +2500,8 @@ mod tests {
         assert_eq!(
             layout_cache_v.as_slice(),
             &[
-                4., 0., // repeater 0 jump: data at pos 4
-                16., 0., // repeater 1 jump: data at pos 16
+                4., 4., // repeater 0 jump: data at pos 4, stride=4 (=step*2=2*2)
+                16., 6., // repeater 1 jump: data at pos 16, stride=6 (=step*2=3*2)
                 0., 50., 0., 50., // repeater 0 row 0 data
                 50., 50., 50., 50., // repeater 0 row 1 data
                 100., 50., 100., 50., // repeater 0 row 2 data

@@ -7,7 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::input::{KeyEventType, MouseEvent};
+use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -18,6 +18,7 @@ pub use crate::graphics::{
     Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
     SharedPixelBuffer,
 };
+pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
 
@@ -669,6 +670,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     delta_x: delta_x as _,
                     delta_y: delta_y as _,
+                    phase: TouchPhase::Cancelled,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {
@@ -676,25 +678,23 @@ impl Window {
             }
 
             crate::platform::WindowEvent::KeyPressed { text } => {
-                self.0.process_key_input(crate::input::KeyEvent {
-                    text,
-                    repeat: false,
+                self.0.process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
+                    key_event: crate::input::KeyEvent { text, ..Default::default() },
                     ..Default::default()
                 });
             }
             crate::platform::WindowEvent::KeyPressRepeated { text } => {
-                self.0.process_key_input(crate::input::KeyEvent {
-                    text,
-                    repeat: true,
+                self.0.process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
+                    key_event: crate::input::KeyEvent { text, repeat: true, ..Default::default() },
                     ..Default::default()
                 });
             }
             crate::platform::WindowEvent::KeyReleased { text } => {
-                self.0.process_key_input(crate::input::KeyEvent {
-                    text,
+                self.0.process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyReleased,
+                    key_event: crate::input::KeyEvent { text, ..Default::default() },
                     ..Default::default()
                 });
             }
@@ -804,21 +804,203 @@ impl Window {
 ///
 /// **Note:** Only globals that are exported or re-exported from the main .slint file will
 /// be exposed in the API
+///
+/// # Storing References to Globals
+///
+/// Globals are strong references to the window they are attached to, unless stored in a `Weak`
+/// reference (see the [`StrongHandle`] trait).
+/// This means that if you store a reference to a global, it will keep the entire window alive
+/// and prevent it from being dropped.
+///
+/// To make this less error-prone, when accessing a global from a window, it is initially bound to
+/// the lifetime of the Window it belongs to.
+/// This prevents you from accidentally capturing the global in a callback closure, which
+/// would result in the window never being dropped.
+///
+/// To store references to a global in a callback or Rust struct, you can convert it into
+/// a weak reference using the [`Global::as_weak`] function.
+/// This will also extend the lifetime of the global to `'static`.
+///
+/// Once the window is dropped, upgrading the weak reference will return `None`.
+///
+/// ## Example
+///
+/// ```rust
+/// # i_slint_backend_testing::init_no_event_loop();
+/// slint::slint!{
+/// export global Palette {
+///     in property<color> foreground-color;
+///     in property<color> background-color;
+/// }
+///
+/// export component App inherits Window {
+///    background: Palette.background-color;
+///    // ...
+/// }
+/// }
+///
+/// struct PaletteBackend {
+///     global: slint::Weak<Palette<'static>>,
+/// }
+///
+/// impl PaletteBackend {
+///     fn global(&self) -> Palette<'static> {
+///         self.global.upgrade().expect("The window was dropped, the global is no longer available")
+///     }
+/// }
+///
+/// let app = App::new().unwrap();
+///
+/// let palette_backend = PaletteBackend { global: app.global::<Palette>().as_weak() };
+/// ```
 pub trait Global<'a, Component> {
-    /// Returns a reference that's tied to the life time of the provided component.
+    /// The `Self` type, with a `'static` lifetime.
+    type StaticSelf: 'static + StrongHandle;
+
+    /// Returns a reference to the global.
     fn get(component: &'a Component) -> Self;
+
+    /// Convert this Global reference into a weak reference.
+    ///
+    /// This will also extend the lifetime of this global to `'static`, to allow storing
+    /// the Weak reference in a struct that does not have a lifetime itself.
+    fn as_weak(&self) -> Weak<Self::StaticSelf>;
 }
 
-/// This trait describes the common public API of a strongly referenced Slint component.
-/// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
-/// as other convenience functions.
+/// This trait marks types that hold a strong reference to a Slint component.
 ///
-/// This trait is implemented by the [generated component](index.html#generated-components)
-pub trait ComponentHandle {
+/// The Slint compiler automatically implements this trait for [generated components](index.html#generated-components) and the `'static` variant of [generated Globals](index.html#exported-global-singletons).
+/// Do not try to implement it manually.
+///
+/// All types that implement this trait can be used in a [`Weak`] reference.
+///
+/// > ⚠️ Strong references should not be captured by a lambda given to a callback,
+/// > as this would produce a reference loop and leak the component.
+/// > Instead, the callback function should capture a [`Weak`] reference.
+///
+/// **Example:**
+/// ```
+/// # i_slint_backend_testing::init_no_event_loop();
+/// slint::slint!{
+///     export component App inherits Window {
+///         in-out property <int> counter: 0;
+///         callback do_something;
+///     }
+/// }
+///
+/// let app = App::new().unwrap();
+/// // ⚠️ Incorrect: This will capture a strong reference to the app in the closure,
+/// // which will never be released and leak the app!
+/// app.on_do_something({
+///     let app = app.clone_strong();
+///     move || {
+///         app.set_counter(app.get_counter() + 1);
+///     }
+/// });
+///
+/// // Correct: Use a weak reference to the app, which will be released
+/// // when the app is dropped.
+/// app.on_do_something({
+///     let app = app.as_weak();
+///     move || {
+///         let Some(app) = app.upgrade() else {
+///             return;
+///         };
+///         app.set_counter(app.get_counter() + 1);
+///     }
+/// });
+/// ```
+///
+/// # Common issues
+///
+/// To use a global with a [`Weak`] reference, you need to use the `'static` variant of the Global.
+///
+/// **Example:**
+/// ```
+/// # i_slint_backend_testing::init_no_event_loop();
+/// slint::slint!{
+///    export global MyGlobal {}
+///
+///    export component App inherits Window {}
+/// }
+/// struct MyStruct {
+///    // Use the 'static variant of MyGlobal, which implements
+///    // StrongHandle and can be used in a Weak reference.
+///    global: slint::Weak<MyGlobal<'static>>,
+/// }
+///
+/// let app = App::new().unwrap();
+/// let my_global: MyGlobal = app.global();
+///
+/// let my_struct = MyStruct {
+///     // Calling as_weak() on the global automatically converts it to 'static
+///     global: my_global.as_weak()
+/// };
+/// ```
+///
+/// Otherwise you may encounter issues like this:
+///
+/// ```text
+/// error[E0106]: missing lifetime specifier
+///   --> /path/to/file.rs:10:19
+///    |
+/// 10 |         global: Weak<MyGlobal>,
+///    |                      ^^^^^^^^ expected named lifetime parameter
+///    |
+/// help: consider introducing a named lifetime parameter
+///    |
+///  9 ~     struct MyStruct<'a> {
+/// 10 ~         global: Weak<MyGlobal<'a>>,
+/// ```
+///
+/// The compiler suggests to introduce a lifetime parameter for the struct,
+/// This is not correct - use a `'static` lifetime instead!
+///
+/// Otherwise you will run into the following error:
+///
+/// ```text
+/// error: incompatible lifetime on type
+///   --> /path/to/file.rs:9:10
+///    |
+///  9 |     global: slint::Weak<MyGlobal<'a>>,
+///    |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+///    |
+///note: because this has an unmet lifetime requirement
+///   --> slint/internal/core/api.rs:954:24
+///    |
+///954 |     pub struct Weak<T: StrongHandle> {
+///    |                        ^^^^^^^^^^^^ introduces a `'static` lifetime requirement
+///note: the lifetime `'a` as defined here...
+///   --> /path/to/file.rs:8:17
+///    |
+///  8 | struct MyStruct<'a> {
+///    |                 ^^
+///note: ...does not necessarily outlive the static lifetime introduced by the compatible `impl`
+///   --> /path/to/file.rs:246:6
+///    |
+///246 |      impl slint :: StrongHandle for r#MyGlobal < 'static > {
+/// ```
+pub trait StrongHandle {
     /// The internal Inner type for `Weak<Self>::inner`.
     #[doc(hidden)]
     type WeakInner: Clone + Default;
+
+    /// Internal function used when upgrading a weak reference to a strong one.
+    #[doc(hidden)]
+    fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self>
+    where
+        Self: Sized;
+}
+
+/// This trait describes the common public API of a strongly referenced Slint component.
+/// It allows creating strongly-referenced clones, a conversion into a weak pointer as well
+/// as other convenience functions.
+///
+/// This trait is implemented by the [generated component](index.html#generated-components)
+pub trait ComponentHandle: StrongHandle {
     /// Returns a new weak pointer.
+    // Note: It would be great if we could move this function into the StrongHandle trait. But
+    // that would be a backwards-incompatible change.
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized;
@@ -826,12 +1008,6 @@ pub trait ComponentHandle {
     /// Returns a clone of this handle that's a strong reference.
     #[must_use]
     fn clone_strong(&self) -> Self;
-
-    /// Internal function used when upgrading a weak reference to a strong one.
-    #[doc(hidden)]
-    fn upgrade_from_weak_inner(_: &Self::WeakInner) -> Option<Self>
-    where
-        Self: Sized;
 
     /// Convenience function for [`crate::Window::show()`](struct.Window.html#method.show).
     /// This shows the window on the screen and maintains an extra strong reference while
@@ -865,9 +1041,10 @@ mod weak_handle {
 
     use super::*;
 
-    /// Struct that's used to hold weak references of a [Slint component](index.html#generated-components)
+    /// Struct that's used to hold weak references of a [Slint component or global](index.html#generated-components)
     ///
-    /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
+    /// In order to create a Weak, you should use [`ComponentHandle::as_weak`] or
+    /// [`Global::as_weak`].
     ///
     /// Strong references should not be captured by the functions given to a lambda,
     /// as this would produce a reference loop and leak the component.
@@ -877,13 +1054,13 @@ mod weak_handle {
     /// but the upgrade function will only return a valid component from the same thread
     /// as the one it has been created from.
     /// This is useful to use with [`invoke_from_event_loop()`] or [`Self::upgrade_in_event_loop()`].
-    pub struct Weak<T: ComponentHandle> {
+    pub struct Weak<T: StrongHandle> {
         inner: T::WeakInner,
         #[cfg(feature = "std")]
         thread: std::thread::ThreadId,
     }
 
-    impl<T: ComponentHandle> Default for Weak<T> {
+    impl<T: StrongHandle> Default for Weak<T> {
         fn default() -> Self {
             Self {
                 inner: T::WeakInner::default(),
@@ -893,7 +1070,7 @@ mod weak_handle {
         }
     }
 
-    impl<T: ComponentHandle> Clone for Weak<T> {
+    impl<T: StrongHandle> Clone for Weak<T> {
         fn clone(&self) -> Self {
             Self {
                 inner: self.inner.clone(),
@@ -903,7 +1080,7 @@ mod weak_handle {
         }
     }
 
-    impl<T: ComponentHandle> Weak<T> {
+    impl<T: StrongHandle> Weak<T> {
         #[doc(hidden)]
         pub fn new(inner: T::WeakInner) -> Self {
             Self {
@@ -918,10 +1095,7 @@ mod weak_handle {
         ///
         /// This also returns None if the current thread is not the thread that created
         /// the component
-        pub fn upgrade(&self) -> Option<T>
-        where
-            T: ComponentHandle,
-        {
+        pub fn upgrade(&self) -> Option<T> {
             #[cfg(feature = "std")]
             if std::thread::current().id() != self.thread {
                 return None;
@@ -997,14 +1171,18 @@ mod weak_handle {
     // and the VWeak only use atomic pointer so it is safe to clone and drop in another thread
     #[allow(unsafe_code)]
     #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-    unsafe impl<T: ComponentHandle> Send for Weak<T> {}
+    unsafe impl<T: StrongHandle> Send for Weak<T> {}
     #[allow(unsafe_code)]
     #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
-    unsafe impl<T: ComponentHandle> Sync for Weak<T> {}
+    unsafe impl<T: StrongHandle> Sync for Weak<T> {}
 }
 
 pub use weak_handle::*;
 
+/// This trait provides the necessary functionality for allowing creating strongly-referenced
+/// clones and conversion into a weak pointer for a Global slint component.
+///
+/// This trait is implemented by the [generated component](index.html#generated-components)
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functors will be invoked.
 ///
@@ -1112,6 +1290,9 @@ pub enum PlatformError {
     /// There is already a platform set from another thread.
     SetPlatformError(crate::platform::SetPlatformError),
 
+    /// The operation is not supported by the current platform.
+    Unsupported,
+
     /// Another platform-specific error occurred
     Other(String),
     /// Another platform-specific error occurred.
@@ -1143,6 +1324,9 @@ impl core::fmt::Display for PlatformError {
             }
             PlatformError::SetPlatformError(_) => {
                 f.write_str("The Slint platform was initialized in another thread")
+            }
+            PlatformError::Unsupported => {
+                f.write_str("The operation is not supported by the current platform")
             }
             PlatformError::Other(str) => f.write_str(str),
             #[cfg(feature = "std")]

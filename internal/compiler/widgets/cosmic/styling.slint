@@ -9,20 +9,17 @@ export struct TextStyle {
 }
 
 export global CosmicFontSettings {
-    out property <int> light-font-weight: 300;
-    out property <int> regular-font-weight: 400;
-    out property <int> semibold-font-weight: 600;
     out property <TextStyle> body: {
         font-size: 14 * 0.0769rem,
-        font-weight: regular-font-weight
+        font-weight: FontWeight.normal
     };
     out property <TextStyle> body-strong: {
         font-size: 14 * 0.0769rem,
-        font-weight: semibold-font-weight
+        font-weight: FontWeight.semi-bold
     };
     out property <TextStyle> title: {
         font-size: 24 * 0.0769rem,
-        font-weight: light-font-weight
+        font-weight: FontWeight.light
     };
 }
 
@@ -35,6 +32,15 @@ export global CosmicPalette {
         return color-scheme == ColorScheme.dark;
     }
 
+    pure function accentify(default-color: color) -> color {
+        let accent-color = SlintInternal.accent-color;
+        if (accent-color.alpha > 0) {
+            let lch = default-color.to-oklch();
+            return oklch(lch.lightness, lch.chroma, accent-color.to-oklch().hue);
+        }
+        return default-color;
+    }
+
     // base palette
     out property <brush> background: dark-color-scheme ? #1B1B1B : #D7D7D7;
     out property <brush> foreground: dark-color-scheme ? #C4C4C4 : #292929;
@@ -42,9 +48,9 @@ export global CosmicPalette {
     out property <brush> alternate-foreground: dark-color-scheme ? #DEDEDE : #000000E6;
     out property <brush> control-background: dark-color-scheme ? #262626 : #C7C7C7;
     out property <brush> control-foreground: dark-color-scheme ? #C4C4C4 : #3D3D3D;
-    out property <brush> accent-background: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> accent-background: dark-color-scheme ? accentify(#63D0DF) : accentify(#00525A);
     out property <brush> accent-foreground: dark-color-scheme ? #161616 : #FFFFFF;
-    out property <brush> selection-background: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> selection-background: accent-background;
     out property <brush> selection-foreground: dark-color-scheme ? #161616 : #FFFFFF;
     out property <brush> border: dark-color-scheme ? #C4C4C433 : #29292933;
 
@@ -52,18 +58,18 @@ export global CosmicPalette {
     out property <brush> state-hover: #63636333;
     out property <brush> state-pressed: dark-color-scheme ? #16161680 : #BEBEBE80;
     out property <brush> state-selected: dark-color-scheme ? #4D4D4D4D : #98989833;
-    out property <brush> state-focus: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> state-focus: accent-background;
     out property <brush> alternate-border: dark-color-scheme ? #BEBEBE : #161616;
     out property <brush> control-divider: dark-color-scheme ? #DEDEDE33 : #3D3D3D33;
     out property <brush> shadow: dark-color-scheme ? #00000052 : #00000014;
-    out property <brush> accent-text: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> accent-text: accent-background;
     out property <brush> placeholder-foreground: dark-color-scheme ? #959595 : #585858;
     out property <brush> neutral-5-background: #636363;
     out property <brush> neutral-6-background: dark-color-scheme ? #808080 :#484848;
 
     out property <brush> control-disabled: dark-color-scheme ? #212121 :#cfcfcf;
     out property <brush> text-disabled: dark-color-scheme ? #707070 :#808080;
-    out property <brush> secondary-accent-background: dark-color-scheme ? #51a3ae : #367378;
+    out property <brush> secondary-accent-background: dark-color-scheme ? accentify(#51a3ae) : accentify(#367378);
 
     out property <brush> state: dark-color-scheme ? #ffffff : #000000;
     out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;

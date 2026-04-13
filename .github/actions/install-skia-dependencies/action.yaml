@@ -17,3 +17,11 @@ runs:
           if: runner.os == 'Windows'
           run: rm /usr/bin/link
           shell: bash
+        - name: Unselect homebrew clang to work around https://github.com/actions/runner-images/issues/13827
+          if: runner.os == 'macOS'
+          shell: bash
+          run: |
+              echo "CLANGCC=/usr/bin/clang" >> $GITHUB_ENV
+              echo "CLANGCXX=/usr/bin/clang++" >> $GITHUB_ENV
+              libclang_path=$(xcode-select --print-path)/Toolchains/XcodeDefault.xctoolchain/usr/lib/
+              echo "LIBCLANG_PATH=$libclang_path" >> $GITHUB_ENV

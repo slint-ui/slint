@@ -42,7 +42,7 @@ if (platform === 'win32') {
     assert.strictEqual(style_name, "fluent");
 } else if (platform === 'darwin') {
     assert.strictEqual(os, "macos");
-    assert.strictEqual(style_name, "cupertino");
+    assert(style_name == "cupertino" || style_name == "fluent");
 } else if (platform === 'linux') {
     assert.strictEqual(os, "linux");
     assert(style_name == "qt" || style_name == "fluent");

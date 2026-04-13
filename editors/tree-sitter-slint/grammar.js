@@ -521,7 +521,7 @@ module.exports = grammar({
       seq(
         field("name", choice($.function_call, $.simple_identifier)),
         "=>",
-        field("action", $.imperative_block),
+        field("action", $._binding),
       ),
 
     changed_callback: ($) =>
@@ -529,7 +529,7 @@ module.exports = grammar({
         "changed",
         field("name", $.simple_identifier),
         "=>",
-        field("action", $.imperative_block),
+        field("action", $._binding),
       ),
 
     function_call: ($) =>

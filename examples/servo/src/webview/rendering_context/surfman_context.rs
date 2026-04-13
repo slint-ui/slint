@@ -44,7 +44,7 @@ impl Drop for SurfmanRenderingContext {
 
 impl SurfmanRenderingContext {
     pub fn new(connection: &Connection, adapter: &Adapter) -> Result<Self, Error> {
-        let mut device = connection.create_device(adapter)?;
+        let device = connection.create_device(adapter)?;
 
         let flags = ContextAttributeFlags::ALPHA
             | ContextAttributeFlags::DEPTH

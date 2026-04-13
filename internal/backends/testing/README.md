@@ -112,9 +112,10 @@ export component App {
 #         // ...
 #     }
 # }
-# }
+# } /*
 #[test]
 fn test_basic_user_interface()
+# */
 {
     i_slint_backend_testing::init_no_event_loop();
     let app = App::new().unwrap();
@@ -157,9 +158,13 @@ example wraps the core functions for testing in an async closure:
 ```rust
 
 use slint::platform::PointerEventButton;
+use i_slint_backend_testing::ElementHandle;
 
+# /*
 #[test]
-fn test_click() {
+fn test_click()
+# */
+{
     i_slint_backend_testing::init_integration_test_with_system_time();
 
     slint::spawn_local(async move {
@@ -195,4 +200,77 @@ the event loop is started, and that will start polling the async closure passed 
 
 In this closure we can now call `.await` on the future [`ElementHandle::single_click()`] returns, which
 will keep running the event loop until the click is complete, and then continue with the test function.
+
+## Embedded MCP Server
+
+The testing backend includes an embedded [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)
+server that allows MCP clients — such as Claude Code — to inspect and interact with a running Slint
+application in real time over HTTP.
+
+### Enabling the MCP Server
+
+The MCP server requires the `mcp` Cargo feature on the backend selector crate. Since this feature is
+not exposed through the public `slint` crate, enable it on `i-slint-backend-selector` directly:
+
+```toml
+[dependencies]
+slint = "x.y.z"
+i-slint-backend-selector = { version = "=x.y.z", features = ["mcp"] }
+```
+
+Then set the `SLINT_MCP_PORT` environment variable when running your application:
+
+```sh
+SLINT_MCP_PORT=8080 cargo run -p my-slint-app
+```
+
+The server starts automatically when the backend initializes. If `SLINT_MCP_PORT` is not set,
+the server is not started and there is no runtime overhead.
+
+### Connecting an MCP Client
+
+Once the application is running with the MCP server enabled, connect any MCP client to
+`http://localhost:<port>/mcp` using the Streamable HTTP transport. For example, in Claude Code's
+MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "my-slint-app": {
+      "type": "streamable-http",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+### Available Tools
+
+The MCP server exposes 11 tools for UI introspection and interaction:
+
+| Tool | Description |
+|------|-------------|
+| `list_windows` | List all open windows and their handles |
+| `get_window_properties` | Get window size, position, state, and root element handle |
+| `get_element_tree` | Get a flat list of elements in a subtree with types, IDs, and accessibility info |
+| `get_element_properties` | Get full details of a single element |
+| `find_elements_by_id` | Find elements by qualified ID (e.g. `App::my-button`) |
+| `query_element_descendants` | Search descendants using a query pipeline (by type, ID, or role) |
+| `take_screenshot` | Capture a PNG screenshot of a window |
+| `click_element` | Simulate a mouse click on an element |
+| `invoke_accessibility_action` | Invoke a semantic action (Default, Increment, Decrement, Expand) |
+| `set_element_value` | Set the accessible value of an element (text, slider value, etc.) |
+| `dispatch_key_event` | Send a keyboard event to a window |
+
+### Typical Workflow
+
+1. `list_windows` → discover available windows
+2. `get_window_properties` → get the `rootElementHandle`
+3. `get_element_tree` → explore the UI hierarchy
+4. `query_element_descendants` or `find_elements_by_id` → locate specific elements
+5. `click_element` / `set_element_value` / `invoke_accessibility_action` → interact
+6. `take_screenshot` → verify the visual result
+
+For a detailed description of the architecture and internals, see
+[docs/development/mcp-server.md](../../../docs/development/mcp-server.md).
 

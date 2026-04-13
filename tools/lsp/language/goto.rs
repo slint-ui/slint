@@ -179,7 +179,7 @@ fn test_goto_definition_multi_files() {
         callback xx;
     }
     "#;
-    let (mut dc, url1, diags) = crate::language::test::loaded_document_cache(source1.into());
+    let (dc, url1, diags) = crate::language::test::loaded_document_cache(source1.into());
     for (u, ds) in diags {
         assert_eq!(ds, Vec::new(), "errors in {u}");
     }
@@ -192,24 +192,33 @@ fn test_goto_definition_multi_files() {
     "#,
         url1 = url1.to_file_path().unwrap().display()
     );
+    let mut ctx = crate::language::Context {
+        document_cache: dc,
+        preview_config: Default::default(),
+        server_notifier: crate::ServerNotifier::dummy(),
+        init_param: Default::default(),
+        to_show: None,
+        open_urls: Default::default(),
+        to_preview: std::rc::Rc::new(common::DummyLspToPreview::default()),
+        pending_recompile: Default::default(),
+    };
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
-        None,
+        &mut ctx,
         source2.clone(),
         url2.clone(),
         Some(43),
-        &mut dc,
     ));
     let diag = crate::language::convert_diagnostics(&extra_files, diag, common::ByteFormat::Utf8);
     for (u, ds) in diag {
         assert_eq!(ds, Vec::new(), "errors in {u}");
     }
 
-    let doc2 = dc.get_document(&url2).unwrap().node.clone().unwrap();
+    let doc2 = ctx.document_cache.get_document(&url2).unwrap().node.clone().unwrap();
 
     let offset: TextSize = (source2.find("h := Hello").unwrap() as u32).into();
     let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(8)).unwrap();
     assert_eq!(token.text(), "Hello");
-    let def = goto_definition(&mut dc, token).unwrap();
+    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 1);
@@ -217,7 +226,7 @@ fn test_goto_definition_multi_files() {
     let offset = (source2.find("the_prop: 42").unwrap() as u32).into();
     let token = crate::language::token_at_offset(&doc2, offset).unwrap();
     assert_eq!(token.text(), "the_prop");
-    let def = goto_definition(&mut dc, token).unwrap();
+    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 2);
@@ -226,14 +235,14 @@ fn test_goto_definition_multi_files() {
     // check the string literal
     let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(20)).unwrap();
     assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
-    let def = goto_definition(&mut dc, token).unwrap();
+    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 0);
     // check the identifier
     let token = crate::language::token_at_offset(&doc2, offset).unwrap();
     assert_eq!(token.text(), "Hello");
-    let def = goto_definition(&mut dc, token).unwrap();
+    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 1);
@@ -242,14 +251,14 @@ fn test_goto_definition_multi_files() {
     // check the string literal
     let token = crate::language::token_at_offset(&doc2, offset + TextSize::new(25)).unwrap();
     assert_eq!(token.kind(), i_slint_compiler::parser::SyntaxKind::StringLiteral);
-    let def = goto_definition(&mut dc, token).unwrap();
+    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 0);
     // check the identifier
     let token = crate::language::token_at_offset(&doc2, offset).unwrap();
     assert_eq!(token.text(), "Another");
-    let def = goto_definition(&mut dc, token).unwrap();
+    let def = goto_definition(&mut ctx.document_cache, token).unwrap();
     let link = first_link(&def);
     assert_eq!(link.target_uri, url1);
     assert_eq!(link.target_range.start.line, 7);

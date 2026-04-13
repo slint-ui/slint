@@ -23,7 +23,7 @@ pub mod unsafe_single_threaded;
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
-use crate::items::OperatingSystemType;
+pub use crate::items::OperatingSystemType;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 pub use crate::unsafe_single_threaded::thread_local;
 #[cfg(feature = "std")]
@@ -166,4 +166,8 @@ pub fn detect_operating_system() -> OperatingSystemType {
 /// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
 pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
+}
+
+pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
+    crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }

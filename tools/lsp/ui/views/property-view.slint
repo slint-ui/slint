@@ -49,7 +49,7 @@ export component PropertyView inherits VerticalLayout {
                     spacing: EditorSpaceSettings.default-spacing / 4;
                     Text {
                         text: "id";
-                        font-weight: element-information.id != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight;
+                        font-weight: element-information.id != "" ? FontWeight.normal : FontWeight.thin;
                         font-italic: element-information.id != "" ? false : true;
                         opacity: element-information.id != "" ? 1.0 : 0.5;
                     }

@@ -16,7 +16,7 @@ use bevy::{
         RenderApp, RenderPlugin,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
-        renderer::RenderContext,
+        renderer::{RenderContext, WgpuWrapper},
         settings::RenderCreation,
     },
 };
@@ -29,55 +29,32 @@ pub enum ControlMessage {
     ResizeBuffers { width: u32, height: u32 },
 }
 
-/// Initializes Bevy and Slint, spawns a bevy [`App`], and supplies textures of the rendered scenes via channels.
+/// Initializes Bevy using wgpu resources provided by Slint, spawns a bevy [`App`], and supplies
+/// textures of the rendered scenes via channels.
+///
+/// This function expects Slint to already be initialized with a wgpu-based renderer. The wgpu
+/// `instance`, `device`, and `queue` are obtained from Slint's `GraphicsAPI::WGPU27` in the
+/// rendering notifier callback and passed here.
 ///
 /// Use the `bevy_app_pre_default_plugins_callback` callback to add any plugins to the app before the default plugins.
 /// Use the `bevy_main` callback to add systems, plugins, etc. to your app and call [`App::run()`].
 ///
 /// If successful, this function returns two channels:
-/// - Use the receiver channel to obtain textures for use in the Slint UI. These textures have the scene of your default
-///   camera rendered into.
-/// - Use the [`ControlMessage`] sender channel to return textures that you don't need anymore, as well as to inform the
-///   renderer to resize the texture if needed.
-///
-/// *Note*: At the moment only one single camera is supported.
-pub async fn run_bevy_app_with_slint(
+/// - Use the receiver channel to obtain textures for use in the Slint UI.
+/// - Use the [`ControlMessage`] sender channel to return textures and resize requests.
+pub fn run_bevy_app_with_slint(
+    instance: wgpu::Instance,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
     bevy_app_pre_default_plugins_callback: impl FnOnce(&mut App) + Send + 'static,
     bevy_main: impl FnOnce(App) + Send + 'static,
-) -> Result<
-    (smol::channel::Receiver<wgpu::Texture>, smol::channel::Sender<ControlMessage>),
-    slint::PlatformError,
-> {
-    let backends = wgpu::Backends::from_env().unwrap_or_default();
-
-    let bevy::render::settings::RenderResources(
-        render_device,
-        render_queue,
-        adapter_info,
-        adapter,
-        instance,
-    ) = bevy::render::renderer::initialize_renderer(
-        backends,
-        None,
-        &bevy::render::settings::WgpuSettings::default(),
-    )
-    .await;
-
-    let selector =
-        slint::BackendSelector::new().require_wgpu_27(slint::wgpu_27::WGPUConfiguration::Manual {
-            instance: (**instance.0).clone(),
-            adapter: (**adapter.0).clone(),
-            device: render_device.wgpu_device().clone(),
-            queue: (**render_queue.0).clone(),
-        });
-    selector.select()?;
-
+) -> (smol::channel::Receiver<wgpu::Texture>, smol::channel::Sender<ControlMessage>) {
     let (control_message_sender, control_message_receiver) =
         smol::channel::bounded::<ControlMessage>(2);
     let (bevy_front_buffer_sender, bevy_front_buffer_receiver) =
         smol::channel::bounded::<wgpu::Texture>(2);
 
-    let wgpu_device = render_device.wgpu_device().clone();
+    let wgpu_device = device.clone();
 
     let create_texture = move |label, width, height| {
         wgpu_device.create_texture(&wgpu::TextureDescriptor {
@@ -102,11 +79,29 @@ pub async fn run_bevy_app_with_slint(
     let mut buffer_width = 640;
     let mut buffer_height = 480;
 
+    // Construct Bevy render resources from Slint's wgpu resources.
+    // We need an Adapter for RenderAdapter and RenderAdapterInfo.
+    let adapter = spin_on::spin_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::default(),
+        force_fallback_adapter: false,
+        compatible_surface: None,
+    }))
+    .expect("Failed to find adapter for Bevy");
+
+    let render_device: bevy::render::renderer::RenderDevice = device.into();
+    let render_queue =
+        bevy::render::renderer::RenderQueue(std::sync::Arc::new(WgpuWrapper::new(queue)));
+    let render_adapter_info =
+        bevy::render::renderer::RenderAdapterInfo(WgpuWrapper::new(adapter.get_info()));
+    let render_adapter =
+        bevy::render::renderer::RenderAdapter(std::sync::Arc::new(WgpuWrapper::new(adapter)));
+    let render_instance =
+        bevy::render::renderer::RenderInstance(std::sync::Arc::new(WgpuWrapper::new(instance)));
+
     let _bevy_thread = std::thread::spawn(move || {
         let runner = move |mut app: bevy::app::App| {
             app.finish();
             app.cleanup();
-
             let mut next_texture_view_id: u32 = 0;
 
             loop {
@@ -174,9 +169,9 @@ pub async fn run_bevy_app_with_slint(
             render_creation: RenderCreation::manual(
                 render_device,
                 render_queue,
-                adapter_info,
-                adapter,
-                instance,
+                render_adapter_info,
+                render_adapter,
+                render_instance,
             ),
             ..default()
         }));
@@ -196,7 +191,7 @@ pub async fn run_bevy_app_with_slint(
         .send_blocking(ControlMessage::ReleaseFrontBufferTexture { texture: front_buffer })
         .unwrap();
 
-    Ok((bevy_front_buffer_receiver, control_message_sender))
+    (bevy_front_buffer_receiver, control_message_sender)
 }
 
 #[derive(Resource, Deref)]

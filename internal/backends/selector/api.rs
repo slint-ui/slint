@@ -307,11 +307,11 @@ impl BackendSelector {
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
             #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
             "linuxkms" => {
-                if self.requested_graphics_api.is_some() {
-                    return Err("The linuxkms backend does not implement renderer selection by graphics API".into());
-                }
-
                 let mut builder = i_slint_backend_linuxkms::BackendBuilder::default();
+
+                if let Some(api) = self.requested_graphics_api.take() {
+                    builder = builder.request_graphics_api(api);
+                }
 
                 if let Some(renderer_name) = self.renderer.as_ref() {
                     builder = builder.with_renderer_name(renderer_name.into());

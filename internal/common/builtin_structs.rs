@@ -26,7 +26,6 @@
 /// i_slint_common::for_each_builtin_structs!(print_builtin_structs);
 /// ```
 #[macro_export]
-#[allow(clippy::crate_in_macro_def)] // Intentional: this macro is consumed in crates where `crate::animations::Instant` must resolve in the caller.
 macro_rules! for_each_builtin_structs {
     ($macro:ident) => {
         $macro![
@@ -91,7 +90,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
             struct KeyEvent {
-                @name = BuiltinPrivateStruct::KeyEvent,
+                @name = BuiltinPublicStruct::KeyEvent,
                 export {
                     /// The unicode representation of the key pressed.
                     text: SharedString,
@@ -102,19 +101,6 @@ macro_rules! for_each_builtin_structs {
                     repeat: bool,
                 }
                 private {
-                    /// Indicates whether the key was pressed or released
-                    event_type: KeyEventType,
-                    /// If the event type is KeyEventType::UpdateComposition or KeyEventType::CommitComposition,
-                    /// then this field specifies what part of the current text to replace.
-                    /// Relative to the offset of the pre-edit text within the text input element's text.
-                    replacement_range: Option<core::ops::Range<i32>>,
-                    /// If the event type is KeyEventType::UpdateComposition, this is the new pre-edit text
-                    preedit_text: SharedString,
-                    /// The selection within the preedit_text
-                    preedit_selection: Option<core::ops::Range<i32>>,
-                    /// The new cursor position, when None, the cursor is put after the text that was just inserted
-                    cursor_position: Option<i32>,
-                    anchor_position: Option<i32>,
                 }
             }
 
@@ -165,22 +151,6 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
-            /// Value of the state property
-            /// A state is just the current state, but also has information about the previous state and the moment it changed
-            struct StateInfo {
-                @name = BuiltinPrivateStruct::StateInfo,
-                export {
-                    /// The current state value
-                    current_state: i32,
-                    /// The previous state
-                    previous_state: i32,
-                }
-                private {
-                    /// The instant in which the state changed last
-                    change_time: crate::animations::Instant,
-                }
-            }
-
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
                 @name = BuiltinPrivateStruct::FontMetrics,
@@ -211,7 +181,7 @@ macro_rules! for_each_builtin_structs {
                     icon: Image,
                     /// an opaque id that can be used to identify the menu entry
                     id: SharedString,
-                    // keyboard_shortcut: KeySequence,
+                    // keys: KeySequence,
                     /// whether the menu entry is enabled
                     enabled: bool,
                     /// whether the menu entry is checkable
@@ -222,6 +192,8 @@ macro_rules! for_each_builtin_structs {
                     has_sub_menu: bool,
                     /// The menu entry is a separator
                     is_separator: bool,
+                    /// The shortcut keys
+                    shortcut: Keys,
                 }
                 private {}
             }

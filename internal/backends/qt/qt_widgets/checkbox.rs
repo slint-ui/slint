@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::input::{FocusEventResult, KeyEventType};
+use i_slint_core::input::{FocusEventResult, InternalKeyEvent, KeyEventType};
 use i_slint_core::platform::PointerEventButton;
 
 use super::*;
@@ -23,7 +23,8 @@ pub struct NativeCheckBox {
 
 impl Item for NativeCheckBox {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
             return make_unique_animated_widget<QCheckBox>(animation_tracker_property_ptr);
         }})
@@ -72,7 +73,7 @@ impl Item for NativeCheckBox {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
-        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardEvent
     }
 
@@ -84,7 +85,7 @@ impl Item for NativeCheckBox {
         _: &mut MouseCursor,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
-            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+            Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -95,8 +96,8 @@ impl Item for NativeCheckBox {
                 if *button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geo.size).contains(*position)
                 {
-                    Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
-                    Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
+                    Self::FIELD_OFFSETS.checked().apply_pin(self).set(!self.checked());
+                    Self::FIELD_OFFSETS.toggled().apply_pin(self).call(&())
                 }
                 InputEventResult::EventAccepted
             }
@@ -106,7 +107,6 @@ impl Item for NativeCheckBox {
             | MouseEvent::Wheel { .. }
             | MouseEvent::PinchGesture { .. }
             | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. }
             | MouseEvent::DragMove(_) => InputEventResult::EventIgnored,
             // Make sure that generally mouse events are accepted, so that the hover state is
             // correctly updated
@@ -118,7 +118,7 @@ impl Item for NativeCheckBox {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -127,14 +127,16 @@ impl Item for NativeCheckBox {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         match event.event_type {
-            KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
-                Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
-                Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&());
+            KeyEventType::KeyPressed
+                if event.key_event.text == " " || event.key_event.text == "\n" =>
+            {
+                Self::FIELD_OFFSETS.checked().apply_pin(self).set(!self.checked());
+                Self::FIELD_OFFSETS.toggled().apply_pin(self).call(&());
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
@@ -153,7 +155,7 @@ impl Item for NativeCheckBox {
     ) -> FocusEventResult {
         if self.enabled() {
             Self::FIELD_OFFSETS
-                .has_focus
+                .has_focus()
                 .apply_pin(self)
                 .set(matches!(event, FocusEvent::FocusIn(_)));
             FocusEventResult::FocusAccepted
@@ -218,7 +220,7 @@ impl Item for NativeCheckBox {
 
 impl ItemConsts for NativeCheckBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

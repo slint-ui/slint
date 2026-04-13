@@ -1,18 +1,25 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test that items below a FlexBoxLayout move down when the width decreases
-// i.e. even a VerticalLayout ends up having a "height for width" behavior
+// Test that items below a FlexboxLayout move down when the width decreases
+// i.e. even a VerticalLayout ends up having a "height for width" behavior.
+// Starts wide (all items on one row), then switches to narrow (items wrap into a column).
 
 export component TestCase inherits Window {
     background: white;
-    width: 150px;
-    height: 500px;
+
+    property <length> width_wide: 400px;
+    property <length> height_wide: 500px;
+    property <length> width_narrow: 150px;
+    property <length> height_narrow: 500px;
+
+    width: width_wide;
+    height: height_wide;
 
     VerticalLayout {
         spacing: 0px;
 
-        FlexBoxLayout {
+        FlexboxLayout {
             spacing: 10px;
             vertical-stretch: 0;
 
@@ -40,30 +47,53 @@ export component TestCase inherits Window {
 
         Rectangle {
             vertical-stretch: 1;
+            // Interactive testing, not used by the test framework
+            TouchArea {
+                clicked => {
+                    root.width = root.width == width_narrow ? width_wide : width_narrow;
+                    root.height = root.height == height_narrow ? height_wide : height_narrow;
+                }
+            }
         }
     }
 
-    // Check positions:
-    // All flexbox's item are laid out vertically (150px width for 100px items)
-    // and "text" should be below them (that's the main point of this test)
-    out property <bool> test_r1_x: r1.x == 0px;
-    out property <bool> test_r1_y: r1.y == 0px;
-    out property <bool> test_r2_x: r2.x == 0px;
-    out property <bool> test_r2_y: r2.y == 60px;
-    out property <bool> test_r3_x: r3.x == 0px;
-    out property <bool> test_r3_y: r3.y == 120px;
-    out property <bool> test_text_x: text.x == 0px;
-    out property <bool> test_text_y: text.y == 170px;
-    out property <int> test_text_y_debug: text.y / 1px;
+    // --- Wide state: all items fit on one row ---
+    out property <bool> wide_r1_ok: r1.x == 0px && r1.y == 0px;
+    out property <bool> wide_r2_ok: r2.x == 110px && r2.y == 0px;
+    out property <bool> wide_r3_ok: r3.x == 220px && r3.y == 0px;
+    out property <bool> wide_text_ok: text.x == 0px && text.y == 50px;
+    out property <bool> wide_ok: wide_r1_ok && wide_r2_ok && wide_r3_ok && wide_text_ok;
 
-    out property <bool> test:
-        test_r1_x && test_r1_y && test_r2_x && test_r2_y && test_r3_x && test_r3_y && test_text_x && test_text_y;
+    // --- Narrow state: each item gets its own row ---
+    out property <bool> narrow_r1_ok: r1.x == 0px && r1.y == 0px;
+    out property <bool> narrow_r2_ok: r2.x == 0px && r2.y == 60px;
+    out property <bool> narrow_r3_ok: r3.x == 0px && r3.y == 120px;
+    out property <bool> narrow_text_ok: text.x == 0px && text.y == 170px;
+    out property <bool> narrow_ok: narrow_r1_ok && narrow_r2_ok && narrow_r3_ok && narrow_text_ok;
+
+    init => {
+        root.init-called = true;
+        if !wide_ok {
+            root.error = "wide state failed: r1=" + (r1.x / 1px) + "," + (r1.y / 1px)
+                + " r2=" + (r2.x / 1px) + "," + (r2.y / 1px)
+                + " r3=" + (r3.x / 1px) + "," + (r3.y / 1px)
+                + " text.y=" + (text.y / 1px);
+        }
+        root.width = width_narrow;
+        root.height = height_narrow;
+    }
+    out property <string> error;
+    out property <bool> init-called;
+    out property <int> test_text_y_debug: text.y / 1px;
+    out property <bool> test: init-called && error == "" && narrow_ok;
 }
 
 /*
+
 ```cpp
 auto handle = TestCase::create();
-assert(handle->get_test());
+const TestCase &instance = *handle;
+assert(instance.get_test());
 ```
 
 

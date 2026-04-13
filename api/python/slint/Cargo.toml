@@ -22,7 +22,7 @@ name = "stub-gen"
 path = "stub-gen/main.rs"
 
 [features]
-default = ["backend-winit", "renderer-femtovg", "renderer-software", "backend-qt", "accessibility"]
+default = ["backend-winit", "renderer-femtovg", "renderer-software", "accessibility"]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/node/Cargo.toml
 # binaries: default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
@@ -55,6 +55,9 @@ spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 pyo3-stub-gen = { version = "0.18.0", default-features = false }
 smol = { version = "2.0.0" }
+
+[build-dependencies]
+i-slint-common = { workspace = true }
 
 [package.metadata.maturin]
 python-source = "slint"

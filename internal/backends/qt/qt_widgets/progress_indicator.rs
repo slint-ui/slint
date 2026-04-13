@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::input::{FocusEventResult, InternalKeyEvent};
 
 use super::*;
 
@@ -18,7 +18,8 @@ pub struct NativeProgressIndicator {
 
 impl Item for NativeProgressIndicator {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(
             cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
                 return make_unique_animated_widget<QProgressBar>(animation_tracker_property_ptr);
@@ -36,7 +37,7 @@ impl Item for NativeProgressIndicator {
     ) -> LayoutInfo {
         let indeterminate = self.indeterminate();
         let progress =
-            if indeterminate { 0 } else { (self.progress().max(0.0).min(1.0) * 100.) as i32 };
+            if indeterminate { 0 } else { (self.progress().clamp(0.0, 1.0) * 100.) as i32 };
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
@@ -94,7 +95,7 @@ impl Item for NativeProgressIndicator {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -103,7 +104,7 @@ impl Item for NativeProgressIndicator {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -121,7 +122,7 @@ impl Item for NativeProgressIndicator {
 
     fn_render! { this dpr size painter widget initial_state =>
         let indeterminate = this.indeterminate();
-        let progress = if indeterminate { -1 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
+        let progress = if indeterminate { -1 } else { (this.progress().clamp(0.0, 1.0) * 100.) as i32 };
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -160,7 +161,7 @@ impl Item for NativeProgressIndicator {
 
 impl ItemConsts for NativeProgressIndicator {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

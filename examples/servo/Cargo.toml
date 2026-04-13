@@ -44,8 +44,8 @@ wgpu-core = "28.0.0"
 wgpu = { version = "28.0.0", features = ["metal"] }
 
 surfman = { version = "0.11.0", features = ["chains"] }
-libservo = { git = "https://github.com/servo/servo", tag = "v0.0.5" }
-embedder_traits = { git = "https://github.com/servo/servo", tag = "v0.0.5", features = ["baked-default-resources"] }
+# Temporarily pinned until the next release to crates.io to fix seaquery build
+servo = { git = "https://github.com/servo/servo", rev = "34337273a36d5e0e67d429039987c785f9f7c7fc" }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"
@@ -54,7 +54,7 @@ ash = "0.38.0"
 slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-28"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-28"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-28", "renderer-femtovg-wgpu"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 metal = "0.33.0"

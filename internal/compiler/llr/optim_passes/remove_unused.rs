@@ -298,10 +298,12 @@ mod visitor {
             layout_info_v,
             child_of_layout: _,
             grid_layout_input_for_repeated,
+            flexbox_layout_item_info_for_repeated,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
             element_infos: _,
+            row_child_templates: _,
             prop_analysis,
         }: &mut SubComponent,
         state: &VisitorState,
@@ -331,11 +333,11 @@ mod visitor {
             }
 
             if let Some(listview) = listview {
-                visit_local_member_reference(&mut listview.viewport_y, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.viewport_height, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.viewport_width, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.listview_width, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.listview_height, &scope, state, visitor);
+                visit_member_reference(&mut listview.viewport_y, &scope, state, visitor);
+                visit_member_reference(&mut listview.viewport_height, &scope, state, visitor);
+                visit_member_reference(&mut listview.viewport_width, &scope, state, visitor);
+                visit_member_reference(&mut listview.listview_width, &scope, state, visitor);
+                visit_member_reference(&mut listview.listview_height, &scope, state, visitor);
 
                 visit_member_reference(&mut listview.prop_y, &inner_scope, state, visitor);
                 visit_member_reference(&mut listview.prop_height, &inner_scope, state, visitor);
@@ -384,6 +386,9 @@ mod visitor {
         visit_expression(layout_info_h.get_mut(), &scope, state, visitor);
         visit_expression(layout_info_v.get_mut(), &scope, state, visitor);
         if let Some(e) = grid_layout_input_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = flexbox_layout_item_info_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {

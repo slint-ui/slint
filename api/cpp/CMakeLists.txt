@@ -74,7 +74,6 @@ endfunction()
 # defaults need to be kept in sync with the Rust bit (cpp/Cargo.toml and cbindgen.rs)
 
 define_cargo_feature(freestanding "Enable use of freestanding environment. This is only for bare-metal systems. Most other features are incompatible with this one" OFF)
-define_cargo_feature(libm "This feature enables floating point arithmetic emulation using the libm crate. Use this in MCU environments where the processor does not support floating point arithmetic." OFF)
 
 # Compat options (must be declared after the STD feature, but before the other renderer features)
 function(define_renderer_winit_compat_option renderer)
@@ -107,11 +106,7 @@ define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia
 define_cargo_feature(renderer-software "Enable support for the software renderer" ON)
 define_cargo_feature(software-renderer-path "Enable support for Path element rendering with the software renderer. This is implicitly enabled when SLINT_FEATURE_FREESTANDING is OFF. Enable this in bare-metal environments if you need support for Path elements" OFF)
 
-set(SLINT_BACKEND_QT_DEFAULT OFF)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-  set(SLINT_BACKEND_QT_DEFAULT ON)
-endif()
-define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ${SLINT_BACKEND_QT_DEFAULT} "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" OFF "NOT SLINT_FEATURE_FREESTANDING")
 
 define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-linuxkms-noseat "Enable support for the backend that renders a single window fullscreen on Linux" OFF "NOT SLINT_FEATURE_FREESTANDING")
@@ -273,26 +268,29 @@ if (SLINT_BUILD_RUNTIME)
         )
     endif()
 
-    if(SLINT_FEATURE_FREESTANDING)
-        set(SLINT_STYLE_DEFAULT "fluent")
-    elseif(ANDROID)
-        set(SLINT_STYLE_DEFAULT "material")
-    elseif(WIN32)
-        set(SLINT_STYLE_DEFAULT "fluent")
-    elseif(APPLE)
-        set(SLINT_STYLE_DEFAULT "cupertino")
-    elseif (SLINT_FEATURE_BACKEND_QT AND TARGET Qt::qmake)
-        set(SLINT_STYLE_DEFAULT "qt")
-    else ()
-        set(SLINT_STYLE_DEFAULT "fluent")
-    endif()
-
     set(SLINT_STYLE "" CACHE STRING "The Slint Widget Style")
 
-    if(SLINT_STYLE AND NOT SLINT_STYLE STREQUAL "native")
-        set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
+    if(SLINT_STYLE)
+        if(SLINT_STYLE STREQUAL "native")
+            if(SLINT_FEATURE_FREESTANDING)
+                set(SLINT_NATIVE_STYLE "fluent")
+            elseif(ANDROID)
+                set(SLINT_NATIVE_STYLE "material")
+            elseif(WIN32)
+                set(SLINT_NATIVE_STYLE "fluent")
+            elseif(APPLE)
+                set(SLINT_NATIVE_STYLE "cupertino")
+            elseif (SLINT_FEATURE_BACKEND_QT AND TARGET Qt::qmake)
+                set(SLINT_NATIVE_STYLE "qt")
+            else ()
+                set(SLINT_NATIVE_STYLE "fluent")
+            endif()
+            set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_NATIVE_STYLE})
+        else()
+            set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
+        endif()
     else()
-        set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE_DEFAULT})
+        set_property(GLOBAL PROPERTY SLINT_STYLE "fluent")
     endif()
 
     # Build environments such as buildroot set PKG_CONFIG_SYSROOT_DIR in their toolchain file
@@ -372,36 +370,31 @@ if (SLINT_BUILD_RUNTIME)
     endforeach()
 
     set(generated_headers
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_platform_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_timer_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_events_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_brush_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_structs.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_structs_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_color_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_enums.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_enums_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_generated_public.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_image_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_pathdata_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_platform_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_properties_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_qt_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_sharedvector_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_string_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_timer_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_events_internal.h
     )
 
     if(SLINT_FEATURE_INTERPRETER)
         list(APPEND generated_headers
-            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
-            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
+            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_interpreter_internal.h
+            ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_interpreter_generated_public.h
         )
     endif()
-
-
-    foreach(header IN LISTS generated_headers)
-        set_property(TARGET Slint APPEND PROPERTY PUBLIC_HEADER ${header})
-    endforeach()
 
     target_include_directories(Slint INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated_include>
@@ -420,6 +413,8 @@ if (SLINT_BUILD_RUNTIME)
     install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
     install(TARGETS Slint slint_cpp
         EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+    install(DIRECTORY include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
 
     install(FILES $<TARGET_FILE:${slint_cpp_impl}> TYPE LIB)
 

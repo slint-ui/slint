@@ -16,7 +16,7 @@ use i_slint_core::accessibility::{
 };
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::component_factory::ComponentFactory;
-use i_slint_core::input::KeyboardShortcut;
+use i_slint_core::input::Keys;
 use i_slint_core::item_tree::{
     IndexRange, ItemRc, ItemTree, ItemTreeNode, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable,
     ItemTreeWeak, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
@@ -133,7 +133,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        let is_repeated = s.description.original.parent_element.upgrade().is_some_and(|p| {
+        let is_repeated = s.description.original.parent_element().is_some_and(|p| {
             p.borrow().repeated.as_ref().is_some_and(|r| !r.is_conditional_element)
         });
         if is_repeated {
@@ -205,6 +205,46 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         }
 
         LayoutItemInfo { constraint: self.borrow().as_ref().layout_info(o) }
+    }
+
+    fn flexbox_layout_item_info(
+        self: Pin<&Self>,
+        o: Orientation,
+        child_index: Option<usize>,
+    ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
+        generativity::make_guard!(guard);
+        let s = self.unerase(guard);
+        let instance_ref = s.borrow_instance();
+        let root_element = &s.description.original.root_element;
+
+        let load_f32 = |name: &str| -> f32 {
+            eval::load_property(instance_ref, root_element, name)
+                .ok()
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(0.0)
+        };
+
+        let flex_grow = load_f32("flex-grow");
+        let flex_shrink = load_f32("flex-shrink");
+        let flex_basis = if root_element.borrow().bindings.contains_key("flex-basis") {
+            load_f32("flex-basis")
+        } else {
+            -1.0
+        };
+        let flex_align_self = eval::load_property(instance_ref, root_element, "flex-align-self")
+            .ok()
+            .and_then(|v| v.try_into().ok())
+            .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::Auto);
+        let flex_order = load_f32("flex-order") as i32;
+
+        i_slint_core::layout::FlexboxLayoutItemInfo {
+            constraint: self.layout_item_info(o, child_index).constraint,
+            flex_grow,
+            flex_shrink,
+            flex_basis,
+            flex_align_self,
+            flex_order,
+        }
     }
 }
 
@@ -812,6 +852,7 @@ fn ensure_repeater_updated<'id>(
         .item_tree_to_repeat
         .original
         .parent_element
+        .borrow()
         .upgrade()
         .unwrap()
         .borrow()
@@ -872,10 +913,7 @@ pub async fn load(
     mut compiler_config: CompilerConfiguration,
 ) -> CompilationResult {
     // If the native style should be Qt, resolve it here as we know that we have it
-    let is_native = match &compiler_config.style {
-        Some(s) => s == "native",
-        None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
-    };
+    let is_native = compiler_config.style.as_deref() == Some("native");
     if is_native {
         // On wasm, look at the browser user agent
         #[cfg(target_arch = "wasm32")]
@@ -1033,9 +1071,9 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<BorderRectangle>(),
             rtti_for::<TouchArea>(),
             rtti_for::<FocusScope>(),
-            rtti_for::<Shortcut>(),
+            rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
-            rtti_for::<PinchGestureHandler>(),
+            rtti_for::<ScaleRotateGestureHandler>(),
             rtti_for::<Path>(),
             rtti_for::<Flickable>(),
             rtti_for::<WindowItem>(),
@@ -1301,7 +1339,7 @@ pub(crate) fn generate_item_tree<'id>(
                     i_slint_common::for_each_enums!(match_enum_type)
                 }
             }
-            Type::KeyboardShortcutType => property_info::<KeyboardShortcut>(),
+            Type::Keys => property_info::<Keys>(),
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::ArrayOfU16 => property_info::<SharedVector<u16>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
@@ -1335,7 +1373,7 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
-    if let Some(parent_element) = component.parent_element.upgrade()
+    if let Some(parent_element) = component.parent_element()
         && let Some(r) = &parent_element.borrow().repeated
         && !r.is_conditional_element
     {
@@ -1345,8 +1383,10 @@ pub(crate) fn generate_item_tree<'id>(
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
 
-        let model_ty =
-            Expression::RepeaterModelReference { element: component.parent_element.clone() }.ty();
+        let model_ty = Expression::RepeaterModelReference {
+            element: component.parent_element.borrow().clone(),
+        }
+        .ty();
         let (prop, type_info) =
             property_info_for_type(&model_ty, SPECIAL_PROPERTY_MODEL_DATA).unwrap();
         custom_properties.insert(
@@ -1355,12 +1395,11 @@ pub(crate) fn generate_item_tree<'id>(
         );
     }
 
-    let parent_item_tree_offset =
-        if component.parent_element.upgrade().is_some() || is_popup_menu_impl {
-            Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
-        } else {
-            None
-        };
+    let parent_item_tree_offset = if component.parent_element().is_some() || is_popup_menu_impl {
+        Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
+    } else {
+        None
+    };
 
     let root_offset = builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>();
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
@@ -1379,7 +1418,7 @@ pub(crate) fn generate_item_tree<'id>(
         .collect();
 
     // only the public exported component needs the public property list
-    let public_properties = if component.parent_element.upgrade().is_none() {
+    let public_properties = if component.parent_element().is_none() {
         component.root_element.borrow().property_declarations.clone()
     } else {
         Default::default()
@@ -1636,6 +1675,29 @@ pub fn instantiate(
         unsafe {
             let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(p.offset));
             p.prop.set(item, eval::default_value_for_type(&decl.property_type), None).unwrap();
+        }
+    }
+
+    #[cfg(slint_debug_property)]
+    {
+        let component_id = description.original.id.as_str();
+
+        // Set debug names on custom (root element) properties
+        for (prop_name, prop_info) in &description.custom_properties {
+            let name = format!("{}.{}", component_id, prop_name);
+            unsafe {
+                let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(prop_info.offset));
+                prop_info.prop.set_debug_name(item, name);
+            }
+        }
+
+        // Set debug names on built-in item properties
+        for (item_name, item_within_component) in &description.items {
+            let item = unsafe { item_within_component.item_from_item_tree(instance_ref.as_ptr()) };
+            for (prop_name, prop_rtti) in &item_within_component.rtti.properties {
+                let name = format!("{}::{}.{}", component_id, item_name, prop_name);
+                prop_rtti.set_debug_name(item, name);
+            }
         }
     }
 
@@ -2152,6 +2214,7 @@ unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWea
                 .description
                 .original
                 .parent_element
+                .borrow()
                 .upgrade()
                 .and_then(|e| e.borrow().item_index.get().cloned())
                 .unwrap_or(u32::MAX);

@@ -124,22 +124,11 @@ component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
     in property <styled-text> text;
-    in property <length> font-size;
-    in property <int> font-weight;
-    in property <brush> color;
+    in property <brush> default-color;
     in property <TextHorizontalAlignment> horizontal-alignment;
     in property <TextVerticalAlignment> vertical-alignment;
     callback link-clicked(link: string);
     in property <color> link-color: #00f;
-
-    in property <string> font-family;
-    in property <bool> font-italic;
-    in property <TextOverflow> overflow;
-    in property <TextWrap> wrap;
-    in property <length> letter-spacing;
-    in property <brush> stroke;
-    in property <length> stroke-width;
-    in property <TextStrokeStyle> stroke-style;
     //-default_size_binding:implicit_size
 }
 
@@ -177,12 +166,12 @@ export component FocusScope {
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 
-    Shortcut { }
+    KeyBinding { }
 }
 
-component Shortcut {
+component KeyBinding {
     in property <bool> enabled: true;
-    in property <keyboard-shortcut> keys;
+    in property <keys> keys;
     callback activated();
     //-is_non_item_type
 }
@@ -229,7 +218,7 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export component PinchGestureHandler {
+export component ScaleRotateGestureHandler {
     in property <bool> enabled: true;
 
     out property <bool> active;
@@ -241,7 +230,6 @@ export component PinchGestureHandler {
     callback updated();
     callback ended();
     callback cancelled();
-    callback smart-magnify();
 
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -268,6 +256,7 @@ component MenuItem {
     callback activated();
     in property <bool> enabled: true;
     in property <bool> checkable: false;
+    in property <keys> shortcut;
     in-out property <bool> checked: false;
     in property <image> icon;
     //-disallow_global_types_as_child_elements
@@ -463,14 +452,15 @@ export component HorizontalLayout {
     in property <LayoutAlignment> alignment;
 }
 
-export component FlexBoxLayout {
+export component FlexboxLayout {
     in property <length> spacing-horizontal;
     in property <length> spacing-vertical;
     in property <length> spacing;
     in property <LayoutAlignment> alignment: LayoutAlignment.start;  // CSS default is flex-start
-    in property <FlexDirection> flex-direction;
-    in property <FlexAlignContent> align-content;
-    in property <FlexAlignItems> align-items;
+    in property <FlexboxLayoutDirection> flex-direction;
+    in property <FlexboxLayoutAlignContent> align-content;
+    in property <FlexboxLayoutAlignItems> align-items;
+    in property <FlexboxLayoutWrap> flex-wrap;
 }
 
 component MoveTo {
@@ -536,11 +526,13 @@ export component Path {
     in property <length> stroke-width;
     in property <LineCap> stroke-line-cap;
     in property <LineJoin> stroke-line-join;
+    in property <float> stroke-miter-limit: 4; // SVG default is 4
     in property <string> commands;  // 'fake' hardcoded in typeregister.rs
     in property <float> viewbox-x;
     in property <float> viewbox-y;
     in property <float> viewbox-width;
     in property <float> viewbox-height;
+    in property <ImageFit> fit: contain;
     in property <bool> clip;
     in property <bool> anti-alias: true;
 
@@ -623,6 +615,7 @@ export global TextInputInterface {
 export global Platform {
     out property <OperatingSystemType> os;
     out property <string> style-name;
+    function open-url(url: string) -> bool { return false; }
 }
 
 export component NativeButton {

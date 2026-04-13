@@ -14,7 +14,5 @@ fn main() {
        use_winit_theme: { any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android") },
        muda: { all(feature = "muda", any(target_os = "windows", target_os = "macos")) },
     }
-    // This uses `web_sys_unstable_api`, which is typically set via `RUST_FLAGS`
-    println!("cargo:rustc-check-cfg=cfg(web_sys_unstable_apis)");
     println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
 }

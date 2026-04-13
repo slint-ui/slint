@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, js_into_rust_model,
+    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, SlintKeys, js_into_rust_model,
     rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
@@ -10,10 +10,54 @@ use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::bindgen_prelude::*;
-use napi::{Env, JsBoolean, JsNumber, JsObject, JsString, JsUnknown, Result};
+use napi::{Env, JsValue, Result, ValueType};
 use napi_derive::napi;
 use slint_interpreter::Value;
 use smol_str::SmolStr;
+
+/// A dynamic-length argument list for calling JS functions with a variable
+/// number of arguments. Implements `JsValuesTupleIntoVec` so it can be used
+/// directly with `Function::call`.
+pub struct DynArgs(pub Vec<napi::sys::napi_value>);
+
+impl JsValuesTupleIntoVec for DynArgs {
+    fn into_vec(self, _env: napi::sys::napi_env) -> Result<Vec<napi::sys::napi_value>> {
+        Ok(self.0)
+    }
+}
+
+/// Safely extract a f64 from an Unknown, failing if the type is wrong.
+fn expect_number(unknown: Unknown<'_>) -> Result<f64> {
+    match unknown.get_type()? {
+        ValueType::Number => unknown.coerce_to_number()?.get_double(),
+        vt => Err(napi::Error::new(
+            napi::Status::NumberExpected,
+            format!("expect Number, got: {vt:?}"),
+        )),
+    }
+}
+
+/// Safely extract a String from an Unknown, failing if the type is wrong.
+fn expect_string(unknown: Unknown<'_>) -> Result<String> {
+    match unknown.get_type()? {
+        ValueType::String => Ok(unknown.coerce_to_string()?.into_utf8()?.as_str()?.to_owned()),
+        vt => Err(napi::Error::new(
+            napi::Status::StringExpected,
+            format!("expect String, got: {vt:?}"),
+        )),
+    }
+}
+
+/// Safely extract a bool from an Unknown, failing if the type is wrong.
+fn expect_bool(unknown: Unknown<'_>) -> Result<bool> {
+    match unknown.get_type()? {
+        ValueType::Boolean => Ok(unknown.coerce_to_bool()?),
+        vt => Err(napi::Error::new(
+            napi::Status::BooleanExpected,
+            format!("expect Boolean, got: {vt:?}"),
+        )),
+    }
+}
 
 #[napi(js_name = "ValueType")]
 pub enum JsValueType {
@@ -25,7 +69,7 @@ pub enum JsValueType {
     Struct,
     Brush,
     Image,
-    StyledText,
+    Keys,
 }
 
 impl From<slint_interpreter::ValueType> for JsValueType {
@@ -38,7 +82,6 @@ impl From<slint_interpreter::ValueType> for JsValueType {
             slint_interpreter::ValueType::Struct => JsValueType::Struct,
             slint_interpreter::ValueType::Brush => JsValueType::Brush,
             slint_interpreter::ValueType::Image => JsValueType::Image,
-            slint_interpreter::ValueType::StyledText => JsValueType::StyledText,
             _ => JsValueType::Void,
         }
     }
@@ -50,47 +93,44 @@ pub struct JsProperty {
     pub value_type: JsValueType,
 }
 
-pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
+pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
     match value {
-        Value::Void => env.get_null().map(|v| v.into_unknown()),
-        Value::Number(number) => env.create_double(*number).map(|v| v.into_unknown()),
-        Value::String(string) => env.create_string(string).map(|v| v.into_unknown()),
-        Value::Bool(value) => env.get_boolean(*value).map(|v| v.into_unknown()),
-        Value::Image(image) => Ok(SlintImageData::from(image.clone())
-            .into_instance(*env)?
-            .as_object(*env)
-            .into_unknown()),
-        Value::Struct(struct_value) => {
-            let mut o = env.create_object()?;
-            for (field_name, field_value) in struct_value.iter() {
-                o.set_property(
-                    env.create_string(&field_name.replace('-', "_"))?,
-                    to_js_unknown(env, field_value)?,
-                )?;
-            }
-            Ok(o.into_unknown())
+        Value::Void => Null.into_unknown(env),
+        Value::Number(number) => (*number).into_unknown(env),
+        Value::String(string) => string.as_str().into_unknown(env),
+        Value::Bool(value) => (*value).into_unknown(env),
+        Value::Image(image) => {
+            SlintImageData::from(image.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
-        Value::KeyboardShortcut(shortcut) => {
-            // TODO: Make this an actual JS object
-            env.create_string(&format!("{shortcut:?}")).map(JsString::into_unknown)
+        Value::Struct(struct_value) => {
+            let mut o = Object::new(env)?;
+            for (field_name, field_value) in struct_value.iter() {
+                let key = env.create_string(field_name.replace('-', "_"))?;
+                let val = to_js_unknown(env, field_value)?;
+                o.set_property(key, val)?;
+            }
+            o.into_unknown(env)
+        }
+        Value::Keys(keys) => {
+            SlintKeys::from(keys.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
         Value::Brush(brush) => {
-            Ok(SlintBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+            SlintBrush::from(brush.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
         Value::Model(model) => {
-            if let Some(maybe_js_model) = rust_into_js_model(model) {
+            if let Some(maybe_js_model) = rust_into_js_model(env, model) {
                 maybe_js_model
             } else {
                 let model_wrapper: ReadOnlyRustModel = model.clone().into();
                 model_wrapper.into_js(env)
             }
         }
-        Value::EnumerationValue(_, value) => env.create_string(value).map(|v| v.into_unknown()),
-        _ => env.get_undefined().map(|v| v.into_unknown()),
+        Value::EnumerationValue(_, value) => value.as_str().into_unknown(env),
+        _ => ().into_unknown(env),
     }
 }
 
-pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
+pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
     match typ {
         Type::Float32
         | Type::Int32
@@ -100,36 +140,23 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         | Type::LogicalLength
         | Type::Rem
         | Type::Percent
-        | Type::UnitProduct(_) => {
-            let js_number: Result<JsNumber> = unknown.try_into();
-            Ok(Value::Number(js_number?.get_double()?))
-        }
-        Type::String => {
-            let js_string: JsString = unknown.try_into()?;
-            Ok(Value::String(js_string.into_utf8()?.as_str()?.into()))
-        }
-        Type::Bool => {
-            let js_bool: JsBoolean = unknown.try_into()?;
-            Ok(Value::Bool(js_bool.get_value()?))
-        }
+        | Type::UnitProduct(_) => Ok(Value::Number(expect_number(unknown)?)),
+        Type::String => Ok(Value::String(expect_string(unknown)?.into())),
+        Type::Bool => Ok(Value::Bool(expect_bool(unknown)?)),
         Type::Color => {
             match unknown.get_type() {
                 Ok(ValueType::String) => {
-                    return unknown.coerce_to_string().and_then(string_to_brush);
+                    let js_string = unknown.coerce_to_string()?;
+                    return string_to_brush(js_string);
                 }
                 Ok(ValueType::Object) => {
-                    if let Ok(rgb_color_or_brush) = unknown.coerce_to_object() {
-                        if let Some(direct_brush) =
-                            rgb_color_or_brush.get("brush").ok().flatten().and_then(
-                                |maybe_slintbrush| {
-                                    env.get_value_external::<Brush>(&maybe_slintbrush).ok()
-                                },
-                            )
-                        {
-                            return Ok(Value::Brush(direct_brush.color().into()));
-                        }
-                        return brush_from_color(rgb_color_or_brush);
+                    let obj = unknown.coerce_to_object()?;
+                    if let Some(direct_brush) =
+                        obj.get::<ExternalRef<Brush>>("brush").ok().flatten()
+                    {
+                        return Ok(Value::Brush(direct_brush.color().into()));
                     }
+                    return brush_from_color(obj);
                 }
                 _ => {}
             }
@@ -140,35 +167,35 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         Type::Brush => {
             match unknown.get_type() {
                 Ok(ValueType::String) => {
-                    return unknown.coerce_to_string().and_then(string_to_brush);
+                    let js_string = unknown.coerce_to_string()?;
+                    return string_to_brush(js_string);
                 }
                 Ok(ValueType::Object) => {
-                    if let Ok(obj) = unknown.coerce_to_object() {
-                        // this is used to make the color property of the `Brush` interface optional.
-                        let properties = obj.get_property_names()?;
-                        if properties.get_array_length()? == 0 {
-                            return Ok(Value::Brush(Brush::default()));
+                    let obj = unknown.coerce_to_object()?;
+                    // this is used to make the color property of the `Brush` interface optional.
+                    let properties = obj.get_property_names()?;
+                    if properties.get_array_length()? == 0 {
+                        return Ok(Value::Brush(Brush::default()));
+                    }
+                    if let Some(color) = obj.get::<RgbaColor>("color").ok().flatten() {
+                        if color.red() < 0.
+                            || color.green() < 0.
+                            || color.blue() < 0.
+                            || color.alpha() < 0.
+                        {
+                            return Err(napi::Error::from_reason(
+                                "A channel of Color cannot be negative",
+                            ));
                         }
-                        if let Some(color) = obj.get::<&str, RgbaColor>("color").ok().flatten() {
-                            if color.red() < 0.
-                                || color.green() < 0.
-                                || color.blue() < 0.
-                                || color.alpha() < 0.
-                            {
-                                return Err(Error::from_reason(
-                                    "A channel of Color cannot be negative",
-                                ));
-                            }
 
-                            return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-                                color.alpha() as u8,
-                                color.red() as u8,
-                                color.green() as u8,
-                                color.blue() as u8,
-                            ))));
-                        } else {
-                            return brush_from_color(obj);
-                        }
+                        return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
+                            color.alpha() as u8,
+                            color.red() as u8,
+                            color.green() as u8,
+                            color.blue() as u8,
+                        ))));
+                    } else {
+                        return brush_from_color(obj);
                     }
                 }
                 _ => {}
@@ -179,17 +206,19 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         }
         Type::Image => {
             let object = unknown.coerce_to_object()?;
-            if let Some(direct_image) = object.get("image").ok().flatten() {
-                Ok(Value::Image(env.get_value_external::<Image>(&direct_image)?.clone()))
+            if let Some(direct_image) = object.get::<ExternalRef<Image>>("image").ok().flatten() {
+                Ok(Value::Image((*direct_image).clone()))
             } else {
-                let get_size_prop = |name| {
+                let get_size_prop = |name: &str| {
                     object
-                    .get::<_, JsUnknown>(name)
+                    .get::<Unknown>(name)
                     .ok()
                     .flatten()
-                    .and_then(|prop| prop.coerce_to_number().ok())
-                    .and_then(|number| number.get_int64().ok())
-                    .and_then(|i64_num| i64_num.try_into().ok())
+                    .and_then(|p| {
+                        p.coerce_to_number().ok()
+                            .and_then(|number| number.get_int64().ok())
+                            .and_then(|i64_num| i64_num.try_into().ok())
+                    })
                     .ok_or_else(
                         || napi::Error::from_reason(
                             format!("Cannot convert object to image, because the provided object does not have an u32 `{name}` property")
@@ -197,12 +226,12 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 };
 
                 fn try_convert_image<BufferType: AsRef<[u8]> + FromNapiValue>(
-                    object: &JsObject,
+                    object: &Object,
                     width: u32,
                     height: u32,
                 ) -> Result<SharedPixelBuffer<Rgba8Pixel>> {
                     let buffer =
-                        object.get::<_, BufferType>("data").ok().flatten().ok_or_else(|| {
+                        object.get::<BufferType>("data").ok().flatten().ok_or_else(|| {
                             napi::Error::from_reason(
                                 "data property does not have suitable array buffer type"
                                     .to_string(),
@@ -237,8 +266,8 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 s.fields
                     .iter()
                     .map(|(pro_name, pro_ty)| {
-                        let prop: JsUnknown = js_object
-                            .get_property(env.create_string(&pro_name.replace('-', "_"))?)?;
+                        let prop: Unknown =
+                            js_object.get_named_property(&pro_name.replace('-', "_"))?;
                         let prop_value = if prop.get_type()? == napi::ValueType::Undefined {
                             slint_interpreter::default_value_for_type(pro_ty)
                         } else {
@@ -267,13 +296,13 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                     &vec,
                 )))))
             } else {
-                let rust_model =
-                    unknown.coerce_to_object().and_then(|obj| js_into_rust_model(env, &obj, a))?;
+                let obj = unknown.coerce_to_object()?;
+                let rust_model = js_into_rust_model(env, &obj, a)?;
                 Ok(Value::Model(rust_model))
             }
         }
         Type::Enumeration(e) => {
-            let js_string: JsString = unknown.try_into()?;
+            let js_string = unknown.coerce_to_string()?;
             let value: SmolStr = js_string.into_utf8()?.as_str()?.into();
 
             if !e.values.contains(&value) {
@@ -284,6 +313,12 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
             }
 
             Ok(Value::EnumerationValue(e.name.to_string(), value.to_string()))
+        }
+        Type::Keys => {
+            let obj = unknown.coerce_to_object()?;
+            let keys_instance: ClassInstance<SlintKeys> =
+                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
+            Ok(Value::Keys(keys_instance.inner.clone()))
         }
         Type::Invalid
         | Type::Model
@@ -297,13 +332,12 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
-        | Type::KeyboardShortcutType
         | Type::ElementReference
         | Type::StyledText => Err(napi::Error::from_reason("reason")),
     }
 }
 
-fn string_to_brush(js_string: JsString) -> Result<Value> {
+fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Value> {
     let string = js_string.into_utf8()?.as_str()?.to_string();
 
     let c = string
@@ -314,14 +348,16 @@ fn string_to_brush(js_string: JsString) -> Result<Value> {
 }
 
 fn brush_from_color(rgb_color: Object) -> Result<Value> {
-    let red: f64 = rgb_color.get("red")?.ok_or(Error::from_reason("Property red is missing"))?;
+    let red: f64 =
+        rgb_color.get("red")?.ok_or(napi::Error::from_reason("Property red is missing"))?;
     let green: f64 =
-        rgb_color.get("green")?.ok_or(Error::from_reason("Property green is missing"))?;
-    let blue: f64 = rgb_color.get("blue")?.ok_or(Error::from_reason("Property blue is missing"))?;
+        rgb_color.get("green")?.ok_or(napi::Error::from_reason("Property green is missing"))?;
+    let blue: f64 =
+        rgb_color.get("blue")?.ok_or(napi::Error::from_reason("Property blue is missing"))?;
     let alpha: f64 = rgb_color.get("alpha")?.unwrap_or(255.);
 
     if red < 0. || green < 0. || blue < 0. || alpha < 0. {
-        return Err(Error::from_reason("A channel of Color cannot be negative"));
+        return Err(napi::Error::from_reason("A channel of Color cannot be negative"));
     }
 
     Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(

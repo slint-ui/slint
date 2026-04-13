@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason, KeyEventType, key_codes},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType, key_codes},
     items::PointerEventButton,
 };
 
@@ -69,7 +69,8 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
 
 impl Item for NativeSlider {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
             return make_unique_animated_widget<QSlider>(animation_tracker_property_ptr);
         }})
@@ -226,7 +227,7 @@ impl Item for NativeSlider {
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 if data.pressed != 0 {
-                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                    Self::FIELD_OFFSETS.released().apply_pin(self).call(&(self.value(),));
                 }
                 data.pressed = 0;
                 InputEventResult::EventAccepted
@@ -266,9 +267,9 @@ impl Item for NativeSlider {
                 debug_assert_ne!(*button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
             // Note: The Qt slider used to accept scroll events, however the other styles do not.
             // As the scroll event handling is problematic when a slider is placed in a Flickable,
@@ -284,7 +285,7 @@ impl Item for NativeSlider {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -293,12 +294,12 @@ impl Item for NativeSlider {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if self.enabled() {
-            let Some(keycode) = event.text.chars().next() else {
+            let Some(keycode) = event.key_event.text.chars().next() else {
                 return KeyEventResult::EventIgnored;
             };
             let vertical = self.orientation() == Orientation::Vertical;
@@ -309,7 +310,7 @@ impl Item for NativeSlider {
                 if event.event_type == KeyEventType::KeyPressed {
                     self.set_value(self.value() + self.step());
                 } else if event.event_type == KeyEventType::KeyReleased {
-                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                    Self::FIELD_OFFSETS.released().apply_pin(self).call(&(self.value(),));
                 }
                 return KeyEventResult::EventAccepted;
             }
@@ -319,7 +320,7 @@ impl Item for NativeSlider {
                 if event.event_type == KeyEventType::KeyPressed {
                     self.set_value(self.value() - self.step());
                 } else if event.event_type == KeyEventType::KeyReleased {
-                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                    Self::FIELD_OFFSETS.released().apply_pin(self).call(&(self.value(),));
                 }
                 return KeyEventResult::EventAccepted;
             }
@@ -327,7 +328,7 @@ impl Item for NativeSlider {
                 if event.event_type == KeyEventType::KeyPressed {
                     self.set_value(self.minimum());
                 } else if event.event_type == KeyEventType::KeyReleased {
-                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                    Self::FIELD_OFFSETS.released().apply_pin(self).call(&(self.value(),));
                 }
                 return KeyEventResult::EventAccepted;
             }
@@ -335,7 +336,7 @@ impl Item for NativeSlider {
                 if event.event_type == KeyEventType::KeyPressed {
                     self.set_value(self.maximum());
                 } else if event.event_type == KeyEventType::KeyReleased {
-                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                    Self::FIELD_OFFSETS.released().apply_pin(self).call(&(self.value(),));
                 }
                 return KeyEventResult::EventAccepted;
             }
@@ -351,7 +352,7 @@ impl Item for NativeSlider {
     ) -> FocusEventResult {
         if self.enabled() {
             Self::FIELD_OFFSETS
-                .has_focus
+                .has_focus()
                 .apply_pin(self)
                 .set(matches!(event, FocusEvent::FocusIn(_)));
             FocusEventResult::FocusAccepted
@@ -419,13 +420,13 @@ impl NativeSlider {
     fn set_value(self: Pin<&Self>, new_val: f32) {
         let new_val = new_val.max(self.minimum()).min(self.maximum());
         self.value.set(new_val);
-        Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
+        Self::FIELD_OFFSETS.changed().apply_pin(self).call(&(new_val,));
     }
 }
 
 impl ItemConsts for NativeSlider {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

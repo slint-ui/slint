@@ -47,7 +47,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::NumberLiteral(_, _) => true,
         Expression::StringLiteral(_) => true,
         Expression::BoolLiteral(_) => true,
-        Expression::KeyboardShortcut(_) => true,
+        Expression::Keys(_) => true,
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),
         Expression::FunctionParameterReference { .. } => true,
         // Invalid and uncompiled expressions are unknown at this point, so default to
@@ -109,8 +109,8 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::OrganizeGridLayout(_) => false,
         Expression::SolveBoxLayout(_, _) => false,
         Expression::SolveGridLayout { .. } => false,
-        Expression::SolveFlexBoxLayout(..) => false,
-        Expression::ComputeFlexBoxLayoutInfo(..) => false,
+        Expression::SolveFlexboxLayout(..) => false,
+        Expression::ComputeFlexboxLayoutInfo(..) => false,
         Expression::MinMax { ty: _, op: _, lhs, rhs } => {
             without_side_effects(lhs) && without_side_effects(rhs)
         }

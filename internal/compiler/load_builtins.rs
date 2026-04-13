@@ -167,10 +167,16 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             let return_type = f.ReturnType().map_or(Type::Void, |p| {
                 object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register)
             });
+            let mut args = Vec::new();
+            let mut arg_names = Vec::new();
+            for a in f.ArgumentDeclaration() {
+                args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
+                arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
+            }
             (
                 name,
                 BuiltinPropertyInfo::new(Type::Function(
-                    Function { return_type, args: Vec::new(), arg_names: vec![] }.into(),
+                    Function { return_type, args, arg_names }.into(),
                 )),
             )
         }));
@@ -250,11 +256,10 @@ fn compiled(
     ty: Type,
 ) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let e = Expression::from_binding_expression_node(
-        node.clone().into(),
-        &mut crate::lookup::LookupCtx::empty_context(type_register, &mut diag),
-    )
-    .maybe_convert_to(ty, &node, &mut diag);
+    let mut ctx = crate::lookup::LookupCtx::empty_context(type_register, &mut diag);
+    ctx.property_type = ty.clone();
+    let e = Expression::from_binding_expression_node(node.clone().into(), &mut ctx)
+        .maybe_convert_to(ty, &node, &mut diag);
     if diag.has_errors() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]

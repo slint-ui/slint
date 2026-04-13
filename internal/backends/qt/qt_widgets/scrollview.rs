@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::input::{FocusEventResult, InternalKeyEvent};
 use i_slint_core::items::ScrollBarPolicy;
 
 use super::*;
@@ -35,7 +35,8 @@ pub struct NativeScrollView {
 
 impl Item for NativeScrollView {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
             return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
         }});
@@ -208,7 +209,7 @@ impl Item for NativeScrollView {
                     let new_val = LogicalLength::new(-(new_val.min(max).max(0) as f32));
                     value_prop.set(new_val);
                     if new_val != old_val {
-                        Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.scrolled().apply_pin(self).call(&());
                     }
                     InputEventResult::EventIgnored
                 }
@@ -233,7 +234,7 @@ impl Item for NativeScrollView {
                         let new_val = LogicalLength::new(-new_val.min(max).max(0.));
                         value_prop.set(new_val);
                         if new_val != old_val {
-                            Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                            Self::FIELD_OFFSETS.scrolled().apply_pin(self).call(&());
                         }
                         InputEventResult::GrabMouse
                     } else {
@@ -242,23 +243,19 @@ impl Item for NativeScrollView {
                 }
                 MouseEvent::Wheel { delta_x, delta_y, .. } => {
                     let max = max as f32;
-                    let new_val;
-                    if horizontal {
-                        new_val = value as f32 + delta_x;
-                    } else {
-                        new_val = value as f32 + delta_y;
-                    }
+                    let new_val =
+                        if horizontal { value as f32 + delta_x } else { value as f32 + delta_y };
                     let old_val = value_prop.get();
                     let new_val = LogicalLength::new(new_val.min(0.).max(-max));
                     value_prop.set(new_val);
                     if new_val != old_val {
-                        Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.scrolled().apply_pin(self).call(&());
                     }
                     InputEventResult::EventAccepted
                 }
-                MouseEvent::PinchGesture { .. }
-                | MouseEvent::RotationGesture { .. }
-                | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+                MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                    InputEventResult::EventIgnored
+                }
                 MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
             };
             self.data.set(data);
@@ -278,7 +275,7 @@ impl Item for NativeScrollView {
                     width: (right - left) as _,
                     height: (size.height as f32 - (bottom + top)) as _,
                 },
-                Self::FIELD_OFFSETS.vertical_value.apply_pin(self),
+                Self::FIELD_OFFSETS.vertical_value().apply_pin(self),
                 self.vertical_page_size().get() as i32,
                 self.vertical_max().get() as i32,
             )
@@ -293,7 +290,7 @@ impl Item for NativeScrollView {
                     width: (size.width as f32 - (right + left)) as _,
                     height: (bottom - top) as _,
                 },
-                Self::FIELD_OFFSETS.horizontal_value.apply_pin(self),
+                Self::FIELD_OFFSETS.horizontal_value().apply_pin(self),
                 self.horizontal_page_size().get() as i32,
                 self.horizontal_max().get() as i32,
             )
@@ -304,7 +301,7 @@ impl Item for NativeScrollView {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -313,7 +310,7 @@ impl Item for NativeScrollView {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -507,7 +504,7 @@ impl Item for NativeScrollView {
 
 impl ItemConsts for NativeScrollView {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -2,8 +2,8 @@
 title: PopupWindow
 description: PopupWindow element api.
 ---
-import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
 ```slint playground
 export component Example inherits Window {
@@ -31,8 +31,9 @@ It isn't allowed to access properties of elements within the popup from outside 
 ## Properties
 
 ### close-policy
-<SlintProperty propName="close-policy" typeName="enum" enumName="PopupClosePolicy" defaultValue="close-on-click" />
+<SlintProperty propName="close-policy" typeName="enum" enumName="PopupClosePolicy" defaultValue="close-on-click">
 By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
+</SlintProperty>
 
 ## Functions
 

@@ -89,7 +89,7 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate ref
   - `android-activity/` - Android platform support
   - `linuxkms/` - Linux KMS/DRM direct rendering
   - `selector/` - Runtime backend selection
-  - `testing/` - Testing backend for automated tests
+  - `testing/` - Testing backend for automated tests, system testing (protobuf/TCP), and embedded MCP server for AI-assisted UI introspection
 
 - **`internal/renderers/`** - Rendering engines:
   - `femtovg/` - OpenGL ES 2.0
@@ -172,10 +172,12 @@ For tasks requiring deeper architectural understanding, see:
 - **`docs/development/custom-renderer.md`** - Renderer traits, drawing API, backend integration, testing. Load when working on `internal/renderers/` or fixing drawing bugs.
 - **`docs/development/animation-internals.md`** - Animation timing, easing curves, performance, debugging. Load when working on `internal/core/animations.rs` or animation-related issues.
 - **`docs/development/layout-system.md`** - Layout solving, constraints, GridLayout/BoxLayout, compile-time lowering. Load when working on `internal/core/layout.rs` or sizing/positioning bugs.
+- **`docs/development/python-tests.md`** - Python test infrastructure: pytest tests, Rust test driver, rebuilding slint-python, debugging compilation vs runtime issues. Load when working on Python tests or debugging `test-driver-python` failures.
 - **`docs/development/item-tree.md`** - Item tree structure, component instantiation, traversal, focus. Load when working on `internal/core/item_tree.rs`, event handling, or runtime component model.
 - **`docs/development/model-repeater-system.md`** - Model trait, VecModel, adapters (map/filter/sort), Repeater, ListView virtualization. Load when working on `internal/core/model.rs` or data binding in `for` loops.
 - **`docs/development/input-event-system.md`** - Mouse/touch/keyboard events, event routing, focus management, drag-drop, shortcuts. Load when working on `internal/core/input.rs` or event handling.
 - **`docs/development/text-layout.md`** - Text shaping, line breaking, paragraph layout, styled text parsing. Load when working on `internal/core/textlayout/` or text rendering.
 - **`docs/development/window-backend-integration.md`** - WindowAdapter trait, Platform trait, WindowEvent, popup management, backend implementations. Load when working on `internal/core/window.rs` or `internal/backends/`.
 - **`docs/development/lsp-architecture.md`** - LSP server, code completion, hover, semantic tokens, live preview. Load when working on `tools/lsp/` or IDE tooling.
+- **`docs/development/mcp-server.md`** - Embedded MCP server architecture, shared introspection layer, handle/arena system, HTTP transport, adding tools. Load when working on `internal/backends/testing/mcp_server.rs`, `introspection.rs`, or MCP-related features.
 - **`docs/development/ffi-language-bindings.md`** - C++/Node.js/Python bindings, cbindgen, FFI patterns, adding new cross-language APIs. Load when working on `api/` or internal FFI modules.

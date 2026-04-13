@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub mod builtin_macros;
+pub mod data_uri;
 pub mod diagnostics;
 pub mod embedded_resources;
 pub mod expression_tree;
@@ -240,11 +241,13 @@ impl CompilerConfiguration {
             _ => None,
         };
 
+        let style = std::env::var("SLINT_STYLE").ok();
+
         Self {
             embed_resources,
             include_paths: Default::default(),
             library_paths: Default::default(),
-            style: Default::default(),
+            style,
             open_import_callback: None,
             resource_url_mapper: None,
             inline_all_elements,

@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X {
+    property <styled-text> t1: @markdown("Foo\invalid");
+//                                       >           <error{Cannot parse string literal}
+    property <styled-text> t2: @markdown("Foo\u{e541}Bar");  // Using the MARKDOWN_INTERPOLATION_PLACEHOLDER cause strange errors
+//                             >                         <error{Argument index 0 out of range: 0 arguments provided}
+    property <styled-text> t3: @markdown("XXX"  "TTT \{12px} ZZZ");
+//                                                     >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+    property <styled-text> t9: @markdown("{");
+    property <styled-text> t10: @markdown("}");
+    property <styled-text> t11: @markdown("{abc}");
+    property <styled-text> t12: @markdown("{0");
+    property <styled-text> t13: @markdown("> quote");
+//                              >                  <error{Unimplemented tag: BlockQuote(None)}
+    property <styled-text> t14: @markdown("![alt](image.png)");
+//                              >                            <error{Unimplemented tag: Image}
+    property <styled-text> t15: @markdown("---");
+//                              >              <error{Unimplemented event: Rule}
+    property <styled-text> t16: @markdown("<span>text</span>");
+//                              >                            <error{Unimplemented html tag: span}
+    property <styled-text> t17: @markdown("<div>text</div>");
+//                              >                          <error{Unimplemented tag: HtmlBlock}
+    property <styled-text> t18: @markdown("<u>unclosed");
+//                              >                      <error{Spans are unbalanced: stack contained items at end of function}
+    property <styled-text> t19: @markdown("<font color='red'>unclosed");
+//                              >                                     <error{Spans are unbalanced: stack contained items at end of function}
+    property <styled-text> t20: @markdown("<u>text</font>");
+//                              >                         <error{Closing html tag doesn't match the opening tag. Expected </u>, got </font>}
+    property <styled-text> t21: @markdown("<font>text</font>");
+//                              >                            <error{Missing color attribute in html <font>}
+    property <styled-text> t22: @markdown("<font size='12'>text</font>");
+//                              >                                      <error{Unexpected size attribute in html <font size='12'>}
+    property <styled-text> t23: @markdown("<u class='test'>text</u>");
+//                              >                                   <error{Unexpected class attribute in html <u class='test'>}
+    property <styled-text> t24: @markdown("<font color='#q'>text</font>");
+//                              >                                       <error{Invalid color value '#q'}
+}

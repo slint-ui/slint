@@ -38,6 +38,7 @@ export component TestCase inherits Window {
     out property <string> t3: @tr("{} Hello {}", int_value, "World");
     out property <string> t4: @tr("{1} Hello {0}🌍", @tr("World"), int_value + 1);
     out property <string> t5: @tr("Untranslated string");
+    out property <string> t6: @tr("Translated to empty"); // Should be the same as untranslated
 
     my-component := MyComponent {}
 
@@ -55,7 +56,7 @@ export component TestCase inherits Window {
     out property <string> diff: @tr("Main" => "Diff");
     out property <string> same_or_diff: "\{same}|\{my-component.same}|\{MyGlobal.same} || \{diff}|\{my-component.diff}|\{MyGlobal.diff}";
 
-    out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍" && t5 == "Untranslated string"
+    out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍" && t5 == "Untranslated string" && t6 == "Translated to empty"
         && c1 == "xxaaxx"
         && result1 == "there is one file in my Plop\nthere are 2 files in my Flop🎃\nthere are 10 files in my Hello World{}."
         && result2 == "xx1xx\nyy-999yy\nyy0yy\nyy42yy"
@@ -73,12 +74,14 @@ auto result2 = "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_t6(), "Translated to empty");
 assert(instance.get_test());
 
 assert(!slint::select_bundled_translation("abc"));
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_t6(), "Translated to empty");
 assert(instance.get_test());
 
 assert(slint::select_bundled_translation("up"));
@@ -89,6 +92,7 @@ std::transform(result2_upper.begin(), result2_upper.end(), result2_upper.begin()
 assert_eq(std::string_view(instance.get_result1()), result1_upper);
 assert_eq(std::string_view(instance.get_result2()), result2_upper);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_t6(), "Translated to empty");
 assert_eq(instance.get_empty_context(), "NO-CONTEXT");
 assert_eq(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert(!instance.get_test());
@@ -105,6 +109,7 @@ assert(slint::select_bundled_translation(""));
 assert_eq(instance.get_result1(), result1);
 assert_eq(instance.get_result2(), result2);
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_t6(), "Translated to empty");
 assert_eq(instance.get_empty_context(), "No-context");
 assert_eq(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
 assert(instance.get_test());
@@ -113,6 +118,7 @@ assert(slint::select_bundled_translation("fr"));
 assert_eq(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fichiers dans mon Floup🍓\nIl y a 10 fichiers dans mon Bonjour Monde{}.");
 assert_eq(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
 assert_eq(instance.get_t5(), "Untranslated string");
+assert_eq(instance.get_t6(), "Translated to empty");
 assert_eq(instance.get_empty_context(), "Pas de contexte");
 assert_eq(instance.get_same_or_diff(), "Même(Main)|Même(MyComponent)|Même(MyGlobal) || Diff(Main)|Diff(MyComponent)|Diff(MyGlobal)");
 assert(!instance.get_test());
@@ -126,6 +132,7 @@ let result2 = "xx1xx\nyy-999yy\nyy0yy\nyy42yy";
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_t6(), "Translated to empty");
 assert_eq!(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
 assert!(instance.get_test());
 
@@ -133,12 +140,14 @@ assert!(slint::select_bundled_translation("abc").is_err());
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_t6(), "Translated to empty");
 assert!(instance.get_test());
 
 assert!(slint::select_bundled_translation("up").is_ok());
 assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_t6(), "Translated to empty");
 assert_eq!(instance.get_empty_context(), "NO-CONTEXT");
 assert_eq!(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert!(!instance.get_test());
@@ -147,6 +156,7 @@ assert!(slint::select_bundled_translation("def").is_err());
 assert_eq!(instance.get_result1(), result1.to_uppercase());
 assert_eq!(instance.get_result2(), result2.to_uppercase());
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_t6(), "Translated to empty");
 assert_eq!(instance.get_empty_context(), "NO-CONTEXT");
 assert_eq!(instance.get_same_or_diff(), "SAME(Main)|SAME(MyComponent)|SAME(MyGlobal) || DIFF(Main)|DIFF(MyComponent)|DIFF(MyGlobal)");
 assert!(!instance.get_test());
@@ -155,6 +165,7 @@ assert!(slint::select_bundled_translation("").is_ok());
 assert_eq!(instance.get_result1(), result1);
 assert_eq!(instance.get_result2(), result2);
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_t6(), "Translated to empty");
 assert_eq!(instance.get_empty_context(), "No-context");
 assert_eq!(instance.get_same_or_diff(), "Same|Same|Same || Diff|Diff|Diff");
 assert!(instance.get_test());
@@ -163,6 +174,7 @@ assert!(slint::select_bundled_translation("fr").is_ok());
 assert_eq!(instance.get_result1(), "Il y a 1 fichier dans mon Plouf\nIl y a 2 fichiers dans mon Floup🍓\nIl y a 10 fichiers dans mon Bonjour Monde{}.");
 assert_eq!(instance.get_result2(), "rr1rr\nrr-999rr\nrr0rr\nss42ss");
 assert_eq!(instance.get_t5(), "Untranslated string");
+assert_eq!(instance.get_t6(), "Translated to empty");
 assert_eq!(instance.get_empty_context(), "Pas de contexte");
 assert_eq!(instance.get_same_or_diff(), "Même(Main)|Même(MyComponent)|Même(MyGlobal) || Diff(Main)|Diff(MyComponent)|Diff(MyGlobal)");
 assert!(!instance.get_test());

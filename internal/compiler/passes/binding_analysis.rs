@@ -107,7 +107,7 @@ impl PropertyPath {
         let mut elements = self.elements.clone();
         loop {
             let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
-            if enclosing.parent_element.upgrade().is_some()
+            if enclosing.parent_element().is_some()
                 || !Rc::ptr_eq(&element, &enclosing.root_element)
             {
                 break;
@@ -123,6 +123,7 @@ impl PropertyPath {
                     Rc::ptr_eq(c, &enclosing)
                         || enclosing
                             .parent_element
+                            .borrow()
                             .upgrade()
                             .is_some_and(|e| check_that_element_is_in_the_component(&e, c))
                 }
@@ -317,21 +318,29 @@ fn analyze_binding(
     if context.currently_analyzing.contains(current) {
         let mut loop_description = String::new();
         let mut has_window_layout = false;
+
+        fn push_prop(prop: &PropertyPath, out: &mut String) {
+            if !out.is_empty() {
+                out.push_str(" -> ");
+            }
+            match prop.prop.element().borrow().id.as_str() {
+                "" => out.push_str(prop.prop.name()),
+                id => {
+                    out.push_str(id);
+                    out.push('.');
+                    out.push_str(prop.prop.name());
+                }
+            }
+        }
+
+        // Build description by iterating in reverse (trigger direction: "A triggers B")
+        // and close the loop by prepending `current` at the start.
+        push_prop(current, &mut loop_description);
         for it in context.currently_analyzing.iter().rev() {
             if context.window_layout_property.as_ref().is_some_and(|p| p == it) {
                 has_window_layout = true;
             }
-            if !loop_description.is_empty() {
-                loop_description.push_str(" -> ");
-            }
-            match it.prop.element().borrow().id.as_str() {
-                "" => loop_description.push_str(it.prop.name()),
-                id => {
-                    loop_description.push_str(id);
-                    loop_description.push('.');
-                    loop_description.push_str(it.prop.name());
-                }
-            }
+            push_prop(it, &mut loop_description);
             if it == current {
                 break;
             }
@@ -539,21 +548,21 @@ fn recurse_expression(
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
-        Expression::SolveFlexBoxLayout(layout)
-        | Expression::ComputeFlexBoxLayoutInfo(layout, _) => {
+        Expression::SolveFlexboxLayout(layout)
+        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
             // Visit all layout geometry dependencies
-            if matches!(expr, Expression::SolveFlexBoxLayout(..)) {
-                // FlexBoxLayout needs both width and height
+            if matches!(expr, Expression::SolveFlexboxLayout(..)) {
+                // FlexboxLayout needs both width and height
                 if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
                     vis(&nr.clone().into(), P);
                 }
                 if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
                     vis(&nr.clone().into(), P);
                 }
-            } else if let Expression::ComputeFlexBoxLayoutInfo(_, _orientation) = expr {
+            } else if let Expression::ComputeFlexboxLayoutInfo(_, _orientation) = expr {
                 // Technically, due to wrapping, there's a dependency on width for the vertical orientation (for Rows/RowsReverse)
                 // or a dependency on height for the horizontal orientation (for Columns/ColumnsReverse).
                 // But since the flex direction, which can be changed at runtime, we don't know which one will apply.
@@ -571,8 +580,16 @@ fn recurse_expression(
                     vis(&nr.clone().into(), P);
                 }*/
                 // Visit item dependencies for relevant orientations
-                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Horizontal, vis);
-                visit_layout_items_dependencies(layout.elems.iter(), Orientation::Vertical, vis);
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Horizontal,
+                    vis,
+                );
+                visit_layout_items_dependencies(
+                    layout.elems.iter().map(|fi| &fi.item),
+                    Orientation::Vertical,
+                    vis,
+                );
             }
             let mut g = layout.geometry.clone();
             g.rect = Default::default(); // already visited;

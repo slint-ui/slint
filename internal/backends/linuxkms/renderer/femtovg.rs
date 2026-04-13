@@ -22,6 +22,7 @@ pub struct FemtoVGRendererAdapter {
     renderer:
         i_slint_renderer_femtovg::FemtoVGRenderer<i_slint_renderer_femtovg::opengl::OpenGLBackend>,
     gbm_display: Rc<GbmDisplay>,
+    size: i_slint_core::api::PhysicalSize,
 }
 
 struct GlContextWrapper {
@@ -157,15 +158,20 @@ impl FemtoVGRendererAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         device_opener: &crate::DeviceOpener,
+        _requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
         let egl_display = Rc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
+
+        let (width, height) = egl_display.drm_output.size();
+        let size = i_slint_core::api::PhysicalSize::new(width, height);
 
         let renderer = Box::new(Self {
             renderer: i_slint_renderer_femtovg::FemtoVGRenderer::new(GlContextWrapper::new(
                 &egl_display,
             )?)?,
             gbm_display: egl_display,
+            size,
         });
 
         eprintln!("Using FemtoVG OpenGL renderer");
@@ -184,11 +190,10 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError> {
-        let size = self.size();
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
-            rotation.translation_after_rotation(size),
-            size,
+            rotation.translation_after_rotation(self.size),
+            self.size,
             Some(&|item_renderer| {
                 draw_mouse_cursor_callback(item_renderer);
             }),
@@ -197,7 +202,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
         Ok(())
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
-        let (width, height) = self.gbm_display.drm_output.size();
-        i_slint_core::api::PhysicalSize::new(width, height)
+        self.size
     }
 }

@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// For the rectangle height the spacing must be subtracted when setting the height to 100%
+
+import { HorizontalBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    preferred-width: 300px;
+    preferred-height: 300px;
+
+    box:= VerticalLayout {
+        spacing: 6px;
+        padding: 10px;
+        rect:= Rectangle {
+            height: 100%;
+            background: red;
+        }
+    }
+
+    out property <bool> check_padding: box.padding > 0;
+    out property <bool> check_x: rect.x == box.x + box.padding;
+    out property <bool> check_y: rect.y == box.y + box.padding;
+    out property <bool> check_width: rect.width == root.width - 2 * box.padding;
+    out property <bool> check_height: rect.height == root.height - 2 * box.padding;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_check_padding());
+assert(instance.get_check_x());
+assert(instance.get_check_y());
+assert(instance.get_check_width());
+assert(instance.get_check_height());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_check_padding());
+assert!(instance.get_check_x());
+assert!(instance.get_check_y());
+assert!(instance.get_check_width());
+assert!(instance.get_check_height());
+```
+
+
+```js
+var instance = new slint.TestCase();
+assert(instance.check_padding);
+assert(instance.check_x);
+assert(instance.check_y);
+assert(instance.check_width);
+assert(instance.check_height);
+```
+*/

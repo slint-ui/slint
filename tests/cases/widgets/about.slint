@@ -23,11 +23,23 @@ let image = image_search.next().unwrap();
 assert_eq!(image.accessible_role(), Some(AccessibleRole::Image));
 
 let _ = instance.global::<Palette<'_>>().get_color_scheme();
+
+// The testing backend doesn't provide an accent color, so the style default is used
+let accent = instance.global::<Palette<'_>>().get_accent_background();
+assert!(accent.color().alpha() > 0, "accent-background should not be transparent");
+
+// clicking on about slint should open slint.dev
+let pos = image.absolute_position();
+slint_testing::send_mouse_click(&instance, pos.x, pos.y);
+let url = slint_testing::access_testing_window(instance.window(), |window| window.open_url());
+assert_eq!(url, Some("https://slint.dev".into()));
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 instance.global<Palette>().get_color_scheme();
+auto accent = instance.global<Palette>().get_accent_background();
+assert(accent.color().alpha() > 0);
 ```
 */

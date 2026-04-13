@@ -27,6 +27,7 @@ pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inject_debug_hooks;
 mod inlining;
+mod key_bindings;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
@@ -51,7 +52,6 @@ mod remove_unused_properties;
 mod repeater_component;
 pub mod resolve_native_classes;
 pub mod resolving;
-mod shortcuts;
 mod unique_id;
 mod visible;
 mod windows;
@@ -122,7 +122,7 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, &doc.local_registry, diag);
+        lower_states::lower_states(component, diag);
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::compile_paths(
             component,
@@ -203,7 +203,7 @@ pub async fn run_passes(
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
-        shortcuts::warn_duplicates(component, diag);
+        key_bindings::warn_duplicates(component, diag);
         lower_platform::lower_platform(component, type_loader);
 
         // Don't perform the empty rectangle removal when debug info is requested, because the resulting
@@ -277,8 +277,11 @@ pub async fn run_passes(
 
             // Include at least the default font sizes used in the MCU backend
             let mut font_pixel_sizes = vec![(12. * sf) as i16];
+            use i_slint_common::sharedfontique::fontique;
+            let mut font_weights = vec![fontique::FontWeight::NORMAL.value() as u16];
             doc.visit_all_used_components(|component| {
                 embed_glyphs::collect_font_sizes_used(component, sf, &mut font_pixel_sizes);
+                embed_glyphs::collect_font_weights_used(component, &mut font_weights);
                 embed_glyphs::scan_string_literals(component, &mut characters_seen);
             });
 
@@ -292,6 +295,7 @@ pub async fn run_passes(
                 doc,
                 &type_loader.compiler_config,
                 font_pixel_sizes,
+                font_weights,
                 characters_seen,
                 std::iter::once(&*doc).chain(type_loader.all_documents()),
                 diag,

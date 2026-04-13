@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Manual test for variable font weight interpolation.
+// Run with: cargo run -p slint-viewer -- tests/manual/variable-font-weight.slint
+
+import { Slider, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import "../screenshots/fonts/NotoSans-Regular.ttf";
+import "../screenshots/fonts/NotoSans-Italic.ttf";
+
+export component App inherits Window {
+    title: "Variable Font Weight";
+    width: 600px;
+    height: 400px;
+    default-font-family: "Noto Sans";
+
+    in-out property <int> weight: 400;
+
+    VerticalBox {
+        Text {
+            text: "The quick brown fox jumps over the lazy dog";
+            font-size: 28px;
+            font-weight: weight;
+            wrap: word-wrap;
+        }
+
+        Text {
+            text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789";
+            font-size: 22px;
+            font-weight: weight;
+        }
+
+        Text {
+            text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789";
+            font-size: 22px;
+            font-weight: weight;
+            font-italic: true;
+        }
+
+        Text {
+            text: "font-weight: " + weight;
+            font-size: 14px;
+        }
+
+        HorizontalBox {
+            Text { text: "100"; font-size: 12px; vertical-alignment: center; }
+            Slider {
+                minimum: 100;
+                maximum: 900;
+                value: weight;
+                changed(v) => { weight = round(v); }
+            }
+            Text { text: "900"; font-size: 12px; vertical-alignment: center; }
+        }
+
+        // Show a row of fixed weights for comparison
+        HorizontalBox {
+            Text { text: "Thin"; font-weight: 100; font-size: 14px; }
+            Text { text: "Light"; font-weight: 300; font-size: 14px; }
+            Text { text: "Regular"; font-weight: 400; font-size: 14px; }
+            Text { text: "Medium"; font-weight: 500; font-size: 14px; }
+            Text { text: "Bold"; font-weight: 700; font-size: 14px; }
+            Text { text: "Black"; font-weight: 900; font-size: 14px; }
+        }
+    }
+}

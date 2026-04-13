@@ -23,8 +23,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::api::LogicalPosition;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
-    KeyEventType, MouseEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
+    KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
 use crate::item_tree::ItemTreeRc;
@@ -179,14 +179,14 @@ pub struct ItemVTable {
     /// overrides of the default actions.
     pub capture_key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
-        &KeyEvent,
+        &InternalKeyEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> KeyEventResult,
 
     pub key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
-        &KeyEvent,
+        &InternalKeyEvent,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> KeyEventResult,
@@ -258,7 +258,7 @@ impl Item for Empty {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -267,7 +267,7 @@ impl Item for Empty {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -311,7 +311,7 @@ impl ItemConsts for Empty {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Empty,
         CachedRenderingData,
-    > = Empty::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Empty::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -363,7 +363,7 @@ impl Item for Rectangle {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -372,7 +372,7 @@ impl Item for Rectangle {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -422,7 +422,7 @@ impl ItemConsts for Rectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Rectangle,
         CachedRenderingData,
-    > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Rectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -477,7 +477,7 @@ impl Item for BasicBorderRectangle {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -486,7 +486,7 @@ impl Item for BasicBorderRectangle {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -545,7 +545,7 @@ impl ItemConsts for BasicBorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BasicBorderRectangle,
         CachedRenderingData,
-    > = BasicBorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = BasicBorderRectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -604,7 +604,7 @@ impl Item for BorderRectangle {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -613,7 +613,7 @@ impl Item for BorderRectangle {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -677,7 +677,7 @@ impl ItemConsts for BorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BorderRectangle,
         CachedRenderingData,
-    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -693,7 +693,7 @@ declare_item_vtable! {
 }
 
 crate::declare_item_vtable! {
-    fn slint_get_ShortcutVTable() -> ShortcutVTable for Shortcut
+    fn slint_get_KeyBindingVTable() -> KeyBindingVTable for KeyBinding
 }
 
 declare_item_vtable! {
@@ -701,7 +701,7 @@ declare_item_vtable! {
 }
 
 declare_item_vtable! {
-    fn slint_get_PinchGestureHandlerVTable() -> PinchGestureHandlerVTable for PinchGestureHandler
+    fn slint_get_ScaleRotateGestureHandlerVTable() -> ScaleRotateGestureHandlerVTable for ScaleRotateGestureHandler
 }
 
 #[repr(C)]
@@ -765,7 +765,7 @@ impl Item for Clip {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -774,7 +774,7 @@ impl Item for Clip {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -826,7 +826,7 @@ impl Clip {
 
 impl ItemConsts for Clip {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Clip, CachedRenderingData> =
-        Clip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Clip::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -879,7 +879,7 @@ impl Item for Opacity {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -888,7 +888,7 @@ impl Item for Opacity {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -958,7 +958,7 @@ impl ItemConsts for Opacity {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Opacity,
         CachedRenderingData,
-    > = Opacity::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Opacity::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1010,7 +1010,7 @@ impl Item for Layer {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1019,7 +1019,7 @@ impl Item for Layer {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1062,7 +1062,7 @@ impl ItemConsts for Layer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Layer,
         CachedRenderingData,
-    > = Layer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Layer::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1118,7 +1118,7 @@ impl Item for Transform {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1127,7 +1127,7 @@ impl Item for Transform {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1175,7 +1175,7 @@ impl ItemConsts for Transform {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Transform,
         CachedRenderingData,
-    > = Transform::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Transform::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1195,6 +1195,7 @@ declare_item_vtable! {
 }
 
 /// The implementation of the `PropertyAnimation` element
+/// This animation has the time as animation limit
 #[repr(C)]
 #[derive(FieldOffsets, SlintElement, Clone, Debug)]
 #[pin]
@@ -1288,7 +1289,7 @@ impl Item for WindowItem {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1297,7 +1298,7 @@ impl Item for WindowItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1349,7 +1350,7 @@ impl RenderRectangle for WindowItem {
 }
 
 fn next_window_item(item: &ItemRc) -> Option<ItemRc> {
-    let root_item_in_local_item_tree = ItemRc::new(item.item_tree().clone(), 0);
+    let root_item_in_local_item_tree = ItemRc::new_root(item.item_tree().clone());
 
     if root_item_in_local_item_tree.downcast::<crate::items::WindowItem>().is_some() {
         Some(root_item_in_local_item_tree)
@@ -1377,7 +1378,7 @@ impl WindowItem {
     }
 
     pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
-        let first_item = ItemRc::new(item_tree, 0);
+        let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
             .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
@@ -1462,7 +1463,7 @@ impl WindowItem {
 
 impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[cfg(feature = "ffi")]
@@ -1573,7 +1574,7 @@ impl Item for ContextMenu {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1582,7 +1583,7 @@ impl Item for ContextMenu {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1590,7 +1591,7 @@ impl Item for ContextMenu {
             return KeyEventResult::EventIgnored;
         }
         if event.event_type == KeyEventType::KeyPressed
-            && event.text.starts_with(crate::input::key_codes::Menu)
+            && event.key_event.text.starts_with(crate::input::key_codes::Menu)
         {
             self.show.call(&(Default::default(),));
             KeyEventResult::EventAccepted
@@ -1650,7 +1651,7 @@ impl ContextMenu {
 
 impl ItemConsts for ContextMenu {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1737,7 +1738,7 @@ impl Item for BoxShadow {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1746,7 +1747,7 @@ impl Item for BoxShadow {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -1790,7 +1791,7 @@ impl Item for BoxShadow {
 
 impl ItemConsts for BoxShadow {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -45,7 +45,7 @@ pub mod wgpu;
 pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
-    fn render_surface(&self) -> &R::Surface;
+    fn render_output(&self) -> impl Into<R::RenderOutput>;
 }
 
 pub trait GraphicsBackend {
@@ -198,7 +198,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     // the back buffer, in order to allow the callback to provide its own rendering of the background.
                     // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
 
-                    let commands = femtovg_canvas.flush_to_surface(surface.render_surface());
+                    let commands = femtovg_canvas.flush_to_output(surface.render_output());
                     self.graphics_backend.submit_commands(commands);
 
                     femtovg_canvas.set_size(width.get(), height.get(), scale);
@@ -260,7 +260,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     collector.measure_frame_rendered(&mut item_renderer, metrics);
                 }
 
-                let commands = canvas.borrow_mut().flush_to_surface(surface.render_surface());
+                let commands = canvas.borrow_mut().flush_to_output(surface.render_output());
                 self.graphics_backend.submit_commands(commands);
 
                 // Delete any images and layer images (and their FBOs) before making the context not current anymore, to

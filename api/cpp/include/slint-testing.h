@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #include "slint.h"
-#include "slint_testing_internal.h"
+#include "private/slint_testing_internal.h"
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -27,12 +27,6 @@ using slint::cbindgen_private::LayoutKind;
 inline void init()
 {
     cbindgen_private::slint_testing_init_backend();
-}
-
-/// Replace the font collection with embedded NotoSans fonts for deterministic test results.
-inline void configure_test_fonts()
-{
-    cbindgen_private::slint_testing_configure_test_fonts();
 }
 
 /// A handle to an element for querying accessible properties, intended for testing purposes.

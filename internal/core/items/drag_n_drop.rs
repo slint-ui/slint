@@ -5,7 +5,7 @@ use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -97,9 +97,9 @@ impl Item for DragArea {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventFilterResult::ForwardAndIgnore,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
                 InputEventFilterResult::ForwardAndIgnore
             }
@@ -140,16 +140,16 @@ impl Item for DragArea {
                 }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
-            MouseEvent::PinchGesture { .. }
-            | MouseEvent::RotationGesture { .. }
-            | MouseEvent::DoubleTapGesture { .. } => InputEventResult::EventIgnored,
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+                InputEventResult::EventIgnored
+            }
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
     }
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -158,7 +158,7 @@ impl Item for DragArea {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -202,7 +202,7 @@ impl ItemConsts for DragArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         DragArea,
         CachedRenderingData,
-    > = DragArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = DragArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl DragArea {
@@ -260,7 +260,7 @@ impl Item for DropArea {
         }
         match event {
             MouseEvent::DragMove(event) => {
-                let r = Self::FIELD_OFFSETS.can_drop.apply_pin(self).call(&(event.clone(),));
+                let r = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
                 if r {
                     self.contains_drag.set(true);
                     *cursor = MouseCursor::Copy;
@@ -272,7 +272,7 @@ impl Item for DropArea {
             }
             MouseEvent::Drop(event) => {
                 self.contains_drag.set(false);
-                Self::FIELD_OFFSETS.dropped.apply_pin(self).call(&(event.clone(),));
+                Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Exit => {
@@ -285,7 +285,7 @@ impl Item for DropArea {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -294,7 +294,7 @@ impl Item for DropArea {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -338,5 +338,5 @@ impl ItemConsts for DropArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         DropArea,
         CachedRenderingData,
-    > = DropArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = DropArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

@@ -1198,7 +1198,7 @@ mod tests {
         let new_document_cache = test::recompile_test_with_sources("fluent", code, allow_warnings);
 
         // try to apply the reverse change. That should lead to the same result
-        let reversed_edit = text_edit::reversed_edit(document_cache, &edit).unwrap();
+        let reversed_edit = text_edit::reversed_edit(document_cache, edit).unwrap();
         let reversed_edits = apply_text_changes(&new_document_cache, &reversed_edit);
         assert_eq!(changed_text_count, reversed_edits.len());
         for e in reversed_edits {

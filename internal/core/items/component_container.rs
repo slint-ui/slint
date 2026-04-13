@@ -10,7 +10,7 @@ Lookup the [`crate::items`] module documentation.
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
 use crate::component_factory::{ComponentFactory, FactoryContext};
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderRectangle};
@@ -213,7 +213,7 @@ impl Item for ComponentContainer {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -222,7 +222,7 @@ impl Item for ComponentContainer {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -272,5 +272,5 @@ impl ItemConsts for ComponentContainer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ComponentContainer,
         CachedRenderingData,
-    > = ComponentContainer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ComponentContainer::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

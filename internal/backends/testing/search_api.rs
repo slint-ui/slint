@@ -36,7 +36,7 @@ pub enum LayoutKind {
     /// A `GridLayout`.
     GridLayout,
     /// A flex box layout.
-    FlexBox,
+    FlexboxLayout,
 }
 
 impl LayoutKind {
@@ -45,7 +45,7 @@ impl LayoutKind {
             "h-box" => Some(Self::HorizontalLayout),
             "v-box" => Some(Self::VerticalLayout),
             "grid" => Some(Self::GridLayout),
-            "flex-box" => Some(Self::FlexBox),
+            "flex-box" => Some(Self::FlexboxLayout),
             _ => None,
         }
     }
@@ -59,7 +59,7 @@ pub trait ElementRoot: Sealed {
     fn item_tree(&self) -> ItemTreeRc;
     /// Returns the root of the element tree.
     fn root_element(&self) -> ElementHandle {
-        let item_rc = ItemRc::new(self.item_tree(), 0);
+        let item_rc = ItemRc::new_root(self.item_tree());
         ElementHandle { item: item_rc.downgrade(), element_index: 0 }
     }
 }
@@ -312,7 +312,7 @@ impl ElementHandle {
                 for (popup_elem, popup_item_tree) in active_popups {
                     if popup_elem == item_rc
                         && let Some(result) = (ElementHandle {
-                            item: ItemRc::new(popup_item_tree.clone(), 0).downgrade(),
+                            item: ItemRc::new_root(popup_item_tree.clone()).downgrade(),
                             element_index: 0,
                         })
                         .visit_descendants_impl(visitor, active_popups)

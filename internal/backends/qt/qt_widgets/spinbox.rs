@@ -3,7 +3,7 @@
 
 use crate::key_generated;
 use i_slint_core::{
-    input::{FocusEventResult, FocusReason, KeyEventType},
+    input::{FocusEventResult, FocusReason, InternalKeyEvent, KeyEventType},
     items::TextHorizontalAlignment,
     platform::PointerEventButton,
 };
@@ -67,7 +67,8 @@ option.frame = true;
 
 impl Item for NativeSpinBox {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
             return make_unique_animated_widget<QSpinBox>(animation_tracker_property_ptr);
         }})
@@ -201,7 +202,7 @@ impl Item for NativeSpinBox {
                             if v < self.maximum() {
                                 let new_val = v + step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         }
                         if new_control
@@ -213,7 +214,7 @@ impl Item for NativeSpinBox {
                             if v > self.minimum() {
                                 let new_val = v - step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         }
                     }
@@ -227,22 +228,20 @@ impl Item for NativeSpinBox {
                             if v < self.maximum() {
                                 let new_val = v + step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         } else if *delta_y < 0. {
                             let v = self.value();
                             if v > self.minimum() {
                                 let new_val = v - step_size;
                                 self.value.set(new_val);
-                                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+                                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
                             }
                         }
                     }
                     true
                 }
-                MouseEvent::PinchGesture { .. }
-                | MouseEvent::RotationGesture { .. }
-                | MouseEvent::DoubleTapGesture { .. } => false,
+                MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => false,
                 MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
             };
         data.active_controls = new_control;
@@ -250,21 +249,22 @@ impl Item for NativeSpinBox {
             self.data.set(data);
         }
 
-        if let MouseEvent::Pressed { .. } = event {
-            if !self.has_focus() && !self.read_only() {
-                WindowInner::from_pub(window_adapter.window()).set_focus_item(
-                    self_rc,
-                    true,
-                    FocusReason::PointerClick,
-                );
-            }
+        if let MouseEvent::Pressed { .. } = event
+            && !self.has_focus()
+            && !self.read_only()
+        {
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                self_rc,
+                true,
+                FocusReason::PointerClick,
+            );
         }
         InputEventResult::EventAccepted
     }
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _event: &KeyEvent,
+        _event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -273,26 +273,26 @@ impl Item for NativeSpinBox {
 
     fn key_event(
         self: Pin<&Self>,
-        event: &KeyEvent,
+        event: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if !self.enabled() || self.read_only() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
-        if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
+        if event.key_event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
             && self.value() < self.maximum()
         {
             let new_val = self.value() + self.step_size();
             self.value.set(new_val);
-            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
-        } else if event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
+        } else if event.key_event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
             && self.value() > self.minimum()
         {
             let new_val = self.value() - self.step_size();
             self.value.set(new_val);
-            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
+            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
         } else {
             KeyEventResult::EventIgnored
@@ -391,7 +391,7 @@ impl Item for NativeSpinBox {
 
 impl ItemConsts for NativeSpinBox {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -17,6 +17,7 @@ export component ComboBox {
     callback selected <=> base.selected;
 
     property <int> visible-items: min(6, model.length);
+    property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * MaterialSizeSettings.item-height;
 
     min-width: max(160px, layout.min-width);
     min-height: max(22px, layout.min-height);
@@ -96,6 +97,7 @@ export component ComboBox {
         y: root.height;
         width: root.width;
         height: root.visible-items * MaterialSizeSettings.item-height;
+        close-policy: close-on-click-outside;
         forward-focus: inner-fs;
 
         popup-container := Rectangle {
@@ -115,6 +117,7 @@ export component ComboBox {
             }
 
             ScrollView {
+                viewport-y: root.popup-scroll-y;
                 VerticalLayout {
                     alignment: start;
 
@@ -127,6 +130,7 @@ export component ComboBox {
                         touch-area := StateLayer {
                             clicked => {
                                 base.select(index);
+                                popup.close();
                             }
                         }
                     }

@@ -99,6 +99,65 @@ fn process_expression(
             process_expression(*from, toplevel, ctx, &ty)
                 .map_value(|e| Expression::Cast { from: e.into(), to })
         }
+        Expression::StoreLocalVariable { name, value } => {
+            let inner_ty = value.ty();
+            match process_expression(*value, false, ctx, &inner_ty) {
+                ExpressionResult::Just(e) => {
+                    ExpressionResult::Just(Expression::StoreLocalVariable {
+                        name,
+                        value: Box::new(e),
+                    })
+                }
+                ExpressionResult::Return(r) => ExpressionResult::Return(r),
+                ExpressionResult::MaybeReturn {
+                    pre_statements,
+                    condition,
+                    returned_value,
+                    actual_value,
+                } => ExpressionResult::MaybeReturn {
+                    pre_statements,
+                    condition,
+                    returned_value,
+                    actual_value: Some(Expression::StoreLocalVariable {
+                        name,
+                        value: Box::new(
+                            actual_value.unwrap_or(Expression::default_value_for_type(&inner_ty)),
+                        ),
+                    }),
+                },
+                ExpressionResult::ReturnObject { value, has_return_value, .. } => {
+                    static COUNT: std::sync::atomic::AtomicUsize =
+                        std::sync::atomic::AtomicUsize::new(0);
+                    let tmp_name: SmolStr = format_smolstr!(
+                        "return_check_store{}",
+                        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                    );
+                    let value_ty = value.ty();
+                    let load = |field: &str| Expression::StructFieldAccess {
+                        base: Box::new(Expression::ReadLocalVariable {
+                            name: tmp_name.clone(),
+                            ty: value_ty.clone(),
+                        }),
+                        name: field.into(),
+                    };
+                    let condition = load(FIELD_CONDITION);
+                    let returned_value = has_return_value.then(|| load(FIELD_RETURNED));
+                    let actual_value = Some(Expression::StoreLocalVariable {
+                        name,
+                        value: Box::new(load(FIELD_ACTUAL)),
+                    });
+                    ExpressionResult::MaybeReturn {
+                        pre_statements: vec![Expression::StoreLocalVariable {
+                            name: tmp_name,
+                            value: Box::new(value),
+                        }],
+                        condition,
+                        returned_value,
+                        actual_value,
+                    }
+                }
+            }
+        }
         e => {
             // Normally there shouldn't be any 'return' statements in there since return are not allowed in arbitrary expressions
             #[cfg(debug_assertions)]

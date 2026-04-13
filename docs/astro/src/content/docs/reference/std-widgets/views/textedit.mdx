@@ -79,7 +79,41 @@ The way the text wraps (default: word-wrap).
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName='TextHorizontalAlignment' >
 The horizontal alignment of the text.
 </SlintProperty>
--   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field.
+
+### placeholder-text
+<SlintProperty propName="text" typeName="string" propertyVisibility="in" >
+A placeholder text being shown when there is no text in the edit field.
+</SlintProperty>
+
+### viewport-width
+<SlintProperty propName="viewport-width" typeName="length" propertyVisibility="in-out">
+The width of the viewport of the text edit.
+</SlintProperty>
+
+### viewport-height
+<SlintProperty propName="viewport-height" typeName="length" propertyVisibility="in-out">
+The height of the viewport of the text edit.
+</SlintProperty>
+
+### viewport-x
+<SlintProperty propName="viewport-x" typeName="length" propertyVisibility="in-out">
+The `x` position of the viewport relative to the text edit. This is usually a negative value.
+</SlintProperty>
+
+### viewport-y
+<SlintProperty propName="viewport-y" typeName="length" propertyVisibility="in-out">
+The `y` position of the viewport relative to the text edit. This is usually a negative value.
+</SlintProperty>
+
+### visible-width
+<SlintProperty propName="visible-width" typeName="length" propertyVisibility="out">
+The width of the visible area of the text edit (not including the scrollbar)
+</SlintProperty>
+
+### visible-height
+<SlintProperty propName="visible-height" typeName="length" propertyVisibility="out">
+The height of the visible area of the text edit (not including the scrollbar)
+</SlintProperty>
 
 ## Functions
 

@@ -23,7 +23,7 @@ use core::pin::Pin;
 use cpp::{cpp, cpp_class};
 use i_slint_core::graphics::Color;
 use i_slint_core::input::{
-    FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+    FocusEvent, InputEventFilterResult, InputEventResult, KeyEventResult, MouseEvent,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
@@ -147,6 +147,7 @@ impl QImageWrapArray {
 }
 
 cpp! {{
+    // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
     #include <QtWidgets/QApplication>
     #include <QtWidgets/QStyle>
     #include <QtWidgets/QStyleOption>

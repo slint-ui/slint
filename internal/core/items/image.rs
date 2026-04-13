@@ -12,7 +12,7 @@ use super::{
     ItemConsts, ItemRc, RenderingResult,
 };
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::ItemRenderer;
@@ -88,7 +88,7 @@ impl Item for ImageItem {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -97,7 +97,7 @@ impl Item for ImageItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -175,7 +175,7 @@ impl ItemConsts for ImageItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ImageItem,
         CachedRenderingData,
-    > = ImageItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ImageItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[repr(C)]
@@ -252,7 +252,7 @@ impl Item for ClippedImage {
 
     fn capture_key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -261,7 +261,7 @@ impl Item for ClippedImage {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        _: &InternalKeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
@@ -344,5 +344,5 @@ impl ItemConsts for ClippedImage {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ClippedImage,
         CachedRenderingData,
-    > = ClippedImage::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ClippedImage::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

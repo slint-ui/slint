@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import pytest
-from slint.language import StandardListViewItem, KeyboardModifiers
+from slint.language import StandardListViewItem, KeyEvent, KeyboardModifiers
 
 
 NAMED_TUPLES = [
     (StandardListViewItem, {"text": ""}),
+    (KeyEvent, {"text": "", "modifiers": None, "repeat": False}),
     (
         KeyboardModifiers,
         {"shift": False, "control": False, "alt": False, "meta": False},

@@ -89,15 +89,3 @@ Replace `YOUR_APPLICATION` with the name of your crate.
 :::note[Note]
 Many web browser load `.wasm` files only in trusted contexts. If during development you observe the browser producing permission errors, then you may need to serve files through a web server, instead of the file system directly.
 :::
-
-## Clipboard Support
-
-Slint's text input widgets supports copy and paste when running in the browser.
-This is implemented using the browser's clipboard API via the `web-sys` crate.
-Because the clipboard API in `web-sys` is still unstable, you need to opt in by setting the following environment variable when building:
-
-```bash
-RUSTFLAGS=--cfg=web_sys_unstable_apis
-```
-
-You can read more in the [`web-sys` unstable APIs documentation](https://wasm-bindgen.github.io/wasm-bindgen/web-sys/unstable-apis.html).

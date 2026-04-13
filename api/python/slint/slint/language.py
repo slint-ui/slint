@@ -3,6 +3,6 @@
 
 from . import slint as native
 
-StandardListViewItem = native.language.StandardListViewItem  # type: ignore[unresolved-attribute]
 
-KeyboardModifiers = native.language.KeyboardModifiers  # type: ignore[unresolved-attribute]
+def __getattr__(name: str):
+    return getattr(native.language, name)

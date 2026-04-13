@@ -52,12 +52,9 @@ jobs:
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
         with:
-            rustflags: "--cfg=web_sys_unstable_apis"
             build_artifacts: true
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
-        with:
-            rustflags: "--cfg=web_sys_unstable_apis"
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
         with:
@@ -237,14 +234,14 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v5.0.0
               with:
                 version: 10.29.3
             - name: Install GNU Sed
               run: brew install gnu-sed
             - uses: actions/setup-node@v6
               with:
-                  node-version: 20
+                  node-version: 24
                   package-manager-cache: false
             - uses: actions/download-artifact@v8
               with:
@@ -298,12 +295,12 @@ jobs:
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
+                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/pre-release/1.16' && github.event.inputs.release != 'true') }}
                   packagePath: editors/vscode
                   dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
-              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/pre-release/1.16' || github.event.inputs.release == 'true') }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
@@ -322,10 +319,10 @@ jobs:
             - uses: actions/checkout@v6
             - uses: actions/setup-node@v6
               with:
-                node-version: 20
+                node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v4.2.0
+            - uses: pnpm/action-setup@v5.0.0
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -370,7 +367,7 @@ jobs:
 
             - name: Generate a token
               id: app-token-website
-              uses: actions/create-github-app-token@v2
+              uses: actions/create-github-app-token@v3
               with:
                 app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -424,7 +421,7 @@ jobs:
 
             - name: Generate a token
               id: app-token
-              uses: actions/create-github-app-token@v2
+              uses: actions/create-github-app-token@v3
               with:
                 app-id: ${{ vars.READ_WRITE_APP_ID }}
                 private-key: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -674,7 +671,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
+              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/pre-release/1.16'
               with:
                   allowUpdates: true
                   prerelease: true
@@ -709,6 +706,7 @@ jobs:
                     - os: ubuntu-22.04
                       name: "Ubuntu 22.04 1.92"
                       rust_version: "1.92"
+                      # plotter is excluded because with --all-features, its dependency cause build error because of fontconfig's dlopen feature
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly"
@@ -717,7 +715,8 @@ jobs:
                     - os: macos-14
                       name: "MacOS 14 nightly"
                       rust_version: "nightly"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      # plotter is excluded because its dependency doesn't build with Nightly rust: https://github.com/servo/pathfinder/issues/584
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}

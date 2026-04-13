@@ -90,6 +90,7 @@ softbuffer = { workspace = true, optional = true, default-features = false }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
+webbrowser = "1.2.0"
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
 muda = { version = "0.17.0", optional = true, default-features = false }
@@ -109,19 +110,24 @@ copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
 # Use same version and executor as accesskit
-zbus = { version = "5.7.0", default-features = false, features = ["async-io"] }
+zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# To disable macOS automatic shortcut translation
+objc2 = { workspace = true }
 # For GL rendering
-objc2-app-kit = { version = "0.3.2" }
+objc2-app-kit = { version = "0.3.2", features = ["NSColor", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSRunLoop", "NSObjCRuntime"] }
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink"] }
+block2 = "0.6.2"
 
 [target.'cfg(all(target_vendor = "apple", not(target_os = "macos")))'.dependencies]
 # Enable Skia by default on Apple platforms with iOS, etc. (but not macOS). See also enable_skia_renderer in build.rs
 i-slint-renderer-skia = { workspace = true, features = ["default"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-objc2 = "0.6.3"
+objc2 = { workspace = true }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSGeometry", "objc2-core-foundation"] }
 objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIScreen", "UIWindow", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction"] }
@@ -129,7 +135,7 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging"] }
+windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

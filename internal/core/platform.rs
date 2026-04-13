@@ -140,6 +140,13 @@ pub trait Platform {
         crate::tests::default_debug_log(_arguments);
     }
 
+    /// Opens the given URL in an external browser.
+    ///
+    /// Returns [`PlatformError::Unsupported`] if the platform doesn't support opening URLs.
+    fn open_url(&self, _url: &str) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported)
+    }
+
     #[cfg(target_os = "android")]
     #[doc(hidden)]
     /// The long press interval before showing a context menu

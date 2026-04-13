@@ -54,7 +54,7 @@ export component TestCase inherits Window {
 
         for person[idx] in model: Row {
             // First column: builtin Text item
-            name_elem := Text {
+            if (idx < 4): name_elem := Text {
                 text: person.name;
                 TouchArea {
                     clicked => {
@@ -64,6 +64,18 @@ export component TestCase inherits Window {
                     }
                 }
                 min-height: idx == 0 ? 150px : 10px; // check that constraints work
+            }
+            // just to test conditionals
+            if (idx == 4): bob_elem := Text {
+                text: "Bob is special";
+                max-width: 200px;
+                TouchArea {
+                    clicked => {
+                        clicked_text = bob_elem.text;
+                        clicked_row = bob_elem.row;
+                        clicked_col = bob_elem.col;
+                    }
+                }
             }
             // Second column: Cell sub-component
             account_elem := Cell {
@@ -75,7 +87,7 @@ export component TestCase inherits Window {
                 }
                 min-height: idx > 0 ? 150px : 10px; // check that constraints work on components too
             }
-            // Third column: bulitin Text item
+            // Third column: builtin Text item
             score_elem := Text {
                 text: person.score;
                 TouchArea {
@@ -131,6 +143,11 @@ slint_testing::send_mouse_click(&instance, 220., 405.);
 assert_eq(instance.get_clicked_text(), "dfaure");
 assert_eq(instance.get_clicked_row(), 3);
 assert_eq(instance.get_clicked_col(), 1);
+// Click on fifth row, first column (conditional Text item for Bob)
+slint_testing::send_mouse_click(&instance, 5., 705.);
+assert_eq(instance.get_clicked_text(), "Bob is special");
+assert_eq(instance.get_clicked_row(), 5);
+assert_eq(instance.get_clicked_col(), 0);
 ```
 
 
@@ -159,6 +176,11 @@ slint_testing::send_mouse_click(&instance, 220., 405.);
 assert_eq!(instance.get_clicked_text(), "dfaure");
 assert_eq!(instance.get_clicked_row(), 3);
 assert_eq!(instance.get_clicked_col(), 1);
+// Click on fifth row, first column (conditional Text item for Bob)
+slint_testing::send_mouse_click(&instance, 5., 705.);
+assert_eq!(instance.get_clicked_text(), "Bob is special");
+assert_eq!(instance.get_clicked_row(), 5);
+assert_eq!(instance.get_clicked_col(), 0);
 
 ```
 
@@ -186,6 +208,11 @@ slintlib.private_api.send_mouse_click(instance, 220., 405.);
 assert.deepEqual(instance.clicked_text, "dfaure");
 assert.equal(instance.clicked_row, 3);
 assert.equal(instance.clicked_col, 1);
+// Click on fifth row, first column (conditional Text item for Bob)
+slintlib.private_api.send_mouse_click(instance, 5., 705.);
+assert.deepEqual(instance.clicked_text, "Bob is special");
+assert.equal(instance.clicked_row, 5);
+assert.equal(instance.clicked_col, 0);
 ```
 
 */
