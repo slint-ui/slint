@@ -517,6 +517,7 @@ fn generate_shared_globals(
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
+            #[allow(dead_code)]
             #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
                 let _self = sp::Rc::new(Self {
                     #(#global_names : self.#global_names.clone(),)*
