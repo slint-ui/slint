@@ -196,6 +196,10 @@ impl TestingClient {
                         .collect(),
                 })
             }
+            // MCP-only tools — not supported over the binary system-testing transport
+            Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
+                return Err("this request is only supported via the MCP transport".into());
+            }
         })
     }
 
