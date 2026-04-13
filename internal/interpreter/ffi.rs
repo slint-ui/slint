@@ -1271,7 +1271,11 @@ impl SlintGoCallbackHolder {
     fn invoke(&self, args: &[Value]) -> Value {
         let mut raw_args =
             args.iter().cloned().map(|value| Box::into_raw(Box::new(value))).collect::<Vec<_>>();
-        let result = (self.callback)(self.user_data as *mut core::ffi::c_void, raw_args.as_ptr(), raw_args.len());
+        let result = (self.callback)(
+            self.user_data as *mut core::ffi::c_void,
+            raw_args.as_ptr(),
+            raw_args.len(),
+        );
         raw_args.drain(..).for_each(|value| drop(unsafe { Box::from_raw(value) }));
         if result.is_null() { Value::Void } else { *unsafe { Box::from_raw(result) } }
     }
