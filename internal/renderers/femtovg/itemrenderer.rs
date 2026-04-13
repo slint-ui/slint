@@ -1059,14 +1059,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
-    /// Render an item and its children to a texture.
-    ///
-    /// # Arguments
-    ///
-    /// - `item_rc`: The item to render
-    /// - `layer_bounding_rect_fn`: A function that returns the `LogicalRect` bounding box for the
-    ///   item and its children. The origin of this rectangle should be relative to the origin of
-    ///   `item_rc`.
     fn render_layer(
         &mut self,
         item_rc: &ItemRc,
@@ -1086,13 +1078,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
 
             let layer_image = existing_layer_texture
-                .filter(|layer_texture| {
+                .and_then(|layer_texture| {
                     // If we have an existing layer texture, there must be only one reference from within
                     // the existing cache entry and one through the `existing_layer_texture` variable.
                     // Then it is safe to render new content into it in this callback and when we return
                     // into `get_or_update_cache_entry` the first ref is dropped.
-                    debug_assert_eq!(Rc::strong_count(layer_texture), 2);
-                    layer_texture.size() == Some(size.to_untyped())
+                    debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
+                    if layer_texture.size() == Some(size.to_untyped()) {
+                        Some(layer_texture)
+                    } else {
+                        None
+                    }
                 })
                 .or_else(|| {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
@@ -1136,12 +1132,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 canvas.set_render_target(previous_render_target);
             }
 
-            Some(ItemGraphicsCacheEntry::TextureWithOrigin {
-                texture: layer_image,
-                // This will cause the transformation done above to be undone when rendering this texture to
-                // the screen/a parent layer
-                origin,
-            })
+            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image, origin })
         });
 
         cache_entry.and_then(|item_cache_entry| match item_cache_entry {
@@ -1156,6 +1147,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let window_adapter = self.window().window_adapter();
         let current_clip = self.get_current_clip();
         if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
+            // We don't need to include the size of the "layer" item itself, since it has no content.
+            // But intersect with the union of the clip with the geometry to make sure we don't
+            // render insanely large surface.
             i_slint_core::properties::evaluate_no_tracking(|| {
                 i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
                     .intersection(&current_clip.union(&item_rc.geometry()))
