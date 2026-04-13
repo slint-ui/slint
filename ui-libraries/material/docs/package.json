@@ -46,7 +46,7 @@
         "@types/js-yaml": "4.0.9",
         "@types/lodash.merge": "4.6.9",
         "@types/mdx": "2.0.13",
-        "astro-compress": "2.4.0",
+        "astro-compress": "2.4.1",
         "cspell": "catalog:",
         "js-yaml": "4.1.1",
         "mdast-util-to-string": "4.0.0",
