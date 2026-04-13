@@ -9,7 +9,8 @@
             "!**/build/**",
             "!**/out/**",
             "!**/playwright-report/**",
-            "!**/test-results/**"
+            "!**/test-results/**",
+            "!preview.html"
         ]
     },
     "linter": {
