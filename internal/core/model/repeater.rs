@@ -162,6 +162,46 @@ fn update_all_instances(
     indices_to_init
 }
 
+/// Closures over the listview viewport-y / width / height storage.
+///
+/// `update_visible_instances` reads and writes the viewport length
+/// properties at multiple points; this trait abstracts whether the storage
+/// is a strongly-typed `Property<LogicalLength>` (rust codegen, see
+/// [`TypedListViewProps`]) or some other backing such as the
+/// interpreter's `Property<Value>` — or a native-item property accessed
+/// through rtti.
+pub trait ListViewProperties {
+    fn viewport_y_get(&self) -> LogicalLength;
+    fn viewport_y_set(&self, value: LogicalLength);
+    fn viewport_y_has_binding(&self) -> bool;
+    fn viewport_width_set(&self, value: LogicalLength);
+    fn viewport_height_set(&self, value: LogicalLength);
+}
+
+struct TypedListViewProps<'a> {
+    viewport_width: Pin<&'a Property<LogicalLength>>,
+    viewport_height: Pin<&'a Property<LogicalLength>>,
+    viewport_y: Pin<&'a Property<LogicalLength>>,
+}
+
+impl ListViewProperties for TypedListViewProps<'_> {
+    fn viewport_y_get(&self) -> LogicalLength {
+        self.viewport_y.get()
+    }
+    fn viewport_y_set(&self, value: LogicalLength) {
+        self.viewport_y.set(value);
+    }
+    fn viewport_y_has_binding(&self) -> bool {
+        self.viewport_y.has_binding()
+    }
+    fn viewport_width_set(&self, value: LogicalLength) {
+        self.viewport_width.set(value);
+    }
+    fn viewport_height_set(&self, value: LogicalLength) {
+        self.viewport_height.set(value);
+    }
+}
+
 /// Update only the instances visible in the ListView viewport.
 ///
 /// This is the core virtualization algorithm: it estimates which model rows
@@ -171,9 +211,7 @@ fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
     row_count: usize,
-    viewport_width: Pin<&Property<LogicalLength>>,
-    viewport_height: Pin<&Property<LogicalLength>>,
-    viewport_y: Pin<&Property<LogicalLength>>,
+    props: &dyn ListViewProperties,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> Vec<usize> {
@@ -183,14 +221,14 @@ fn update_visible_instances(
 
     if row_count == 0 {
         ops.splice(0, ops.len(), 0);
-        viewport_height.set(zero);
-        viewport_y.set(zero);
-        viewport_width.set(listview_width);
+        props.viewport_height_set(zero);
+        props.viewport_y_set(zero);
+        props.viewport_width_set(listview_width);
         return Vec::new();
     }
 
-    let mut vp_y = viewport_y.get().get();
-    if !viewport_y.has_binding() {
+    let mut vp_y = props.viewport_y_get().get();
+    if !props.viewport_y_has_binding() {
         vp_y = vp_y.min(0 as Coord);
     }
 
@@ -346,17 +384,18 @@ fn update_visible_instances(
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
         state.anchor_y = state.cached_item_height * state.offset as Coord;
-        viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
-        viewport_width.set(LogicalLength::new(vp_width));
+        props
+            .viewport_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        props.viewport_width_set(LogicalLength::new(vp_width));
         // If an animation is ongoing we should not interrupt it
-        if !viewport_y.has_binding() {
+        if !props.viewport_y_has_binding() {
             let new_viewport_y = -state.anchor_y + new_offset_y;
-            if new_viewport_y != viewport_y.get().get() {
-                viewport_y.set(LogicalLength::new(new_viewport_y));
+            if new_viewport_y != props.viewport_y_get().get() {
+                props.viewport_y_set(LogicalLength::new(new_viewport_y));
             }
             state.previous_viewport_y = new_viewport_y;
         } else {
-            state.previous_viewport_y = viewport_y.get().0;
+            state.previous_viewport_y = props.viewport_y_get().get();
         }
         break;
     }
@@ -591,7 +630,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         }
     }
 
-    /// Same as `Self::ensure_updated` but for a ListView
+    /// Same as `Self::ensure_updated` but for a ListView.
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
@@ -600,6 +639,27 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
+    ) {
+        let lh = listview_height.get();
+        self.ensure_updated_listview_callback(
+            init,
+            &TypedListViewProps { viewport_width, viewport_height, viewport_y },
+            listview_width,
+            lh,
+        );
+    }
+
+    /// Closure-based variant of [`Self::ensure_updated_listview`] for runtime
+    /// consumers (the interpreter) that can't expose the viewport storage as
+    /// strongly-typed `Pin<&Property<LogicalLength>>` references — for
+    /// instance when the viewport is backed by a native item property
+    /// accessed through rtti rather than a dedicated `Property<T>` field.
+    pub fn ensure_updated_listview_callback(
+        self: Pin<&Self>,
+        init: impl Fn() -> ItemTreeRc<C>,
+        props: &dyn ListViewProperties,
+        listview_width: LogicalLength,
+        listview_height: LogicalLength,
     ) {
         // Query is_dirty to track model changes
         let _ = self.data().project_ref().is_dirty.get();
@@ -617,11 +677,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut ops,
             layout_state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            props,
             listview_width,
-            listview_height.get(),
+            listview_height,
         );
 
         drop(inner);
@@ -867,13 +925,12 @@ mod ffi {
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) {
+        let props = TypedListViewProps { viewport_width, viewport_height, viewport_y };
         let indices_to_init = update_visible_instances(
             ops,
             state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            &props,
             listview_width,
             listview_height,
         );
