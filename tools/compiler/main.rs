@@ -242,10 +242,7 @@ fn main() -> std::io::Result<()> {
         let resources: std::collections::BTreeSet<&str> = embedded
             .iter()
             .filter_map(|er| er.path.as_deref())
-            .filter(|resource| {
-                !fileaccess::load_file(std::path::Path::new(resource))
-                    .is_some_and(|f| f.is_builtin())
-            })
+            .filter(|resource| !resource.starts_with("builtin:/"))
             .collect();
         for resource in resources {
             write!(cursor, " {resource}")?;
