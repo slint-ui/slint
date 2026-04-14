@@ -145,9 +145,12 @@ impl common::LspToPreview for ChildProcessLspToPreview {
             let message = serde_json::to_string(&common::LspToPreviewMessage::Quit).unwrap();
             let _ = inner.to_child_sender.send(message);
             drop(inner.to_child_sender);
-            let _ =
-                tokio::time::timeout(std::time::Duration::from_secs(5), inner.communication_handle)
-                    .await;
+            if tokio::time::timeout(std::time::Duration::from_secs(5), inner.communication_handle)
+                .await
+                .is_err()
+            {
+                tracing::warn!("Timed out waiting for preview child process to exit");
+            }
         })
     }
 }
