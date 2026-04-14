@@ -430,17 +430,6 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_view_rect(&self) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
-        self.with_jni_env(|env, helper| {
-            let rect = helper.get_view_rect(env)?;
-            let x = rect.left(env)?;
-            let y = rect.top(env)?;
-            let width = rect.right(env)? - x;
-            let height = rect.bottom(env)? - y;
-            Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
-        })
-    }
-
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let rect = helper.get_safe_area(env)?;
