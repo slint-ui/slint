@@ -155,6 +155,16 @@ assert_eq!(
     SharedString::from("[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]")
 );
 assert_eq!(instance.get_viewport_y(), -820.);
+
+// row_removed entirely before the visible range while mid-list: symmetric
+// with the insert(0, ...) case above. Undoes that insert.
+model2.remove(0);
+click_all(&instance);
+assert_eq!(
+    instance.get_clicked_values(),
+    SharedString::from("[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]")
+);
+assert_eq!(instance.get_viewport_y(), -800.);
 ```
 
 ```cpp
@@ -237,6 +247,12 @@ model2->insert(0, -10);
 click_all();
 assert_eq(instance.get_clicked_values(), "[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]");
 assert_eq(instance.get_viewport_y(), -820.);
+
+// row_removed entirely before the visible range while mid-list.
+model2->erase(0);
+click_all();
+assert_eq(instance.get_clicked_values(), "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
+assert_eq(instance.get_viewport_y(), -800.);
 ```
 
 ```js
@@ -328,5 +344,11 @@ model2.insert(0, -10);
 click_all();
 assert.equal(instance.clicked_values, "[41=40][42=41][43=42][44=43][45=44][46=999][47=46][48=47][49=48][50=49]");
 assert.equal(instance.viewport_y, -820.);
+
+// row_removed entirely before the visible range while mid-list.
+model2.remove(0);
+click_all();
+assert.equal(instance.clicked_values, "[40=40][41=41][42=42][43=43][44=44][45=999][46=46][47=47][48=48][49=49]");
+assert.equal(instance.viewport_y, -800.);
 ```
 */
