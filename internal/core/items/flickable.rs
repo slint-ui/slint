@@ -46,6 +46,7 @@ use data_ringbuffer::PositionTimeRingBuffer;
 const DECELERATION: f32 = 2000.;
 /// Fixed-duration animation used for wheel scrolling, where we don't have enough phase
 /// information to derive a fling velocity.
+/// The unit is: millisecond
 const WHEEL_SCROLL_DURATION: i32 = 180;
 const WHEEL_SCROLL_EASING: EasingCurve = EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]);
 /// The maximum duration between a move and a release event to start an animation
@@ -438,18 +439,6 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        if phase == TouchPhase::Ended {
-            if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
-                self.animate(flick, flick_rc);
-            }
-            self.capture_events = None;
-            return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
-                InputEventResult::EventAccepted
-            } else {
-                InputEventResult::EventIgnored
-            };
-        }
-
         if phase != TouchPhase::Started
             && delta != LogicalVector::default()
             && !Self::is_allowed_scroll_direction(flick, delta, flick_rc)
@@ -493,7 +482,17 @@ impl FlickableDataInner {
                 }
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
-            TouchPhase::Ended => unreachable!(),
+            TouchPhase::Ended => {
+                if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
+                    self.animate(flick, flick_rc);
+                }
+                self.capture_events = None;
+                return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
+                    InputEventResult::EventAccepted
+                } else {
+                    InputEventResult::EventIgnored
+                };
+            }
         }
 
         let flicked = old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length();
