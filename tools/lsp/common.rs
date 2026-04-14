@@ -46,6 +46,9 @@ pub trait LspToPreview {
     fn send(&self, message: &LspToPreviewMessage);
     fn set_preview_target(&self, target: PreviewTarget) -> Result<()>;
     fn preview_target(&self) -> PreviewTarget;
+    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
+        Box::pin(async {})
+    }
 }
 
 #[derive(Default, Clone)]
