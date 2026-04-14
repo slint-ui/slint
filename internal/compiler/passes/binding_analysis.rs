@@ -14,7 +14,9 @@ use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::ElementType;
 use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Document, ElementRc, PropertyAnimation, find_parent_element};
+use crate::object_tree::{
+    Document, ElementRc, PropertyAnimation, find_parent_element, recurse_elem,
+};
 use derive_more as dm;
 
 use crate::CompilerConfiguration;
@@ -197,6 +199,16 @@ fn analyze_element(
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
+    // ChangeTracker evaluates tracked properties during init, so treat them as read.
+    for prop_name in elem.borrow().change_callbacks.keys() {
+        process_property(
+            &PropertyPath::from(NamedReference::new(elem, prop_name.clone())),
+            ReadType::PropertyRead,
+            context,
+            reverse_aliases,
+            diag,
+        );
+    }
     for (name, binding) in &elem.borrow().bindings {
         if binding.borrow().analysis.is_some() {
             continue;
@@ -318,7 +330,6 @@ fn analyze_binding(
     if context.currently_analyzing.contains(current) {
         let mut loop_description = String::new();
         let mut has_window_layout = false;
-
         fn push_prop(prop: &PropertyPath, out: &mut String) {
             if !out.is_empty() {
                 out.push_str(" -> ");
@@ -346,6 +357,8 @@ fn analyze_binding(
             }
         }
 
+        let is_warning = !context.error_on_binding_loop_with_window_layout && has_window_layout;
+
         for it in context.currently_analyzing.iter().rev() {
             let p = &it.prop;
             let elem = p.element();
@@ -356,7 +369,7 @@ fn analyze_binding(
             }
 
             let span = binding.span.clone().unwrap_or_else(|| elem.to_source_location());
-            if !context.error_on_binding_loop_with_window_layout && has_window_layout {
+            if is_warning {
                 diag.push_warning(format!("The binding for the property '{}' is part of a binding loop ({loop_description}).\nThis was allowed in previous version of Slint, but is deprecated and may cause panic at runtime", p.name()), &span);
             } else {
                 diag.push_error(format!("The binding for the property '{}' is part of a binding loop ({loop_description})", p.name()), &span);
@@ -523,7 +536,7 @@ fn process_property(
 fn recurse_expression(
     elem: &ElementRc,
     expr: &Expression,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut (impl FnMut(&PropertyPath, ReadType) + ?Sized),
 ) {
     const P: ReadType = ReadType::PropertyRead;
     expr.visit(|sub| recurse_expression(elem, sub, vis));
@@ -733,7 +746,7 @@ fn recurse_expression(
 fn visit_layout_items_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     orientation: Orientation,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut (impl FnMut(&PropertyPath, ReadType) + ?Sized),
 ) {
     for it in items {
         let mut element = it.element.clone();
@@ -744,7 +757,17 @@ fn visit_layout_items_dependencies<'a>(
             .map(|r| recurse_expression(&element, &r.model, vis))
             .is_some()
         {
-            element = it.element.borrow().base_type.as_component().root_element.clone();
+            // Visit init and changed callbacks of the repeated component.
+            // This is important because instantiating repeater items (via ensure_updated)
+            // during layout computation will run these callbacks, which may read properties
+            // that depend on layout, causing potential recursion issues.
+            // See: https://github.com/slint-ui/slint/issues/7402
+            let component = it.element.borrow().base_type.as_component().clone();
+            visit_component_init_and_changed_callbacks(&component, &mut |p, _| {
+                vis(p, ReadType::PropertyRead)
+            });
+
+            element = component.root_element.clone();
         }
 
         if let Some(nr) = element.borrow().layout_info_prop(orientation) {
@@ -767,11 +790,33 @@ fn visit_layout_items_dependencies<'a>(
     }
 }
 
+/// Visit dependencies from init and changed callbacks of a repeated component.
+/// Instantiating repeater items runs these callbacks, which may read layout-dependent
+/// properties. See https://github.com/slint-ui/slint/issues/7402 and #7849.
+fn visit_component_init_and_changed_callbacks(
+    component: &Rc<crate::object_tree::Component>,
+    vis: &mut dyn FnMut(&PropertyPath, ReadType),
+) {
+    for expr in &component.init_code.borrow().constructor_code {
+        recurse_expression(&component.root_element, expr, vis);
+    }
+    for expr in component.init_code.borrow().inlined_init_code.values() {
+        recurse_expression(&component.root_element, expr, vis);
+    }
+    // Visit tracked properties (not callback bodies) — ChangeTracker evaluates them during init.
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        for prop_name in elem.borrow().change_callbacks.keys() {
+            let nr = NamedReference::new(elem, prop_name.clone());
+            vis(&nr.into(), ReadType::PropertyRead);
+        }
+    });
+}
+
 /// The builtin function can call native code, and we need to visit the properties that are accessed by it
 fn visit_implicit_layout_info_dependencies(
-    orientation: crate::layout::Orientation,
+    orientation: Orientation,
     item: &ElementRc,
-    vis: &mut impl FnMut(&PropertyPath, ReadType),
+    vis: &mut (impl FnMut(&PropertyPath, ReadType) + ?Sized),
 ) {
     let base_type = item.borrow().base_type.to_smolstr();
     const N: ReadType = ReadType::NativeRead;

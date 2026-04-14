@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Negative test: a changed callback on a property that does NOT depend on layout
+// should not trigger any binding loop warning.
+
+component RepeatedItem {
+    in property <int> counter;
+
+    changed counter => {
+        debug(self.counter);
+    }
+
+    Rectangle {
+        height: 20px;
+    }
+}
+
+export component TestNoLoop inherits Window {
+    property <[int]> model: [1, 2, 3];
+
+    HorizontalLayout {
+        for item in model: RepeatedItem {
+            counter: 42;
+        }
+    }
+}
