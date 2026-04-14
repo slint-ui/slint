@@ -87,6 +87,18 @@ pub enum DirectXTextureError {
     Windows(#[from] core::Error),
 }
 
+impl From<DirectXTextureError> for surfman::Error {
+    fn from(error: DirectXTextureError) -> Self {
+        match error {
+            DirectXTextureError::Surfman(e) => e,
+            e => {
+                eprintln!("[GPU] Failed to initialize D3D11 shared state: {:?}", e);
+                surfman::Error::DeviceOpenFailed
+            }
+        }
+    }
+}
+
 // Fullscreen-triangle flip shader. Positions and UVs are derived entirely from the vertex
 // index — no vertex buffer required. The Y UV coordinate is inverted to correct for
 // OpenGL's bottom-left origin vs. DX's top-left origin.
@@ -146,14 +158,8 @@ impl super::GPURenderingContext {
                 wgpu_device.as_hal::<Dx12>().ok_or(DirectXTextureError::WgpuNotDx12)?;
             let dx12_device = hal_device.raw_device().clone();
 
-            // Lazy-initialise the shared D3D11 state (once per lifetime)
-
+            // No more lazy initialization needed.
             let mut state = self.d3d11_state.borrow_mut();
-
-            if state.is_none() {
-                *state = Some(Self::init_d3d11_shared_state(device, wgpu_device)?);
-            }
-
             let state_ref = state.as_mut().unwrap();
 
             // Recreate size-dependent resources on resize
@@ -238,7 +244,7 @@ impl super::GPURenderingContext {
     // Retrieves ANGLE's D3D11 device and context via EGL device query extensions,
     // caches EGL function pointers, and creates the wgpu flip pipeline and sampler.
     #[allow(unsafe_op_in_unsafe_fn)]
-    unsafe fn init_d3d11_shared_state(
+    pub(crate) unsafe fn init_d3d11_shared_state(
         device: &surfman::Device,
         wgpu_device: &Device,
     ) -> Result<D3D11SharedState, DirectXTextureError> {

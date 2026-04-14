@@ -31,7 +31,7 @@ pub fn try_create_gpu_context(
         return Some(create_software_context(size));
     }
 
-    match GPURenderingContext::new(size) {
+    match GPURenderingContext::new(size, &device) {
         Ok(gpu_context) => {
             eprintln!("[GPU] GPURenderingContext created successfully — using GPU path");
             let rendering_context = Rc::new(gpu_context);

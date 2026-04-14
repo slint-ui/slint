@@ -54,7 +54,10 @@ impl Drop for GPURenderingContext {
 }
 
 impl GPURenderingContext {
-    pub fn new(size: PhysicalSize<u32>) -> Result<Self, surfman::Error> {
+    pub fn new(
+        size: PhysicalSize<u32>,
+        wgpu_device: &wgpu::Device,
+    ) -> Result<Self, surfman::Error> {
         let connection = Connection::new()?;
 
         // On Windows, surfman's create_adapter() calls create_hardware_adapter() which uses
@@ -85,12 +88,17 @@ impl GPURenderingContext {
 
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
+        #[cfg(target_os = "windows")]
+        let d3d11_state = unsafe {
+            Self::init_d3d11_shared_state(&surfman_rendering_info.device.borrow(), wgpu_device)
+        }?;
+
         Ok(Self {
             swap_chain,
             size: Cell::new(size),
             surfman_rendering_info,
             #[cfg(target_os = "windows")]
-            d3d11_state: std::cell::RefCell::new(None),
+            d3d11_state: std::cell::RefCell::new(Some(d3d11_state)),
         })
     }
 
