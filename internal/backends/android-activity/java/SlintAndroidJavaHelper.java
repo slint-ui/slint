@@ -408,25 +408,25 @@ public class SlintAndroidJavaHelper {
                         FrameLayout.LayoutParams.MATCH_PARENT);
                 mActivity.addContentView(mInputView, params);
                 mInputView.setVisibility(View.VISIBLE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    mActivity.getWindow().getDecorView().getRootView()
+                            .setOnApplyWindowInsetsListener((v, insets) -> dispatchInsets(insets));
+                    // Attach the IME animation callback to the input view rather than the
+                    // decor root: some OEM ROMs fail to render the IME surface when an
+                    // animation callback is installed on the window's root view.
+                    mInputView.setWindowInsetsAnimationCallback(
+                            new WindowInsetsAnimation.Callback(
+                                    WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                                @Override
+                                public WindowInsets onProgress(WindowInsets insets,
+                                        java.util.List<WindowInsetsAnimation> runningAnimations) {
+                                    return dispatchInsets(insets);
+                                }
+                            });
+                }
             }
         });
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            View rootView = activity.getWindow().getDecorView().getRootView();
-
-            // Some OEM ROMs hide the IME surface if the only inset source is the animation
-            // callback below, so install a plain listener as well.
-            rootView.setOnApplyWindowInsetsListener((v, insets) -> dispatchInsets(insets));
-
-            rootView.setWindowInsetsAnimationCallback(
-                    new WindowInsetsAnimation.Callback(
-                            WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-                        @Override
-                        public WindowInsets onProgress(WindowInsets insets,
-                                java.util.List<WindowInsetsAnimation> runningAnimations) {
-                            return dispatchInsets(insets);
-                        }
-                    });
-        } else {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             activity.getWindow().getDecorView().getRootView().getViewTreeObserver()
                     .addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
                         @Override
