@@ -556,21 +556,37 @@ fn recurse_expression(
             // Visit layout geometry dependencies
             if matches!(expr, Expression::SolveFlexboxLayout(..)) {
                 // The solve needs the main-axis dimension (width for row,
-                // height for column). For column direction, it also needs
-                // the cross-axis width for height-for-width items, but that
-                // dependency is safe (set by parent before solve) and doesn't
-                // need to be declared here.
+                // height for column). On the cross axis, *builtin* items
+                // receive the perpendicular size through the item VTable's
+                // `cross_axis_constraint` parameter and never read `self.width`
+                // at runtime, so no edge is declared for them here. *Component*
+                // items don't have that shortcut: their compiled
+                // `layoutinfo-<cross>` binding is evaluated as an ordinary
+                // property and really does depend on the cross-axis dimension
+                // (typically via inner height-for-width items). That edge is
+                // added by `visit_layout_items_layoutinfo_cross_axis_dependencies`
+                // so the binding-loop pass can detect the cycle.
                 use crate::layout::FlexboxAxisRelation;
                 match layout.axis_relation(Orientation::Horizontal) {
                     FlexboxAxisRelation::MainAxis => {
                         if let Some(nr) = layout.geometry.rect.width_reference.as_ref() {
                             vis(&nr.clone().into(), P);
                         }
+                        visit_layout_items_layoutinfo_cross_axis_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Vertical,
+                            vis,
+                        );
                     }
                     FlexboxAxisRelation::CrossAxis => {
                         if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
                             vis(&nr.clone().into(), P);
                         }
+                        visit_layout_items_layoutinfo_cross_axis_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Horizontal,
+                            vis,
+                        );
                     }
                     FlexboxAxisRelation::Unknown => {
                         // Runtime direction: conservatively depend on both
@@ -580,6 +596,16 @@ fn recurse_expression(
                         if let Some(nr) = layout.geometry.rect.height_reference.as_ref() {
                             vis(&nr.clone().into(), P);
                         }
+                        visit_layout_items_layoutinfo_cross_axis_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Horizontal,
+                            vis,
+                        );
+                        visit_layout_items_layoutinfo_cross_axis_dependencies(
+                            layout.elems.iter().map(|fi| &fi.item),
+                            Orientation::Vertical,
+                            vis,
+                        );
                     }
                 }
             } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
@@ -763,6 +789,39 @@ fn visit_layout_items_dependencies<'a>(
 
         for (nr, _) in it.constraints.for_each_restrictions(orientation) {
             vis(&nr.clone().into(), ReadType::PropertyRead)
+        }
+    }
+}
+
+/// Visit cross-axis `layoutinfo-<cross>` dependencies for child elements that
+/// have a compiled `layoutinfo-<cross>` binding (i.e. an inlined component
+/// root, or a nested layout).
+///
+/// Pure builtins (`Image`, `Text`, `Rectangle`, …) do not set `layout_info_prop`
+/// — their cross-axis size is computed through the item VTable, which accepts a
+/// `cross_axis_constraint` argument, so they never read `self.width` at
+/// runtime and the parent's `SolveFlexboxLayout` has no real dependency on
+/// them. Elements that *do* set `layout_info_prop` run an ordinary property
+/// binding that may transitively depend on the cross-axis dimension (e.g. an
+/// inner word-wrapping `Text` or aspect-ratio `Image`). Declaring that edge
+/// lets `binding_analysis` detect cycles through component boundaries instead
+/// of letting them surface as a runtime recursion panic.
+fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
+    items: impl Iterator<Item = &'a LayoutItem>,
+    cross_axis: Orientation,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    for it in items {
+        let element = it.element.clone();
+        if let Some(nr) = element.borrow().layout_info_prop(cross_axis) {
+            vis(&nr.clone().into(), ReadType::PropertyRead);
+        } else if let ElementType::Component(base) = &element.borrow().base_type
+            && let Some(nr) = base.root_element.borrow().layout_info_prop(cross_axis)
+        {
+            vis(
+                &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
+                ReadType::PropertyRead,
+            );
         }
     }
 }
