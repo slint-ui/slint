@@ -281,7 +281,7 @@ i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
 
-const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
 vtable = { workspace = true }
 

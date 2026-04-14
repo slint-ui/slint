@@ -11,7 +11,6 @@ use i_slint_compiler::layout::{
 };
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core::Coord;
 use i_slint_core::items::{DialogButtonRole, FlexboxLayoutDirection, ItemRc};
 use i_slint_core::layout::{self as core_layout, GridLayoutInputData, GridLayoutOrganizedData};
 use i_slint_core::model::RepeatedItemTree;
@@ -188,11 +187,28 @@ pub(crate) fn solve_flexbox_layout(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
 
-    let (cells_h, cells_v, repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
-
     let width_ref = &flexbox_layout.geometry.rect.width_reference;
     let height_ref = &flexbox_layout.geometry.rect.height_reference;
+    let direction = flexbox_layout_direction(flexbox_layout, local_context);
+
+    // For column direction, pass the container width so cells_v can use it
+    // as the constraint for height-for-width items (items stretch to it).
+    let container_width_for_cells = match direction {
+        i_slint_core::items::FlexboxLayoutDirection::Column
+        | i_slint_core::items::FlexboxLayoutDirection::ColumnReverse => {
+            width_ref.as_ref().map(&expr_eval)
+        }
+        _ => None,
+    };
+
+    let (cells_h, cells_v, repeated_indices) = flexbox_layout_data(
+        flexbox_layout,
+        component,
+        &expr_eval,
+        local_context,
+        container_width_for_cells,
+    );
+
     let alignment = flexbox_layout
         .geometry
         .alignment
@@ -200,7 +216,6 @@ pub(crate) fn solve_flexbox_layout(
         .map_or(i_slint_core::items::LayoutAlignment::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
-    let direction = flexbox_layout_direction(flexbox_layout, local_context);
     let align_content = flexbox_layout
         .align_content
         .as_ref()
@@ -225,25 +240,88 @@ pub(crate) fn solve_flexbox_layout(
     let (padding_v, spacing_v) =
         padding_and_spacing(&flexbox_layout.geometry, Orientation::Vertical, &expr_eval);
 
-    core_layout::solve_flexbox_layout(
-        &core_layout::FlexboxLayoutData {
-            width: width_ref.as_ref().map(&expr_eval).unwrap_or(0.),
-            height: height_ref.as_ref().map(&expr_eval).unwrap_or(0.),
-            spacing_h,
-            spacing_v,
-            padding_h,
-            padding_v,
-            alignment,
-            direction,
-            align_content,
-            align_items,
-            flex_wrap,
-            cells_h: Slice::from(cells_h.as_slice()),
-            cells_v: Slice::from(cells_v.as_slice()),
-        },
-        Slice::from(repeated_indices.as_slice()),
-    )
-    .into()
+    let data = core_layout::FlexboxLayoutData {
+        width: width_ref.as_ref().map(&expr_eval).unwrap_or(0.),
+        height: height_ref.as_ref().map(&expr_eval).unwrap_or(0.),
+        spacing_h,
+        spacing_v,
+        padding_h,
+        padding_v,
+        alignment,
+        direction,
+        align_content,
+        align_items,
+        flex_wrap,
+        cells_h: Slice::from(cells_h.as_slice()),
+        cells_v: Slice::from(cells_v.as_slice()),
+    };
+    let ri = Slice::from(repeated_indices.as_slice());
+
+    // Collect element info for measure callbacks (height-for-width support).
+    let window_adapter = component.window_adapter();
+    let mut child_elem_ids: Vec<Option<smol_str::SmolStr>> = Vec::new();
+    for layout_elem in &flexbox_layout.elems {
+        if layout_elem.item.element.borrow().repeated.is_some() {
+            let component_vec = repeater_instances(component, &layout_elem.item.element);
+            for _ in 0..component_vec.len() {
+                child_elem_ids.push(None);
+            }
+        } else {
+            child_elem_ids.push(Some(layout_elem.item.element.borrow().id.clone()));
+        }
+    }
+
+    // Build measure callback that computes constrained layout_info for items
+    // that support height-for-width (Text with wrap, Image with aspect ratio).
+    // This avoids the circular dependency where layout_info reads the item's
+    // width property, which itself comes from the layout cache being computed.
+    let mut measure = |child_index: usize,
+                       known_w: Option<f32>,
+                       known_h: Option<f32>|
+     -> (f32, f32) {
+        let default_w = cells_h.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
+        let default_h = cells_v.get(child_index).map_or(0., |c| c.constraint.preferred_bounded());
+        let w = known_w.unwrap_or(default_w);
+        let h = known_h.unwrap_or(default_h);
+
+        let elem_id = match child_elem_ids.get(child_index) {
+            Some(Some(id)) => id,
+            _ => return (w, h),
+        };
+        let item_within = match component.description.items.get(elem_id.as_str()) {
+            Some(i) => i,
+            None => return (w, h),
+        };
+
+        // Call layout_info with cross-axis constraint through the VTable
+        if known_w.is_some() && known_h.is_none() {
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+            let v_info = item.as_ref().layout_info(
+                to_runtime(Orientation::Vertical),
+                w,
+                &window_adapter,
+                &item_rc,
+            );
+            return (w, v_info.preferred_bounded());
+        }
+        if known_h.is_some() && known_w.is_none() {
+            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+            let h_info = item.as_ref().layout_info(
+                to_runtime(Orientation::Horizontal),
+                h,
+                &window_adapter,
+                &item_rc,
+            );
+            return (h_info.preferred_bounded(), h);
+        }
+        (w, h)
+    };
+
+    core_layout::solve_flexbox_layout_with_measure(&data, ri, Some(&mut measure)).into()
 }
 
 fn flexbox_layout_direction(
@@ -283,7 +361,7 @@ pub(crate) fn compute_flexbox_layout_info(
     };
 
     let (cells_h, cells_v, _repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context);
+        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, None);
 
     // Get the direction from the property binding
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
@@ -311,48 +389,41 @@ pub(crate) fn compute_flexbox_layout_info(
         });
 
     if is_main_axis {
-        // Main axis: use simple layout info (no constraint needed)
-        // This avoids reading the perpendicular dimension and prevents circular dependencies
-        core_layout::flexbox_layout_info(
-            Slice::from(cells_h.as_slice()),
-            Slice::from(cells_v.as_slice()),
-            spacing_h,
-            spacing_v,
-            &padding_h,
-            &padding_v,
-            to_runtime(orientation),
-            direction,
-            Coord::MAX,
+        let (cells, spacing, padding) = match orientation {
+            Orientation::Horizontal => (&cells_h, spacing_h, &padding_h),
+            Orientation::Vertical => (&cells_v, spacing_v, &padding_v),
+        };
+        core_layout::flexbox_layout_info_main_axis(
+            Slice::from(cells.as_slice()),
+            spacing,
+            padding,
             flex_wrap,
         )
         .into()
     } else {
-        // Cross axis: need constraint to handle wrapping
-        // Only read the constraint dimension here (the main-axis dimension of the flexbox)
+        // Read the perpendicular (main-axis) dimension as constraint for cross-axis info.
+        // For row flex, cross-axis is vertical, perpendicular is width.
+        // For column flex, cross-axis is horizontal, perpendicular is height.
         let constraint_size = match orientation {
             Orientation::Horizontal => {
-                // Cross-axis for Column: need height
                 let height_ref = &flexbox_layout.geometry.rect.height_reference;
                 height_ref.as_ref().map(&expr_eval).unwrap_or(0.)
             }
             Orientation::Vertical => {
-                // Cross-axis for Row: need width
                 let width_ref = &flexbox_layout.geometry.rect.width_reference;
                 width_ref.as_ref().map(&expr_eval).unwrap_or(0.)
             }
         };
-
-        core_layout::flexbox_layout_info(
+        core_layout::flexbox_layout_info_cross_axis(
             Slice::from(cells_h.as_slice()),
             Slice::from(cells_v.as_slice()),
             spacing_h,
             spacing_v,
             &padding_h,
             &padding_v,
-            to_runtime(orientation),
             direction,
-            constraint_size,
             flex_wrap,
+            constraint_size,
         )
         .into()
     }
@@ -363,11 +434,23 @@ fn flexbox_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     _local_context: &mut EvalLocalContext,
+    container_width: Option<f32>,
 ) -> (Vec<core_layout::FlexboxLayoutItemInfo>, Vec<core_layout::FlexboxLayoutItemInfo>, Vec<u32>) {
     let window_adapter = component.window_adapter();
     let mut cells_h = Vec::with_capacity(flexbox_layout.elems.len());
     let mut cells_v = Vec::with_capacity(flexbox_layout.elems.len());
     let mut repeated_indices = Vec::new();
+
+    // First pass: collect horizontal layout_info for all children (no cycle risk)
+    // and flex properties. Store element refs for the second pass.
+    struct ChildInfo {
+        flex_grow: f32,
+        flex_shrink: f32,
+        flex_basis: f32,
+        flex_align_self: i_slint_core::items::FlexboxLayoutAlignSelf,
+        flex_order: i32,
+    }
+    let mut static_children: Vec<Option<ChildInfo>> = Vec::new(); // None = repeater
 
     for layout_elem in &flexbox_layout.elems {
         if layout_elem.item.element.borrow().repeated.is_some() {
@@ -380,6 +463,9 @@ fn flexbox_layout_data(
             cells_v.extend(component_vec.iter().map(|x| {
                 x.as_pin_ref().flexbox_layout_item_info(to_runtime(Orientation::Vertical), None)
             }));
+            for _ in 0..component_vec.len() {
+                static_children.push(None);
+            }
         } else {
             let mut layout_info_h = get_layout_info(
                 &layout_elem.item.element,
@@ -391,22 +477,13 @@ fn flexbox_layout_data(
                 &mut layout_info_h,
                 &layout_elem.item.constraints,
                 Orientation::Horizontal,
-                &expr_eval,
+                expr_eval,
             );
-            let mut layout_info_v = get_layout_info(
-                &layout_elem.item.element,
-                component,
-                &window_adapter,
-                Orientation::Vertical,
-            );
-            fill_layout_info_constraints(
-                &mut layout_info_v,
-                &layout_elem.item.constraints,
-                Orientation::Vertical,
-                &expr_eval,
-            );
+            // Don't collect cells_v in the first pass — it may trigger a circular
+            // dependency for height-for-width items (Text with wrap, Image).
+            // The second pass fills in cells_v with the width constraint.
             let flex_grow = layout_elem.flex_grow.as_ref().map(&expr_eval).unwrap_or(0.0);
-            let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(0.0);
+            let flex_shrink = layout_elem.flex_shrink.as_ref().map(&expr_eval).unwrap_or(1.0);
             let flex_basis = layout_elem.flex_basis.as_ref().map(&expr_eval).unwrap_or(-1.0);
             let align_self = layout_elem
                 .align_self
@@ -418,24 +495,63 @@ fn flexbox_layout_data(
                         .unwrap()
                 })
                 .unwrap_or(i_slint_core::items::FlexboxLayoutAlignSelf::default());
-            let order = layout_elem.order.as_ref().map(&expr_eval).unwrap_or(0.0) as i32;
-            let item_info = core_layout::FlexboxLayoutItemInfo {
+            let order = layout_elem.order.as_ref().map(expr_eval).unwrap_or(0.0) as i32;
+            cells_h.push(core_layout::FlexboxLayoutItemInfo {
                 constraint: layout_info_h,
                 flex_grow,
                 flex_shrink,
                 flex_basis,
                 flex_align_self: align_self,
                 flex_order: order,
-            };
-            cells_h.push(item_info);
-            cells_v.push(core_layout::FlexboxLayoutItemInfo {
-                constraint: layout_info_v,
+            });
+            // Placeholder for cells_v — filled in second pass
+            cells_v.push(core_layout::FlexboxLayoutItemInfo::default());
+            static_children.push(Some(ChildInfo {
                 flex_grow,
                 flex_shrink,
                 flex_basis,
                 flex_align_self: align_self,
                 flex_order: order,
-            });
+            }));
+        }
+    }
+
+    // Second pass: collect vertical layout_info with a width constraint.
+    // For column direction, use the container width (items get stretched to it).
+    // Otherwise use the item's horizontal preferred size.
+    let mut cell_idx = 0usize;
+    for layout_elem in &flexbox_layout.elems {
+        if layout_elem.item.element.borrow().repeated.is_some() {
+            let component_vec = repeater_instances(component, &layout_elem.item.element);
+            cell_idx += component_vec.len();
+            // repeater cells_v already filled in first pass
+        } else {
+            let width_constraint =
+                container_width.unwrap_or_else(|| cells_h[cell_idx].constraint.preferred_bounded());
+            let mut layout_info_v = get_layout_info_with_constraint(
+                &layout_elem.item.element,
+                component,
+                &window_adapter,
+                Orientation::Vertical,
+                width_constraint,
+            );
+            fill_layout_info_constraints(
+                &mut layout_info_v,
+                &layout_elem.item.constraints,
+                Orientation::Vertical,
+                expr_eval,
+            );
+            if let Some(info) = &static_children[cell_idx] {
+                cells_v[cell_idx] = core_layout::FlexboxLayoutItemInfo {
+                    constraint: layout_info_v,
+                    flex_grow: info.flex_grow,
+                    flex_shrink: info.flex_shrink,
+                    flex_basis: info.flex_basis,
+                    flex_align_self: info.flex_align_self,
+                    flex_order: info.flex_order,
+                };
+            }
+            cell_idx += 1;
         }
     }
 
@@ -918,6 +1034,16 @@ pub(crate) fn get_layout_info(
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
+    get_layout_info_with_constraint(elem, component, window_adapter, orientation, -1.)
+}
+
+fn get_layout_info_with_constraint(
+    elem: &ElementRc,
+    component: InstanceRef,
+    window_adapter: &Rc<dyn WindowAdapter>,
+    orientation: Orientation,
+    cross_axis_constraint: f32,
+) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
     if let Some(nr) = elem.layout_info_prop(orientation) {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
@@ -932,6 +1058,7 @@ pub(crate) fn get_layout_info(
         unsafe {
             item.item_from_item_tree(component.as_ptr()).as_ref().layout_info(
                 to_runtime(orientation),
+                cross_axis_constraint,
                 window_adapter,
                 &ItemRc::new(vtable::VRc::into_dyn(item_comp), item.item_index()),
             )

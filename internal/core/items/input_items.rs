@@ -59,9 +59,12 @@ pub struct TouchArea {
 impl Item for TouchArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -79,7 +82,7 @@ impl Item for TouchArea {
             self.has_hover.set(false);
             if self.grabbed.replace(false) {
                 self.pressed.set(false);
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
@@ -93,11 +96,11 @@ impl Item for TouchArea {
             return InputEventFilterResult::ForwardAndIgnore;
         }
         if let Some(pos) = event.position() {
-            Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x_length());
-            Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y_length());
+            Self::FIELD_OFFSETS.mouse_x().apply_pin(self).set(pos.x_length());
+            Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
         }
         let hovering = !matches!(event, MouseEvent::Exit);
-        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(hovering);
         if hovering {
             *cursor = self.mouse_cursor();
         }
@@ -112,7 +115,7 @@ impl Item for TouchArea {
         _: &mut MouseCursor,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
-            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+            Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -121,11 +124,11 @@ impl Item for TouchArea {
             MouseEvent::Pressed { position, button, is_touch, .. } => {
                 self.grabbed.set(true);
                 if *button == PointerEventButton::Left {
-                    Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());
-                    Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y_length());
-                    Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
+                    Self::FIELD_OFFSETS.pressed_x().apply_pin(self).set(position.x_length());
+                    Self::FIELD_OFFSETS.pressed_y().apply_pin(self).set(position.y_length());
+                    Self::FIELD_OFFSETS.pressed().apply_pin(self).set(true);
                 }
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Down,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
@@ -135,9 +138,9 @@ impl Item for TouchArea {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit => {
-                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+                Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
-                    Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
                         modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
@@ -154,17 +157,17 @@ impl Item for TouchArea {
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(*position)
                     && self.pressed()
                 {
-                    Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                    Self::FIELD_OFFSETS.clicked().apply_pin(self).call(&());
                     if (click_count % 2) == 1 {
-                        Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&())
+                        Self::FIELD_OFFSETS.double_clicked().apply_pin(self).call(&())
                     }
                 }
 
                 self.grabbed.set(false);
                 if *button == PointerEventButton::Left {
-                    Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+                    Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
                 }
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Up,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
@@ -174,14 +177,14 @@ impl Item for TouchArea {
                 InputEventResult::EventAccepted
             }
             MouseEvent::Moved { is_touch, .. } => {
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
                     is_touch: *is_touch,
                 },));
                 if self.grabbed.get() {
-                    Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
+                    Self::FIELD_OFFSETS.moved().apply_pin(self).call(&());
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
@@ -189,12 +192,9 @@ impl Item for TouchArea {
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
                 let modifiers = window_adapter.window().0.context().0.modifiers.get().into();
-                let r =
-                    Self::FIELD_OFFSETS.scroll_event.apply_pin(self).call(&(PointerScrollEvent {
-                        delta_x: *delta_x,
-                        delta_y: *delta_y,
-                        modifiers,
-                    },));
+                let r = Self::FIELD_OFFSETS.scroll_event().apply_pin(self).call(&(
+                    PointerScrollEvent { delta_x: *delta_x, delta_y: *delta_y, modifiers },
+                ));
                 if self.grabbed.get() {
                     InputEventResult::GrabMouse
                 } else {
@@ -203,7 +203,7 @@ impl Item for TouchArea {
                             // We are ignoring the event, so we will be removed from the item_stack,
                             // therefore we must remove the has_hover flag as there might be a scroll under us.
                             // It will be put back later.
-                            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+                            Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
                             InputEventResult::EventIgnored
                         }
                         EventResult::Accept => InputEventResult::EventAccepted,
@@ -272,14 +272,14 @@ impl ItemConsts for TouchArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         TouchArea,
         CachedRenderingData,
-    > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = TouchArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl ItemConsts for KeyBinding {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         KeyBinding,
         CachedRenderingData,
-    > = KeyBinding::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = KeyBinding::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[repr(C)]
@@ -295,9 +295,12 @@ pub struct KeyBinding {
 impl Item for KeyBinding {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: crate::items::Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::layout::LayoutInfo {
@@ -443,7 +446,7 @@ impl FocusScope {
         self_rc: &ItemRc,
         mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, KeyBinding>) -> Option<R>,
     ) -> Option<R> {
-        let list = Self::FIELD_OFFSETS.key_bindings.apply_pin(self);
+        let list = Self::FIELD_OFFSETS.key_bindings().apply_pin(self);
         let list = list.deref_pin();
 
         list.project_ref().property_tracker.evaluate_if_dirty(|| {
@@ -505,9 +508,12 @@ impl FocusScope {
 impl Item for FocusScope {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -555,11 +561,11 @@ impl Item for FocusScope {
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => Self::FIELD_OFFSETS
-                .capture_key_pressed
+                .capture_key_pressed()
                 .apply_pin(self)
                 .call(&(event.key_event.clone(),)),
             KeyEventType::KeyReleased => Self::FIELD_OFFSETS
-                .capture_key_released
+                .capture_key_released()
                 .apply_pin(self)
                 .call(&(event.key_event.clone(),)),
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
@@ -583,7 +589,7 @@ impl Item for FocusScope {
                 if let Some((key_binding, ambiguous)) = self.key_binding_for_event(self_rc, event) {
                     if ambiguous {
                         let keys = KeyBinding::FIELD_OFFSETS
-                            .keys
+                            .keys()
                             .apply_pin(key_binding.as_pin_ref())
                             .get();
                         crate::debug_log!(
@@ -592,13 +598,13 @@ impl Item for FocusScope {
                         );
                     }
                     KeyBinding::FIELD_OFFSETS
-                        .activated
+                        .activated()
                         .apply_pin(key_binding.as_pin_ref())
                         .call(&());
                     EventResult::Accept
                 } else {
                     Self::FIELD_OFFSETS
-                        .key_pressed
+                        .key_pressed()
                         .apply_pin(self)
                         .call(&(event.key_event.clone(),))
                 }
@@ -613,7 +619,7 @@ impl Item for FocusScope {
                     EventResult::Accept
                 } else {
                     Self::FIELD_OFFSETS
-                        .key_released
+                        .key_released()
                         .apply_pin(self)
                         .call(&(event.key_event.clone(),))
                 }
@@ -651,13 +657,13 @@ impl Item for FocusScope {
                 };
 
                 self.has_focus.set(true);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&(*reason,));
-                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&(*reason,));
+                Self::FIELD_OFFSETS.focus_changed_event().apply_pin(self).call(&(*reason,));
+                Self::FIELD_OFFSETS.focus_gained().apply_pin(self).call(&(*reason,));
             }
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&(*reason,));
-                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&(*reason,));
+                Self::FIELD_OFFSETS.focus_changed_event().apply_pin(self).call(&(*reason,));
+                Self::FIELD_OFFSETS.focus_lost().apply_pin(self).call(&(*reason,));
             }
         }
         FocusEventResult::FocusAccepted
@@ -691,7 +697,7 @@ impl ItemConsts for FocusScope {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         FocusScope,
         CachedRenderingData,
-    > = FocusScope::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = FocusScope::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[repr(C)]
@@ -722,9 +728,12 @@ pub struct SwipeGestureHandler {
 impl Item for SwipeGestureHandler {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -748,7 +757,7 @@ impl Item for SwipeGestureHandler {
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
                 Self::FIELD_OFFSETS
-                    .pressed_position
+                    .pressed_position()
                     .apply_pin(self)
                     .set(crate::lengths::logical_position_to_api(*position));
                 self.pressed.set(true);
@@ -813,8 +822,8 @@ impl Item for SwipeGestureHandler {
                 self.current_position.set(crate::lengths::logical_position_to_api(*position));
                 self.pressed.set(false);
                 if self.swiping() {
-                    Self::FIELD_OFFSETS.swiping.apply_pin(self).set(false);
-                    Self::FIELD_OFFSETS.swiped.apply_pin(self).call(&());
+                    Self::FIELD_OFFSETS.swiping().apply_pin(self).set(false);
+                    Self::FIELD_OFFSETS.swiped().apply_pin(self).call(&());
                     InputEventResult::EventAccepted
                 } else {
                     InputEventResult::EventIgnored
@@ -827,10 +836,10 @@ impl Item for SwipeGestureHandler {
                 self.current_position.set(crate::lengths::logical_position_to_api(*position));
                 let mut swiping = self.swiping();
                 if !swiping && self.is_over_threshold(position) {
-                    Self::FIELD_OFFSETS.swiping.apply_pin(self).set(true);
+                    Self::FIELD_OFFSETS.swiping().apply_pin(self).set(true);
                     swiping = true;
                 }
-                Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
+                Self::FIELD_OFFSETS.moved().apply_pin(self).call(&());
                 if swiping { InputEventResult::GrabMouse } else { InputEventResult::EventAccepted }
             }
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
@@ -894,7 +903,7 @@ impl Item for SwipeGestureHandler {
 
 impl ItemConsts for SwipeGestureHandler {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl SwipeGestureHandler {
@@ -908,8 +917,8 @@ impl SwipeGestureHandler {
             return;
         }
         if self.swiping() {
-            Self::FIELD_OFFSETS.swiping.apply_pin(self).set(false);
-            Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
+            Self::FIELD_OFFSETS.swiping().apply_pin(self).set(false);
+            Self::FIELD_OFFSETS.cancelled().apply_pin(self).call(&());
         }
     }
 
@@ -998,9 +1007,12 @@ impl Item for ScaleRotateGestureHandler {
         self.scale.set(1.0);
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1045,14 +1057,14 @@ impl Item for ScaleRotateGestureHandler {
                     return InputEventResult::EventIgnored;
                 }
                 let new_scale = self.scale() * (1.0 + delta);
-                Self::FIELD_OFFSETS.scale.apply_pin(self).set(new_scale);
+                Self::FIELD_OFFSETS.scale().apply_pin(self).set(new_scale);
                 let center = crate::lengths::logical_position_to_api(*position);
-                Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                Self::FIELD_OFFSETS.center().apply_pin(self).set(center);
                 match phase {
                     TouchPhase::Started => {
                         if !self.active() {
-                            Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
-                            Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
+                            Self::FIELD_OFFSETS.active().apply_pin(self).set(true);
+                            Self::FIELD_OFFSETS.started().apply_pin(self).call(&());
                         }
                         InputEventResult::GrabMouse
                     }
@@ -1060,7 +1072,7 @@ impl Item for ScaleRotateGestureHandler {
                         if !self.active() {
                             return InputEventResult::EventIgnored;
                         }
-                        Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.updated().apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
                     TouchPhase::Ended => self.end_impl(),
@@ -1075,14 +1087,14 @@ impl Item for ScaleRotateGestureHandler {
                     return InputEventResult::EventIgnored;
                 }
                 let center = crate::lengths::logical_position_to_api(*position);
-                Self::FIELD_OFFSETS.center.apply_pin(self).set(center);
+                Self::FIELD_OFFSETS.center().apply_pin(self).set(center);
                 let new_rotation = self.rotation() + delta;
-                Self::FIELD_OFFSETS.rotation.apply_pin(self).set(new_rotation);
+                Self::FIELD_OFFSETS.rotation().apply_pin(self).set(new_rotation);
                 match phase {
                     TouchPhase::Started => {
                         if !self.active() {
-                            Self::FIELD_OFFSETS.active.apply_pin(self).set(true);
-                            Self::FIELD_OFFSETS.started.apply_pin(self).call(&());
+                            Self::FIELD_OFFSETS.active().apply_pin(self).set(true);
+                            Self::FIELD_OFFSETS.started().apply_pin(self).call(&());
                         }
                         InputEventResult::GrabMouse
                     }
@@ -1090,7 +1102,7 @@ impl Item for ScaleRotateGestureHandler {
                         if !self.active() {
                             return InputEventResult::EventIgnored;
                         }
-                        Self::FIELD_OFFSETS.updated.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.updated().apply_pin(self).call(&());
                         InputEventResult::GrabMouse
                     }
                     TouchPhase::Ended => self.end_impl(),
@@ -1159,7 +1171,7 @@ impl Item for ScaleRotateGestureHandler {
 
 impl ItemConsts for ScaleRotateGestureHandler {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl ScaleRotateGestureHandler {
@@ -1167,23 +1179,23 @@ impl ScaleRotateGestureHandler {
         if !self.active() {
             return;
         }
-        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
-        Self::FIELD_OFFSETS.cancelled.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.active().apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.cancelled().apply_pin(self).call(&());
         // Reset after the callback so handlers can read the last known values
         // to animate back smoothly, matching the pattern where `ended` leaves
         // scale/rotation at their final values.
-        Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
-        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
+        Self::FIELD_OFFSETS.scale().apply_pin(self).set(1.0);
+        Self::FIELD_OFFSETS.rotation().apply_pin(self).set(0.0);
     }
 
     fn end_impl(self: Pin<&Self>) -> InputEventResult {
         if !self.active() {
             return InputEventResult::EventIgnored;
         }
-        Self::FIELD_OFFSETS.ended.apply_pin(self).call(&());
-        Self::FIELD_OFFSETS.active.apply_pin(self).set(false);
-        Self::FIELD_OFFSETS.scale.apply_pin(self).set(1.0);
-        Self::FIELD_OFFSETS.rotation.apply_pin(self).set(0.0);
+        Self::FIELD_OFFSETS.ended().apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.active().apply_pin(self).set(false);
+        Self::FIELD_OFFSETS.scale().apply_pin(self).set(1.0);
+        Self::FIELD_OFFSETS.rotation().apply_pin(self).set(0.0);
         InputEventResult::EventAccepted
     }
 }

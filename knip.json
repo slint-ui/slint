@@ -3,11 +3,10 @@
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "pkg", "biome"],
+      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
-      "entry": ["typescript/index.ts"],
       "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
     },
     "editors/vscode": {
@@ -35,6 +34,7 @@
       "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
       "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
       "ignoreBinaries": ["biome", "cspell"],
+      "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
     "docs/astro": {
@@ -51,7 +51,10 @@
       ],
       "ignoreUnresolved": ["^/src/content/"],
       "ignoreBinaries": ["biome"],
-      "ignoreDependencies": ["sharp", "@expressive-code/core"]
+      "ignoreDependencies": ["@expressive-code/core"]
+    },
+    "docs/safety": {
+      "ignoreDependencies": ["@slint/common-files"]
     },
     "ui-libraries/material/docs": {
       "entry": [],
@@ -61,7 +64,6 @@
       ],
       "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
       "ignoreDependencies": [
-        "sharp",
         "@types/mdx",
         "astrowind"
       ]
@@ -77,10 +79,8 @@
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
-        "src/components/ThemeSelect.astro",
         "src/components/ThreeCardGrid.astro",
-        "src/components/VersionBanner.astro",
-        "src/components/VersionSelector.astro"
+        "src/components/VersionBanner.astro"
       ],
       "ignoreDependencies": ["@astrojs/starlight", "astro"]
     }

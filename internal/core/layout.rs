@@ -1175,7 +1175,7 @@ impl Default for FlexboxLayoutItemInfo {
         Self {
             constraint: LayoutInfo::default(),
             flex_grow: 0.0,
-            flex_shrink: 0.0,
+            flex_shrink: 1.0,
             flex_basis: -1 as _,
             flex_align_self: FlexboxLayoutAlignSelf::Auto,
             flex_order: 0,
@@ -1345,11 +1345,15 @@ mod flexbox_taffy {
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
         pub container_height: Option<Coord>,
+        /// When true, set the cross-axis dimension to `auto` for all items
+        /// so that the measure callback can compute it dynamically (height-for-width).
+        pub use_measure_for_cross_axis: bool,
     }
 
-    /// Build a taffy tree from Slint layout constraints
+    /// Build a taffy tree from Slint layout constraints.
+    /// The NodeContext (usize) stores the original child index for measure callbacks.
     pub struct FlexboxTaffyBuilder {
-        pub taffy: TaffyTree<()>,
+        pub taffy: TaffyTree<usize>,
         pub children: Vec<NodeId>,
         pub container: NodeId,
         /// Maps taffy child position -> original cell index (empty if no reordering needed)
@@ -1359,7 +1363,7 @@ mod flexbox_taffy {
     impl FlexboxTaffyBuilder {
         /// Create a new flexbox layout tree from item constraints
         pub fn new(params: FlexboxLayoutParams) -> Self {
-            let mut taffy = TaffyTree::<()>::new();
+            let mut taffy = TaffyTree::<usize>::new();
 
             // Create child nodes from Slint constraints
             let mut children: Vec<NodeId> = params
@@ -1391,64 +1395,74 @@ mod flexbox_taffy {
                     };
 
                     taffy
-                        .new_leaf(Style {
-                            flex_basis,
-                            size: Size {
-                                width: match params.flex_direction {
-                                    TaffyFlexDirection::Column
-                                    | TaffyFlexDirection::ColumnReverse => {
-                                        if preferred_width > 0 as Coord {
-                                            Dimension::length(preferred_width as _)
-                                        } else {
-                                            Dimension::auto()
+                        .new_leaf_with_context(
+                            Style {
+                                flex_basis,
+                                size: Size {
+                                    width: match params.flex_direction {
+                                        TaffyFlexDirection::Column
+                                        | TaffyFlexDirection::ColumnReverse => {
+                                            if let Some(cw) = params.container_width {
+                                                Dimension::length(cw as _)
+                                            } else if preferred_width > 0 as Coord {
+                                                Dimension::length(preferred_width as _)
+                                            } else {
+                                                Dimension::auto()
+                                            }
                                         }
-                                    }
-                                    _ => Dimension::auto(),
-                                },
-                                height: match params.flex_direction {
-                                    TaffyFlexDirection::Row | TaffyFlexDirection::RowReverse => {
-                                        if preferred_height > 0 as Coord {
-                                            Dimension::length(preferred_height as _)
-                                        } else {
-                                            Dimension::auto()
+                                        _ => Dimension::auto(),
+                                    },
+                                    height: match params.flex_direction {
+                                        TaffyFlexDirection::Row
+                                        | TaffyFlexDirection::RowReverse => {
+                                            // Cross-axis for row: use auto when measure
+                                            // callback will compute it dynamically
+                                            if params.use_measure_for_cross_axis {
+                                                Dimension::auto()
+                                            } else if preferred_height > 0 as Coord {
+                                                Dimension::length(preferred_height as _)
+                                            } else {
+                                                Dimension::auto()
+                                            }
                                         }
-                                    }
-                                    _ => Dimension::auto(),
+                                        _ => Dimension::auto(),
+                                    },
                                 },
-                            },
-                            min_size: Size {
-                                width: Dimension::length(h_constraint.min as _),
-                                height: Dimension::length(
-                                    v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
-                                ),
-                            },
-                            max_size: Size {
-                                width: if h_constraint.max < Coord::MAX {
-                                    Dimension::length(h_constraint.max as _)
-                                } else {
-                                    Dimension::auto()
+                                min_size: Size {
+                                    width: Dimension::length(h_constraint.min as _),
+                                    height: Dimension::length(
+                                        v_constraint.map(|vc| vc.min as f32).unwrap_or(0.0),
+                                    ),
                                 },
-                                height: if let Some(vc) = v_constraint {
-                                    if vc.max < Coord::MAX {
-                                        Dimension::length(vc.max as _)
+                                max_size: Size {
+                                    width: if h_constraint.max < Coord::MAX {
+                                        Dimension::length(h_constraint.max as _)
                                     } else {
                                         Dimension::auto()
-                                    }
-                                } else {
-                                    Dimension::auto()
+                                    },
+                                    height: if let Some(vc) = v_constraint {
+                                        if vc.max < Coord::MAX {
+                                            Dimension::length(vc.max as _)
+                                        } else {
+                                            Dimension::auto()
+                                        }
+                                    } else {
+                                        Dimension::auto()
+                                    },
                                 },
+                                flex_grow: cell_h.flex_grow,
+                                flex_shrink: cell_h.flex_shrink,
+                                align_self: match cell_h.flex_align_self {
+                                    FlexboxLayoutAlignSelf::Auto => None,
+                                    FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
+                                    FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
+                                    FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
+                                    FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
+                                },
+                                ..Default::default()
                             },
-                            flex_grow: cell_h.flex_grow,
-                            flex_shrink: cell_h.flex_shrink,
-                            align_self: match cell_h.flex_align_self {
-                                FlexboxLayoutAlignSelf::Auto => None,
-                                FlexboxLayoutAlignSelf::Stretch => Some(AlignSelf::Stretch),
-                                FlexboxLayoutAlignSelf::Start => Some(AlignSelf::FlexStart),
-                                FlexboxLayoutAlignSelf::End => Some(AlignSelf::FlexEnd),
-                                FlexboxLayoutAlignSelf::Center => Some(AlignSelf::Center),
-                            },
-                            ..Default::default()
-                        })
+                            idx,
+                        )
                         .unwrap() // cannot fail
                 })
                 .collect();
@@ -1533,22 +1547,48 @@ mod flexbox_taffy {
             Self { taffy, children, container, order_map }
         }
 
-        /// Compute the layout with the given available space
-        pub fn compute_layout(&mut self, available_width: Coord, available_height: Coord) {
+        /// Compute the layout with the given available space.
+        ///
+        /// The optional `measure` callback is called by taffy for leaf nodes
+        /// that need dynamic height-for-width (or width-for-height) measurement.
+        /// It receives `(child_index, known_width, known_height)` where `known_width`
+        /// / `known_height` are `Some` if taffy has already determined that dimension,
+        /// and returns `(width, height)`.
+        pub fn compute_layout(
+            &mut self,
+            available_width: Coord,
+            available_height: Coord,
+            mut measure: Option<
+                &mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord),
+            >,
+        ) {
+            let available_space = taffy::prelude::Size {
+                width: if available_width < Coord::MAX {
+                    AvailableSpace::Definite(available_width as _)
+                } else {
+                    AvailableSpace::MaxContent
+                },
+                height: if available_height < Coord::MAX {
+                    AvailableSpace::Definite(available_height as _)
+                } else {
+                    AvailableSpace::MaxContent
+                },
+            };
             self.taffy
-                .compute_layout(
+                .compute_layout_with_measure(
                     self.container,
-                    taffy::prelude::Size {
-                        width: if available_width < Coord::MAX {
-                            AvailableSpace::Definite(available_width as _)
+                    available_space,
+                    |known_dimensions, _available_space, _node_id, node_context, _style| {
+                        if let (Some(measure), Some(&mut child_index)) =
+                            (measure.as_deref_mut(), node_context)
+                        {
+                            let known_w = known_dimensions.width.map(|w| w as Coord);
+                            let known_h = known_dimensions.height.map(|h| h as Coord);
+                            let (w, h) = measure(child_index, known_w, known_h);
+                            taffy::prelude::Size { width: w as f32, height: h as f32 }
                         } else {
-                            AvailableSpace::MaxContent
-                        },
-                        height: if available_height < Coord::MAX {
-                            AvailableSpace::Definite(available_height as _)
-                        } else {
-                            AvailableSpace::MaxContent
-                        },
+                            taffy::prelude::Size::ZERO
+                        }
                     },
                 )
                 .unwrap_or_else(|e| {
@@ -1647,11 +1687,45 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
     }
 }
 
-/// Solve a FlexboxLayout using Taffy
-/// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
+/// Measure callback for height-for-width items in a FlexboxLayout.
+///
+/// Called by taffy during the flex solve for items that need dynamic sizing.
+/// Receives `(child_index, known_width, known_height)` where `known_width`/`known_height`
+/// are `Some` if taffy has already determined that dimension.
+/// Returns `(width, height)`.
+pub type FlexboxMeasureFn<'a> =
+    Option<&'a mut dyn FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord)>;
+
 pub fn solve_flexbox_layout(
     data: &FlexboxLayoutData,
     repeater_indices: Slice<u32>,
+) -> SharedVector<Coord> {
+    // Build a simple measure callback from the pre-computed cells data.
+    // This enables height-for-width: taffy calls back with the actual
+    // assigned width, and we return the pre-computed height from cells_v.
+    // The cells_v heights were computed with the horizontal preferred size
+    // as constraint, which is a good approximation.
+    let mut measure = |child_index: usize,
+                       known_w: Option<Coord>,
+                       known_h: Option<Coord>|
+     -> (Coord, Coord) {
+        let w = known_w.unwrap_or_else(|| {
+            data.cells_h.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        let h = known_h.unwrap_or_else(|| {
+            data.cells_v.get(child_index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
+        });
+        (w, h)
+    };
+    solve_flexbox_layout_with_measure(data, repeater_indices, Some(&mut measure))
+}
+
+/// Solve a FlexboxLayout using Taffy
+/// Returns: [x1, y1, w1, h1, x2, y2, w2, h2, ...] for each item
+pub fn solve_flexbox_layout_with_measure(
+    data: &FlexboxLayoutData,
+    repeater_indices: Slice<u32>,
+    measure: FlexboxMeasureFn<'_>,
 ) -> SharedVector<Coord> {
     // 4 values per item: x, y, width, height
     let mut result = SharedVector::<Coord>::default();
@@ -1673,6 +1747,7 @@ pub fn solve_flexbox_layout(
         if data.height > 0 as Coord { Some(data.height) } else { None },
     );
 
+    let use_measure = measure.is_some();
     let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(flexbox_taffy::FlexboxLayoutParams {
         cells_h: &data.cells_h,
         cells_v: &data.cells_v,
@@ -1687,6 +1762,7 @@ pub fn solve_flexbox_layout(
         flex_direction: taffy_direction,
         container_width,
         container_height,
+        use_measure_for_cross_axis: use_measure,
     });
 
     let (available_width, available_height) = match data.direction {
@@ -1698,7 +1774,7 @@ pub fn solve_flexbox_layout(
         }
     };
 
-    builder.compute_layout(available_width, available_height);
+    builder.compute_layout(available_width, available_height, measure);
 
     // Extract results using the cache generator to handle repeaters.
     // If `order` sorting was applied, we need to collect results by original index first,
@@ -1725,27 +1801,89 @@ pub fn solve_flexbox_layout(
     result
 }
 
-/// Return LayoutInfo (i.e. min, preferred, max etc.) for a FlexboxLayout
-/// This handles both main-axis (simple) and cross-axis (wrapping-aware) cases.
-/// The constraint_size is the perpendicular dimension to orientation:
-/// - For Horizontal orientation: constraint_size is height
-/// - For Vertical orientation: constraint_size is width
+/// Return main-axis LayoutInfo for a FlexboxLayout.
+/// Only needs the same-axis cells, avoiding a cross-axis binding loop.
+pub fn flexbox_layout_info_main_axis(
+    cells: Slice<FlexboxLayoutItemInfo>,
+    spacing: Coord,
+    padding: &Padding,
+    flex_wrap: FlexboxLayoutWrap,
+) -> LayoutInfo {
+    let extra_pad = padding.begin + padding.end;
+    if cells.is_empty() {
+        return LayoutInfo {
+            min: extra_pad,
+            preferred: extra_pad,
+            max: extra_pad,
+            ..Default::default()
+        };
+    }
+    let num_spacings = cells.len().saturating_sub(1) as Coord;
+    let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+        cells.iter().map(|c| c.constraint.min).sum::<Coord>() + spacing * num_spacings + extra_pad
+    } else {
+        // Wrapping: the widest single item must fit
+        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
+    };
+    let preferred = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+        // No wrapping: all items on one line
+        cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+            + spacing * num_spacings
+            + extra_pad
+    } else {
+        // Wrapping: estimate a roughly square layout using only main-axis sizes.
+        // Approximate total area assuming each item is square (width == height),
+        // then take sqrt to get a reasonable main-axis extent.
+        let total_area: Coord = cells
+            .iter()
+            .map(|c| {
+                let w = c.constraint.preferred_bounded();
+                w * w
+            })
+            .sum();
+        let count = cells.len();
+        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    };
+    let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
+    LayoutInfo {
+        min,
+        max: Coord::MAX,
+        min_percent: 0 as _,
+        max_percent: 100 as _,
+        preferred,
+        stretch,
+    }
+}
+
+/// Return cross-axis LayoutInfo for a FlexboxLayout.
 ///
-/// The constraint_size is ignored for main-axis calculation.
-pub fn flexbox_layout_info(
+/// `constraint_size` is the main-axis container dimension (width for row,
+/// height for column). When valid (> 0 and < MAX), it's used as the taffy
+/// constraint for accurate wrapping. When invalid (e.g. 0, negative, or
+/// MAX — which can happen due to circular dependencies in nested
+/// perpendicular flexboxes), falls back to a heuristic based on
+/// `flexbox_layout_info_main_axis`.
+pub fn flexbox_layout_info_cross_axis(
     cells_h: Slice<FlexboxLayoutItemInfo>,
     cells_v: Slice<FlexboxLayoutItemInfo>,
     spacing_h: Coord,
     spacing_v: Coord,
     padding_h: &Padding,
     padding_v: &Padding,
-    orientation: Orientation,
     direction: FlexboxLayoutDirection,
-    constraint_size: Coord,
     flex_wrap: FlexboxLayoutWrap,
+    constraint_size: Coord,
 ) -> LayoutInfo {
     if cells_h.is_empty() {
         assert!(cells_v.is_empty());
+        let orientation = match direction {
+            FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+                Orientation::Vertical
+            }
+            FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+                Orientation::Horizontal
+            }
+        };
         let padding = match orientation {
             Orientation::Horizontal => padding_h,
             Orientation::Vertical => padding_v,
@@ -1754,52 +1892,46 @@ pub fn flexbox_layout_info(
         return LayoutInfo { min: pad, preferred: pad, max: pad, ..Default::default() };
     }
 
-    let (cells, padding, spacing) = match orientation {
-        Orientation::Horizontal => (&cells_h, padding_h, spacing_h),
-        Orientation::Vertical => (&cells_v, padding_v, spacing_v),
-    };
-    let extra_pad = padding.begin + padding.end;
-
-    // Determine if we're asking for main-axis or cross-axis
-    let is_main_axis = matches!(
-        (direction, orientation),
-        (FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse, Orientation::Horizontal)
-            | (
-                FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse,
-                Orientation::Vertical
-            )
-    );
-
-    let min = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) && is_main_axis {
-        // No wrapping: items must all fit in one line, min = sum of minimums + spacing
-        cells.iter().map(|c| c.constraint.min).sum::<Coord>()
-            + spacing * (cells.len().saturating_sub(1)) as Coord
-            + extra_pad
-    } else {
-        // Wrapping (or cross-axis): the widest/tallest single item must fit
-        cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b)) + extra_pad
-    };
-
-    // The main-axis constraint determines how items wrap.
-    let main_axis_constraint = if is_main_axis {
-        // Note that constraint_size is not used for the main axis
-        if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
-            // No wrapping: items won't wrap regardless of size, use max content
-            Coord::MAX
-        } else {
-            // Use sqrt of total item area as an approximation.
-            let total_area = cells_h
-                .iter()
-                .map(|c| c.constraint.preferred_bounded())
-                .zip(cells_v.iter().map(|c| c.constraint.preferred_bounded()))
-                .map(|(h, v)| h * v)
-                .sum::<Coord>();
-            let count = cells.len();
-            Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+    // Determine which axis is cross
+    let (cross_cells, cross_padding) = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => (&cells_v, padding_v),
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (&cells_h, padding_h)
         }
-    } else {
-        // For cross-axis queries, use the provided constraint_size.
+    };
+    let cross_extra_pad = cross_padding.begin + cross_padding.end;
+
+    let min = cross_cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
+        + cross_extra_pad;
+
+    // Compute the main-axis preferred size to use as the constraint for taffy,
+    // using the same heuristic as flexbox_layout_info_main_axis.
+    let (main_cells, main_spacing, main_padding) = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => {
+            (&cells_h, spacing_h, padding_h)
+        }
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            (&cells_v, spacing_v, padding_v)
+        }
+    };
+    let main_extra_pad = main_padding.begin + main_padding.end;
+    let main_axis_constraint = if constraint_size > 0 as Coord && constraint_size < Coord::MAX {
+        // Use the actual container main-axis dimension (accurate)
         constraint_size
+    } else if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+        Coord::MAX
+    } else {
+        // Use actual item areas (main * cross) for the heuristic, since both
+        // axes' cells are available here (unlike flexbox_layout_info_main_axis).
+        let total_area: Coord = main_cells
+            .iter()
+            .zip(cross_cells.iter())
+            .map(|(m, c)| m.constraint.preferred_bounded() * c.constraint.preferred_bounded())
+            .sum();
+        let count = main_cells.len();
+        Float::sqrt(total_area as f32) as Coord
+            + main_spacing * (count - 1) as Coord
+            + main_extra_pad
     };
 
     let taffy_direction = match direction {
@@ -1832,6 +1964,7 @@ pub fn flexbox_layout_info(
         flex_direction: taffy_direction,
         container_width,
         container_height,
+        use_measure_for_cross_axis: false,
     });
 
     let (available_width, available_height) = match direction {
@@ -1843,44 +1976,27 @@ pub fn flexbox_layout_info(
         }
     };
 
-    builder.compute_layout(available_width, available_height);
+    builder.compute_layout(available_width, available_height, None);
 
-    let preferred = if is_main_axis {
-        // For main-axis, container_size() returns max(content, available_space) for
-        // multi-line layouts, giving back our approximation unchanged. Scan child
-        // positions to find the actual extent of the widest row.
-        let mut min_pos = Coord::MAX;
-        let mut max_end = 0.0 as Coord;
-        for i in 0..cells_h.len() {
-            let (x, y, w, h) = builder.child_geometry(i);
-            let (pos, size) = match orientation {
-                Orientation::Horizontal => (x, w),
-                Orientation::Vertical => (y, h),
-            };
-            min_pos = min_pos.min(pos);
-            max_end = max_end.max(pos + size);
-        }
-        (max_end - min_pos) + padding.begin + padding.end
-    } else {
-        // For cross-axis, the queried dimension is Auto so container_size() returns
-        // the content-based size directly.
-        let (total_width, total_height) = builder.container_size();
-        match orientation {
-            Orientation::Horizontal => total_width,
-            Orientation::Vertical => total_height,
+    let (total_width, total_height) = builder.container_size();
+    let cross_orientation = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => Orientation::Vertical,
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
+            Orientation::Horizontal
         }
     };
-
-    let stretch =
-        if is_main_axis { cells.iter().map(|c| c.constraint.stretch).sum::<f32>() } else { 0.0 };
+    let preferred = match cross_orientation {
+        Orientation::Horizontal => total_width,
+        Orientation::Vertical => total_height,
+    };
 
     LayoutInfo {
         min,
-        max: Coord::MAX, // TODO?
+        max: Coord::MAX,
         min_percent: 0 as _,
         max_percent: 100 as _,
         preferred,
-        stretch,
+        stretch: 0.0,
     }
 }
 
@@ -1977,40 +2093,107 @@ pub(crate) mod ffi {
         super::box_layout_info_ortho(cells, padding)
     }
 
+    /// The measure callback for C FFI. Returns (width, height) via out pointers.
+    /// `known_width`/`known_height` are negative if not determined yet.
+    /// A null function pointer means no measure callback.
+    pub type FlexboxMeasureFnC = unsafe extern "C" fn(
+        user_data: *mut core::ffi::c_void,
+        child_index: usize,
+        known_width: Coord,
+        known_height: Coord,
+        out_width: *mut Coord,
+        out_height: *mut Coord,
+    );
+
     #[unsafe(no_mangle)]
+    #[allow(unsafe_code)]
     pub extern "C" fn slint_solve_flexbox_layout(
         data: &FlexboxLayoutData,
         repeater_indices: Slice<u32>,
         result: &mut SharedVector<Coord>,
+        measure_fn: *const core::ffi::c_void,
+        measure_user_data: *mut core::ffi::c_void,
     ) {
-        *result = super::solve_flexbox_layout(data, repeater_indices)
+        // Safety: measure_fn, when non-null, is a valid FlexboxMeasureFnC function pointer
+        // passed as *const c_void because cbindgen can't represent Option<fn pointer> in C++.
+        const {
+            assert!(
+                core::mem::size_of::<*const core::ffi::c_void>()
+                    == core::mem::size_of::<FlexboxMeasureFnC>()
+            );
+        }
+        let measure_fn: Option<FlexboxMeasureFnC> = if measure_fn.is_null() {
+            None
+        } else {
+            Some(unsafe {
+                core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
+            })
+        };
+        if let Some(c_measure) = measure_fn {
+            let mut measure = |child_index: usize,
+                               known_w: Option<Coord>,
+                               known_h: Option<Coord>|
+             -> (Coord, Coord) {
+                let mut out_w: Coord = 0 as _;
+                let mut out_h: Coord = 0 as _;
+                // Safety: c_measure is a valid function pointer provided by the caller,
+                // and out_w/out_h are valid mutable pointers.
+                unsafe {
+                    c_measure(
+                        measure_user_data,
+                        child_index,
+                        known_w.unwrap_or(-1 as _),
+                        known_h.unwrap_or(-1 as _),
+                        &mut out_w,
+                        &mut out_h,
+                    );
+                }
+                (out_w, out_h)
+            };
+            *result = super::solve_flexbox_layout_with_measure(
+                data,
+                repeater_indices,
+                Some(&mut measure),
+            );
+        } else {
+            *result = super::solve_flexbox_layout(data, repeater_indices);
+        }
     }
 
     #[unsafe(no_mangle)]
-    /// Return LayoutInfo for a FlexboxLayout with runtime direction support.
-    pub extern "C" fn slint_flexbox_layout_info(
+    /// Return main-axis LayoutInfo for a FlexboxLayout (single-axis, no cross-axis dependency).
+    pub extern "C" fn slint_flexbox_layout_info_main_axis(
+        cells: Slice<FlexboxLayoutItemInfo>,
+        spacing: Coord,
+        padding: &Padding,
+        flex_wrap: FlexboxLayoutWrap,
+    ) -> LayoutInfo {
+        super::flexbox_layout_info_main_axis(cells, spacing, padding, flex_wrap)
+    }
+
+    #[unsafe(no_mangle)]
+    /// Return cross-axis LayoutInfo for a FlexboxLayout.
+    pub extern "C" fn slint_flexbox_layout_info_cross_axis(
         cells_h: Slice<FlexboxLayoutItemInfo>,
         cells_v: Slice<FlexboxLayoutItemInfo>,
         spacing_h: Coord,
         spacing_v: Coord,
         padding_h: &Padding,
         padding_v: &Padding,
-        orientation: Orientation,
         direction: FlexboxLayoutDirection,
-        constraint_size: Coord,
         flex_wrap: FlexboxLayoutWrap,
+        constraint_size: Coord,
     ) -> LayoutInfo {
-        super::flexbox_layout_info(
+        super::flexbox_layout_info_cross_axis(
             cells_h,
             cells_v,
             spacing_h,
             spacing_v,
             padding_h,
             padding_v,
-            orientation,
             direction,
-            constraint_size,
             flex_wrap,
+            constraint_size,
         )
     }
 }

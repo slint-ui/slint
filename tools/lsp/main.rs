@@ -317,12 +317,9 @@ async fn main_loop(
     init_param: InitializeParams,
     cli_args: Cli,
 ) -> Result<()> {
-    let mut rh = RequestHandler::default();
-    register_request_handlers(&mut rh);
-
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
-    let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
+    let (preview_to_lsp_sender, preview_to_lsp_receiver) =
         mpsc::unbounded_channel::<crate::common::PreviewToLspMessage>();
 
     let server_notifier =
@@ -349,6 +346,35 @@ async fn main_loop(
             .unwrap(),
         )
     };
+
+    let result = run_main_loop(
+        connection,
+        init_param,
+        cli_args,
+        request_queue,
+        server_notifier,
+        preview_to_lsp_receiver,
+        to_preview.clone(),
+    )
+    .await;
+
+    to_preview.shutdown().await;
+
+    result
+}
+
+async fn run_main_loop(
+    connection: Connection,
+    init_param: InitializeParams,
+    cli_args: Cli,
+    request_queue: OutgoingRequestQueue,
+    server_notifier: ServerNotifier,
+    #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
+    mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<crate::common::PreviewToLspMessage>,
+    to_preview: Rc<dyn LspToPreview>,
+) -> Result<()> {
+    let mut rh = RequestHandler::default();
+    register_request_handlers(&mut rh);
 
     let to_preview_clone = to_preview.clone();
     let compiler_config = CompilerConfiguration {

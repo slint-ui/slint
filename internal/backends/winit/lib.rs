@@ -105,9 +105,9 @@ cfg_if::cfg_if! {
     if #[cfg(enable_femtovg_renderer)] {
         const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else if #[cfg(enable_skia_renderer)] {
-        const DEFAULT_RENDERER_NAME: &'static str = "Skia";
+        const DEFAULT_RENDERER_NAME: &str = "Skia";
     } else if #[cfg(feature = "renderer-software")] {
-        const DEFAULT_RENDERER_NAME: &'static str = "Software";
+        const DEFAULT_RENDERER_NAME: &str = "Software";
     } else {
         compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
     }
@@ -933,10 +933,10 @@ impl i_slint_core::platform::Platform for Backend {
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 
-    fn open_url(&self, url: &str) {
-        if let Err(e) = webbrowser::open(url) {
-            eprintln!("Failed to open URL: {}", e);
-        }
+    fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
+        webbrowser::open(url).map_err(|e| {
+            i_slint_core::platform::PlatformError::Other(format!("Failed to open URL: {e}"))
+        })
     }
 }
 

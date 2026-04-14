@@ -394,8 +394,9 @@ impl SceneTextureExtra {
             } else {
                 (texture.dst_width as i32, texture.dst_height as i32)
             };
-            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w);
-            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h);
+            // Ensure at least 1/256 to avoid division by zero in draw_texture_line
+            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w).max(Fixed(1));
+            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h).max(Fixed(1));
             (dx, dy)
         };
 

@@ -7,7 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent};
+use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -670,6 +670,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     delta_x: delta_x as _,
                     delta_y: delta_y as _,
+                    phase: TouchPhase::Cancelled,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {
@@ -1289,6 +1290,9 @@ pub enum PlatformError {
     /// There is already a platform set from another thread.
     SetPlatformError(crate::platform::SetPlatformError),
 
+    /// The operation is not supported by the current platform.
+    Unsupported,
+
     /// Another platform-specific error occurred
     Other(String),
     /// Another platform-specific error occurred.
@@ -1320,6 +1324,9 @@ impl core::fmt::Display for PlatformError {
             }
             PlatformError::SetPlatformError(_) => {
                 f.write_str("The Slint platform was initialized in another thread")
+            }
+            PlatformError::Unsupported => {
+                f.write_str("The operation is not supported by the current platform")
             }
             PlatformError::Other(str) => f.write_str(str),
             #[cfg(feature = "std")]

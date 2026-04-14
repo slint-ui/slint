@@ -5,19 +5,20 @@
 // Run with: cargo run -p slint-viewer -- tests/manual/variable-font-weight.slint
 
 import { Slider, VerticalBox, HorizontalBox } from "std-widgets.slint";
-import "../../tools/lsp/ui/assets/Inter-VariableFont.ttf";
+import "../screenshots/fonts/NotoSans-Regular.ttf";
+import "../screenshots/fonts/NotoSans-Italic.ttf";
 
 export component App inherits Window {
     title: "Variable Font Weight";
     width: 600px;
     height: 400px;
+    default-font-family: "Noto Sans";
 
     in-out property <int> weight: 400;
 
     VerticalBox {
         Text {
             text: "The quick brown fox jumps over the lazy dog";
-            font-family: "Inter";
             font-size: 28px;
             font-weight: weight;
             wrap: word-wrap;
@@ -25,9 +26,15 @@ export component App inherits Window {
 
         Text {
             text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789";
-            font-family: "Inter";
             font-size: 22px;
             font-weight: weight;
+        }
+
+        Text {
+            text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789";
+            font-size: 22px;
+            font-weight: weight;
+            font-italic: true;
         }
 
         Text {
@@ -48,12 +55,12 @@ export component App inherits Window {
 
         // Show a row of fixed weights for comparison
         HorizontalBox {
-            Text { text: "Thin"; font-family: "Inter"; font-weight: 100; font-size: 14px; }
-            Text { text: "Light"; font-family: "Inter"; font-weight: 300; font-size: 14px; }
-            Text { text: "Regular"; font-family: "Inter"; font-weight: 400; font-size: 14px; }
-            Text { text: "Medium"; font-family: "Inter"; font-weight: 500; font-size: 14px; }
-            Text { text: "Bold"; font-family: "Inter"; font-weight: 700; font-size: 14px; }
-            Text { text: "Black"; font-family: "Inter"; font-weight: 900; font-size: 14px; }
+            Text { text: "Thin"; font-weight: 100; font-size: 14px; }
+            Text { text: "Light"; font-weight: 300; font-size: 14px; }
+            Text { text: "Regular"; font-weight: 400; font-size: 14px; }
+            Text { text: "Medium"; font-weight: 500; font-size: 14px; }
+            Text { text: "Bold"; font-weight: 700; font-size: 14px; }
+            Text { text: "Black"; font-weight: 900; font-size: 14px; }
         }
     }
 }

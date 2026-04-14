@@ -44,50 +44,50 @@ pub struct StyledTextParagraph {
 
 /// Error type returned by `StyledText::parse`
 #[cfg(feature = "markdown")]
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, derive_more::Error, derive_more::Display, PartialEq)]
 #[non_exhaustive]
 pub enum StyledTextError<'a> {
     /// Spans are unbalanced: stack already empty when popped
-    #[error("Spans are unbalanced: stack already empty when popped")]
+    #[display("Spans are unbalanced: stack already empty when popped")]
     Pop,
     /// Spans are unbalanced: stack contained items at end of function
-    #[error("Spans are unbalanced: stack contained items at end of function")]
+    #[display("Spans are unbalanced: stack contained items at end of function")]
     NotEmpty,
     /// Paragraph not started
-    #[error("Paragraph not started")]
+    #[display("Paragraph not started")]
     ParagraphNotStarted,
     /// Unimplemented markdown tag
-    #[error("Unimplemented tag: {:?}", .0.to_end())]
-    UnimplementedTag(pulldown_cmark::Tag<'a>),
+    #[display("Unimplemented tag: {:?}", _0.to_end())]
+    UnimplementedTag(#[error(not(source))] pulldown_cmark::Tag<'a>),
     /// Unimplemented markdown event
-    #[error("Unimplemented event: {:?}", .0)]
-    UnimplementedEvent(pulldown_cmark::Event<'a>),
+    #[display("Unimplemented event: {_0:?}")]
+    UnimplementedEvent(#[error(not(source))] pulldown_cmark::Event<'a>),
     /// Unimplemented html event
-    #[error("Unimplemented html: {}", .0)]
-    UnimplementedHtmlEvent(alloc::string::String),
+    #[display("Unimplemented html: {_0}")]
+    UnimplementedHtmlEvent(#[error(not(source))] alloc::string::String),
     /// Unimplemented html tag
-    #[error("Unimplemented html tag: {}", .0)]
-    UnimplementedHtmlTag(alloc::string::String),
+    #[display("Unimplemented html tag: {_0}")]
+    UnimplementedHtmlTag(#[error(not(source))] alloc::string::String),
     /// Unimplemented html attribute
-    #[error("Unexpected {} attribute in html {}", .0, .1)]
-    UnexpectedAttribute(alloc::string::String, alloc::string::String),
+    #[display("Unexpected {_0} attribute in html {_1}")]
+    UnexpectedAttribute(#[error(not(source))] alloc::string::String, alloc::string::String),
     /// Missing color attribute in html
-    #[error("Missing color attribute in html {}", .0)]
-    MissingColor(alloc::string::String),
+    #[display("Missing color attribute in html {_0}")]
+    MissingColor(#[error(not(source))] alloc::string::String),
     /// Closing html tag doesn't match the opening tag
-    #[error("Closing html tag doesn't match the opening tag. Expected {}, got {}", .0, .1)]
-    ClosingTagMismatch(&'a str, alloc::string::String),
+    #[display("Closing html tag doesn't match the opening tag. Expected {_0}, got {_1}")]
+    ClosingTagMismatch(#[error(not(source))] &'a str, alloc::string::String),
     /// Argument index out of range
-    #[error("Argument index {} out of range: {} arguments provided", .0, .1)]
+    #[display("Argument index {_0} out of range: {_1} arguments provided")]
     ArgumentOutOfRange(usize, usize),
     /// Format string placeholders count mismatch
-    #[error("Format string contains {} placeholders, but {} arguments were provided", .0, .1)]
+    #[display("Format string contains {_0} placeholders, but {_1} arguments were provided")]
     PlaceholderCountMismatch(usize, usize),
-    #[error("Interpolating multiple styled text paragraphs is not currently implemented")]
+    #[display("Interpolating multiple styled text paragraphs is not currently implemented")]
     MultiParagraphInterpolation,
     /// Invalid color value
-    #[error("Invalid color value '{}'", .0)]
-    InvalidColor(alloc::string::String),
+    #[display("Invalid color value '{_0}'")]
+    InvalidColor(#[error(not(source))] alloc::string::String),
 }
 
 #[cfg(feature = "markdown")]

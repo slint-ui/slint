@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that a very small image (1x1 pixel) scaled to a large destination
+// does not cause a division by zero in the software renderer.
+// See issues #7863 and #11072.
+
+export component TestCase inherits Window {
+    width: 64phx;
+    height: 64phx;
+    background: white;
+
+    Image {
+        source: @image-url("tiny-1x1.png");
+        image-fit: ImageFit.fill;
+        x: 30phx;
+        y: 32phx;
+        width: 1000phx;
+        height: 1000phx;
+    }
+
+    Image {
+        source: @image-url("tiny-1x1.png");
+        image-fit: ImageFit.fill;
+        x: -3000phx;
+        y: 15phx;
+        width: 3012phx;
+        height: 1000phx;
+        colorize: #f008;
+    }
+}

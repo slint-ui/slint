@@ -96,7 +96,7 @@ jobs:
                 taplo get -f Cargo.toml features.default
 
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v3.4.0
+              uses: pypa/cibuildwheel@v3.4.1
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse

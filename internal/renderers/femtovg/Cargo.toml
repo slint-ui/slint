@@ -30,13 +30,13 @@ i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "s
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
 
-const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
 
 cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.23.1", default-features = false, features = ["swash"] }
+femtovg = { version = "0.23.2", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 

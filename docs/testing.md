@@ -132,6 +132,16 @@ To start the tests run and compare images:
 cargo test -p test-driver-screenshots
 ```
 
+## Embedded MCP Server
+
+The testing backend includes an embedded MCP (Model Context Protocol) server that allows
+AI coding tools (e.g. Claude Code) to inspect and interact with a running Slint application
+in real time. Enable the `mcp` Cargo feature on `i-slint-backend-selector` and set the
+`SLINT_MCP_PORT` environment variable to start the server.
+
+See the [testing backend README](../internal/backends/testing/README.md) for usage instructions
+and [docs/development/mcp-server.md](development/mcp-server.md) for architecture details.
+
 ## Doctests
 
 ```

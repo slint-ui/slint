@@ -141,7 +141,11 @@ pub trait Platform {
     }
 
     /// Opens the given URL in an external browser.
-    fn open_url(&self, _url: &str) {}
+    ///
+    /// Returns [`PlatformError::Unsupported`] if the platform doesn't support opening URLs.
+    fn open_url(&self, _url: &str) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported)
+    }
 
     #[cfg(target_os = "android")]
     #[doc(hidden)]

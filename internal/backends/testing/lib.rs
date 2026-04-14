@@ -15,6 +15,10 @@ mod testing_backend;
 pub use testing_backend::*;
 #[cfg(all(feature = "ffi", not(test)))]
 mod ffi;
+#[cfg(any(feature = "system-testing", feature = "mcp"))]
+pub(crate) mod introspection;
+#[cfg(feature = "mcp")]
+pub mod mcp_server;
 #[cfg(feature = "system-testing")]
 pub mod systest;
 

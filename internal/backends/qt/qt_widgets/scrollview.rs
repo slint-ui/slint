@@ -35,7 +35,8 @@ pub struct NativeScrollView {
 
 impl Item for NativeScrollView {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
             return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
         }});
@@ -90,9 +91,12 @@ impl Item for NativeScrollView {
         });
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -206,7 +210,7 @@ impl Item for NativeScrollView {
                     let new_val = LogicalLength::new(-(new_val.min(max).max(0) as f32));
                     value_prop.set(new_val);
                     if new_val != old_val {
-                        Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.scrolled().apply_pin(self).call(&());
                     }
                     InputEventResult::EventIgnored
                 }
@@ -231,7 +235,7 @@ impl Item for NativeScrollView {
                         let new_val = LogicalLength::new(-new_val.min(max).max(0.));
                         value_prop.set(new_val);
                         if new_val != old_val {
-                            Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                            Self::FIELD_OFFSETS.scrolled().apply_pin(self).call(&());
                         }
                         InputEventResult::GrabMouse
                     } else {
@@ -246,7 +250,7 @@ impl Item for NativeScrollView {
                     let new_val = LogicalLength::new(new_val.min(0.).max(-max));
                     value_prop.set(new_val);
                     if new_val != old_val {
-                        Self::FIELD_OFFSETS.scrolled.apply_pin(self).call(&());
+                        Self::FIELD_OFFSETS.scrolled().apply_pin(self).call(&());
                     }
                     InputEventResult::EventAccepted
                 }
@@ -272,7 +276,7 @@ impl Item for NativeScrollView {
                     width: (right - left) as _,
                     height: (size.height as f32 - (bottom + top)) as _,
                 },
-                Self::FIELD_OFFSETS.vertical_value.apply_pin(self),
+                Self::FIELD_OFFSETS.vertical_value().apply_pin(self),
                 self.vertical_page_size().get() as i32,
                 self.vertical_max().get() as i32,
             )
@@ -287,7 +291,7 @@ impl Item for NativeScrollView {
                     width: (size.width as f32 - (right + left)) as _,
                     height: (bottom - top) as _,
                 },
-                Self::FIELD_OFFSETS.horizontal_value.apply_pin(self),
+                Self::FIELD_OFFSETS.horizontal_value().apply_pin(self),
                 self.horizontal_page_size().get() as i32,
                 self.horizontal_max().get() as i32,
             )
@@ -501,7 +505,7 @@ impl Item for NativeScrollView {
 
 impl ItemConsts for NativeScrollView {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

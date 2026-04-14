@@ -15,7 +15,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     Models are iterable and can be used in for loops."""
 
-    def __new__(cls, *args: Any) -> "Model[T]":
+    def __new__(cls, *args: Any) -> typing.Self:
         return super().__new__(cls)
 
     def __init__(self) -> None:

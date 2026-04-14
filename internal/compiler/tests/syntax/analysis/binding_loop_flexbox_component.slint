@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A component whose cross-axis `layoutinfo-v` binding transitively reads its
+// own width (here, through a word-wrapping `Text` inside an inner layout)
+// forms a cycle when placed inside a FlexboxLayout: `SolveFlexboxLayout` needs
+// the child's `layoutinfo-v`, but the child's compiled `layoutinfo-v` binding
+// reads widths that depend back on `SolveFlexboxLayout`. Builtins avoid this
+// because they receive the cross-axis constraint through the item VTable
+// (`cross_axis_constraint`), but components don't have that shortcut — so the
+// dependency must be reported by the binding-loop pass.
+
+component Inner {
+//              >error{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+    HorizontalLayout {
+//  >               <error{The binding for the property 'width' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+//  >               <^error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+//  >               <^^error{The binding for the property 'width' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+//  >               <^^^error{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+        Text { text: "hello"; wrap: word-wrap; }
+    }
+}
+//<<<error{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+
+export component Demo inherits Window {
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layout-cache -> width -> layoutinfo-v -> layoutinfo-v)}
+        Inner {}
+    }
+}

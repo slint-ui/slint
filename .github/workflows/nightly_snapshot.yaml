@@ -295,12 +295,12 @@ jobs:
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
+                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/pre-release/1.16' && github.event.inputs.release != 'true') }}
                   packagePath: editors/vscode
                   dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
-              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/pre-release/1.16' || github.event.inputs.release == 'true') }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
@@ -671,7 +671,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
+              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/pre-release/1.16'
               with:
                   allowUpdates: true
                   prerelease: true
@@ -706,6 +706,7 @@ jobs:
                     - os: ubuntu-22.04
                       name: "Ubuntu 22.04 1.92"
                       rust_version: "1.92"
+                      # plotter is excluded because with --all-features, its dependency cause build error because of fontconfig's dlopen feature
                       extra_args: "--exclude plotter"
                     - os: windows-2022
                       name: "Windows 2022 nightly"
@@ -714,7 +715,8 @@ jobs:
                     - os: macos-14
                       name: "MacOS 14 nightly"
                       rust_version: "nightly"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      # plotter is excluded because its dependency doesn't build with Nightly rust: https://github.com/servo/pathfinder/issues/584
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}

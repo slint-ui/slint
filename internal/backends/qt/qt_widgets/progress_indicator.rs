@@ -18,7 +18,8 @@ pub struct NativeProgressIndicator {
 
 impl Item for NativeProgressIndicator {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        let animation_tracker_property_ptr =
+            Self::FIELD_OFFSETS.animation_tracker().apply_pin(self);
         self.widget_ptr.set(
             cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
                 return make_unique_animated_widget<QProgressBar>(animation_tracker_property_ptr);
@@ -26,9 +27,12 @@ impl Item for NativeProgressIndicator {
         )
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -158,7 +162,7 @@ impl Item for NativeProgressIndicator {
 
 impl ItemConsts for NativeProgressIndicator {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -178,14 +178,14 @@ AppVTable_static!(static APP_STRUCT_TYPE for AppStruct);
 #[test]
 fn rc_map_test() {
     fn get_struct_value(instance: &VRcMapped<AppVTable, SomeStruct>) -> u8 {
-        let field_ref = SomeStruct::FIELD_OFFSETS.e.apply_pin(instance.as_pin_ref());
+        let field_ref = SomeStruct::FIELD_OFFSETS.e().apply_pin(instance.as_pin_ref());
         *field_ref
     }
 
     let app_rc = AppStruct::new();
 
     let some_struct_ref =
-        VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.some.apply_pin(app));
+        VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.some().apply_pin(app));
 
     // check clone() compiles
     {
@@ -193,7 +193,7 @@ fn rc_map_test() {
     }
 
     let other_struct_ref =
-        VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.another_struct.apply_pin(app));
+        VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.another_struct().apply_pin(app));
 
     let weak_struct_ref = VRcMapped::downgrade(&some_struct_ref);
 
@@ -214,12 +214,12 @@ fn rc_map_test() {
 
     {
         let strong_struct_ref = weak_struct_ref.upgrade().unwrap();
-        let e_field = SomeStruct::FIELD_OFFSETS.e.apply_pin(strong_struct_ref.as_pin_ref());
+        let e_field = SomeStruct::FIELD_OFFSETS.e().apply_pin(strong_struct_ref.as_pin_ref());
         assert_eq!(*e_field, 55);
     }
 
     let double_map =
-        VRcMapped::map(other_struct_ref, |some| SomeStruct::FIELD_OFFSETS.e.apply_pin(some));
+        VRcMapped::map(other_struct_ref, |some| SomeStruct::FIELD_OFFSETS.e().apply_pin(some));
     let double_map_weak = VRcMapped::downgrade(&double_map);
     drop(double_map);
     assert_eq!(*double_map_weak.upgrade().unwrap(), 100);
@@ -236,7 +236,7 @@ fn rc_map_test() {
 #[test]
 fn rc_map_dyn_test() {
     fn get_struct_value(instance: &VRcMapped<AppVTable, SomeStruct>) -> u8 {
-        let field_ref = SomeStruct::FIELD_OFFSETS.e.apply_pin(instance.as_pin_ref());
+        let field_ref = SomeStruct::FIELD_OFFSETS.e().apply_pin(instance.as_pin_ref());
         *field_ref
     }
 
@@ -245,7 +245,7 @@ fn rc_map_dyn_test() {
 
     let some_struct_ref = VRc::map_dyn(app_dyn.clone(), |app_dyn| {
         let app_ref = VRef::downcast_pin(app_dyn).unwrap();
-        AppStruct::FIELD_OFFSETS.some.apply_pin(app_ref)
+        AppStruct::FIELD_OFFSETS.some().apply_pin(app_ref)
     });
 
     assert_eq!(get_struct_value(&some_struct_ref), 55);
@@ -256,7 +256,7 @@ fn rc_map_origin() {
     let app_rc = AppStruct::new();
 
     let some_struct_ref =
-        VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.some.apply_pin(app));
+        VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.some().apply_pin(app));
 
     drop(app_rc);
 
