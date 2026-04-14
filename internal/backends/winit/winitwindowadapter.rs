@@ -1178,18 +1178,34 @@ impl WindowAdapter for WinitWindowAdapter {
                 current_height = existing_size.height;
             }
         }
+        let mut width;
+        let mut height;
 
         let constraints = properties.layout_constraints();
-        let mut width = constraints.preferred.width;
-        let mut height = constraints.preferred.height;
-        if let Some(min) = constraints.min {
-            width = width.max(min.width);
-            height = height.max(min.height)
+        if !window_item.width.has_binding() {
+            width = current_width;
+        } else {
+            width = constraints.preferred.width;
+            if let Some(min) = constraints.min {
+                width = width.max(min.width);
+            }
+            if let Some(max) = constraints.max {
+                width = width.min(max.width);
+            }
         }
-        if let Some(max) = constraints.max {
-            width = width.min(max.width);
-            height = height.min(max.height)
+
+        if !window_item.height.has_binding() {
+            height = current_height;
+        } else {
+            height = constraints.preferred.height;
+            if let Some(min) = constraints.min {
+                height = height.max(min.height)
+            }
+            if let Some(max) = constraints.max {
+                height = height.min(max.height)
+            }
         }
+
         must_resize = must_resize || width != current_width || height != current_height;
 
         // Adjust the size of the window to the value of the width and height property (if these property are changed from .slint).

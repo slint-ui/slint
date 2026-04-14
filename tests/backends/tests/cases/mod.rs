@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub mod harness;
+pub mod popupwindow_size;
+pub mod popupwindow_size_layout;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
