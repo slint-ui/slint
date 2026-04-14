@@ -819,10 +819,7 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
             && let Some(nr) = base.root_element.borrow().layout_info_prop(cross_axis)
         {
             vis(
-                &PropertyPath {
-                    elements: vec![ByAddress(element.clone())],
-                    prop: nr.clone(),
-                },
+                &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
                 ReadType::PropertyRead,
             );
         }
