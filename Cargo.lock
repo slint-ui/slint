@@ -2121,13 +2121,12 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "drm"
@@ -13010,12 +13009,11 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
@@ -13036,11 +13034,10 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.11.0",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -13051,12 +13048,11 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -13073,7 +13069,6 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
@@ -13089,11 +13084,10 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str 0.3.2",
@@ -13103,10 +13097,9 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "libredox",
  "orbclient",
  "raw-window-handle",
@@ -13119,12 +13112,11 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -13139,12 +13131,11 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "foldhash 0.2.0",
  "libc",
  "memmap2",
@@ -13165,13 +13156,12 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "atomic-waker",
  "bitflags 2.11.0",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -13187,11 +13177,10 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
@@ -13203,13 +13192,12 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/Murmele/winit.git?branch=popup#b84939c1680a2b196c5a2affa838b7be6268ee66"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
  "calloop 0.14.4",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?branch=popup)",
+ "dpi 0.1.2",
  "libc",
  "percent-encoding",
  "raw-window-handle",
