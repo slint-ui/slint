@@ -48,16 +48,10 @@ pub mod ui;
 mod undo_redo;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::PlatformError> {
-    if !config.remote_controlled {
-        return Err(slint::PlatformError::Other(
-            "Can not run the live preview without the LSP (yet)".into(),
-        ));
-    }
-
-    let to_lsp: Rc<dyn common::PreviewToLsp> =
-        Rc::new(connector::RemoteControlledPreviewToLsp::new());
-
+pub fn run(
+    to_lsp: Rc<dyn common::PreviewToLsp>,
+    fullscreen: bool,
+) -> std::result::Result<(), slint::PlatformError> {
     let ui = ui::create_ui(&to_lsp, "")?;
 
     to_lsp
@@ -66,7 +60,7 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
             serde_json::to_value("preview_opened").unwrap(),
         )])
         .unwrap();
-    ui.window().set_fullscreen(config.fullscreen);
+    ui.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
     to_lsp

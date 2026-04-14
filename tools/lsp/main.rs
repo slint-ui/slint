@@ -216,6 +216,19 @@ impl RequestHandler {
     }
 }
 
+fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformError> {
+    if !args.remote_controlled {
+        return Err(slint::PlatformError::Other(
+            "Can not run the live preview without the LSP (yet)".into(),
+        ));
+    }
+
+    let to_lsp: Rc<dyn common::PreviewToLsp> =
+        Rc::new(preview::connector::RemoteControlledPreviewToLsp::new());
+
+    preview::run(to_lsp, args.fullscreen)
+}
+
 fn main() {
     tracing_subscriber::fmt()
         .log_internal_errors(false)
@@ -275,7 +288,7 @@ fn main() {
                 }
             },
             #[cfg(feature = "preview-engine")]
-            Commands::LivePreview(live_preview) => match preview::run(live_preview) {
+            Commands::LivePreview(live_preview) => match run_preview(live_preview) {
                 Ok(()) => std::process::exit(0),
                 Err(e) => {
                     tracing::error!("Preview Error: {e}");
