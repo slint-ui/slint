@@ -18,6 +18,7 @@ body:
       If you have questions or need help with Slint, visit our ["Discussions" tab](https://github.com/slint-ui/slint/discussions).
 
 - type: textarea
+  id: bug-description
   attributes:
     label: Bug Description
     description: |
@@ -30,6 +31,7 @@ body:
     required: true
 
 - type: textarea
+  id: reproducible-code
   attributes:
     label: Reproducible Code (if applicable)
     description: |
@@ -44,6 +46,7 @@ body:
     required: false
 
 - type: textarea
+  id: environment-details
   attributes:
     label: Environment Details
     description: |
@@ -62,6 +65,7 @@ body:
     required: true
 
 - type: textarea
+  id: product-impact
   attributes:
     label: Product Impact
     description: |

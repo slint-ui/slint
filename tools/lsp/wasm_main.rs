@@ -177,6 +177,35 @@ type SendRequestFunction = (method: string, r: any) => Promise<any>;
 type HighlightInPreviewFunction = (file: string, offset: number) => void;
 "#;
 
+thread_local! {
+    static PANIC_CALLBACK: RefCell<Option<Function>> = const { RefCell::new(None) };
+}
+
+/// Chains `console_error_panic_hook` (so panics still show up in the browser
+/// console) with an optional JS callback registered via `set_panic_hook`.
+/// Idempotent — safe to call from multiple wasm entry points.
+pub(crate) fn install_panic_hook() {
+    static INSTALLED: std::sync::Once = std::sync::Once::new();
+    INSTALLED.call_once(|| {
+        std::panic::set_hook(Box::new(|info| {
+            console_error_panic_hook::hook(info);
+            PANIC_CALLBACK.with(|c| {
+                if let Some(cb) = c.borrow().as_ref() {
+                    let _ = cb.call1(&JsValue::UNDEFINED, &JsValue::from_str(&info.to_string()));
+                }
+            });
+        }));
+    });
+}
+
+/// Register a JS callback that receives the formatted panic message whenever
+/// the Rust side panics. Used by SlintPad to surface a user-visible dialog.
+#[wasm_bindgen]
+pub fn set_panic_hook(callback: Function) {
+    install_panic_hook();
+    PANIC_CALLBACK.with(|c| *c.borrow_mut() = Some(callback));
+}
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
@@ -211,7 +240,7 @@ pub fn create(
     send_request: SendRequestFunction,
     load_file: ImportCallbackFunction,
 ) -> JsResult<SlintServer> {
-    console_error_panic_hook::set_once();
+    install_panic_hook();
 
     let send_request = Function::from(send_request.clone());
     let server_notifier = ServerNotifier { send_notification, send_request };

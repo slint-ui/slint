@@ -9,7 +9,22 @@ import {
     BrowserMessageWriter,
 } from "vscode-languageserver/browser";
 
+function post_panic(message: string) {
+    self.postMessage({ type: "slintpad/panic", message });
+}
+
+// Backstop: catch failures that happen before the Rust panic hook is armed
+// (e.g. the wasm module itself failing to instantiate).
+self.addEventListener("error", (e) =>
+    post_panic(e.message || "Uncaught error in LSP worker"),
+);
+self.addEventListener("unhandledrejection", (e) =>
+    post_panic(String(e.reason ?? "Unhandled rejection in LSP worker")),
+);
+
 slint_init({}).then(() => {
+    slint_lsp.set_panic_hook(post_panic);
+
     const reader = new BrowserMessageReader(self);
     const writer = new BrowserMessageWriter(self);
 

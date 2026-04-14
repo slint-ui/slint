@@ -56,7 +56,7 @@ thread_local! {static WASM_CALLBACKS: RefCell<Option<WasmCallbacks>> = Default::
 
 #[wasm_bindgen(start)]
 pub fn init_backend() -> Result<(), JsValue> {
-    console_error_panic_hook::set_once();
+    crate::install_panic_hook();
 
     // Initialize the winit backend when we're used in the browser's main thread.
     if web_sys::window().is_some() {
@@ -88,8 +88,6 @@ impl PreviewConnector {
         style: String,
         invoke_slintpad_callback: InvokeSlintpadCallback,
     ) -> Result<PreviewConnectorPromise, JsValue> {
-        console_error_panic_hook::set_once();
-
         WASM_CALLBACKS.set(Some(WasmCallbacks {
             lsp_notifier,
             resource_url_mapper,
