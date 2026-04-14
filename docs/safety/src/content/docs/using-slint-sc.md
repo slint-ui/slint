@@ -52,7 +52,7 @@ flowchart TD
         Compiler["i-slint-compiler (Core Compiler)"]
         Parser["Parser (Rowan)"]
         Generators["Code Generators (Rust)"]
-        
+
         SlintBuild --> |Invokes| Compiler
         Compiler --> |Parses| Parser
         Compiler --> |Generates| Generators
@@ -62,7 +62,7 @@ flowchart TD
         SlintCore["Slint Core Library"]
         CoreTypes["Core Types (Rectangle, Image, etc.)"]
         Properties["Reactive Property System"]
-        
+
         SlintCore --> CoreTypes
         SlintCore --> Properties
     end
@@ -103,7 +103,7 @@ sequenceDiagram
     Compiler-->>BuildScript: Generate Rust code
     BuildScript-->>RustC: Pass generated code
     RustC-->>Runtime: Compile & Link with Slint Core
-    
+
     Runtime->>Runtime: Initialize Components & Variables
     loop Event Loop
         Runtime->>Runtime: Receive Window System Events
@@ -130,8 +130,8 @@ Safety-oriented analysis shall be carried out at the software architectural leve
 * **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
 * **Environment Constraints**: (TODO)
 
-When Slint SC is available, it will be available as a crate on [crates.io](https://crates.io/).
-To add it to a project, one simply specifies Slint SC as a dependency in `Cargo.toml`.
+When Slint SC is available, it will be a crate on [crates.io](https://crates.io/).
+To add it to a project, one simply adds Slint SC as a dependency in `Cargo.toml`.
 
 (TODO - show example)
 
@@ -162,7 +162,8 @@ The standard essentially views a **Requirement** as what the system *must do* (o
 
 For APIs, the Constraints might explain that some functions are experimental and can not be used safely yet. Or, that certain values passed as parameters into functions are not supported in Slint SC. In other words, certain features can only be used a certain way to be safe.
 
-For the Slint SC Compiler, the compiler itself should impose constraints on the user so that only safe parts
-of Slint can be used, and a proper error message is reported when the user tries to use an unsafe feature.
+The Slint Compiler, when it is used in a safety-critical project, should impose constraints
+on the input programs so that only parts of Slint SC can be used, and it should report a proper error message
+when an unsafe feature is found.
 
 Individual Constraints can have a section each here, with a descriptive ID that begins with CON_, and a Rationale, Impact, and Mitigation.
