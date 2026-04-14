@@ -347,16 +347,20 @@ async fn main_loop(
         )
     };
 
-    run_main_loop(
+    let result = run_main_loop(
         connection,
         init_param,
         cli_args,
         request_queue,
         server_notifier,
         preview_to_lsp_receiver,
-        to_preview,
+        to_preview.clone(),
     )
-    .await
+    .await;
+
+    to_preview.shutdown().await;
+
+    result
 }
 
 async fn run_main_loop(
