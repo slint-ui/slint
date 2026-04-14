@@ -96,6 +96,7 @@ fn do_move_declarations(component: &Rc<Component>) {
 
     component.root_constraints.borrow_mut().visit_named_references(&mut fixup_reference);
     component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
+        // To be able to control x and y of the popup from the main window
         fixup_reference(&mut p.x);
         fixup_reference(&mut p.y);
         visit_all_named_references(&p.component, &mut fixup_reference)
@@ -135,13 +136,19 @@ fn do_move_declarations(component: &Rc<Component>) {
     }
 }
 
+/// the `named referece` will be linked to the root element
+/// This is done for example for
+/// - popup windows
+/// - timers
+/// - menus
+/// because they are not handled as children of the component but kept globally
 fn fixup_reference(nr: &mut NamedReference) {
     let e = nr.element();
-    let component = e.borrow().enclosing_component.upgrade().unwrap();
-    if !Rc::ptr_eq(&e, &component.root_element)
+    let parent_component = e.borrow().enclosing_component.upgrade().unwrap();
+    if !Rc::ptr_eq(&e, &parent_component.root_element)
         && e.borrow().property_declarations.contains_key(nr.name())
     {
-        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()));
+        *nr = NamedReference::new(&parent_component.root_element, map_name(&e, nr.name()));
     }
 }
 
