@@ -165,7 +165,14 @@ public:
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item) const
     {
-        auto popup = Component::create(parent_component);
+        std::unique_ptr<SharedGlobals> _own_globals;
+        if (auto _popup_adapter = create_popup_window_adapter()) {
+            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        } else {
+            _own_globals = parent_component->globals->clone();
+        }
+
+        auto popup = Component::create(parent_component, _own_globals);
         auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
         auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,

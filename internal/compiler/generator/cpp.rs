@@ -4499,19 +4499,11 @@ fn compile_builtin_function_call(
                 component_access.then(|component_access| format!(
                     // Use a block statement to create own globals and popup instance
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
-                    {{ \
-                        std::unique_ptr<SharedGlobals> _own_globals; \
-                        if (auto _popup_adapter = {window}.create_popup_window_adapter()) {{ \
-                            _own_globals = {component_access}->globals->clone_with_window_adapter(*_popup_adapter); \
-                        }} \
-                        auto _popup_inst = {popup_window_id}::create(&*({component_access}), std::move(_own_globals)); \
-                        auto _popup_dyn = _popup_inst.into_dyn(); \
-                        auto _pos = [=]([[maybe_unused]] auto self) {{ return {position}; }}(_popup_inst); \
-                        auto _parent_item = slint::cbindgen_private::ItemRc{{ {parent_component} }}; \
-                        {component_access}->popup_id_{popup_index} = slint::cbindgen_private::slint_windowrc_show_popup(\
-&({window}.handle()), &_popup_dyn, _pos, {close_policy}, &_parent_item, false); \
-                        _popup_inst->user_init(); \
-                    }}"
+                    {component_access}->popup_id_{popup_index} =  \
+                        {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
+                                                                        [=](auto self) {{ return {position}; }},  \
+                                                                        {close_policy},  \
+                                                                        {{ {parent_component} }})"
                 ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
