@@ -3,14 +3,14 @@ title: Using Slint SC
 description: Components included in Slint SC and use cases.
 ---
 
-## Slint SC Software Units (ISO 26262:6 7.4.4)
+# Slint SC Software Units (ISO 26262:6 7.4.4)
 
 This is what is included in Slint SC:
 
 * A Slint Compiler, from the internal `i-slint-compiler` crate
 * The `slint_build` crate which provides a Rust API for the compiler.
 * Slint types: Currently we support `Rectangle` and `Image`, with basic properties.
-* Features offered by specific crates that are part of the Slint Rust library
+* (TODO: Add list of Rust crates used by Slint SC)
 
 Each of these things can have a **Usage** and a **Constraints** section.
 
@@ -28,6 +28,8 @@ During the development of the software architectural design, the following shoul
 4. Feasibility for the design and implementation of the software units
 5. Testability of the software
 6. Maintainability of the software architectural design
+
+### Static Design
 
 The software architectural design should have a static design part which
 addresses:
@@ -81,7 +83,9 @@ flowchart TD
     SlintCore --> |Interfaces with| Renderer
 ```
 
-In addition, there should be a dynamic design part which addresses:
+### Dynamic Design
+
+In addition, the software architectural design should have a dynamic design part which addresses:
 
 - the functional chain of events and behaviour;
 - the logical sequence of data processing;
@@ -156,14 +160,56 @@ fn main() {
 }
 ```
 
-## Constraints
+# Constraints
 
 The standard essentially views a **Requirement** as what the system *must do* (or a property it must have), whereas a **Constraint** is a boundary condition that *limits the solution space*.
 
 For APIs, the Constraints might explain that some functions are experimental and can not be used safely yet. Or, that certain values passed as parameters into functions are not supported in Slint SC. In other words, certain features can only be used a certain way to be safe.
 
-The Slint Compiler, when it is used in a safety-critical project, should impose constraints
-on the input programs so that only parts of Slint SC can be used, and it should report a proper error message
+The "Slint SC" compiler is the regular Slint compiler with the argument `--safety-critical`.
+When the Slint Compiler is used in a safety-critical project, it should impose constraints
+on the input programs so that only safe parts of Slint SC can be used, and it should report a proper error message
 when an unsafe feature is found.
 
 Individual Constraints can have a section each here, with a descriptive ID that begins with CON_, and a Rationale, Impact, and Mitigation.
+
+## CON_NO_GLOBAL_ALLOCATOR
+
+The Slint SC Compiler should not generate or allow code that uses a global allocator.
+
+**Rationale**: Global allocators can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code should not use a global allocator. Instead, it should use a custom allocator that is specific to the generated code.
+
+## CON_NO_DYNAMIC_MEMORY_ALLOCATION
+
+The Slint SC Compiler should not generate or allow code that uses dynamic memory allocation.
+
+**Rationale**: Dynamic memory allocation can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code should not use dynamic memory allocation. Instead, it should use a custom allocator that is specific to the generated code.
+
+## CON_NO_UNBOUNDED_RECURSION
+
+The Slint SC Compiler should not generate or allow unbounded recursion.
+
+**Rationale**: Unbounded recursion can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code should not use unbounded recursion. Instead, it should use a custom allocator that is specific to the generated code.
+
+## CON_NO_UNSAFE_CODE
+
+The Slint SC Compiler should not generate or allow unsafe code.
+
+**Rationale**: Unsafe code can be a source of non-determinism and can make it difficult to reason about the behavior of the generated code.
+
+**Impact**: The generated code may not be deterministic and may not be suitable for use in a safety-critical system.
+
+**Mitigation**: The generated code should not use unsafe code. Instead, it should use a custom allocator that is specific to the generated code.
+
