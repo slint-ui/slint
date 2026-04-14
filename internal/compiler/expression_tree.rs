@@ -1836,8 +1836,8 @@ pub enum EasingCurve {
 pub enum ImageReference {
     None,
     AbsolutePath(SmolStr),
-    EmbeddedData { resource_id: usize, extension: String },
-    EmbeddedTexture { resource_id: usize },
+    EmbeddedData { resource_id: crate::embedded_resources::EmbeddedResourcesIdx, extension: String },
+    EmbeddedTexture { resource_id: crate::embedded_resources::EmbeddedResourcesIdx },
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)

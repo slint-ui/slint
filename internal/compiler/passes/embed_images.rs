@@ -10,10 +10,11 @@ use crate::object_tree::*;
 use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
+use typed_index_collections::TiVec;
 
 pub async fn embed_images(
     doc: &Document,
@@ -27,6 +28,7 @@ pub async fn embed_images(
     }
 
     let global_embedded_resources = &doc.embedded_file_resources;
+    let mut path_to_id = HashMap::<SmolStr, EmbeddedResourcesIdx>::new();
 
     let mut all_components = Vec::new();
     doc.visit_all_used_components(|c| all_components.push(c.clone()));
@@ -59,6 +61,7 @@ pub async fn embed_images(
                 e,
                 &mapped_urls,
                 global_embedded_resources,
+                &mut path_to_id,
                 embed_files,
                 scale_factor,
                 diag,
@@ -83,7 +86,8 @@ fn collect_image_urls_from_expression(
 fn embed_images_from_expression(
     e: &mut Expression,
     urls: &HashMap<SmolStr, Option<SmolStr>>,
-    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    path_to_id: &mut HashMap<SmolStr, EmbeddedResourcesIdx>,
     embed_files: EmbedResourcesKind,
     scale_factor: f32,
     diag: &mut BuildDiagnostics,
@@ -114,6 +118,7 @@ fn embed_images_from_expression(
         {
             let image_ref = embed_image(
                 global_embedded_resources,
+                path_to_id,
                 embed_files,
                 path,
                 scale_factor,
@@ -131,6 +136,7 @@ fn embed_images_from_expression(
             e,
             urls,
             global_embedded_resources,
+            path_to_id,
             embed_files,
             scale_factor,
             diag,
@@ -139,72 +145,69 @@ fn embed_images_from_expression(
 }
 
 fn embed_image(
-    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    path_to_id: &mut HashMap<SmolStr, EmbeddedResourcesIdx>,
     embed_files: EmbedResourcesKind,
     path: &str,
     _scale_factor: f32,
     diag: &mut BuildDiagnostics,
     source_location: &Option<crate::diagnostics::SourceLocation>,
 ) -> ImageReference {
-    let mut resources = global_embedded_resources.borrow_mut();
-    let maybe_id = resources.len();
-    let e = match resources.entry(path.into()) {
-        std::collections::btree_map::Entry::Occupied(e) => e.into_mut(),
-        std::collections::btree_map::Entry::Vacant(e) => {
-            // Check that the file exists, so that later we can unwrap safely in the generators, etc.
-            if embed_files == EmbedResourcesKind::ListAllResources {
-                // Really do nothing with the image!
-                e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::ListOnly });
-                return ImageReference::None;
-            }
-
-            let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) else {
-                diag.push_error(format!("Cannot find image file {path}"), source_location);
-                return ImageReference::None;
-            };
-
-            #[cfg(feature = "software-renderer")]
-            if embed_files == EmbedResourcesKind::EmbedTextures {
-                match load_image(_file, _scale_factor) {
-                    Ok((img, source_format, original_size)) => {
-                        e.insert(EmbeddedResources {
-                            id: maybe_id,
-                            kind: EmbeddedResourcesKind::TextureData(generate_texture(
-                                img,
-                                source_format,
-                                original_size,
-                            )),
-                        });
-                        return ImageReference::EmbeddedTexture { resource_id: maybe_id };
-                    }
-                    Err(err) => {
-                        diag.push_error(
-                            format!("Cannot load image file {path}: {err}"),
-                            source_location,
-                        );
-                        return ImageReference::None;
-                    }
-                }
-            }
-
-            e.insert(EmbeddedResources { id: maybe_id, kind: EmbeddedResourcesKind::FileData })
-        }
+    let extension = || {
+        std::path::Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|x| x.to_string())
+            .unwrap_or_default()
     };
 
-    match e.kind {
-        #[cfg(feature = "software-renderer")]
-        EmbeddedResourcesKind::TextureData { .. } => {
-            ImageReference::EmbeddedTexture { resource_id: e.id }
-        }
-        _ => ImageReference::EmbeddedData {
-            resource_id: e.id,
-            extension: std::path::Path::new(path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|x| x.to_string())
-                .unwrap_or_default(),
-        },
+    if let Some(&resource_id) = path_to_id.get(path) {
+        return match global_embedded_resources.borrow()[resource_id].kind {
+            #[cfg(feature = "software-renderer")]
+            EmbeddedResourcesKind::TextureData { .. } => {
+                ImageReference::EmbeddedTexture { resource_id }
+            }
+            _ => ImageReference::EmbeddedData { resource_id, extension: extension() },
+        };
     }
+
+    let mut resources = global_embedded_resources.borrow_mut();
+    let mut push = |kind| {
+        let id = resources.push_and_get_key(EmbeddedResources { path: Some(path.into()), kind });
+        path_to_id.insert(path.into(), id);
+        id
+    };
+
+    if embed_files == EmbedResourcesKind::ListAllResources {
+        push(EmbeddedResourcesKind::ListOnly);
+        return ImageReference::None;
+    }
+
+    let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) else {
+        diag.push_error(format!("Cannot find image file {path}"), source_location);
+        return ImageReference::None;
+    };
+
+    #[cfg(feature = "software-renderer")]
+    if embed_files == EmbedResourcesKind::EmbedTextures {
+        return match load_image(_file, _scale_factor) {
+            Ok((img, source_format, original_size)) => {
+                let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
+                    img,
+                    source_format,
+                    original_size,
+                )));
+                ImageReference::EmbeddedTexture { resource_id }
+            }
+            Err(err) => {
+                diag.push_error(format!("Cannot load image file {path}: {err}"), source_location);
+                ImageReference::None
+            }
+        };
+    }
+
+    let resource_id = push(EmbeddedResourcesKind::FileData);
+    ImageReference::EmbeddedData { resource_id, extension: extension() }
 }
 
 #[cfg(feature = "software-renderer")]
@@ -474,7 +477,7 @@ fn load_image_from_data_uri(
 }
 
 fn embed_data_uri(
-    global_embedded_resources: &RefCell<BTreeMap<SmolStr, EmbeddedResources>>,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
     data_uri: &str,
     _embed_files: EmbedResourcesKind,
     _scale_factor: f32,
@@ -490,9 +493,6 @@ fn embed_data_uri(
     };
 
     let mut resources = global_embedded_resources.borrow_mut();
-    let resource_id = resources.len();
-
-    let unique_key: SmolStr = format!("data:{}:{}", resource_id, extension).into();
 
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
@@ -501,17 +501,14 @@ fn embed_data_uri(
             .map_err(|e| e.to_string())
         {
             Ok((img, source_format, original_size)) => {
-                resources.insert(
-                    unique_key,
-                    EmbeddedResources {
-                        id: resource_id,
-                        kind: EmbeddedResourcesKind::TextureData(generate_texture(
-                            img,
-                            source_format,
-                            original_size,
-                        )),
-                    },
-                );
+                let resource_id = resources.push_and_get_key(EmbeddedResources {
+                    path: None,
+                    kind: EmbeddedResourcesKind::TextureData(generate_texture(
+                        img,
+                        source_format,
+                        original_size,
+                    )),
+                });
                 return ImageReference::EmbeddedTexture { resource_id };
             }
             Err(err) => {
@@ -521,13 +518,10 @@ fn embed_data_uri(
         }
     }
 
-    resources.insert(
-        unique_key,
-        EmbeddedResources {
-            id: resource_id,
-            kind: EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()),
-        },
-    );
+    let resource_id = resources.push_and_get_key(EmbeddedResources {
+        path: None,
+        kind: EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()),
+    });
 
     ImageReference::EmbeddedData { resource_id, extension }
 }

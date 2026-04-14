@@ -57,10 +57,16 @@ pub struct Document {
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
 
-    /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
-    /// disk on the build system
-    pub embedded_file_resources:
-        RefCell<BTreeMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
+    /// Resources to embed in the generated code.
+    ///
+    /// The [`crate::embedded_resources::EmbeddedResourcesIdx`] is the identifier used by code generators.
+    /// Each entry's `path` is the absolute path on disk, or `None` for in-memory data URI payloads.
+    pub embedded_file_resources: RefCell<
+        typed_index_collections::TiVec<
+            crate::embedded_resources::EmbeddedResourcesIdx,
+            crate::embedded_resources::EmbeddedResources,
+        >,
+    >,
 
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,

@@ -1061,8 +1061,8 @@ fn extract_resources(
         result.extend(
             doc.embedded_file_resources
                 .borrow()
-                .keys()
-                .filter_map(|fp| Url::from_file_path(fp).ok()),
+                .iter()
+                .filter_map(|er| Url::from_file_path(er.path.as_deref()?).ok()),
         );
     }
 
