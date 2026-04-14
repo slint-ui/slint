@@ -141,7 +141,7 @@ fn do_move_declarations(component: &Rc<Component>) {
 /// - popup windows
 /// - timers
 /// - menus
-/// because they are not handled as children of the component but kept globally
+/// because they are not handled as children of the component but kept in the root
 fn fixup_reference(nr: &mut NamedReference) {
     let e = nr.element();
     let parent_component = e.borrow().enclosing_component.upgrade().unwrap();
