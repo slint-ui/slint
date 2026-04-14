@@ -1392,7 +1392,6 @@ impl WindowInner {
 
         let mut result = None;
         popup_component.as_ref().window_adapter(false, &mut result);
-        println!("Popup component renderer: {}", result.unwrap().renderer().name());
 
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,

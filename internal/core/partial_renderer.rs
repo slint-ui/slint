@@ -205,17 +205,11 @@ impl PartialRendererCache {
     /// Inserts data into the cache and returns the index for retrieval later.
     pub fn insert(&mut self, data: PartialRenderingCachedData) -> usize {
         let key = self.slab.insert(data);
-        if self.name.contains("Popup renderer") {
-            println!("PartialRendererCache. '{}' Insert: {key}", self.name);
-        } else {
-            println!("PartialRendererCache. '{}' Insert: {key}", self.name);
-        }
         key
     }
 
     /// Removes the cached graphics data at the given index.
     pub fn remove(&mut self, index: usize) -> PartialRenderingCachedData {
-        println!("PartialRendererCache. '{}' Remove: {index}", self.name);
         self.slab.remove(index)
     }
 
@@ -223,7 +217,6 @@ impl PartialRendererCache {
     /// that stale index access can be avoided.
     pub fn clear(&mut self) {
         self.slab.clear();
-        println!("PartialRendererCache. '{}' Clear", self.name);
         self.generation += 1;
     }
 }
