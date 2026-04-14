@@ -1893,16 +1893,10 @@ pub fn flexbox_layout_info_cross_axis(
     }
 
     // Determine which axis is cross
-    let (cross_cells, cross_padding) = match direction {
-        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => (&cells_v, padding_v),
-        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
-            (&cells_h, padding_h)
-        }
+    let cross_cells = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => &cells_v,
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => &cells_h,
     };
-    let cross_extra_pad = cross_padding.begin + cross_padding.end;
-
-    let min = cross_cells.iter().map(|c| c.constraint.min).fold(0.0 as Coord, |a, b| a.max(b))
-        + cross_extra_pad;
 
     // Compute the main-axis preferred size to use as the constraint for taffy,
     // using the same heuristic as flexbox_layout_info_main_axis.
@@ -1979,23 +1973,17 @@ pub fn flexbox_layout_info_cross_axis(
     builder.compute_layout(available_width, available_height, None);
 
     let (total_width, total_height) = builder.container_size();
-    let cross_orientation = match direction {
-        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => Orientation::Vertical,
-        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => {
-            Orientation::Horizontal
-        }
-    };
-    let preferred = match cross_orientation {
-        Orientation::Horizontal => total_width,
-        Orientation::Vertical => total_height,
+    let cross_size = match direction {
+        FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse => total_height,
+        FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse => total_width,
     };
 
     LayoutInfo {
-        min,
+        min: cross_size,
         max: Coord::MAX,
         min_percent: 0 as _,
         max_percent: 100 as _,
-        preferred,
+        preferred: cross_size,
         stretch: 0.0,
     }
 }
