@@ -34,29 +34,29 @@ use windows::{
 // Cached shared texture handle from a surfman/ANGLE surface.
 // ANGLE reuses the same backing texture (and therefore the same share handle) for a given
 // surface across frames, so we cache the opened resource to avoid re-opening it every time.
-pub struct CachedTexture {
-    pub share_handle: usize,
-    pub texture: ID3D11Texture2D,
-    pub mutex: IDXGIKeyedMutex,
+struct CachedTexture {
+    share_handle: usize,
+    texture: ID3D11Texture2D,
+    mutex: IDXGIKeyedMutex,
 }
 
 // Size-dependent GPU state that is recreated when the surface dimensions change.
 // Contains the shared D3D11↔DX12 texture, the wgpu flip target, and the pre-recorded
 // render bundle for the vertical-flip blit.
-pub struct D3D11SizeDependentState {
-    pub size: PhysicalSize<u32>,
+struct D3D11SizeDependentState {
+    size: PhysicalSize<u32>,
     // Shared texture visible to both D3D11 (ANGLE side) and DX12 (wgpu side).
     // Created once and reused each frame; recreated only on resize.
-    pub d3d11_dx12_texture: ID3D11Texture2D,
-    pub d3d11_dx12_mutex: IDXGIKeyedMutex,
+    d3d11_dx12_texture: ID3D11Texture2D,
+    d3d11_dx12_mutex: IDXGIKeyedMutex,
     // wgpu render target for the vertical-flip blit (OpenGL is bottom-left origin,
     // wgpu/DX is top-left). This is what Slint ultimately composites.
-    pub wgpu_flip_target: Texture,
-    pub wgpu_flip_target_view: TextureView,
+    wgpu_flip_target: Texture,
+    wgpu_flip_target_view: TextureView,
     // Pre-recorded render bundle for the flip blit — avoids re-recording each frame.
-    pub flip_bundle: wgpu::RenderBundle,
+    flip_bundle: wgpu::RenderBundle,
     // Cached source textures keyed by share handle, avoiding repeated OpenSharedResource calls.
-    pub cached_src_textures: Vec<CachedTexture>,
+    cached_src_textures: Vec<CachedTexture>,
 }
 
 // Long-lived D3D11 state shared across frames and resizes.
@@ -64,11 +64,11 @@ pub struct D3D11SizeDependentState {
 pub struct D3D11SharedState {
     // D3D11 device and context obtained from ANGLE — these are ANGLE's internal objects,
     // not ones we created. We borrow them via EGL device query extensions.
-    pub d3d11_device: ID3D11Device,
-    pub d3d11_ctx: ID3D11DeviceContext,
-    pub flip_pipeline: wgpu::RenderPipeline,
-    pub sampler: wgpu::Sampler,
-    pub size_dependent: Option<D3D11SizeDependentState>,
+    d3d11_device: ID3D11Device,
+    d3d11_ctx: ID3D11DeviceContext,
+    flip_pipeline: wgpu::RenderPipeline,
+    sampler: wgpu::Sampler,
+    size_dependent: Option<D3D11SizeDependentState>,
 }
 
 #[derive(thiserror::Error, Debug)]
