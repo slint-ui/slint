@@ -14,9 +14,6 @@ use surfman::{
     chains::{PreserveBuffer, SwapChain},
 };
 
-#[cfg(not(target_os = "windows"))]
-use slint::wgpu_28::wgpu;
-
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
