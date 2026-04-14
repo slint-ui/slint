@@ -96,7 +96,6 @@ fn do_move_declarations(component: &Rc<Component>) {
 
     component.root_constraints.borrow_mut().visit_named_references(&mut fixup_reference);
     component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
-        // To be able to control x and y of the popup from the main window
         fixup_reference(&mut p.x);
         fixup_reference(&mut p.y);
         visit_all_named_references(&p.component, &mut fixup_reference)
