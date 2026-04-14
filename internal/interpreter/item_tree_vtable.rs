@@ -379,40 +379,43 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             return false;
         };
         let cu = &this.root_sub_component.compilation_unit;
-        // For sub-component references, the wrapping element_infos
-        // (e.g. `Button,TestCase::second,...`) is in the *parent*'s
-        // element_infos map, keyed by the parent-local index where the
-        // sub-component starts. Check the root's entry directly.
-        if entry.0.is_empty() {
-            // The item is in the root sub-component.
-            let sc = &cu.sub_components[this.root_sub_component.sub_component_idx];
-            let item_local_idx = sc.items[entry.1].index_in_tree;
-            return sc
-                .element_infos
-                .get(&item_local_idx)
-                .map(|infos| {
-                    *result = infos.as_str().into();
-                })
-                .is_some();
+        // The compiler stores `element_infos` per sub-component, keyed by
+        // the element's tree index *within that sub-component*. Walk the
+        // sub_component_path from the root, and at each step translate
+        // the flat index into the current sub-component's local tree
+        // space — mirroring what the rust codegen's nested
+        // `item_element_infos` match arms do (`index - range_begin + 1`
+        // at every recursion).
+        //
+        // For a native item, the info lives on the leaf sub-component.
+        // For a component-instance declaration (`Switch { }`), the info
+        // lives on the *parent* of the leaf (the sub-component that
+        // wrote `Switch { }`), keyed by the sub-component-instance's
+        // `index_in_tree`. Check each level along the path before
+        // descending: the first match wins, matching the codegen's
+        // direct-entry cases that precede the range-based recursion.
+        let mut owner_sc_idx = this.root_sub_component.sub_component_idx;
+        let mut local_idx = item_index;
+        for &sub_step in entry.0.iter() {
+            let owner_sc = &cu.sub_components[owner_sc_idx];
+            if let Some(info) = owner_sc.element_infos.get(&local_idx) {
+                *result = info.as_str().into();
+                return true;
+            }
+            let nested = &owner_sc.sub_components[sub_step];
+            // Translate `local_idx` into `nested`'s tree, mirroring the
+            // rust codegen's `index - range_begin + 1` recursion (and the
+            // `local_tree_index => ...` direct case for the root item).
+            if local_idx == nested.index_in_tree {
+                local_idx = 0;
+            } else if nested.index_of_first_child_in_tree > 0 {
+                local_idx = local_idx + 1 - nested.index_of_first_child_in_tree;
+            }
+            owner_sc_idx = nested.ty;
         }
-        // The item is inside a sub-component. First, check whether
-        // `item_index` corresponds to the wrapping sub-component
-        // reference at the root level — its element_infos is on the
-        // root and includes the inner inheritance chain.
-        let root_sc = &cu.sub_components[this.root_sub_component.sub_component_idx];
-        if let Some(infos) = root_sc.element_infos.get(&item_index) {
-            *result = infos.as_str().into();
-            return true;
-        }
-        // Otherwise, walk down to the deepest sub-component and use
-        // the local index.
-        let mut owner: &crate::instance::SubComponentInstance = &this.root_sub_component;
-        for &sub_idx in entry.0.iter() {
-            owner = &owner.sub_components[sub_idx];
-        }
-        let sc = &cu.sub_components[owner.sub_component_idx];
-        let item_local_idx = sc.items[entry.1].index_in_tree;
-        if let Some(infos) = sc.element_infos.get(&item_local_idx) {
+        let owner_sc = &cu.sub_components[owner_sc_idx];
+        let item_local_idx = owner_sc.items[entry.1].index_in_tree;
+        if let Some(infos) = owner_sc.element_infos.get(&item_local_idx) {
             *result = infos.as_str().into();
             true
         } else {
