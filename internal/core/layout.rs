@@ -13,6 +13,26 @@ use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::cell::Cell;
+
+crate::thread_local! {
+    /// Cross-axis constraint propagated through component boundaries for
+    /// height-for-width support. When a layout evaluates a component child's
+    /// vertical layout info, this holds the available width. Items with
+    /// height-for-width behavior (Text with wrap, Image with aspect ratio)
+    /// check this when their explicit constraint is -1.
+    static CROSS_AXIS_CONSTRAINT: Cell<Coord> = const { Cell::new(-1 as Coord) }
+}
+
+/// Set the cross-axis constraint thread-local, returning the previous value.
+pub fn set_cross_axis_constraint(constraint: Coord) -> Coord {
+    CROSS_AXIS_CONSTRAINT.with(|c| c.replace(constraint))
+}
+
+/// Get the current cross-axis constraint from the thread-local.
+pub fn get_cross_axis_constraint() -> Coord {
+    CROSS_AXIS_CONSTRAINT.with(|c| c.get())
+}
 use num_traits::Float;
 
 pub use crate::items::Orientation;
@@ -2195,6 +2215,16 @@ pub(crate) mod ffi {
             flex_wrap,
             constraint_size,
         )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_set_cross_axis_constraint(constraint: Coord) -> Coord {
+        super::set_cross_axis_constraint(constraint)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_get_cross_axis_constraint() -> Coord {
+        super::get_cross_axis_constraint()
     }
 }
 

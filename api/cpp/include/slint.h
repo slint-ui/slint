@@ -196,6 +196,16 @@ box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> 
     return cbindgen_private::slint_box_layout_info_ortho(cells, &padding);
 }
 
+inline float set_cross_axis_constraint(float constraint)
+{
+    return cbindgen_private::slint_set_cross_axis_constraint(constraint);
+}
+
+inline float get_cross_axis_constraint()
+{
+    return cbindgen_private::slint_get_cross_axis_constraint();
+}
+
 inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexboxLayoutData &data,
                                                 cbindgen_private::Slice<int> repeater_indices)
 {

@@ -672,7 +672,8 @@ fn text_layout_info(
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)
                     } else {
-                        width.get()
+                        let tl = crate::layout::get_cross_axis_constraint();
+                        if tl >= 0 as Coord { LogicalLength::new(tl) } else { width.get() }
                     };
                     implicit_size(Some(w), wrap).height
                 }
