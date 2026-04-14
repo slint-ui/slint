@@ -184,16 +184,23 @@ pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<Wind
 }
 
 /// Free the backend graphics resources allocated by the ItemTree's items.
+/// This will be called  if an sub-tree gets destroyed or a popup gets closed, ...
+/// It will be called only once not for every sub item
+///
+/// * `item_tree` - the item tree to unregister
 pub fn unregister_item_tree<Base>(
     base: core::pin::Pin<&Base>,
     item_tree: ItemTreeRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
-    window_adapter.renderer().free_graphics_resources(
-        item_tree,
-        &mut item_array.iter().map(|item| item.apply_pin(base)),
-    ).expect("Fatal error encountered when freeing graphics resources while destroying Slint component");
+    item_array.iter().for_each(|item| {
+        item.apply_pin(base).as_ref().deinit(window_adapter);
+    });
+    window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
+        "Fatal error encountered when freeing graphics resources while destroying Slint component",
+    );
+
     if let Some(w) = window_adapter.internal(crate::InternalToken) {
         w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
     }

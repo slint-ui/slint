@@ -185,6 +185,8 @@ impl Item for NativeTabWidget {
         bind!(tabbar_height = vertical_metrics.tabbar_size);
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
@@ -391,6 +393,8 @@ impl Item for NativeTab {
             return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
         }});
     }
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,

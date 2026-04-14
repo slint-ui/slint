@@ -45,6 +45,8 @@ pub struct ImageItem {
 impl Item for ImageItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
@@ -208,6 +210,8 @@ pub struct ClippedImage {
 
 impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,

@@ -167,6 +167,8 @@ impl Item for ComponentContainer {
         self.self_weak.set(self_rc.downgrade()).ok().unwrap();
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,

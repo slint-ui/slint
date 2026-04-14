@@ -1585,6 +1585,10 @@ impl WindowInner {
 
     /// Sets the global property `TextInputInterface.text-input-focused`
     pub fn set_text_input_focused(&self, value: bool) {
+        if !value && let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken)
+        {
+            window_adapter.input_method_request(InputMethodRequest::Disable);
+        }
         self.pinned_fields.text_input_focused.set(value)
     }
 

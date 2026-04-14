@@ -29,6 +29,8 @@ impl Item for NativeComboBox {
         }})
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
@@ -195,6 +197,8 @@ impl Item for NativeComboBoxPopup {
             return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
         }})
     }
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn layout_info(
         self: Pin<&Self>,
