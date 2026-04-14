@@ -135,12 +135,7 @@ fn do_move_declarations(component: &Rc<Component>) {
     }
 }
 
-/// the `named referece` will be linked to the root element
-/// This is done for example for
-/// - popup windows
-/// - timers
-/// - menus
-/// because they are not handled as children of the component but kept in the root
+/// Map the reference to the previous properties to the new moved property at the root
 fn fixup_reference(nr: &mut NamedReference) {
     let e = nr.element();
     let parent_component = e.borrow().enclosing_component.upgrade().unwrap();
