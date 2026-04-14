@@ -843,6 +843,7 @@ fn generate_sub_component(
         RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
         parent_ctx,
     );
+    // Create item tree for popups and menuitems
     let mut extra_components = component
         .popup_windows
         .iter()
