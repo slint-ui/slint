@@ -3,6 +3,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import mermaid from "astro-mermaid";
 import starlightLinksValidator from "starlight-links-validator";
 import rehypeExternalLinks from "rehype-external-links";
 
@@ -27,6 +28,7 @@ export default defineConfig({
         ],
     },
     integrations: [
+        mermaid(),
         starlight({
             title: "Slint SC Safety Manual",
             components: {
@@ -119,3 +121,4 @@ export default defineConfig({
         }),
     ],
 });
+

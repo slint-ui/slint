@@ -16,12 +16,14 @@
   "dependencies": {
     "@astrojs/check": "catalog:",
     "@astrojs/starlight": "catalog:",
+    "@slint/common-files": "workspace:*",
     "@types/node": "catalog:",
     "astro": "catalog:",
+    "astro-mermaid": "2.0.1",
+    "mermaid": "11.14.0",
     "rehype-external-links": "catalog:",
     "sharp": "catalog:",
     "starlight-links-validator": "catalog:",
-    "typescript": "catalog:",
-    "@slint/common-files": "workspace:*"
+    "typescript": "catalog:"
   }
 }

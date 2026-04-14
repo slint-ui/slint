@@ -9,7 +9,7 @@ This is what is included in Slint SC:
 
 * A Slint Compiler, from the internal `i-slint-compiler` crate
 * The `slint_build` crate which provides a Rust API for the compiler.
-* Individual slint language features
+* Slint types: Currently we support `Rectangle` and `Image`, with basic properties.
 * Features offered by specific crates that are part of the Slint Rust library
 
 Each of these things can have a **Usage** and a **Constraints** section.
@@ -39,7 +39,47 @@ addresses:
 - the external interfaces of the software components; and
 - the constraints including the scope of the architecture
 
-(TODO: Insert diagram showing the static design of Slint SC)
+```mermaid
+flowchart TD
+    subgraph Developer Workspace
+        SlintFiles[".slint UI Files"]
+        CargoToml["Cargo.toml (Dependencies)"]
+        BuildScript["build.rs (slint_build::compile_with_config)"]
+    end
+
+    subgraph Slint Compiler Toolchain
+        SlintBuild["slint_build (Rust API)"]
+        Compiler["i-slint-compiler (Core Compiler)"]
+        Parser["Parser (Rowan)"]
+        Generators["Code Generators (Rust)"]
+        
+        SlintBuild --> |Invokes| Compiler
+        Compiler --> |Parses| Parser
+        Compiler --> |Generates| Generators
+    end
+
+    subgraph Slint SC Runtime Core
+        SlintCore["Slint Core Library"]
+        CoreTypes["Core Types (Rectangle, Image, etc.)"]
+        Properties["Reactive Property System"]
+        
+        SlintCore --> CoreTypes
+        SlintCore --> Properties
+    end
+
+    subgraph External Interfaces
+        AppCode["User Application Code"]
+        Windowing["Backend / Windowing System"]
+        Renderer["Safe Renderer"]
+    end
+
+    BuildScript --> |Uses| SlintBuild
+    SlintFiles --> |Read by| Compiler
+    Generators --> |Produces Rust Code| AppCode
+    AppCode --> |Uses| SlintCore
+    SlintCore --> |Interfaces with| Windowing
+    SlintCore --> |Interfaces with| Renderer
+```
 
 In addition, there should be a dynamic design part which addresses:
 
@@ -49,7 +89,28 @@ In addition, there should be a dynamic design part which addresses:
 - the data flow through interfaces and global variables; and
 - the temporal constraints.
 
-(TODO: Insert diagram showing the dynamic design of Slint SC)
+```mermaid
+sequenceDiagram
+    participant User as Developer
+    participant BuildScript as build.rs
+    participant Compiler as slint_build / i-slint-compiler
+    participant RustC as rustc
+    participant Runtime as User App / Slint Core
+
+    User->>BuildScript: cargo build
+    BuildScript->>Compiler: compile_with_config("app.slint")
+    Compiler->>Compiler: Parse .slint files & Validate Constraints
+    Compiler-->>BuildScript: Generate Rust code
+    BuildScript-->>RustC: Pass generated code
+    RustC-->>Runtime: Compile & Link with Slint Core
+    
+    Runtime->>Runtime: Initialize Components & Variables
+    loop Event Loop
+        Runtime->>Runtime: Receive Window System Events
+        Runtime->>Runtime: Update Reactive Properties
+        Runtime->>Runtime: Render to Backend
+    end
+```
 
 ### Safety Analysis Report (ISO 26262:6 7.4.10)
 
