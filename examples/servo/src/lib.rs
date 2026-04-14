@@ -34,7 +34,14 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
 }
 
 fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
-    let backends = wgpu::Backends::from_env().unwrap_or_default();
+    #[allow(unused_mut, unused_assignments)]
+    let mut backends = wgpu::Backends::from_env().unwrap_or_default();
+
+    #[cfg(target_os = "windows")]
+    {
+        // Must be DX12 on Windows to support texture sharing from ANGLE's D3D11 via NT handles.
+        backends = wgpu::Backends::DX12;
+    }
 
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
         backends,

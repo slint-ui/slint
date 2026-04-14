@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use std::{cell::Cell, rc::Rc, sync::Arc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    sync::Arc,
+};
 
 use euclid::default::Size2D;
 use image::RgbaImage;
@@ -37,6 +41,8 @@ pub struct GPURenderingContext {
     pub size: Cell<PhysicalSize<u32>>,
     pub swap_chain: SwapChain<Device>,
     pub surfman_rendering_info: SurfmanRenderingContext,
+    #[cfg(target_os = "windows")]
+    pub d3d11_state: RefCell<Option<super::directx::D3D11SharedState>>,
 }
 
 impl Drop for GPURenderingContext {
@@ -51,6 +57,19 @@ impl GPURenderingContext {
     pub fn new(size: PhysicalSize<u32>) -> Result<Self, surfman::Error> {
         let connection = Connection::new()?;
 
+        // On Windows, surfman's create_adapter() calls create_hardware_adapter() which uses
+        // VendorPreference::Avoid(INTEL_PCI_ID). On systems with only an Intel GPU, this
+        // causes surfman to skip Intel and select the WARP software renderer instead
+        // (Microsoft Basic Render Driver, VendorId 0x1414 != 0x8086).
+        //
+        // Using create_low_power_adapter() reverses this: it prefers Intel (VendorId 0x8086),
+        // ensuring we always pick hardware over WARP. On systems without Intel, it falls back
+        // to the first adapter (which is the discrete GPU).
+        #[cfg(target_os = "windows")]
+        let adapter =
+            connection.create_low_power_adapter().or_else(|_| connection.create_adapter())?;
+
+        #[cfg(not(target_os = "windows"))]
         let adapter = connection.create_adapter()?;
 
         let surfman_rendering_info = SurfmanRenderingContext::new(&connection, &adapter)?;
@@ -66,7 +85,13 @@ impl GPURenderingContext {
 
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
-        Ok(Self { swap_chain, size: Cell::new(size), surfman_rendering_info })
+        Ok(Self {
+            swap_chain,
+            size: Cell::new(size),
+            surfman_rendering_info,
+            #[cfg(target_os = "windows")]
+            d3d11_state: std::cell::RefCell::new(None),
+        })
     }
 
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.

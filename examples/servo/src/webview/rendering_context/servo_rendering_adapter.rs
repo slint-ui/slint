@@ -26,23 +26,19 @@ pub fn try_create_gpu_context(
     queue: wgpu::Queue,
     size: PhysicalSize<u32>,
 ) -> Option<Box<dyn ServoRenderingAdapter>> {
-    // Allow forcing software rendering for testing/debugging
     if std::env::var_os("SLINT_SERVO_FORCE_SOFTWARE").is_some() {
+        eprintln!("[GPU] Forced software rendering via env var");
         return Some(create_software_context(size));
     }
 
-    // Try to create GPU rendering context, fall back to software if it fails
     match GPURenderingContext::new(size) {
         Ok(gpu_context) => {
+            eprintln!("[GPU] GPURenderingContext created successfully — using GPU path");
             let rendering_context = Rc::new(gpu_context);
-            Some(Box::new(ServoGPURenderingContext {
-                device: device.clone(),
-                queue: queue.clone(),
-                rendering_context,
-            }))
+            Some(Box::new(ServoGPURenderingContext { device, queue, rendering_context }))
         }
-        Err(_) => {
-            // GPU rendering context creation failed, fall back to software rendering
+        Err(e) => {
+            eprintln!("[GPU] GPURenderingContext::new failed: {:?} — falling back to software", e);
             Some(create_software_context(size))
         }
     }
@@ -73,6 +69,12 @@ impl ServoRenderingAdapter for ServoGPURenderingContext {
             self.rendering_context.get_wgpu_texture_from_metal(&self.device, &self.queue).expect(
                 "Failed to get WGPU texture from Metal texture - ensure rendering context is valid",
             );
+
+        #[cfg(target_os = "windows")]
+        let texture = self
+            .rendering_context
+            .get_wgpu_texture_from_directx(&self.device, &self.queue)
+            .expect("Failed to get WGPU texture from DirectX");
 
         Image::try_from(texture).expect(
             "Failed to create Slint image from WGPU texture - check texture format compatibility",
