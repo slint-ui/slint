@@ -24,6 +24,7 @@ fn popupwindow_size() {
                 }
             }
 
+            // Layout constraints are 0, 0 because the Rectangle prefers 0,0
             popup := PopupWindow {
                 width: 99px;
                 height: 102px;
