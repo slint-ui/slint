@@ -37,7 +37,7 @@ export component MyApp inherits Window {
 
 ### Components
 
-Define reusable components with `component Name inherits Base { }`. The root file must `export component` at least one component.
+Define reusable components with `component Name inherits Base { }`. The root file must `export` at least one component that inherits "Window".
 
 ```slint
 component MyButton inherits Rectangle {
