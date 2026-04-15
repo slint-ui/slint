@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp,pyi
+
+// Reproduces the LSP slintpad preview scenario: an embedded component that is
+// not a Window (ensure_window wraps it), containing a VerticalLayout whose
+// children include a TouchArea that must end up with the container-scoped
+// size — not the host window's size.
+
+import { Button } from "std-widgets.slint";
+
+export component TestCase inherits Rectangle {
+    in property <component-factory> cc <=> cont.component-factory;
+    in-out property <length> cont-width <=> cont.width;
+    in-out property <length> cont-height <=> cont.height;
+
+    // Mirror `tools/lsp/ui/views/preview-view.slint`: start the container
+    // at 0×0 and pull its size from the embedded component's layout info
+    // on demand. This is the slintpad preview flow — reading
+    // `preferred-width` drives `ensure_updated` which instantiates the
+    // embedded component.
+    callback size-from-preferred();
+    size-from-preferred => {
+        cont.width = max(cont.preferred-width, cont.min-width);
+        cont.height = max(cont.preferred-height, cont.min-height);
+    }
+
+    width: 800px;
+    height: 600px;
+
+    cont := ComponentContainer {
+        x: 15px;
+        y: 20px;
+        width: 0px;
+        height: 0px;
+    }
+}
+
+/*
+```rust
+use slint::ComponentHandle;
+use slint_interpreter::ComponentInstance;
+
+let inner: std::rc::Rc<core::cell::RefCell<Option<ComponentInstance>>> = Default::default();
+let inner_clone = inner.clone();
+
+let factory = slint::ComponentFactory::new(move |ctx| {
+    let compiler = slint_interpreter::Compiler::new();
+    let e = spin_on::spin_on(compiler.build_from_source(
+        // Demo without `inherits Window`; `ensure_window` wraps it.
+        // Mirrors the AboutSlint widget: preferred 100%/100% so the
+        // container sees no non-zero preferred size from the content,
+        // plus a top-level TouchArea with no explicit width/height.
+        r#"import { AboutSlint, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+        export component Demo {
+            out property <length> demo-width: self.width;
+            out property <length> demo-height: self.height;
+            out property <length> touch-width: ta.width;
+            out property <length> touch-height: ta.height;
+            ta := TouchArea { }
+            VerticalBox {
+                alignment: start;
+                Text {
+                    text: "Hello World!";
+                    font-size: 24px;
+                    horizontal-alignment: center;
+                }
+                AboutSlint {
+                    preferred-height: 150px;
+                }
+                HorizontalBox {
+                    alignment: end;
+                    Button { text: "OK!"; }
+                }
+            }
+        }"#.into(),
+        std::path::PathBuf::from("embedded.slint"),
+    )).components().next().unwrap();
+    let instance = e.create_embedded(ctx).ok();
+    inner_clone.replace(instance.as_ref().map(|i| i.clone_strong()));
+    instance
+});
+
+let instance = TestCase::new().unwrap();
+instance.set_cc(factory.clone());
+// Trigger the slintpad-style resize callback: read the preferred size out
+// of the container and write it back to `cont.width` / `cont.height`.
+instance.invoke_size_from_preferred();
+
+let cw = instance.get_cont_width();
+let ch = instance.get_cont_height();
+
+let inner_rc = inner.borrow();
+let inner_instance = inner_rc.as_ref().expect("embedded instance should exist after set_cc");
+let demo_w: f64 = inner_instance.get_property("demo-width").unwrap().try_into().unwrap();
+let demo_h: f64 = inner_instance.get_property("demo-height").unwrap().try_into().unwrap();
+let touch_w: f64 = inner_instance.get_property("touch-width").unwrap().try_into().unwrap();
+let touch_h: f64 = inner_instance.get_property("touch-height").unwrap().try_into().unwrap();
+eprintln!(
+    "cont={}x{} demo={}x{} touch={}x{}",
+    cw, ch, demo_w, demo_h, touch_w, touch_h
+);
+
+// Embedded Demo's root width reads the container width.
+assert_eq!(demo_w, cw as f64, "demo width must equal container width");
+assert_eq!(demo_h, ch as f64, "demo height must equal container height");
+// The TouchArea must be sized by the embedded's own root — NOT by anything
+// larger (e.g. the host window). This is the slintpad "click anywhere opens
+// slint.dev" symptom: AboutSlint's top-level TouchArea ends up spanning the
+// host window instead of the ComponentContainer slot.
+assert_eq!(touch_w, demo_w, "touch area width must equal embedded width");
+assert_eq!(touch_h, demo_h, "touch area height must equal embedded height");
+```
+*/

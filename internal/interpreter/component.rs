@@ -89,15 +89,13 @@ impl ComponentDefinitionInner {
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
     ) -> ComponentInstanceInner {
-        let vrc = Instance::new_with_window(
+        let vrc = Instance::new_embedded(
             self.compilation_unit.clone(),
             self.public_index,
-            None,
             self.type_loader.clone(),
+            parent,
+            parent_item_tree_index,
         );
-        // Record the outer item tree + container index directly on the
-        // Instance so `parent_node` walks back into the parent.
-        let _ = vrc.embedded_in.set((parent, parent_item_tree_index));
         ComponentInstanceInner(vrc)
     }
 

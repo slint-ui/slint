@@ -379,6 +379,23 @@ impl SubComponentInstance {
     }
 }
 
+/// When the LLR `RepeatedElement` at `rep_idx` is actually a
+/// `ComponentContainer` placeholder (created by `lower_component_container`),
+/// return a pinned reference to the `ComponentContainer` item that hosts
+/// the embedded tree. Returns `None` for regular repeaters and conditional
+/// elements.
+pub(crate) fn component_container_item<'a>(
+    sub: &'a Pin<Rc<SubComponentInstance>>,
+    rep_idx: RepeatedElementIdx,
+) -> Option<Pin<&'a i_slint_core::items::ComponentContainer>> {
+    let sc = &sub.compilation_unit.sub_components[sub.sub_component_idx];
+    let cc_item_idx = sc.repeated.get(rep_idx)?.container_item_index?;
+    let item = sub.items.get(cc_item_idx)?;
+    i_slint_core::items::ItemRef::downcast_pin::<i_slint_core::items::ComponentContainer>(
+        Pin::as_ref(item).as_item_ref(),
+    )
+}
+
 impl Instance {
     /// Resolve a flat `tree_nodes` index into the owning sub-component and
     /// its local repeater index by walking the cached
@@ -399,8 +416,19 @@ impl Instance {
     /// Ensure the repeater at `tree_index` is populated from its model.
     /// Called by `get_subtree_range`, `get_subtree` and
     /// `visit_dynamic_children` before reading the repeater's instances.
+    ///
+    /// When the LLR `RepeatedElement` is actually a `ComponentContainer`
+    /// placeholder (`container_item_index = Some`), defer to the
+    /// `ComponentContainer` item's own `ensure_updated`, which drives
+    /// the `ComponentFactory` and stores the embedded item tree on the
+    /// container item directly — the repeater slot stays a no-op
+    /// `Conditional` with `model: false`.
     pub fn ensure_updated(&self, tree_index: u32) {
         let Some((sub, rep_idx)) = self.dynamic_at(tree_index) else { return };
+        if let Some(cc) = component_container_item(&sub, rep_idx) {
+            cc.ensure_updated();
+            return;
+        }
         let cu = sub.compilation_unit.clone();
         let sc_idx = sub.sub_component_idx;
         let sub_weak = Rc::downgrade(&Pin::into_inner(sub.clone()));
@@ -456,6 +484,12 @@ impl Instance {
     }
 
     /// `visit_children_item` entry point for `DynamicTree` nodes.
+    ///
+    /// For `ComponentContainer` placeholders the visit delegates to the
+    /// container item's own `visit_children_item`, which hops into the
+    /// embedded item tree stored on the container. The repeater slot is
+    /// a dummy `Conditional` (see `lower_component_container`) and must
+    /// not be visited directly, or the embedded content never renders.
     pub fn visit_dynamic_children(
         self: Pin<&Self>,
         dyn_index: u32,
@@ -466,6 +500,9 @@ impl Instance {
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(dyn_index) else {
             return i_slint_core::item_tree::VisitChildrenResult::CONTINUE;
         };
+        if let Some(cc) = component_container_item(&sub, rep_idx) {
+            return cc.visit_children_item(-1, order, visitor);
+        }
         let repeater = &sub.repeaters[rep_idx];
         repeater.visit(order, visitor)
     }
@@ -490,6 +527,42 @@ impl Instance {
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
     ) -> VRc<ItemTreeVTable, Instance> {
+        Self::new_with_options(
+            compilation_unit,
+            public_component_index,
+            window_adapter,
+            type_loader,
+            None,
+        )
+    }
+
+    /// Build an instance embedded inside an existing item tree via a
+    /// `ComponentFactory`. Records the outer item tree handle and the
+    /// `ComponentContainer` slot index it substitutes into so that
+    /// `parent_node` can walk back into the host tree.
+    pub fn new_embedded(
+        compilation_unit: Rc<CompilationUnit>,
+        public_component_index: usize,
+        type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+        parent: vtable::VWeak<ItemTreeVTable>,
+        parent_item_tree_index: u32,
+    ) -> VRc<ItemTreeVTable, Instance> {
+        Self::new_with_options(
+            compilation_unit,
+            public_component_index,
+            None,
+            type_loader,
+            Some((parent, parent_item_tree_index)),
+        )
+    }
+
+    fn new_with_options(
+        compilation_unit: Rc<CompilationUnit>,
+        public_component_index: usize,
+        window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
+        type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+        embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
+    ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
         let globals = Rc::new(GlobalStorage::new(&compilation_unit));
         let item_tree = &public.item_tree;
@@ -503,6 +576,12 @@ impl Instance {
         );
         if let Some(adapter) = window_adapter {
             let _ = vrc.window_adapter.set(adapter);
+        }
+        // Set the outer-tree handle before finalizing so `parent_node`
+        // walks and any binding that reads absolute coordinates during
+        // `install_bindings` / `init_code` can resolve through the host.
+        if let Some((parent, idx)) = embedded_in {
+            let _ = vrc.embedded_in.set((parent, idx));
         }
         finalize_instance(&vrc);
         vrc

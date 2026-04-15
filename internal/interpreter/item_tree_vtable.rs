@@ -101,9 +101,14 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(index) else {
             return IndexRange { start: 0, end: 0 };
         };
-        let repeater = &sub.repeaters[rep_idx];
-        // Trigger lazy instantiation with the right init closure.
+        // Trigger lazy instantiation: for a regular repeater this fills
+        // the model rows; for a `ComponentContainer` it evaluates the
+        // factory and stores the embedded tree on the container item.
         self.get_ref().ensure_updated(index);
+        if let Some(cc) = crate::instance::component_container_item(&sub, rep_idx) {
+            return cc.subtree_range();
+        }
+        let repeater = &sub.repeaters[rep_idx];
         let range = repeater.range();
         IndexRange { start: range.start, end: range.end }
     }
@@ -118,6 +123,12 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(index) else {
             return;
         };
+        if let Some(cc) = crate::instance::component_container_item(&sub, rep_idx) {
+            if subindex == 0 {
+                *result = cc.subtree_component();
+            }
+            return;
+        }
         let repeater = &sub.repeaters[rep_idx];
         if let Some(instance) = repeater.instance_at(subindex) {
             *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(instance));
