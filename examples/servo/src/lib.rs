@@ -3,7 +3,7 @@
 
 pub mod webview;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "windows"))]
 mod gl_bindings {
     #![allow(unsafe_op_in_unsafe_fn)]
 
@@ -17,19 +17,11 @@ use crate::webview::WebView;
 slint::include_modules!();
 
 pub fn main() {
-    #[cfg(not(target_os = "windows"))]
     let (device, queue) = setup_wgpu();
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
 
-    WebView::new(
-        app.clone_strong(),
-        "https://slint.dev".into(),
-        #[cfg(not(target_os = "windows"))]
-        device,
-        #[cfg(not(target_os = "windows"))]
-        queue,
-    );
+    WebView::new(app.clone_strong(), "https://slint.dev".into(), device, queue);
 
     app.run().expect("Application failed to run - check for runtime errors");
 }
@@ -41,9 +33,15 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
     main();
 }
 
-#[cfg(not(target_os = "windows"))]
 fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
-    let backends = wgpu::Backends::from_env().unwrap_or_default();
+    #[allow(unused_mut, unused_assignments)]
+    let mut backends = wgpu::Backends::from_env().unwrap_or_default();
+
+    #[cfg(target_os = "windows")]
+    {
+        // Must be DX12 on Windows to support texture sharing from ANGLE's D3D11 via NT handles.
+        backends = wgpu::Backends::DX12;
+    }
 
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
         backends,

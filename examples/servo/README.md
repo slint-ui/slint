@@ -76,6 +76,14 @@ fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
 }
 ```
 
+## Prerequisites for Windows
+
+To build on Windows, you will need Visual Studio installed. Cargo requires the `LIBCLANG_PATH` environment variable set to the LLVM tools directory bundled with Visual Studio.
+
+- Install [Visual Studio](https://visualstudio.microsoft.com/downloads/).
+- Install [C++ build tools using Visual Studio Installer](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+- Set environment variable `LIBCLANG_PATH` for example "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\Llvm\\x64\\bin"
+
 ## For Android build
 
 - Update your code with android specific code from example to your project.
