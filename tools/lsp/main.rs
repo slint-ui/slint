@@ -321,7 +321,7 @@ async fn main_loop(
 ) -> Result<()> {
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
-    let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
+    let (preview_to_lsp_sender, preview_to_lsp_receiver) =
         mpsc::unbounded_channel::<i_slint_preview_protocol::PreviewToLspMessage>();
 
     let server_notifier =
@@ -372,7 +372,9 @@ async fn run_main_loop(
     request_queue: OutgoingRequestQueue,
     server_notifier: ServerNotifier,
     #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
-    mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<crate::common::PreviewToLspMessage>,
+    mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<
+        i_slint_preview_protocol::PreviewToLspMessage,
+    >,
     to_preview: Rc<dyn LspToPreview>,
 ) -> Result<()> {
     let mut rh = RequestHandler::default();

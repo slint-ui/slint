@@ -150,7 +150,9 @@ impl common::LspToPreview for ChildProcessLspToPreview {
             let Some(inner) = self.inner.borrow_mut().take() else {
                 return;
             };
-            let message = serde_json::to_string(&common::LspToPreviewMessage::Quit).unwrap();
+            let message =
+                serde_json::to_string(&i_slint_preview_protocol::LspToPreviewMessage::Quit)
+                    .unwrap();
             let _ = inner.to_child_sender.send(message);
             drop(inner.to_child_sender);
             if tokio::time::timeout(std::time::Duration::from_secs(5), inner.communication_handle)
