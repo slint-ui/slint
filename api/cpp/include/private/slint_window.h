@@ -169,7 +169,8 @@ public:
         SharedGlobals _own_globals;
         if (auto _popup_adapter = create_popup_window_adapter()) {
             _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
-        } else {
+        }
+        if (!_own_globals) {
             _own_globals = parent_component->globals;
         }
 
