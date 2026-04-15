@@ -45,11 +45,15 @@ pub enum ElementPositionFilter {
     ExcludeClipped,
 }
 
-/// Match the given `ElementRc` by its `element_hash` and return the
-/// screen rectangles of every runtime item that shares it.
-pub(crate) fn element_positions(
+/// Return the screen rectangles of every runtime item matching the
+/// given `ElementRc`, optionally filtering out those clipped by an
+/// ancestor. Public so downstream tooling (LSP element selection) can
+/// mirror `Rust`'s `highlight::element_positions` semantics, including
+/// the `ExcludeClipped` filter that hit-testing needs.
+pub fn element_positions(
     instance: &VRc<ItemTreeVTable, Instance>,
     element: &ElementRc,
+    filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
     // Match by the element's source location: the LLR copies the same
     // `source_location` onto every item it lowers, and the object tree
@@ -69,7 +73,7 @@ pub(crate) fn element_positions(
     };
     let path = debug_first.node.source_file.path().to_path_buf();
     let offset: u32 = debug_first.node.text_range().start().into();
-    positions_by_source(instance, &path, offset)
+    positions_by_source(instance, &path, offset, filter)
 }
 
 /// Descend into `base_type = Component(_)` wrappers until the element
@@ -265,6 +269,7 @@ fn positions_by_source(
     instance: &VRc<ItemTreeVTable, Instance>,
     target_path: &Path,
     target_offset: u32,
+    filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
     let cu = &instance.root_sub_component.compilation_unit;
     let mut results = Vec::new();
@@ -283,6 +288,14 @@ fn positions_by_source(
                 continue;
             }
             for flat_idx in find_flat_indices_for_item(instance, sc_idx, local_idx) {
+                if filter == ElementPositionFilter::ExcludeClipped {
+                    let dyn_rc = vtable::VRc::into_dyn(instance.clone());
+                    let item_rc =
+                        i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
+                    if !item_rc.is_visible() {
+                        continue;
+                    }
+                }
                 if let Some(rect) = item_flat_index_to_rect(instance, flat_idx) {
                     results.push(rect);
                 }

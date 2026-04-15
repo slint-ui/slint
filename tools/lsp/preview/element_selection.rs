@@ -8,7 +8,7 @@ use i_slint_compiler::{
     parser::{SyntaxKind, TextSize},
 };
 use i_slint_core::lengths::LogicalPoint;
-use slint_interpreter::{ComponentInstance, highlight::HighlightedRect};
+use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
 
 use crate::common;
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
@@ -79,10 +79,14 @@ fn element_covers_point(
     component_instance: &ComponentInstance,
     selected_element: &ElementRc,
 ) -> Option<HighlightedRect> {
-    component_instance
-        .element_positions(selected_element)
-        .into_iter()
-        .find(|p: &slint_interpreter::highlight::HighlightedRect| p.contains(position))
+    slint_interpreter::highlight::element_positions(
+        &component_instance.clone_strong().into(),
+        selected_element,
+        slint_interpreter::highlight::ElementPositionFilter::ExcludeClipped,
+    )
+    .iter()
+    .find(|p| p.contains(position))
+    .copied()
 }
 
 pub fn unselect_element() {
