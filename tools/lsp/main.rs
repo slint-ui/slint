@@ -226,7 +226,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(preview::connector::RemoteControlledPreviewToLsp::new());
 
-    preview::run(to_lsp, args.fullscreen)
+    preview::run(to_lsp, args.fullscreen, false)
 }
 
 fn main() {

@@ -6,6 +6,7 @@
 import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
 
+import { EditorUi } from "./editor.slint";
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
@@ -22,10 +23,7 @@ import "./assets/Inter-VariableFont.ttf";
 import "./assets/SourceCodePro-Medium.ttf";
 import { ConsolePanel } from "components/console-panel.slint";
 
-export { Api }
-
-export component EditorUi inherits Window {
-}
+export { Api, EditorUi }
 
 export component PreviewUi inherits Window {
     property <length> border: 20px;

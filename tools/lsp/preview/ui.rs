@@ -28,13 +28,72 @@ pub mod search_model;
 
 slint::include_modules!();
 
+/// Abstraction over the different window types (PreviewUi vs EditorUi).
+/// Only used for the few operations that need component-level access
+/// (window(), show(), run()). Most code should use the Api global directly.
+pub enum AppWindow {
+    Preview(PreviewUi),
+    Editor(EditorUi),
+}
+
+impl AppWindow {
+    pub fn window(&self) -> &slint::Window {
+        match self {
+            AppWindow::Preview(ui) => ui.window(),
+            AppWindow::Editor(ui) => ui.window(),
+        }
+    }
+
+    pub fn show(&self) -> Result<(), PlatformError> {
+        match self {
+            AppWindow::Preview(ui) => ui.show(),
+            AppWindow::Editor(ui) => ui.show(),
+        }
+    }
+
+    pub fn run(&self) -> Result<(), PlatformError> {
+        match self {
+            AppWindow::Preview(ui) => ui.run(),
+            AppWindow::Editor(ui) => ui.run(),
+        }
+    }
+
+    pub fn clone_strong(&self) -> Self {
+        match self {
+            AppWindow::Preview(ui) => AppWindow::Preview(ui.clone_strong()),
+            AppWindow::Editor(ui) => AppWindow::Editor(ui.clone_strong()),
+        }
+    }
+
+    pub fn api_weak(&self) -> slint::Weak<Api<'static>> {
+        match self {
+            AppWindow::Preview(ui) => {
+                let api = ui.global::<Api>();
+                <Api as slint::Global<'_, PreviewUi>>::as_weak(&api)
+            }
+            AppWindow::Editor(ui) => {
+                let api = ui.global::<Api>();
+                <Api as slint::Global<'_, EditorUi>>::as_weak(&api)
+            }
+        }
+    }
+}
+
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui(
     to_lsp: &Rc<dyn common::PreviewToLsp>,
     style: &str,
-) -> Result<PreviewUi, PlatformError> {
-    let ui = PreviewUi::new()?;
+    use_editor_ui: bool,
+) -> Result<AppWindow, PlatformError> {
+    let app_window = if use_editor_ui {
+        AppWindow::Editor(EditorUi::new()?)
+    } else {
+        AppWindow::Preview(PreviewUi::new()?)
+    };
+
+    let api_weak = app_window.api_weak();
+    let api: Api<'static> = api_weak.upgrade().unwrap();
 
     // styles:
     let known_styles = once(&"native")
@@ -60,8 +119,6 @@ pub fn create_ui(
         assert!(model.row_count() > 1);
         model
     });
-
-    let api = ui.global::<Api>();
 
     api.set_current_style(style.clone().into());
     api.set_known_styles(style_model.into());
@@ -139,12 +196,12 @@ pub fn create_ui(
 
     api.on_string_to_code(string_to_code);
 
-    brushes::setup(&ui);
-    log_messages::setup(&ui);
-    palette::setup(&ui);
-    recent_colors::setup(&ui);
-    super::outline::setup(&ui);
-    super::undo_redo::setup(&ui);
+    brushes::setup(&api);
+    log_messages::setup(&api);
+    palette::setup(&api);
+    recent_colors::setup(&api, api_weak);
+    super::outline::setup(&api);
+    super::undo_redo::setup(&api);
 
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
@@ -157,7 +214,7 @@ pub fn create_ui(
         api.set_control_key_name("command".into());
     }
 
-    Ok(ui)
+    Ok(app_window)
 }
 
 fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
@@ -171,12 +228,11 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
     (url.to_string().into(), file_name.into())
 }
 
-pub fn ui_set_uses_widgets(ui: &PreviewUi, uses_widgets: bool) {
-    let api = ui.global::<Api>();
+pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
 }
 
-pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnostic]) {
+pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
     let summary = diagnostics
         .iter()
         .inspect(|d| {
@@ -192,7 +248,7 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
                 _ => LogMessageLevel::Debug,
             };
 
-            log_messages::append_log_message(ui, level, location, d.message());
+            log_messages::append_log_message(api, level, location, d.message());
         })
         .fold(DiagnosticSummary::NothingDetected, |acc, d| {
             match (acc, d.level()) {
@@ -207,12 +263,11 @@ pub fn set_diagnostics(ui: &PreviewUi, diagnostics: &[slint_interpreter::Diagnos
             }
         });
 
-    let api = ui.global::<Api>();
     api.set_diagnostic_summary(summary);
 }
 
 pub fn ui_set_known_components(
-    ui: &PreviewUi,
+    api: &Api<'_>,
     known_components: &[crate::common::ComponentInformation],
     current_component_index: usize,
 ) {
@@ -327,7 +382,6 @@ pub fn ui_set_known_components(
             yes
         },
     ));
-    let api = ui.global::<Api>();
 
     let old_search_text = api
         .get_known_components()
@@ -966,7 +1020,7 @@ fn map_preview_data_property(
 }
 
 pub fn ui_set_preview_data(
-    ui: &PreviewUi,
+    api: &Api<'_>,
     preview_data: preview_data::PreviewDataMap,
     previewed_component: Option<String>,
 ) {
@@ -1009,8 +1063,6 @@ pub fn ui_set_preview_data(
             result.push(c);
         }
     }
-
-    let api = ui.global::<Api>();
 
     api.set_preview_data(Rc::new(VecModel::from(result)).into());
 }
@@ -1374,21 +1426,20 @@ fn update_properties(
 }
 
 pub fn ui_set_properties(
-    ui: &PreviewUi,
+    api: &Api<'_>,
+    window: &slint::Window,
     document_cache: &common::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
-    let win = i_slint_core::window::WindowInner::from_pub(ui.window()).window_adapter();
+    let win = i_slint_core::window::WindowInner::from_pub(window).window_adapter();
     let Some((next_element, declarations, next_model)) =
         property_view::map_properties_to_ui(document_cache, properties, &win)
     else {
-        let api = ui.global::<Api>();
         api.set_properties(ModelRc::default());
         api.set_current_element(ElementInformation::default());
         return Default::default();
     };
 
-    let api = ui.global::<Api>();
     let current_model = api.get_properties();
 
     let element = api.get_current_element();

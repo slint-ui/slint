@@ -144,7 +144,7 @@ fn main() {
 
         start_processing_lsp_messages_thread(from_lsp);
 
-        preview::run(to_lsp, false).unwrap();
+        preview::run(to_lsp, false, true).unwrap();
     }
 }
 
