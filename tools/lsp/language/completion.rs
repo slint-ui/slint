@@ -439,6 +439,44 @@ impl CompletionItemExt for CompletionItem {
     }
 }
 
+/// Decide whether a reserved property should be offered as a completion in the given context.
+/// Reserved properties like row/col, flex-*, clip and drop-shadow-* are materialized on every
+/// item even though they only make sense on specific layout children or element types.
+fn is_reserved_prop_valid(
+    prop: &str,
+    element_type: &ElementType,
+    parent_element_type: Option<&ElementType>,
+) -> bool {
+    let name_of = |t: &ElementType| -> Option<SmolStr> {
+        match t {
+            ElementType::Builtin(b) => Some(b.name.clone()),
+            ElementType::Component(c) => {
+                c.root_element.borrow().builtin_type().map(|b| b.name.clone())
+            }
+            _ => None,
+        }
+    };
+    let parent_name = parent_element_type.and_then(name_of);
+    let parent_name = parent_name.as_deref();
+    let name_in = |list: &[(&str, Type)]| list.iter().any(|(n, _)| *n == prop);
+    if name_in(i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES) {
+        return matches!(parent_name, Some("GridLayout" | "Row"));
+    }
+    if prop == "flex-align-self"
+        || name_in(i_slint_compiler::typeregister::RESERVED_FLEXBOXLAYOUT_PROPERTIES)
+    {
+        return parent_name == Some("FlexboxLayout");
+    }
+    if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES) {
+        return name_of(element_type).as_deref() == Some("Rectangle");
+    }
+    match prop {
+        "dialog-button-role" => parent_name == Some("Dialog"),
+        "clip" => matches!(name_of(element_type).as_deref(), Some("Rectangle" | "Path")),
+        _ => true,
+    }
+}
+
 /// This is different than the properties in resolve_element_scope, because it also include the "out" properties
 fn properties_for_changed_callbacks(
     mut node: SyntaxNode,
@@ -457,6 +495,7 @@ fn properties_for_changed_callbacks(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
+    let parent_element_type = element.parent().and_then(|p| lookup_current_element_type(p, tr));
     let result = element_type
         .property_list()
         .into_iter()
@@ -477,6 +516,9 @@ fn properties_for_changed_callbacks(
         }))
         .chain(i_slint_compiler::typeregister::reserved_properties().filter_map(|(k, ty, _)| {
             if !ty.is_property_type() {
+                return None;
+            }
+            if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
                 return None;
             }
             let mut c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -515,6 +557,7 @@ fn resolve_element_scope(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
+    let parent_element_type = element.parent().and_then(|p| lookup_current_element_type(p, tr));
     let mut result = element_type
         .property_list()
         .into_iter()
@@ -607,6 +650,9 @@ fn resolve_element_scope(
             result.extend(i_slint_compiler::typeregister::reserved_properties().filter_map(
                 |(k, ty, _)| {
                     if matches!(ty, Type::Function { .. }) {
+                        return None;
+                    }
+                    if !is_reserved_prop_valid(k, &element_type, parent_element_type.as_ref()) {
                         return None;
                     }
                     let c = CompletionItem::new_simple(k.into(), ty.to_string());
@@ -1328,6 +1374,10 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "pub_func" || ci.label == "pub-func"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "pressed"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "pressed-x"), None);
+        assert!(!res.iter().any(|ci| ci.label == "row"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "clip"));
+        assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
 
         // elements
         let class = Some(CompletionItemKind::CLASS);
@@ -1396,6 +1446,10 @@ mod tests {
         // no functions, no private stuff
         assert_eq!(res.iter().find(|ci| ci.label == "has-focus"), None);
         assert_eq!(res.iter().find(|ci| ci.label == "func"), None);
+        assert!(!res.iter().any(|ci| ci.label == "row"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "clip"));
+        assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
 
         // elements
         let class = Some(CompletionItemKind::CLASS);
@@ -1403,6 +1457,46 @@ mod tests {
         assert_eq!(res.iter().find(|ci| ci.label == "Rectangle").unwrap().kind, class);
         assert_eq!(res.iter().find(|ci| ci.label == "HorizontalLayout").unwrap().kind, class);
         assert!(!res.iter().any(|ci| ci.label == "MenuItem"));
+    }
+
+    #[test]
+    fn reserved_property_filtering() {
+        let res = get_completions(
+            r#"
+            component Foo {
+                GridLayout {
+                    🔺
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(res.iter().any(|ci| ci.label == "spacing"));
+        assert!(res.iter().any(|ci| ci.label == "spacing-horizontal"));
+        assert!(res.iter().any(|ci| ci.label == "spacing-vertical"));
+        assert!(res.iter().any(|ci| ci.label == "padding"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
+        assert!(!res.iter().any(|ci| ci.label == "flex-align-self"));
+
+        let res = get_completions(
+            r#"
+            component Foo {
+                FlexboxLayout {
+                    🔺
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(res.iter().any(|ci| ci.label == "spacing"));
+        assert!(res.iter().any(|ci| ci.label == "alignment"));
+        assert!(res.iter().any(|ci| ci.label == "flex-direction"));
+        assert!(res.iter().any(|ci| ci.label == "align-content"));
+        assert!(res.iter().any(|ci| ci.label == "align-items"));
+        assert!(res.iter().any(|ci| ci.label == "flex-wrap"));
+        assert!(res.iter().any(|ci| ci.label == "padding"));
+        assert!(!res.iter().any(|ci| ci.label == "row"));
+        assert!(!res.iter().any(|ci| ci.label == "col"));
     }
 
     #[test]
