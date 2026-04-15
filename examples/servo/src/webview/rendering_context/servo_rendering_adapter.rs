@@ -51,6 +51,7 @@ pub trait ServoRenderingAdapter {
 
 struct ServoGPURenderingContext {
     device: wgpu::Device,
+    #[allow(dead_code)]
     queue: wgpu::Queue,
     rendering_context: Rc<GPURenderingContext>,
 }

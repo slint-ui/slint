@@ -24,7 +24,6 @@ use windows::{
 };
 
 struct D3D11SizeDependentState {
-    size: PhysicalSize<u32>,
     d3d11_shared_texture: ID3D11Texture2D,
     wgpu_texture: Texture,
 }
@@ -77,7 +76,11 @@ impl super::GPURenderingContext {
 
         let state = &self.d3d11_state;
 
-        if state.size_dependent.borrow().as_ref().map_or(true, |s| s.size != size) {
+        let needs_recreate = state.size_dependent.borrow().as_ref().map_or(true, |s| {
+            let tex = s.wgpu_texture.size();
+            tex.width != size.width || tex.height != size.height
+        });
+        if needs_recreate {
             *state.size_dependent.borrow_mut() =
                 Some(Self::init_size_dependent_state(&state.d3d11_device, size, wgpu_device)?);
         }
@@ -160,7 +163,7 @@ impl super::GPURenderingContext {
         size: PhysicalSize<u32>,
         wgpu_device: &Device,
     ) -> Result<D3D11SizeDependentState, DirectXTextureError> {
-        let (size, d3d11_shared_texture, wgpu_texture) =
+        let (d3d11_shared_texture, wgpu_texture) =
             unsafe {
                 let mut dx12_texture_ptr: Option<ID3D11Texture2D> = None;
 
@@ -224,9 +227,9 @@ impl super::GPURenderingContext {
                     },
                 );
 
-                (size, d3d11_dx12_texture, wgpu_texture)
+                (d3d11_dx12_texture, wgpu_texture)
             };
 
-        Ok(D3D11SizeDependentState { size, d3d11_shared_texture, wgpu_texture })
+        Ok(D3D11SizeDependentState { d3d11_shared_texture, wgpu_texture })
     }
 }
