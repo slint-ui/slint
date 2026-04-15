@@ -650,7 +650,13 @@ pub struct PublicProperty {
     pub display_name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
-    pub read_only: bool,
+    pub visibility: crate::object_tree::PropertyVisibility,
+}
+
+impl PublicProperty {
+    pub fn read_only(&self) -> bool {
+        self.visibility == crate::object_tree::PropertyVisibility::Output
+    }
 }
 /// Public properties of a component or global, keyed by the normalized
 /// identifier (underscores). Iteration order is by sorted key.

@@ -11,7 +11,7 @@ use crate::langtype::{
 };
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
+use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -1070,7 +1070,7 @@ fn lower_global_expressions(
                             display_name: p.clone(),
                             ty: c.ty.clone(),
                             prop: property_reference,
-                            read_only: c.property_visibility == PropertyVisibility::Output,
+                            visibility: c.property_visibility,
                         },
                     )
                 })
@@ -1163,7 +1163,7 @@ fn public_properties(
                     display_name,
                     ty: c.property_type.clone(),
                     prop: property_reference,
-                    read_only: c.visibility == PropertyVisibility::Output,
+                    visibility: c.visibility,
                 },
             )
         })

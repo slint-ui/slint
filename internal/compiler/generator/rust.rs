@@ -784,7 +784,7 @@ fn public_api(
             ));
 
             let setter_ident = format_ident!("set_{}", prop_ident);
-            if !p.read_only {
+            if !p.read_only() {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
