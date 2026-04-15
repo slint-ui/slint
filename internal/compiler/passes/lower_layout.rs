@@ -18,6 +18,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+/// Lower all layouts and assign a LayoutConstraints to the component
 pub fn lower_layouts(
     component: &Rc<Component>,
     type_loader: &mut TypeLoader,
@@ -45,7 +46,31 @@ pub fn lower_layouts(
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
 
-    recurse_elem_including_sub_components(
+    // Popups have their own layout constraints
+    recurse_popup(component, &mut |popup: &PopupWindow| {
+        let component = &popup.component;
+        *component.root_constraints.borrow_mut() =
+            LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+
+        recurse_elem_including_sub_components_no_popup(
+            component,
+            &Option::default(),
+            &mut |elem, parent_layout_type| {
+                let component = elem.borrow().enclosing_component.upgrade().unwrap();
+                println!("Lower element layout: {:?}", component.id);
+                lower_element_layout(
+                    &component,
+                    elem,
+                    &type_loader.global_type_registry.borrow(),
+                    style_metrics,
+                    parent_layout_type,
+                    diag,
+                )
+            },
+        );
+    });
+
+    recurse_elem_including_sub_components_no_popup(
         component,
         &Option::default(),
         &mut |elem, parent_layout_type| {
