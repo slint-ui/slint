@@ -42,7 +42,7 @@ fn popupwindow_size_layout() {
 
             show-buttons-timer:= Timer {
                 running: show-buttons;
-                interval: 10s;
+                interval: 100ms;
                 triggered => {
                     Properties.cb-buttons-visible();
                 }
@@ -105,15 +105,14 @@ fn popupwindow_size_layout() {
                     debug("Popup initialized");
                     debug("Text input size: ", ti.width, ", ", ti.height);
                     Properties.cb-popup-initialized();
-
-                    root.show-buttons = true;
                 }
 
                 Timer {
                     running: true;
-                    interval: 100ms;
+                    interval: 200ms;
                     triggered => {
                         self.running = false;
+                        root.show-buttons = true;
                     }
                 }
 
@@ -132,6 +131,8 @@ fn popupwindow_size_layout() {
                         }
                     }
                     if root.show-buttons : HorizontalBox {
+                        padding: 9px;
+                        spacing: 6px;
                         Button {
                             text: "Button top";
                             init => {
@@ -140,11 +141,6 @@ fn popupwindow_size_layout() {
                                 debug("Button. width: ", self.width);
                                 Properties.button_top_visible = true;
                                 Properties.cb-button-top-visible();
-                                // debug("Button. height: ", self.height);
-                                // debug("Button. Min width: ", self.min-width);
-                                // debug("Button. Min height: ", self.min-height);
-                                // debug("Button. Max width: ", self.max-width);
-                                // debug("Button. Max height: ", self.max-height);
                             }
                         }
 
