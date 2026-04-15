@@ -58,9 +58,9 @@ pub mod vulkan_surface;
 pub mod opengl_surface;
 
 #[cfg(feature = "wgpu-27")]
-pub mod wgpu_27_surface;
-#[cfg(feature = "wgpu-28")]
-pub mod wgpu_28_surface;
+pub mod wgpu_27_surface as wgpu_surface;
+#[cfg(feature = "wgpu-29")]
+pub mod wgpu_29_surface as wgpu_surface
 
 use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
@@ -379,9 +379,9 @@ impl SkiaRenderer {
         }
     }
 
-    #[cfg(feature = "unstable-wgpu-27")]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-27")]
     /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
-    pub fn default_wgpu_27(context: &SkiaSharedContext) -> Self {
+    pub fn default_wgpu(context: &SkiaSharedContext) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -397,41 +397,7 @@ impl SkiaRenderer {
                               display_handle,
                               size,
                               requested_graphics_api| {
-                wgpu_27_surface::WGPUSurface::new(
-                    context,
-                    window_handle,
-                    display_handle,
-                    size,
-                    requested_graphics_api,
-                )
-                .map(|r| Box::new(r) as Box<dyn Surface>)
-            },
-            pre_present_callback: Default::default(),
-            partial_rendering_state: create_partial_renderer_state(None),
-            dirty_region_debug_mode: Default::default(),
-            dirty_region_history: Default::default(),
-            shared_context: context.clone(),
-        }
-    }
-    #[cfg(feature = "unstable-wgpu-28")]
-    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
-    pub fn default_wgpu_28(context: &SkiaSharedContext) -> Self {
-        Self {
-            maybe_window_adapter: Default::default(),
-            rendering_notifier: Default::default(),
-            image_cache: Default::default(),
-            layer_cache: Default::default(),
-            path_cache: Default::default(),
-            text_layout_cache: Default::default(),
-            rendering_metrics_collector: Default::default(),
-            rendering_first_time: Default::default(),
-            surface: Default::default(),
-            surface_factory: |context,
-                              window_handle,
-                              display_handle,
-                              size,
-                              requested_graphics_api| {
-                wgpu_28_surface::WGPUSurface::new(
+                wgpu_surface::WGPUSurface::new(
                     context,
                     window_handle,
                     display_handle,
@@ -1091,7 +1057,7 @@ pub trait Surface {
         None
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
     fn import_wgpu_texture(
         &self,
         _canvas: &skia_safe::Canvas,

@@ -6,7 +6,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use ash::vk::Handle;
 use skia_safe::gpu::vk;
 
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
 pub unsafe fn make_vulkan_surface(
     size: PhysicalWindowSize,

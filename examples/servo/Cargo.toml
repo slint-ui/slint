@@ -51,10 +51,10 @@ servo = { git = "https://github.com/servo/servo", rev = "34337273a36d5e0e67d4290
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-28"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-29"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-28", "renderer-femtovg-wgpu"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-29", "renderer-femtovg-wgpu"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 metal = "0.33.0"

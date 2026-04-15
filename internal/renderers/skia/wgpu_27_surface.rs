@@ -206,7 +206,6 @@ impl super::Surface for WGPUSurface {
         })
     }
 
-    #[cfg(feature = "unstable-wgpu-27")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
         let api = i_slint_core::graphics::create_graphics_api_wgpu_27(
             self.instance.clone(),
@@ -216,7 +215,6 @@ impl super::Surface for WGPUSurface {
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
@@ -225,8 +223,6 @@ impl super::Surface for WGPUSurface {
         let texture: wgpu::Texture = match any_wgpu_texture {
             #[cfg(feature = "unstable-wgpu-27")]
             i_slint_core::graphics::WGPUTexture::WGPU27Texture(texture) => texture.clone(),
-            #[cfg(feature = "unstable-wgpu-28")]
-            i_slint_core::graphics::WGPUTexture::WGPU28Texture(..) => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before

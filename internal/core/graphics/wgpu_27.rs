@@ -415,7 +415,7 @@ pub fn init_instance_adapter_device_queue_surface(
         }
         Some(_) => {
             return Err(
-                "The FemtoVG WGPU renderer does not implement renderer selection by graphics API"
+                "The FemtoVG WGPU (27) renderer does not implement renderer selection by graphics API"
                     .into(),
             );
         }

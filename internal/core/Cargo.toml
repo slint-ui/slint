@@ -68,11 +68,10 @@ experimental-rich-text = []
 # without exposing public API types (GraphicsAPI::WGPU*, WGPUTexture, WGPUConfiguration).
 # The unstable-wgpu-* features additionally enable those public API types.
 wgpu-27 = ["dep:wgpu-27"]
-
 unstable-wgpu-27 = ["wgpu-27"]
-wgpu-28 = ["dep:wgpu-28"]
 
-unstable-wgpu-28 = ["wgpu-28"]
+wgpu-29 = ["dep:wgpu-29"]
+unstable-wgpu-29 = ["wgpu-29"]
 
 tr = ["dep:tr"]
 
@@ -137,7 +136,7 @@ skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale"] }
 
 wgpu-27 = { workspace = true, optional = true }
-wgpu-28 = { workspace = true, optional = true }
+wgpu-29 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 

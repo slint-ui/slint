@@ -24,7 +24,7 @@ x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
 vulkan = ["skia-safe/vulkan", "dep:ash", "vulkano"]
 kms = ["softbuffer/kms"]
-# wgpu-{27,28} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering).
+# wgpu-{27,29} enables the wgpu surface module for internal use (e.g. linuxkms DRM rendering).
 # unstable-wgpu-* additionally exposes public API integration (GraphicsAPI, texture import).
 wgpu-27 = [
   "i-slint-core/wgpu-27",
@@ -38,16 +38,16 @@ wgpu-27 = [
   "dep:windows-core_58",
 ]
 unstable-wgpu-27 = ["i-slint-core/unstable-wgpu-27", "wgpu-27"]
-wgpu-28 = [
-  "i-slint-core/wgpu-28",
-  "dep:wgpu-28",
+wgpu-29 = [
+  "i-slint-core/wgpu-29",
+  "dep:wgpu-29",
   "dep:spin_on",
   "dep:metal",
   "dep:foreign-types",
   "dep:ash",
   "dep:windows-core",
 ]
-unstable-wgpu-28 = ["i-slint-core/unstable-wgpu-28", "wgpu-28"]
+unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 default = ["softbuffer"]
 
 [dependencies]
@@ -74,7 +74,7 @@ ash = { version = "^0.38.0", optional = true }
 vulkano = { version = "0.35.0", optional = true, default-features = false }
 
 wgpu-27 = { workspace = true, optional = true }
-wgpu-28 = { workspace = true, optional = true }
+wgpu-29 = { workspace = true, optional = true }
 spin_on = { version = "0.1", optional = true }
 
 [target.'cfg(any(not(target_vendor = "apple"), target_os = "macos"))'.dependencies]

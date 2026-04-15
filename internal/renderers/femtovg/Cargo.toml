@@ -18,12 +18,12 @@ path = "lib.rs"
 [features]
 default = []
 opengl = []
-# wgpu-28 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
-# unstable-wgpu-28 additionally exposes public API integration (GraphicsAPI, texture import).
-wgpu = ["wgpu-28"]
-wgpu-28 = ["dep:wgpu-28", "femtovg/wgpu", "i-slint-core/wgpu-28"]
+# wgpu-{28,29} enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
+# unstable-wgpu-* additionally exposes public API integration (GraphicsAPI, texture import).
+wgpu = ["wgpu-29"]
+wgpu-29 = ["dep:wgpu-29", "femtovg/wgpu", "i-slint-core/wgpu-29"]
 unstable-wgpu-27 = []
-unstable-wgpu-28 = ["wgpu-28", "i-slint-core/unstable-wgpu-28"]
+unstable-wgpu-29 = ["wgpu-29", "i-slint-core/unstable-wgpu-29"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley"] }
@@ -36,13 +36,13 @@ cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.23.1", default-features = false, features = ["swash"] }
+femtovg = { path = "../../../../femtovg", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
 glow = { workspace = true }
 
-wgpu-28 = { workspace = true, optional = true, default-features = true }
+wgpu-29 = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }

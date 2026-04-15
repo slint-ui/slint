@@ -9,7 +9,7 @@ use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
 };
 
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
 pub unsafe fn make_dx12_surface(
     size: PhysicalWindowSize,

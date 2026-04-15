@@ -39,11 +39,10 @@ mod images;
 mod itemrenderer;
 #[cfg(feature = "opengl")]
 pub mod opengl;
-#[cfg(feature = "wgpu-28")]
+#[cfg(feature = "wgpu-29")]
 pub mod wgpu;
-#[cfg(feature = "wgpu-28")]
+#[cfg(feature = "wgpu-29")]
 pub use wgpu::FemtoVGWGPURenderer;
-
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_output(&self) -> impl Into<R::RenderOutput>;
 }
@@ -93,7 +92,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
-    #[cfg(feature = "wgpu-28")]
+    #[cfg(feature = "wgpu-29")]
     pub(crate) fn new_internal(graphics_backend: B) -> Self {
         Self {
             maybe_window_adapter: Default::default(),

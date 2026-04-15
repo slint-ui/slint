@@ -177,7 +177,8 @@ impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        if !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
+        #[cfg(feature = "unstable-wgpu-29")]
+        if !i_slint_core::graphics::wgpu::any_wgpu_adapters_with_gpu(
             shared_backend_data._requested_graphics_api.clone(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
@@ -220,9 +221,10 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
         let size = winit_window.inner_size();
 
+        #[cfg(feature = "unstable-wgpu-29")]
         self.renderer.set_surface(
             Box::new(winit_window.clone())
-                as Box<dyn i_slint_core::graphics::wgpu_28::wgpu::WindowHandle>,
+                as Box<dyn i_slint_core::graphics::wgpu::wgpu::DisplayAndWindowHandle>,
             crate::winitwindowadapter::physical_size_to_slint(&size),
             self.requested_graphics_api.clone(),
         )?;
