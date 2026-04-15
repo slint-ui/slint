@@ -221,7 +221,7 @@ export global AppState {
 }
 ```
 
-Accessed as `AppState.current-user` from any component in the same file, or from application code via the language bindings.
+Accessed as `AppState.current-user` from any component in the same file, in other files when imported, or from application code via the language bindings.
 
 ### Element IDs
 
