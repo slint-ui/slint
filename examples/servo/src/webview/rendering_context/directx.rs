@@ -3,6 +3,7 @@
 
 use euclid::default::Size2D;
 use glow::HasContext;
+use std::cell::RefCell;
 use winit::dpi::PhysicalSize;
 
 use slint::wgpu_28::wgpu::{
@@ -30,7 +31,10 @@ struct D3D11SizeDependentState {
 
 pub struct D3D11SharedState {
     d3d11_device: ID3D11Device,
-    size_dependent: Option<D3D11SizeDependentState>,
+    /// Recreated whenever the surface size changes; wrapped in a `RefCell` because
+    /// `get_wgpu_texture_from_directx` holds a shared `&self` borrow while needing
+    /// to swap this out on resize.
+    size_dependent: RefCell<Option<D3D11SizeDependentState>>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -71,15 +75,15 @@ impl super::GPURenderingContext {
 
         let size = self.size.get();
 
-        let mut state = self.d3d11_state.borrow_mut();
-        let state_ref = state.as_mut().unwrap();
+        let state = &self.d3d11_state;
 
-        if state_ref.size_dependent.as_ref().map_or(true, |s| s.size != size) {
-            state_ref.size_dependent =
-                Some(Self::init_size_dependent_state(&state_ref.d3d11_device, size, wgpu_device)?);
+        if state.size_dependent.borrow().as_ref().map_or(true, |s| s.size != size) {
+            *state.size_dependent.borrow_mut() =
+                Some(Self::init_size_dependent_state(&state.d3d11_device, size, wgpu_device)?);
         }
 
-        let dep_state = state_ref.size_dependent.as_ref().unwrap();
+        let size_dep = state.size_dependent.borrow();
+        let dep_state = size_dep.as_ref().unwrap();
 
         let surface_texture = unsafe {
             let texture_size = Size2D::new(size.width as i32, size.height as i32);
@@ -107,7 +111,9 @@ impl super::GPURenderingContext {
             .destroy_surface(&mut *context, &mut inner_surface)
             .map_err(DirectXTextureError::Surfman)?;
 
-        Ok(dep_state.wgpu_texture.clone())
+        let wgpu_texture = dep_state.wgpu_texture.clone();
+        drop(size_dep);
+        Ok(wgpu_texture)
     }
 
     fn blit_gl_to_texture(
@@ -146,7 +152,7 @@ impl super::GPURenderingContext {
         let d3d11_device: ID3D11Device =
             unsafe { core::IUnknown::from_raw(native_device.d3d11_device as *mut _).cast()? };
 
-        Ok(D3D11SharedState { d3d11_device, size_dependent: None })
+        Ok(D3D11SharedState { d3d11_device, size_dependent: std::cell::RefCell::new(None) })
     }
 
     fn init_size_dependent_state(

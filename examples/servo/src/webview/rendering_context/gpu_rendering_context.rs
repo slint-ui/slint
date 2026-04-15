@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     rc::Rc,
     sync::Arc,
 };
@@ -42,7 +42,7 @@ pub struct GPURenderingContext {
     pub swap_chain: SwapChain<Device>,
     pub surfman_rendering_info: SurfmanRenderingContext,
     #[cfg(target_os = "windows")]
-    pub d3d11_state: RefCell<Option<super::directx::D3D11SharedState>>,
+    pub d3d11_state: super::directx::D3D11SharedState,
 }
 
 impl Drop for GPURenderingContext {
@@ -96,7 +96,7 @@ impl GPURenderingContext {
             size: Cell::new(size),
             surfman_rendering_info,
             #[cfg(target_os = "windows")]
-            d3d11_state: std::cell::RefCell::new(Some(d3d11_state)),
+            d3d11_state,
         })
     }
 
