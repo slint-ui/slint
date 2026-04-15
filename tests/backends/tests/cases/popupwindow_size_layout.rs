@@ -57,27 +57,9 @@ fn popupwindow_size_layout() {
                         popup.show();
                     }
                 }
-
-                Button {
-                    text: "Show second popup";
-
-                    clicked => {
-                        debug("Show second popup");
-                    }
-                }
-
-                Button {
-                    text: "Show dialog";
-
-                    clicked => {
-                        debug("Show Dialog");
-                    }
-                }
             }
 
             popup := PopupWindow {
-                // x: parent.width - 100px;
-                // y: parent.height;
 
                 changed width => {
                     Properties.popup-width = self.width;
@@ -87,9 +69,7 @@ fn popupwindow_size_layout() {
                     Properties.popup-height = self.height;
                 }
 
-                // close-on-click: false;
                 close-policy: PopupClosePolicy.no-auto-close;
-                // close-policy: PopupClosePolicy.close-on-click-outside;
 
                 init => {
                     Properties.popup-initialized = true;
@@ -102,8 +82,8 @@ fn popupwindow_size_layout() {
                     Properties.button-height = max(btn.preferred-height, btn.min-height);
                     Properties.button-width = btn.width;
 
-                    debug("Popup initialized");
-                    debug("Text input size: ", ti.width, ", ", ti.height);
+                    // debug("Popup initialized");
+                    // debug("Text input size: ", ti.width, ", ", ti.height);
                     Properties.cb-popup-initialized();
                 }
 
@@ -125,7 +105,7 @@ fn popupwindow_size_layout() {
                         text: "Hello";
 
                         init => {
-                            debug("Text initialized");
+                            // debug("Text initialized");
                             Properties.text-height = self.preferred-height;
                             Properties.text-width = self.width;
                         }
@@ -136,9 +116,9 @@ fn popupwindow_size_layout() {
                         Button {
                             text: "Button top";
                             init => {
-                                debug("Button. Preferred width: ", self.preferred-width);
-                                debug("Button. Preferred height: ", self.preferred-height);
-                                debug("Button. width: ", self.width);
+                                // debug("Button. Preferred width: ", self.preferred-width);
+                                // debug("Button. Preferred height: ", self.preferred-height);
+                                // debug("Button. width: ", self.width);
                                 Properties.button_top_visible = true;
                                 Properties.cb-button-top-visible();
                             }
@@ -157,7 +137,7 @@ fn popupwindow_size_layout() {
                         text: root.show-buttons ? "Hide Buttons" : "Show buttons";
 
                         clicked => {
-                            debug(self.text);
+                            // debug(self.text);
                             Properties.button-in-popup-pressed = true;
                             root.show-buttons = true;
                         }
