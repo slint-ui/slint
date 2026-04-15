@@ -39,6 +39,7 @@ async fn main() -> anyhow::Result<()> {
 
     let inner_window = window.clone_strong();
     slint::spawn_local(async move {
+        let mut last_connection = None;
         while let Some(msg) = message_receiver.recv().await {
             match msg {
                 connection::ConnectionMessage::SetConfiguration { config } => {
@@ -56,10 +57,10 @@ async fn main() -> anyhow::Result<()> {
                             build_diagnostics.push_compiler_error(d);
                         }
 
-                        inner_window.set_errors(build_diagnostics.diagnostics_as_string().into());
+                        inner_window.set_message(build_diagnostics.diagnostics_as_string().into());
                         continue;
                     }
-                    inner_window.set_errors("".into());
+                    inner_window.set_message("".into());
 
                     let Some(component) = preview_component
                         .component
@@ -67,22 +68,36 @@ async fn main() -> anyhow::Result<()> {
                         .or_else(|| compilation_result.component_names().next())
                         .and_then(|name| compilation_result.component(name))
                     else {
-                        inner_window.set_errors("Component not found".into());
+                        inner_window.set_message("Component not found".into());
                         tracing::error!("Component not found");
                         continue;
                     };
 
-                    if let Err(err) = component.create().and_then(|instance| {
-                        instance.show()?;
-                        inner_window.hide().inspect_err(|err| tracing::error!("{err}"))?;
-                        Ok(())
-                    }) {
-                        inner_window.set_errors(format!("{err}").into());
+                    let Ok(instance) = component
+                        .create_with_existing_window(inner_window.window())
+                        .inspect_err(|err| {
+                            inner_window.set_message(format!("{err}").into());
+                            tracing::warn!("Platform error: {err}");
+                        })
+                    else {
+                        return;
+                    };
+
+                    if let Err(err) = instance.show() {
+                        inner_window.set_message(format!("{err}").into());
                         tracing::warn!("Platform error: {err}");
-                        let _ = inner_window.show();
                     }
                 }
                 connection::ConnectionMessage::HighlightFromEditor { url, offset } => {}
+                connection::ConnectionMessage::Connected { remote_addr } => {
+                    inner_window.set_message(format!("Connected to {remote_addr}").into());
+                    last_connection = Some(remote_addr);
+                }
+                connection::ConnectionMessage::Disconnected { remote_addr } => {
+                    if last_connection == Some(remote_addr) {
+                        // tracing::error!("Platform error: {err}");
+                    }
+                }
             }
         }
     })?;

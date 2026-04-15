@@ -3,18 +3,18 @@
 
 export component EmptyWindow inherits Window {
     in property <string> address;
-    in property <string> errors;
+    in property <string> message;
 
     HorizontalLayout {
         alignment: center;
         VerticalLayout {
             alignment: center;
 
-            if errors == "": Text {
+            if message == "": Text {
                 text: address;
             }
-            if errors != "": Text {
-                text: errors;
+            if message != "": Text {
+                text: message;
             }
         }
     }

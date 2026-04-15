@@ -35,6 +35,8 @@ enum CacheEntry {
 
 #[derive(Debug)]
 pub enum ConnectionMessage {
+    Connected { remote_addr: SocketAddr },
+    Disconnected { remote_addr: SocketAddr },
     SetConfiguration { config: PreviewConfig },
     ShowPreview { preview_component: PreviewComponent },
     HighlightFromEditor { url: Option<Url>, offset: u32 },
@@ -90,6 +92,7 @@ impl Connection {
                                             message_handler.clone(),
                                             inner_file_cache.clone(),
                                             inner_message_sender.clone(),
+                                            addr,
                                         ));
                                         if let Some(_old_sink) = current_sink.replace(sink) {
                                             tracing::error!(
@@ -119,7 +122,9 @@ impl Connection {
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
         file_cache: Arc<DashMap<Url, CacheEntry>>,
         message_sender: UnboundedSender<Message>,
+        remote_addr: SocketAddr,
     ) {
+        message_handler(ConnectionMessage::Connected { remote_addr });
         while let Some(msg) = receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
@@ -204,6 +209,7 @@ impl Connection {
                 }
             }
         }
+        message_handler(ConnectionMessage::Disconnected { remote_addr });
     }
 
     pub fn send(&self, data: impl Serialize) -> anyhow::Result<()> {
