@@ -631,10 +631,6 @@ impl SoftwareRenderer {
                         );
                     }
                     RepaintBufferType::SwappedBuffers => {
-                        std::println!(
-                            "SoftwareRenderer::render_buffer_impl. Renderer name: {}",
-                            self.name
-                        );
                         let dirty_region_for_this_frame =
                             self.partial_rendering_state.apply_dirty_region(
                                 &mut renderer,

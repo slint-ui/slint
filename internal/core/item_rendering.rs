@@ -178,7 +178,6 @@ impl<T> ItemCache<T> {
                 std::collections::hash_map::Entry::Vacant(_) => {
                     drop(borrowed);
                     let new_entry = crate::graphics::CachedGraphicsData::new(update_fn);
-                    println!("Cache insert component: {:?}", component);
                     self.map.borrow_mut().get_mut(&component).unwrap().insert(index, new_entry);
                 }
             }
