@@ -14,7 +14,7 @@
     "type-check": "pnpm --stream -r type-check",
     "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' -r type-check"
   },
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@10.29.3",
   "pnpm": {
     "onlyBuiltDependencies": [
       "@biomejs/biome",
