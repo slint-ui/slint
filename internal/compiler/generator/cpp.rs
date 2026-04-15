@@ -1886,16 +1886,9 @@ fn generate_item_tree(
         ));
     }
 
-    if is_popup_menu {
+    if is_popup_menu || is_popup_window {
         create_code.push("self->globals = globals;".into());
         create_parameters.push("const SharedGlobals *globals".into());
-    } else if is_popup_window {
-        create_code.push("self->m_own_globals = std::move(own_globals);".into());
-        create_code.push(
-            "self->globals = self->m_own_globals ? self->m_own_globals.get() : parent->globals;"
-                .into(),
-        );
-        create_parameters.push("std::unique_ptr<SharedGlobals> own_globals".into());
     } else if parent_ctx.is_none() {
         create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
 
