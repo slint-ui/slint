@@ -202,50 +202,48 @@ export default defineConfig({
                                     "guide/backends-and-renderers/backend_winit",
                                 ],
                             },
-                            ...(
-                                experimentalDocs
-                                    ? [
-                                        {
-                                            label: "Experimental Features",
-                                            collapsed: true,
-                                            items: [
-                                                {
-                                                    label: "Overview",
-                                                    slug: "guide/experimental/overview",
-                                                },
-                                                {
-                                                    label: "FlexboxLayout",
-                                                    slug: "guide/experimental/flexboxlayout",
-                                                },
-                                                {
-                                                    label: "Drag and Drop",
-                                                    slug: "guide/experimental/drag-and-drop",
-                                                },
-                                                {
-                                                    label: "Interface",
-                                                    slug: "guide/experimental/interface",
-                                                },
-                                                {
-                                                    label: "ComponentContainer",
-                                                    slug: "guide/experimental/component-container",
-                                                },
-                                                {
-                                                    label: "Window.hide()",
-                                                    slug: "guide/experimental/window-hide",
-                                                },
-                                                {
-                                                    label: "Library Modules",
-                                                    slug: "guide/experimental/library-modules",
-                                                },
-                                                {
-                                                    label: "SlintContext",
-                                                    slug: "guide/experimental/slint-context",
-                                                },
-                                            ],
-                                        },
-                                    ]
-                                    : []
-                            ),
+                            ...(experimentalDocs
+                                ? [
+                                      {
+                                          label: "Experimental Features",
+                                          collapsed: true,
+                                          items: [
+                                              {
+                                                  label: "Overview",
+                                                  slug: "guide/experimental/overview",
+                                              },
+                                              {
+                                                  label: "FlexboxLayout",
+                                                  slug: "guide/experimental/flexboxlayout",
+                                              },
+                                              {
+                                                  label: "Drag and Drop",
+                                                  slug: "guide/experimental/drag-and-drop",
+                                              },
+                                              {
+                                                  label: "Interface",
+                                                  slug: "guide/experimental/interface",
+                                              },
+                                              {
+                                                  label: "ComponentContainer",
+                                                  slug: "guide/experimental/component-container",
+                                              },
+                                              {
+                                                  label: "Window.hide()",
+                                                  slug: "guide/experimental/window-hide",
+                                              },
+                                              {
+                                                  label: "Library Modules",
+                                                  slug: "guide/experimental/library-modules",
+                                              },
+                                              {
+                                                  label: "SlintContext",
+                                                  slug: "guide/experimental/slint-context",
+                                              },
+                                          ],
+                                      },
+                                  ]
+                                : []),
                         ],
                     },
                     {
