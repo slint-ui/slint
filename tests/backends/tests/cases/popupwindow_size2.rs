@@ -75,15 +75,6 @@ fn popupwindow_size_layout() {
                     Properties.popup-initialized = true;
                     Properties.popup-width = self.width;
                     Properties.popup-height = self.height;
-
-                    Properties.text-height = ti.preferred-height;
-                    Properties.text-width = ti.width;
-
-                    Properties.button-height = max(btn.preferred-height, btn.min-height);
-                    Properties.button-width = btn.width;
-
-                    // debug("Popup initialized");
-                    // debug("Text input size: ", ti.width, ", ", ti.height);
                     Properties.cb-popup-initialized();
                 }
 
@@ -105,7 +96,6 @@ fn popupwindow_size_layout() {
                         text: "Hello";
 
                         init => {
-                            // debug("Text initialized");
                             Properties.text-height = self.preferred-height;
                             Properties.text-width = self.width;
                         }
@@ -116,9 +106,6 @@ fn popupwindow_size_layout() {
                         Button {
                             text: "Button top";
                             init => {
-                                // debug("Button. Preferred width: ", self.preferred-width);
-                                // debug("Button. Preferred height: ", self.preferred-height);
-                                // debug("Button. width: ", self.width);
                                 Properties.button_top_visible = true;
                                 Properties.cb-button-top-visible();
                             }
@@ -155,6 +142,7 @@ fn popupwindow_size_layout() {
         let app = app.as_weak();
         move || {
             let app = app.upgrade().unwrap();
+            assert_eq!(app.global::<Properties>().get_popup_initialized(), true);
             assert_eq!(app.global::<Properties>().get_popup_width(), 102.);
             assert_eq!(app.global::<Properties>().get_popup_height(), 39.);
         }
