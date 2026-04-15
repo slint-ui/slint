@@ -9411,7 +9411,6 @@ dependencies = [
  "postcard",
  "serde",
  "slint",
- "slint-build",
  "slint-interpreter",
  "tokio",
  "tokio-tungstenite",
