@@ -103,6 +103,7 @@ export component App inherits Window {
 ```
 
 Two-way bindings: `property <=> other-element.property;`
+Use these to link properties so changes to either propagate to both.
 
 ### Callbacks
 
