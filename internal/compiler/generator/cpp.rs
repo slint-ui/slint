@@ -889,9 +889,9 @@ pub fn generate(
                 Access::Public,
                 Declaration::Function(Function {
                     name: "clone_with_window_adapter".into(),
-                    signature: format!("(const slint::private_api::WindowAdapterRc& adapter) const -> std::unique_ptr<{SHARED_GLOBAL_CLASS}>"),
+                    signature: format!("(const slint::private_api::WindowAdapterRc& adapter) const -> {SHARED_GLOBAL_CLASS}*"),
                     statements: Some(vec![format!(
-                        "return std::unique_ptr<{SHARED_GLOBAL_CLASS}>(new {SHARED_GLOBAL_CLASS}(*this, adapter));"
+                        "return new {SHARED_GLOBAL_CLASS}(*this, adapter);"
                     )]),
                     ..Default::default()
                 }),

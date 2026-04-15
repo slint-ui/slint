@@ -165,9 +165,9 @@ public:
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item) const
     {
-        using OwnGlobals = decltype(parent_component->globals->clone_with_window_adapter(
-                std::declval<WindowAdapterRc>()));
-        OwnGlobals _own_globals;
+        // using OwnGlobals = decltype(parent_component->globals->clone_with_window_adapter(
+        //         std::declval<WindowAdapterRc>()));
+        auto _own_globals;
         if (auto _popup_adapter = create_popup_window_adapter()) {
             _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
         } else {
