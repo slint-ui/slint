@@ -9,16 +9,16 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 use xshell::{Shell, cmd};
 
-pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
-    generate_enum_docs()?;
-    generate_builtin_struct_docs()?;
+pub fn generate(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
+    generate_enum_docs(include_experimental)?;
+    generate_builtin_struct_docs(include_experimental)?;
     generate_keys_docs()?;
 
     let root = super::root_dir();
 
     {
-        let enums = extract_enum_docs();
-        let structs = extract_builtin_structs();
+        let enums = extract_enum_docs(include_experimental);
+        let structs = extract_builtin_structs(include_experimental);
         write_global_structs_enums_index(&root, &structs, &enums)?;
     }
 
@@ -28,7 +28,11 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         let sh = Shell::new()?;
         let _p = sh.push_dir(&docs_source_dir);
         cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
-        cmd!(sh, "pnpm run build").run()?;
+        let mut build_cmd = cmd!(sh, "pnpm run build");
+        if include_experimental {
+            build_cmd = build_cmd.env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+        }
+        build_cmd.run()?;
     }
 
     Ok(())
@@ -144,7 +148,9 @@ pub struct EnumDoc {
     pub values: Vec<EnumValueDoc>,
 }
 
-pub fn extract_enum_docs() -> std::collections::BTreeMap<String, EnumDoc> {
+pub fn extract_enum_docs(
+    include_experimental: bool,
+) -> std::collections::BTreeMap<String, EnumDoc> {
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
     macro_rules! gen_enums {
@@ -174,14 +180,15 @@ pub fn extract_enum_docs() -> std::collections::BTreeMap<String, EnumDoc> {
         i_slint_common::for_each_enums!(gen_enums);
     }
 
-    // Experimental enums
-    enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
+    if !include_experimental {
+        enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
+    }
 
     enums
 }
 
-pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
-    let enums = extract_enum_docs();
+pub fn generate_enum_docs(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let enums = extract_enum_docs(include_experimental);
 
     write_individual_enum_files(&super::root_dir(), &enums)?;
 
@@ -199,7 +206,9 @@ pub struct StructDoc {
     pub fields: Vec<StructFieldDoc>,
 }
 
-pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc> {
+pub fn extract_builtin_structs(
+    include_experimental: bool,
+) -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
     let mut structs = std::collections::BTreeMap::from([
@@ -302,8 +311,9 @@ pub fn extract_builtin_structs() -> std::collections::BTreeMap<String, StructDoc
 
     // Internal type
     structs.remove("MenuEntry");
-    // Experimental type
-    structs.remove("DropEvent");
+    if !include_experimental {
+        structs.remove("DropEvent");
+    }
 
     structs
 }
@@ -349,8 +359,10 @@ description: {0} content
     Ok(())
 }
 
-pub fn generate_builtin_struct_docs() -> Result<(), Box<dyn std::error::Error>> {
-    let structs = extract_builtin_structs();
+pub fn generate_builtin_struct_docs(
+    include_experimental: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let structs = extract_builtin_structs(include_experimental);
     write_individual_struct_files(&super::root_dir(), structs)
 }
 

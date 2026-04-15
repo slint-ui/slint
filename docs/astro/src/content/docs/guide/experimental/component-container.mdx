@@ -1,0 +1,87 @@
+---
+title: ComponentContainer
+description: Experimental ComponentContainer element for embedding dynamic components.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+
+`ComponentContainer` is a built-in element that embeds a component chosen at runtime.
+The component to embed is supplied from Rust code as a `ComponentFactory` and bound to the container's `component-factory` property.
+This is useful for loading `.slint` files dynamically through the interpreter, or for plugging in different components based on application state.
+
+> **Note**: `ComponentContainer` is experimental and subject to change.
+> It is currently only available from Rust.
+> Tracking issue: [slint-ui/slint#2390](https://github.com/slint-ui/slint/issues/2390).
+
+## Properties
+
+### component-factory
+<SlintProperty propName="component-factory" typeName="component-factory">
+The factory that produces the embedded component.
+Assign it from Rust code with a `slint::ComponentFactory`.
+Changing this property replaces the embedded component.
+</SlintProperty>
+
+### has-component
+<SlintProperty propName="has-component" typeName="bool" defaultValue="false">
+Output property.
+Set to `true` while an embedded component is present, and `false` otherwise.
+Use it to show a placeholder when no component has been loaded.
+</SlintProperty>
+
+The container also has the usual `width` and `height` properties.
+The embedded component is placed at `(0, 0)` inside the container and its size constraints propagate to the container's layout info.
+
+## Example
+
+A minimal `.slint` file that exposes the factory as a property of the root component:
+
+```slint no-test
+export component MainWindow inherits Window {
+    in property <component-factory> plugin <=> container.component-factory;
+
+    VerticalLayout {
+        Text { text: container.has-component ? "Plugin loaded" : "No plugin"; }
+        container := ComponentContainer {
+            width: 300px;
+            height: 200px;
+        }
+    }
+}
+```
+
+The Rust side creates a `ComponentFactory` that compiles a `.slint` source at runtime with the interpreter and sets it on the `plugin` property:
+
+```rust,no_run
+use slint::ComponentFactory;
+use slint_interpreter::Compiler;
+
+slint::include_modules!();
+
+fn main() -> Result<(), slint::PlatformError> {
+    let main_window = MainWindow::new()?;
+
+    let factory = ComponentFactory::new(|ctx| {
+        let compiler = Compiler::new();
+        let result = spin_on::spin_on(compiler.build_from_source(
+            r#"
+                export component Plugin inherits Rectangle {
+                    background: #3070ff;
+                    Text { text: "Hello from plugin"; color: white; }
+                }
+            "#.into(),
+            Default::default(),
+        ));
+        let definition = result.component("Plugin")?;
+        definition.create_embedded(ctx).ok()
+    });
+
+    main_window.set_plugin(factory);
+    main_window.run()
+}
+```
+
+The closure passed to `ComponentFactory::new` receives a `FactoryContext` that you forward to `create_embedded`.
+The embedded instance is rebuilt whenever the container needs it.
+
+Statically compiled components can also be embedded: call `ComponentHandle::new()` inside the closure and return the handle instead of going through the interpreter.

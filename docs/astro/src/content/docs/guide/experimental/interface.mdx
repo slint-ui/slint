@@ -1,0 +1,101 @@
+---
+title: Interface
+description: Experimental interface, implements, and uses keywords.
+---
+
+An `interface` describes a contract that a component can promise to fulfill.
+It lists the properties, callbacks, and functions that an implementing component must provide.
+This lets you write code that works with any component that implements the interface, without caring about the concrete type.
+
+> **Note**: `interface`, `implements`, and `uses` are experimental and subject to change.
+> Tracking issue: [slint-ui/slint#1870](https://github.com/slint-ui/slint/issues/1870).
+
+## Declaring an interface
+
+Use the `interface` keyword followed by a body that lists the contract.
+
+```slint no-test
+interface TextInterface {
+    in-out property <string> text;
+
+    public pure function length(text: string) -> int;
+}
+```
+
+An interface body may contain:
+
+- Properties with visibility `in`, `out`, or `in-out`.
+  Default values are allowed and are applied to implementing components that do not override them.
+- Callbacks, with any signature except `init`.
+- Function declarations without a body.
+  They must be `public` and can be `pure`.
+
+An interface body may **not** contain child elements, layouts, `states`, `animate` blocks, or private properties.
+An interface can be exported with `export interface`.
+
+## Implementing an interface
+
+A component declares that it implements an interface with the `implements` keyword.
+The component must provide every property, callback, and function listed in the interface, with matching types and signatures.
+
+```slint no-test
+export component MyText implements TextInterface {
+    text <=> input.text;
+
+    input := TextInput {
+        text: "Hello";
+    }
+
+    public pure function length(text: string) -> int {
+        return text.character-count;
+    }
+}
+```
+
+A component can combine `implements` with `inherits`:
+
+```slint no-test
+component MyText implements TextInterface inherits Rectangle {
+    // ...
+}
+```
+
+A component can implement several interfaces by repeating `implements`.
+
+## Delegating to a child with `uses`
+
+Sometimes a component does not implement an interface itself but contains a child that does.
+The `uses` keyword exposes the child's interface on the parent, so users of the parent see the same properties, callbacks, and functions as if the parent implemented the interface directly.
+
+```slint no-test
+component Container uses { TextInterface from inner } {
+    inner := MyText { }
+}
+```
+
+`uses` takes a list of `InterfaceName from child-id` entries separated by commas.
+The named child must implement (directly or through its own `uses`) the listed interface.
+If two `uses` entries expose properties with the same name, the first one wins and a diagnostic is emitted for the conflict.
+
+## Full example
+
+```slint no-test
+interface Counter {
+    in-out property <int> value: 0;
+    callback increment();
+}
+
+component CounterButton implements Counter {
+    increment => { value += 1; }
+    TouchArea {
+        clicked => { root.increment(); }
+    }
+}
+
+export component App uses { Counter from button } {
+    button := CounterButton { }
+    Text { text: "Count: \{button.value}"; }
+}
+```
+
+`App` has a `value` property and an `increment` callback through the `Counter` interface, both provided by `button`.
