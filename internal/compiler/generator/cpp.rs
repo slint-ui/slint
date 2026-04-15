@@ -3204,7 +3204,7 @@ fn generate_public_api_for_properties(
                     Declaration::Function(Function {
                         name: format_smolstr!("set_{}", &prop_ident),
                         signature: format!(
-                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
+                            "(const {cpp_property_type} &) const = SLINT_DELETED_FUNCTION(\"property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter\")", p.name
                         ),
                         ..Default::default()
                     }),
@@ -3223,7 +3223,7 @@ fn generate_public_api_for_properties(
                 Declaration::Function(Function {
                     name: format_smolstr!("invoke_{prop_ident}"),
                     signature: format!(
-                        "({param_types}) const = delete /* the function '{name}' is declared as private. Declare it as 'public' */",
+                        "({param_types}) const = SLINT_DELETED_FUNCTION(\"the function '{name}' is declared as private. Declare it as 'public'\")",
                     ),
                     ..Default::default()
                 }),
@@ -3234,7 +3234,7 @@ fn generate_public_api_for_properties(
                 Declaration::Function(Function {
                     name: format_smolstr!("get_{prop_ident}"),
                     signature: format!(
-                        "() const = delete /* the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public */",
+                        "() const = SLINT_DELETED_FUNCTION(\"the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public\")",
                     ),
                     ..Default::default()
                 }),
@@ -3244,7 +3244,7 @@ fn generate_public_api_for_properties(
                 Declaration::Function(Function {
                     name: format_smolstr!("set_{}", &prop_ident),
                     signature: format!(
-                        "(const auto &) const = delete /* property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public */",
+                        "(const auto &) const = SLINT_DELETED_FUNCTION(\"property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public\")",
                     ),
                     ..Default::default()
                 }),
