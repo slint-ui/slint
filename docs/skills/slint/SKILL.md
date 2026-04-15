@@ -87,7 +87,7 @@ import slint
 
 ## MCP Server for AI-Assisted Debugging
 
-Slint includes an embedded MCP (Model Context Protocol) server that lets you inspect and interact with a running Slint application in real time. This is especially powerful for debugging UI issues.
+Slint includes an embedded MCP (Model Context Protocol) server that lets you inspect and interact with a running Slint application in real time. The server provides tools for exploring the UI tree, taking screenshots, clicking elements, dragging, typing, and more. Agents discover the available tools and usage instructions automatically via the MCP protocol — no additional configuration is needed beyond enabling the server.
 
 ### Enabling the MCP Server
 
