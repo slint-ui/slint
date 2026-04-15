@@ -381,7 +381,7 @@ fn generate_public_api_for_properties(
                 }),
             ));
 
-            if !p.read_only {
+            if !p.read_only() {
                 let prop_setter: Vec<String> = vec![
                     "using slint::private_api::live_preview::into_slint_value;".into(),
                     format!(

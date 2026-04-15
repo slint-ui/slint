@@ -151,7 +151,7 @@ fn generate_public_component(
             ));
 
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
-            if !p.read_only {
+            if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
@@ -313,7 +313,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             ));
 
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
-            if !p.read_only {
+            if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
