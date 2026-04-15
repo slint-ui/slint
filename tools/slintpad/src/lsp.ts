@@ -24,6 +24,8 @@ import type { Position as LspPosition } from "vscode-languageserver-types";
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
 
+import { report_panic_dialog } from "./dialogs";
+
 import {
     type ResourceUrlMapperFunction,
     type InvokeSlintpadCallback,
@@ -109,13 +111,26 @@ export class LspWaiter {
             { type: "module" },
         );
         this.#lsp_promise = new Promise<Worker>((resolve) => {
-            worker.onmessage = (m) => {
+            worker.addEventListener("message", (m: MessageEvent) => {
+                const data = m.data;
                 // We cannot start sending messages to the client before we start listening which
                 // the server only does in a future after the wasm is loaded.
-                if (m.data === "OK") {
+                if (data === "OK") {
                     resolve(worker);
+                } else if (
+                    data &&
+                    typeof data === "object" &&
+                    data.type === "slintpad/panic"
+                ) {
+                    report_panic_dialog("lsp", data.message);
                 }
-            };
+            });
+        });
+        worker.addEventListener("error", (e: ErrorEvent) => {
+            report_panic_dialog(
+                "lsp",
+                e.message || "Uncaught error in LSP worker",
+            );
         });
 
         this.#previewer_promise = slint_init({});
@@ -131,7 +146,11 @@ export class LspWaiter {
 
         const [_1, worker] = await Promise.all([pp, lp]);
 
-        return Promise.resolve(new Lsp(worker));
+        slint_preview.set_panic_hook((message: string) => {
+            report_panic_dialog("preview", message);
+        });
+
+        return new Lsp(worker);
     }
 }
 
@@ -203,6 +222,10 @@ export class Lsp {
                             } as ResponseMessage);
                         });
 
+                    return true;
+                }
+                if ((data as { type?: string }).type === "slintpad/panic") {
+                    // Panic messages are handled by the LspWaiter listener.
                     return true;
                 }
                 return false;
