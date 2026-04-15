@@ -9,9 +9,9 @@ use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedG
 
 use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
+use wgpu::SurfaceTexture;
 #[cfg(feature = "wgpu-29")]
 use wgpu_29 as wgpu;
-u7se wgpu::SurfaceTexture;
 
 pub struct WGPUBackend {
     instance: RefCell<Option<wgpu::Instance>>,
@@ -255,12 +255,12 @@ impl GraphicsBackend for WgpuTextureBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-29")]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
-        Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_29(
+        Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu(
             self.instance.clone(),
             self.device.clone(),
             self.queue.clone(),
