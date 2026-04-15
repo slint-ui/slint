@@ -311,6 +311,21 @@ impl Instance {
         if let Some(a) = self.window_adapter.get() {
             return Some(a.clone());
         }
+        // An embedded instance reuses the outer tree's adapter. We must
+        // _not_ create a fresh one: any resize event on it would fire
+        // `set_window_item_geometry`, which walks the TwoWayBinding chain
+        // down into `common_1.set(..)` and erases the ComponentContainer
+        // width/height bindings the embedded root is supposed to track.
+        if let Some((outer_weak, _)) = self.embedded_in.get()
+            && let Some(outer) = outer_weak.upgrade()
+        {
+            let mut result = None;
+            vtable::VRc::borrow_pin(&outer).as_ref().window_adapter(true, &mut result);
+            if let Some(a) = result {
+                let _ = self.window_adapter.set(a.clone());
+                return Some(a);
+            }
+        }
         // Walk up the parent chain to find an existing adapter on the root
         // instance, so popup-in-popup etc. share the same window.
         let mut parent_sub = self.parent_instance.upgrade();
@@ -676,8 +691,12 @@ pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
     let _ = vrc.init_code_run.set(());
     // For top-level instances, attach the window to the item tree *before*
     // running init_code so `set_component` doesn't clear focus set by
-    // `forward-focus`.
-    if vrc.public_component_index.is_some() {
+    // `forward-focus`. Embedded instances piggy-back on the host tree's
+    // adapter (see `window_adapter_or_default`) and skip this: the host
+    // has already run `set_component`, and running it again on the
+    // embedded root would reroute the host's window events into the sub-
+    // tree and clobber the ComponentContainer-driven size bindings.
+    if vrc.public_component_index.is_some() && vrc.embedded_in.get().is_none() {
         vrc.attach_to_window();
     }
     // Call Item::init() on every native item AND notify the window adapter

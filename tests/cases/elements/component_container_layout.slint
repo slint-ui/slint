@@ -3,37 +3,29 @@
 
 //ignore: cpp,pyi
 
-// Reproduces the LSP slintpad preview scenario: an embedded component that is
-// not a Window (ensure_window wraps it), containing a VerticalLayout whose
-// children include a TouchArea that must end up with the container-scoped
-// size — not the host window's size.
+// Reproduces the LSP slintpad preview scenario: an embedded component that
+// is not a Window (the compiler's `ensure_window` pass wraps it) hosted by
+// a `ComponentContainer` that drives its size from `preferred-width`.
 
-import { Button } from "std-widgets.slint";
-
-export component TestCase inherits Rectangle {
+// Mirror the simple slintpad path from `tools/lsp/ui/main.slint`: the
+// preview-area is a ComponentContainer nested in a VerticalLayout inside
+// a Rectangle that fills the Window. No explicit sizing on the container,
+// so its width/height come from the layout and transitively from the
+// Window's own width/height.
+export component TestCase inherits Window {
     in property <component-factory> cc <=> cont.component-factory;
-    in-out property <length> cont-width <=> cont.width;
-    in-out property <length> cont-height <=> cont.height;
-
-    // Mirror `tools/lsp/ui/views/preview-view.slint`: start the container
-    // at 0×0 and pull its size from the embedded component's layout info
-    // on demand. This is the slintpad preview flow — reading
-    // `preferred-width` drives `ensure_updated` which instantiates the
-    // embedded component.
-    callback size-from-preferred();
-    size-from-preferred => {
-        cont.width = max(cont.preferred-width, cont.min-width);
-        cont.height = max(cont.preferred-height, cont.min-height);
-    }
+    out property <length> cont-width: cont.width;
+    out property <length> cont-height: cont.height;
 
     width: 800px;
     height: 600px;
 
-    cont := ComponentContainer {
-        x: 15px;
-        y: 20px;
-        width: 0px;
-        height: 0px;
+    VerticalLayout {
+        Rectangle {
+            VerticalLayout {
+                cont := ComponentContainer { }
+            }
+        }
     }
 }
 
@@ -48,10 +40,6 @@ let inner_clone = inner.clone();
 let factory = slint::ComponentFactory::new(move |ctx| {
     let compiler = slint_interpreter::Compiler::new();
     let e = spin_on::spin_on(compiler.build_from_source(
-        // Demo without `inherits Window`; `ensure_window` wraps it.
-        // Mirrors the AboutSlint widget: preferred 100%/100% so the
-        // container sees no non-zero preferred size from the content,
-        // plus a top-level TouchArea with no explicit width/height.
         r#"import { AboutSlint, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
         export component Demo {
             out property <length> demo-width: self.width;
@@ -84,9 +72,6 @@ let factory = slint::ComponentFactory::new(move |ctx| {
 
 let instance = TestCase::new().unwrap();
 instance.set_cc(factory.clone());
-// Trigger the slintpad-style resize callback: read the preferred size out
-// of the container and write it back to `cont.width` / `cont.height`.
-instance.invoke_size_from_preferred();
 
 let cw = instance.get_cont_width();
 let ch = instance.get_cont_height();
@@ -99,7 +84,7 @@ let touch_w: f64 = inner_instance.get_property("touch-width").unwrap().try_into(
 let touch_h: f64 = inner_instance.get_property("touch-height").unwrap().try_into().unwrap();
 eprintln!(
     "cont={}x{} demo={}x{} touch={}x{}",
-    cw, ch, demo_w, demo_h, touch_w, touch_h
+    cw, ch, demo_w, demo_h, touch_w, touch_h,
 );
 
 // Embedded Demo's root width reads the container width.
@@ -111,5 +96,21 @@ assert_eq!(demo_h, ch as f64, "demo height must equal container height");
 // host window instead of the ComponentContainer slot.
 assert_eq!(touch_w, demo_w, "touch area width must equal embedded width");
 assert_eq!(touch_h, demo_h, "touch area height must equal embedded height");
+
+// The embedded instance must share the host window adapter. A fresh
+// adapter here would let `set_component` (and the follow-up
+// `update_window_properties` resize) write 0×0 through the TwoWayBinding
+// chain and wipe the ComponentContainer width/height bindings the
+// embedded root is supposed to track.
+let host_ptr = std::rc::Rc::as_ptr(
+    &i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter(),
+);
+let embedded_ptr = std::rc::Rc::as_ptr(
+    &i_slint_core::window::WindowInner::from_pub(inner_instance.window()).window_adapter(),
+);
+assert_eq!(
+    host_ptr as *const (), embedded_ptr as *const (),
+    "embedded instance must share the host's WindowAdapter, not create a fresh one"
+);
 ```
 */
