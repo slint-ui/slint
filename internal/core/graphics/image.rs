@@ -5,6 +5,8 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
+#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
+use crate::graphics::wgpu::wgpu;
 use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
 #[allow(unused)]

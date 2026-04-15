@@ -57,11 +57,19 @@ pub mod border_radius;
 pub use border_radius::*;
 
 #[cfg(feature = "wgpu-27")]
-pub mod wgpu_27 as wgpu;
-#[cfg(feature = "wgpu-28")]
-pub mod wgpu_28 as wgpu;
+mod wgpu_27;
+#[cfg(feature = "wgpu-27")]
+/// Types and helpers for the active WGPU backend.
+pub mod wgpu {
+    pub use super::wgpu_27::*;
+}
 #[cfg(feature = "wgpu-29")]
-pub mod wgpu_29 as wgpu;
+mod wgpu_29;
+#[cfg(feature = "wgpu-29")]
+/// Types and helpers for the active WGPU backend.
+pub mod wgpu {
+    pub use super::wgpu_29::*;
+}
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
@@ -173,7 +181,7 @@ pub enum RequestedGraphicsAPI {
     Vulkan,
     /// Direct 3D
     Direct3D,
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29")]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
     /// WGPU
     WGPU(wgpu::api::WGPUConfiguration),
 }
@@ -215,7 +223,7 @@ impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
 
 /// Private API exposed to just the renderers to create GraphicsAPI instance with
 /// non-exhaustive enum variant.
-#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29")]
+#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
 pub fn create_graphics_api_wgpu(
     instance: wgpu::wgpu::Instance,
     device: wgpu::wgpu::Device,

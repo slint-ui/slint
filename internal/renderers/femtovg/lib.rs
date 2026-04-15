@@ -291,7 +291,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         })
     }
 
-    #[cfg(any(feature = "wgpu-28", feature = "opengl"))]
+    #[cfg(any(feature = "wgpu-29", feature = "opengl"))]
     pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
         self.rendering_first_time.set(true);

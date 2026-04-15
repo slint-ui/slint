@@ -8,6 +8,8 @@ use std::rc::Rc;
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+#[cfg(feature = "unstable-wgpu-29")]
+use i_slint_core::graphics::wgpu::wgpu;
 use i_slint_core::items::ImageTiling;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{ImageInner, items::ImageRendering};
@@ -183,8 +185,8 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     )
                     .unwrap()
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-28"))]
-            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU28Texture(
+            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-29"))]
+            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPUTexture(
                 texture,
             )) => {
                 let texture = texture.clone();
@@ -193,7 +195,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 canvas
                     .borrow_mut()
                     .create_image_from_native_texture(
-                        <R as TextureImporter>::convert_wgpu_28_texture(texture),
+                        <R as TextureImporter>::convert_wgpu_texture(texture),
                         femtovg::ImageInfo::new(
                             image_flags,
                             size.width as _,
@@ -203,8 +205,8 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     )
                     .unwrap()
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-27"))]
-            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU27Texture(..)) => {
+            #[cfg(all(not(target_arch = "wasm32"), any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29")))]
+            ImageInner::WGPUTexture(..) => {
                 return None;
             }
             _ => {

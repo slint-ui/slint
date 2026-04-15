@@ -7,6 +7,8 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
+#[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
+use crate::graphics::wgpu::wgpu;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -282,7 +284,7 @@ pub enum GraphicsAPI<'a> {
     ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
     ///
     /// See also the [`slint::wgpu_27/wgpu_29`](slint:rust:slint/wgpu_27/wgpu_29) module.
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29")]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
     #[non_exhaustive]
     WGPU {
         /// The WGPU instance used for rendering.

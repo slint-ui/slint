@@ -255,18 +255,6 @@ impl GraphicsBackend for WgpuTextureBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
-    fn with_graphics_api<R>(
-        &self,
-        callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
-    ) -> Result<R, i_slint_core::platform::PlatformError> {
-        Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_28(
-            self.instance.clone(),
-            self.device.clone(),
-            self.queue.clone(),
-        ))))
-    }
-
     #[cfg(feature = "unstable-wgpu-29")]
     fn with_graphics_api<R>(
         &self,
@@ -279,7 +267,7 @@ impl GraphicsBackend for WgpuTextureBackend {
         ))))
     }
 
-    #[cfg(not(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")))]
+    #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29")))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -305,7 +293,7 @@ impl FemtoVGWGPURenderer {
     /// Creates a new FemtoVGWGPURenderer.
     ///
     /// The `instance`, `device` and `queue` are the WGPU resources used for rendering.
-    /// These are also provided to [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier) callbacks via [`GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28).
+    /// These are also provided to [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier) callbacks via [`GraphicsAPI::WGPU`](i_slint_core::api::GraphicsAPI::WGPU).
     pub fn new(
         instance: wgpu::Instance,
         device: wgpu::Device,

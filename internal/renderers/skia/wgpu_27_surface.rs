@@ -35,12 +35,12 @@ pub struct WGPUSurface {
 
 impl WGPUSurface {
     pub fn new_with_surface(
-        surface_target: impl Into<i_slint_core::graphics::wgpu_27::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_27::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
                 wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */

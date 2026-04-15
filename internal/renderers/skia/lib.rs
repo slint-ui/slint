@@ -58,9 +58,13 @@ pub mod vulkan_surface;
 pub mod opengl_surface;
 
 #[cfg(feature = "wgpu-27")]
-pub mod wgpu_27_surface as wgpu_surface;
+mod wgpu_27_surface;
+#[cfg(feature = "wgpu-27")]
+pub use self::wgpu_27_surface as wgpu_surface;
 #[cfg(feature = "wgpu-29")]
-pub mod wgpu_29_surface as wgpu_surface
+mod wgpu_29_surface;
+#[cfg(feature = "wgpu-29")]
+pub use self::wgpu_29_surface as wgpu_surface;
 
 use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
