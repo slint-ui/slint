@@ -27,6 +27,10 @@ export component TestCase inherits Window {
             text: @markdown("Value : "
                             "<font color=\"red\">\{""}</font> [\{""}](https://slint.dev)");
         }
+        s7 := StyledText {
+            text: @markdown("Hello \{world}");
+            default-font-size: 24px;
+        }
     }
 
     out property<styled-text> t1: s1.text;
@@ -39,8 +43,9 @@ export component TestCase inherits Window {
     out property<length> w4: s4.preferred-width;
     out property<length> w5: s5.preferred-width;
     out property<length> w6: s6.preferred-width;
+    out property<length> w7: s7.preferred-width;
 
-    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px;
+    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1;
 }
 
 /*
