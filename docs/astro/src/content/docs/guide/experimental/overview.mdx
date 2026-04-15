@@ -1,0 +1,57 @@
+---
+title: Experimental Features
+description: Experimental Slint features
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Experimental features are not part of stable Slint and may change at any time.
+Their purpose is to let us try new ideas and collect feedback before we commit to them.
+
+Experimental features are opt-in.
+How you enable them depends on the language and tool you use.
+
+## Enabling experimental features
+
+<Tabs syncKey="dev-language">
+  <TabItem label="Rust">
+  Set the `SLINT_ENABLE_EXPERIMENTAL_FEATURES` environment variable when building your application:
+
+  ```bash
+  SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 cargo build
+  ```
+  </TabItem>
+  <TabItem label="C++">
+  Pass the `-DSLINT_FEATURE_EXPERIMENTAL=ON` flag to CMake when configuring Slint:
+
+  ```bash
+  cmake -DSLINT_FEATURE_EXPERIMENTAL=ON ..
+  ```
+
+  This only works when building Slint from sources.
+  Prebuilt C++ packages do not expose experimental features.
+  </TabItem>
+  <TabItem label="NodeJS">
+  Set the `SLINT_ENABLE_EXPERIMENTAL_FEATURES` environment variable when running your application, since the Slint compiler runs at load time:
+
+  ```bash
+  SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 node app.js
+  ```
+  </TabItem>
+  <TabItem label="Python">
+  Set the `SLINT_ENABLE_EXPERIMENTAL_FEATURES` environment variable when running your application, since the Slint compiler runs at load time:
+
+  ```bash
+  SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 python app.py
+  ```
+  </TabItem>
+</Tabs>
+
+## Tools
+
+The `SLINT_ENABLE_EXPERIMENTAL_FEATURES` variable also enables experimental features in `slint-viewer`.
+`slint-lsp` always has experimental features enabled.
+
+## SlintPad
+
+Add `?EXPERIMENTAL=1` to the SlintPad URL: [snapshots.slint.com/master/editor/?EXPERIMENTAL=1](https://snapshots.slint.com/master/editor/?EXPERIMENTAL=1).

@@ -1,0 +1,46 @@
+---
+title: SlintContext
+description: Experimental per-context component instantiation via new_with_context().
+---
+
+`SlintContext` is an experimental alternative to Slint's global state.
+It bundles a `Platform` implementation with its event loop, font cache, and other per-backend state into a single value that the application owns.
+Components are bound to a context by constructing them with the generated `new_with_context()` method instead of the regular `new()`.
+
+> **Note**: `SlintContext` and `new_with_context()` are experimental and subject to change.
+> `SlintContext` is currently not re-exported from the `slint` crate.
+> You access it by depending on `i-slint-core` directly and using `i_slint_core::SlintContext`.
+> The `new_with_context()` constructor is only generated when `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` is set at build time.
+> Tracking issue: [slint-ui/slint#4294](https://github.com/slint-ui/slint/issues/4294).
+
+## Why use it
+
+Today most Slint applications rely on process-wide global state: a single default platform, a single event loop, and a single font cache.
+`SlintContext` is an effort to replace that global state with an explicit value, which makes it possible to:
+
+- Run several independent Slint stacks in the same process, each with its own platform backend (for example a simulator and a test harness).
+- Drive a component from a custom platform without installing it as the process-wide default.
+- Own the event loop explicitly rather than going through `slint::run_event_loop()`.
+
+## Usage
+
+```rust,no_run
+use i_slint_core::SlintContext;
+
+slint::include_modules!();
+
+fn main() -> Result<(), slint::PlatformError> {
+    let platform = MyCustomPlatform::new();
+    let ctx = SlintContext::new(Box::new(platform));
+
+    let window = MainWindow::new_with_context(ctx.clone())?;
+    window.show()?;
+
+    ctx.run_event_loop()
+}
+```
+
+`ctx.spawn_local(future)` runs async tasks on the context's event loop.
+The same context can produce any number of component instances, and they all share its backend and event loop.
+
+Components created with the regular `new()` constructor continue to use the global context and are unaffected.

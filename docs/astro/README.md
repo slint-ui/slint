@@ -51,6 +51,12 @@ Then generate the slint auto generated content.
 cargo xtask slintdocs
 ```
 
+If you want to include experimental Slint docs content, use:
+
+```bash
+cargo xtask slintdocs --experimental
+```
+
 This xtask also installs the npm dependencies and builds the docs. The equivalent of:
 
 ```bash
