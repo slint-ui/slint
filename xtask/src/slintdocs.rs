@@ -174,6 +174,9 @@ pub fn extract_enum_docs() -> std::collections::BTreeMap<String, EnumDoc> {
         i_slint_common::for_each_enums!(gen_enums);
     }
 
+    // Experimental enums
+    enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
+
     enums
 }
 
