@@ -80,7 +80,7 @@ fn main() -> std::io::Result<()> {
         file.metadata.insert("Content-Type".into(), "text/plain; charset=UTF-8".into());
         file.metadata.insert("Content-Transfer-Encoding".into(), "8bit".into());
         file.metadata.insert("Language".into(), String::new());
-        file.metadata.insert("Plural-Forms".into(), String::new());
+        file.metadata.insert("Plural-Forms".into(), "nplurals=1; plural=0;".into());
 
         file
     };
