@@ -11,6 +11,7 @@ use smol_str::SmolStr;
 use std::rc::Rc;
 
 pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    // Replace all `<timer>.start()` and `<timer>.end()` for the corresponding `timer` to `timer.running = true/false`
     visit_all_expressions(component, |e, _| {
         e.visit_recursive_mut(&mut |e| {
             if let Expression::FunctionCall { function, arguments, .. } = e
@@ -34,6 +35,7 @@ pub fn lower_timers(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         });
     });
 
+    // Lower the timer it self
     recurse_elem_including_sub_components_no_borrow(
         component,
         &None,
