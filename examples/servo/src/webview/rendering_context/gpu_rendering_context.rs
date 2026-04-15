@@ -89,9 +89,8 @@ impl GPURenderingContext {
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
         #[cfg(target_os = "windows")]
-        let d3d11_state = unsafe {
-            Self::init_d3d11_shared_state(&surfman_rendering_info.device.borrow(), wgpu_device)
-        }?;
+        let d3d11_state =
+            Self::init_d3d11_shared_state(&surfman_rendering_info.device.borrow(), wgpu_device)?;
 
         Ok(Self {
             swap_chain,
