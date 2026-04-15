@@ -321,23 +321,17 @@ impl crate::common::LspToPreview for RemoteLspToPreview {
         tracing::debug!("Sending websocket message {message:?}");
         let connection = Arc::downgrade(&self.connection);
         let message = postcard::to_allocvec(message).unwrap();
-        tracing::debug!("Sending {} bytes", message.len());
         tokio::task::spawn_local(async move {
-            tracing::debug!("A");
             let Some(connection) = connection.upgrade() else {
                 tracing::warn!("Not connected to remote preview server, dropping message");
                 return;
             };
-            tracing::debug!("B");
             let mut connection = connection.lock().await;
-            tracing::debug!("C");
             let Some(connection) = connection.as_mut() else {
                 tracing::warn!("Not connected to remote preview server, dropping message");
                 return;
             };
-            tracing::debug!("D");
             let sender_future = connection.sender.send(Message::binary(message));
-            tracing::debug!("E");
             if let Err(err) = sender_future.await {
                 tracing::error!("Error sending message to remote preview server: {err}");
             }
