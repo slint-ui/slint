@@ -289,10 +289,12 @@ export default defineConfig({
                                                 label: "VerticalLayout",
                                                 slug: "reference/layouts/verticallayout",
                                             },
-                                            {
-                                                label: "FlexboxLayout",
-                                                slug: "reference/layouts/flexboxlayout",
-                                            },
+                                            // FlexboxLayout is experimental. When it ships, drop
+                                            // `draft: true` from flexboxlayout.mdx and uncomment:
+                                            // {
+                                            //     label: "FlexboxLayout",
+                                            //     slug: "reference/layouts/flexboxlayout",
+                                            // },
                                         ],
                                     },
                                     {
