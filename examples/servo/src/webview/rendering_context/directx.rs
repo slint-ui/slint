@@ -6,8 +6,8 @@ use glow::HasContext;
 use winit::dpi::PhysicalSize;
 
 use slint::wgpu_28::wgpu::{
-    Device, Extent3d, Queue, Texture, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, wgc::api::Dx12,
+    Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    wgc::api::Dx12,
 };
 
 use windows::{
@@ -65,7 +65,6 @@ impl super::GPURenderingContext {
     pub fn get_wgpu_texture_from_directx(
         &self,
         wgpu_device: &Device,
-        _wgpu_queue: &Queue,
     ) -> Result<Texture, DirectXTextureError> {
         let device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
@@ -139,7 +138,6 @@ impl super::GPURenderingContext {
 
     pub(crate) fn init_d3d11_shared_state(
         device: &surfman::Device,
-        _wgpu_device: &Device,
     ) -> Result<D3D11SharedState, DirectXTextureError> {
         let native_device = device.native_device();
         if native_device.d3d11_device.is_null() {

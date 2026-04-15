@@ -56,7 +56,7 @@ impl Drop for GPURenderingContext {
 impl GPURenderingContext {
     pub fn new(
         size: PhysicalSize<u32>,
-        wgpu_device: &wgpu::Device,
+        _wgpu_device: &wgpu::Device,
     ) -> Result<Self, surfman::Error> {
         let connection = Connection::new()?;
 
@@ -89,8 +89,7 @@ impl GPURenderingContext {
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
         #[cfg(target_os = "windows")]
-        let d3d11_state =
-            Self::init_d3d11_shared_state(&surfman_rendering_info.device.borrow(), wgpu_device)?;
+        let d3d11_state = Self::init_d3d11_shared_state(&surfman_rendering_info.device.borrow())?;
 
         Ok(Self {
             swap_chain,

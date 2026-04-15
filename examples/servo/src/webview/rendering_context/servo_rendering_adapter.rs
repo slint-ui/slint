@@ -73,7 +73,7 @@ impl ServoRenderingAdapter for ServoGPURenderingContext {
         #[cfg(target_os = "windows")]
         let texture = self
             .rendering_context
-            .get_wgpu_texture_from_directx(&self.device, &self.queue)
+            .get_wgpu_texture_from_directx(&self.device)
             .expect("Failed to get WGPU texture from DirectX");
 
         Image::try_from(texture).expect(
