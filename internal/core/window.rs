@@ -1304,6 +1304,8 @@ impl WindowInner {
             height_property.set(size.height_length());
         };
 
+        println!("WindowInner::show_popup(). Size: {:?}", size);
+
         let popup_id = self.next_popup_id.get();
         self.next_popup_id.set(self.next_popup_id.get().checked_add(1).unwrap());
 

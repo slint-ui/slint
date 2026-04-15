@@ -24,6 +24,7 @@ pub fn lower_layouts(
     style_metrics: &Rc<Component>,
     diag: &mut BuildDiagnostics,
 ) {
+    // println!("Lower_layouts. {:?}", component);
     // lower the preferred-{width, height}: 100%;
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         if check_preferred_size_100(elem, "preferred-width", diag) {
@@ -1648,6 +1649,15 @@ fn check_no_layout_properties(
 /// The Slint runtime will change the width and height property of the native WindowItem to match those of the actual
 /// window, but we don't want that to happen if we have a fixed layout.
 pub fn check_window_layout(component: &Rc<Component>) {
+    component.popup_windows.borrow().iter().for_each(|p| {
+        if p.component.root_constraints.borrow().fixed_height {
+            adjust_window_layout(&p.component, "height");
+        }
+
+        if p.component.root_constraints.borrow().fixed_height {
+            adjust_window_layout(&p.component, "width");
+        }
+    });
     if component.root_constraints.borrow().fixed_height {
         adjust_window_layout(component, "height");
     }

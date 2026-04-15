@@ -297,12 +297,15 @@ impl Document {
     pub fn visit_all_used_components(&self, mut v: impl FnMut(&Rc<Component>)) {
         let used_types = self.used_types.borrow();
         for c in &used_types.sub_components {
+            println!("visit_all_used_components. Subcomponent: {:?}", c.id);
             v(c);
         }
         for c in self.exported_roots() {
+            println!("visit_all_used_components. Exported Roots: {:?}", c.id);
             v(&c);
         }
         for c in &used_types.globals {
+            println!("visit_all_used_components. Globals: {:?}", c.id);
             v(c);
         }
         if let Some(c) = &self.popup_menu_impl {

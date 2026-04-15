@@ -1182,7 +1182,8 @@ impl WindowAdapter for WinitWindowAdapter {
         let mut height;
 
         let constraints = properties.layout_constraints();
-        if !window_item.width.has_binding() {
+
+        if true || window_item.width.is_constant() {
             width = current_width;
         } else {
             width = constraints.preferred.width;
@@ -1194,7 +1195,7 @@ impl WindowAdapter for WinitWindowAdapter {
             }
         }
 
-        if !window_item.height.has_binding() {
+        if true || window_item.height.is_constant() {
             height = current_height;
         } else {
             height = constraints.preferred.height;
@@ -1205,6 +1206,19 @@ impl WindowAdapter for WinitWindowAdapter {
                 height = height.min(max.height)
             }
         }
+
+        println!(
+            "update_window_properties. Has width is_constant: {}, current_width: {}, Width: {}",
+            window_item.width.is_constant(),
+            current_width,
+            width
+        );
+        println!(
+            "update_window_properties. Has height is_constant: {}, current_height: {}. Height: {}",
+            window_item.height.is_constant(),
+            current_height,
+            height
+        );
 
         must_resize = must_resize || width != current_width || height != current_height;
 
