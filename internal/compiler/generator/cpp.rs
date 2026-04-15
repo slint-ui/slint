@@ -1872,21 +1872,7 @@ fn generate_item_tree(
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
     ];
 
-    let is_popup_window = is_popup && parent_ctx.is_some();
-    let is_popup_menu = is_popup && parent_ctx.is_none();
-
-    if is_popup_window {
-        target_struct.members.push((
-            field_access,
-            Declaration::Var(Var {
-                ty: "std::unique_ptr<SharedGlobals>".into(),
-                name: "m_own_globals".into(),
-                ..Default::default()
-            }),
-        ));
-    }
-
-    if is_popup_menu || is_popup_window {
+    if is_popup {
         create_code.push("self->globals = globals;".into());
         create_parameters.push("const SharedGlobals *globals".into());
     } else if parent_ctx.is_none() {
