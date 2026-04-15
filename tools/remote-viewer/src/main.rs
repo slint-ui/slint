@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
+use i_slint_preview_protocol::PreviewToLspMessage;
 use mdns_sd::ServiceDaemon;
 use slint::{ComponentHandle, SharedString};
 use tokio::sync;
@@ -14,6 +15,7 @@ use zeroconf_tokio::txt_record::TTxtRecord as _;
 
 mod compilation;
 mod connection;
+mod util;
 
 const MAIN_SLINT: &str = include_str!("../ui/main.slint");
 
@@ -79,10 +81,27 @@ async fn main() -> anyhow::Result<()> {
 
                         if let Err(err) = inner_window.set_property(
                             "message",
-                            SharedString::from(build_diagnostics.diagnostics_as_string()).into(),
+                            SharedString::from(build_diagnostics.to_string_vec().join("\n")).into(),
                         ) {
                             tracing::error!("Failed setting property: {err}");
                         }
+
+                        let message = PreviewToLspMessage::Diagnostics {
+                            uri: preview_component.url,
+                            version: None,
+                            diagnostics: compilation_result
+                                .diagnostics()
+                                .map(|diagnostic| {
+                                    util::to_lsp_diag(
+                                        &diagnostic,
+                                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                                    )
+                                })
+                                .collect(),
+                        };
+
+                        connection.send(message).ok();
+
                         continue;
                     }
                     if let Err(err) =
@@ -133,7 +152,7 @@ async fn main() -> anyhow::Result<()> {
                         instance = Some(inner_instance);
                     }
                 }
-                connection::ConnectionMessage::HighlightFromEditor { url, offset } => {}
+                connection::ConnectionMessage::HighlightFromEditor { .. } => {}
                 connection::ConnectionMessage::Connected { remote_addr } => {
                     if let Err(err) = inner_window.set_property(
                         "message",
