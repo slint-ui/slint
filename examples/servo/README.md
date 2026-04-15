@@ -129,7 +129,7 @@ cargo install cargo-apk
 
 ### Setup Bindgen for Android
 
-platform: linux-x86_64 (Linux) darwin-x86_64 (Mac) | windows-x86_64 (Windows)
+platform: linux-x86_64 (Linux) | darwin-x86_64 (Mac) | windows-x86_64 (Windows)
 
 ```bash
 export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/<platform>/sysroot"
