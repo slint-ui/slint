@@ -33,6 +33,7 @@ impl SwitchableLspToPreview {
     }
 
     pub async fn shutdown(&self) {
+        self.send(&i_slint_preview_protocol::LspToPreviewMessage::Quit);
         futures_util::future::join_all(
             self.lsp_to_previews.values().map(|to_preview| to_preview.shutdown()),
         )
@@ -74,24 +75,5 @@ impl SwitchableLspToPreview {
             }
         }
         None
-    }
-
-    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
-        Box::pin(async move {
-            let Some(inner) = self.inner.borrow_mut().take() else {
-                return;
-            };
-            let message =
-                serde_json::to_string(&i_slint_preview_protocol::LspToPreviewMessage::Quit)
-                    .unwrap();
-            let _ = inner.to_child_sender.send(message);
-            drop(inner.to_child_sender);
-            if tokio::time::timeout(std::time::Duration::from_secs(5), inner.communication_handle)
-                .await
-                .is_err()
-            {
-                tracing::warn!("Timed out waiting for preview child process to exit");
-            }
-        })
     }
 }
