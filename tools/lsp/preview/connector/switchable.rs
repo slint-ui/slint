@@ -32,6 +32,13 @@ impl SwitchableLspToPreview {
         self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
     }
 
+    pub async fn shutdown(&self) {
+        futures_util::future::join_all(
+            self.lsp_to_previews.values().map(|to_preview| to_preview.shutdown()),
+        )
+        .await;
+    }
+
     #[allow(unused)]
     pub fn preview_target(&self) -> PreviewTarget {
         *self.current_target.borrow()

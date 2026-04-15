@@ -48,6 +48,7 @@ use std::rc::Rc;
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
+pub const DISCONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/disconnectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
@@ -56,6 +57,8 @@ fn command_list() -> Vec<String> {
         SHOW_PREVIEW_COMMAND.into(),
         #[cfg(feature = "preview-remote")]
         CONNECT_REMOTE_PREVIEW_COMMAND.into(),
+        #[cfg(feature = "preview-remote")]
+        DISCONNECT_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -408,6 +411,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             CONNECT_REMOTE_PREVIEW_COMMAND => {
                 return connect_remote_preview_command(&params.arguments, ctx);
             }
+            #[cfg(feature = "preview-remote")]
+            DISCONNECT_REMOTE_PREVIEW_COMMAND => {
+                disconnect_remote_preview_command(ctx);
+            }
             _ => {
                 tracing::error!("Received unknown command {}", params.command.as_str());
             }
@@ -678,6 +685,15 @@ pub fn connect_remote_preview_command(
             message: "Need array of string as the first parameter".to_owned(),
         })
     }
+}
+
+#[cfg(feature = "preview-remote")]
+pub fn disconnect_remote_preview_command(ctx: &Context) {
+    let to_preview = ctx.to_preview.clone();
+    tracing::debug!("disconnect_remote_preview_command");
+    to_preview.with_preview_target::<crate::preview::connector::RemoteLspToPreview, _>(|remote| {
+        tokio::task::spawn_local(remote.disconnect());
+    });
 }
 
 fn populate_command_range(

@@ -246,6 +246,15 @@ impl RemoteLspToPreview {
             }
         }
     }
+
+    pub fn disconnect(&self) -> impl Future<Output = ()> + 'static {
+        let connection = self.connection.clone();
+        async move {
+            if let Some(connection) = connection.lock().await.take() {
+                connection.task.abort();
+            }
+        }
+    }
 }
 
 struct ConnectionStateHandle {

@@ -70,6 +70,34 @@ export type RemoteViewerInfo = {
 };
 export const remote_viewers = new Map<string, RemoteViewerInfo>();
 
+export let remoteViewerStatusBarItem: vscode.StatusBarItem | undefined;
+export function updateRemoteViewerStatusBarItem(newItem: vscode.StatusBarItem) {
+    remoteViewerStatusBarItem = newItem;
+}
+export enum RemoteViewerStatusBarItemState {
+    disconnected,
+    connecting,
+    connected,
+}
+export function setRemoteViewerStatusBarItemState(state: RemoteViewerStatusBarItemState) {
+    if (remoteViewerStatusBarItem) {
+        switch (state) {
+            case RemoteViewerStatusBarItemState.disconnected:
+                remoteViewerStatusBarItem.text = `$(vm) Slint Remote Preview`;
+                remoteViewerStatusBarItem.command = 'slint.selectRemotePreview';
+                break;
+            case RemoteViewerStatusBarItemState.connecting:
+                remoteViewerStatusBarItem.text = `$(vm-connect) Slint Remote Preview`;
+                remoteViewerStatusBarItem.command = 'slint.disconnectRemotePreview';
+                break;
+            case RemoteViewerStatusBarItemState.connected:
+                remoteViewerStatusBarItem.text = `$(vm-active) Slint Remote Preview`;
+                remoteViewerStatusBarItem.command = 'slint.disconnectRemotePreview';
+                break;
+        }
+    }
+}
+
 // LSP related:
 
 // Set up our middleware. It is used to redirect/forward to the WASM preview
@@ -187,12 +215,14 @@ export function activate(
         cl?.onNotification("slint/remote_viewer_connection_state", async (params) => {
             switch (params.state) {
                 case "connected":
-                    vscode.window.showInformationMessage(`Remote viewer connected: ${params.address}:${params.port}`);
+                    vscode.window.showInformationMessage(`Remote viewer connected: ${params.address}:${params.port}, remoteViewerStatusBarItem ${remoteViewerStatusBarItem ? 'available' : 'undefined'}`);
                     cl.outputChannel.appendLine(`Remote viewer connected: ${params.address}:${params.port}`);
+                    setRemoteViewerStatusBarItemState(RemoteViewerStatusBarItemState.connected);
                     break;
                 case "disconnected":
                     vscode.window.showInformationMessage(`Remote viewer disconnected: ${params.address}:${params.port}`);
                     cl.outputChannel.appendLine(`Remote viewer disconnected: ${params.address}:${params.port}`);
+                    setRemoteViewerStatusBarItemState(RemoteViewerStatusBarItemState.disconnected);
                     break;
             }
             // TODO

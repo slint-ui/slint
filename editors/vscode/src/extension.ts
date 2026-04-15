@@ -236,6 +236,8 @@ function startClient(
                 handleTelemetryEvent(params.type, context.globalState);
             },
         );
+
+        common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.disconnected);
     });
 
     const cl = new LanguageClient(
@@ -417,10 +419,9 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
     const remoteViewerStatusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Right, 100
     );
-    remoteViewerStatusBarItem.text = `$(debug-disconnect) Slint Remote Preview`;
-    // remoteViewerStatusBarItem.color = "statusBarItem.prominentForeground";
-    // remoteViewerStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-    remoteViewerStatusBarItem.command = 'slint.selectRemotePreview';
+
+    common.updateRemoteViewerStatusBarItem(remoteViewerStatusBarItem);
+    common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.disconnected);
     remoteViewerStatusBarItem.show();
 
     context.subscriptions.push(
@@ -457,10 +458,8 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
             };
 
             const connect = async (item: common.RemoteViewerInfo) => {
-                lsp_commands.connectRemotePreview(item.value.addresses, item.value.port).then(() => {
-                    vscode.window.showInformationMessage("Connected to " + JSON.stringify(item.value));
-                });
-                vscode.window.showInformationMessage("Connecting...");
+                lsp_commands.connectRemotePreview(item.value.addresses, item.value.port);
+                common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.connecting);
 
                 picker.hide();
             };
@@ -489,5 +488,8 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
             picker.show();
         }),
         remoteViewerStatusBarItem,
+        vscode.commands.registerCommand("slint.disconnectRemotePreview", () => {
+            lsp_commands.disconnectRemotePreview();
+        }),
     );
 }

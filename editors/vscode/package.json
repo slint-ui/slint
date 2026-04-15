@@ -96,7 +96,7 @@
         "icon": "$(preview)"
       },
       {
-        "command": "slint.disableRemotePreview",
+        "command": "slint.disconnectRemotePreview",
         "title": "Disconnect Remote Preview",
         "category": "Slint",
         "icon": "$(debug-disconnect)"

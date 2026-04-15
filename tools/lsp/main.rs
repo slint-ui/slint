@@ -40,9 +40,11 @@ use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
 use std::time::Duration;
 
-use crate::common::document_cache::CompilerConfiguration;
 #[cfg(feature = "preview-remote")]
 use crate::preview::connector::RemoteLspToPreview;
+use crate::{
+    common::document_cache::CompilerConfiguration, preview::connector::SwitchableLspToPreview,
+};
 
 #[cfg(not(any(
     target_os = "openbsd",
@@ -399,7 +401,7 @@ async fn run_main_loop(
     mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<
         i_slint_preview_protocol::PreviewToLspMessage,
     >,
-    to_preview: Rc<dyn LspToPreview>,
+    to_preview: Rc<SwitchableLspToPreview>,
 ) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
