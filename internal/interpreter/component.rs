@@ -18,6 +18,24 @@ use smol_str::SmolStr;
 use std::rc::Rc;
 use vtable::VRc;
 
+/// Pair of `TypeLoader`s retained alongside a compiled component for
+/// internal tooling (highlight, live preview, LSP).
+///
+/// `type_loader` is the post-pass state — the compiler's lowered object
+/// tree, what `highlight.rs` walks to resolve elements to runtime items.
+/// `raw_type_loader` is a snapshot taken *before* most passes ran — what
+/// the LSP hands to `common::DocumentCache::new_from_raw_parts` so the
+/// library / outline / properties / preview-data panels see the tree as
+/// the user wrote it, not the compiler-transformed form. Neither can be
+/// derived from the other; passes are destructive.
+#[derive(Clone, Default)]
+pub struct TypeLoaders {
+    #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
+    pub type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
+    pub raw_type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+}
+
 /// Compiled component, one per exported public component in the
 /// source file. Produced by [`build_from_source`] and held behind
 /// [`crate::api::ComponentDefinition`].
@@ -25,20 +43,9 @@ use vtable::VRc;
 pub struct ComponentDefinitionInner {
     pub compilation_unit: Rc<CompilationUnit>,
     pub public_index: usize,
-    /// The `TypeLoader` that fed the compilation unit. Kept around so that
-    /// internal tooling (highlight, live preview, LSP) can inspect source
-    /// locations, imports and the original `Document`. The interpreter
-    /// runtime itself never reads this field. `None` when the definition is
-    /// reconstructed from a running instance that doesn't carry a
-    /// TypeLoader reference back.
-    #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
-    pub type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
-    /// Snapshot of the type loader taken before most compiler passes ran,
-    /// used by the LSP to cross-reference elements across builds. `None`
-    /// if the caller didn't request `keep_raw` or if reconstructed from a
-    /// live instance.
-    #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
-    pub raw_type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    /// `None` on both sides when the definition was reconstructed from a
+    /// running instance that doesn't carry a `TypeLoader` reference back.
+    pub type_loaders: TypeLoaders,
     /// Debug handler set by the LSP. Propagated to instances on creation.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     pub debug_handler: std::cell::RefCell<
@@ -57,7 +64,7 @@ impl ComponentDefinitionInner {
             self.compilation_unit.clone(),
             self.public_index,
             None,
-            self.type_loader.clone(),
+            self.type_loaders.clone(),
         );
         if let Some(handler) = self.debug_handler.borrow().clone() {
             *vrc.debug_handler.borrow_mut() = Some(handler);
@@ -75,7 +82,7 @@ impl ComponentDefinitionInner {
             self.compilation_unit.clone(),
             self.public_index,
             Some(window_adapter),
-            self.type_loader.clone(),
+            self.type_loaders.clone(),
         );
         ComponentInstanceInner(vrc)
     }
@@ -92,7 +99,7 @@ impl ComponentDefinitionInner {
         let vrc = Instance::new_embedded(
             self.compilation_unit.clone(),
             self.public_index,
-            self.type_loader.clone(),
+            self.type_loaders.clone(),
             parent,
             parent_item_tree_index,
         );
@@ -289,8 +296,7 @@ impl ComponentInstanceInner {
         ComponentDefinitionInner {
             compilation_unit: self.0.root_sub_component.compilation_unit.clone(),
             public_index,
-            type_loader: self.0.type_loader.clone(),
-            raw_type_loader: None,
+            type_loaders: self.0.type_loaders.clone(),
             debug_handler: std::cell::RefCell::new(self.0.debug_handler.borrow().clone()),
         }
     }
@@ -301,8 +307,7 @@ impl ComponentInstanceInner {
 pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
-    type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
-    raw_type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    type_loaders: TypeLoaders,
 ) -> Vec<ComponentDefinitionInner> {
     let unit = Rc::new(i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(
         document,
@@ -312,8 +317,7 @@ pub fn build_from_document(
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
             public_index,
-            type_loader: type_loader.clone(),
-            raw_type_loader: raw_type_loader.clone(),
+            type_loaders: type_loaders.clone(),
             debug_handler: Default::default(),
         })
         .collect()
@@ -355,15 +359,17 @@ pub async fn build_from_source(
     if diag.has_errors() {
         return (diag.into_iter().collect(), Default::default());
     }
-    let raw_type_loader = raw_loader.map(std::rc::Rc::new);
     let type_loader = std::rc::Rc::new(loader);
+    let type_loaders = TypeLoaders {
+        type_loader: Some(type_loader.clone()),
+        raw_type_loader: raw_loader.map(std::rc::Rc::new),
+    };
     let doc = match type_loader.get_document(&path) {
         Some(doc) => doc,
         None => return (diag.into_iter().collect(), Default::default()),
     };
     let mut components = std::collections::HashMap::new();
-    for def in build_from_document(doc, &config, Some(type_loader.clone()), raw_type_loader.clone())
-    {
+    for def in build_from_document(doc, &config, type_loaders) {
         components.insert(def.name().to_string(), def);
     }
     if components.is_empty() {

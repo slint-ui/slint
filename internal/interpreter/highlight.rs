@@ -142,7 +142,7 @@ pub(crate) fn element_node_at_source_code_position(
     path: &Path,
     offset: u32,
 ) -> Vec<(ElementRc, usize)> {
-    let Some(type_loader) = instance.type_loader.as_ref() else {
+    let Some(type_loader) = instance.type_loaders.type_loader.as_ref() else {
         return Vec::new();
     };
     let Some(doc) = type_loader.get_document(path) else {

@@ -221,11 +221,11 @@ pub struct Instance {
     /// `parent_node` uses this to let coordinate-mapping helpers walk up
     /// into the outer tree.
     pub embedded_in: OnceCell<(VWeak<ItemTreeVTable>, u32)>,
-    /// Optional `TypeLoader` held by top-level instances created from a
-    /// `ComponentDefinition`. Used by the highlight module to access the
-    /// original object-tree `Document` for source-location lookups.
-    #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
-    pub type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    /// `TypeLoader` snapshots (post-pass + pre-pass) kept around for the
+    /// highlight module and the LSP live preview's `DocumentCache`
+    /// reconstruction. Both sides are `None` on sub-tree / popup / repeated
+    /// instances — only the top-level definition sets them.
+    pub type_loaders: crate::component::TypeLoaders,
     /// Optional debug handler set by the LSP's live preview.
     /// Called by `BuiltinFunction::Debug` instead of `eprintln!` when set.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
@@ -530,7 +530,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: usize,
     ) -> VRc<ItemTreeVTable, Instance> {
-        Self::new_with_window(compilation_unit, public_component_index, None, None)
+        Self::new_with_window(compilation_unit, public_component_index, None, Default::default())
     }
 
     /// Build an instance for a public component and optionally reuse an
@@ -540,13 +540,13 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: usize,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
-        type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+        type_loaders: crate::component::TypeLoaders,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_options(
             compilation_unit,
             public_component_index,
             window_adapter,
-            type_loader,
+            type_loaders,
             None,
         )
     }
@@ -558,7 +558,7 @@ impl Instance {
     pub fn new_embedded(
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: usize,
-        type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+        type_loaders: crate::component::TypeLoaders,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -566,7 +566,7 @@ impl Instance {
             compilation_unit,
             public_component_index,
             None,
-            type_loader,
+            type_loaders,
             Some((parent, parent_item_tree_index)),
         )
     }
@@ -575,7 +575,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: usize,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
-        type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+        type_loaders: crate::component::TypeLoaders,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
     ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
@@ -587,7 +587,7 @@ impl Instance {
             Weak::new(),
             globals,
             Some(public_component_index),
-            type_loader,
+            type_loaders,
         );
         if let Some(adapter) = window_adapter {
             let _ = vrc.window_adapter.set(adapter);
@@ -613,7 +613,14 @@ impl Instance {
         repeater_idx: RepeatedElementIdx,
         globals: Rc<GlobalStorage>,
     ) -> VRc<ItemTreeVTable, Instance> {
-        let vrc = build_instance(&compilation_unit, item_tree, parent.clone(), globals, None, None);
+        let vrc = build_instance(
+            &compilation_unit,
+            item_tree,
+            parent.clone(),
+            globals,
+            None,
+            Default::default(),
+        );
         let _ = vrc.root_sub_component.repeated_in.set((parent, repeater_idx));
         vrc
     }
@@ -627,7 +634,7 @@ impl Instance {
         parent: Weak<SubComponentInstance>,
         globals: Rc<GlobalStorage>,
     ) -> VRc<ItemTreeVTable, Instance> {
-        build_instance(&compilation_unit, item_tree, parent, globals, None, None)
+        build_instance(&compilation_unit, item_tree, parent, globals, None, Default::default())
     }
 }
 
@@ -644,7 +651,7 @@ fn build_instance(
     parent: Weak<SubComponentInstance>,
     globals: Rc<GlobalStorage>,
     public_component_index: Option<usize>,
-    type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    type_loaders: crate::component::TypeLoaders,
 ) -> VRc<ItemTreeVTable, Instance> {
     let parent_for_root = parent.clone();
     let root_sub_component =
@@ -665,7 +672,7 @@ fn build_instance(
         bindings_installed: OnceCell::new(),
         init_code_run: OnceCell::new(),
         embedded_in: OnceCell::new(),
-        type_loader,
+        type_loaders,
         debug_handler: RefCell::new(None),
     });
     let weak = VRc::downgrade(&vrc);

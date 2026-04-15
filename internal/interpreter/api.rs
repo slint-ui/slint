@@ -1317,6 +1317,7 @@ impl ComponentDefinition {
         // components (e.g. `Palette`) that appear first in the document list.
         let tl = self
             .inner
+            .type_loaders
             .type_loader
             .as_ref()
             .expect("root_component() called on a definition with no TypeLoader");
@@ -1336,7 +1337,7 @@ impl ComponentDefinition {
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
     pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
-        self.inner.type_loader.clone().expect(
+        self.inner.type_loaders.type_loader.clone().expect(
             "TypeLoader was not retained for this ComponentDefinition (reconstructed from an instance)",
         )
     }
@@ -1351,6 +1352,7 @@ impl ComponentDefinition {
     #[cfg(feature = "internal-highlight")]
     pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
         self.inner
+            .type_loaders
             .raw_type_loader
             .as_ref()
             .and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
