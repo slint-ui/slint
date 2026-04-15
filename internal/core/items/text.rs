@@ -238,6 +238,8 @@ pub struct StyledTextItem {
     pub height: Property<LogicalLength>,
     pub text: Property<crate::styled_text::StyledText>,
     pub default_color: Property<Brush>,
+    pub default_font_size: Property<LogicalLength>,
+    pub default_font_family: Property<SharedString>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub link_clicked: Callback<StringArg>,
@@ -388,9 +390,9 @@ impl HasFont for StyledTextItem {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
+            self.default_font_family(),
             Default::default(),
-            Default::default(),
-            Default::default(),
+            self.default_font_size(),
             Default::default(),
             Default::default(),
         )
