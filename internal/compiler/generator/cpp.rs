@@ -3557,7 +3557,7 @@ fn generate_public_api_for_properties(
                 }),
             ));
 
-            if !p.read_only {
+            if !p.read_only() {
                 let prop_setter: Vec<String> = vec![
                     "slint::private_api::assert_main_thread();".into(),
                     "[[maybe_unused]] auto self = this;".into(),
