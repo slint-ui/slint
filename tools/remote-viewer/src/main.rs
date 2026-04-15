@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
                     if compilation_result.has_errors() {
                         let mut build_diagnostics = BuildDiagnostics::default();
                         for d in compilation_result.diagnostics() {
+                            tracing::warn!("Compiler error: {d}");
                             build_diagnostics.push_compiler_error(d);
                         }
 
@@ -67,14 +68,17 @@ async fn main() -> anyhow::Result<()> {
                         .and_then(|name| compilation_result.component(name))
                     else {
                         inner_window.set_errors("Component not found".into());
+                        tracing::error!("Component not found");
                         continue;
                     };
 
                     if let Err(err) = component.create().and_then(|instance| {
-                        inner_window.hide()?;
-                        instance.show()
+                        instance.show()?;
+                        inner_window.hide().inspect_err(|err| tracing::error!("{err}"))?;
+                        Ok(())
                     }) {
                         inner_window.set_errors(format!("{err}").into());
+                        tracing::warn!("Platform error: {err}");
                         let _ = inner_window.show();
                     }
                 }
@@ -88,11 +92,11 @@ async fn main() -> anyhow::Result<()> {
         connection.local_ips().into_iter().map(|ip| format!("{ip}:{local_port}")).collect();
     window.set_address(local_ip_str.join("\n").into());
 
-    window.show()?;
+    window.show().inspect_err(|err| tracing::error!("window show: {err}"))?;
 
-    slint::run_event_loop()?;
+    slint::run_event_loop().inspect_err(|err| tracing::error!("slint event loop: {err}"))?;
 
-    mdns.shutdown()?;
+    mdns.shutdown().inspect_err(|err| tracing::error!("mdns shutdown: {err}"))?;
 
     // #[allow(unused_mut)] // for non-apple platforms
     // let mut mdns_browser = {

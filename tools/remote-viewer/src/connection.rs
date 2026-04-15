@@ -33,6 +33,7 @@ enum CacheEntry {
     Ready(VersionedFileContent),
 }
 
+#[derive(Debug)]
 pub enum ConnectionMessage {
     SetConfiguration { config: PreviewConfig },
     ShowPreview { preview_component: PreviewComponent },
