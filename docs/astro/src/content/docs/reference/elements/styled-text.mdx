@@ -60,6 +60,16 @@ Other HTML tags  |
 The default color of the text, used when no color is specified via markup.
 </SlintProperty>
 
+### default-font-family
+<SlintProperty propName="default-font-family" typeName="string">
+The default font family used to render the text, when no font is specified via markup. If left empty, the value falls back to the enclosing `Window`'s `default-font-family`.
+</SlintProperty>
+
+### default-font-size
+<SlintProperty propName="default-font-size" typeName="length">
+The default font size used to render the text, when no size is specified via markup. If unset (or zero), the value falls back to the enclosing `Window`'s `default-font-size`.
+</SlintProperty>
+
 ### horizontal-alignment
 <SlintProperty propName="horizontal-alignment" typeName="enum" enumName="TextHorizontalAlignment">
 The horizontal alignment of the text.
