@@ -75,6 +75,3 @@ slint-build = { path = "../../api/rs/build" }
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
-
-[patch.crates-io]
-surfman = { git = "https://github.com/burhankhanzada/surfman.git", rev = "972b968" }
