@@ -1477,26 +1477,6 @@ mod tests {
         assert!(res.iter().any(|ci| ci.label == "padding"));
         assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
         assert!(!res.iter().any(|ci| ci.label == "flex-align-self"));
-
-        let res = get_completions(
-            r#"
-            component Foo {
-                FlexboxLayout {
-                    🔺
-                }
-            }
-        "#,
-        )
-        .unwrap();
-        assert!(res.iter().any(|ci| ci.label == "spacing"));
-        assert!(res.iter().any(|ci| ci.label == "alignment"));
-        assert!(res.iter().any(|ci| ci.label == "flex-direction"));
-        assert!(res.iter().any(|ci| ci.label == "align-content"));
-        assert!(res.iter().any(|ci| ci.label == "align-items"));
-        assert!(res.iter().any(|ci| ci.label == "flex-wrap"));
-        assert!(res.iter().any(|ci| ci.label == "padding"));
-        assert!(!res.iter().any(|ci| ci.label == "row"));
-        assert!(!res.iter().any(|ci| ci.label == "col"));
     }
 
     #[test]

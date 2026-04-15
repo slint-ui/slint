@@ -630,6 +630,13 @@ impl TypeRegister {
         register.elements.remove("DropArea").unwrap();
         register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
 
+        register.elements.remove("FlexboxLayout").unwrap();
+        register.types.remove("FlexboxLayoutDirection").unwrap();
+        register.types.remove("FlexboxLayoutAlignContent").unwrap();
+        register.types.remove("FlexboxLayoutAlignItems").unwrap();
+        register.types.remove("FlexboxLayoutWrap").unwrap();
+        register.types.remove("FlexboxLayoutAlignSelf").unwrap();
+
         match register.elements.get_mut("Window").unwrap() {
             ElementType::Builtin(b) => {
                 Rc::get_mut(b)
