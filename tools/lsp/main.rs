@@ -216,6 +216,7 @@ impl RequestHandler {
     }
 }
 
+#[cfg(feature = "preview-engine")]
 fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformError> {
     if !args.remote_controlled {
         return Err(slint::PlatformError::Other(
