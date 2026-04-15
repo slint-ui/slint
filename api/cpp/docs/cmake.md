@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ccmake dslint femtovg -->
+<!-- cSpell: ignore ccmake -->
 
 # Set Up Development Environment
 

@@ -236,10 +236,6 @@ export default defineConfig({
                                                   label: "Library Modules",
                                                   slug: "guide/experimental/library-modules",
                                               },
-                                              {
-                                                  label: "SlintContext",
-                                                  slug: "guide/experimental/slint-context",
-                                              },
                                           ],
                                       },
                                   ]
