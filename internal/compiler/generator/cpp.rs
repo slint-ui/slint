@@ -818,7 +818,7 @@ pub fn generate(
     ));
 
     let mut init_global = Vec::new();
-    let mut global_names: Vec<SmolStr> = Vec::new();
+    let mut clone_constructor_global_inits = Vec::new();
 
     for (idx, glob) in llr.globals.iter_enumerated() {
         if !glob.must_generate() {
@@ -838,7 +838,7 @@ pub fn generate(
             Declaration::TypeAlias(TypeAlias { old_name: ident(&glob.name), new_name: ident(name) })
         }));
 
-        global_names.push(name.clone());
+        clone_constructor_global_inits.push(format!("{name}(source.{name})"));
 
         globals_struct.members.push((
             Access::Public,
@@ -865,7 +865,7 @@ pub fn generate(
     // Build initializer-list string for the clone_with_window_adapter constructor
     {
         let global_inits = std::iter::once("root_weak(source.root_weak)".to_string())
-            .chain(global_names.iter().map(|n| format!("{n}(source.{n})")))
+            .chain(clone_constructor_global_inits)
             .collect::<Vec<_>>()
             .join(", ");
         let init_list =
