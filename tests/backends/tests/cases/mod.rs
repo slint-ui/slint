@@ -3,6 +3,7 @@
 
 pub mod harness;
 pub mod popupwindow_size;
+pub mod popupwindow_size2;
 pub mod popupwindow_size_layout;
 use std::sync::{
     Arc,
