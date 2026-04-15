@@ -23,6 +23,8 @@ smol_str = { workspace = true }
 
 [dev-dependencies]
 itertools = { workspace = true }
+rayon = { workspace = true }
+tempfile = "3"
 
 [[bin]]
 name = "slint-tr-extractor"

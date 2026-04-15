@@ -10209,8 +10209,10 @@ dependencies = [
  "clap",
  "i-slint-compiler",
  "itertools 0.14.0",
+ "rayon",
  "rspolib",
  "smol_str 0.3.2",
+ "tempfile",
 ]
 
 [[package]]
