@@ -39,11 +39,11 @@ For external contributions, the reviewer must merge the PR.
 
 # Phase 4: Testing
 
-We have a set of [Regression Tests](/development-process/#regression-tests) that are triggered from the CI/CD pipeline. These are executed as part of Phase 4.
+We have a set of tests that are executed as part of this phase.
+These tests can be run locally using the "cargo test" command.
+They are described in more detail here: [Tests](/qualification-plan/test-cases/).
 
-We also have a set of [Safety Critical Tests](/qualification-plan/test-cases/) that are run from our Validator tool.
 
-(TODO: What else?)
 
 
 

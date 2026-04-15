@@ -57,13 +57,6 @@ For Slint, [Actions](https://github.com/slint-ui/slint/actions) are triggered fo
 * **Tool Impact (TI1):** The CI system schedules and runs tests but does not generate the final executable code itself. Failures during CI block merging the PR.
 * **Qualification Strategy:** Verification of the CI pipeline is achieved through increased confidence from use.
 
-### Regression Tests
-
-A small set of regression tests are run after each nightly build and after each PR is pushed.
-
-(TODO: Describe where/how the tests are executed.)
-(TODO: List test cases here.)
-
 ## Software Component Qualification (ISO 26262-8 12.x)
 
 To ensure that software tools used in the development of Slint SC do not introduce or fail to detect errors, tools are assessed based on their Tool Impact (TI) and Tool Error Detection (TD) to determine their Tool Confidence Level (TCL).
