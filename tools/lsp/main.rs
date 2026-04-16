@@ -3,6 +3,7 @@
 
 #![cfg(not(target_arch = "wasm32"))]
 #![allow(clippy::await_holding_refcell_ref)]
+#![deny(clippy::print_stderr, clippy::print_stdout)]
 
 #[cfg(all(feature = "preview-engine", not(feature = "preview-builtin")))]
 compile_error!(

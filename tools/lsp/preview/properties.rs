@@ -1064,11 +1064,11 @@ pub mod tests {
         ec: u32,
     ) {
         for (i, l) in content.split('\n').enumerate() {
-            println!("{i:2}: {l}");
+            tracing::debug!("{i:2}: {l}");
         }
-        println!("-------------------------------------------------------------------");
-        println!("   :           1         2         3         4         5");
-        println!("   : 012345678901234567890123456789012345678901234567890123456789");
+        tracing::debug!("-------------------------------------------------------------------");
+        tracing::debug!("   :           1         2         3         4         5");
+        tracing::debug!("   : 012345678901234567890123456789012345678901234567890123456789");
 
         let (dc, url, _) = loaded_document_cache(content);
         let source_file = dc.get_document(&url).unwrap().node.as_ref().unwrap().source_file.clone();
@@ -1082,7 +1082,7 @@ pub mod tests {
 
         let sel_range =
             util::text_range_to_lsp_range(&source_file, definition.selection_range, dc.format);
-        println!(
+        tracing::debug!(
             "Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
             sel_range.start.line,
             sel_range.start.character,
