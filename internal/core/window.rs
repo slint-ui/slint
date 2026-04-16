@@ -382,6 +382,34 @@ impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     }
 }
 
+enum WindowType {
+    /// Store the parents window adapter
+    ChildWindow(Weak<dyn WindowAdapter>),
+    /// Store the window adapter of it self
+    NativeWindow(Weak<dyn WindowAdapter>),
+}
+
+struct WindowPositionTracker {
+    window_type: WindowType,
+}
+
+impl crate::properties::PropertyDirtyHandler for WindowPositionTracker {
+    fn notify(self: Pin<&Self>) {
+        match &self.window_type {
+            WindowType::ChildWindow(adapter) => {
+                if let Some(adapter) = adapter.upgrade() {
+                    adapter.window().request_redraw();
+                }
+            }
+            WindowType::NativeWindow(adapter) => {
+                if let Some(adapter) = adapter.upgrade() {
+                    // adapter.window().set_position(position);
+                }
+            }
+        }
+    }
+}
+
 struct WindowRedrawTracker {
     window_adapter_weak: Weak<dyn WindowAdapter>,
 }
@@ -395,17 +423,15 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 }
 
 /// This enum describes the different ways a popup can be rendered by the back-end.
-#[derive(Clone)]
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(Rc<dyn WindowAdapter>),
+    TopLevel((Rc<dyn WindowAdapter>, Pin<Box<PropertyTracker<true, WindowPositionTracker>>>)),
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(LogicalPoint),
 }
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
 /// UI content, for example to show a context menu.
-#[derive(Clone)]
 pub struct PopupWindow {
     /// The ID of the associated popup.
     pub popup_id: NonZeroU32,
@@ -624,7 +650,7 @@ impl WindowInner {
         let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
-            if let PopupWindowLocation::TopLevel(wa) = &p.location {
+            if let PopupWindowLocation::TopLevel((wa, _)) = &p.location {
                 Rc::ptr_eq(wa, &window_adapter)
             } else {
                 false
@@ -938,7 +964,7 @@ impl WindowInner {
         }
 
         let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
-            PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
+            PopupWindowLocation::TopLevel((wa, _)) => Some(wa.clone()),
             PopupWindowLocation::ChildWindow(..) => None,
         });
         if let Some(popup_wa) = popup_wa {
@@ -1344,7 +1370,7 @@ impl WindowInner {
         {
             // Popup in a popup
             match &parent_popup.location {
-                PopupWindowLocation::TopLevel(wa) => wa.clone(),
+                PopupWindowLocation::TopLevel((wa, _)) => wa.clone(),
                 PopupWindowLocation::ChildWindow(_) => self.window_adapter(),
             }
         } else {
@@ -1384,7 +1410,15 @@ impl WindowInner {
             ));
 
             popup_window_adapter.set_visible(true).expect("Unable to show popup");
-            PopupWindowLocation::TopLevel(popup_window_adapter)
+            let tracker =
+                Box::pin(PropertyTracker::new_with_dirty_handler(WindowPositionTracker {
+                    window_type: WindowType::NativeWindow(Rc::downgrade(&popup_window_adapter)),
+                }));
+            tracker.as_ref().evaluate_as_dependency_root(|| {
+                // popup_componentrc.position();
+            });
+
+            PopupWindowLocation::TopLevel((popup_window_adapter, tracker))
         };
 
         let focus_item = self
@@ -1447,7 +1481,7 @@ impl WindowInner {
                     window_adapter.request_redraw();
                 }
             }
-            PopupWindowLocation::TopLevel(adapter) => {
+            PopupWindowLocation::TopLevel((adapter, _)) => {
                 let _ = adapter.set_visible(false);
             }
         }
