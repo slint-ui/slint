@@ -337,7 +337,7 @@ impl i_slint_core::platform::Platform for Backend {
 struct QtPlatformClipboard;
 
 #[cfg(not(no_qt))]
-impl PlatformClipboard for WinitPlatformClipboard {
+impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
@@ -347,12 +347,12 @@ impl PlatformClipboard for WinitPlatformClipboard {
 
         match value.read_plaintext() {
             Ok(value) => {
-                let is_selection: bool = match _clipboard {
+                let is_selection: bool = match clipboard {
                     i_slint_core::platform::Clipboard::DefaultClipboard => false,
                     i_slint_core::platform::Clipboard::SelectionClipboard => true,
                     _ => return,
                 };
-                let text: qttypes::QString = _text.into();
+                let text: qttypes::QString = text.into();
                 cpp! {unsafe [text as "QString", is_selection as "bool"] {
                     ensure_initialized();
                     if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
@@ -384,7 +384,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
             ));
         }
 
-        let is_selection: bool = match _clipboard {
+        let is_selection: bool = match clipboard {
             i_slint_core::platform::Clipboard::DefaultClipboard => false,
             i_slint_core::platform::Clipboard::SelectionClipboard => true,
             _ => return None,

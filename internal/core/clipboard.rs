@@ -7,6 +7,7 @@ use alloc::sync::Arc;
 
 use crate::SharedString;
 
+#[cfg(feature = "std")]
 pub use mime;
 
 pub trait PlatformClipboard {
@@ -111,10 +112,12 @@ impl From<alloc::string::String> for ClipboardError {
 impl core::fmt::Display for ClipboardError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            #[cfg(feature = "std")]
             ClipboardError::Io(error) => write!(f, "{error}"),
             ClipboardError::TypeNotFound(clipboard_type) => {
                 write!(f, "No value of type {clipboard_type} was provided")
             }
+            #[cfg(feature = "std")]
             ClipboardError::Other(err) => write!(f, "{err}"),
             ClipboardError::Message(msg) => write!(f, "{msg}"),
         }
@@ -133,11 +136,13 @@ impl core::fmt::Display for ClipboardType {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ClipboardType::Internal(type_id) => write!(f, "#{type_id:?}"),
+            #[cfg(feature = "std")]
             ClipboardType::External(mime) => write!(f, "#{mime}"),
         }
     }
 }
 
+#[cfg(feature = "std")]
 impl From<mime::Mime> for ClipboardType {
     fn from(value: mime::Mime) -> Self {
         Self::External(value)
