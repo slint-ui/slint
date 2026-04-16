@@ -61,36 +61,26 @@ const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
 ];
 
 impl SkiaRendererAdapter {
-    #[cfg(any(
-        feature = "renderer-skia-vulkan",
-        feature = "unstable-wgpu-27",
-        feature = "unstable-wgpu-28"
-    ))]
+    #[cfg(enable_skia_wgpu)]
     pub fn new_wgpu(
         device_opener: &crate::DeviceOpener,
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
 
-        #[cfg(feature = "unstable-wgpu-28")]
+        #[cfg(skia_wgpu_28)]
         let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
-        #[cfg(all(
-            any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-27"),
-            not(feature = "unstable-wgpu-28")
-        ))]
+        #[cfg(skia_wgpu_27)]
         let (surface_target, size) = drm_output.wgpu_27_surface_target()?;
 
-        #[cfg(feature = "unstable-wgpu-28")]
+        #[cfg(skia_wgpu_28)]
         let skia_wgpu_surface =
             Box::new(i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
                 surface_target,
                 size,
                 requested_graphics_api.cloned(),
             )?);
-        #[cfg(all(
-            any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-27"),
-            not(feature = "unstable-wgpu-28")
-        ))]
+        #[cfg(skia_wgpu_27)]
         let skia_wgpu_surface =
             Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
                 surface_target,
@@ -194,11 +184,7 @@ impl SkiaRendererAdapter {
         #[allow(unused_assignments)]
         let mut result = Err("No skia renderer available".to_string().into());
 
-        #[cfg(any(
-            feature = "renderer-skia-vulkan",
-            feature = "unstable-wgpu-27",
-            feature = "unstable-wgpu-28"
-        ))]
+        #[cfg(enable_skia_wgpu)]
         {
             result = Self::new_wgpu(device_opener, requested_graphics_api);
         }
