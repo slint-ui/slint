@@ -46,35 +46,18 @@ pub fn lower_layouts(
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
 
-    // Popups have their own layout constraints
-    recurse_popup(component, &mut |popup: &PopupWindow| {
-        let component = &popup.component;
-        *component.root_constraints.borrow_mut() =
-            LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
-
-        recurse_elem_including_sub_components_no_popup(
-            component,
-            &Option::default(),
-            &mut |elem, parent_layout_type| {
-                let component = elem.borrow().enclosing_component.upgrade().unwrap();
-                println!("Lower element layout: {:?}", component.id);
-                lower_element_layout(
-                    &component,
-                    elem,
-                    &type_loader.global_type_registry.borrow(),
-                    style_metrics,
-                    parent_layout_type,
-                    diag,
-                )
-            },
-        );
-    });
-
-    recurse_elem_including_sub_components_no_popup(
+    recurse_elem_including_sub_components(
         component,
         &Option::default(),
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
+
+            // Popups have their own layout constraints
+            for popup in component.popup_windows.borrow_mut().iter() {
+                let component = &popup.component;
+                *component.root_constraints.borrow_mut() =
+                    LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+            }
 
             lower_element_layout(
                 &component,

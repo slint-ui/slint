@@ -2323,13 +2323,6 @@ pub fn recurse_elem<State>(
     }
 }
 
-pub fn recurse_popup(elem: &Component, vis: &mut impl FnMut(&PopupWindow)) {
-    for p in elem.popup_windows.borrow_mut().iter() {
-        vis(&p);
-        recurse_popup(&p.component, vis);
-    }
-}
-
 /// Same as [`recurse_elem`] but include the elements from sub_components
 /// It includes all popup_windows and menu_item_trees
 pub fn recurse_elem_including_sub_components<State>(
@@ -2360,27 +2353,6 @@ pub fn recurse_elem_including_sub_components<State>(
         .borrow()
         .iter()
         .for_each(|c| recurse_elem_including_sub_components(c, state, vis));
-}
-
-/// Same as [`recurse_elem_including_sub_components`] but do not include popups or menu item trees
-pub fn recurse_elem_including_sub_components_no_popup<State>(
-    component: &Component,
-    state: &State,
-    vis: &mut impl FnMut(&ElementRc, &State) -> State,
-) {
-    recurse_elem(&component.root_element, state, &mut |elem, state| {
-        debug_assert!(std::ptr::eq(
-            component as *const Component,
-            (&*elem.borrow().enclosing_component.upgrade().unwrap()) as *const Component
-        ));
-        if elem.borrow().repeated.is_some()
-            && let ElementType::Component(base) = &elem.borrow().base_type
-            && base.parent_element().is_some()
-        {
-            recurse_elem_including_sub_components_no_popup(base, state, vis);
-        }
-        vis(elem, state)
-    });
 }
 
 /// Same as recurse_elem, but will take the children from the element as to not keep the element borrow
