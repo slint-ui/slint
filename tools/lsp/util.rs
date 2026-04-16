@@ -486,9 +486,10 @@ component MainWindow inherits Window {
                 u32::from(original_offset).into(),
                 ByteFormat::Utf16,
             );
-            eprintln!(
+            tracing::debug!(
                 "c: {c} <offset: {offset:?}> => {line}:{pos_8} => mapped {}:{}",
-                mapped_8.line, mapped_8.character
+                mapped_8.line,
+                mapped_8.character
             );
             assert_eq!(mapped_8.line, (line as u32));
             assert_eq!(mapped_8.character, (pos_8 as u32));
