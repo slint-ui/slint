@@ -5,7 +5,25 @@ description: Expert guidance for building, debugging, and working with Slint GUI
 
 # Slint Development Skill
 
-You are an expert at building applications with [Slint](https://slint.dev), a declarative GUI toolkit for native user interfaces across desktop, embedded, mobile, and web platforms.
+Use this skill when building, debugging, or reviewing applications that use [Slint](https://slint.dev), a declarative GUI toolkit for native user interfaces across desktop, embedded, mobile, and web platforms.
+
+## When to Use This Skill
+
+Use this skill when the task involves:
+- Writing or debugging `.slint` files
+- Integrating Slint with Rust, C++, JavaScript, or Python
+- Investigating layout, binding, rendering, or event-handling issues
+- Enabling the Slint MCP server for runtime inspection and UI debugging
+- Explaining or reviewing Slint-specific code patterns
+
+## How to Help
+
+When using this skill:
+- Prefer idiomatic Slint patterns over manual UI workarounds
+- Match guidance to the user's language binding and Slint version
+- Watch for common pitfalls such as binding loops, missing layout constraints, and type mismatches
+- Suggest the MCP server when runtime inspection or interaction would make debugging easier
+- Prefer solutions that preserve Slint's declarative and reactive model
 
 ## The .slint Language
 
@@ -44,7 +62,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
 ### C++
 
-Use CMake with `FetchContent` or find_package:
+Use CMake with `FetchContent` or `find_package`:
 ```cmake
 find_package(Slint)
 slint_target_sources(my_app ui/main.slint)
@@ -77,17 +95,19 @@ import slint
 
 4. **Type mismatches**: `length` and `int`/`float` are different types. Use `1px * my_int` to convert, or `my_length / 1px` to get a number.
 
-5. **Performance**: Use `ListView` (not `for` in `ScrollView`) for long lists - it virtualizes. Use `image-rendering: pixelated` only when needed. Avoid deeply nested opacity/clip layers.
+5. **Performance**: Use `ListView` (not `for` in `ScrollView`) for long lists because it virtualizes. Use `image-rendering: pixelated` only when needed. Avoid deeply nested opacity or clip layers.
 
 ### Debug Helpers
 
-- `debug("message", expression)` - prints to stderr at runtime
-- `SLINT_DEBUG_PERFORMANCE=refresh_lazy,console` - performance overlay
+- `debug("message", expression)` prints to stderr at runtime
+- `SLINT_DEBUG_PERFORMANCE=refresh_lazy,console` enables performance diagnostics
 - Run with `SLINT_BACKEND=winit-skia` or other backend variants for testing
 
 ## MCP Server for AI-Assisted Debugging
 
-Slint includes an embedded MCP (Model Context Protocol) server that lets you inspect and interact with a running Slint application in real time. The server provides tools for exploring the UI tree, taking screenshots, clicking elements, dragging, typing, and more. Agents discover the available tools and usage instructions automatically via the MCP protocol — no additional configuration is needed beyond enabling the server.
+Slint includes an embedded MCP (Model Context Protocol) server that lets you inspect and interact with a running Slint application in real time. The server provides tools for exploring the UI tree, taking screenshots, clicking elements, dragging, typing, and more.
+
+Once enabled, an AI coding assistant can connect to the MCP endpoint to inspect and interact with the running UI.
 
 ### Enabling the MCP Server
 
@@ -109,7 +129,7 @@ If the project is part of a workspace that depends on Slint from a path (e.g. wo
 SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app
 ```
 
-**Step 3**: Connect directly to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport. Use the MCP tools to inspect and interact with the UI.
+**Step 3**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
 
 ### Version Requirements
 
@@ -120,12 +140,12 @@ The MCP server uses internal Slint APIs (`i-slint-backend-selector`), so the ava
 | < 1.16.0 | Not available |
 | >= 1.16.0 | Full MCP server with `i-slint-backend-selector` `mcp` feature |
 
-The `i-slint-backend-selector` crate does not follow semver — it must be pinned to the exact Slint version with `=` (e.g. `version = "=1.16.0"`). MCP features and tools may change between Slint releases without notice.
+The `i-slint-backend-selector` crate does not follow semver. It must be pinned to the exact Slint version with `=`. MCP features and tools may change between Slint releases without notice.
 
 ### When to Suggest MCP
 
 Suggest enabling the MCP server when the user is:
-- Debugging layout or visual issues ("my element isn't showing up", "the layout is wrong")
+- Debugging layout or visual issues
 - Trying to understand the runtime element hierarchy
 - Testing interactions programmatically
 - Verifying accessibility properties
@@ -134,9 +154,9 @@ Suggest enabling the MCP server when the user is:
 ## Documentation Reference
 
 Full documentation for the latest version is at https://slint.dev/docs. Key sections:
-- Language guide: concepts, syntax, coding patterns
-- Reference: all elements, properties, types, std-widgets
-- Language integrations: Rust, C++, Node.js, Python API docs
+- Language guide: concepts, syntax, and coding patterns
+- Reference: elements, properties, types, and standard widgets
+- Language integrations: Rust, C++, Node.js, and Python API docs
 - Tutorials: step-by-step guides for each language
-For a specific Slint version, the documentation can be found at `https://releases.slint.dev/<version>/docs`, for
-example `https://releases.slint.dev/1.15.1/docs` for version 1.15.1.
+
+For a specific Slint version, the documentation can be found at `https://releases.slint.dev/<version>/docs`, for example `https://releases.slint.dev/1.15.1/docs`.
