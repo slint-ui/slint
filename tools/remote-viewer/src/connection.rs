@@ -51,14 +51,12 @@ pub struct Connection {
 
 impl Connection {
     pub async fn listen(
+        address: Option<SocketAddr>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
-        let listener = tokio::net::TcpListener::bind(SocketAddr::V6(SocketAddrV6::new(
-            Ipv6Addr::UNSPECIFIED,
-            0,
-            0,
-            0,
-        )))
+        let listener = tokio::net::TcpListener::bind(
+            address.unwrap_or(SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))),
+        )
         .await?;
         let local_addr = listener.local_addr().map_err(Box::new)?;
         tracing::info!("Listening on {}", local_addr);
@@ -254,7 +252,11 @@ impl Connection {
             SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
         };
         if unspecififed {
-            getifs::local_addrs().unwrap_or_default().into_iter().map(|net| net.addr()).collect()
+            getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
+                .unwrap_or_default()
+                .into_iter()
+                .map(|net| net.addr())
+                .collect()
         } else {
             vec![self.local_addr.ip()]
         }

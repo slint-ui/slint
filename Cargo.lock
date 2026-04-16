@@ -10822,6 +10822,7 @@ dependencies = [
  "i-slint-core",
  "itertools 0.14.0",
  "notify",
+ "remote-viewer",
  "serde_json",
  "shlex",
  "slint-interpreter",
