@@ -61,8 +61,8 @@ const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
 ];
 
 impl SkiaRendererAdapter {
-    #[cfg(feature = "renderer-skia-vulkan")]
-    pub fn new_vulkan(
+    #[cfg(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
+    pub fn new_wgpu(
         device_opener: &crate::DeviceOpener,
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
@@ -70,7 +70,7 @@ impl SkiaRendererAdapter {
 
         #[cfg(feature = "unstable-wgpu-28")]
         let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
-        #[cfg(not(feature = "unstable-wgpu-28"))]
+        #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
         let (surface_target, size) = drm_output.wgpu_27_surface_target()?;
 
         #[cfg(feature = "unstable-wgpu-28")]
@@ -80,7 +80,7 @@ impl SkiaRendererAdapter {
                 size,
                 requested_graphics_api.cloned(),
             )?);
-        #[cfg(not(feature = "unstable-wgpu-28"))]
+        #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
         let skia_wgpu_surface =
             Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
                 surface_target,
@@ -93,13 +93,13 @@ impl SkiaRendererAdapter {
                 &SkiaSharedContext::default(),
                 skia_wgpu_surface,
             ),
-            // TODO: For vulkan we don't have a page flip event handling mechanism yet, so drive it with a timer.
+            // TODO: For wgpu we don't have a page flip event handling mechanism yet, so drive it with a timer.
             presenter: crate::display::noop_presenter::NoopPresenter::new(),
             size,
             _drm_output: Some(drm_output),
         });
 
-        eprintln!("Using Skia Vulkan renderer with wgpu");
+        eprintln!("Using Skia renderer with wgpu");
 
         Ok(renderer)
     }
@@ -177,16 +177,16 @@ impl SkiaRendererAdapter {
         Ok(renderer)
     }
 
-    pub fn new_try_vulkan_then_opengl_then_software(
+    pub fn new_try_wgpu_then_opengl_then_software(
         device_opener: &crate::DeviceOpener,
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         #[allow(unused_assignments)]
         let mut result = Err("No skia renderer available".to_string().into());
 
-        #[cfg(feature = "renderer-skia-vulkan")]
+        #[cfg(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
         {
-            result = Self::new_vulkan(device_opener, requested_graphics_api);
+            result = Self::new_wgpu(device_opener, requested_graphics_api);
         }
 
         #[cfg(feature = "renderer-skia-opengl")]
