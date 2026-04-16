@@ -130,7 +130,7 @@ pub trait Platform {
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
     #[deprecated(
-        since = "0.17.0",
+        since = "1.17.0",
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
@@ -141,7 +141,7 @@ pub trait Platform {
     ///
     /// If the platform doesn't support the specified clipboard, the function should return None
     #[deprecated(
-        since = "0.17.0",
+        since = "1.17.0",
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
