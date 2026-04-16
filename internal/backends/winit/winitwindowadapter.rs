@@ -1165,62 +1165,19 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window_or_none.set_window_level(new_window_level);
         }
 
-        let mut current_width = window_item.width().get() as f32;
-        let mut current_height = window_item.height().get() as f32;
+        let mut width = window_item.width().get() as f32;
+        let mut height = window_item.height().get() as f32;
         let mut must_resize = false;
         let existing_size = self.size.get().to_logical(sf);
-        if current_width <= 0. || current_height <= 0. {
+        if width <= 0. || height <= 0. {
             must_resize = true;
-            if current_width <= 0. {
-                current_width = existing_size.width;
+            if width <= 0. {
+                width = existing_size.width;
             }
-            if current_height <= 0. {
-                current_height = existing_size.height;
-            }
-        }
-        let mut width;
-        let mut height;
-
-        let constraints = properties.layout_constraints();
-
-        if true || window_item.width.is_constant() {
-            width = current_width;
-        } else {
-            width = constraints.preferred.width;
-            if let Some(min) = constraints.min {
-                width = width.max(min.width);
-            }
-            if let Some(max) = constraints.max {
-                width = width.min(max.width);
+            if height <= 0. {
+                height = existing_size.height;
             }
         }
-
-        if true || window_item.height.is_constant() {
-            height = current_height;
-        } else {
-            height = constraints.preferred.height;
-            if let Some(min) = constraints.min {
-                height = height.max(min.height)
-            }
-            if let Some(max) = constraints.max {
-                height = height.min(max.height)
-            }
-        }
-
-        println!(
-            "update_window_properties. Has width is_constant: {}, current_width: {}, Width: {}",
-            window_item.width.is_constant(),
-            current_width,
-            width
-        );
-        println!(
-            "update_window_properties. Has height is_constant: {}, current_height: {}. Height: {}",
-            window_item.height.is_constant(),
-            current_height,
-            height
-        );
-
-        must_resize = must_resize || width != current_width || height != current_height;
 
         // Adjust the size of the window to the value of the width and height property (if these property are changed from .slint).
         // But not if there is a pending resize in flight as that resize will reset these properties back
