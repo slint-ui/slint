@@ -225,7 +225,7 @@ pub(crate) fn solve_flexbox_layout(
     let align_items = flexbox_layout
         .align_items
         .as_ref()
-        .map_or(i_slint_core::items::FlexboxLayoutAlignItems::default(), |nr| {
+        .map_or(i_slint_core::items::LayoutAlignItems::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
     let flex_wrap = flexbox_layout

@@ -633,7 +633,7 @@ impl TypeRegister {
         register.elements.remove("FlexboxLayout").unwrap();
         register.types.remove("FlexboxLayoutDirection").unwrap();
         register.types.remove("FlexboxLayoutAlignContent").unwrap();
-        register.types.remove("FlexboxLayoutAlignItems").unwrap();
+        register.types.remove("LayoutAlignItems").unwrap();
         register.types.remove("FlexboxLayoutWrap").unwrap();
         register.types.remove("FlexboxLayoutAlignSelf").unwrap();
 

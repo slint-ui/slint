@@ -396,7 +396,7 @@ macro_rules! for_each_enums {
 
             /// Controls the alignment of individual items along the cross axis within each flex line.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignItems {
+            enum LayoutAlignItems {
                 /// Items are stretched to fill the line along the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.

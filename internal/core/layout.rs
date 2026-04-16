@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
-    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
+    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf, FlexboxLayoutDirection,
+    FlexboxLayoutWrap, LayoutAlignItems, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1138,7 +1138,7 @@ pub struct FlexboxLayoutData<'a> {
     pub alignment: LayoutAlignment,
     pub direction: FlexboxLayoutDirection,
     pub align_content: FlexboxLayoutAlignContent,
-    pub align_items: FlexboxLayoutAlignItems,
+    pub align_items: LayoutAlignItems,
     pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
@@ -1322,9 +1322,9 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
-        FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
-        Padding, Slice,
+        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf, FlexboxLayoutItemInfo,
+        FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignItems, LayoutAlignment, Padding,
+        Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1340,7 +1340,7 @@ mod flexbox_taffy {
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
         pub align_content: FlexboxLayoutAlignContent,
-        pub align_items: FlexboxLayoutAlignItems,
+        pub align_items: LayoutAlignItems,
         pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
@@ -1508,10 +1508,10 @@ mod flexbox_taffy {
                             LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         align_items: Some(match params.align_items {
-                            FlexboxLayoutAlignItems::Stretch => AlignItems::Stretch,
-                            FlexboxLayoutAlignItems::Start => AlignItems::FlexStart,
-                            FlexboxLayoutAlignItems::End => AlignItems::FlexEnd,
-                            FlexboxLayoutAlignItems::Center => AlignItems::Center,
+                            LayoutAlignItems::Stretch => AlignItems::Stretch,
+                            LayoutAlignItems::Start => AlignItems::FlexStart,
+                            LayoutAlignItems::End => AlignItems::FlexEnd,
+                            LayoutAlignItems::Center => AlignItems::Center,
                         }),
                         align_content: Some(match params.align_content {
                             FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
@@ -1957,7 +1957,7 @@ pub fn flexbox_layout_info_cross_axis(
         padding_v,
         alignment: LayoutAlignment::Start,
         align_content: FlexboxLayoutAlignContent::Stretch,
-        align_items: FlexboxLayoutAlignItems::Stretch,
+        align_items: LayoutAlignItems::Stretch,
         flex_wrap,
         flex_direction: taffy_direction,
         container_width,
