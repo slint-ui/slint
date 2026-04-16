@@ -209,6 +209,7 @@ fn write_go_main(dir: &Path, source: &str) -> Result<(), Box<dyn Error>> {
 
     let mut file = std::fs::File::create(dir.join("main.go"))?;
     file.write_all(b"package main\n\nimport (\n")?;
+    file.write_all(b"\t\"runtime\"\n")?;
     file.write_all(b"\tslint \"github.com/slint-ui/slint/api/go/slint\"\n")?;
     if !go_blocks.is_empty() {
         file.write_all(b"\t\"fmt\"\n")?;
@@ -234,6 +235,8 @@ var assertion = assertpkg.New(&panicT{})
     }
 
     file.write_all(b"func main() {\n")?;
+    writeln!(file, "\truntime.LockOSThread()")?;
+    writeln!(file, "\tdefer runtime.UnlockOSThread()")?;
     writeln!(file, "\tslint.InitTestingBackend()")?;
 
     for block in &go_blocks {

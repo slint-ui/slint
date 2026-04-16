@@ -1122,12 +1122,17 @@ pub unsafe extern "C" fn slint_go_component_definition_destructor(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_go_component_definition_create(
     definition: *const ComponentDefinition,
+    error_message: *mut *mut core::ffi::c_char,
 ) -> *mut ComponentInstance {
-    unsafe { &*definition }
-        .create()
-        .ok()
-        .map(|instance| Box::into_raw(Box::new(instance)))
-        .unwrap_or(core::ptr::null_mut())
+    match unsafe { &*definition }.create() {
+        Ok(instance) => Box::into_raw(Box::new(instance)),
+        Err(err) => {
+            if !error_message.is_null() {
+                unsafe { *error_message = slint_go_strdup(err.to_string()) };
+            }
+            core::ptr::null_mut()
+        }
+    }
 }
 
 /// Destroys a component instance returned by the Slint Go FFI.

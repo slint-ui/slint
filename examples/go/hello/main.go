@@ -7,12 +7,16 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/slint-ui/slint/examples/go/hello/ui"
 )
 
 func main() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	window, err := ui.NewAppWindow()
 	if err != nil {
 		panic(err)

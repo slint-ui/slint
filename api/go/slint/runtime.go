@@ -238,8 +238,12 @@ func (r *CompilationResult) Component(name string) *ComponentDefinition {
 }
 
 func (d *ComponentDefinition) Create() (*ComponentInstance, error) {
-	instance := wrapComponentInstance(C.slint_go_component_definition_create(d.raw()))
+	var errorMessage *C.char
+	instance := wrapComponentInstance(C.slint_go_component_definition_create(d.raw(), &errorMessage))
 	if instance == nil {
+		if errorMessage != nil {
+			return nil, fmt.Errorf("slint: failed to create component instance: %s", takeCString(errorMessage))
+		}
 		return nil, errors.New("slint: failed to create component instance")
 	}
 	return instance, nil

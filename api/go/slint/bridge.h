@@ -40,7 +40,8 @@ slint_go_compilation_result_component(const SlintGoCompilationResult *result,
 
 void slint_go_component_definition_destructor(SlintGoComponentDefinition *definition);
 SlintGoComponentInstance *
-slint_go_component_definition_create(const SlintGoComponentDefinition *definition);
+slint_go_component_definition_create(const SlintGoComponentDefinition *definition,
+                                     char **error_message);
 
 void slint_go_component_instance_destructor(SlintGoComponentInstance *instance);
 bool slint_go_component_instance_show(const SlintGoComponentInstance *instance);
