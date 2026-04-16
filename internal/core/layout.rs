@@ -1125,6 +1125,16 @@ pub struct BoxLayoutData<'a> {
     pub cells: Slice<'a, LayoutItemInfo>,
 }
 
+/// Input for `solve_box_layout_ortho`.
+#[repr(C)]
+#[derive(Debug)]
+pub struct BoxLayoutOrthoData<'a> {
+    pub size: Coord,
+    pub padding: Padding,
+    pub align_items: LayoutAlignItems,
+    pub cells: Slice<'a, LayoutItemInfo>,
+}
+
 #[repr(C)]
 #[derive(Debug)]
 /// The FlexboxLayoutData is used for a flex layout.
@@ -1271,6 +1281,41 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
     let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
     for layout in layout_data.iter() {
         generator.add(layout.pos, layout.size);
+    }
+    result
+}
+
+/// Cross-axis solve: returns (position, size) per cell, like [`solve_box_layout`].
+pub fn solve_box_layout_ortho(
+    data: &BoxLayoutOrthoData,
+    repeater_indices: Slice<u32>,
+) -> SharedVector<Coord> {
+    let mut result = SharedVector::<Coord>::default();
+    result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
+    if data.cells.is_empty() {
+        return result;
+    }
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
+    for c in data.cells.iter() {
+        let min =
+            c.constraint.min.max(c.constraint.min_percent * size_without_padding / 100 as Coord);
+        let max =
+            c.constraint.max.min(c.constraint.max_percent * size_without_padding / 100 as Coord);
+        let size = match data.align_items {
+            LayoutAlignItems::Stretch => size_without_padding,
+            _ => c.constraint.preferred,
+        }
+        .min(max)
+        .max(min);
+        let pos = match data.align_items {
+            LayoutAlignItems::Stretch | LayoutAlignItems::Start => data.padding.begin,
+            LayoutAlignItems::End => data.padding.begin + size_without_padding - size,
+            LayoutAlignItems::Center => {
+                data.padding.begin + (size_without_padding - size) / 2 as Coord
+            }
+        };
+        generator.add(pos, size);
     }
     result
 }
@@ -2063,6 +2108,15 @@ pub(crate) mod ffi {
         result: &mut SharedVector<Coord>,
     ) {
         *result = super::solve_box_layout(data, repeater_indices)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_solve_box_layout_ortho(
+        data: &BoxLayoutOrthoData,
+        repeater_indices: Slice<u32>,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_box_layout_ortho(data, repeater_indices)
     }
 
     #[unsafe(no_mangle)]

@@ -835,7 +835,7 @@ pub enum Expression {
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
     },
-    /// Determine the coordinates of the items
+    /// Determine the coordinates of the items in the given orientation.
     SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,

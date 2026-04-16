@@ -19,6 +19,15 @@ pub enum Orientation {
     Vertical,
 }
 
+impl Orientation {
+    pub fn orthogonal(self) -> Self {
+        match self {
+            Orientation::Horizontal => Orientation::Vertical,
+            Orientation::Vertical => Orientation::Horizontal,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Copy, Eq, PartialEq, Default)]
 pub enum FlexboxLayoutDirection {
     /// Items are laid out in rows (horizontal primary axis)
@@ -606,6 +615,8 @@ pub struct BoxLayout {
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
+    /// The `align-items` property, if set.
+    pub cross_alignment: Option<NamedReference>,
 }
 
 impl BoxLayout {
@@ -614,6 +625,9 @@ impl BoxLayout {
             cell.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
+        if let Some(e) = self.cross_alignment.as_mut() {
+            visitor(&mut *e);
+        }
     }
 }
 
