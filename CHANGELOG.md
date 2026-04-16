@@ -42,6 +42,7 @@ All notable changes to this project are documented in this file.
  - Added `Platform::open-url` function to open a URL in the default browser.
  - Fixed two-way binding to struct field of type length (#10844)
  - Added `FontWeight` namespace with standards constants. (#11207)
+ - Added support for `data:...` url in `@image-url()`.
 
 ### Widgets
 
