@@ -146,25 +146,47 @@ pub trait Model {
 
     /// Add a new row to the model.
     ///
-    /// This function should be called on a model that supports multiple rows of data, otherwise
-    /// it might panic.
-    fn push_row(&self, data: Self::Data) {
-        self.set_row_data(self.row_count(), data);
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
+    /// internal [`ModelNotify`].
+    fn push_row(&self, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::push_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>());
+    }
+
+    /// Remove a row from the model at the specified index.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
+    /// internal [`ModelNotify`].
+    fn remove_row(&self, _row: usize) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::remove_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>());
     }
 
     /// Insert a new row at the specified index and move the next rows by 1 step to the right.
     ///
-    /// This function should be called on a model that supports multiple rows of data, otherwise
-    /// it might panic.
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if row < self.row_count() {
-            for i in (row..self.row_count()).rev() {
-                if let Some(d) = self.row_data(i) {
-                    self.set_row_data(i + 1, d);
-                }
-            }
-        }
-        self.set_row_data(row, data);
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
+    /// internal [`ModelNotify`].
+    fn insert_row(&self, _row: usize, _data: Self::Data) {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::insert_row called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>());
     }
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
@@ -841,6 +863,24 @@ impl<T> Model for ModelRc<T> {
         if let Some(model) = self.0.as_ref() {
             model.set_row_data(row, data);
         }
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.push_row(data);
+        }
+    }
+
+    fn remove_row(&self, row: usize) {
+        if let Some(model) = self.0.as_ref() {
+            model.remove_row(row);
+        }
+    }
+
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        if let Some(model) = self.0.as_ref() {
+            model.insert_row(row, data);
+        }   
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {

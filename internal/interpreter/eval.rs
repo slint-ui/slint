@@ -1423,12 +1423,6 @@ fn call_builtin_function(
 
             model.remove_row(index);
 
-            model.iter().for_each(|item| println!("{item:?}"));
-
-            model.as_any()
-                .downcast_ref::<corelib::model::SharedVectorModel<Value>>()
-                .expect("Couldn't get the array from the model in ArrayRemove");
-
             Value::Void
         }
 
