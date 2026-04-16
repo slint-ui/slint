@@ -213,6 +213,10 @@ export default defineConfig({
                                                   slug: "guide/experimental/overview",
                                               },
                                               {
+                                                  label: "AI Coding Assistants",
+                                                  slug: "guide/experimental/ai-coding-assistants",
+                                              },
+                                              {
                                                   label: "FlexboxLayout",
                                                   slug: "guide/experimental/flexboxlayout",
                                               },
