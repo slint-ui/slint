@@ -335,7 +335,7 @@ pub(super) fn solve_flexbox_layout(
             (
                 "align_items",
                 crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.FlexboxLayoutAlignItems.clone())),
+                    .with(|e| Type::Enumeration(e.enums.LayoutAlignItems.clone())),
                 fld.align_items,
             ),
             (
@@ -609,7 +609,7 @@ fn flexbox_layout_data(
     let align_items = if let Some(expr) = &layout.align_items {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutAlignItems.clone());
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignItems.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
