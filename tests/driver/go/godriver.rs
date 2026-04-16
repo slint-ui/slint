@@ -104,6 +104,7 @@ fn runtime_flags(goos: &str, target_id: &str, dist_dir: &Path) -> String {
         ),
         "darwin" => flags.extend(
             [
+                "-framework Cocoa",
                 "-framework CoreGraphics",
                 "-framework CoreText",
                 "-framework Foundation",
