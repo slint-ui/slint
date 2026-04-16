@@ -1402,8 +1402,12 @@ mod flexbox_taffy {
                                     width: match params.flex_direction {
                                         TaffyFlexDirection::Column
                                         | TaffyFlexDirection::ColumnReverse => {
+                                            // Cross-axis for column
                                             if let Some(cw) = params.container_width {
-                                                Dimension::length(cw as _)
+                                                // Fit inside the container's content box (subtract padding)
+                                                let pad =
+                                                    params.padding_h.begin + params.padding_h.end;
+                                                Dimension::length((cw - pad).max(0 as Coord) as _)
                                             } else if preferred_width > 0 as Coord {
                                                 Dimension::length(preferred_width as _)
                                             } else {
