@@ -6,15 +6,38 @@ use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap();
+    let manifest_dir_path = Path::new(&manifest_dir);
     let output_dir = std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).to_path_buf();
     let target_dir = output_dir
         .ancestors()
         .nth(3)
         .unwrap_or_else(|| {
-            panic!("failed to locate target dir for {}", Path::new(&manifest_dir).display())
+            panic!("failed to locate target dir for {}", manifest_dir_path.display())
         })
         .to_path_buf();
     println!("cargo:rustc-env=CPP_LIB_PATH={}/deps", target_dir.display());
+    let readonly_cacheprog = output_dir.join(if cfg!(windows) {
+        "readonly-cacheprog.exe"
+    } else {
+        "readonly-cacheprog"
+    });
+    let readonly_cacheprog_source = manifest_dir_path.join("readonly-cacheprog.go");
+    println!("cargo:rerun-if-changed={}", readonly_cacheprog_source.display());
+    let status = std::process::Command::new("go")
+        .arg("build")
+        .arg("-o")
+        .arg(&readonly_cacheprog)
+        .arg(&readonly_cacheprog_source)
+        .current_dir(manifest_dir_path)
+        .status()?;
+    if !status.success() {
+        return Err(format!(
+            "failed to build {} with go build",
+            readonly_cacheprog_source.display()
+        )
+        .into());
+    }
+    println!("cargo:rustc-env=GO_READONLY_CACHEPROG={}", readonly_cacheprog.display());
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");

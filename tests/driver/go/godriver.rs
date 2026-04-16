@@ -42,6 +42,10 @@ fn cpp_lib_path() -> PathBuf {
     PathBuf::from(env!("CPP_LIB_PATH"))
 }
 
+fn go_readonly_cacheprog() -> PathBuf {
+    PathBuf::from(env!("GO_READONLY_CACHEPROG"))
+}
+
 fn static_artifact_names(_goos: &str) -> &'static [&'static str] {
     &["libslint_cpp.a"]
 }
@@ -376,6 +380,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .arg(".")
         .current_dir(dir.path())
         .env("GOCACHE", &go_cache)
+        .env("GOCACHEPROG", go_readonly_cacheprog())
         .env("GOMODCACHE", &go_mod_cache)
         .env("SLINT_BACKEND", "testing")
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
