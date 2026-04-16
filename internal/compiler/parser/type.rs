@@ -11,15 +11,31 @@ use super::prelude::*;
 /// string
 /// [ int ]
 /// {a: string, b: int}
+/// string?
+/// [int]?
 /// ```
 pub fn parse_type(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::Type);
-    match p.nth(0).kind() {
-        SyntaxKind::LBrace => parse_type_object(&mut *p),
-        SyntaxKind::LBracket => parse_type_array(&mut *p),
-        _ => {
-            parse_qualified_name(&mut *p);
+    let checkpoint = p.checkpoint();
+    {
+        let mut p = p.start_node(SyntaxKind::Type);
+        match p.nth(0).kind() {
+            SyntaxKind::LBrace => parse_type_object(&mut *p),
+            SyntaxKind::LBracket => parse_type_array(&mut *p),
+            _ => {
+                parse_qualified_name(&mut *p);
+            }
         }
+    }
+
+    // Check for optional type suffix `?`
+    // If found, wrap `Type { base }` in `Type { OptionalType { Type { base }, ? } }`
+    // to match the grammar: Type -> [ ?OptionalType ], OptionalType -> [ Type ]
+    if p.nth(0).kind() == SyntaxKind::Question {
+        {
+            let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::OptionalType);
+            p.consume(); // consume '?'
+        }
+        let _ = p.start_node_at(checkpoint, SyntaxKind::Type);
     }
 }
 
