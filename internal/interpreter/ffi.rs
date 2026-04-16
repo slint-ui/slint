@@ -1352,6 +1352,24 @@ pub extern "C" fn slint_go_value_new_bool(value: bool) -> *mut Value {
     Box::into_raw(Box::new(Value::Bool(value)))
 }
 
+/// Advances the mock animation time used by the testing backend.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_mock_elapsed_time(time_in_ms: u64) {
+    i_slint_core::tests::slint_mock_elapsed_time(time_in_ms);
+}
+
+/// Creates an enumeration value handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_new_enumeration_value(
+    enum_name: Slice<u8>,
+    value: Slice<u8>,
+) -> *mut Value {
+    Box::into_raw(Box::new(Value::EnumerationValue(
+        std::str::from_utf8(&enum_name).unwrap().into(),
+        std::str::from_utf8(&value).unwrap().into(),
+    )))
+}
+
 /// Returns the public type classification for a value handle.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_go_value_type(value: *const Value) -> ValueType {

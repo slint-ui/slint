@@ -260,7 +260,7 @@ fn to_value_expr(var_name: &str, ty: &Type) -> String {
         | Type::Percent
         | Type::Rem
         | Type::UnitProduct(_) => format!("slint.NumberValue({var_name})"),
-        Type::Enumeration(_) => format!("slint.StringValue(string({var_name}))"),
+        Type::Enumeration(en) => format!("slint.EnumValue({:?}, string({var_name}))", en.name),
         _ => var_name.into(),
     }
 }

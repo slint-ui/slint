@@ -15,3 +15,7 @@ import "C"
 func InitTestingBackend() {
 	C.slint_testing_init_backend()
 }
+
+func MockElapsedTime(timeInMs uint64) {
+	C.slint_testing_mock_elapsed_time(C.uint64_t(timeInMs))
+}

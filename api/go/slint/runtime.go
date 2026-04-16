@@ -430,6 +430,15 @@ func BoolValue(value bool) Value {
 	return wrapValue(C.slint_go_value_new_bool(C.bool(value)))
 }
 
+func EnumValue(enumName string, value string) Value {
+	enumNameSlice, enumNameBuf := makeByteSlice(enumName)
+	valueSlice, valueBuf := makeByteSlice(value)
+	result := wrapValue(C.slint_go_value_new_enumeration_value(enumNameSlice, valueSlice))
+	runtime.KeepAlive(enumNameBuf)
+	runtime.KeepAlive(valueBuf)
+	return result
+}
+
 func StringValue(value string) Value {
 	valueSlice, valueBuf := makeByteSlice(value)
 	result := wrapValue(C.slint_go_value_new_string(valueSlice))

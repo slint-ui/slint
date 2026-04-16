@@ -36,4 +36,40 @@ assert!(instance.get_test());
 var instance = new slint.TestCase({});
 assert(instance.test);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.Equal("Hello World{}.", t1)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.Equal("Hello World.", t2)
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.Equal("42 Hello World", t3)
+t4, err := instance.GetT4()
+assertion.NoError(err)
+assertion.Equal("43 Hello World🌍", t4)
+c1, err := instance.GetC1()
+assertion.NoError(err)
+assertion.Equal("xxaaxx", c1)
+makePlural1, err := instance.InvokeMakePlural1(1, "Plop")
+assertion.NoError(err)
+assertion.Equal("there is one file in my Plop", makePlural1)
+makePlural1, err = instance.InvokeMakePlural1(10, "Flop")
+assertion.NoError(err)
+assertion.Equal("there are 10 files in my Flop", makePlural1)
+makePlural2, err := instance.InvokeMakePlural2(1)
+assertion.NoError(err)
+assertion.Equal("xx1xx", makePlural2)
+makePlural2, err = instance.InvokeMakePlural2(-999)
+assertion.NoError(err)
+assertion.Equal("yy", makePlural2)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

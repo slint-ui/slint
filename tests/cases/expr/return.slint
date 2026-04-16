@@ -89,4 +89,33 @@ instance.test_signal();
 assert(!instance._signal_handled);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+value, err := instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(100.0, value)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+assertion.NoError(instance.SetToggle(true))
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(42.0, value)
+
+assertion.NoError(instance.InvokeTestSignal())
+signalHandled, err := instance.GetSignalHandled()
+assertion.NoError(err)
+assertion.True(signalHandled)
+
+assertion.NoError(instance.SetSignalHandled(false))
+assertion.NoError(instance.SetBlockSignal(true))
+assertion.NoError(instance.InvokeTestSignal())
+signalHandled, err = instance.GetSignalHandled()
+assertion.NoError(err)
+assertion.False(signalHandled)
+```
+
 */

@@ -32,4 +32,22 @@ assert.equal(instance.t2, 45);
 assert.equal(instance.t3, 135);
 assert.equal(instance.t4, -45);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.InDelta(0.0, t1, 0.001)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.InDelta(45.0, t2, 0.001)
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.InDelta(135.0, t3, 0.001)
+t4, err := instance.GetT4()
+assertion.NoError(err)
+assertion.InDelta(-45.0, t4, 0.001)
+```
 */

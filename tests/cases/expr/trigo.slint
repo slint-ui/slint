@@ -40,4 +40,12 @@ assert!(instance.get_verify());
 var instance = new slint.TestCase({});
 assert(instance.verify);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+verify, err := instance.GetVerify()
+assertion.NoError(err)
+assertion.True(verify)
+```
 */

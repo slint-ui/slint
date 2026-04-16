@@ -153,4 +153,13 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

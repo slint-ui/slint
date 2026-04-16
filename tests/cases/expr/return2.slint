@@ -154,4 +154,25 @@ assert_eq!(instance.get_check_ok(), true);
 ```
 
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+assertion.NoError(instance.InvokeProceed())
+val, err := instance.GetVal()
+assertion.NoError(err)
+assertion.Equal("1234", val)
+
+testKey, err := instance.InvokeTestKey()
+assertion.NoError(err)
+assertion.True(testKey)
+
+checkOk, err := instance.GetCheckOk()
+assertion.NoError(err)
+assertion.True(checkOk)
+```
 */

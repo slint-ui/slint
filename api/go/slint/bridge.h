@@ -76,10 +76,13 @@ void slint_go_value_destructor(SlintGoValue *value);
 SlintGoValue *slint_go_value_new_number(double value);
 SlintGoValue *slint_go_value_new_string(SlintGoByteSlice value);
 SlintGoValue *slint_go_value_new_bool(bool value);
+SlintGoValue *slint_go_value_new_enumeration_value(SlintGoByteSlice enum_name,
+                                                   SlintGoByteSlice value);
 SlintGoValueType slint_go_value_type(const SlintGoValue *value);
 char *slint_go_value_to_string(const SlintGoValue *value);
 bool slint_go_value_to_number(const SlintGoValue *value, double *out);
 bool slint_go_value_to_bool(const SlintGoValue *value, bool *out);
 void slint_testing_init_backend(void);
+void slint_testing_mock_elapsed_time(uint64_t time_in_ms);
 
 extern SlintGoValue *slintGoInvokeCallback(void *user_data, SlintGoValue **args, uintptr_t arg_len);

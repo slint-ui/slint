@@ -47,4 +47,37 @@ assert.equal(instance.t2, 43.0);
 assert.equal(instance.t3, 41.0);
 assert(instance.test);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.Equal(42.0, t1)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.Equal(43.0, t2)
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.Equal(41.0, t3)
+s1, err := instance.GetS1()
+assertion.NoError(err)
+assertion.Equal(42.0, s1)
+s2, err := instance.GetS2()
+assertion.NoError(err)
+assertion.Equal(43.0, s2)
+s3, err := instance.GetS3()
+assertion.NoError(err)
+assertion.Equal(41.0, s3)
+dur, err := instance.GetDur()
+assertion.NoError(err)
+assertion.Equal(45.0, dur)
+testDur, err := instance.GetTestDur()
+assertion.NoError(err)
+assertion.True(testDur)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */
