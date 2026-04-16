@@ -4940,6 +4940,7 @@ version = "1.16.1"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
+ "cfg_aliases",
  "drm",
  "gbm",
  "glutin",
