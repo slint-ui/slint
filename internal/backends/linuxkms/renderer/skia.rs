@@ -61,7 +61,11 @@ const SKIA_SUPPORTED_DRM_FOURCC_FORMATS: &[drm::buffer::DrmFourcc] = &[
 ];
 
 impl SkiaRendererAdapter {
-    #[cfg(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
+    #[cfg(any(
+        feature = "renderer-skia-vulkan",
+        feature = "unstable-wgpu-27",
+        feature = "unstable-wgpu-28"
+    ))]
     pub fn new_wgpu(
         device_opener: &crate::DeviceOpener,
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
@@ -70,7 +74,10 @@ impl SkiaRendererAdapter {
 
         #[cfg(feature = "unstable-wgpu-28")]
         let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
-        #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
+        #[cfg(all(
+            any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-27"),
+            not(feature = "unstable-wgpu-28")
+        ))]
         let (surface_target, size) = drm_output.wgpu_27_surface_target()?;
 
         #[cfg(feature = "unstable-wgpu-28")]
@@ -80,7 +87,10 @@ impl SkiaRendererAdapter {
                 size,
                 requested_graphics_api.cloned(),
             )?);
-        #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
+        #[cfg(all(
+            any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-27"),
+            not(feature = "unstable-wgpu-28")
+        ))]
         let skia_wgpu_surface =
             Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
                 surface_target,
@@ -184,7 +194,11 @@ impl SkiaRendererAdapter {
         #[allow(unused_assignments)]
         let mut result = Err("No skia renderer available".to_string().into());
 
-        #[cfg(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
+        #[cfg(any(
+            feature = "renderer-skia-vulkan",
+            feature = "unstable-wgpu-27",
+            feature = "unstable-wgpu-28"
+        ))]
         {
             result = Self::new_wgpu(device_opener, requested_graphics_api);
         }

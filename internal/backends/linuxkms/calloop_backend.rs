@@ -86,7 +86,11 @@ impl Backend {
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
         let renderer_factory = match builder.renderer_name.as_deref() {
-            #[cfg(any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"))]
+            #[cfg(any(
+                feature = "renderer-skia-vulkan",
+                feature = "unstable-wgpu-27",
+                feature = "unstable-wgpu-28"
+            ))]
             Some("skia-vulkan") | Some("skia-wgpu") => {
                 crate::renderer::skia::SkiaRendererAdapter::new_wgpu
             }
@@ -95,6 +99,7 @@ impl Backend {
             #[cfg(any(
                 feature = "renderer-skia-opengl",
                 feature = "renderer-skia-vulkan",
+                feature = "unstable-wgpu-27",
                 feature = "unstable-wgpu-28"
             ))]
             Some("skia-software") => crate::renderer::skia::SkiaRendererAdapter::new_software,

@@ -29,6 +29,7 @@ mod renderer {
     #[cfg(any(
         feature = "renderer-skia-opengl",
         feature = "renderer-skia-vulkan",
+        feature = "unstable-wgpu-27",
         feature = "unstable-wgpu-28"
     ))]
     pub mod skia;
@@ -55,6 +56,7 @@ mod renderer {
             #[cfg(any(
         feature = "renderer-skia-opengl",
         feature = "renderer-skia-vulkan",
+        feature = "unstable-wgpu-27",
         feature = "unstable-wgpu-28"
     ))]
             (

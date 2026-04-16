@@ -335,7 +335,10 @@ impl DrmOutput {
         Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
     }
 
-    #[cfg(all(feature = "renderer-skia-vulkan", not(feature = "unstable-wgpu-28")))]
+    #[cfg(all(
+        any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-27"),
+        not(feature = "unstable-wgpu-28")
+    ))]
     /// Creates a wgpu-27 DRM surface target from this output.
     pub fn wgpu_27_surface_target(
         &self,
