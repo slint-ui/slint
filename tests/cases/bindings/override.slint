@@ -46,4 +46,18 @@ assert.equal(instance.prop_b, 2);
 assert.equal(instance.prop_text, "world");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+propA, err := instance.GetPropA()
+assertion.NoError(err)
+assertion.Equal(1, propA)
+propB, err := instance.GetPropB()
+assertion.NoError(err)
+assertion.Equal(2, propB)
+propText, err := instance.GetPropText()
+assertion.NoError(err)
+assertion.Equal("world", propText)
+```
+
 */

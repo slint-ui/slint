@@ -232,8 +232,8 @@ fn go_type_name(ty: &Type) -> String {
     match ty {
         Type::String => "string".into(),
         Type::Bool => "bool".into(),
+        Type::Int32 => "int".into(),
         Type::Float32
-        | Type::Int32
         | Type::Duration
         | Type::Angle
         | Type::PhysicalLength
@@ -251,8 +251,8 @@ fn to_value_expr(var_name: &str, ty: &Type) -> String {
     match ty {
         Type::String => format!("slint.StringValue({var_name})"),
         Type::Bool => format!("slint.BoolValue({var_name})"),
+        Type::Int32 => format!("slint.NumberValue(float64({var_name}))"),
         Type::Float32
-        | Type::Int32
         | Type::Duration
         | Type::Angle
         | Type::PhysicalLength
@@ -278,8 +278,14 @@ fn emit_value_from_expr(
         Type::Bool => {
             writeln!(out, "{indent}return {value_expr}.Bool()")?;
         }
+        Type::Int32 => {
+            writeln!(out, "{indent}number, err := {value_expr}.Number()")?;
+            writeln!(out, "{indent}if err != nil {{")?;
+            writeln!(out, "{indent}\treturn 0, err")?;
+            writeln!(out, "{indent}}}")?;
+            writeln!(out, "{indent}return int(number), nil")?;
+        }
         Type::Float32
-        | Type::Int32
         | Type::Duration
         | Type::Angle
         | Type::PhysicalLength
@@ -822,6 +828,22 @@ pub fn generate(
             std::io::Error::other("Cannot determine source code of the main file")
         })?;
     let source_path = source_path_snippet(doc, destination_path)?;
+    let main_file = std::path::absolute(
+        doc.node
+            .as_ref()
+            .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
+            .source_file
+            .path(),
+    )?;
+    let main_file_dir = main_file.parent().unwrap_or_else(|| std::path::Path::new(""));
+    let include_paths = compiler_config
+        .include_paths
+        .iter()
+        .map(|path| {
+            let path = if path.is_absolute() { path.clone() } else { main_file_dir.join(path) };
+            path.to_string_lossy().replace('\\', "/")
+        })
+        .collect::<Vec<_>>();
 
     let mut output = String::new();
     (|| -> std::fmt::Result {
@@ -843,6 +865,12 @@ pub fn generate(
         writeln!(output)?;
         writeln!(output, "var generatedSourcePathRelative = {}", go_string_literal(&source_path))?;
         writeln!(output)?;
+        writeln!(output, "var generatedIncludePaths = []string{{")?;
+        for include_path in &include_paths {
+            writeln!(output, "\t{},", go_string_literal(include_path))?;
+        }
+        writeln!(output, "}}")?;
+        writeln!(output)?;
         writeln!(output, "var generatedCompilationOnce sync.Once")?;
         writeln!(output, "var generatedCompilation *slint.CompilationResult")?;
         writeln!(output, "var generatedCompilationErr error")?;
@@ -862,7 +890,7 @@ pub fn generate(
         writeln!(output, "\tgeneratedCompilationOnce.Do(func() {{")?;
         writeln!(
             output,
-            "\t\tgeneratedCompilation, generatedCompilationErr = slint.CompileSource(generatedSourcePath(), generatedSource)"
+            "\t\tgeneratedCompilation, generatedCompilationErr = slint.CompileSourceWithIncludePaths(generatedSourcePath(), generatedSource, generatedIncludePaths)"
         )?;
         writeln!(output, "\t}})")?;
         writeln!(output, "\treturn generatedCompilation, generatedCompilationErr")?;

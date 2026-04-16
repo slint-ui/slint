@@ -73,23 +73,23 @@ assertion.True(test)
 
 aliasToGlobal, err := instance.GetAliasToGlobal()
 assertion.NoError(err)
-assertion.Equal(42.0, aliasToGlobal)
-assertion.NoError(instance.SetAliasToGlobal(123.0))
+assertion.Equal(42, aliasToGlobal)
+assertion.NoError(instance.SetAliasToGlobal(123))
 aliasToGlobal, err = instance.GetAliasToGlobal()
 assertion.NoError(err)
-assertion.Equal(123.0, aliasToGlobal)
+assertion.Equal(123, aliasToGlobal)
 
 indirect, err := instance.GetIndirect()
 assertion.NoError(err)
-assertion.Equal(88.0, indirect)
-assertion.NoError(instance.SetIndirect(99.0))
+assertion.Equal(88, indirect)
+assertion.NoError(instance.SetIndirect(99))
 direct, err := instance.GetDirect()
 assertion.NoError(err)
-assertion.Equal(99.0, direct)
+assertion.Equal(99, direct)
 
 dual, err := instance.GetDual()
 assertion.NoError(err)
-assertion.Equal(102.0, dual)
+assertion.Equal(102, dual)
 ```
 
 */

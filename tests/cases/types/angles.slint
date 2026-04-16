@@ -38,4 +38,22 @@ assert.equal(t.angle, 91);
 assert(!t.test);
 
 ```
+
+```go
+instance, err := ui.NewTest()
+assertion.NoError(err)
+angle, err := instance.GetAngle()
+assertion.NoError(err)
+assertion.Equal(90.0, angle)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+assertion.NoError(instance.SetAngle(91))
+angle, err = instance.GetAngle()
+assertion.NoError(err)
+assertion.Equal(91.0, angle)
+test, err = instance.GetTest()
+assertion.NoError(err)
+assertion.False(test)
+```
 */

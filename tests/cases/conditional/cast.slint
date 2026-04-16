@@ -44,4 +44,23 @@ instance.condition = false;
 assert.equal(instance.s1, "123");
 assert.equal(instance.s2, "abc");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+assertion.NoError(instance.SetCondition(true))
+s1, err := instance.GetS1()
+assertion.NoError(err)
+assertion.Equal("abc", s1)
+s2, err := instance.GetS2()
+assertion.NoError(err)
+assertion.Equal("123", s2)
+assertion.NoError(instance.SetCondition(false))
+s1, err = instance.GetS1()
+assertion.NoError(err)
+assertion.Equal("123", s1)
+s2, err = instance.GetS2()
+assertion.NoError(err)
+assertion.Equal("abc", s2)
+```
 */

@@ -53,4 +53,15 @@ var instance = new slint.TestCase({});
 assert(instance.test);
 assert.equal(instance.multiply(2), 8);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+product, err := instance.InvokeMultiply(2)
+assertion.NoError(err)
+assertion.Equal(8, product)
+```
 */

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"unsafe"
 )
 
@@ -197,11 +198,17 @@ func (v Value) rawOrVoid() *C.SlintGoValue {
 }
 
 func CompileSource(path string, source string) (*CompilationResult, error) {
+	return CompileSourceWithIncludePaths(path, source, nil)
+}
+
+func CompileSourceWithIncludePaths(path string, source string, includePaths []string) (*CompilationResult, error) {
 	sourceSlice, sourceBuf := makeByteSlice(source)
 	pathSlice, pathBuf := makeByteSlice(path)
-	ptr := C.slint_go_compile_source(sourceSlice, pathSlice)
+	includePathsSlice, includePathsBuf := makeByteSlice(strings.Join(includePaths, "\n"))
+	ptr := C.slint_go_compile_source_with_include_paths(sourceSlice, pathSlice, includePathsSlice)
 	runtime.KeepAlive(sourceBuf)
 	runtime.KeepAlive(pathBuf)
+	runtime.KeepAlive(includePathsBuf)
 	result := wrapCompilationResult(ptr)
 	if result == nil {
 		return nil, errors.New("slint: compilation failed")

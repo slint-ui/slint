@@ -43,11 +43,11 @@ instance, err := ui.NewTestCase()
 assertion.NoError(err)
 value1, err := instance.GetValue1()
 assertion.NoError(err)
-assertion.Equal(6.0, value1)
-assertion.NoError(instance.InvokeSetA(4.0))
+assertion.Equal(6, value1)
+assertion.NoError(instance.InvokeSetA(4))
 value1, err = instance.GetValue1()
 assertion.NoError(err)
-assertion.Equal(7.0, value1)
+assertion.Equal(7, value1)
 ```
 
 */

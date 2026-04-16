@@ -30,6 +30,8 @@ typedef SlintGoValue *(*SlintGoCallback)(void *user_data, SlintGoValue **args, u
 void slint_go_string_free(char *value);
 
 SlintGoCompilationResult *slint_go_compile_source(SlintGoByteSlice source, SlintGoByteSlice path);
+SlintGoCompilationResult *slint_go_compile_source_with_include_paths(
+        SlintGoByteSlice source, SlintGoByteSlice path, SlintGoByteSlice include_paths);
 SlintGoCompilationResult *slint_go_compile_path(SlintGoByteSlice path);
 void slint_go_compilation_result_destructor(SlintGoCompilationResult *result);
 bool slint_go_compilation_result_has_errors(const SlintGoCompilationResult *result);

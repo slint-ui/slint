@@ -41,7 +41,7 @@ assertion.NoError(err)
 
 begin, err := instance.GetXx()
 assertion.NoError(err)
-assertion.Equal(begin, func() float64 {
+assertion.Equal(begin, func() int {
 	xx, err := instance.GetXx()
 	assertion.NoError(err)
 	return xx
@@ -51,6 +51,6 @@ slint.MockElapsedTime(600)
 
 after, err := instance.GetXx()
 assertion.NoError(err)
-assertion.Equal(begin+600.0, after)
+assertion.Equal(begin+600, after)
 ```
 */

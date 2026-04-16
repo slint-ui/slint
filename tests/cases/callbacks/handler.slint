@@ -89,23 +89,23 @@ assertion.NoError(instance.OnTestCallback3(func() {
 assertion.NoError(instance.SetCallbackEmissionCount(0))
 callbackEmissionCount, err := instance.GetCallbackEmissionCount()
 assertion.NoError(err)
-assertion.Equal(0.0, callbackEmissionCount)
+assertion.Equal(0, callbackEmissionCount)
 
 assertion.NoError(instance.InvokeTestCallback())
 callbackEmissionCount, err = instance.GetCallbackEmissionCount()
 assertion.NoError(err)
-assertion.Equal(1.0, callbackEmissionCount)
+assertion.Equal(1, callbackEmissionCount)
 
 assertion.NoError(instance.InvokeTestCallback())
 callbackEmissionCount, err = instance.GetCallbackEmissionCount()
 assertion.NoError(err)
-assertion.Equal(2.0, callbackEmissionCount)
+assertion.Equal(2, callbackEmissionCount)
 assertion.Equal(0, callback3Emitted)
 
 assertion.NoError(instance.InvokeTestCallback2())
 callbackEmissionCount, err = instance.GetCallbackEmissionCount()
 assertion.NoError(err)
-assertion.Equal(88.0, callbackEmissionCount)
+assertion.Equal(88, callbackEmissionCount)
 assertion.Equal(1, callback3Emitted)
 ```
 */

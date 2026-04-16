@@ -122,4 +122,55 @@ assert.equal(instance.string_prop_alias_changed, 1);
 */
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+
+g1 := instance.G1()
+g2 := instance.G2()
+g1Data, err := g1.GetData()
+assertion.NoError(err)
+g2Data, err := g2.GetData()
+assertion.NoError(err)
+d1, err := instance.GetD1()
+assertion.NoError(err)
+d2, err := instance.GetD2()
+assertion.NoError(err)
+assertion.True(test)
+assertion.Equal(42, g1Data)
+assertion.Equal(42, g2Data)
+assertion.Equal(42, d1)
+assertion.Equal(42, d2)
+
+assertion.NoError(g1.SetData(100))
+g1Data, err = g1.GetData()
+assertion.NoError(err)
+assertion.Equal(100, g1Data)
+g2Data, err = g2.GetData()
+assertion.NoError(err)
+assertion.Equal(100, g2Data)
+d1, err = instance.GetD1()
+assertion.NoError(err)
+assertion.Equal(100, d1)
+d2, err = instance.GetD2()
+assertion.NoError(err)
+assertion.Equal(100, d2)
+
+assertion.NoError(g2.SetData(-1))
+g1Data, err = g1.GetData()
+assertion.NoError(err)
+assertion.Equal(-1, g1Data)
+g2Data, err = g2.GetData()
+assertion.NoError(err)
+assertion.Equal(-1, g2Data)
+d1, err = instance.GetD1()
+assertion.NoError(err)
+assertion.Equal(-1, d1)
+d2, err = instance.GetD2()
+assertion.NoError(err)
+assertion.Equal(-1, d2)
+```
+
 */

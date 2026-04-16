@@ -1037,7 +1037,23 @@ pub unsafe extern "C" fn slint_go_compile_source(
     source: Slice<u8>,
     path: Slice<u8>,
 ) -> *mut CompilationResult {
-    let result = spin_on::spin_on(Compiler::default().build_from_source(
+    unsafe { slint_go_compile_source_with_include_paths(source, path, Slice::default()) }
+}
+
+/// Compiles Slint source code into a compilation result handle for Go bindings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_compile_source_with_include_paths(
+    source: Slice<u8>,
+    path: Slice<u8>,
+    include_paths: Slice<u8>,
+) -> *mut CompilationResult {
+    let mut compiler = Compiler::default();
+    let include_paths = std::str::from_utf8(&include_paths).unwrap();
+    if !include_paths.is_empty() {
+        compiler
+            .set_include_paths(include_paths.split('\n').map(std::path::PathBuf::from).collect());
+    }
+    let result = spin_on::spin_on(compiler.build_from_source(
         std::str::from_utf8(&source).unwrap().to_owned(),
         std::path::PathBuf::from(std::str::from_utf8(&path).unwrap()),
     ));

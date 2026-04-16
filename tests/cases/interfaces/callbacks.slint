@@ -87,4 +87,32 @@ instance.add_message("Hello");
 instance.add_message("World");
 assert.equal(instance.speak(), "Hello World");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+inverted, err := instance.InvokeInvert(false)
+assertion.NoError(err)
+assertion.True(inverted)
+inverted, err = instance.InvokeInvert(true)
+assertion.NoError(err)
+assertion.False(inverted)
+
+doubled, err := instance.InvokeDoubleAlias(2)
+assertion.NoError(err)
+assertion.Equal(4, doubled)
+
+instance.OnSum(func(a int, b int) int {
+	return a + b
+})
+sum, err := instance.InvokeSum(2, 3)
+assertion.NoError(err)
+assertion.Equal(5, sum)
+
+assertion.NoError(instance.InvokeAddMessage("Hello"))
+assertion.NoError(instance.InvokeAddMessage("World"))
+spoken, err := instance.InvokeSpeak()
+assertion.NoError(err)
+assertion.Equal("Hello World", spoken)
+```
 */

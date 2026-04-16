@@ -18,3 +18,19 @@ TestCase := Rectangle {
         true;
     }
 }
+/*
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+text2, err := instance.GetText2()
+assertion.NoError(err)
+assertion.Equal("init", text2)
+
+assertion.NoError(instance.InvokeFoo())
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+*/

@@ -51,4 +51,16 @@ instance.public_alias = "EFG";
 assert.equal(instance.sub_text, "EFG");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+subText, err := instance.GetSubText()
+assertion.NoError(err)
+assertion.Equal("ABC", subText)
+assertion.NoError(instance.SetPublicAlias("EFG"))
+subText, err = instance.GetSubText()
+assertion.NoError(err)
+assertion.Equal("EFG", subText)
+```
+
 */

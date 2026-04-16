@@ -63,17 +63,17 @@ assert.equal(instance.profit, 1000);
 ```go
 instance, err := ui.NewTestCase()
 assertion.NoError(err)
-assertion.NoError(instance.OnSum(func(a float64, b float64) float64 { return a + b }))
-assertion.NoError(instance.OnMul(func(a float64, b float64) float64 { return a * b }))
+assertion.NoError(instance.OnSum(func(a int, b int) int { return a + b }))
+assertion.NoError(instance.OnMul(func(a int, b int) int { return a * b }))
 five, err := instance.GetFive()
 assertion.NoError(err)
-assertion.Equal(5.0, five)
+assertion.Equal(5, five)
 six, err := instance.GetSix()
 assertion.NoError(err)
-assertion.Equal(6.0, six)
+assertion.Equal(6, six)
 profit, err := instance.GetProfit()
 assertion.NoError(err)
-assertion.Equal(1000.0, profit)
+assertion.Equal(1000, profit)
 ```
 
 */

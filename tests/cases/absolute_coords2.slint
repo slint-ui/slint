@@ -61,4 +61,15 @@ let instance = new slint.TestCase({});
 assert(instance.correct_x);
 assert(instance.correct_y);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+correctX, err := instance.GetCorrectX()
+assertion.NoError(err)
+assertion.True(correctX)
+correctY, err := instance.GetCorrectY()
+assertion.NoError(err)
+assertion.True(correctY)
+```
 */

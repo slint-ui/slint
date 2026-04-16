@@ -68,4 +68,39 @@ assert.equal(instance.untyped_d8, -250);
 assert.equal(instance.i1, 100);
 assert.equal(instance.i2, 50);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+untypedD1, err := instance.GetUntypedD1()
+assertion.NoError(err)
+assertion.Equal(100, untypedD1)
+untypedD2, err := instance.GetUntypedD2()
+assertion.NoError(err)
+assertion.Equal(3000, untypedD2)
+untypedD3, err := instance.GetUntypedD3()
+assertion.NoError(err)
+assertion.Equal(1500, untypedD3)
+untypedD4, err := instance.GetUntypedD4()
+assertion.NoError(err)
+assertion.Equal(30, untypedD4)
+untypedD5, err := instance.GetUntypedD5()
+assertion.NoError(err)
+assertion.Equal(3008, untypedD5)
+untypedD6, err := instance.GetUntypedD6()
+assertion.NoError(err)
+assertion.Equal(-2900, untypedD6)
+untypedD7, err := instance.GetUntypedD7()
+assertion.NoError(err)
+assertion.Equal(-500, untypedD7)
+untypedD8, err := instance.GetUntypedD8()
+assertion.NoError(err)
+assertion.Equal(-250, untypedD8)
+i1, err := instance.GetI1()
+assertion.NoError(err)
+assertion.Equal(100, i1)
+i2, err := instance.GetI2()
+assertion.NoError(err)
+assertion.Equal(50, i2)
+```
 */

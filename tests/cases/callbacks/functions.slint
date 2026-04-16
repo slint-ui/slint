@@ -63,4 +63,18 @@ assert(instance.test);
 assert.equal(instance.pub(20, 2), 100022);
 assert.equal(instance.PubGlob.beh(2, 2), 14);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+pub, err := instance.InvokePub(20, 2)
+assertion.NoError(err)
+assertion.Equal(100022, pub)
+beh, err := instance.PubGlob().InvokeBeh(2, 2)
+assertion.NoError(err)
+assertion.Equal(14, beh)
+```
 */

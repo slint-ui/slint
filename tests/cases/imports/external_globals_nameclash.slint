@@ -51,4 +51,18 @@ assert.equal(instance.p2, 44);
 assert.equal(instance.p3, 2001);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+p1, err := instance.GetP1()
+assertion.NoError(err)
+assertion.Equal(42, p1)
+p2, err := instance.GetP2()
+assertion.NoError(err)
+assertion.Equal(44, p2)
+p3, err := instance.GetP3()
+assertion.NoError(err)
+assertion.Equal(2001, p3)
+```
+
 */
