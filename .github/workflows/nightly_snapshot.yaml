@@ -503,7 +503,7 @@ jobs:
             - name: Update versions.txt
               if: github.event.inputs.release == 'true'
               working-directory: www-releases/releases
-              run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
+              run: ls -1d */ | cut -f1 -d'/' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort --version-sort -r > versions.txt
 
             - name: Print contents before update
               if: github.event.inputs.release == 'true'
