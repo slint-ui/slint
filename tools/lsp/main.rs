@@ -217,6 +217,7 @@ impl RequestHandler {
 
 fn main() {
     tracing_subscriber::fmt()
+        .log_internal_errors(false)
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -268,7 +269,7 @@ fn main() {
             Commands::Format(fmt) => match fmt::tool::run(&fmt.paths, fmt.inline) {
                 Ok(()) => std::process::exit(0),
                 Err(e) => {
-                    eprintln!("Format Error: {e}");
+                    tracing::error!("Format Error: {e}");
                     std::process::exit(1)
                 }
             },
@@ -276,7 +277,7 @@ fn main() {
             Commands::LivePreview(live_preview) => match preview::run(live_preview) {
                 Ok(()) => std::process::exit(0),
                 Err(e) => {
-                    eprintln!("Preview Error: {e}");
+                    tracing::error!("Preview Error: {e}");
                     std::process::exit(2);
                 }
             },
@@ -291,7 +292,7 @@ fn main() {
         match local_set.block_on(&rt, run_lsp_server(args)) {
             Ok(threads) => threads.join().unwrap(),
             Err(error) => {
-                eprintln!("Error running LSP server: {error}");
+                tracing::error!("Error running LSP server: {error}");
                 std::process::exit(3);
             }
         }
