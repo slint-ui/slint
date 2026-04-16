@@ -687,7 +687,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         tracing::debug!("Covers:");
         for (i, (p, ts)) in covers_center.iter().enumerate() {
-            println!("   {i}: {p:?}:{ts:?}");
+            tracing::debug!("   {i}: {p:?}:{ts:?}");
         }
         tracing::debug!("Done");
 

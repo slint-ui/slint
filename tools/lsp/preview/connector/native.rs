@@ -284,6 +284,7 @@ impl RemoteControlledPreviewToLsp {
 }
 
 impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
+    #[allow(clippy::print_stdout)]
     fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
         let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
         println!("{message}");
