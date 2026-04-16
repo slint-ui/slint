@@ -662,6 +662,7 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
+    BoxLayoutOrthoData,
     FlexboxLayoutData,
     LayoutItemInfo,
     FlexboxLayoutItemInfo,
@@ -685,6 +686,7 @@ impl BuiltinPrivateStruct {
             Self::GridLayoutInputData
                 | Self::GridLayoutData
                 | Self::BoxLayoutData
+                | Self::BoxLayoutOrthoData
                 | Self::FlexboxLayoutData
         )
     }

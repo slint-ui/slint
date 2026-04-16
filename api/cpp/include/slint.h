@@ -126,6 +126,16 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
     return result;
 }
 
+inline SharedVector<float> solve_box_layout_ortho(const cbindgen_private::BoxLayoutOrthoData &data,
+                                                  cbindgen_private::Slice<int> repeater_indices)
+{
+    SharedVector<float> result;
+    cbindgen_private::Slice<uint32_t> ri =
+            make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
+    cbindgen_private::slint_solve_box_layout_ortho(&data, ri, &result);
+    return result;
+}
+
 inline SharedVector<uint16_t>
 organize_grid_layout(cbindgen_private::Slice<cbindgen_private::GridLayoutInputData> input_data,
                      cbindgen_private::Slice<int> repeater_indices,
