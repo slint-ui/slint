@@ -3,7 +3,7 @@
 
 [package]
 name = "weather-demo"
-version = "1.16.0"
+version = "1.17.0"
 authors = ["FELGO GmbH <contact@felgo.com>"]
 edition.workspace = true
 build = "build.rs"
