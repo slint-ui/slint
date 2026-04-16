@@ -993,15 +993,15 @@ fn create_renderer(
         (Some("skia-wgpu"), maybe_graphics_api) => {
             if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    if cfg!(feature = "unstable-wgpu-28") {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
-                            shared_data,
-                        ));
-                    } else if cfg!(feature = "unstable-wgpu-27") {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
-                            shared_data,
-                        ));
-                    }
+                    #[cfg(feature = "unstable-wgpu-28")]
+                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                        shared_data,
+                    ));
+                    #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
+                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
+                        shared_data,
+                    ));
+                    #[allow(unreachable_code)]
                     None
                 },
                 |api| {
