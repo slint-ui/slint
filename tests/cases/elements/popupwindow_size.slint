@@ -19,7 +19,7 @@ export global Properties {
     in-out property <length> button-height: -1px;
     in-out property <length> text-width: -1px;
     in-out property <length> text-height: -1px;
-   
+
 }
 export component TestCase {
     in-out property <bool> show-buttons;
@@ -41,7 +41,7 @@ export component TestCase {
         changed height => {
             Properties.popup-height = self.height;
         }
-      
+
         close-policy: PopupClosePolicy.no-auto-close;
 
         init => {
@@ -51,7 +51,7 @@ export component TestCase {
             debug("Popup initialized");
             debug("Text input size: ", ti.width, ", ", ti.height);
         }
-        
+
 
         VerticalBox {
             padding: 9px;
@@ -67,7 +67,7 @@ export component TestCase {
             }
             if root.show-buttons : HorizontalBox {
                 Button {
-                    text: "Button top"; 
+                    text: "Button top";
                     init => {
                         Properties.button_top_visible = true;
                         // debug("Button. Preferred width: ", self.preferred-width);
@@ -82,7 +82,7 @@ export component TestCase {
                 }
 
                 Button {
-                    text: "Button top"; 
+                    text: "Button top";
                 }
 
                 Button {
