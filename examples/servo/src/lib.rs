@@ -10,6 +10,8 @@ mod gl_bindings {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
+use std::cell::Cell;
+
 use slint::ComponentHandle;
 
 use crate::webview::WebView;
@@ -17,11 +19,29 @@ use crate::webview::WebView;
 slint::include_modules!();
 
 pub fn main() {
-    let (device, queue) = setup_wgpu();
+    setup_slint_with_wgpu();
 
     let app = MyApp::new().expect("Failed to create Slint application - check UI resources");
 
-    WebView::new(app.clone_strong(), "https://slint.dev".into(), device, queue);
+    let initialized = Cell::new(false);
+    let app_weak = app.as_weak();
+
+    app.window()
+        .set_rendering_notifier(move |state, graphics_api| {
+            if !matches!(state, slint::RenderingState::RenderingSetup) || initialized.get() {
+                return;
+            }
+            let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api else {
+                panic!(
+                    "Slint did not select a wgpu-28 renderer; \
+                     enable a wgpu-capable renderer feature"
+                );
+            };
+            let app = app_weak.upgrade().expect("App dropped before rendering setup");
+            WebView::new(app, "https://slint.dev".into(), device.clone(), queue.clone());
+            initialized.set(true);
+        })
+        .expect("Failed to install rendering notifier");
 
     app.run().expect("Application failed to run - check for runtime errors");
 }
@@ -33,43 +53,21 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
     main();
 }
 
-fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
-    #[allow(unused_mut, unused_assignments)]
-    let mut backends = wgpu::Backends::from_env().unwrap_or_default();
+fn setup_slint_with_wgpu() {
+    #[allow(unused_mut)]
+    let mut wgpu_settings = slint::wgpu_28::WGPUSettings::default();
 
     #[cfg(target_os = "windows")]
     {
         // Must be DX12 on Windows to support texture sharing from ANGLE's D3D11 via NT handles.
-        backends = wgpu::Backends::DX12;
+        wgpu_settings.backends = slint::wgpu_28::wgpu::Backends::DX12;
     }
 
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-        backends,
-        flags: Default::default(),
-        backend_options: Default::default(),
-        memory_budget_thresholds: Default::default(),
-    });
-
-    let adapter = spin_on::spin_on(async {
-        instance
-            .request_adapter(&Default::default())
-            .await
-            .expect("Failed to find an appropriate WGPU adapter")
-    });
-
-    let (device, queue) = spin_on::spin_on(async {
-        adapter.request_device(&Default::default()).await.expect("Failed to create WGPU device")
-    });
-
     slint::BackendSelector::new()
-        .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Manual {
-            instance,
-            adapter,
-            device: device.clone(),
-            queue: queue.clone()
-        })
+        .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Automatic(wgpu_settings))
         .select()
-        .expect("Failed to create Slint backend with WGPU based renderer - ensure your system supports WGPU");
-
-    (device, queue)
+        .expect(
+            "Failed to create Slint backend with WGPU based renderer - \
+             ensure your system supports WGPU",
+        );
 }
