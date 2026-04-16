@@ -34,6 +34,11 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
+    /// Return the clipboard implementation for this platform.
+    fn clipboard(&self) -> &dyn crate::clipboard::PlatformClipboard {
+        &crate::clipboard::DummyPlatformClipboard
+    }
+
     /// Spins an event loop for a specified period of time.
     ///
     /// This function is similar to `run_event_loop()` with two differences:
@@ -124,13 +129,23 @@ pub trait Platform {
     /// Sends the given text into the system clipboard.
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
-    fn set_clipboard_text(&self, _text: &str, _clipboard: Clipboard) {}
+    #[deprecated(
+        since = "0.17.0",
+        note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
+    )]
+    fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
+        self.clipboard().set(clipboard, alloc::sync::Arc::new(SharedString::from(text)));
+    }
 
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return None
-    fn clipboard_text(&self, _clipboard: Clipboard) -> Option<String> {
-        None
+    #[deprecated(
+        since = "0.17.0",
+        note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
+    )]
+    fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
+        self.clipboard().read_plaintext(clipboard).ok().map(|string| string.into())
     }
 
     /// This function is called when debug() is used in .slint files. The implementation
@@ -158,7 +173,7 @@ pub trait Platform {
 /// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]
 #[repr(u8)]
 #[non_exhaustive]
-#[derive(PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum Clipboard {
     /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
     /// Corresponds to the secondary clipboard on X11.

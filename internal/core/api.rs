@@ -7,6 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
+use crate::clipboard::ClipboardError;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -1281,6 +1282,7 @@ pub enum PlatformError {
     /// or call [`platform::set_platform()`](crate::platform::set_platform)
     /// before running the event loop
     NoPlatform,
+
     /// The Slint Platform does not provide an event loop.
     ///
     /// The [`Platform::run_event_loop`](crate::platform::Platform::run_event_loop)
@@ -1298,6 +1300,15 @@ pub enum PlatformError {
     /// Another platform-specific error occurred.
     #[cfg(feature = "std")]
     OtherError(Box<dyn std::error::Error + Send + Sync>),
+
+    /// An error happened while reading from the clipboard.
+    Clipboard(crate::clipboard::ClipboardError),
+}
+
+impl From<ClipboardError> for PlatformError {
+    fn from(value: ClipboardError) -> Self {
+        Self::Clipboard(value)
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1331,6 +1342,11 @@ impl core::fmt::Display for PlatformError {
             PlatformError::Other(str) => f.write_str(str),
             #[cfg(feature = "std")]
             PlatformError::OtherError(error) => error.fmt(f),
+
+            PlatformError::Clipboard(error) => {
+                write!(f, "Error reading clipboard: ")?;
+                error.fmt(f)
+            }
         }
     }
 }

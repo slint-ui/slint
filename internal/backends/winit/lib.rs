@@ -11,6 +11,7 @@ extern crate alloc;
 
 use event_loop::{CustomEvent, EventLoopState};
 use i_slint_core::api::EventLoopError;
+use i_slint_core::clipboard::PlatformClipboard;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::{EventLoopProxy, PlatformError};
 use i_slint_core::window::WindowAdapter;
@@ -399,8 +400,7 @@ pub(crate) struct SharedBackendData {
     /// List of visible windows that have been created when without the event loop and
     /// need to be mapped to a winit Window as soon as the event loop becomes active.
     inactive_windows: RefCell<Vec<Weak<WinitWindowAdapter>>>,
-    #[cfg(not(target_arch = "wasm32"))]
-    clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
+    clipboard: WinitPlatformClipboard,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
     /// The generation is used to determine if a quit_event_loop call is meant for the current
@@ -489,7 +489,9 @@ impl SharedBackendData {
             active_windows,
             inactive_windows: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
-            clipboard: RefCell::new(clipboard),
+            clipboard: WinitPlatformClipboard(RefCell::new(clipboard)),
+            #[cfg(target_arch = "wasm32")]
+            clipboard: WinitPlatformClipboard,
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             event_loop_generation: Default::default(),
@@ -775,34 +777,125 @@ impl i_slint_core::platform::Platform for Backend {
         )))
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        crate::wasm_input_helper::set_clipboard_text(text.into(), clipboard);
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        let mut pair = self.shared_data.clipboard.borrow_mut();
-        if let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard) {
-            clipboard.set_contents(text.into()).ok();
-        }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        crate::wasm_input_helper::get_clipboard_text(clipboard)
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        let mut pair = self.shared_data.clipboard.borrow_mut();
-        clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
+    fn clipboard(&self) -> &dyn i_slint_core::clipboard::PlatformClipboard {
+        &self.shared_data.clipboard
     }
 
     fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
         webbrowser::open(url).map_err(|e| {
             i_slint_core::platform::PlatformError::Other(format!("Failed to open URL: {e}"))
         })
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+struct WinitPlatformClipboard;
+
+#[cfg(target_arch = "wasm32")]
+impl PlatformClipboard for WinitPlatformClipboard {
+    fn set(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        value: Arc<dyn i_slint_core::clipboard::ClipboardData>,
+    ) {
+        match value.read_plaintext() {
+            Ok(value) => {
+                crate::wasm_input_helper::set_clipboard_text(value.into(), clipboard);
+            }
+            Err(e) => {
+                eprintln!("Could not read clipboard item as string: {e}");
+            }
+        }
+    }
+
+    fn read_any(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: std::any::TypeId,
+    ) -> Result<Arc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
+        use i_slint_core::SharedString;
+
+        if type_ == std::any::TypeId::of::<SharedString>()
+            && let Some(text) = crate::wasm_input_helper::get_clipboard_text(clipboard)
+        {
+            Ok(text.into())
+        } else {
+            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PlatformClipboard for WinitPlatformClipboard {
+    fn set(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        value: Arc<dyn i_slint_core::clipboard::ClipboardData>,
+    ) {
+        let mut pair = self.0.borrow_mut();
+        let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
+            eprintln!("Unknown clipboard: {clipboard:?}");
+            return;
+        };
+
+        match value.read_plaintext() {
+            Ok(value) => {
+                if let Err(e) = clipboard.set_contents(value.into()) {
+                    eprintln!("Error writing clipboard: {e}");
+                }
+            }
+            Err(e) => {
+                eprintln!("Could not read clipboard item as string: {e}");
+            }
+        }
+    }
+
+    fn read_string(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::mime::Mime,
+    ) -> Result<i_slint_core::SharedString, i_slint_core::clipboard::ClipboardError> {
+        if ![
+            i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8,
+            i_slint_core::clipboard::mime::TEXT_PLAIN,
+        ]
+        .contains(type_)
+        {
+            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(
+                type_.clone().into(),
+            ));
+        }
+
+        let mut pair = self.0.borrow_mut();
+        let clipboard =
+            clipboard::select_clipboard(&mut pair, clipboard.clone()).ok_or_else(|| {
+                i_slint_core::clipboard::ClipboardError::Message(format!(
+                    "Unknown clipboard: {clipboard:?}"
+                ))
+            })?;
+
+        Ok(clipboard.get_contents()?.into())
+    }
+
+    fn read_any(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: std::any::TypeId,
+    ) -> Result<Arc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
+        use i_slint_core::SharedString;
+
+        if type_ == std::any::TypeId::of::<SharedString>() {
+            eprintln!(
+                "`read_any` used to read a `SharedString` from the clipboard. This would be more efficient using `read_string`"
+            );
+            self.read_string(clipboard, &i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8)
+                .map(|string| Arc::new(string) as _)
+        } else {
+            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
+        }
     }
 }
 

@@ -1954,7 +1954,8 @@ impl TextInput {
         WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .set_clipboard_text(&text[anchor..cursor], clipboard);
+            .clipboard()
+            .set(clipboard, alloc::sync::Arc::new(text));
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1967,10 +1968,11 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        if let Some(text) = WindowInner::from_pub(window_adapter.window())
+        if let Ok(text) = WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .clipboard_text(clipboard)
+            .clipboard()
+            .read_plaintext(clipboard)
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

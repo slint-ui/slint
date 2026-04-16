@@ -293,45 +293,8 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     #[cfg(not(no_qt))]
-    fn set_clipboard_text(&self, _text: &str, _clipboard: i_slint_core::platform::Clipboard) {
-        use cpp::cpp;
-        let is_selection: bool = match _clipboard {
-            i_slint_core::platform::Clipboard::DefaultClipboard => false,
-            i_slint_core::platform::Clipboard::SelectionClipboard => true,
-            _ => return,
-        };
-        let text: qttypes::QString = _text.into();
-        cpp! {unsafe [text as "QString", is_selection as "bool"] {
-            ensure_initialized();
-            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
-                return;
-            QGuiApplication::clipboard()->setText(text, is_selection ? QClipboard::Selection : QClipboard::Clipboard);
-        } }
-    }
-
-    #[cfg(not(no_qt))]
-    fn clipboard_text(&self, _clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        use cpp::cpp;
-        let is_selection: bool = match _clipboard {
-            i_slint_core::platform::Clipboard::DefaultClipboard => false,
-            i_slint_core::platform::Clipboard::SelectionClipboard => true,
-            _ => return None,
-        };
-        let has_text = cpp! {unsafe [is_selection as "bool"] -> bool as "bool" {
-            ensure_initialized();
-            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
-                return false;
-            return QGuiApplication::clipboard()->mimeData(is_selection ? QClipboard::Selection : QClipboard::Clipboard)->hasText();
-        } };
-        if has_text {
-            return Some(
-                cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
-                    return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
-                }}
-                .into(),
-            );
-        }
-        None
+    fn clipboard(&self) -> &dyn i_slint_core::clipboard::PlatformClipboard {
+        &QtPlatformClipboard
     }
 
     #[cfg(not(no_qt))]
@@ -366,6 +329,99 @@ impl i_slint_core::platform::Platform for Backend {
             Ok(())
         } else {
             Err(i_slint_core::platform::PlatformError::Other("Failed to open URL".into()))
+        }
+    }
+}
+
+#[cfg(not(no_qt))]
+struct QtPlatformClipboard;
+
+#[cfg(not(no_qt))]
+impl PlatformClipboard for WinitPlatformClipboard {
+    fn set(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        value: Arc<dyn i_slint_core::clipboard::ClipboardData>,
+    ) {
+        use cpp::cpp;
+
+        match value.read_plaintext() {
+            Ok(value) => {
+                let is_selection: bool = match _clipboard {
+                    i_slint_core::platform::Clipboard::DefaultClipboard => false,
+                    i_slint_core::platform::Clipboard::SelectionClipboard => true,
+                    _ => return,
+                };
+                let text: qttypes::QString = _text.into();
+                cpp! {unsafe [text as "QString", is_selection as "bool"] {
+                    ensure_initialized();
+                    if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
+                        return;
+                    QGuiApplication::clipboard()->setText(text, is_selection ? QClipboard::Selection : QClipboard::Clipboard);
+                } }
+            }
+            Err(e) => {
+                eprintln!("Could not read clipboard item as string: {e}");
+            }
+        }
+    }
+
+    fn read_string(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::mime::Mime,
+    ) -> Result<i_slint_core::SharedString, i_slint_core::clipboard::ClipboardError> {
+        use cpp::cpp;
+
+        if ![
+            i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8,
+            i_slint_core::clipboard::mime::TEXT_PLAIN,
+        ]
+        .contains(type_)
+        {
+            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(
+                type_.clone().into(),
+            ));
+        }
+
+        let is_selection: bool = match _clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => false,
+            i_slint_core::platform::Clipboard::SelectionClipboard => true,
+            _ => return None,
+        };
+        let has_text = cpp! {unsafe [is_selection as "bool"] -> bool as "bool" {
+            ensure_initialized();
+            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
+                return false;
+            return QGuiApplication::clipboard()->mimeData(is_selection ? QClipboard::Selection : QClipboard::Clipboard)->hasText();
+        } };
+        if has_text {
+            return Some(
+                String::from(cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
+                    return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
+                }})
+                .into(),
+            );
+        }
+
+        return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.clone().into()));
+    }
+
+    fn read_any(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: std::any::TypeId,
+    ) -> Result<Arc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
+        use i_slint_core::SharedString;
+
+        if type_ == std::any::TypeId::of::<SharedString>() {
+            eprintln!(
+                "`read_any` used to read a `SharedString` from the clipboard. This would be more efficient using `read_string`"
+            );
+            self.read_string(clipboard, &i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8)
+                .map(|string| Arc::new(string) as _)
+        } else {
+            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
         }
     }
 }
