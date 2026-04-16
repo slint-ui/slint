@@ -341,7 +341,7 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        value: Arc<dyn i_slint_core::clipboard::ClipboardData>,
+        value: Rc<dyn i_slint_core::clipboard::ClipboardData>,
     ) {
         use cpp::cpp;
 
@@ -411,7 +411,7 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
         &self,
         clipboard: i_slint_core::platform::Clipboard,
         type_: std::any::TypeId,
-    ) -> Result<Arc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
+    ) -> Result<Rc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
         use i_slint_core::SharedString;
 
         if type_ == std::any::TypeId::of::<SharedString>() {
@@ -419,7 +419,7 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
                 "`read_any` used to read a `SharedString` from the clipboard. This would be more efficient using `read_string`"
             );
             self.read_string(clipboard, &i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8)
-                .map(|string| Arc::new(string) as _)
+                .map(|string| Rc::new(string) as _)
         } else {
             return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
         }

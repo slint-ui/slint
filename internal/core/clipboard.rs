@@ -3,7 +3,7 @@
 
 use core::any::{Any, TypeId};
 
-use alloc::sync::Arc;
+use alloc::rc::Rc;
 
 use crate::SharedString;
 
@@ -11,7 +11,7 @@ use crate::SharedString;
 pub use mime;
 
 pub trait PlatformClipboard {
-    fn set(&self, clipboard: crate::platform::Clipboard, value: Arc<dyn ClipboardData>);
+    fn set(&self, clipboard: crate::platform::Clipboard, value: Rc<dyn ClipboardData>);
 
     fn read_plaintext(
         &self,
@@ -48,7 +48,7 @@ pub trait PlatformClipboard {
         &self,
         clipboard: crate::platform::Clipboard,
         type_: TypeId,
-    ) -> Result<Arc<dyn Any>, ClipboardError> {
+    ) -> Result<Rc<dyn Any>, ClipboardError> {
         let _ = clipboard;
         Err(ClipboardError::TypeNotFound(type_.into()))
     }
@@ -57,7 +57,7 @@ pub trait PlatformClipboard {
 pub struct DummyPlatformClipboard;
 
 impl PlatformClipboard for DummyPlatformClipboard {
-    fn set(&self, _: crate::platform::Clipboard, _: Arc<dyn ClipboardData>) {}
+    fn set(&self, _: crate::platform::Clipboard, _: Rc<dyn ClipboardData>) {}
 
     #[cfg(feature = "std")]
     fn read_string(
@@ -72,7 +72,7 @@ impl PlatformClipboard for DummyPlatformClipboard {
         &self,
         _: crate::platform::Clipboard,
         type_: TypeId,
-    ) -> Result<Arc<dyn Any>, ClipboardError> {
+    ) -> Result<Rc<dyn Any>, ClipboardError> {
         Err(ClipboardError::TypeNotFound(type_.into()))
     }
 }
@@ -164,7 +164,7 @@ pub trait ClipboardData {
     fn has_type(&self, type_: &ClipboardType) -> bool;
 
     /// Helper to read plaintext via any of the supported plaintext formats
-    fn read_plaintext(self: Arc<Self>) -> Result<SharedString, ClipboardError> {
+    fn read_plaintext(self: Rc<Self>) -> Result<SharedString, ClipboardError> {
         #[cfg(feature = "std")]
         let out = self
             .clone()
@@ -185,9 +185,9 @@ pub trait ClipboardData {
 
     /// Read a string from the clipboard, in the specified MIME type.
     #[cfg(feature = "std")]
-    fn read_string(self: Arc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError>;
+    fn read_string(self: Rc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError>;
 
-    fn read_any(self: Arc<Self>, type_: TypeId) -> Result<Arc<dyn Any>, ClipboardError>;
+    fn read_any(self: Rc<Self>, type_: TypeId) -> Result<Rc<dyn Any>, ClipboardError>;
 }
 
 impl ClipboardData for dyn Any + Send + Sync {
@@ -196,11 +196,11 @@ impl ClipboardData for dyn Any + Send + Sync {
     }
 
     #[cfg(feature = "std")]
-    fn read_string(self: Arc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError> {
+    fn read_string(self: Rc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError> {
         Err(ClipboardError::TypeNotFound(type_.clone().into()))
     }
 
-    fn read_any(self: Arc<Self>, type_: TypeId) -> Result<Arc<dyn Any>, ClipboardError> {
+    fn read_any(self: Rc<Self>, type_: TypeId) -> Result<Rc<dyn Any>, ClipboardError> {
         if self.has_type(&type_.into()) {
             Ok(self.clone())
         } else {
@@ -215,7 +215,7 @@ impl ClipboardData for SharedString {
     }
 
     #[cfg(feature = "std")]
-    fn read_string(self: Arc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError> {
+    fn read_string(self: Rc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError> {
         let clipboard_type = type_.clone().into();
         if self.has_type(&clipboard_type) {
             Ok((*self).clone())
@@ -224,10 +224,10 @@ impl ClipboardData for SharedString {
         }
     }
 
-    fn read_any(self: Arc<Self>, type_: TypeId) -> Result<Arc<dyn Any>, ClipboardError> {
+    fn read_any(self: Rc<Self>, type_: TypeId) -> Result<Rc<dyn Any>, ClipboardError> {
         if type_ == TypeId::of::<Self>() {
             // We might want to emit a warning here, telling the user that `read_string` is more efficient
-            Ok(Arc::new(self.clone()))
+            Ok(Rc::new(self.clone()))
         } else {
             Err(ClipboardError::TypeNotFound(type_.into()))
         }
@@ -241,11 +241,11 @@ impl ClipboardData for () {
     }
 
     #[cfg(feature = "std")]
-    fn read_string(self: Arc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError> {
+    fn read_string(self: Rc<Self>, type_: &mime::Mime) -> Result<SharedString, ClipboardError> {
         Err(ClipboardError::TypeNotFound(type_.clone().into()))
     }
 
-    fn read_any(self: Arc<Self>, type_: TypeId) -> Result<Arc<dyn Any>, ClipboardError> {
+    fn read_any(self: Rc<Self>, type_: TypeId) -> Result<Rc<dyn Any>, ClipboardError> {
         Err(ClipboardError::TypeNotFound(type_.into()))
     }
 }

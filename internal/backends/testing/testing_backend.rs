@@ -32,14 +32,14 @@ pub struct TestingBackendOptions {
 
 #[derive(Default)]
 struct TestingPlatformClipboard {
-    clipboard: Mutex<Option<String>>,
+    clipboard: Mutex<Option<SharedString>>,
 }
 
 impl PlatformClipboard for TestingPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        value: std::sync::Arc<dyn i_slint_core::clipboard::ClipboardData>,
+        value: std::rc::Rc<dyn i_slint_core::clipboard::ClipboardData>,
     ) {
         if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
             eprintln!("No such clipboard {clipboard:?}");
@@ -71,7 +71,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
             ));
         }
 
-        self.clipboard.lock().unwrap().as_deref().map(|str| str.into()).ok_or_else(|| {
+        self.clipboard.lock().unwrap().as_ref().map(|str| str.clone()).ok_or_else(|| {
             i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.clone().into())
         })
     }

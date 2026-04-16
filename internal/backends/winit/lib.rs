@@ -796,7 +796,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        value: Arc<dyn i_slint_core::clipboard::ClipboardData>,
+        value: Rc<dyn i_slint_core::clipboard::ClipboardData>,
     ) {
         match value.read_plaintext() {
             Ok(value) => {
@@ -812,13 +812,13 @@ impl PlatformClipboard for WinitPlatformClipboard {
         &self,
         clipboard: i_slint_core::platform::Clipboard,
         type_: std::any::TypeId,
-    ) -> Result<Arc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
+    ) -> Result<Rc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
         use i_slint_core::SharedString;
 
         if type_ == std::any::TypeId::of::<SharedString>()
             && let Some(text) = crate::wasm_input_helper::get_clipboard_text(clipboard)
         {
-            Ok(Arc::new(SharedString::from(text)))
+            Ok(Rc::new(SharedString::from(text)))
         } else {
             return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
         }
@@ -833,7 +833,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        value: Arc<dyn i_slint_core::clipboard::ClipboardData>,
+        value: Rc<dyn i_slint_core::clipboard::ClipboardData>,
     ) {
         let mut pair = self.0.borrow_mut();
         let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
@@ -884,7 +884,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
         &self,
         clipboard: i_slint_core::platform::Clipboard,
         type_: std::any::TypeId,
-    ) -> Result<Arc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
+    ) -> Result<Rc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
         use i_slint_core::SharedString;
 
         if type_ == std::any::TypeId::of::<SharedString>() {
@@ -892,7 +892,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
                 "`read_any` used to read a `SharedString` from the clipboard. This would be more efficient using `read_string`"
             );
             self.read_string(clipboard, &i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8)
-                .map(|string| Arc::new(string) as _)
+                .map(|string| Rc::new(string) as _)
         } else {
             return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
         }

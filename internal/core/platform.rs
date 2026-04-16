@@ -134,7 +134,7 @@ pub trait Platform {
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
-        self.clipboard().set(clipboard, alloc::sync::Arc::new(SharedString::from(text)));
+        self.clipboard().set(clipboard, alloc::rc::Rc::new(SharedString::from(text)));
     }
 
     /// Returns a copy of text stored in the system clipboard, if any.
