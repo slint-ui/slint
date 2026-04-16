@@ -818,7 +818,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
         if type_ == std::any::TypeId::of::<SharedString>()
             && let Some(text) = crate::wasm_input_helper::get_clipboard_text(clipboard)
         {
-            Ok(text.into())
+            Ok(Arc::new(SharedString::from(text)))
         } else {
             return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
         }
