@@ -58,7 +58,7 @@ pub fn filter_log_messages(
     pattern: SharedString,
 ) -> ModelRc<ui::LogMessage> {
     let pattern = pattern.to_string();
-    eprintln!("messages: row_count: {}", messages.row_count());
+    tracing::debug!("messages: row_count: {}", messages.row_count());
     Rc::new(VecModel::from(common::fuzzy_filter_iter(
         &mut messages.iter(),
         |lm| format!("{} %level:{:?} %file:{}", lm.message, lm.level, lm.file,),

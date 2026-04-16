@@ -1505,8 +1505,8 @@ export component Tester {{
     }
 
     fn compare_pv(r: &super::PropertyValue, e: &PropertyValue) {
-        eprintln!("Received: {r:?}");
-        eprintln!("Expected: {e:?}");
+        tracing::debug!("Received: {r:?}");
+        tracing::debug!("Expected: {e:?}");
 
         assert_eq!(r.value_bool, e.value_bool);
         assert_eq!(r.is_translatable, e.is_translatable);
@@ -1536,15 +1536,15 @@ export component Tester {{
         let (key, value) = generate_preview_data(visibility, type_def, type_name, code);
         let rp = super::map_preview_data_property(&key, &value).unwrap();
 
-        eprintln!("*** Validating PreviewData: Received: {rp:?}");
-        eprintln!("*** Validating PreviewData: Expected: {expected_data:?}");
+        tracing::debug!("*** Validating PreviewData: Received: {rp:?}");
+        tracing::debug!("*** Validating PreviewData: Expected: {expected_data:?}");
 
         assert_eq!(rp.name, expected_data.name);
         assert_eq!(rp.has_getter, expected_data.has_getter);
         assert_eq!(rp.has_setter, expected_data.has_setter);
         assert_eq!(rp.kind, expected_data.kind);
 
-        eprintln!("*** PreviewData is as expected...");
+        tracing::debug!("*** PreviewData is as expected...");
 
         (key, value)
     }
@@ -1599,7 +1599,7 @@ export component Tester {{
         assert_eq!(is_array, expected_is_array);
 
         for (idx, h) in headers.iter().enumerate() {
-            eprintln!("Header {idx}: \"{h}\"");
+            tracing::debug!("Header {idx}: \"{h}\"");
         }
         assert_eq!(headers.len(), expected_headers.len());
         assert!(headers.iter().zip(expected_headers.iter()).all(|(rh, eh)| rh == eh));

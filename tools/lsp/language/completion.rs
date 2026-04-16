@@ -1943,7 +1943,7 @@ mod tests {
         let source6 = "{ property<int> xyz; changed t🔺 \n enabled: true; }  ";
         let source7 = "{ changed t🔺 => {} property<int> xyz; ";
         for s in [source1, source2, source3, source4, source5, source6, source7] {
-            eprintln!("changed_completion: {s:?}");
+            tracing::debug!("changed_completion: {s:?}");
             let s = format!(
                 "component Bar inherits TextInput {{ property <int> nope; out property <int> from_bar; }} component Foo {{ Bar {s} }}"
             );
@@ -2047,7 +2047,7 @@ mod tests {
             "component Bar in🔺 Window {}",
         ];
         for source in sources {
-            eprintln!("Test for inherits in {source:?}");
+            tracing::debug!("Test for inherits in {source:?}");
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "inherits").unwrap();
         }
@@ -2071,7 +2071,7 @@ mod tests {
             "component X { property<string> prop; elem := Text{} prop <=> e🔺; }",
         ];
         for source in sources {
-            eprintln!("Test for two ways in {source:?}");
+            tracing::debug!("Test for two ways in {source:?}");
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "prop").unwrap();
             res.iter().find(|ci| ci.label == "self").unwrap();
@@ -2087,7 +2087,7 @@ mod tests {
             "component X { elem := Text{ property<string> prop; } title <=> elem.🔺; }",
         ];
         for source in sources {
-            eprintln!("Test for two ways in {source:?}");
+            tracing::debug!("Test for two ways in {source:?}");
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "text").unwrap();
             res.iter().find(|ci| ci.label == "prop").unwrap();

@@ -1274,7 +1274,7 @@ async fn reload_timer_function() {
                 PREVIEW_STATE.with_borrow_mut(|preview_state| {
                     preview_state.loading_state = PreviewFutureState::Pending;
                 });
-                eprintln!("{e}");
+                tracing::error!("{e}");
                 std::process::exit(3);
             }
         }
