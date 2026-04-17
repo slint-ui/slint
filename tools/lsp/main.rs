@@ -17,7 +17,7 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::{LspToPreview, Result};
+use common::Result;
 use language::*;
 
 use lsp_types::{
@@ -342,9 +342,10 @@ async fn main_loop(
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    let to_preview =
+        Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
     #[cfg(feature = "preview-engine")]
-    let to_preview: Rc<dyn LspToPreview> = {
+    let to_preview = {
         let sn = server_notifier.clone();
 
         let child_preview: Box<dyn common::LspToPreview> =

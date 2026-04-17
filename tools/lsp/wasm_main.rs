@@ -11,11 +11,13 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::{DocumentCache, LspToPreview, Result};
+use common::{DocumentCache, Result};
 use i_slint_preview_protocol::{LspToPreviewMessage, VersionedUrl};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
+use preview::connector::SwitchableLspToPreview;
+
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -251,10 +253,12 @@ pub fn create(
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview: Rc<dyn LspToPreview> = Rc::new(common::DummyLspToPreview::default());
+    let to_preview =
+        Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
     #[cfg(feature = "preview-engine")]
-    let to_preview: Rc<dyn LspToPreview> =
-        Rc::new(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
+    let to_preview = Rc::new(SwitchableLspToPreview::with_one(
+        preview::connector::WasmLspToPreview::new(server_notifier.clone()),
+    ));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {

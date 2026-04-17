@@ -261,10 +261,6 @@ impl common::LspToPreview for WasmLspToPreview {
     fn preview_target(&self) -> common::PreviewTarget {
         common::PreviewTarget::EmbeddedWasm
     }
-
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
-    }
 }
 
 #[derive(Default)]

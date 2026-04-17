@@ -13,6 +13,7 @@ mod signature_help;
 pub mod test;
 
 use crate::common::uri_to_file;
+use crate::preview::connector::SwitchableLspToPreview;
 use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
@@ -162,7 +163,7 @@ pub struct Context {
     pub to_show: Option<i_slint_preview_protocol::PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<dyn common::LspToPreview>,
+    pub to_preview: Rc<SwitchableLspToPreview>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,

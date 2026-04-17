@@ -48,7 +48,7 @@ where
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PreviewTarget {
     #[allow(dead_code)]
     ChildProcess,
@@ -59,9 +59,8 @@ pub enum PreviewTarget {
 }
 
 #[allow(dead_code)]
-pub trait LspToPreview {
+pub trait LspToPreview: std::any::Any {
     fn send(&self, message: &LspToPreviewMessage);
-    fn set_preview_target(&self, target: PreviewTarget) -> Result<()>;
     fn preview_target(&self) -> PreviewTarget;
     fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
         Box::pin(async {})
@@ -77,10 +76,6 @@ impl LspToPreview for DummyLspToPreview {
 
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::Dummy
-    }
-
-    fn set_preview_target(&self, _: PreviewTarget) -> Result<()> {
-        Err("Can not change the preview target".into())
     }
 }
 

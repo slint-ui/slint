@@ -11,6 +11,9 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
+mod switchable;
+pub use switchable::SwitchableLspToPreview;
+
 use crate::preview;
 
 pub fn lsp_to_preview(message: i_slint_preview_protocol::LspToPreviewMessage) {
