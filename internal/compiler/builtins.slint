@@ -30,9 +30,9 @@ component Rectangle inherits Empty {
 }
 
 component BasicBorderRectangle inherits Rectangle {
+    in property <brush> border-color;
     in property <length> border-width;
     in property <length> border-radius;
-    in property <brush> border-color;
 }
 
 component BorderRectangle inherits BasicBorderRectangle {
@@ -48,27 +48,26 @@ export { BorderRectangle as Rectangle }
 component ImageItem inherits Empty {
     in property <length> width;
     in property <length> height;
+    in property <brush> colorize;
     in property <image> source;
     in property <ImageFit> image-fit;
     in property <ImageRendering> image-rendering;
-    in property <brush> colorize;
 
     in property <angle> rotation-angle <=> transform-rotation;
 }
 
 export component ClippedImage inherits ImageItem {
-    in property <int> source-clip-x;
-    in property <int> source-clip-y;
-    in property <int> source-clip-width;
-    in property <int> source-clip-height;
-    //-default_size_binding:implicit_size
-
     in property <ImageHorizontalAlignment> horizontal-alignment;
     in property <ImageVerticalAlignment> vertical-alignment;
     in property <ImageTiling> horizontal-tiling;
     in property <ImageTiling> vertical-tiling;
     // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
     // in property <ImageTiling> tiling;
+    in property <int> source-clip-x;
+    in property <int> source-clip-y;
+    in property <int> source-clip-width;
+    in property <int> source-clip-height;
+    //-default_size_binding:implicit_size
 
 }
 
@@ -95,11 +94,11 @@ export component Transform inherits Empty {
 component SimpleText inherits Empty {
     in property <length> width;
     in property <length> height;
-    in property <string> text;
+    in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <length> font-size;
     in property <int> font-weight;
-    in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
+    in property <string> text;
     in property <TextVerticalAlignment> vertical-alignment;
     //-default_size_binding:implicit_size
 
@@ -123,14 +122,14 @@ export { ComplexText as Text }
 component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
-    in property <styled-text> text;
     in property <brush> default-color;
-    in property <length> default-font-size;
     in property <string> default-font-family;
+    in property <length> default-font-size;
     in property <TextHorizontalAlignment> horizontal-alignment;
+    in property <color> link-color: #00f;
+    in property <styled-text> text;
     in property <TextVerticalAlignment> vertical-alignment;
     callback link-clicked(link: string);
-    in property <color> link-color: #00f;
     //-default_size_binding:implicit_size
 }
 
@@ -138,13 +137,13 @@ export { StyledTextItem as StyledText }
 
 export component TouchArea {
     in property <bool> enabled: true;
-    out property <bool> pressed;
     out property <bool> has_hover;
+    in property <MouseCursor> mouse-cursor;
     out property <length> mouse_x;
     out property <length> mouse_y;
     out property <length> pressed_x;
     out property <length> pressed_y;
-    in property <MouseCursor> mouse-cursor;
+    out property <bool> pressed;
     callback clicked;
     callback double-clicked;
     callback moved;
@@ -154,10 +153,10 @@ export component TouchArea {
 }
 
 export component FocusScope {
+    out property <bool> has-focus;
     in property <bool> enabled: true;
     in property <bool> focus-on-click: true;
     in property <bool> focus-on-tab-navigation: true;
-    out property <bool> has-focus;
     callback capture_key_pressed(event: KeyEvent) -> EventResult;
     callback capture_key_released(event: KeyEvent) -> EventResult;
     callback key_pressed(event: KeyEvent) -> EventResult;
@@ -172,24 +171,27 @@ export component FocusScope {
 }
 
 component KeyBinding {
-    in property <bool> enabled: true;
     in property <keys> keys;
+    in property <bool> enabled: true;
     callback activated();
     //-is_non_item_type
 }
 
 export component Flickable inherits Empty {
-    in property <length> viewport-height;
+    in property <bool> interactive: true;
     in property <length> viewport-width;
+    in property <length> viewport-height;
     in-out property <length> viewport-x;
     in-out property <length> viewport-y;
-    in property <bool> interactive: true;
     callback flicked();
     //-default_size_binding:expands_to_parent_geometry
 }
 
 export component SwipeGestureHandler {
     in property <bool> enabled: true;
+    out property <Point> pressed-position;
+    out property <Point> current-position;
+    out property <bool> swiping;
     in property <bool> handle-swipe-left;
     in property <bool> handle-swipe-right;
     in property <bool> handle-swipe-up;
@@ -203,17 +205,10 @@ export component SwipeGestureHandler {
     // in property <int> required-touch-points: 1;
     //callback swipe-recognized();
 
-    out property <Point> pressed-position;
-    out property <Point> current-position;
-    out property <bool> swiping;
-
     callback moved();
-    // the cursor is released and so the swipe is finished
     callback swiped();
-    // the cursor is released and so the swipe is finished
     callback cancelled();
 
-    // clears state, invokes swipe-cancelled()
     function cancel() {
     }
 
@@ -224,8 +219,8 @@ export component ScaleRotateGestureHandler {
     in property <bool> enabled: true;
 
     out property <bool> active;
-    out property <float> scale;       // Cumulative factor: 1.0 = no change
-    out property <angle> rotation;    // Cumulative rotation: 0deg = no change
+    out property <float> scale;
+    out property <angle> rotation;
     out property <Point> center;
 
     callback started();
@@ -283,7 +278,6 @@ component Menu {
     //-is_non_item_type
 }
 
-// Lowered in lower_menus pass. See that pass documentation for more info
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -309,9 +303,6 @@ export component ContextMenuInternal inherits ContextMenu {
     //-is_internal
 }
 
-// The public ContextMenu which is lowered in the lower_menus pass. See that pass documentation for more info
-// Note that this element cannot be named `ContextMenu` because that's the same name as a native item,
-// and the load_builtins code doesn't allow that. So use a placeholder name and re-export under `ContextMenu`
 export component ContextMenuArea inherits Empty {
     // This is actually function as part of out interface, but a callback as much is the runtime concerned
     callback show(position: Point);
@@ -326,20 +317,20 @@ export component ContextMenuArea inherits Empty {
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
-    out property <Edges> safe-area-insets;
-    out property <Point> virtual-keyboard-position;
-    out property <Size> virtual-keyboard-size;
-    in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
-    in property <brush> color <=> background;
-    in property <string> title: "Slint Window";
-    in property <bool> no-frame;
-    in property <length> resize-border-width;
     in property <bool> always-on-top;
     in-out property <bool> full-screen;
+    in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
+    in property <brush> color <=> background;
     in property <string> default-font-family;
     in property <length> default-font-size;
     in property <int> default-font-weight;
     in property <image> icon;
+    in property <bool> no-frame;
+    in property <length> resize-border-width;
+    in property <string> title: "Slint Window";
+    out property <Edges> safe-area-insets;
+    out property <Point> virtual-keyboard-position;
+    out property <Size> virtual-keyboard-size;
     function hide() {
     }
 }
@@ -434,11 +425,10 @@ component Row {
     //-is_non_item_type
 }
 
-// Note: layouts are not NativeClass, but this is lowered in lower_layout
 export component GridLayout {
+    in property <length> spacing;
     in property <length> spacing-horizontal;
     in property <length> spacing-vertical;
-    in property <length> spacing;
 
     // Additional accepted child
     Row { }
@@ -457,9 +447,9 @@ export component HorizontalLayout {
 }
 
 export component FlexboxLayout {
+    in property <length> spacing;
     in property <length> spacing-horizontal;
     in property <length> spacing-vertical;
-    in property <length> spacing;
     in property <LayoutAlignment> alignment: LayoutAlignment.start;  // CSS default is flex-start
     in property <FlexboxLayoutDirection> flex-direction;
     in property <FlexboxLayoutAlignContent> align-content;
@@ -484,13 +474,13 @@ component LineTo {
 }
 
 component ArcTo {
-    in property <float> x;
-    in property <float> y;
+    in property <bool> large_arc;
     in property <float> radius-x;
     in property <float> radius-y;
-    in property <float> x-rotation;
-    in property <bool> large_arc;
     in property <bool> sweep;
+    in property <float> x-rotation;
+    in property <float> x;
+    in property <float> y;
 
     //-builtin_struct:PathArcTo
     //-is_non_item_type
@@ -571,7 +561,6 @@ export component TabWidget {
     //-is_internal
 }
 
-// Note: not a native class, handled in the lower_popups pass
 export component PopupWindow {
     //property <length> x;
     //property <length> y;
@@ -583,14 +572,12 @@ export component PopupWindow {
     in property <length> anchor_width;*/
     in property <bool> close-on-click;
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
-    //show() is hardcoded in typeregister.rs
 }
 
-// Also not a real Item. Actually not an element at all
 export component Timer {
     in property <duration> interval;
-    callback triggered;
     in property <bool> running: true;
+    callback triggered;
     function start() {
     }
     function stop() {
