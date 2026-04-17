@@ -72,7 +72,7 @@ members = [
   'tests/manual/module-builds/app',
   'tests/backends/',
   'tools/compiler',
-  'tools/docsnapper',
+  'docs/slint-doc-generator',
   'tools/figma_import',
   'tools/lsp',
   'tools/updater',

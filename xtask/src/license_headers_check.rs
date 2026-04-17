@@ -606,6 +606,7 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
         ("^examples/", MIT_LICENSE),
         ("^demos/", MIT_LICENSE),
+        ("^docs/slint-doc-generator/", TRIPLE_LICENSE),
         ("^docs/", MIT_LICENSE),
         ("^api/cpp/docs/", MIT_LICENSE),
         ("^ui-libraries/material", MIT_LICENSE),
