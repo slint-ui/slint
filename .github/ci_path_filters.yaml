@@ -32,7 +32,6 @@ slint:
  - 'scripts/**'
  - 'tests/**'
  - 'tools/compiler/**'
- - 'tools/docsnapper/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
  - 'tools/slintpad/**'

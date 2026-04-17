@@ -25,7 +25,6 @@
 //! i_slint_common::for_each_keys!(do_something_with_keys);
 //! ```
 //!
-// NOTE: Run `cargo xtask slintdocs` when changing/adding/removing keys, to keep the docs in sync!
 #[macro_export]
 macro_rules! for_each_keys {
     ($macro:ident) => {

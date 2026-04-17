@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [package]
-name = "slint-docsnapper"
-description = "Screenshot tool for slint docs"
+name = "slint-doc-generator"
+description = "Documentation generator for the Slint project"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -11,24 +11,26 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-categories = ["gui", "development-tools", "command-line-utilities"]
-keywords = ["viewer", "gui", "ui", "toolkit"]
 publish = false
 
 [dependencies]
+# Slint internal crates
 i-slint-compiler = { workspace = true }
+i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
 i-slint-renderer-skia = { workspace = true, features = ["default", "wayland"] }
 
+# CLI and utilities
+anyhow = "1.0"
 clap = { workspace = true }
 itertools = { workspace = true }
 spin_on = { workspace = true }
 termcolor = { version = "1.4.1" }
 walkdir = { version = "2.5" }
-
 image = { workspace = true }
+xshell = "0.2.1"
 
 [[bin]]
-name = "slint-docsnapper"
+name = "slint-doc-generator"
 path = "main.rs"

@@ -1,14 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#![cfg(not(target_os = "android"))]
-
-mod headless;
-
 use i_slint_compiler::ComponentSelection;
 use slint_interpreter::ComponentHandle;
 
-use clap::Parser;
 use itertools::Itertools;
 
 use std::{
@@ -21,7 +16,6 @@ use std::{
 struct Error(Box<dyn std::error::Error>);
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Use the Display impl of the error instead of the error
         write!(f, "{}", self.0)
     }
 }
@@ -37,33 +31,31 @@ where
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, clap::Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
+#[derive(Debug, Clone, clap::Args)]
+pub struct ScreenshotsArgs {
     /// Include path for other .slint files or images
     #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
-    include_paths: Vec<std::path::PathBuf>,
+    pub include_paths: Vec<std::path::PathBuf>,
 
     /// Specify Library location of the '@library' in the form 'library=/path/to/library'
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
-    library_paths: Vec<String>,
+    pub library_paths: Vec<String>,
 
-    /// The .slint file to load ('-' for stdin)
+    /// The docs folder to scan for code snippets
     #[arg(name = "docs-folder", action)]
-    docs_folder: std::path::PathBuf,
+    pub docs_folder: std::path::PathBuf,
 
     /// The style name ('native' or 'fluent')
     #[arg(long, value_name = "style name", action)]
-    style: Option<String>,
+    pub style: Option<String>,
 
     /// Write over existing files
     #[arg(long = "overwrite", default_value = "false")]
-    overwrite_files: bool,
+    pub overwrite_files: bool,
 
-    /// The name of the component to view. If unset, the last exported component of the file is used.
-    /// If the component name is not in the .slint file , nothing will be shown
+    /// The name of the component to view.
     #[arg(long, value_name = "component name", action)]
-    component: Option<String>,
+    pub component: Option<String>,
 }
 
 fn print_error(stream: &mut termcolor::StandardStream, msg: &str) {
@@ -76,9 +68,7 @@ fn print_error(stream: &mut termcolor::StandardStream, msg: &str) {
     let _ = writeln!(stream, ": {msg}");
 }
 
-fn main() -> Result<()> {
-    let args = Cli::parse();
-
+pub fn run(args: ScreenshotsArgs) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let choice = if std::io::stderr().is_terminal() {
         termcolor::ColorChoice::Auto
     } else {
@@ -97,7 +87,7 @@ fn main() -> Result<()> {
 
     let _ = writeln!(&mut stderr, "project_root is {project_root:?}");
 
-    headless::init();
+    crate::headless::init();
 
     let mut error_count = 0;
 
@@ -121,7 +111,10 @@ fn main() -> Result<()> {
         }
     }
 
-    std::process::exit(error_count);
+    if error_count > 0 {
+        std::process::exit(error_count);
+    }
+    Ok(())
 }
 
 fn wrap_code(code: &str, size: Option<(usize, usize)>) -> String {
@@ -355,7 +348,7 @@ fn process_tag(
     text: &str,
     file_path: &Path,
     project_root: &Path,
-    args: &Cli,
+    args: &ScreenshotsArgs,
 ) -> Result<()> {
     let attr = parse_attribute(attributes)?;
     if attr.contains_key("noScreenShot") {
@@ -363,7 +356,6 @@ fn process_tag(
     }
 
     let Some(path) = attr.get("imagePath") else {
-        // No image path, no need to save anything...
         return Ok(());
     };
 
@@ -388,7 +380,7 @@ fn process_tag(
     build_and_snapshot(args, size, scale_factor, file_path, code.to_string(), &screenshot_path)
 }
 
-fn process_doc_file(file: &Path, project_root: &Path, args: &Cli) -> Result<()> {
+fn process_doc_file(file: &Path, project_root: &Path, args: &ScreenshotsArgs) -> Result<()> {
     let file = file.canonicalize()?;
     eprintln!("Looking into {file:?}");
     let content = std::fs::read_to_string(&file)?;
@@ -405,7 +397,6 @@ fn process_doc_file(file: &Path, project_root: &Path, args: &Cli) -> Result<()> 
             let tag_content = tag_content.trim();
 
             if !tag_content.ends_with('/') {
-                // We need an end_tag...
                 if let Some(end_tag_pos) = content[start_offset..].find(tag_end) {
                     let text = &content[start_offset..start_offset + end_tag_pos].trim();
                     start_offset += end_tag_pos + 1;
@@ -436,7 +427,7 @@ fn find_project_root(docs_folder: &Path) -> Result<PathBuf> {
 }
 
 fn build_and_snapshot(
-    args: &Cli,
+    args: &ScreenshotsArgs,
     size: Option<(usize, usize)>,
     scale_factor: f32,
     doc_file_path: &Path,
@@ -463,8 +454,8 @@ fn build_and_snapshot(
 
     let component = c.create()?;
 
-    // FIXME: The scale factor needs to be set before the size is set!
-    headless::set_window_scale_factor(component.window(), scale_factor);
+    // The scale factor needs to be set before the size.
+    crate::headless::set_window_scale_factor(component.window(), scale_factor);
 
     if let Some((x, y)) = size {
         component.window().set_size(i_slint_core::api::LogicalSize::new(x as f32, y as f32));
@@ -515,7 +506,7 @@ fn build_and_snapshot(
     Ok(())
 }
 
-fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
+fn init_compiler(args: &ScreenshotsArgs) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();
     compiler.set_include_paths(args.include_paths.clone());
     compiler.set_library_paths(
