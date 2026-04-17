@@ -58,20 +58,14 @@ pub extern "C" fn slint_go_value_to_color(val: &Value, out: &mut u32) -> bool {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_go_value_new_array(values: SlintGoValueSlice) -> Box<Value> {
     let values = unsafe { std::slice::from_raw_parts(values.ptr, values.len) };
-    let vec = values
-        .iter()
-        .map(|value| unsafe { &**value }.clone())
-        .collect::<SharedVector<_>>();
+    let vec = values.iter().map(|value| unsafe { &**value }.clone()).collect::<SharedVector<_>>();
     Box::new(Value::Model(ModelRc::new(SharedVectorModel::from(vec))))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_go_value_to_array(val: &Value, out: *mut SlintGoValueSlice) -> bool {
     let Value::Model(model) = val else { return false };
-    let mut values = model
-        .iter()
-        .map(|value| Box::into_raw(Box::new(value)))
-        .collect::<Vec<_>>();
+    let mut values = model.iter().map(|value| Box::into_raw(Box::new(value))).collect::<Vec<_>>();
     let slice = SlintGoValueSlice { ptr: values.as_mut_ptr(), len: values.len() };
     std::mem::forget(values);
     unsafe { std::ptr::write(out, slice) };

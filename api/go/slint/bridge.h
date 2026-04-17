@@ -99,8 +99,7 @@ SlintGoStruct *slint_go_struct_clone(const SlintGoStruct *value);
 void slint_go_struct_destructor(SlintGoStruct *value);
 SlintGoValue *slint_interpreter_value_new_struct(const SlintGoStruct *value);
 const SlintGoStruct *slint_interpreter_value_to_struct(const SlintGoValue *value);
-SlintGoValue *slint_interpreter_struct_get_field(const SlintGoStruct *stru,
-                                                SlintGoByteSlice name);
+SlintGoValue *slint_interpreter_struct_get_field(const SlintGoStruct *stru, SlintGoByteSlice name);
 void slint_interpreter_struct_set_field(SlintGoStruct *stru, SlintGoByteSlice name,
                                         const SlintGoValue *value);
 
