@@ -86,6 +86,9 @@ interface Counter {
 }
 
 component CounterButton implements Counter {
+    preferred-width: 100%;
+    preferred-height: 100%;
+
     increment => { value += 1; }
     TouchArea {
         clicked => { root.increment(); }
