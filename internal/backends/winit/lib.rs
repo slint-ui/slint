@@ -520,23 +520,19 @@ impl SharedBackendData {
         }
 
         let sel = sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:);
-        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate") {
-            if cls.instance_method(sel).is_none() {
-                unsafe {
-                    objc2::ffi::class_addMethod(
-                        (cls as *const AnyClass).cast_mut(),
-                        sel,
-                        core::mem::transmute::<
-                            unsafe extern "C-unwind" fn(
-                                *mut AnyObject,
-                                Sel,
-                                *mut AnyObject,
-                            ) -> Bool,
-                            Imp,
-                        >(should_not_localize),
-                        c"B@:@".as_ptr(),
-                    );
-                }
+        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate")
+            && cls.instance_method(sel).is_none()
+        {
+            unsafe {
+                objc2::ffi::class_addMethod(
+                    (cls as *const AnyClass).cast_mut(),
+                    sel,
+                    core::mem::transmute::<
+                        unsafe extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject) -> Bool,
+                        Imp,
+                    >(should_not_localize),
+                    c"B@:@".as_ptr(),
+                );
             }
         }
     }
