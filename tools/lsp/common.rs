@@ -752,7 +752,7 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
         .collect::<Vec<_>>();
 
     // sort by value, highest first. Sort names with the same value alphabetically
-    all_matches.sort_by(|r, l| l.0.cmp(&r.0));
+    all_matches.sort_by_key(|l| std::cmp::Reverse(l.0));
 
     let cut_off = {
         let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();
