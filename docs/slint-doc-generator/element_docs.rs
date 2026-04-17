@@ -6,6 +6,7 @@
 use i_slint_compiler::parser::{self, SyntaxKind, identifier_text, syntax_nodes};
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt::Write as FmtWrite;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 
@@ -199,6 +200,192 @@ fn strip_skip_children(doc: &mut String) -> bool {
     } else {
         false
     }
+}
+
+// -- Code fence screenshot transformation --
+
+/// Attribute keys that are consumed by the screenshot system and removed
+/// from the code fence info string. Everything else (e.g. `playground`)
+/// stays on the fence.
+const SCREENSHOT_ATTRS: &[&str] =
+    &["imageAlt", "width", "height", "skip", "noScreenShot", "needsBackground", "scale"];
+
+fn is_screenshot_attr(key: &str) -> bool {
+    SCREENSHOT_ATTRS.contains(&key)
+}
+
+/// State tracker for auto-generating screenshot image paths.
+struct ScreenshotCounter {
+    element_slug: String,
+    next: usize,
+}
+
+impl ScreenshotCounter {
+    fn new(element_name: &str) -> Self {
+        Self { element_slug: mdx::to_kebab_case(element_name), next: 1 }
+    }
+
+    fn next_path(&mut self) -> String {
+        let path = format!("/src/assets/generated/{}-{}.png", self.element_slug, self.next);
+        self.next += 1;
+        path
+    }
+
+    /// Return the previous image path (for `noScreenShot` blocks that reuse
+    /// the preceding screenshot).
+    fn prev_path(&self) -> String {
+        assert!(self.next > 1, "noScreenShot used before any screenshot was generated");
+        format!("/src/assets/generated/{}-{}.png", self.element_slug, self.next - 1)
+    }
+}
+
+/// Parse `key="value"` or bare-flag attributes from a code fence info string.
+/// Standalone quoted strings (e.g. `"color: red;"`) are preserved as bare flags
+/// for Expressive Code text markers.
+fn parse_fence_attrs(info: &str) -> Vec<(String, String)> {
+    let mut attrs = Vec::new();
+    let mut rest = info;
+    while !rest.is_empty() {
+        rest = rest.trim_start();
+        if rest.is_empty() {
+            break;
+        }
+        // Standalone quoted strings (Expressive Code text markers like "color: red;").
+        if (rest.starts_with('"') || rest.starts_with('\''))
+            && !rest[1..].starts_with(['=', '"', '\''])
+        {
+            let quote = rest.as_bytes()[0];
+            let end =
+                rest[1..].find(|c: char| c as u8 == quote).map(|i| i + 2).unwrap_or(rest.len());
+            attrs.push((rest[..end].to_string(), String::new()));
+            rest = &rest[end..];
+            continue;
+        }
+        let key_end = rest.find(|c: char| c == '=' || c.is_whitespace()).unwrap_or(rest.len());
+        let key = rest[..key_end].to_string();
+        rest = &rest[key_end..];
+        if rest.starts_with('=') {
+            rest = &rest[1..];
+            if rest.starts_with('"') {
+                rest = &rest[1..];
+                let end = rest.find('"').unwrap_or(rest.len());
+                attrs.push((key, rest[..end].to_string()));
+                rest = &rest[(end + 1).min(rest.len())..];
+            } else {
+                let end = rest.find(char::is_whitespace).unwrap_or(rest.len());
+                attrs.push((key, rest[..end].to_string()));
+                rest = &rest[end..];
+            }
+        } else {
+            attrs.push((key, String::new()));
+        }
+    }
+    attrs
+}
+
+/// Transform code fences with screenshot attributes into `<CodeSnippetMD>` tags.
+///
+/// A fence like `` ```slint imageAlt="example" width="200" height="200" ``
+/// becomes a `<CodeSnippetMD>` wrapper with an auto-generated `imagePath`.
+#[allow(clippy::while_let_on_iterator)] // inner loop also advances `lines`
+fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut lines = text.lines().peekable();
+    while let Some(line) = lines.next() {
+        let trimmed = line.trim_start();
+        let backtick_count = trimmed.len() - trimmed.trim_start_matches('`').len();
+        if backtick_count >= 3 {
+            let after_backticks = &trimmed[backtick_count..];
+            if after_backticks.starts_with("slint")
+                && (after_backticks.len() == 5
+                    || after_backticks[5..].starts_with(|c: char| c.is_whitespace()))
+            {
+                let info = after_backticks[5..].trim();
+                let attrs = parse_fence_attrs(info);
+
+                if attrs.iter().any(|(k, _)| is_screenshot_attr(k)) {
+                    let indent = &line[..line.len() - trimmed.len()];
+                    let backticks = &trimmed[..backtick_count];
+
+                    let get =
+                        |key: &str| attrs.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
+
+                    let is_no_screenshot = attrs.iter().any(|(k, _)| k == "noScreenShot");
+                    let is_skip = get("skip").is_some_and(|v| v.is_empty() || v == "true");
+
+                    let image_path =
+                        if is_no_screenshot { counter.prev_path() } else { counter.next_path() };
+
+                    // Build <CodeSnippetMD ...> opening tag.
+                    let mut tag = format!("<CodeSnippetMD imagePath=\"{image_path}\"");
+                    if let Some(alt) = get("imageAlt") {
+                        write!(tag, " imageAlt=\"{alt}\"").unwrap();
+                    }
+                    if let Some(w) = get("width") {
+                        write!(tag, " imageWidth=\"{w}\"").unwrap();
+                    }
+                    if let Some(h) = get("height") {
+                        write!(tag, " imageHeight=\"{h}\"").unwrap();
+                    }
+                    if get("needsBackground").is_some() {
+                        tag.push_str(" needsBackground=\"true\"");
+                    }
+                    if let Some(s) = get("scale") {
+                        write!(tag, " scale=\"{s}\"").unwrap();
+                    }
+                    if is_skip {
+                        tag.push_str(" skip=\"true\"");
+                    }
+                    if is_no_screenshot {
+                        tag.push_str(" noScreenShot");
+                    }
+                    tag.push('>');
+
+                    result.push_str(indent);
+                    result.push_str(&tag);
+                    result.push('\n');
+
+                    // Keep non-screenshot attributes (e.g. `playground`) on the fence.
+                    let fence_attrs: Vec<&str> = attrs
+                        .iter()
+                        .filter(|(k, _)| !is_screenshot_attr(k))
+                        .map(|(k, _)| k.as_str())
+                        .collect();
+
+                    result.push_str(indent);
+                    result.push_str(backticks);
+                    result.push_str("slint");
+                    if !fence_attrs.is_empty() {
+                        write!(result, " {}", fence_attrs.join(" ")).unwrap();
+                    }
+                    result.push('\n');
+
+                    // Copy code body until closing backticks.
+                    for body_line in lines.by_ref() {
+                        result.push_str(body_line);
+                        result.push('\n');
+                        let body_trimmed = body_line.trim_start();
+                        if body_trimmed.starts_with(backticks)
+                            && body_trimmed.len() == backtick_count
+                        {
+                            break;
+                        }
+                    }
+
+                    result.push_str(indent);
+                    result.push_str("</CodeSnippetMD>\n");
+                    continue;
+                }
+            }
+        }
+        result.push_str(line);
+        result.push('\n');
+    }
+    // Remove trailing newline added by the loop.
+    if result.ends_with('\n') && !text.ends_with('\n') {
+        result.pop();
+    }
+    result
 }
 
 // -- AST helpers --
@@ -620,6 +807,7 @@ fn write_slint_property(
     heading: &str,
     enums: &HashSet<String>,
     structs: &HashSet<String>,
+    sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     let (type_attr, enum_name, struct_name) = if enums.contains(&m.type_name) {
         ("enum", Some(&m.type_name), None)
@@ -647,7 +835,7 @@ fn write_slint_property(
         writeln!(file, "/>")?;
     } else {
         writeln!(file, ">")?;
-        writeln!(file, "{}", m.description.trim_end())?;
+        writeln!(file, "{}", transform_code_fences(&m.description, sc).trim_end())?;
         writeln!(file, "</SlintProperty>")?;
     }
     writeln!(file)?;
@@ -662,6 +850,7 @@ fn write_members(
     members: &[MemberDoc],
     enums: &HashSet<String>,
     structs: &HashSet<String>,
+    sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     // If the first documented thing is a section header, don't auto-generate "## Properties".
     let has_leading_section = members
@@ -685,7 +874,7 @@ fn write_members(
                 if desc.starts_with("## Functions") {
                     in_functions = true;
                 }
-                writeln!(file, "{}", desc)?;
+                writeln!(file, "{}", transform_code_fences(desc, sc))?;
                 writeln!(file)?;
             }
             MemberKind::Property if m.has_doc_comment => {
@@ -694,7 +883,7 @@ fn write_members(
                     writeln!(file)?;
                     in_properties = true;
                 }
-                write_slint_property(file, m, "###", enums, structs)?;
+                write_slint_property(file, m, "###", enums, structs, sc)?;
             }
             MemberKind::Callback if m.has_doc_comment => {
                 if !in_callbacks {
@@ -704,7 +893,7 @@ fn write_members(
                 }
                 writeln!(file, "### {}{}", m.name, m.type_name)?;
                 if !m.description.is_empty() {
-                    writeln!(file, "{}", m.description.trim_end())?;
+                    writeln!(file, "{}", transform_code_fences(&m.description, sc).trim_end())?;
                 }
                 writeln!(file)?;
             }
@@ -715,7 +904,7 @@ fn write_members(
                     in_functions = true;
                 }
                 writeln!(file, "### {}{}", m.name, m.type_name)?;
-                writeln!(file, "{}", m.description.trim_end())?;
+                writeln!(file, "{}", transform_code_fences(&m.description, sc).trim_end())?;
                 writeln!(file)?;
             }
             _ => {}
@@ -734,6 +923,7 @@ fn write_sub_element(
     enums: &HashSet<String>,
     structs: &HashSet<String>,
     seen: &mut HashSet<String>,
+    sc: &mut ScreenshotCounter,
 ) -> std::io::Result<()> {
     if !seen.insert(child_name.to_string()) {
         return Ok(());
@@ -746,7 +936,7 @@ fn write_sub_element(
     writeln!(file, "## `{child_name}`")?;
     writeln!(file)?;
     if !child.description.is_empty() {
-        writeln!(file, "{}", child.description.trim_end())?;
+        writeln!(file, "{}", transform_code_fences(&child.description, sc).trim_end())?;
         writeln!(file)?;
     }
 
@@ -778,7 +968,7 @@ fn write_sub_element(
             writeln!(file)?;
         }
         for p in &props {
-            write_slint_property(file, p, prop_h, enums, structs)?;
+            write_slint_property(file, p, prop_h, enums, structs, sc)?;
         }
     }
     if !cbs.is_empty() {
@@ -787,7 +977,7 @@ fn write_sub_element(
         for c in &cbs {
             writeln!(file, "{cb_h} {}{}", c.name, c.type_name)?;
             if !c.description.is_empty() {
-                writeln!(file, "{}", c.description.trim_end())?;
+                writeln!(file, "{}", transform_code_fences(&c.description, sc).trim_end())?;
             }
             writeln!(file)?;
         }
@@ -797,7 +987,7 @@ fn write_sub_element(
         writeln!(file)?;
         for f in &fns {
             writeln!(file, "{fn_h} {}{}", f.name, f.type_name)?;
-            writeln!(file, "{}", f.description.trim_end())?;
+            writeln!(file, "{}", transform_code_fences(&f.description, sc).trim_end())?;
             writeln!(file)?;
         }
     }
@@ -814,6 +1004,7 @@ fn write_sub_element(
                 enums,
                 structs,
                 seen,
+                sc,
             )?;
         }
     }
@@ -900,7 +1091,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
             file,
             "import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';"
         )?;
-        if all_text.contains("CodeSnippetMD") {
+        if all_text.contains("CodeSnippetMD") || all_text.contains("imageAlt=") {
             writeln!(
                 file,
                 "import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';"
@@ -933,14 +1124,16 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         }
         writeln!(file)?;
 
+        let mut sc = ScreenshotCounter::new(&elem.name);
+
         // Description.
         if !elem.description.is_empty() {
-            writeln!(file, "{}", elem.description.trim_end())?;
+            writeln!(file, "{}", transform_code_fences(&elem.description, &mut sc).trim_end())?;
             writeln!(file)?;
         }
 
         // Members.
-        write_members(&mut file, &elem.members, &enum_names, &struct_names)?;
+        write_members(&mut file, &elem.members, &enum_names, &struct_names, &mut sc)?;
 
         // Sub-elements (recursive, with cycle protection).
         // Skip children that have their own page.
@@ -960,6 +1153,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
                         &enum_names,
                         &struct_names,
                         &mut seen_children,
+                        &mut sc,
                     )?;
                 }
             }
@@ -967,7 +1161,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
         // Footer.
         if !elem.footer.is_empty() {
-            writeln!(file, "{}", elem.footer.trim_end())?;
+            writeln!(file, "{}", transform_code_fences(&elem.footer, &mut sc).trim_end())?;
         }
         file.flush()?;
     }

@@ -27,8 +27,7 @@ component Empty {
 component Rectangle inherits Empty {
     /// The background brush of this `Rectangle`.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/rectangle-background.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle background'>
-    /// ```slint
+    /// ```slint imageAlt="rectangle background" width="200" height="400"
     /// property <brush> rainbow-gradient: @linear-gradient(40deg, rgba(255, 0, 0, 1) 0%, rgba(255, 154, 0, 1) 10%, rgba(208, 222, 33, 1) 20%,rgba(79, 220, 74, 1) 30%, rgba(63, 218, 216, 1) 40%, rgba(47, 201, 226, 1) 50%, rgba(28, 127, 238, 1) 60%, rgba(95, 21, 242, 1) 70%, rgba(186, 12, 248, 1) 80%, rgba(251, 7, 217, 1) 90%, rgba(255, 0, 0, 1) 100%);
     ///
     /// Rectangle {
@@ -48,15 +47,13 @@ component Rectangle inherits Empty {
     ///     background: rainbow-gradient;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// \default transparent
     in property <brush> background;
     in property <brush> color <=> background;
 }
 
 component BasicBorderRectangle inherits Rectangle {
-    /// <CodeSnippetMD imagePath="/src/assets/generated/rectangle-border-color.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle border-color'>
-    /// ```slint
+    /// ```slint imageAlt="rectangle border-color" width="200" height="200"
     /// Rectangle {
     ///     width: 200px;
     ///     height: 200px;
@@ -64,15 +61,13 @@ component BasicBorderRectangle inherits Rectangle {
     ///     border-color: lightslategray;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// The color of the border.
     /// :::caution[Caution]
     /// The default `border-width` is `0px`, so the border is invisible. After setting a color also ensure that the `border-width` is set to a non-zero value.
     /// :::
     /// \default transparent
     in property <brush> border-color;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/rectangle-border-width.png"  imageWidth="200" imageHeight="200"  imageAlt='rectangle border-width'>
-    /// ```slint
+    /// ```slint imageAlt="rectangle border-width" width="200" height="200"
     /// Rectangle {
     ///     width: 200px;
     ///     height: 200px;
@@ -80,14 +75,12 @@ component BasicBorderRectangle inherits Rectangle {
     ///     border-color: lightslategray;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// The width of the border.
     /// \default 0
     in property <length> border-width;
     //! ### clip
     //! <SlintProperty propName="clip" typeName="bool" defaultValue="false">
-    //! <CodeSnippetMD skip="true" imagePath="/src/assets/generated/rectangle-clip.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle clip'>
-    //! ```slint
+    //! ```slint imageAlt="rectangle clip" width="200" height="400" skip
     //! // clip: false; the default
     //! Rectangle {
     //!     x: 50px; y: 50px;
@@ -128,10 +121,8 @@ component BasicBorderRectangle inherits Rectangle {
     //! }
     //!
     //! ```
-    //! </CodeSnippetMD>
     //!
-    //! <CodeSnippetMD noScreenShot imagePath="/src/assets/generated/rectangle-clip.png"  imageWidth="200" imageHeight="400"  imageAlt='rectangle clip'>
-    //! ```slint
+    //! ```slint imageAlt="rectangle clip" width="200" height="400" noScreenShot
     //! // clip: false; the default
     //! Rectangle {
     //!     x: 50px; y: 50px;
@@ -162,7 +153,6 @@ component BasicBorderRectangle inherits Rectangle {
     //! }
     //!
     //! ```
-    //! </CodeSnippetMD>
     //! By default, when child elements are outside the bounds of a parent,
     //! they are still shown. When this property is set to `true`, the children
     //! of this `Rectangle` are clipped and only the contents inside the elements bounds are shown.
@@ -180,8 +170,7 @@ component BasicBorderRectangle inherits Rectangle {
 ///
 /// When not part of a layout, its width and height default to 100% of the parent element.
 ///
-/// <CodeSnippetMD imagePath="/src/assets/generated/rectangle-example.png" imageAlt='rectangle example'>
-/// ```slint playground
+/// ```slint playground imageAlt="rectangle example"
 /// export component ExampleRectangle inherits Window {
 ///     width: 200px; height: 800px; background: transparent;
 ///
@@ -224,7 +213,6 @@ component BasicBorderRectangle inherits Rectangle {
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 /// \doc-file:elements/rectangle.mdx
 component BorderRectangle inherits BasicBorderRectangle {
     //! To target specific corners with different values use the following properties:
@@ -266,14 +254,12 @@ component ImageItem inherits Empty {
     in property <length> width;
     in property <length> height;
     /// When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-colorize.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
-    /// ```slint
+    /// ```slint imageAlt="image example" width="300" height="200"
     /// Image {
     ///     source: @image-url("slint-logo-simple-dark.png");
     ///     colorize: darkorange;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <brush> colorize;
     /// The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
     /// The address within the `@image-url` function must be known at compile time.
@@ -316,79 +302,65 @@ component ImageItem inherits Empty {
     ///
     /// Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the image's path.
     in property <image> source;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-fill.png"  imageWidth="300" imageHeight="200"  imageAlt='image fill example'>
-    /// ```slint
+    /// ```slint imageAlt="image fill example" width="300" height="200"
     /// Image {
     ///     width: 200px; height: 50px;
     ///     source: @image-url("mini-banner.png");
     ///     image-fit: fill;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-contain.png"  imageWidth="300" imageHeight="200"  imageAlt='image contain example'>
-    /// ```slint
+    /// ```slint imageAlt="image contain example" width="300" height="200"
     /// Image {
     ///     width: 250px; height: 40px;
     ///     source: @image-url("mini-banner.png");
     ///     image-fit: contain;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-cover.png"  imageWidth="300" imageHeight="200"  imageAlt='image cover example'>
-    /// ```slint
+    /// ```slint imageAlt="image cover example" width="300" height="200"
     /// Image {
     ///     width: 250px; height: 250px;
     ///     source: @image-url("mini-banner.png");
     ///     image-fit: cover;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-preserve.png"  imageWidth="400" imageHeight="400"  imageAlt='image preserve example'>
-    /// ```slint
+    /// ```slint imageAlt="image preserve example" width="400" height="400"
     /// Image {
     ///     width: 400px; height: 400px;
     ///     source: @image-url("mini-banner.png");
     ///     image-fit: preserve;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// \default `contain` when the `Image` element is part of a layout, `fill` otherwise
     in property <ImageFit> image-fit;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-smooth.png"  imageWidth="300" imageHeight="300"  imageAlt='image smooth example'>
-    /// ```slint
+    /// ```slint imageAlt="image smooth example" width="300" height="300"
     /// Image {
     ///     width: 800px;
     ///     source: @image-url("mini-banner.png");
     ///     image-rendering: smooth;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-pixelated.png"  imageWidth="300" imageHeight="300"  imageAlt='image pixelated example'>
-    /// ```slint
+    /// ```slint imageAlt="image pixelated example" width="300" height="300"
     /// Image {
     ///     width: 800px;
     ///     source: @image-url("mini-banner.png");
     ///     image-rendering: pixelated;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// \default smooth
     in property <ImageRendering> image-rendering;
 
     in property <angle> rotation-angle <=> transform-rotation;
 }
 
-/// <CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
-/// ```slint
+/// ```slint imageAlt="image example" width="300" height="200"
 /// Image {
 ///     source: @image-url("mini-banner.png");
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 /// Use the `Image` element to display an <Link type="ImageType" label="image" />.
 ///
@@ -432,8 +404,7 @@ export component ClippedImage inherits ImageItem {
     /// How the image is tiled horizontally.
     /// \default none
     in property <ImageTiling> horizontal-tiling;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling repeat example'>
-    /// ```slint
+    /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
     /// Image {
     ///     width: 400px;
     ///     height: 400px;
@@ -441,10 +412,8 @@ export component ClippedImage inherits ImageItem {
     ///     horizontal-tiling: repeat;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling round example'>
-    /// ```slint
+    /// ```slint imageAlt="image horizontal tiling round example" width="400" height="400"
     /// Image {
     ///     width: 400px;
     ///     height: 400px;
@@ -452,9 +421,7 @@ export component ClippedImage inherits ImageItem {
     ///     horizontal-tiling: round;
     /// }
     /// ```
-    /// </CodeSnippetMD>
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-vertical-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical tiling repeat example'>
-    /// ```slint
+    /// ```slint imageAlt="image vertical tiling repeat example" width="400" height="400"
     /// Image {
     ///     width: 400px;
     ///     height: 400px;
@@ -462,10 +429,8 @@ export component ClippedImage inherits ImageItem {
     ///     vertical-tiling: repeat;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-vertical-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical tiling round example'>
-    /// ```slint
+    /// ```slint imageAlt="image vertical tiling round example" width="400" height="400"
     /// Image {
     ///     width: 400px;
     ///     height: 400px;
@@ -473,10 +438,8 @@ export component ClippedImage inherits ImageItem {
     ///     vertical-tiling: round;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/image-vertical-horizontal-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical and horizontal tiling round example'>
-    /// ```slint
+    /// ```slint imageAlt="image vertical and horizontal tiling round example" width="400" height="400"
     /// Image {
     ///     width: 400px;
     ///     height: 400px;
@@ -485,7 +448,6 @@ export component ClippedImage inherits ImageItem {
     ///     horizontal-tiling: round;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// \default none
     in property <ImageTiling> vertical-tiling;
     // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
@@ -530,34 +492,28 @@ component SimpleText inherits Empty {
     in property <length> height;
     ///     The color of the text.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-color.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text color'>
-    /// ```slint "color: #3586f4;"
+    /// ```slint "color: #3586f4;" imageAlt="text color" width="200" height="200" needsBackground
     /// Text {
     ///     text: "Hello";
     ///     color: #3586f4;
     ///     font-size: 40pt;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// \default <depends on theme>
     in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     /// The font size of the text.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-font-size.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-size'>
-    /// ```slint "font-size: 70pt;"
+    /// ```slint "font-size: 70pt;" imageAlt="text font-size" width="200" height="200" needsBackground
     /// Text {
     ///     text: "Big";
     ///     color: black;
     ///     font-size: 70pt;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <length> font-size;
     /// The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-font-weight.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-weight'>
-    ///
-    /// ```slint 'font-weight: FontWeight.extra-bold;'
+    /// ```slint 'font-weight: FontWeight.extra-bold;' imageAlt="text font-weight" width="200" height="200" needsBackground
     /// Text {
     ///     text: "BOLD";
     ///     color: black;
@@ -565,10 +521,8 @@ component SimpleText inherits Empty {
     ///     font-weight: FontWeight.extra-bold;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <int> font-weight;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-horizontal-alignment.png" needsBackground="true" imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
-    /// ```slint "horizontal-alignment: left;"
+    /// ```slint "horizontal-alignment: left;" imageAlt="text-horizontal-alignment" width="200" height="200" needsBackground
     /// Text {
     ///     x: 0;
     ///     text: "Hello";
@@ -577,7 +531,6 @@ component SimpleText inherits Empty {
     ///     horizontal-alignment: left;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <TextHorizontalAlignment> horizontal-alignment;
     /// The text rendered.
     /// \default ""
@@ -630,8 +583,7 @@ component SimpleText inherits Empty {
 component ComplexText inherits SimpleText {
     /// The name of the font family selected for rendering the text.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-font-family.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
-    /// ```slint  'font-family: "Comic Sans MS";'
+    /// ```slint 'font-family: "Comic Sans MS";' imageAlt="text font-family" width="200" height="200" needsBackground
     /// Text {
     ///     text: "CoMiC!";
     ///     color: black;
@@ -639,7 +591,6 @@ component ComplexText inherits SimpleText {
     ///     font-family: "Comic Sans MS";
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
     /// :::note[Note]
     ///   Make sure the font is loaded before using it in a `Text` element.
@@ -648,8 +599,7 @@ component ComplexText inherits SimpleText {
     in property <string> font-family;
     /// Whether or not the font face should be drawn italicized or not.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-font-italic.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='text font-family'>
-    /// ```slint "font-italic: true;"
+    /// ```slint "font-italic: true;" imageAlt="text font-family" width="200" height="200" needsBackground
     /// Text {
     ///     text: "Italic";
     ///     color: black;
@@ -657,14 +607,11 @@ component ComplexText inherits SimpleText {
     ///     font-size: 40pt;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// \default false
     in property <bool> font-italic;
     /// How the text should behave when it exceeds the available space.
     in property <TextOverflow> overflow;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text_wrap.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='wrap'>
-    ///
-    /// ```slint "wrap: word-wrap;"
+    /// ```slint "wrap: word-wrap;" imageAlt="wrap" width="200" height="200" needsBackground
     /// Text {
     ///     text: "This paragraph breaks into multiple lines of text";
     ///     font-size: 20pt;
@@ -672,11 +619,9 @@ component ComplexText inherits SimpleText {
     ///     width: 180px;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <TextWrap> wrap;
     /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-letter-spacing.png" needsBackground="true"  imageWidth="200" imageHeight="200"  imageAlt='text-horizontal-alignment'>
-    /// ```slint "letter-spacing: 4px;"
+    /// ```slint "letter-spacing: 4px;" imageAlt="text-horizontal-alignment" width="200" height="200" needsBackground
     /// Text {
     ///     text: "Spaced!";
     ///     color: black;
@@ -684,11 +629,9 @@ component ComplexText inherits SimpleText {
     ///     letter-spacing: 4px;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <length> letter-spacing;
     /// The brush used for the text outline.
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-stroke.png" needsBackground="true" imageWidth="300" imageHeight="200" imageAlt='text stroke'>
-    /// ```slint "stroke: darkblue;"
+    /// ```slint "stroke: darkblue;" imageAlt="text stroke" width="300" height="200" needsBackground
     /// Text {
     ///     text: "Stroke";
     ///     stroke-width: 2px;
@@ -698,13 +641,10 @@ component ComplexText inherits SimpleText {
     ///     color: lightblue;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <brush> stroke;
     /// The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
     in property <length> stroke-width;
-    /// <CodeSnippetMD imagePath="/src/assets/generated/text-stroke-style.png" needsBackground="true" imageWidth="200" imageHeight="200" imageAlt='stroke-style'>
-    ///
-    /// ```slint "stroke-style: center;"
+    /// ```slint "stroke-style: center;" imageAlt="stroke-style" width="200" height="200" needsBackground
     /// Text {
     ///     text: "Style";
     ///     stroke-width: 2px;
@@ -714,7 +654,6 @@ component ComplexText inherits SimpleText {
     ///     color: white;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     in property <TextStrokeStyle> stroke-style;
     //! ### font-metrics
     //! <SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
@@ -727,8 +666,7 @@ export { ComplexText as Text }
 
 /// The `StyledText` element renders text with various styling and interactive properties, such as bolded, underlined and colored sections as well as HTTP links. It is based on a subset of the [commonmark](https://commonmark.org/) spec.
 ///
-/// <CodeSnippetMD imagePath="/src/assets/generated/styled-text-example.png" scale="3" imageWidth="200" imageHeight="200" imageAlt='Styled Text Example'>
-/// ```slint
+/// ```slint imageAlt="Styled Text Example" width="200" height="200" scale="3"
 /// export component Example inherits Window {
 ///     in property <string> value: 55;
 ///     width: 200px;
@@ -740,7 +678,6 @@ export { ComplexText as Text }
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 ///
 /// ## Features
@@ -832,8 +769,7 @@ export component TouchArea {
     /// When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
     /// passed through to elements underneath.
     ///
-    /// <CodeSnippetMD imagePath="/src/assets/generated/basic-syntax.png" scale="2"  imageWidth="200" imageHeight="100" imageAlt='Basic syntax'>
-    /// ```slint playground
+    /// ```slint playground imageAlt="Basic syntax" width="200" height="100" scale="2"
     /// import { Button, CheckBox } from "std-widgets.slint";
     ///
     /// export component Example inherits Window {
@@ -854,7 +790,6 @@ export component TouchArea {
     ///     }
     /// }
     /// ```
-    /// </CodeSnippetMD>
     ///
     /// :::note{Note}
     /// When `enabled` is set to false while the `TouchArea` is pressed, `pointer-event` will be
@@ -1066,13 +1001,11 @@ component KeyBinding {
 /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
 /// \doc-file:gestures/flickable.mdx
 export component Flickable inherits Empty {
-    /// <CodeSnippetMD imagePath="/src/assets/generated/flickable-interactive.png"  imageWidth="200" imageHeight="200"  imageAlt='flickable interactive'>
-    /// ```slint
+    /// ```slint imageAlt="flickable interactive" width="200" height="200"
     /// Flickable {
     ///     interactive: false;
     /// }
     /// ```
-    /// </CodeSnippetMD>
     /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
     in property <bool> interactive: true;
     /// The total width of the scrollable element.
@@ -1732,9 +1665,7 @@ component Row {
 /// `max-width`&mdash;work against this.
 ///
 ///
-/// <CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example1.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example'>
-///
-/// ```slint playground
+/// ```slint playground imageAlt="gridlayout example" width="200" height="100"
 /// // This example uses the `Row` element
 /// export component Foo inherits Window {
 ///     width: 200px;
@@ -1752,12 +1683,9 @@ component Row {
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 ///
-/// <CodeSnippetMD imagePath="/src/assets/generated/gridlayout-example2.png"  imageWidth="200" imageHeight="100"  imageAlt='gridlayout example2'>
-///
-/// ```slint playground
+/// ```slint playground imageAlt="gridlayout example2" width="200" height="100"
 /// // This example uses the `col` and `row` properties
 /// export component Foo inherits Window {
 ///     width: 200px;
@@ -1771,7 +1699,6 @@ component Row {
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 /// \footer
 /// ## Cell elements
@@ -2002,9 +1929,7 @@ export component HorizontalLayout {
 /// `FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
 ///
 ///
-/// <CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example1.png"  imageWidth="300" imageHeight="150"  imageAlt='flexboxlayout example with row direction'>
-///
-/// ```slint playground
+/// ```slint playground imageAlt="flexboxlayout example with row direction" width="300" height="150"
 /// // This example demonstrates FlexboxLayout with row direction (default)
 /// export component Foo inherits Window {
 ///     width: 300px;
@@ -2021,12 +1946,9 @@ export component HorizontalLayout {
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 ///
-/// <CodeSnippetMD imagePath="/src/assets/generated/flexboxlayout-example2.png"  imageWidth="150" imageHeight="250"  imageAlt='flexboxlayout example with column direction'>
-///
-/// ```slint playground
+/// ```slint playground imageAlt="flexboxlayout example with column direction" width="150" height="250"
 /// // This example demonstrates FlexboxLayout with column direction
 /// export component Foo inherits Window {
 ///     width: 300px;
@@ -2043,7 +1965,6 @@ export component HorizontalLayout {
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 /// ## Overview
 ///
@@ -2562,8 +2483,7 @@ export component Timer {
     //-disallow_global_types_as_child_elements
 }
 
-/// <CodeSnippetMD imagePath="/src/assets/generated/dialog-example.png"  imageWidth="200" imageHeight="100"  imageAlt='dialog example'>
-/// ```slint playground
+/// ```slint playground imageAlt="dialog example" width="200" height="100"
 /// import { StandardButton, Button } from "std-widgets.slint";
 /// export component Example inherits Dialog {
 ///     Text {
@@ -2577,7 +2497,6 @@ export component Timer {
 ///     }
 /// }
 /// ```
-/// </CodeSnippetMD>
 ///
 /// Dialog can be used in place of <Link type="Window"/>, but it has buttons that are automatically laid out.
 ///
