@@ -58,7 +58,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         let debug_name =
             alloc::format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
 
-        let value = prop2.get_internal();
+        let value = prop2.get_untracked();
 
         if let Some(common_property) = prop1.check_common_property() {
             // Safety: TwoWayBinding is a BindingCallable for type T
