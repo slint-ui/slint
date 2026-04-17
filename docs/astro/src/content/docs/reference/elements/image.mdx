@@ -34,7 +34,6 @@ Image {
 
 ### source
 <SlintProperty propName="source" typeName="image">
-
 The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
 The address within the `@image-url` function must be known at compile time.
 
@@ -42,9 +41,6 @@ Slint looks for images in the following places:
 
 1. The absolute path or the path relative to the current `.slint` file.
 2. The include path used by the compiler to look up `.slint` files.
-
-Images can also be loaded from [`data:` URIs](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data), with either base64 or URL-encoded content.
-For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
 
 Access an `image`'s source dimension using its `source.width` and `source.height` properties.
 
@@ -75,6 +71,9 @@ export component Example inherits Window {
 ```
 
 Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the image's path.
+
+Images can also be loaded from [`data:` URIs](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data), with either base64 or URL-encoded content.
+For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
 </SlintProperty>
 
 ### image-fit
@@ -122,7 +121,6 @@ Image {
 
 ### image-rendering
 <SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering" defaultValue="smooth">
-
 <CodeSnippetMD imagePath="/src/assets/generated/image-smooth.png"  imageWidth="300" imageHeight="300"  imageAlt='image smooth example'>
 ```slint
 Image {
@@ -163,7 +161,6 @@ How the image is tiled horizontally.
 
 ### vertical-tiling
 <SlintProperty propName="vertical-tiling" typeName="enum" enumName="ImageTiling" defaultValue="none">
-
 <CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling repeat example'>
 ```slint
 Image {

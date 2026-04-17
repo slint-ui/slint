@@ -3,6 +3,7 @@
 
 #![cfg(not(target_os = "android"))]
 
+mod element_docs;
 mod headless;
 mod mdx;
 mod screenshots;
