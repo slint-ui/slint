@@ -12,7 +12,7 @@ use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
 
 use crate::{
-    Color, SharedString,
+    Color,
     graphics::FontRequest,
     item_rendering::PlainOrStyledText,
     items::TextStrokeStyle,
@@ -1238,7 +1238,7 @@ pub fn draw_text_input(
         scale_factor,
     );
 
-    let text: SharedString = visual_representation.text.into();
+    let text = visual_representation.text.clone();
 
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
@@ -1457,11 +1457,10 @@ pub fn text_input_byte_offset_for_position(
     );
 
     let visual_representation = text_input.visual_representation(None);
-    let text = SharedString::from(&visual_representation.text);
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text.clone()),
         None,
         Color::default(),
     );
@@ -1510,15 +1509,14 @@ pub fn text_input_cursor_rect_for_byte_offset(
 
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let text = SharedString::from(&text_input.visual_representation(None).text);
-    let byte_offset = text_input
-        .visual_representation(None)
-        .map_byte_offset_from_byte_offset_in_actual_text(byte_offset);
+    let visual_representation = text_input.visual_representation(None);
+    let byte_offset =
+        visual_representation.map_byte_offset_from_byte_offset_in_actual_text(byte_offset);
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text),
         None,
         Color::default(),
     );

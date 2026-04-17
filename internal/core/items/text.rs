@@ -28,8 +28,10 @@ use crate::platform::Clipboard;
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::{
+    rc::Rc,
+    string::{String, ToString},
+};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -1306,7 +1308,7 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.into())
+        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
     }
 }
 
@@ -1399,7 +1401,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
 #[derive(Debug)]
 pub struct TextInputVisualRepresentation {
     /// The text to be rendered including any pre-edit string
-    pub text: String,
+    pub text: SharedString,
     /// If set, this field specifies the range as byte offsets within the text field where the composition
     /// is in progress. Renderers typically provide visual feedback for the currently composed text, such as
     /// by using underlines.
@@ -1412,7 +1414,7 @@ pub struct TextInputVisualRepresentation {
     pub text_color: Brush,
     /// The color of the blinking cursor
     pub cursor_color: Color,
-    text_without_password: Option<String>,
+    text_without_password: Option<SharedString>,
     password_character: char,
 }
 
@@ -2006,13 +2008,18 @@ impl TextInput {
         self: Pin<&Self>,
         password_character_fn: Option<fn() -> char>,
     ) -> TextInputVisualRepresentation {
-        let mut text: String = self.text().into();
+        let mut text = self.text();
 
         let preedit_text = self.preedit_text();
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
             let cursor_position = self.cursor_position(&text);
 
-            text.insert_str(cursor_position, &preedit_text);
+            // FIXME: Ideally we should get rid of this String conversion.
+            // But SharedString currently doesn't have an insert_str function.
+            // But this is a rather rare case anyway.
+            let mut string = text.to_string();
+            string.insert_str(cursor_position, &preedit_text);
+            text = string.into();
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
             if let Some(preedit_sel) = self.preedit_selection().as_option() {
