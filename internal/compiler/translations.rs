@@ -408,12 +408,8 @@ mod plural_rule_parser {
             .map_err(|_| ParseError("can't parse number", string))?;
         Ok((n, &string[end..]))
     }
-    fn skip_whitespace(mut string: &[u8]) -> &[u8] {
-        // slice::trim_ascii_start when MSRV >= 1.80
-        while !string.is_empty() && string[0].is_ascii_whitespace() {
-            string = &string[1..];
-        }
-        string
+    fn skip_whitespace(string: &[u8]) -> &[u8] {
+        string.trim_ascii_start()
     }
 
     #[test]
