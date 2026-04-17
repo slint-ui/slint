@@ -1704,11 +1704,10 @@ impl TouchState {
         let is_gesture_finger = self.is_gesture_finger(id);
 
         match self.gesture_state {
-            GestureRecognitionState::Idle => {
-                if self.primary_touch_id == Some(id) {
-                    events.push(MouseEvent::Moved { position, is_touch: true });
-                }
+            GestureRecognitionState::Idle if self.primary_touch_id == Some(id) => {
+                events.push(MouseEvent::Moved { position, is_touch: true });
             }
+            GestureRecognitionState::Idle => {}
             GestureRecognitionState::TwoFingersDown {
                 finger_ids,
                 initial_distance,
@@ -1798,18 +1797,17 @@ impl TouchState {
         self.active_touches.remove(id);
 
         match self.gesture_state {
-            GestureRecognitionState::Idle => {
-                if self.primary_touch_id == Some(id) {
-                    self.primary_touch_id = None;
-                    events.push(MouseEvent::Released {
-                        position,
-                        button: PointerEventButton::Left,
-                        click_count: 0,
-                        is_touch: true,
-                    });
-                    events.push(MouseEvent::Exit);
-                }
+            GestureRecognitionState::Idle if self.primary_touch_id == Some(id) => {
+                self.primary_touch_id = None;
+                events.push(MouseEvent::Released {
+                    position,
+                    button: PointerEventButton::Left,
+                    click_count: 0,
+                    is_touch: true,
+                });
+                events.push(MouseEvent::Exit);
             }
+            GestureRecognitionState::Idle => {}
             GestureRecognitionState::TwoFingersDown { .. } if is_gesture_finger => {
                 self.gesture_state = GestureRecognitionState::Idle;
                 if !is_cancelled {
