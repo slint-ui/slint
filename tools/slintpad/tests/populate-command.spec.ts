@@ -9,7 +9,15 @@ import { test, expect } from "@playwright/test";
 
 test("'Start with Hello World!' code lens populates the editor without panicking", async ({
     page,
+    browserName,
 }) => {
+    // Headless Firefox on CI has no WebGL, so opening the SlintPad preview
+    // panics in internal/renderers/femtovg/opengl.rs:134 with
+    // "Cannot proceed without WebGL - aborting". That panic shows a modal
+    // dialog that intercepts our code-lens click. Skip until the preview
+    // either gets a software-WebGL fallback or stops panicking on init.
+    test.skip(browserName === "firefox", "preview panics without WebGL");
+
     // A single-whitespace `snippet` makes SlintPad open a main.slint whose content
     // has no non-whitespace tokens, which is the condition under which the LSP
     // emits the "Start with Hello World!" code lens (see tools/lsp/language.rs).
