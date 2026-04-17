@@ -8,6 +8,8 @@ import SlintProperty from '@slint/common-files/src/components/SlintProperty.astr
 Use the `SwipeGestureHandler` to handle swipe gesture in some particular direction.
 Recognition is limited to the element's geometry.
 
+The `SwipeGestureHandler` recognizes touchscreen swipes and mouse drags.
+
 ```slint playground
 export component Example inherits Window {
     width: 270px;
@@ -48,7 +50,6 @@ export component Example inherits Window {
     }
 }
 ```
-
 
 Specify the different swipe directions you'd like to handle by setting the `handle-swipe-left/right/up/down` properties and react to the gesture in the `swiped` callback.
 
