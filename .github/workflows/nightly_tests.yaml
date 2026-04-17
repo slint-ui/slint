@@ -24,23 +24,27 @@ jobs:
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v6
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.6
-              with:
-                  default: true
-                  buildtargets: esp32
-                  ldproxy: false
+            - name: Install espup and Xtensa Rust toolchain
+              shell: bash
+              run: |
+                  curl -L https://github.com/esp-rs/espup/releases/latest/download/espup-x86_64-unknown-linux-gnu -o /usr/local/bin/espup
+                  chmod +x /usr/local/bin/espup
+                  espup install --targets esp32 --export-file $HOME/export-esp.sh
+                  rustup default esp
             - uses: Swatinem/rust-cache@v2
             - name: Build and Test Printer demo
               shell: bash
               working-directory: demos/printerdemo_mcu/esp-idf
               run: |
                   . ${IDF_PATH}/export.sh
+                  . $HOME/export-esp.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
             - name: Build and Test Carousel example s3 box
               shell: bash
               working-directory: examples/carousel/esp-idf/s3-box
               run: |
                   . ${IDF_PATH}/export.sh
+                  . $HOME/export-esp.sh
                   idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
 
     qa-tree-sitter-latest:
