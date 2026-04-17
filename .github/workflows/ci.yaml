@@ -150,7 +150,7 @@ jobs:
             matrix:
                 include:
                     - os: ubuntu-22.04
-                      rust_version: "1.88"
+                      rust_version: "1.92"
                     - os: macos-14
                       rust_version: beta
                     - os: windows-2022
