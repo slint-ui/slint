@@ -11,6 +11,7 @@ pub fn generate(include_experimental: bool) -> Result<(), Box<dyn std::error::Er
     generate_enum_docs(include_experimental)?;
     generate_builtin_struct_docs(include_experimental)?;
     generate_keys_docs()?;
+    crate::element_docs::generate()?;
 
     let root = crate::root_dir();
     let enums = extract_enum_docs(include_experimental);

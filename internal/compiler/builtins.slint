@@ -35,6 +35,7 @@ component BasicBorderRectangle inherits Rectangle {
     in property <length> border-radius;
 }
 
+/// \doc-file:elements/rectangle.mdx
 component BorderRectangle inherits BasicBorderRectangle {
     in property <length> border-top-left-radius;
     in property <length> border-top-right-radius;
@@ -56,6 +57,7 @@ component ImageItem inherits Empty {
     in property <angle> rotation-angle <=> transform-rotation;
 }
 
+/// \doc-file:elements/image.mdx
 export component ClippedImage inherits ImageItem {
     in property <ImageHorizontalAlignment> horizontal-alignment;
     in property <ImageVerticalAlignment> vertical-alignment;
@@ -105,6 +107,7 @@ component SimpleText inherits Empty {
     in property <angle> rotation-angle <=> transform-rotation;
 }
 
+/// \doc-file:elements/text.mdx
 component ComplexText inherits SimpleText {
     in property <string> font-family;
     in property <bool> font-italic;
@@ -119,6 +122,7 @@ component ComplexText inherits SimpleText {
 
 export { ComplexText as Text }
 
+/// \doc-file:elements/styled-text.mdx
 component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
@@ -135,6 +139,7 @@ component StyledTextItem inherits Empty {
 
 export { StyledTextItem as StyledText }
 
+/// \doc-file:gestures/toucharea.mdx
 export component TouchArea {
     in property <bool> enabled: true;
     out property <bool> has_hover;
@@ -152,6 +157,7 @@ export component TouchArea {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// \doc-file:keyboard-input/focusscope.mdx
 export component FocusScope {
     out property <bool> has-focus;
     in property <bool> enabled: true;
@@ -177,6 +183,7 @@ component KeyBinding {
     //-is_non_item_type
 }
 
+/// \doc-file:gestures/flickable.mdx
 export component Flickable inherits Empty {
     in property <bool> interactive: true;
     in property <length> viewport-width;
@@ -187,6 +194,7 @@ export component Flickable inherits Empty {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// \doc-file:gestures/swipegesturehandler.mdx
 export component SwipeGestureHandler {
     in property <bool> enabled: true;
     out property <Point> pressed-position;
@@ -215,6 +223,7 @@ export component SwipeGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// \doc-file:gestures/scalerotategesturehandler.mdx
 export component ScaleRotateGestureHandler {
     in property <bool> enabled: true;
 
@@ -278,6 +287,8 @@ component Menu {
     //-is_non_item_type
 }
 
+/// \skip_children
+/// \doc-file:window/menubar.mdx
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -303,6 +314,7 @@ export component ContextMenuInternal inherits ContextMenu {
     //-is_internal
 }
 
+/// \doc-file:window/contextmenuarea.mdx
 export component ContextMenuArea inherits Empty {
     // This is actually function as part of out interface, but a callback as much is the runtime concerned
     callback show(position: Point);
@@ -314,6 +326,7 @@ export component ContextMenuArea inherits Empty {
     in property <bool> enabled: true;
 }
 
+/// \doc-file:window/window.mdx
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
@@ -561,6 +574,7 @@ export component TabWidget {
     //-is_internal
 }
 
+/// \doc-file:window/popupwindow.mdx
 export component PopupWindow {
     //property <length> x;
     //property <length> y;
@@ -574,6 +588,7 @@ export component PopupWindow {
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
 }
 
+/// \doc-file:timer.mdx
 export component Timer {
     in property <duration> interval;
     in property <bool> running: true;
@@ -588,6 +603,7 @@ export component Timer {
     //-disallow_global_types_as_child_elements
 }
 
+/// \doc-file:window/dialog.mdx
 export component Dialog inherits WindowItem { }
 
 component PropertyAnimation {
@@ -599,6 +615,7 @@ component PropertyAnimation {
     //-is_non_item_type
 }
 
+/// \doc-file:keyboard-input/textinputinterface.mdx
 export global TextInputInterface {
     in property <bool> text-input-focused;
 }
