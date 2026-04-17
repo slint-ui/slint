@@ -696,7 +696,7 @@ impl WinitWindowAdapter {
         };
         let mut maybe_muda_adapter = maybe_muda_adapter.borrow_mut();
         let Some(muda_adapter) = maybe_muda_adapter.as_mut() else { return };
-        muda_adapter.rebuild_menu(&winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
+        muda_adapter.rebuild_menu(winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
     }
 
     #[cfg(muda)]
