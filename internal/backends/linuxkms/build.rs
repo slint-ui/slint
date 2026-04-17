@@ -23,10 +23,10 @@ fn main() {
             feature = "unstable-wgpu-27",
             feature = "unstable-wgpu-28"
         ) },
-        skia_wgpu_28: { feature = "unstable-wgpu-28" },
-        skia_wgpu_27: { all(
-            any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-27"),
-            not(feature = "unstable-wgpu-28")
+        skia_wgpu_27: { feature = "unstable-wgpu-27" },
+        skia_wgpu_28: { all(
+            any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"),
+            not(feature = "unstable-wgpu-27")
         ) },
     }
 }
