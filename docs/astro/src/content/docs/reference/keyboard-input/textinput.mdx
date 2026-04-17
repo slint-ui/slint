@@ -43,9 +43,9 @@ export component Example inherits Window {
 
 ## Properties
 
-### color
-<SlintProperty propName="color" typeName="brush" defaultValue="depends on the style">
-The color of the text.
+### text
+<SlintProperty propName="text" typeName="string" propertyVisibility="in-out" defaultValue="&quot;&quot;">
+The text rendered and editable by the user.
 </SlintProperty>
 
 ### font-family
@@ -58,54 +58,19 @@ The name of the font family selected for rendering the text.
 The font size of the text.
 </SlintProperty>
 
-### font-weight
-<SlintProperty propName="font-weight" typeName="int">
-The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-</SlintProperty>
-
 ### font-italic
 <SlintProperty propName="font-italic" typeName="bool" defaultValue="false">
 Whether or not the font face should be drawn italicized or not.
 </SlintProperty>
 
-### font-metrics
-<SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
-The design metrics of the font scaled to the font pixel size used by the element.
+### font-weight
+<SlintProperty propName="font-weight" typeName="int">
+The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 </SlintProperty>
 
-### has-focus
-<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
-`TextInput` sets this to `true` when it's focused. Only then it receives <Link type="KeyEvent"/>s.
-</SlintProperty>
-
-### horizontal-alignment
-<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="TextHorizontalAlignment">
-The horizontal alignment of the text.
-</SlintProperty>
-
-### input-type
-<SlintProperty propName="input-type" typeName="enum" enumName="InputType" defaultValue="text">
- Use this to configure `TextInput` for editing special input, such as password fields.
-</SlintProperty>
-
-### letter-spacing
-<SlintProperty propName="letter-spacing" typeName="length" defaultValue="0">
-The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
-</SlintProperty>
-
-### page-height
-<SlintProperty propName="page-height" typeName="length">
-The height of the page used to compute how much to scroll when the user presses page up or page down.
-</SlintProperty>
-
-### read-only
-<SlintProperty propName="read-only" typeName="bool" defaultValue="false">
-When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
-</SlintProperty>
-
-### selection-background-color
-<SlintProperty propName="selection-background-color" typeName="color">
-The background color of the selection.
+### color
+<SlintProperty propName="color" typeName="brush" defaultValue="depends on the style">
+The color of the text.
 </SlintProperty>
 
 ### selection-foreground-color
@@ -113,19 +78,14 @@ The background color of the selection.
 The foreground color of the selection.
 </SlintProperty>
 
-### single-line
-<SlintProperty propName="single-line" typeName="bool" defaultValue="true">
-When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
+### selection-background-color
+<SlintProperty propName="selection-background-color" typeName="color">
+The background color of the selection.
 </SlintProperty>
 
-### text-cursor-width
-<SlintProperty propName="text-cursor-width" typeName="length" defaultValue="provided at run-time by the selected widget style">
-The width of the text cursor.
-</SlintProperty>
-
-### text
-<SlintProperty propName="text" typeName="string" propertyVisibility="in-out" defaultValue="&quot;&quot;">
-The text rendered and editable by the user.
+### horizontal-alignment
+<SlintProperty propName="horizontal-alignment" typeName="enum" enumName="TextHorizontalAlignment">
+The horizontal alignment of the text.
 </SlintProperty>
 
 ### vertical-alignment
@@ -138,42 +98,41 @@ The vertical alignment of the text.
 The way the text input wraps. Only makes sense when `single-line` is false.
 </SlintProperty>
 
-## Functions
+### letter-spacing
+<SlintProperty propName="letter-spacing" typeName="length" defaultValue="0">
+The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
+</SlintProperty>
 
-### focus()
-Call this function to focus the text input and make it receive future keyboard events.
+### page-height
+<SlintProperty propName="page-height" typeName="length">
+The height of the page used to compute how much to scroll when the user presses page up or page down.
+</SlintProperty>
 
-### clear-focus()
-Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also <Link type="FocusHandling" />.
+### text-cursor-width
+<SlintProperty propName="text-cursor-width" typeName="length" defaultValue="provided at run-time by the selected widget style">
+The width of the text cursor.
+</SlintProperty>
 
-### set-selection-offsets(start: int, end: int)
-Selects the text between two UTF-8 offsets.
+### input-type
+<SlintProperty propName="input-type" typeName="enum" enumName="InputType" defaultValue="text">
+ Use this to configure `TextInput` for editing special input, such as password fields.
+</SlintProperty>
 
-### select-all()
-Selects all text.
-
-### clear-selection()
-Clears the selection.
-
-### copy()
-Copies the selected text to the clipboard.
-
-### cut()
-Copies the selected text to the clipboard and removes it from the editable area.
-
-### paste()
-Pastes the text content of the clipboard at the cursor position.
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
+`TextInput` sets this to `true` when it's focused. Only then it receives <Link type="KeyEvent"/>s.
+</SlintProperty>
 
 ## Callbacks
 
 ### accepted()
 Invoked when the enter key is pressed.
 
-### cursor-position-changed(position: Point)
-The cursor was moved to the new (x, y) position described by the `Point` argument.
-
 ### edited()
 Invoked when the text has changed because the user modified it.
+
+### cursor-position-changed(position: Point)
+The cursor was moved to the new (x, y) position described by the `Point` argument.
 
 ### key-pressed(event: KeyEvent) -> EventResult
 Invoked when a key is pressed, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
@@ -184,6 +143,47 @@ handle keys before `TextInput` does. Return `accept` to indicate that you've han
 Invoked when a key is released, the argument is a <Link type="KeyEvent" /> struct. Use this callback to
 handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
 `reject` to let `TextInput` handle it.
+
+### single-line
+<SlintProperty propName="single-line" typeName="bool" defaultValue="true">
+When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
+</SlintProperty>
+
+### read-only
+<SlintProperty propName="read-only" typeName="bool" defaultValue="false">
+When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically.
+</SlintProperty>
+
+### font-metrics
+<SlintProperty propName="font-metrics" typeName="struct" structName="FontMetrics" propertyVisibility="out">
+The design metrics of the font scaled to the font pixel size used by the element.
+</SlintProperty>
+
+## Functions
+
+### set-selection-offsets(start: int, end: int)
+Selects the text between two UTF-8 offsets.
+
+### select-all()
+Selects all text.
+
+### clear-selection()
+Clears the selection.
+
+### cut()
+Copies the selected text to the clipboard and removes it from the editable area.
+
+### copy()
+Copies the selected text to the clipboard.
+
+### paste()
+Pastes the text content of the clipboard at the cursor position.
+
+### focus()
+Call this function to focus the text input and make it receive future keyboard events.
+
+### clear-focus()
+Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also <Link type="FocusHandling" />.
 
 ## Accessibility
 
