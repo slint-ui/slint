@@ -33,7 +33,7 @@ Close the context menu if it's currently open.
 When disabled, the `Menu` is not showing.
 </SlintProperty>
 
-## Menu Sub-Element for `ContextMenuArea`
+## `Menu`
 
 Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
 Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
@@ -53,7 +53,7 @@ When disabled, the `Menu` can be selected but not activated.
 The icon shown next to the title when in a parent menu.
 </SlintProperty>
 
-## MenuItem Sub-Element for `ContextMenuArea`
+## `MenuItem`
 
 A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
 
@@ -96,7 +96,7 @@ The icon shown next to the title.
 #### activated()
 Invoked when the menu entry is activated.
 
-## MenuSeparator Sub-Element for `ContextMenuArea`
+## `MenuSeparator`
 
 A `MenuSeparator` represents a separator in a menu.
 It cannot have children, and doesn't have properties or callbacks.
