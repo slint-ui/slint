@@ -43,16 +43,16 @@ impl PyComponentsDifference {
             .collect::<BTreeMap<&str, &PyComponent>>();
 
         let added_components = new_components
-            .iter()
-            .filter_map(|(name, _)| {
+            .keys()
+            .filter_map(|name| {
                 if orig_components.contains_key(name) { None } else { Some((*name).into()) }
             })
             .collect::<Vec<_>>();
 
         let removed_components =
             orig_components
-                .iter()
-                .filter_map(|(name, _)| {
+                .keys()
+                .filter_map(|name| {
                     if new_components.contains_key(name) { None } else { Some((*name).into()) }
                 })
                 .collect::<Vec<_>>();
@@ -222,16 +222,16 @@ impl PyStructsOrEnumsDifference {
 
         let added_structs =
             new_structs
-                .iter()
-                .filter_map(|(name, _)| {
+                .keys()
+                .filter_map(|name| {
                     if orig_structs.contains_key(name) { None } else { Some((*name).into()) }
                 })
                 .collect::<Vec<_>>();
 
         let added_enums = new_enums
-            .iter()
+            .keys()
             .filter_map(
-                |(name, _)| {
+                |name| {
                     if orig_enums.contains_key(name) { None } else { Some((*name).into()) }
                 },
             )
@@ -239,16 +239,16 @@ impl PyStructsOrEnumsDifference {
 
         let removed_structs =
             orig_structs
-                .iter()
-                .filter_map(|(name, _)| {
+                .keys()
+                .filter_map(|name| {
                     if new_structs.contains_key(name) { None } else { Some((*name).into()) }
                 })
                 .collect::<Vec<_>>();
 
         let removed_enums = orig_enums
-            .iter()
+            .keys()
             .filter_map(
-                |(name, _)| {
+                |name| {
                     if new_enums.contains_key(name) { None } else { Some((*name).into()) }
                 },
             )

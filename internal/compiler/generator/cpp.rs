@@ -129,6 +129,7 @@ pub mod cpp_ast {
     }
 
     impl File {
+        #[allow(clippy::manual_checked_ops)]
         pub fn split_off_cpp_files(&mut self, header_file_name: String, count: usize) -> Vec<File> {
             let mut cpp_files = Vec::with_capacity(count);
             if count > 0 {

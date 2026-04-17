@@ -98,11 +98,7 @@ fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
                 visit_declared_type(a, visitor);
             }
         }
-        Type::Enumeration(en) => {
-            if en.node.is_some() {
-                visitor(&en.name, ty)
-            }
-        }
+        Type::Enumeration(en) if en.node.is_some() => visitor(&en.name, ty),
         _ => {}
     }
 }
