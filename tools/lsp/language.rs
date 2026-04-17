@@ -369,7 +369,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             return Ok(None::<serde_json::Value>);
         }
         if params.command.as_str() == POPULATE_COMMAND {
-            tokio::task::spawn_local(populate_command(&params.arguments, ctx)?);
+            common::spawn_local(populate_command(&params.arguments, ctx)?);
             return Ok(None::<serde_json::Value>);
         }
         Ok(None::<serde_json::Value>)
