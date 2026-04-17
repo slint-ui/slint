@@ -14,6 +14,7 @@ import "C"
 
 func InitTestingBackend() {
 	C.slint_testing_init_backend()
+	C.slint_testing_configure_test_fonts()
 }
 
 func MockElapsedTime(timeInMs uint64) {
