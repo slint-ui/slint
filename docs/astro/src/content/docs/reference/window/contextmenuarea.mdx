@@ -32,19 +32,17 @@ Close the context menu if it's currently open.
 When disabled, the `Menu` is not showing.
 </SlintProperty>
 
-## `Menu`
+## Menu Sub-Element for `ContextMenuArea`
 
 Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
 Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
 
-### Properties of `Menu`
-
-#### title
+### title
 <SlintProperty propName="title" typeName="string" defaultValue='""'>
 This is the label of the menu as written in the menu bar or in the parent menu.
 </SlintProperty>
 
-#### enabled
+### enabled
 
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
 When disabled, the `Menu` can be selected but not activated.
@@ -55,7 +53,7 @@ When disabled, the `Menu` can be selected but not activated.
 The icon shown next to the title when in a parent menu.
 </SlintProperty>
 
-## `MenuItem`
+## MenuItem Sub-Element for `ContextMenuArea`
 
 A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
 
@@ -79,23 +77,23 @@ When disabled, the `MenuItem` can be selected but not activated.
 When true, the `MenuItem` can be checked. The value of the `checked` property is toggled when the user activates the menu item.
 </SlintProperty>
 
+#### shortcut
+
+<SlintProperty propName="shortcut" typeName="keys">
+The keyboard shortcut for this `MenuItem`.
+
+This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
+</SlintProperty>
+
 #### checked
 
 <SlintProperty propName="checked" typeName="bool" defaultValue="false" propertyVisibility="in-out">
 When true, a checkmark will be shown next to the title of the `MenuItem`.
 </SlintProperty>
 
-### icon
+#### icon
 <SlintProperty propName="icon" typeName="image">
 The icon shown next to the title.
-</SlintProperty>
-
-### shortcut
-
-<SlintProperty propName="shortcut" typeName="keys">
-The keyboard shortcut for this `MenuItem`.
-
-This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
 </SlintProperty>
 
 ### Callbacks of `MenuItem`
@@ -104,7 +102,7 @@ This property can only be set in a `MenuItem` that is part of a <Link type="Menu
 
 Invoked when the menu entry is activated.
 
-## `MenuSeparator`
+## MenuSeparator Sub-Element for `ContextMenuArea`
 
 A `MenuSeparator` represents a separator in a menu.
 It cannot have children, and doesn't have properties or callbacks.
