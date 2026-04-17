@@ -108,4 +108,66 @@ assert.equal(instance.text1_foo, 0);
 assert.equal(instance.some_prop, 5);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+text1Foo, err := instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(0, text1Foo)
+
+someProp, err := instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(5, someProp)
+
+assertion.NoError(instance.SetActiveIndex(1))
+
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(0, text1Foo)
+
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(5, someProp)
+
+slint.MockElapsedTime(75)
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Greater(someProp, 1500)
+assertion.Less(someProp, 1999)
+
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Greater(text1Foo, 2000)
+assertion.Less(text1Foo, 2999)
+
+slint.MockElapsedTime(30)
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(3000, text1Foo)
+
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(2000, someProp)
+
+assertion.NoError(instance.SetActiveIndex(2))
+
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(3000, text1Foo)
+
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(2000, someProp)
+
+slint.MockElapsedTime(100)
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(0, text1Foo)
+
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(5, someProp)
+```
+
 */

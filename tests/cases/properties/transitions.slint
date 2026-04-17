@@ -104,4 +104,59 @@ slintlib.private_api.mock_elapsed_time(30);
 assert.equal(instance.text1_foo, 85 + 4);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+text1Foo, err := instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(89, text1Foo)
+
+someProp, err := instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(5, someProp)
+
+assertion.NoError(instance.SetActiveIndex(1))
+
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(11, text1Foo)
+
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(5, someProp)
+
+slint.MockElapsedTime(75)
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Greater(someProp, 1500)
+assertion.Less(someProp, 1999)
+
+slint.MockElapsedTime(30)
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(2000, someProp)
+
+assertion.NoError(instance.SetActiveIndex(2))
+
+someProp, err = instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(5, someProp)
+
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(11, text1Foo)
+
+slint.MockElapsedTime(290)
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Greater(text1Foo, 70)
+assertion.Less(text1Foo, 87)
+
+slint.MockElapsedTime(30)
+text1Foo, err = instance.GetText1Foo()
+assertion.NoError(err)
+assertion.Equal(89, text1Foo)
+```
+
 */
