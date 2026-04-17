@@ -969,6 +969,7 @@ fn gen_interpreter(
         "ComponentInstance",
         "StructIteratorResult",
         "Value",
+        "SlintGoValueSlice",
         "StructOpaque",
         "ModelNotifyOpaque",
     ])
