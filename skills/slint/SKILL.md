@@ -83,6 +83,16 @@ import slint
 # Load .slint files dynamically
 ```
 
+## Language Server
+
+`slint-lsp` is the Slint Language Server. It provides diagnostics,
+hover, go-to-definition, and formatting for `.slint` files over LSP,
+and any editor or AI coding assistant with LSP support can use it for
+real-time code intelligence. The binary is not bundled with this skill
+and must be installed separately — see `lsp-install.md` in this skill
+directory for `cargo install slint-lsp`, prebuilt downloads per
+platform, and Linux runtime dependencies.
+
 ## Debugging Slint Applications
 
 ### Common Issues
