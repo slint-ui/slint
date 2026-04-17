@@ -47,12 +47,15 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
+pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
+        #[cfg(feature = "preview-remote")]
+        CONNECT_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -170,12 +173,22 @@ pub struct Context {
 }
 
 /// An error from a LSP request
+#[derive(Debug, Clone)]
 pub struct LspError {
     pub code: LspErrorCode,
     pub message: String,
 }
 
+impl std::fmt::Display for LspError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({})", self.message, self.code)
+    }
+}
+
+impl std::error::Error for LspError {}
+
 /// The code of a LspError. Correspond to the lsp_server::ErrorCode
+#[derive(Debug, Clone, Copy)]
 pub enum LspErrorCode {
     /// Invalid method parameter(s).
     InvalidParameter,
@@ -199,6 +212,17 @@ pub enum LspErrorCode {
     /// the client should cancel the request.
     #[allow(unused)]
     ContentModified = -32801,
+}
+
+impl std::fmt::Display for LspErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LspErrorCode::InvalidParameter => write!(f, "Invalid Parameter"),
+            LspErrorCode::InternalError => write!(f, "Internal Error"),
+            LspErrorCode::RequestFailed => write!(f, "Request Failed"),
+            LspErrorCode::ContentModified => write!(f, "Content Modified"),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -363,16 +387,25 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(result)
     });
     rh.register::<ExecuteCommand>(|params, ctx| {
-        if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-            {
-                show_preview_command(&params.arguments, ctx)?;
+        match params.command.as_str() {
+            SHOW_PREVIEW_COMMAND => {
+                #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+                {
+                    show_preview_command(&params.arguments, ctx)?;
+                }
+                return Ok(None::<serde_json::Value>);
             }
-            return Ok(None::<serde_json::Value>);
-        }
-        if params.command.as_str() == POPULATE_COMMAND {
-            common::spawn_local(populate_command(&params.arguments, ctx)?);
-            return Ok(None::<serde_json::Value>);
+            POPULATE_COMMAND => {
+                populate_command(&params.arguments, ctx)?;
+                return Ok(None::<serde_json::Value>);
+            }
+            #[cfg(feature = "preview-remote")]
+            CONNECT_REMOTE_PREVIEW_COMMAND => {
+                connect_remote_preview_command(&params.arguments, &ctx);
+            }
+            _ => {
+                tracing::error!("Received unknown command {}", params.command.as_str());
+            }
         }
         Ok(None::<serde_json::Value>)
     });
@@ -596,6 +629,45 @@ pub fn show_preview(component: i_slint_preview_protocol::PreviewComponent, ctx: 
     ctx.pending_recompile.insert(component.url.clone());
     ctx.to_show = Some(component.clone());
     ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(component));
+}
+
+#[cfg(feature = "preview-remote")]
+pub fn connect_remote_preview_command(
+    params: &[serde_json::Value],
+    ctx: &Context,
+) -> Result<Option<serde_json::Value>, LspError> {
+    let addresses = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
+        addresses.iter().filter_map(serde_json::Value::as_str).map(String::from).collect::<Vec<_>>()
+    });
+    let port = params.get(1).and_then(serde_json::Value::as_u64);
+
+    let to_preview = ctx.to_preview.clone();
+
+    if let Some(addresses) = addresses {
+        if let Some(port) = port {
+            let _ = to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
+            to_preview.with_preview_target::<crate::preview::connector::remote::RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
+                async |remote| {
+                    remote.connect(addresses.iter().map(String::as_str), port as u16).await.map_err(|err| {
+                        LspError {
+                            code: LspErrorCode::RequestFailed,
+                            message: format!("Failed to connect to remote preview: {err}"),
+                        }
+                    })?;
+                    Ok(None)
+                }).unwrap()
+        } else {
+            Err(LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "Need number as the second parameter".to_owned(),
+            })
+        }
+    } else {
+        Err(LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "Need array of string as the first parameter".to_owned(),
+        })
+    }
 }
 
 fn populate_command_range(

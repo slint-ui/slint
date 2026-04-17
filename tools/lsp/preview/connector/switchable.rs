@@ -1,4 +1,4 @@
-use crate::common::PreviewTarget;
+use i_slint_preview_protocol::PreviewTarget;
 use std::{any::Any, cell::RefCell, collections::HashMap};
 
 use crate::common::{LspToPreview, Result};

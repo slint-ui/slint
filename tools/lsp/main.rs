@@ -346,19 +346,25 @@ async fn main_loop(
         Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
     #[cfg(feature = "preview-engine")]
     let to_preview = {
+        use i_slint_preview_protocol::PreviewTarget;
+
         let sn = server_notifier.clone();
 
         let child_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::ChildProcessLspToPreview::new(preview_to_lsp_sender));
         let embedded_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::EmbeddedLspToPreview::new(sn));
+            Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
+        #[cfg(feature = "preview-remote")]
+        let remote_preview: Box<dyn common::LspToPreview> =
+            Box::new(preview::connector::RemoteLspToPreview::new(sn));
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 std::collections::HashMap::from([
-                    (common::PreviewTarget::ChildProcess, child_preview),
-                    (common::PreviewTarget::EmbeddedWasm, embedded_preview),
+                    (PreviewTarget::ChildProcess, child_preview),
+                    (PreviewTarget::EmbeddedWasm, embedded_preview),
+                    (PreviewTarget::Remote, remote_preview),
                 ]),
-                common::PreviewTarget::ChildProcess,
+                PreviewTarget::ChildProcess,
             )
             .unwrap(),
         )
@@ -689,13 +695,9 @@ async fn handle_preview_to_lsp_message(
             )
             .await;
         }
-        M::PreviewTypeChanged { is_external } => {
-            tracing::debug!("Preview type changed: is_external={}", is_external);
-            if is_external {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::EmbeddedWasm)?;
-            } else {
-                ctx.to_preview.set_preview_target(common::PreviewTarget::ChildProcess)?;
-            }
+        M::PreviewTypeChanged { target } => {
+            tracing::debug!("Preview type changed: {target:?}");
+            ctx.to_preview.set_preview_target(target)?;
         }
         M::RequestState { .. } => {
             tracing::debug!("Preview requested state");

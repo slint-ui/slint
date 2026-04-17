@@ -6,7 +6,7 @@
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
 use i_slint_preview_protocol::{
-    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+    LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
@@ -47,16 +47,6 @@ where
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum PreviewTarget {
-    #[allow(dead_code)]
-    ChildProcess,
-    #[allow(dead_code)]
-    EmbeddedWasm,
-    #[allow(dead_code)]
-    Dummy,
-}
 
 #[allow(dead_code)]
 pub trait LspToPreview: std::any::Any {

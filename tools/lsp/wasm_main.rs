@@ -356,8 +356,10 @@ impl SlintServer {
                     .await
                 });
             }
-            M::PreviewTypeChanged { is_external: _ } => {
-                // Nothing to do!
+            M::PreviewTypeChanged { target } => {
+                ctx.to_preview
+                    .set_preview_target(target)
+                    .map_err(|err| js_sys::Error::new(&format!("{err}").into()))?;
             }
             M::RequestState { .. } => {
                 crate::language::send_state_to_preview(&ctx);

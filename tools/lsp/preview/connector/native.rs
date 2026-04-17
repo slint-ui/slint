@@ -5,6 +5,7 @@ use crate::{common, preview};
 
 use std::{cell::RefCell, io::BufRead};
 
+use i_slint_preview_protocol::PreviewTarget;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     sync::mpsc,
@@ -136,8 +137,8 @@ impl common::LspToPreview for ChildProcessLspToPreview {
         }
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::ChildProcess
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::ChildProcess
     }
 }
 
@@ -158,8 +159,8 @@ impl common::LspToPreview for EmbeddedLspToPreview {
             .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::EmbeddedWasm
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::EmbeddedWasm
     }
 }
 

@@ -5,6 +5,18 @@ use lsp_types::Url;
 
 use crate::SourceFileVersion;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum PreviewTarget {
+    #[allow(dead_code)]
+    ChildProcess,
+    #[allow(dead_code)]
+    EmbeddedWasm,
+    #[allow(dead_code)]
+    Remote,
+    #[allow(dead_code)]
+    Dummy,
+}
+
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
@@ -12,7 +24,7 @@ pub enum PreviewToLspMessage {
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
     /// Switch between native and WASM preview (if supported)
-    PreviewTypeChanged { is_external: bool },
+    PreviewTypeChanged { target: PreviewTarget },
     /// Request all documents and configuration to be sent from the LSP to the
     /// Preview.
     RequestState { unused: bool },

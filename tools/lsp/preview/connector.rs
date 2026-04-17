@@ -13,6 +13,10 @@ pub use native::*;
 
 mod switchable;
 pub use switchable::SwitchableLspToPreview;
+#[cfg(feature = "preview-remote")]
+pub mod remote;
+#[cfg(feature = "preview-remote")]
+pub use remote::*;
 
 use crate::preview;
 
