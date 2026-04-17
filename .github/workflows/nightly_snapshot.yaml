@@ -295,12 +295,12 @@ jobs:
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/pre-release/1.16' && github.event.inputs.release != 'true') }}
+                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
                   packagePath: editors/vscode
                   dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
-              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/pre-release/1.16' || github.event.inputs.release == 'true') }}
+              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
@@ -671,7 +671,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/pre-release/1.16'
+              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
               with:
                   allowUpdates: true
                   prerelease: true
