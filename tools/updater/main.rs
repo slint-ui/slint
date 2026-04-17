@@ -212,11 +212,10 @@ fn visit_node(
                 }
             }
         }
-        SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement => {
-            if args.move_declarations {
-                experiments::lookup_changes::collect_movable_properties(&mut state);
-            }
+        SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement if args.move_declarations => {
+            experiments::lookup_changes::collect_movable_properties(&mut state);
         }
+        SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement => {}
         SyntaxKind::Element => {
             if let Some(parent_el) = state.current_elem.take() {
                 state.current_elem = parent_el
