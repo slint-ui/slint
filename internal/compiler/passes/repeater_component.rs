@@ -109,8 +109,7 @@ fn create_repeater_components(component: &Rc<Component>) {
 
                 let enclosing_component =
                     parent_elem.upgrade().unwrap().borrow().enclosing_component.clone();
-                let should_move = Weak::ptr_eq(&enclosing_component, &repeated_component_weak);
-                should_move
+                Weak::ptr_eq(&enclosing_component, &repeated_component_weak)
             }),
         );
 
