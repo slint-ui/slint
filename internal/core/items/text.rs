@@ -2108,16 +2108,14 @@ impl TextInput {
                         items.push(item);
                     }
                 }
-                (UndoItemKind::TextRemove, UndoItemKind::TextRemove) => {
-                    if item.pos + item.text.len() == last.pos {
-                        last.pos = item.pos;
-                        let old_text = last.text.clone();
-                        last.text = item.text;
-                        last.text += &old_text;
-                        // prepend
-                    } else {
-                        items.push(item);
-                    }
+                (UndoItemKind::TextRemove, UndoItemKind::TextRemove)
+                    if item.pos + item.text.len() == last.pos =>
+                {
+                    last.pos = item.pos;
+                    let old_text = last.text.clone();
+                    last.text = item.text;
+                    last.text += &old_text;
+                    // prepend
                 }
                 _ => {
                     items.push(item);

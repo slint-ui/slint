@@ -1324,7 +1324,7 @@ impl WindowInner {
                 let mut result = menu_entries.clone();
 
                 for entry in menu_entries {
-                    result.extend(flatten_menu(root, Some(&entry)).into_iter());
+                    result.extend(flatten_menu(root, Some(&entry)));
                 }
                 result
             }
