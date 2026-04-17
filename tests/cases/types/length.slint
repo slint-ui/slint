@@ -117,4 +117,42 @@ assert(instance.test_zero);
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+l1, err := instance.GetL1()
+assertion.NoError(err)
+assertion.InDelta(12, l1, 0.0001)
+l2, err := instance.GetL2()
+assertion.NoError(err)
+assertion.InDelta(12, l2, 0.0001)
+l3, err := instance.GetL3()
+assertion.NoError(err)
+assertion.InDelta(112, l3, 0.0001)
+l4, err := instance.GetL4()
+assertion.NoError(err)
+assertion.InDelta(120, l4, 0.0001)
+ll1, err := instance.GetLl1()
+assertion.NoError(err)
+assertion.InDelta(12, ll1, 0.0001)
+ll2, err := instance.GetLl2()
+assertion.NoError(err)
+assertion.InDelta(12, ll2, 0.0001)
+ll3, err := instance.GetLl3()
+assertion.NoError(err)
+assertion.InDelta(112, ll3, 0.0001)
+ll4, err := instance.GetLl4()
+assertion.NoError(err)
+assertion.InDelta(120, ll4, 0.0001)
+value, err := instance.GetValue()
+assertion.NoError(err)
+assertion.True(value)
+testZero, err := instance.GetTestZero()
+assertion.NoError(err)
+assertion.True(testZero)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

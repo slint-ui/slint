@@ -23,6 +23,17 @@ var instance = new slint.TestCase({});
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+hello, err := instance.GetHello()
+assertion.NoError(err)
+assertion.Equal(ui.TextWrapWordWrap, hello)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 ```python
 instance = TestCase()
 assert instance.test

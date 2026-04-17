@@ -72,4 +72,29 @@ assert(instance.get_w4() == 64.0);
 assert(instance.get_w5() == 65.0);
 assert(instance.get_test());
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+w1, err := instance.GetW1()
+assertion.NoError(err)
+assertion.Equal(66.0, w1)
+
+w2, err := instance.GetW2()
+assertion.NoError(err)
+assertion.Equal(80.0, w2)
+
+w3, err := instance.GetW3()
+assertion.NoError(err)
+assertion.Equal(64.0, w3)
+
+w4, err := instance.GetW4()
+assertion.NoError(err)
+assertion.Equal(64.0, w4)
+
+w5, err := instance.GetW5()
+assertion.NoError(err)
+assertion.Equal(64.0, w5)
+```
 */

@@ -34,6 +34,10 @@ type valueHandle struct {
 	ptr *C.SlintGoValue
 }
 
+type structHandle struct {
+	ptr *C.SlintGoStruct
+}
+
 type CompilationResult struct {
 	handle *compilationResultHandle
 }
@@ -56,6 +60,12 @@ func (i *ComponentInstance) release() {
 
 type Value struct {
 	handle *valueHandle
+}
+
+type Color uint32
+
+type Struct struct {
+	handle *structHandle
 }
 
 type ValueType int8
@@ -162,6 +172,17 @@ func wrapValue(ptr *C.SlintGoValue) Value {
 	return Value{handle: handle}
 }
 
+func wrapStruct(ptr *C.SlintGoStruct) Struct {
+	if ptr == nil {
+		return Struct{}
+	}
+	handle := &structHandle{ptr: ptr}
+	runtime.SetFinalizer(handle, func(handle *structHandle) {
+		C.slint_go_struct_destructor(handle.ptr)
+	})
+	return Struct{handle: handle}
+}
+
 func (r *CompilationResult) raw() *C.SlintGoCompilationResult {
 	if r == nil || r.handle == nil {
 		return nil
@@ -195,6 +216,13 @@ func (v Value) rawOrVoid() *C.SlintGoValue {
 		return ptr
 	}
 	return C.slint_go_value_new()
+}
+
+func (s Struct) raw() *C.SlintGoStruct {
+	if s.handle == nil {
+		return nil
+	}
+	return s.handle.ptr
 }
 
 func CompileSource(path string, source string) (*CompilationResult, error) {
@@ -441,6 +469,10 @@ func BoolValue(value bool) Value {
 	return wrapValue(C.slint_go_value_new_bool(C.bool(value)))
 }
 
+func ColorValue(value Color) Value {
+	return wrapValue(C.slint_go_value_new_color(C.uint32_t(value)))
+}
+
 func EnumValue(enumName string, value string) Value {
 	enumNameSlice, enumNameBuf := makeByteSlice(enumName)
 	valueSlice, valueBuf := makeByteSlice(value)
@@ -455,6 +487,84 @@ func StringValue(value string) Value {
 	result := wrapValue(C.slint_go_value_new_string(valueSlice))
 	runtime.KeepAlive(valueBuf)
 	return result
+}
+
+func ArrayValue(values ...Value) Value {
+	valueSlice, rawValues := makeValueSlice(values)
+	result := wrapValue(C.slint_go_value_new_array(valueSlice))
+	runtime.KeepAlive(rawValues)
+	return result
+}
+
+func StructValue(fields map[string]Value) Value {
+	structPtr := C.slint_go_struct_new()
+	if structPtr == nil {
+		return VoidValue()
+	}
+	for name, value := range fields {
+		nameSlice, nameBuf := makeByteSlice(name)
+		rawValue := value.rawOrVoid()
+		if value.raw() == nil {
+			defer C.slint_go_value_destructor(rawValue)
+		}
+		C.slint_interpreter_struct_set_field(structPtr, nameSlice, rawValue)
+		runtime.KeepAlive(nameBuf)
+	}
+	result := wrapValue(C.slint_interpreter_value_new_struct(structPtr))
+	C.slint_go_struct_destructor(structPtr)
+	return result
+}
+
+func (v Value) Struct() (Struct, error) {
+	if v.raw() == nil {
+		return Struct{}, errors.New("slint: value is void")
+	}
+	structPtr := C.slint_interpreter_value_to_struct(v.rawOrVoid())
+	if structPtr == nil {
+		return Struct{}, errors.New("slint: value is not a struct")
+	}
+	return wrapStruct(C.slint_go_struct_clone((*C.SlintGoStruct)(unsafe.Pointer(structPtr)))), nil
+}
+
+func (s Struct) Clone() Struct {
+	if s.raw() == nil {
+		return Struct{}
+	}
+	return wrapStruct(C.slint_go_struct_clone(s.raw()))
+}
+
+func (s Struct) GetField(name string) (Value, error) {
+	if s.raw() == nil {
+		return VoidValue(), errors.New("slint: value is void")
+	}
+	nameSlice, nameBuf := makeByteSlice(name)
+	value := wrapValue(C.slint_interpreter_struct_get_field(s.raw(), nameSlice))
+	runtime.KeepAlive(nameBuf)
+	if value.raw() == nil {
+		return VoidValue(), fmt.Errorf("slint: no such struct field %q", name)
+	}
+	return value, nil
+}
+
+func (s Struct) SetField(name string, value Value) error {
+	if s.raw() == nil {
+		return errors.New("slint: value is void")
+	}
+	nameSlice, nameBuf := makeByteSlice(name)
+	rawValue := value.rawOrVoid()
+	if value.raw() == nil {
+		defer C.slint_go_value_destructor(rawValue)
+	}
+	C.slint_interpreter_struct_set_field(s.raw(), nameSlice, rawValue)
+	runtime.KeepAlive(nameBuf)
+	return nil
+}
+
+func (s Struct) Value() Value {
+	if s.raw() == nil {
+		return VoidValue()
+	}
+	return wrapValue(C.slint_interpreter_value_new_struct(s.raw()))
 }
 
 func (v Value) Clone() Value {
@@ -502,4 +612,55 @@ func (v Value) Bool() (bool, error) {
 		return false, errors.New("slint: value is not a bool")
 	}
 	return bool(value), nil
+}
+
+func (v Value) Array() ([]Value, error) {
+	if v.raw() == nil {
+		return nil, errors.New("slint: value is void")
+	}
+	var slice C.SlintGoValueSlice
+	if !bool(C.slint_go_value_to_array(v.rawOrVoid(), &slice)) {
+		return nil, errors.New("slint: value is not an array")
+	}
+	defer C.slint_go_value_slice_destructor(slice)
+	raw := unsafe.Slice(slice.ptr, slice.len)
+	values := make([]Value, int(slice.len))
+	for i, ptr := range raw {
+		values[i] = wrapValue(ptr)
+	}
+	return values, nil
+}
+
+func (v Value) Equal(other Value) bool {
+	if v.raw() == nil || other.raw() == nil {
+		return v.raw() == other.raw()
+	}
+	return bool(C.slint_interpreter_value_eq(v.rawOrVoid(), other.rawOrVoid()))
+}
+
+func (v Value) Color() (Color, error) {
+	if v.raw() == nil {
+		return 0, errors.New("slint: value is void")
+	}
+	var color C.uint32_t
+	if !bool(C.slint_go_value_to_color(v.rawOrVoid(), &color)) {
+		return 0, errors.New("slint: value is not a color brush")
+	}
+	return Color(color), nil
+}
+
+func (c Color) Alpha() uint8 { return uint8(uint32(c) >> 24) }
+
+func (c Color) Red() uint8 { return uint8(uint32(c) >> 16) }
+
+func (c Color) Green() uint8 { return uint8(uint32(c) >> 8) }
+
+func (c Color) Blue() uint8 { return uint8(uint32(c)) }
+
+func ColorARGB(alpha, red, green, blue uint8) Color {
+	return Color(uint32(alpha)<<24 | uint32(red)<<16 | uint32(green)<<8 | uint32(blue))
+}
+
+func ColorRGB(red, green, blue uint8) Color {
+	return ColorARGB(255, red, green, blue)
 }

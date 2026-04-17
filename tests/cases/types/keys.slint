@@ -283,4 +283,24 @@ if new_keys is not None:
 # TODO: Simulate shortcuts in Python
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+firstShortcut, err := instance.GetFirstShortcut()
+assertion.NoError(err)
+shortcutAsString, err := instance.GetShortcutAsString()
+assertion.NoError(err)
+shortcutAAsString, err := instance.GetShortcutAAsString()
+assertion.NoError(err)
+shortcutPlusAsString, err := instance.GetShortcutPlusAsString()
+assertion.NoError(err)
+assertion.NoError(instance.SetFirstShortcut(firstShortcut))
+roundTrip, err := instance.GetFirstShortcut()
+assertion.NoError(err)
+assertion.Equal(firstShortcut, roundTrip)
+assertion.NotEmpty(shortcutAsString)
+assertion.NotEmpty(shortcutAAsString)
+assertion.NotEmpty(shortcutPlusAsString)
+```
+
 */

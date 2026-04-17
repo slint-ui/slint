@@ -66,4 +66,85 @@ assert.deepEqual(p5val, { prop: [{hello: "hello", world: 0}, { hello: "", world:
 instance.p3 = ["Hello", "World"];
 assert.deepEqual(Array.from(instance.p3), ["Hello", "World"]);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+p1, err := instance.GetP1()
+assertion.NoError(err)
+arr1, err := p1.Array()
+assertion.NoError(err)
+assertion.Len(arr1, 2)
+assertion.True(arr1[0].Equal(slint.NumberValue(12)))
+assertion.True(arr1[1].Equal(slint.NumberValue(13)))
+
+p2, err := instance.GetP2()
+assertion.NoError(err)
+arr2, err := p2.Array()
+assertion.NoError(err)
+assertion.Len(arr2, 2)
+assertion.True(arr2[0].Equal(slint.NumberValue(14)))
+assertion.True(arr2[1].Equal(slint.NumberValue(15.5)))
+
+p3, err := instance.GetP3()
+assertion.NoError(err)
+arr3, err := p3.Array()
+assertion.NoError(err)
+assertion.Empty(arr3)
+
+p4, err := instance.GetP4()
+assertion.NoError(err)
+arr4, err := p4.Array()
+assertion.NoError(err)
+assertion.Len(arr4, 2)
+assertion.True(arr4[0].Equal(slint.StructValue(map[string]slint.Value{
+	"a": slint.NumberValue(1),
+	"b": slint.NumberValue(0),
+})))
+assertion.True(arr4[1].Equal(slint.StructValue(map[string]slint.Value{"a": slint.NumberValue(42), "b": slint.NumberValue(10)})))
+
+p5, err := instance.GetP5()
+assertion.NoError(err)
+structP5, err := p5.Struct()
+assertion.NoError(err)
+prop, err := structP5.GetField("prop")
+assertion.NoError(err)
+propArr, err := prop.Array()
+assertion.NoError(err)
+assertion.Len(propArr, 2)
+assertion.True(propArr[0].Equal(slint.StructValue(map[string]slint.Value{
+	"hello": slint.StringValue("hello"),
+	"world": slint.NumberValue(0),
+})))
+assertion.True(propArr[1].Equal(slint.StructValue(map[string]slint.Value{
+	"hello": slint.StringValue(""),
+	"world": slint.NumberValue(42),
+})))
+xxx, err := structP5.GetField("xxx")
+assertion.NoError(err)
+assertion.True(xxx.Equal(slint.NumberValue(0)))
+
+p6, err := instance.GetP6()
+assertion.NoError(err)
+structP6, err := p6.Struct()
+assertion.NoError(err)
+teams, err := structP6.GetField("teams")
+assertion.NoError(err)
+teamsArr, err := teams.Array()
+assertion.NoError(err)
+assertion.Len(teamsArr, 1)
+team0, err := teamsArr[0].Struct()
+assertion.NoError(err)
+players, err := team0.GetField("players")
+assertion.NoError(err)
+playersArr, err := players.Array()
+assertion.NoError(err)
+assertion.Len(playersArr, 1)
+player0, err := playersArr[0].Struct()
+assertion.NoError(err)
+skillProfile, err := player0.GetField("skill_profile")
+assertion.NoError(err)
+assertion.True(skillProfile.Equal(slint.NumberValue(9)))
+```
 */

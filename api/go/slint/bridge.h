@@ -10,6 +10,7 @@ typedef struct SlintGoCompilationResult SlintGoCompilationResult;
 typedef struct SlintGoComponentDefinition SlintGoComponentDefinition;
 typedef struct SlintGoComponentInstance SlintGoComponentInstance;
 typedef struct SlintGoValue SlintGoValue;
+typedef struct SlintGoStruct SlintGoStruct;
 
 typedef struct SlintGoByteSlice
 {
@@ -28,6 +29,7 @@ typedef int8_t SlintGoValueType;
 typedef SlintGoValue *(*SlintGoCallback)(void *user_data, SlintGoValue **args, uintptr_t arg_len);
 
 void slint_go_string_free(char *value);
+bool slint_interpreter_value_eq(const SlintGoValue *a, const SlintGoValue *b);
 
 SlintGoCompilationResult *slint_go_compile_source(SlintGoByteSlice source, SlintGoByteSlice path);
 SlintGoCompilationResult *
@@ -82,10 +84,26 @@ SlintGoValue *slint_go_value_new_string(SlintGoByteSlice value);
 SlintGoValue *slint_go_value_new_bool(bool value);
 SlintGoValue *slint_go_value_new_enumeration_value(SlintGoByteSlice enum_name,
                                                    SlintGoByteSlice value);
+SlintGoValue *slint_go_value_new_color(uint32_t argb);
+SlintGoValue *slint_go_value_new_array(SlintGoValueSlice values);
 SlintGoValueType slint_go_value_type(const SlintGoValue *value);
 char *slint_go_value_to_string(const SlintGoValue *value);
 bool slint_go_value_to_number(const SlintGoValue *value, double *out);
 bool slint_go_value_to_bool(const SlintGoValue *value, bool *out);
+bool slint_go_value_to_color(const SlintGoValue *value, uint32_t *out);
+bool slint_go_value_to_array(const SlintGoValue *value, SlintGoValueSlice *out);
+void slint_go_value_slice_destructor(SlintGoValueSlice values);
+
+SlintGoStruct *slint_go_struct_new(void);
+SlintGoStruct *slint_go_struct_clone(const SlintGoStruct *value);
+void slint_go_struct_destructor(SlintGoStruct *value);
+SlintGoValue *slint_interpreter_value_new_struct(const SlintGoStruct *value);
+const SlintGoStruct *slint_interpreter_value_to_struct(const SlintGoValue *value);
+SlintGoValue *slint_interpreter_struct_get_field(const SlintGoStruct *stru,
+                                                SlintGoByteSlice name);
+void slint_interpreter_struct_set_field(SlintGoStruct *stru, SlintGoByteSlice name,
+                                        const SlintGoValue *value);
+
 void slint_testing_init_backend(void);
 void slint_testing_mock_elapsed_time(uint64_t time_in_ms);
 

@@ -47,4 +47,21 @@ assert.equal(n(instance.negative_as_float/1000), n(-1200000.1/1000));
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+testIsFloat, err := instance.GetTestIsFloat()
+assertion.NoError(err)
+assertion.True(testIsFloat)
+numberAsFloat, err := instance.GetNumberAsFloat()
+assertion.NoError(err)
+assertion.InDelta(42.56, numberAsFloat, 0.0001)
+negativeAsFloat, err := instance.GetNegativeAsFloat()
+assertion.NoError(err)
+assertion.InDelta(-1200000.1, negativeAsFloat, 0.1)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

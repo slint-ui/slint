@@ -68,4 +68,30 @@ t.color_brush = "#00ff00"; // css-color-parser2 can't parse #rrggbbaa yet
 assert.equal(t.color_brush.toString(), green);
 
 ```
+
+```go
+instance, err := ui.NewTest()
+assertion.NoError(err)
+
+colorBrush, err := instance.GetColorBrush()
+assertion.NoError(err)
+brushColor, err := colorBrush.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorRGB(0, 0, 255), brushColor)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+assertion.NoError(instance.SetColorBrush(slint.ColorValue(slint.ColorRGB(0, 255, 0))))
+colorBrush, err = instance.GetColorBrush()
+assertion.NoError(err)
+brushColor, err = colorBrush.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorRGB(0, 255, 0), brushColor)
+
+test, err = instance.GetTest()
+assertion.NoError(err)
+assertion.False(test)
+```
 */

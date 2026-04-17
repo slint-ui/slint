@@ -11,6 +11,12 @@ use i_slint_core::window::WindowAdapter;
 use std::ffi::{CString, c_void};
 use vtable::VRef;
 
+#[repr(C)]
+pub struct SlintGoValueSlice {
+    pub ptr: *mut *mut Value,
+    pub len: usize,
+}
+
 /// Construct a new Value in the given memory location
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_interpreter_value_new() -> Box<Value> {
@@ -32,6 +38,53 @@ pub extern "C" fn slint_interpreter_value_destructor(val: Box<Value>) {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_interpreter_value_eq(a: &Value, b: &Value) -> bool {
     a == b
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_new_color(argb: u32) -> Box<Value> {
+    Box::new(Value::Brush(Brush::SolidColor(Color::from_argb_encoded(argb))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_to_color(val: &Value, out: &mut u32) -> bool {
+    if let Value::Brush(brush) = val {
+        *out = brush.color().as_argb_encoded();
+        true
+    } else {
+        false
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_new_array(values: SlintGoValueSlice) -> Box<Value> {
+    let values = unsafe { std::slice::from_raw_parts(values.ptr, values.len) };
+    let vec = values
+        .iter()
+        .map(|value| unsafe { &**value }.clone())
+        .collect::<SharedVector<_>>();
+    Box::new(Value::Model(ModelRc::new(SharedVectorModel::from(vec))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_value_to_array(val: &Value, out: *mut SlintGoValueSlice) -> bool {
+    let Value::Model(model) = val else { return false };
+    let mut values = model
+        .iter()
+        .map(|value| Box::into_raw(Box::new(value)))
+        .collect::<Vec<_>>();
+    let slice = SlintGoValueSlice { ptr: values.as_mut_ptr(), len: values.len() };
+    std::mem::forget(values);
+    unsafe { std::ptr::write(out, slice) };
+    true
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_value_slice_destructor(values: SlintGoValueSlice) {
+    if !values.ptr.is_null() {
+        unsafe {
+            drop(Vec::from_raw_parts(values.ptr, values.len, values.len));
+        }
+    }
 }
 
 /// Construct a new Value in the given memory location as string
@@ -243,6 +296,21 @@ pub unsafe extern "C" fn slint_interpreter_struct_clone(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_struct_destructor(val: *mut StructOpaque) {
     drop(unsafe { std::ptr::read(val as *mut Struct) })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_go_struct_new() -> *mut StructOpaque {
+    Box::into_raw(Box::new(Struct::default())) as *mut StructOpaque
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_struct_clone(other: &StructOpaque) -> *mut StructOpaque {
+    Box::into_raw(Box::new(other.as_struct().clone())) as *mut StructOpaque
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_struct_destructor(val: *mut StructOpaque) {
+    drop(unsafe { Box::from_raw(val as *mut Struct) })
 }
 
 #[unsafe(no_mangle)]
