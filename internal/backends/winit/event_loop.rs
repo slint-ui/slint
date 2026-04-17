@@ -152,6 +152,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
     }
 
+    #[allow(clippy::collapsible_match)]
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -380,12 +381,13 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 // arrives.
                 self.pending_mouse_move = Some((window_id, self.cursor_pos));
             }
-            // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
-            WindowEvent::CursorLeft { .. } if cfg!(target_arch = "wasm32") || !self.pressed => {
-                self.pressed = false;
-                runtime_window.process_mouse_input(MouseEvent::Exit);
+            WindowEvent::CursorLeft { .. } => {
+                // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
+                if cfg!(target_arch = "wasm32") || !self.pressed {
+                    self.pressed = false;
+                    runtime_window.process_mouse_input(MouseEvent::Exit);
+                }
             }
-            WindowEvent::CursorLeft { .. } => {}
             WindowEvent::MouseWheel { delta, phase, .. } => {
                 let (delta_x, delta_y) = match delta {
                     winit::event::MouseScrollDelta::LineDelta(lx, ly) => (lx * 60., ly * 60.),
@@ -457,19 +459,18 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     winit_touch_phase(touch.phase),
                 );
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ }
-                if std::env::var("SLINT_SCALE_FACTOR").is_err() =>
-            {
-                self.loop_error = window
-                    .window()
-                    .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
-                        scale_factor: scale_factor as f32,
-                    })
-                    .err();
-                // TODO: send a resize event or try to keep the logical size the same.
-                //window.resize_event(inner_size_writer.???)?;
+            WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
+                if std::env::var("SLINT_SCALE_FACTOR").is_err() {
+                    self.loop_error = window
+                        .window()
+                        .try_dispatch_event(corelib::platform::WindowEvent::ScaleFactorChanged {
+                            scale_factor: scale_factor as f32,
+                        })
+                        .err();
+                    // TODO: send a resize event or try to keep the logical size the same.
+                    //window.resize_event(inner_size_writer.???)?;
+                }
             }
-            WindowEvent::ScaleFactorChanged { .. } => {}
             WindowEvent::ThemeChanged(theme) => {
                 window.set_color_scheme(match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
