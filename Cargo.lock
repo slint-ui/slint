@@ -3362,8 +3362,7 @@ dependencies = [
 [[package]]
 name = "femtovg"
 version = "0.23.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "727c5dd9d601f3f4ea133b8a6ba37d37ca67ed59781675dc1c9c9f1701e0d197"
+source = "git+https://github.com/expenses/femtovg?branch=canvas-external#398dbdc0515a3a8810d365348f461a7d447c5386"
 dependencies = [
  "bitflags 2.11.1",
  "bytemuck",

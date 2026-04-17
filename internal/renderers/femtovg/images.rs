@@ -21,6 +21,11 @@ where
     #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
 
+    #[cfg(not(target_family = "wasm"))]
+    fn convert_external_opengl_texture(
+        opengl_texture: std::num::NonZero<u32>,
+    ) -> Self::ExternalTexture;
+
     #[cfg(feature = "unstable-wgpu-28")]
     fn convert_wgpu_28_texture(wgpu_texture: wgpu_28::Texture) -> Self::NativeTexture;
 }
@@ -28,6 +33,13 @@ where
 impl TextureImporter for femtovg::renderer::OpenGl {
     #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+        glow::NativeTexture(opengl_texture)
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    fn convert_external_opengl_texture(
+        opengl_texture: std::num::NonZero<u32>,
+    ) -> Self::NativeTexture {
         glow::NativeTexture(opengl_texture)
     }
 
@@ -40,6 +52,12 @@ impl TextureImporter for femtovg::renderer::OpenGl {
 #[cfg(all(feature = "wgpu-28", not(target_family = "wasm")))]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
     fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+        todo!()
+    }
+
+    fn convert_external_opengl_texture(
+        _opengl_texture: std::num::NonZero<u32>,
+    ) -> Self::ExternalTexture {
         todo!()
     }
 
@@ -159,7 +177,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 texture_id,
                 size,
                 origin,
-                external: _,
+                external,
                 ..
             }) => {
                 let image_flags = match origin {
@@ -171,18 +189,29 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                         "internal error: missing implementation for BorrowedOpenGLTextureOrigin"
                     ),
                 };
-                canvas
-                    .borrow_mut()
-                    .create_image_from_native_texture(
-                        <R as TextureImporter>::convert_opengl_texture(*texture_id),
-                        femtovg::ImageInfo::new(
-                            image_flags,
-                            size.width as _,
-                            size.height as _,
-                            femtovg::PixelFormat::Rgba8,
-                        ),
-                    )
-                    .unwrap()
+                let image_info = femtovg::ImageInfo::new(
+                    image_flags,
+                    size.width as _,
+                    size.height as _,
+                    femtovg::PixelFormat::Rgba8,
+                );
+                if *external {
+                    canvas
+                        .borrow_mut()
+                        .create_image_from_external_texture(
+                            <R as TextureImporter>::convert_external_opengl_texture(*texture_id),
+                            image_info,
+                        )
+                        .unwrap()
+                } else {
+                    canvas
+                        .borrow_mut()
+                        .create_image_from_native_texture(
+                            <R as TextureImporter>::convert_opengl_texture(*texture_id),
+                            image_info,
+                        )
+                        .unwrap()
+                }
             }
             #[cfg(all(not(target_arch = "wasm32"), feature = "unstable-wgpu-28"))]
             ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU28Texture(
