@@ -341,13 +341,8 @@ pub fn generate_py_module(
 
     for export in doc.exports.iter() {
         match &export.1 {
-            Either::Left(component) if !component.is_global() => {
-                if export.0.name != component.id {
-                    compo_aliases
-                        .entry(component.id.clone())
-                        .or_default()
-                        .push(export.0.name.clone());
-                }
+            Either::Left(component) if !component.is_global() && export.0.name != component.id => {
+                compo_aliases.entry(component.id.clone()).or_default().push(export.0.name.clone());
             }
             Either::Right(ty) => match &ty {
                 Type::Struct(s) if s.node().is_some() => {
@@ -360,13 +355,8 @@ pub fn generate_py_module(
                             .push(export.0.name.clone());
                     }
                 }
-                Type::Enumeration(en) => {
-                    if export.0.name != en.name {
-                        enum_aliases
-                            .entry(en.name.clone())
-                            .or_default()
-                            .push(export.0.name.clone());
-                    }
+                Type::Enumeration(en) if export.0.name != en.name => {
+                    enum_aliases.entry(en.name.clone()).or_default().push(export.0.name.clone());
                 }
                 _ => {}
             },

@@ -279,10 +279,10 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
 
         let mut offset = children_offset + children.len() as u32;
         let mut relative_offset = relative_children_offset + children.len() as u32;
-        let mut index = children_offset;
-        let mut relative_index = relative_children_offset;
 
-        for e in children.iter() {
+        for (i, e) in children.iter().enumerate() {
+            let index = children_offset + i as u32;
+            let relative_index = relative_children_offset + i as u32;
             if let Some(sub_component) = e.borrow().sub_component() {
                 let sub_tree_state = sub_component_states.pop_front().unwrap();
                 builder.enter_component_children(e, *repeater_count, state, &sub_tree_state);
@@ -313,8 +313,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                 );
             }
 
-            index += 1;
-            relative_index += 1;
             let size = item_sub_tree_size(e) as u32;
             offset += size;
             relative_offset += size;
