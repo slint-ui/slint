@@ -7,7 +7,7 @@ import SlintProperty from '@slint/common-files/src/components/SlintProperty.astr
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-example.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-1.png" imageAlt="image example" imageWidth="300" imageHeight="200">
 ```slint
 Image {
     source: @image-url("mini-banner.png");
@@ -22,7 +22,7 @@ Use the `Image` element to display an <Link type="ImageType" label="image" />.
 ### colorize
 <SlintProperty propName="colorize" typeName="brush">
 When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
-<CodeSnippetMD imagePath="/src/assets/generated/image-colorize.png"  imageWidth="300" imageHeight="200"  imageAlt='image example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-2.png" imageAlt="image example" imageWidth="300" imageHeight="200">
 ```slint
 Image {
     source: @image-url("slint-logo-simple-dark.png");
@@ -78,7 +78,7 @@ Use the <Link type="ImageType" label="`@image-url` macro" /> to specify the imag
 
 ### image-fit
 <SlintProperty propName="image-fit" typeName="enum" enumName="ImageFit" defaultValue="`contain` when the `Image` element is part of a layout, `fill` otherwise">
-<CodeSnippetMD imagePath="/src/assets/generated/image-fill.png"  imageWidth="300" imageHeight="200"  imageAlt='image fill example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-3.png" imageAlt="image fill example" imageWidth="300" imageHeight="200">
 ```slint
 Image {
     width: 200px; height: 50px;
@@ -88,7 +88,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-contain.png"  imageWidth="300" imageHeight="200"  imageAlt='image contain example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-4.png" imageAlt="image contain example" imageWidth="300" imageHeight="200">
 ```slint
 Image {
     width: 250px; height: 40px;
@@ -98,7 +98,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-cover.png"  imageWidth="300" imageHeight="200"  imageAlt='image cover example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-5.png" imageAlt="image cover example" imageWidth="300" imageHeight="200">
 ```slint
 Image {
     width: 250px; height: 250px;
@@ -108,7 +108,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-preserve.png"  imageWidth="400" imageHeight="400"  imageAlt='image preserve example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-6.png" imageAlt="image preserve example" imageWidth="400" imageHeight="400">
 ```slint
 Image {
     width: 400px; height: 400px;
@@ -121,7 +121,7 @@ Image {
 
 ### image-rendering
 <SlintProperty propName="image-rendering" typeName="enum" enumName="ImageRendering" defaultValue="smooth">
-<CodeSnippetMD imagePath="/src/assets/generated/image-smooth.png"  imageWidth="300" imageHeight="300"  imageAlt='image smooth example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-7.png" imageAlt="image smooth example" imageWidth="300" imageHeight="300">
 ```slint
 Image {
     width: 800px;
@@ -131,7 +131,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-pixelated.png"  imageWidth="300" imageHeight="300"  imageAlt='image pixelated example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-8.png" imageAlt="image pixelated example" imageWidth="300" imageHeight="300">
 ```slint
 Image {
     width: 800px;
@@ -161,7 +161,7 @@ How the image is tiled horizontally.
 
 ### vertical-tiling
 <SlintProperty propName="vertical-tiling" typeName="enum" enumName="ImageTiling" defaultValue="none">
-<CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling repeat example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-9.png" imageAlt="image horizontal tiling repeat example" imageWidth="400" imageHeight="400">
 ```slint
 Image {
     width: 400px;
@@ -172,7 +172,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-horizontal-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image horizontal tiling round example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-10.png" imageAlt="image horizontal tiling round example" imageWidth="400" imageHeight="400">
 ```slint
 Image {
     width: 400px;
@@ -182,7 +182,7 @@ Image {
 }
 ```
 </CodeSnippetMD>
-<CodeSnippetMD imagePath="/src/assets/generated/image-vertical-repeat.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical tiling repeat example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-11.png" imageAlt="image vertical tiling repeat example" imageWidth="400" imageHeight="400">
 ```slint
 Image {
     width: 400px;
@@ -193,7 +193,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-vertical-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical tiling round example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-12.png" imageAlt="image vertical tiling round example" imageWidth="400" imageHeight="400">
 ```slint
 Image {
     width: 400px;
@@ -204,7 +204,7 @@ Image {
 ```
 </CodeSnippetMD>
 
-<CodeSnippetMD imagePath="/src/assets/generated/image-vertical-horizontal-round.png"  imageWidth="400" imageHeight="400"  imageAlt='image vertical and horizontal tiling round example'>
+<CodeSnippetMD imagePath="/src/assets/generated/image-13.png" imageAlt="image vertical and horizontal tiling round example" imageWidth="400" imageHeight="400">
 ```slint
 Image {
     width: 400px;
