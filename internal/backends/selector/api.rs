@@ -304,6 +304,36 @@ impl BackendSelector {
             }
         };
 
+        // Fail fast when wgpu rendering was required but no GPU-backed adapter
+        // is available for the requested backends. Otherwise the winit/linuxkms
+        // backends silently fall through to a non-wgpu renderer (e.g. the
+        // standalone software renderer), and the failure surfaces much later
+        // as an Unsupported error from set_rendering_notifier.
+        #[cfg(feature = "unstable-wgpu-28")]
+        if matches!(self.requested_graphics_api, Some(RequestedGraphicsAPI::WGPU28(_)))
+            && !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
+                self.requested_graphics_api.clone(),
+            )
+        {
+            return Err(
+                "WGPU 28.x rendering was required but no GPU-backed WGPU adapter is available \
+                 for the requested backends. Set SLINT_WGPU_CPU=1 to allow CPU adapters."
+                    .into(),
+            );
+        }
+        #[cfg(feature = "unstable-wgpu-27")]
+        if matches!(self.requested_graphics_api, Some(RequestedGraphicsAPI::WGPU27(_)))
+            && !i_slint_core::graphics::wgpu_27::any_wgpu27_adapters_with_gpu(
+                self.requested_graphics_api.clone(),
+            )
+        {
+            return Err(
+                "WGPU 27.x rendering was required but no GPU-backed WGPU adapter is available \
+                 for the requested backends. Set SLINT_WGPU_CPU=1 to allow CPU adapters."
+                    .into(),
+            );
+        }
+
         let backend: Box<dyn i_slint_core::platform::Platform> = match backend_name {
             #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
             "linuxkms" => {
