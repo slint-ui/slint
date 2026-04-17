@@ -60,4 +60,25 @@ slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.result, "30.7.1984");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+assertion.NoError(instance.SetCurrentDate(slint.StructValue(map[string]slint.Value{
+	"day": slint.NumberValue(30),
+	"month": slint.NumberValue(7),
+	"year": slint.NumberValue(1984),
+})))
+
+slint.MockElapsedTime(600)
+
+result, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("30.7.1984", result)
+```
+
 */

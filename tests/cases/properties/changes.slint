@@ -257,4 +257,87 @@ slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.Glob.r, "=88|88");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint.MockElapsedTime(1000)
+result, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("", result)
+
+assertion.NoError(instance.SetValue(56))
+slint.MockElapsedTime(1000)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("", result)
+count, err := instance.GetCount()
+assertion.NoError(err)
+assertion.Equal(0, count)
+
+assertion.NoError(instance.SetValue(142))
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("", result)
+count, err = instance.GetCount()
+assertion.NoError(err)
+assertion.Equal(0, count)
+
+slint.MockElapsedTime(1)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("other(100)foo,value(142)", result)
+count, err = instance.GetCount()
+assertion.NoError(err)
+assertion.Equal(1, count)
+
+assertion.NoError(instance.SetValue(8))
+assertion.NoError(instance.SetValue(141))
+slint.MockElapsedTime(1)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("other(100)foo,value(142)value(141)", result)
+count, err = instance.GetCount()
+assertion.NoError(err)
+assertion.Equal(2, count)
+
+assertion.NoError(instance.SetValue(85))
+assertion.NoError(instance.SetValue(141))
+slint.MockElapsedTime(1)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("other(100)foo,value(142)value(141)", result)
+count, err = instance.GetCount()
+assertion.NoError(err)
+assertion.Equal(2, count)
+
+assertion.NoError(instance.SetResult(""))
+assertion.NoError(instance.InvokeChainingDoChange())
+slint.MockElapsedTime(1)
+chainingACount, err := instance.GetChainingACount()
+assertion.NoError(err)
+assertion.Equal(3, chainingACount)
+
+subResult, err := instance.GetSubResult()
+assertion.NoError(err)
+assertion.Equal("", subResult)
+assertion.NoError(instance.InvokeSubDoChange())
+slint.MockElapsedTime(100)
+subResult, err = instance.GetSubResult()
+assertion.NoError(err)
+assertion.Equal("sub2(124)root2(124)sub(790)root(790)", subResult)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("||sub2(124)root2(124)sub(790)root(790)", result)
+
+assertion.NoError(instance.Glob().SetV(88))
+globR, err := instance.Glob().GetR()
+assertion.NoError(err)
+assertion.Equal("", globR)
+slint.MockElapsedTime(100)
+globR, err = instance.Glob().GetR()
+assertion.NoError(err)
+assertion.Equal("=88|88", globR)
+```
+
 */

@@ -94,4 +94,88 @@ instance.rect_height = 135;
 assert.deepEqual(instance.stuff, { x: 65, y: 75, width: 125, height: 135 });
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+stuff, err := instance.GetStuff()
+assertion.NoError(err)
+stuffStruct, err := stuff.Struct()
+assertion.NoError(err)
+x, err := stuffStruct.GetField("x")
+assertion.NoError(err)
+xValue, err := x.Number()
+assertion.NoError(err)
+assertion.InDelta(50, xValue, 0.0001)
+y, err := stuffStruct.GetField("y")
+assertion.NoError(err)
+yValue, err := y.Number()
+assertion.NoError(err)
+assertion.InDelta(50, yValue, 0.0001)
+width, err := stuffStruct.GetField("width")
+assertion.NoError(err)
+widthValue, err := width.Number()
+assertion.NoError(err)
+assertion.InDelta(100, widthValue, 0.0001)
+height, err := stuffStruct.GetField("height")
+assertion.NoError(err)
+heightValue, err := height.Number()
+assertion.NoError(err)
+assertion.InDelta(100, heightValue, 0.0001)
+
+assertion.NoError(instance.SetStuff(slint.StructValue(map[string]slint.Value{
+	"x": slint.NumberValue(60),
+	"y": slint.NumberValue(70),
+	"width": slint.NumberValue(120),
+	"height": slint.NumberValue(130),
+})))
+
+rectX, err := instance.GetRectX()
+assertion.NoError(err)
+assertion.InDelta(60, rectX, 0.0001)
+rectY, err := instance.GetRectY()
+assertion.NoError(err)
+assertion.InDelta(70, rectY, 0.0001)
+rectWidth, err := instance.GetRectWidth()
+assertion.NoError(err)
+assertion.InDelta(120, rectWidth, 0.0001)
+rectHeight, err := instance.GetRectHeight()
+assertion.NoError(err)
+assertion.InDelta(130, rectHeight, 0.0001)
+
+assertion.NoError(instance.SetRectX(65))
+assertion.NoError(instance.SetRectY(75))
+assertion.NoError(instance.SetRectWidth(125))
+assertion.NoError(instance.SetRectHeight(135))
+
+stuff, err = instance.GetStuff()
+assertion.NoError(err)
+stuffStruct, err = stuff.Struct()
+assertion.NoError(err)
+x, err = stuffStruct.GetField("x")
+assertion.NoError(err)
+xValue, err = x.Number()
+assertion.NoError(err)
+assertion.InDelta(65, xValue, 0.0001)
+y, err = stuffStruct.GetField("y")
+assertion.NoError(err)
+yValue, err = y.Number()
+assertion.NoError(err)
+assertion.InDelta(75, yValue, 0.0001)
+width, err = stuffStruct.GetField("width")
+assertion.NoError(err)
+widthValue, err = width.Number()
+assertion.NoError(err)
+assertion.InDelta(125, widthValue, 0.0001)
+height, err = stuffStruct.GetField("height")
+assertion.NoError(err)
+heightValue, err = height.Number()
+assertion.NoError(err)
+assertion.InDelta(135, heightValue, 0.0001)
+```
+
 */

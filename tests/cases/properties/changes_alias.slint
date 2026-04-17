@@ -90,4 +90,21 @@ slintlib.private_api.mock_elapsed_time(10);
 assert.equal(instance.State.r, 80808);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+assertion.NoError(instance.State().SetTabNames(5))
+slint.MockElapsedTime(10)
+currentTab, err := instance.GetCurrentTab()
+assertion.NoError(err)
+assertion.Equal(5, currentTab)
+
+assertion.NoError(instance.SetTestValue(8))
+slint.MockElapsedTime(10)
+r, err := instance.State().GetR()
+assertion.NoError(err)
+assertion.Equal(80808, r)
+```
+
 */

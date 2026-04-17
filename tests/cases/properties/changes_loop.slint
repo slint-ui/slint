@@ -81,4 +81,35 @@ var r2 = instance.result;
 assert(r2 > r + 10);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint.MockElapsedTime(1000)
+result, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(41, result)
+
+assertion.NoError(instance.SetValue(42))
+slint.MockElapsedTime(1000)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(41, result)
+
+assertion.NoError(instance.SetValue(123))
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(122, result)
+
+slint.MockElapsedTime(200)
+r, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Greater(r, 1240)
+
+slint.MockElapsedTime(200)
+r2, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Greater(r2, r+10)
+```
+
 */
