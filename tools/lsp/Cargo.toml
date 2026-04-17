@@ -95,7 +95,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
-i-slint-preview-protocol = { version = "=1.16.0", path = "../../internal/preview-protocol" }
+i-slint-preview-protocol = { version = "=1.17.0", path = "../../internal/preview-protocol" }
 lsp-types = { workspace = true }
 
 # for the preview-engine feature
