@@ -1306,7 +1306,7 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().text())
+        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.into())
     }
 }
 
@@ -1458,6 +1458,17 @@ impl TextInputVisualRepresentation {
                 .char_indices()
                 .nth(byte_offset / self.password_character.len_utf8())
                 .map_or(text_without_password.len(), |(r, _)| r)
+        } else {
+            byte_offset
+        }
+    }
+
+    /// Map the byte_offset inside the TextInput's text to the byte offset in the visual text.
+    /// This is the opposite of `map_byte_offset_from_byte_offset_in_visual_text`.
+    pub fn map_byte_offset_from_byte_offset_in_actual_text(&self, byte_offset: usize) -> usize {
+        if let Some(text_without_password) = self.text_without_password.as_ref() {
+            text_without_password[..byte_offset].chars().count()
+                * self.password_character.len_utf8()
         } else {
             byte_offset
         }

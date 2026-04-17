@@ -1456,7 +1456,8 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
+    let text = SharedString::from(&visual_representation.text);
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
@@ -1474,7 +1475,6 @@ pub fn text_input_byte_offset_for_position(
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let byte_offset = layout.byte_offset_from_point(pos);
-    let visual_representation = text_input.visual_representation(None);
     visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
 }
 
@@ -1507,9 +1507,14 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let Some(ctx) = renderer.slint_context() else {
         return LogicalRect::default();
     };
+
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let text = text_input.text();
+    let text = SharedString::from(&text_input.visual_representation(None).text);
+    let byte_offset = text_input
+        .visual_representation(None)
+        .map_byte_offset_from_byte_offset_in_actual_text(byte_offset);
+
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
