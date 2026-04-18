@@ -54,17 +54,18 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
 }
 
 fn setup_slint_with_wgpu() {
-    #[allow(unused_mut)]
-    let mut wgpu_settings = slint::wgpu_28::WGPUSettings::default();
+    use slint::wgpu_28::{WGPUConfiguration, WGPUSettings, wgpu::Backends};
+
+    let mut wgpu_settings = WGPUSettings::default();
 
     #[cfg(target_os = "windows")]
     {
         // Must be DX12 on Windows to support texture sharing from ANGLE's D3D11 via NT handles.
-        wgpu_settings.backends = slint::wgpu_28::wgpu::Backends::DX12;
+        wgpu_settings.backends = Backends::DX12;
     }
 
     slint::BackendSelector::new()
-        .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Automatic(wgpu_settings))
+        .require_wgpu_28(WGPUConfiguration::Automatic(wgpu_settings))
         .select()
         .expect(
             "Failed to create Slint backend with WGPU based renderer - \
