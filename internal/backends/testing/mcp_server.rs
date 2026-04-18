@@ -886,7 +886,7 @@ mod tests {
 
     #[test]
     fn test_handle_roundtrip() {
-        let index = generational_arena::Index::from_raw_parts(42, 7);
+        let index = introspection::ArenaIndex::from_raw_parts(42, 7);
         let handle = index_to_handle(index);
         assert_eq!(handle.index, 42);
         assert_eq!(handle.generation, 7);
