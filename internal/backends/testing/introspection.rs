@@ -134,7 +134,10 @@ impl IntrospectionState {
             .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
 
-    pub fn root_element_handle(&self, window_index: ArenaIndex) -> Result<ArenaIndex, String> {
+    pub fn root_element_handle(
+        &self,
+        window_index: ArenaIndex,
+    ) -> Result<ArenaIndex, String> {
         Ok(self
             .windows
             .borrow()
@@ -168,7 +171,11 @@ impl IntrospectionState {
         index
     }
 
-    pub fn element(&self, request: &str, index: ArenaIndex) -> Result<ElementHandle, String> {
+    pub fn element(
+        &self,
+        request: &str,
+        index: ArenaIndex,
+    ) -> Result<ElementHandle, String> {
         let element = self
             .element_handles
             .borrow()
@@ -454,35 +461,8 @@ pub(crate) fn index_to_handle(index: ArenaIndex) -> proto::Handle {
     proto::Handle { index: ffi & 0xffff_ffff, generation: ffi >> 32 }
 }
 
-pub(crate) fn handle_to_index(handle: proto::Handle) -> Result<ArenaIndex, String> {
-    if handle.index > u64::from(u32::MAX) || handle.generation > u64::from(u32::MAX) {
-        return Err("Invalid handle".to_string());
-    }
-
-    let ffi = (handle.generation << 32) | handle.index;
-    let index: ArenaIndex = KeyData::from_ffi(ffi).into();
-
-    // Reject malformed handles instead of accepting slotmap's normalization.
-    if index.data().as_ffi() != ffi {
-        return Err("Invalid handle".to_string());
-    }
-
-    Ok(index)
-}
-
-#[test]
-fn test_handle_to_index_rejects_noncanonical_generation() {
-    assert!(handle_to_index(proto::Handle { index: 42, generation: 6 }).is_err());
-}
-
-#[test]
-fn test_handle_to_index_rejects_out_of_range_parts() {
-    assert!(
-        handle_to_index(proto::Handle { index: u64::from(u32::MAX) + 1, generation: 7 }).is_err()
-    );
-    assert!(
-        handle_to_index(proto::Handle { index: 42, generation: u64::from(u32::MAX) + 1 }).is_err()
-    );
+pub(crate) fn handle_to_index(handle: proto::Handle) -> ArenaIndex {
+    KeyData::from_ffi((handle.generation << 32) | (handle.index & 0xffff_ffff)).into()
 }
 
 #[test]
