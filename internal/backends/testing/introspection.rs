@@ -134,10 +134,7 @@ impl IntrospectionState {
             .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
 
-    pub fn root_element_handle(
-        &self,
-        window_index: ArenaIndex,
-    ) -> Result<ArenaIndex, String> {
+    pub fn root_element_handle(&self, window_index: ArenaIndex) -> Result<ArenaIndex, String> {
         Ok(self
             .windows
             .borrow()
@@ -171,11 +168,7 @@ impl IntrospectionState {
         index
     }
 
-    pub fn element(
-        &self,
-        request: &str,
-        index: ArenaIndex,
-    ) -> Result<ElementHandle, String> {
+    pub fn element(&self, request: &str, index: ArenaIndex) -> Result<ElementHandle, String> {
         let element = self
             .element_handles
             .borrow()
