@@ -557,7 +557,9 @@ impl ItemRc {
             let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
             let active_popups = window_inner.active_popups();
             for popup in active_popups.iter() {
-                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
+                if let crate::window::PopupWindowLocation::ChildWindow((location, _)) =
+                    &popup.location
+                {
                     let popup_item = ItemRc::new_root(popup.component.clone());
 
                     // Check if component is in a popup
@@ -2567,6 +2569,7 @@ mod tests {
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
+            alloc::rc::Rc::new(move || POPUP_LOCATION),
         );
 
         let root = ItemRc::new_root(item_tree);
@@ -2605,6 +2608,7 @@ mod tests {
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
+            alloc::rc::Rc::new(move || POPUP_LOCATION),
         );
 
         let root = ItemRc::new_root(item_tree);
@@ -2698,6 +2702,7 @@ mod tests {
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
+            alloc::rc::Rc::new(move || POPUP_LOCATION),
         );
 
         // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system

@@ -2633,6 +2633,7 @@ pub fn show_popup(
             close_policy,
             parent_item,
             false,
+            Rc::new(move || pos),
         ),
     );
     inst.run_setup_code();

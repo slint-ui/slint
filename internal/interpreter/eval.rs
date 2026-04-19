@@ -1044,6 +1044,7 @@ fn call_builtin_function(
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     true,
+                    Rc::new(move || position),
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });
