@@ -54,7 +54,7 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
 }
 
 fn setup_slint_with_wgpu() {
-    use slint::wgpu_28::{WGPUConfiguration, WGPUSettings};
+    use slint::wgpu_28::{self, WGPUConfiguration, WGPUSettings};
 
     #[allow(unused_mut)]
     let mut wgpu_settings = WGPUSettings::default();

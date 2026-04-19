@@ -184,7 +184,8 @@ impl super::GPURenderingContext {
                 Some(&mut dx12_texture_ptr),
             )?;
 
-            let d3d11_dx12_texture = dx12_texture_ptr.unwrap();
+            let d3d11_dx12_texture = dx12_texture_ptr
+                .expect("D3D11 failed to return the shared DX12-compatible texture");
 
             let hal_device =
                 wgpu_device.as_hal::<Dx12>().ok_or(DirectXTextureError::WgpuNotDx12)?;
@@ -196,7 +197,8 @@ impl super::GPURenderingContext {
 
             let mut dx12_resource_ptr: Option<Direct3D12::ID3D12Resource> = None;
             dx12_device.OpenSharedHandle(nt_handle, &mut dx12_resource_ptr)?;
-            let dx12_resource = dx12_resource_ptr.unwrap();
+            let dx12_resource = dx12_resource_ptr
+                .expect("D3D12 failed to open the shared handle from the D3D11 resource");
 
             Foundation::CloseHandle(nt_handle)?;
 
