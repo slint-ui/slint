@@ -94,6 +94,12 @@ macro_rules! for_each_builtin_structs {
                 export {
                     /// The unicode representation of the key pressed.
                     text: SharedString,
+                    /// The physical key that was pressed, if the backend can report it.
+                    ///
+                    /// This uses the same names as `@physical-keys(...)`, for example `A`,
+                    /// `Digit1`, or `LeftArrow`. It is empty when the backend doesn't provide
+                    /// physical key information.
+                    physical_key: SharedString,
                     /// The keyboard modifiers active at the time of the key press event.
                     modifiers: KeyboardModifiers,
                     /// This field is set to true for key press events that are repeated,

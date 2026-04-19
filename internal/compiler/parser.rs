@@ -375,7 +375,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
-                       ?MemberAccess, ?AtKeys ],
+                       ?MemberAccess, ?AtKeys, ?AtPhysicalKeys ],
         /// Concatenate the children Expressions and StringLiteral to make a string
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -391,6 +391,8 @@ declare_syntax! {
         TrPlural -> [Expression],
         /// `@keys(...)`
         AtKeys -> [],
+        /// `@physical-keys(...)`
+        AtPhysicalKeys -> [],
         /// expression()
         FunctionCallExpression -> [*Expression],
         /// `expression[index]`

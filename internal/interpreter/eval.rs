@@ -476,6 +476,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             },
             ks.ignore_shift,
             ks.ignore_alt,
+            ks.is_physical,
         )),
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));

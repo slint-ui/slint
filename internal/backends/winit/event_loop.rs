@@ -290,8 +290,25 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     }
                     i_slint_common::for_each_keys!(winit_key_to_char)
                 }
+
+                fn to_slint_physical_key(
+                    physical_key: &winit::keyboard::PhysicalKey,
+                ) -> SharedString {
+                    macro_rules! winit_physical_key_to_name {
+                        ($($name:ident # $code:ident;)*) => {
+                            match physical_key {
+                                $(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::$code) => stringify!($name).into(),)*
+                                _ => Default::default(),
+                            }
+                        };
+                    }
+
+                    i_slint_common::for_each_physical_keys!(winit_physical_key_to_name)
+                }
+
                 #[allow(unused_mut)]
                 let mut text = to_slint_key(&event, &key_code);
+                let physical_key = to_slint_physical_key(&event.physical_key);
 
                 #[cfg(target_os = "windows")]
                 let text_without_modifiers = {
@@ -339,7 +356,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 };
 
                 let event = corelib::input::InternalKeyEvent {
-                    key_event: corelib::input::KeyEvent { text, ..Default::default() },
+                    key_event: corelib::input::KeyEvent {
+                        text,
+                        physical_key,
+                        ..Default::default()
+                    },
                     event_type,
                     #[cfg(target_os = "windows")]
                     text_without_modifiers,

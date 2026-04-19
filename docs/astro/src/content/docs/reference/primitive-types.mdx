@@ -172,7 +172,7 @@ RGB color with an alpha channel, with 8 bit precision for each channel. CSS colo
 A keys represents a key combined with a list of modifiers.
 This is the primitive type used to detect if a KeyEvent should trigger a given key binding.
 
-Key bindings in Slint are based on **logical keys** — the character a key produces on the current keyboard layout — not the physical position of a key on the keyboard.
+Key bindings in Slint can use **logical keys** via `@keys(...)` or **physical keys** via `@physical-keys(...)`.
 See <Link type="KeyBindingOverview" label="Key Bindings" /> for details.
 
 Use the `to-string` function to convert a `keys` instance to `string`.
