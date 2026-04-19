@@ -10,6 +10,9 @@ pub mod software;
 #[cfg(all(test, feature = "skia"))]
 pub mod skia;
 
+#[cfg(all(test, feature = "skia"))]
+pub mod partial_rendering;
+
 #[cfg(test)]
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 

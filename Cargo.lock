@@ -11029,6 +11029,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-renderer-skia",
  "image",
+ "raw-window-handle",
  "slint",
  "slint-interpreter",
  "spin_on",

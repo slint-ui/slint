@@ -32,6 +32,7 @@ use crate::properties::PropertyTracker;
 use crate::window::WindowAdapter;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
@@ -361,6 +362,11 @@ pub struct PartialRenderer<'a, T> {
     pub actual_renderer: T,
     /// The window adapter the renderer is rendering into.
     pub window_adapter: Rc<dyn WindowAdapter>,
+    /// Accumulated local-to-screen transform, tracking translate/scale/rotate.
+    /// Used by `filter_item` to correctly map item bounds to screen coordinates.
+    current_transform: ItemTransform,
+    /// Saved transforms for save_state/restore_state.
+    transform_stack: Vec<ItemTransform>,
 }
 
 impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
@@ -371,7 +377,14 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         actual_renderer: T,
     ) -> Self {
         let window_adapter = actual_renderer.window().window_adapter();
-        Self { cache, dirty_region: initial_dirty_region, actual_renderer, window_adapter }
+        Self {
+            cache,
+            dirty_region: initial_dirty_region,
+            actual_renderer,
+            window_adapter,
+            current_transform: ItemTransform::identity(),
+            transform_stack: Vec::with_capacity(8),
+        }
     }
 
     /// Visit the tree of item and compute what are the dirty regions
@@ -654,8 +667,11 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
         let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
         let draw = clipped_geom.is_some_and(|clipped_geom| {
-            let clipped_geom = clipped_geom.translate(self.translation());
-            self.dirty_region.draw_intersects(clipped_geom)
+            let screen_geom = self
+                .current_transform
+                .outer_transformed_rect(&clipped_geom.cast())
+                .cast();
+            self.dirty_region.draw_intersects(screen_geom)
         });
 
         (draw, item_geometry)
@@ -689,17 +705,29 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     }
 
     fn translate(&mut self, distance: LogicalVector) {
+        self.current_transform =
+            self.current_transform.pre_translate(distance.cast());
         self.actual_renderer.translate(distance)
     }
+    /// Returns the underlying renderer's accumulated translation vector.
+    ///
+    /// Retained only for `ItemRenderer` trait compliance. Do not use for
+    /// coordinate mapping — it ignores scale and rotation. Use
+    /// `current_transform` instead (see `filter_item`).
     fn translation(&self) -> LogicalVector {
         self.actual_renderer.translation()
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
+        self.current_transform = self
+            .current_transform
+            .pre_rotate(euclid::Angle::degrees(angle_in_degrees));
         self.actual_renderer.rotate(angle_in_degrees)
     }
 
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
+        self.current_transform =
+            self.current_transform.pre_scale(x_factor, y_factor);
         self.actual_renderer.scale(x_factor, y_factor)
     }
 
@@ -708,10 +736,12 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     }
 
     fn save_state(&mut self) {
+        self.transform_stack.push(self.current_transform);
         self.actual_renderer.save_state()
     }
 
     fn restore_state(&mut self) {
+        self.current_transform = self.transform_stack.pop().unwrap();
         self.actual_renderer.restore_state()
     }
 
