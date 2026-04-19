@@ -68,7 +68,10 @@ impl GPURenderingContext {
         })
     }
 
-    fn pick_adapter(connection: &Connection, wgpu_device: &wgpu::Device) -> surfman::Adapter {
+    fn pick_adapter(
+        connection: &Connection,
+        #[allow(unused_variables)] wgpu_device: &wgpu::Device,
+    ) -> surfman::Adapter {
         #[cfg(target_os = "windows")]
         {
             if let Some(target) = unsafe {
@@ -124,7 +127,7 @@ impl GPURenderingContext {
 
     fn print_wgpu_backend(wgpu_device: &wgpu::Device) {
         let backend = unsafe {
-            use slint::wgpu_28::wgpu::hal::api::{self, Gles};
+            use slint::wgpu_28::wgpu::hal::api;
 
             #[cfg(target_os = "windows")]
             {
@@ -153,13 +156,7 @@ impl GPURenderingContext {
             #[cfg(target_vendor = "apple")]
             {
                 use api::Metal;
-                if wgpu_device.as_hal::<Metal>().is_some() {
-                    "Metal"
-                } else if wgpu_device.as_hal::<Gles>().is_some() {
-                    "OpenGL"
-                } else {
-                    "Unknown"
-                }
+                if wgpu_device.as_hal::<Metal>().is_some() { "Metal" } else { "Unknown" }
             }
         };
         eprintln!("[GPU] Active WGPU backend: {}", backend);
