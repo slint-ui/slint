@@ -31,7 +31,6 @@ use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
-use std::println;
 use vtable::VRcMapped;
 
 pub mod popup;
@@ -391,7 +390,6 @@ pub(crate) struct PopupWindowPropertiesTracker {
 
 impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
     fn notify(self: Pin<&Self>) {
-        println!("PopupWindowPropertiesTracker. Notify");
         let parent = self.parent_window_adapter_weak.clone();
         let popup_id = self.popup_id;
         // Use a timer here, so if we change multiple properties at the same time not multiple notifications are send
@@ -1195,7 +1193,6 @@ impl WindowInner {
                     new_position = Some((popup.position_access)());
                 });
                 if let Some(pos) = new_position {
-                    println!("New position: {:?}", pos);
                     adapter.window().set_position(pos);
                 }
             }
@@ -1325,7 +1322,6 @@ impl WindowInner {
         is_menu: bool,
         popup_access_position: Rc<dyn Fn() -> LogicalPosition>,
     ) -> NonZeroU32 {
-        println!("Show popup: {:?}", popup_componentrc);
         let position = parent_item
             .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
@@ -1363,8 +1359,6 @@ impl WindowInner {
             width_property.set(size.width_length());
             height_property.set(size.height_length());
         };
-
-        println!("WindowInner::show_popup(). Size: {:?}", size);
 
         let popup_id = self.next_popup_id.get();
         self.next_popup_id.set(popup_id.checked_add(1).unwrap());
@@ -1439,10 +1433,6 @@ impl WindowInner {
 
             PopupWindowLocation::ChildWindow((rect.origin, tracker))
         } else {
-            println!(
-                "Newly created window adapter Renderer: {}",
-                popup_window_adapter.renderer().name()
-            );
             WindowInner::from_pub(popup_window_adapter.window()).set_component(popup_componentrc);
             popup_window_adapter
                 .window()
