@@ -84,6 +84,18 @@ impl GPURenderingContext {
             Default,
         }
 
+        impl AdapterMode {
+            const ALL: [Self; 3] = [Self::Hardware, Self::LowPower, Self::Default];
+
+            fn create(&self, connection: &Connection) -> Result<surfman::Adapter, surfman::Error> {
+                match self {
+                    Self::Hardware => connection.create_hardware_adapter(),
+                    Self::LowPower => connection.create_low_power_adapter(),
+                    Self::Default => connection.create_adapter(),
+                }
+            }
+        }
+
         if let Some(wgpu_luid) = unsafe {
             use slint::wgpu_28::wgpu::hal::api::Dx12;
             wgpu_device.as_hal::<Dx12>().and_then(|hal| Some(hal.raw_device().GetAdapterLuid()))
@@ -96,14 +108,8 @@ impl GPURenderingContext {
             // On Windows, Slint and Surfman must use the exact same physical GPU (LUID)
             // to enable zero-copy texture sharing via shared handles.
             // We iterate through Surfman's adapter presets to find the one that matches WGPU's selection.
-            for mode in [AdapterMode::Hardware, AdapterMode::LowPower, AdapterMode::Default] {
-                let surfman_adapter_result = match mode {
-                    AdapterMode::LowPower => connection.create_low_power_adapter(),
-                    AdapterMode::Hardware => connection.create_hardware_adapter(),
-                    AdapterMode::Default => connection.create_adapter(),
-                };
-
-                if let Ok(surfman_adapter) = surfman_adapter_result {
+            for mode in AdapterMode::ALL {
+                if let Ok(surfman_adapter) = mode.create(connection) {
                     // To verify the match, we create a temporary device and extract its D3D11 LUID.
                     if let Ok(temp_device) = connection.create_device(&surfman_adapter) {
                         let d3d11_device_ptr = temp_device.native_device().d3d11_device;
