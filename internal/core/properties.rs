@@ -342,6 +342,9 @@ unsafe impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
 
 #[cfg(feature = "std")]
 use std::thread_local;
+/// In this variable the current binding is stored
+/// This is used for example for the Property tracker. It stores a binding holder and evaluates a function.
+/// During the evaluation of this function all properties evaluated within get tracked
 #[cfg(feature = "std")]
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_BINDING : for<'a> Option<Pin<&'a BindingHolder>>);
 
@@ -414,6 +417,8 @@ struct BindingHolder<B = ()> {
 }
 
 impl BindingHolder {
+    /// Register self as dependency to the property with the `DependencyListHead` `property_that_will_notify`
+    /// self <-- notified -- property behind `property_that_will_notify`
     fn register_self_as_dependency(
         self: Pin<&Self>,
         property_that_will_notify: *mut DependencyListHead,
@@ -665,6 +670,7 @@ impl PropertyHandle {
         }
     }
 
+    /// Returns the DependencyListHead pointer of this PropertyHandle
     fn dependencies(&self) -> *mut DependencyListHead {
         assert!(!self.lock_flag(), "Recursion detected");
         if Self::is_pointer_to_binding(self.handle.get()) {

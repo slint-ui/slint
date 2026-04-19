@@ -7,6 +7,7 @@ use core::num::NonZeroU32;
 use core::ops::DerefMut;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::RendererSealed;
 pub use i_slint_renderer_software::SoftwareRenderer;
 use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
@@ -82,6 +83,14 @@ impl WinitSoftwareRenderer {
 }
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
+    fn set_name(&mut self, name: &'static str) {
+        self.renderer.set_name(name);
+    }
+
+    fn name(&self) -> &'static str {
+        self.renderer.name()
+    }
+
     fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         let size = window.size();
 

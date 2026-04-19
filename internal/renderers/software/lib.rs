@@ -445,12 +445,13 @@ pub struct SoftwareRenderer {
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     #[cfg(feature = "systemfonts")]
     text_layout_cache: sharedparley::TextLayoutCache,
+    name: &'static str,
 }
 
 impl Default for SoftwareRenderer {
     fn default() -> Self {
         Self {
-            partial_rendering_state: Default::default(),
+            partial_rendering_state: PartialRenderingState::default("default renderer name"),
             prev_frame_dirty: Default::default(),
             maybe_window_adapter: Default::default(),
             rotation: Default::default(),
@@ -458,6 +459,7 @@ impl Default for SoftwareRenderer {
             repaint_buffer_type: Default::default(),
             #[cfg(feature = "systemfonts")]
             text_layout_cache: Default::default(),
+            name: "default renderer name",
         }
     }
 }
@@ -775,6 +777,15 @@ impl SoftwareRenderer {
 
 #[doc(hidden)]
 impl RendererSealed for SoftwareRenderer {
+    fn set_name(&mut self, name: &'static str) {
+        self.name = name;
+        self.partial_rendering_state.set_name(name);
+    }
+
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
     fn text_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,

@@ -34,6 +34,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use std::println;
 
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
@@ -172,11 +173,20 @@ impl PartialRenderingCachedData {
 struct PartialRendererCache {
     slab: slab::Slab<PartialRenderingCachedData>,
     generation: usize,
+    name: &'static str,
 }
 
-impl Default for PartialRendererCache {
-    fn default() -> Self {
-        Self { slab: Default::default(), generation: 1 }
+impl PartialRendererCache {
+    pub fn default(name: &'static str) -> Self {
+        Self { slab: Default::default(), generation: 1, name }
+    }
+
+    pub fn set_name(&mut self, name: &'static str) {
+        self.name = name;
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 }
 
@@ -194,7 +204,8 @@ impl PartialRendererCache {
 
     /// Inserts data into the cache and returns the index for retrieval later.
     pub fn insert(&mut self, data: PartialRenderingCachedData) -> usize {
-        self.slab.insert(data)
+        let key = self.slab.insert(data);
+        key
     }
 
     /// Removes the cached graphics data at the given index.
@@ -745,13 +756,31 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
 /// This struct holds the state of the partial renderer between different frames, in particular the cache of the bounding rect
 /// of each item. This permits a more fine-grained computation of the region that needs to be repainted.
-#[derive(Default)]
+// #[derive(Default)]
 pub struct PartialRenderingState {
     partial_cache: RefCell<PartialRendererCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: RefCell<DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
     force_screen_refresh: Cell<bool>,
+}
+
+impl PartialRenderingState {
+    pub fn default(name: &'static str) -> Self {
+        Self {
+            force_dirty: Default::default(),
+            force_screen_refresh: Default::default(),
+            partial_cache: RefCell::new(PartialRendererCache::default(name)),
+        }
+    }
+
+    pub fn set_name(&self, name: &'static str) {
+        self.partial_cache.borrow_mut().set_name(name);
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.partial_cache.borrow().name()
+    }
 }
 
 impl PartialRenderingState {

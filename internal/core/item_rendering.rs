@@ -21,6 +21,8 @@ use core::cell::RefCell;
 use core::pin::Pin;
 #[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(feature = "std")]
+use std::println;
 use vtable::VRc;
 
 /// A per-item cache.
@@ -125,7 +127,7 @@ impl<T> ItemCache<T> {
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
         let component_ptr: *const _ =
             crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
-        self.map.borrow_mut().remove(&component_ptr);
+        let res = self.map.borrow_mut().remove(&component_ptr);
     }
 
     /// free the cache for a given item

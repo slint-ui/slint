@@ -147,6 +147,7 @@ pub async fn run_passes(
         focus_handling::call_focus_on_init(popup_menu_impl);
     }
 
+    println!("visit_all_used_components. Run passes");
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
         deprecated_rotation_origin::handle_rotation_origin(component, diag);

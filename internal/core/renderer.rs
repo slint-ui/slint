@@ -24,6 +24,9 @@ impl<T: RendererSealed> Renderer for T {}
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
 pub trait RendererSealed {
+    fn name(&self) -> &'static str;
+    fn set_name(&mut self, name: &'static str);
+
     /// Returns the size of the given text in logical pixels.
     /// When set, `max_width` means that one need to wrap the text, so it does not go further than that,
     /// using the wrapping type passed by `text_wrap`.

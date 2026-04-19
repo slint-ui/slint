@@ -71,6 +71,9 @@ mod renderer {
             active_event_loop: &dyn ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
         ) -> Result<Arc<dyn winit::window::Window>, PlatformError>;
+        fn name(&self) -> &'static str;
+
+        fn set_name(&mut self, name: &'static str);
     }
 
     #[cfg(enable_femtovg_renderer)]
@@ -481,7 +484,7 @@ impl SharedBackendData {
         Ok(Self {
             allow_fallback,
             renderer_name,
-            requested_graphics_api: requested_graphics_api,
+            requested_graphics_api,
             #[cfg(enable_skia_renderer)]
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows,
@@ -921,7 +924,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
     }
 }
 
-/// Creates a new renderer from the properties backend properties in `shared_data`
+/// Creates a new renderer from the backend properties in `shared_data`
 fn create_renderer(
     shared_data: &Rc<SharedBackendData>,
 ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {

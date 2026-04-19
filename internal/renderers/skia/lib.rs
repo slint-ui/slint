@@ -132,12 +132,14 @@ impl Default for DirtyRegionDebugMode {
 fn create_partial_renderer_state(
     maybe_surface: Option<&dyn Surface>,
 ) -> Option<PartialRenderingState> {
-    maybe_surface
-        .map_or_else(
-            || std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref().is_ok(),
-            |surface| surface.use_partial_rendering(),
-        )
-        .then(PartialRenderingState::default)
+    if maybe_surface.map_or_else(
+        || std::env::var("SLINT_SKIA_PARTIAL_RENDERING").as_deref().is_ok(),
+        |surface| surface.use_partial_rendering(),
+    ) {
+        Some(PartialRenderingState::default(""))
+    } else {
+        None
+    }
 }
 
 #[derive(Default)]
@@ -232,7 +234,7 @@ impl SkiaRenderer {
                 .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
-            partial_rendering_state: PartialRenderingState::default().into(),
+            partial_rendering_state: PartialRenderingState::default("").into(),
             dirty_region_debug_mode: Default::default(),
             dirty_region_history: Default::default(),
             shared_context: context.clone(),
@@ -842,6 +844,11 @@ impl SkiaRenderer {
 }
 
 impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
+    fn set_name(&mut self, name: &'static str) {}
+    fn name(&self) -> &'static str {
+        return "";
+    }
+
     fn text_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,

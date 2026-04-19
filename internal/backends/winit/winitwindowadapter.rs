@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 use euclid::approxeq::ApproxEq;
 
-#[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
+use i_slint_core::lengths::LogicalRect;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
@@ -337,10 +337,8 @@ pub struct WinitWindowAdapter {
     #[cfg(not(use_winit_theme))]
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
-    #[cfg(muda)]
     menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
-    #[cfg(muda)]
     context_menu: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
 
     #[cfg(all(muda, target_os = "macos"))]
@@ -385,9 +383,7 @@ impl WinitWindowAdapter {
             window_event_filter: Cell::new(None),
             #[cfg(not(use_winit_theme))]
             xdg_settings_watcher: Default::default(),
-            #[cfg(muda)]
             menubar: Default::default(),
-            #[cfg(muda)]
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
@@ -397,6 +393,10 @@ impl WinitWindowAdapter {
                 shared_backend_data.is_wayland,
             ),
         });
+
+        // The renderer must be set, because otherwise for text layout infos the scale factor is not available
+        <Self as WindowAdapter>::renderer(&self_rc)
+            .set_window_adapter(&(self_rc.clone() as Rc<dyn WindowAdapter>));
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
 
@@ -1169,7 +1169,6 @@ impl WindowAdapter for WinitWindowAdapter {
         let mut height = window_item.height().get() as f32;
         let mut must_resize = false;
         let existing_size = self.size.get().to_logical(sf);
-
         if width <= 0. || height <= 0. {
             must_resize = true;
             if width <= 0. {
@@ -1427,6 +1426,61 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            use crate::winit::window::WindowType;
+            use raw_window_handle::HasWindowHandle;
+
+            let mut window_attributes = WindowAttributes::default()
+                .with_title("child window")
+                .with_decorations(false)
+                .with_visible(true)
+                .as_type(WindowType::Popup);
+
+            if let Ok(parent) = winit_window.window_handle() {
+                window_attributes =
+                    unsafe { window_attributes.with_parent_window(Some(parent.as_raw())) };
+
+                // if let Some(hook) = &self.window_attributes_hook {
+                //     window_attributes = hook(window_attributes);
+                // }
+
+                if let Ok(adapter) = crate::create_renderer(&self.shared_backend_data).map_or_else(
+                    |e| {
+                        crate::try_create_window_with_fallback_renderer(
+                            &self.shared_backend_data.clone(),
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar_bar,
+                        )
+                        .ok_or_else(|| {
+                            format!("Winit backend failed to find a suitable renderer: {e}")
+                        })
+                    },
+                    |mut renderer| {
+                        renderer.set_name("Popup renderer");
+                        Ok(WinitWindowAdapter::new(
+                            self.shared_backend_data.clone(),
+                            renderer,
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar_bar,
+                        ))
+                    },
+                ) {
+                    // Add to inactive_windows so that it gets shown in the next event loop round
+                    self.shared_backend_data
+                        .inactive_windows
+                        .borrow_mut()
+                        .push(Rc::downgrade(&adapter));
+
+                    return Some(adapter as _);
+                }
+            }
+        }
+        None
+    }
+
     #[cfg(muda)]
     fn show_native_popup_menu(
         &self,
@@ -1452,6 +1506,31 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
         false
     }
+
+    // TODO implement!
+    // #[cfg(not(muda))]
+    // fn show_native_popup_menu(
+    //     &self,
+    //     context_menu_item: vtable::VRc<i_slint_core::menus::MenuVTable>,
+    //     position: LogicalPosition,
+    // ) -> bool {
+    //     self.context_menu.replace(Some(context_menu_item));
+
+    //     if let WinitWindowOrNone::HasWindow { .. } = &*self.winit_window_or_none.borrow() {
+    //         // On Windows, we must destroy the muda menu before re-creating a new one
+    //         drop(context_menu_muda_adapter.borrow_mut().take());
+    //         if let Some(new_adapter) = crate::muda::MudaAdapter::show_context_menu(
+    //             self.context_menu.borrow().as_ref().unwrap(),
+    //             &self.winit_window().unwrap(),
+    //             position,
+    //             self.event_loop_proxy.clone(),
+    //         ) {
+    //             context_menu_muda_adapter.replace(Some(new_adapter));
+    //             return true;
+    //         }
+    //     }
+    //     false
+    // }
 
     #[cfg(enable_accesskit)]
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {

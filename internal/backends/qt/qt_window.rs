@@ -41,7 +41,7 @@ use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
 
 use crate::key_generated;
-use i_slint_core::renderer::Renderer;
+use i_slint_core::renderer::{Renderer, RendererSealed};
 use std::cell::OnceCell;
 
 cpp! {{
@@ -1692,6 +1692,8 @@ pub struct QtWindow {
 
     // Last icon image set on the window
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    name: &'static str,
 }
 
 impl Drop for QtWindow {
@@ -1705,7 +1707,7 @@ impl Drop for QtWindow {
 }
 
 impl QtWindow {
-    pub fn new() -> Rc<Self> {
+    pub fn new(name: &'static str) -> Rc<Self> {
         let rc = Rc::new_cyclic(|self_weak| {
             let window_ptr = self_weak.clone().into_raw();
             let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget, QWidgetDeleteLater>" {
@@ -1728,6 +1730,7 @@ impl QtWindow {
                 tree_structure_changed: RefCell::new(false),
                 color_scheme: Default::default(),
                 window_icon_cache_key: Default::default(),
+                name,
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -2114,18 +2117,12 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new();
-
-        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
-
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        let popup_window = QtWindow::new("Popup window");
         let popup_ptr = popup_window.widget_ptr();
-        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
+        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
-            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
-            popup_ptr->show();
         }};
         Some(popup_window as _)
     }
@@ -2251,6 +2248,14 @@ impl WindowAdapterInternal for QtWindow {
 }
 
 impl i_slint_core::renderer::RendererSealed for QtWindow {
+    fn set_name(&mut self, name: &'static str) {
+        self.name = name;
+    }
+
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
     fn text_size(
         &self,
         text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
