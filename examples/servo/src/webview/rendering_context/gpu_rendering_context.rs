@@ -45,7 +45,7 @@ impl GPURenderingContext {
         let adapter = connection.create_adapter()?;
 
         #[cfg(target_os = "windows")]
-        let adapter = Self::pick_synchronized_adapter(&connection, wgpu_device);
+        let adapter = Self::pick_synchronized_adapter(&connection, wgpu_device)?;
 
         let surfman_rendering_info = SurfmanRenderingContext::new(&connection, &adapter)?;
 
@@ -76,7 +76,7 @@ impl GPURenderingContext {
     fn pick_synchronized_adapter(
         connection: &Connection,
         wgpu_device: &wgpu::Device,
-    ) -> surfman::Adapter {
+    ) -> Result<surfman::Adapter, surfman::Error> {
         #[derive(Debug, Clone, Copy)]
         enum AdapterMode {
             Hardware,
@@ -96,54 +96,55 @@ impl GPURenderingContext {
             }
         }
 
-        if let Some(wgpu_luid) = unsafe {
+        // On Windows, Slint and Surfman must use the exact same physical GPU (LUID)
+        // to enable zero-copy texture sharing via shared handles.
+        // This requires WGPU to be running on the DX12 backend.
+        let wgpu_luid = unsafe {
             use slint::wgpu_28::wgpu::hal::api::Dx12;
-            wgpu_device.as_hal::<Dx12>().and_then(|hal| Some(hal.raw_device().GetAdapterLuid()))
-        } {
-            use windows::{
-                Win32::Graphics::{Direct3D11::ID3D11Device, Dxgi},
-                core::{IUnknown, Interface},
-            };
+            wgpu_device
+                .as_hal::<Dx12>()
+                .ok_or(surfman::Error::Failed)?
+                .raw_device()
+                .GetAdapterLuid()
+        };
 
-            // On Windows, Slint and Surfman must use the exact same physical GPU (LUID)
-            // to enable zero-copy texture sharing via shared handles.
-            // We iterate through Surfman's adapter presets to find the one that matches WGPU's selection.
-            for mode in AdapterMode::ALL {
-                if let Ok(surfman_adapter) = mode.create(connection) {
-                    // To verify the match, we create a temporary device and extract its D3D11 LUID.
-                    if let Ok(temp_device) = connection.create_device(&surfman_adapter) {
-                        let d3d11_device_ptr = temp_device.native_device().d3d11_device;
-                        let d3d11_device: ID3D11Device = unsafe {
-                            IUnknown::from_raw(d3d11_device_ptr as *mut _).cast().unwrap()
-                        };
+        use windows::{
+            Win32::Graphics::{Direct3D11::ID3D11Device, Dxgi},
+            core::{IUnknown, Interface},
+        };
 
-                        let surfman_luid = unsafe {
-                            d3d11_device
-                                .cast::<Dxgi::IDXGIDevice>()
-                                .unwrap()
-                                .GetAdapter()
-                                .unwrap()
-                                .GetDesc()
-                                .unwrap()
-                                .AdapterLuid
-                        };
+        // We iterate through Surfman's adapter presets to find the one that matches WGPU's selection.
+        for mode in AdapterMode::ALL {
+            if let Ok(surfman_adapter) = mode.create(connection) {
+                // To verify the match, we create a temporary device and extract its D3D11 LUID.
+                if let Ok(temp_device) = connection.create_device(&surfman_adapter) {
+                    let d3d11_device_ptr = temp_device.native_device().d3d11_device;
+                    let d3d11_device: ID3D11Device =
+                        unsafe { IUnknown::from_raw(d3d11_device_ptr as *mut _).cast().unwrap() };
 
-                        // Compare the Surfman LUID with the WGPU LUID (target).
-                        if surfman_luid.HighPart == wgpu_luid.HighPart
-                            && surfman_luid.LowPart == wgpu_luid.LowPart
-                        {
-                            eprintln!("[GPU] Synchronized with WGPU via {:?} mode", mode);
-                            return surfman_adapter;
-                        }
+                    let surfman_luid = unsafe {
+                        d3d11_device
+                            .cast::<Dxgi::IDXGIDevice>()
+                            .unwrap()
+                            .GetAdapter()
+                            .unwrap()
+                            .GetDesc()
+                            .unwrap()
+                            .AdapterLuid
+                    };
+
+                    // Compare the Surfman LUID with the WGPU LUID.
+                    if surfman_luid.HighPart == wgpu_luid.HighPart
+                        && surfman_luid.LowPart == wgpu_luid.LowPart
+                    {
+                        eprintln!("[GPU] Synchronized with WGPU via {:?} mode", mode);
+                        return Ok(surfman_adapter);
                     }
                 }
             }
-            eprintln!("[GPU] WARNING: No exact LUID match found; texture sharing may fail.");
         }
 
-        connection
-            .create_hardware_adapter()
-            .expect("Failed to create a hardware-accelerated Surfman adapter")
+        Err(surfman::Error::NoAdapterFound)
     }
 
     fn print_wgpu_backend(wgpu_device: &wgpu::Device) {
