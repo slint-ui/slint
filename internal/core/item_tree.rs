@@ -563,7 +563,9 @@ impl ItemRc {
             let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
             let active_popups = window_inner.active_popups();
             for popup in active_popups.iter() {
-                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
+                if let crate::window::PopupWindowLocation::ChildWindow((location, _)) =
+                    &popup.location
+                {
                     let popup_item = ItemRc::new_root(popup.component.clone());
 
                     // Check if component is in a popup
@@ -2569,7 +2571,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::rc::Rc::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
@@ -2607,7 +2609,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::rc::Rc::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
@@ -2700,7 +2702,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items_dynamic_elements();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::rc::Rc::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,

@@ -3288,14 +3288,19 @@ fn compile_builtin_function_call(
                     let parent_item = #parent_item;
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
                     }
+
+                    let popup_instance_vrc_for_position = popup_instance_vrc.clone();
+                    let access_position = sp::Rc::new(move || {
+                        let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
+                    });
+
                     #component_access_tokens.#popup_id_name.set(Some(
                         sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
-                            position,
+                            access_position,
                             #close_policy,
                             parent_item,
                             false, // is_menu
@@ -3387,11 +3392,13 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
+
             let slint_show = quote! {
                 #close_popup
+                let access_position = sp::Rc::new(move || position);
                 let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
-                    position,
+                    access_position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
                     true, // is_menu
