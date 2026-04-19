@@ -1316,14 +1316,14 @@ impl WindowInner {
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
-        position: LogicalPosition,
+        popup_access_position: Rc<dyn Fn() -> LogicalPosition>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         is_menu: bool,
-        popup_access_position: Rc<dyn Fn() -> LogicalPosition>,
     ) -> NonZeroU32 {
-        let position = parent_item
-            .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
+        let position = parent_item.map_to_native_window(
+            parent_item.geometry().origin + popup_access_position().to_euclid().to_vector(),
+        );
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -1944,11 +1944,10 @@ pub mod ffi {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
-                position,
+                Rc::new(move || position),
                 close_policy,
                 parent_item,
                 is_menu,
-                Rc::new(move || position),
             )
         }
     }
