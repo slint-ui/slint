@@ -21,26 +21,28 @@ unsafe fn wrap_dx12_texture(
     dxgi_format: windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT,
     color_type: skia_safe::ColorType,
 ) -> Option<skia_safe::Surface> {
-    let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
-        resource,
-        alloc: None,
-        resource_state: D3D12_RESOURCE_STATE_PRESENT,
-        format: dxgi_format,
-        sample_count: 1,
-        level_count: 1,
-        sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
-        protected: skia_safe::gpu::Protected::No,
-    };
-    let backend_render_target =
-        skia_safe::gpu::BackendRenderTarget::new_d3d((width, height), &texture_info);
-    skia_safe::gpu::surfaces::wrap_backend_render_target(
-        gr_context,
-        &backend_render_target,
-        skia_safe::gpu::SurfaceOrigin::TopLeft,
-        color_type,
-        None,
-        None,
-    )
+    unsafe {
+        let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
+            resource,
+            alloc: None,
+            resource_state: D3D12_RESOURCE_STATE_PRESENT,
+            format: dxgi_format,
+            sample_count: 1,
+            level_count: 1,
+            sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
+            protected: skia_safe::gpu::Protected::No,
+        };
+        let backend_render_target =
+            skia_safe::gpu::BackendRenderTarget::new_d3d((width, height), &texture_info);
+        skia_safe::gpu::surfaces::wrap_backend_render_target(
+            gr_context,
+            &backend_render_target,
+            skia_safe::gpu::SurfaceOrigin::TopLeft,
+            color_type,
+            None,
+            None,
+        )
+    }
 }
 
 pub unsafe fn make_dx12_surface(

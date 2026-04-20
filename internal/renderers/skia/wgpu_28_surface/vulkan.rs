@@ -35,28 +35,30 @@ unsafe fn wrap_vulkan_texture(
     vk_format: skia_safe::gpu::vk::Format,
     color_type: skia_safe::ColorType,
 ) -> Option<skia_safe::Surface> {
-    let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
-        vk_image_raw as _,
-        skia_safe::gpu::vk::Alloc::default(),
-        skia_safe::gpu::vk::ImageTiling::OPTIMAL,
-        skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        vk_format,
-        1,
-        None,
-        None,
-        None,
-        None,
-    );
-    let backend_render_target =
-        skia_safe::gpu::backend_render_targets::make_vk((width, height), texture_info);
-    skia_safe::gpu::surfaces::wrap_backend_render_target(
-        gr_context,
-        &backend_render_target,
-        skia_safe::gpu::SurfaceOrigin::TopLeft,
-        color_type,
-        None,
-        None,
-    )
+    unsafe {
+        let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
+            vk_image_raw as _,
+            skia_safe::gpu::vk::Alloc::default(),
+            skia_safe::gpu::vk::ImageTiling::OPTIMAL,
+            skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            vk_format,
+            1,
+            None,
+            None,
+            None,
+            None,
+        );
+        let backend_render_target =
+            skia_safe::gpu::backend_render_targets::make_vk((width, height), texture_info);
+        skia_safe::gpu::surfaces::wrap_backend_render_target(
+            gr_context,
+            &backend_render_target,
+            skia_safe::gpu::SurfaceOrigin::TopLeft,
+            color_type,
+            None,
+            None,
+        )
+    }
 }
 
 pub unsafe fn make_vulkan_surface(
