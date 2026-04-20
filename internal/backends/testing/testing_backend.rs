@@ -47,7 +47,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
         }
 
         match value.read_plaintext() {
-            Ok(str) => *self.clipboard.lock().unwrap() = Some(str.into()),
+            Ok(str) => *self.clipboard.lock().unwrap() = Some(str),
             Err(err) => {
                 eprintln!("Failed to read value as plaintext: {err}");
             }
