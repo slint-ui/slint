@@ -5,6 +5,7 @@ use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt as _, util::Subscr
 
 mod compilation;
 mod connection;
+mod resources;
 mod ui;
 mod util;
 

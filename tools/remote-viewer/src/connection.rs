@@ -28,7 +28,7 @@ pub struct VersionedFileContent {
 }
 
 #[derive(Debug)]
-enum CacheEntry {
+pub enum CacheEntry {
     Loading(Vec<oneshot::Sender<std::io::Result<VersionedFileContent>>>),
     Ready(VersionedFileContent),
 }
@@ -38,7 +38,7 @@ pub enum ConnectionMessage {
     Connected { remote_addr: SocketAddr },
     Disconnected { remote_addr: SocketAddr },
     SetConfiguration { config: PreviewConfig },
-    ShowPreview { preview_component: PreviewComponent },
+    ShowPreview { preview_component: PreviewComponent, file_cache: Arc<DashMap<Url, CacheEntry>> },
     HighlightFromEditor { url: Option<Url>, offset: u32 },
 }
 
@@ -154,7 +154,7 @@ impl Connection {
                                 LspToPreviewMessage::SetContents { url, contents } => {
                                     let versioned_content = VersionedFileContent {
                                         version: *url.version(),
-                                        contents: contents.as_bytes().into(),
+                                        contents: contents.into(),
                                     };
                                     file_cache
                                         .entry(url.url().clone())
@@ -174,6 +174,7 @@ impl Connection {
                                 LspToPreviewMessage::ShowPreview(preview_component) => {
                                     message_handler(ConnectionMessage::ShowPreview {
                                         preview_component,
+                                        file_cache: file_cache.clone(),
                                     });
                                 }
                                 LspToPreviewMessage::HighlightFromEditor { url, offset } => {

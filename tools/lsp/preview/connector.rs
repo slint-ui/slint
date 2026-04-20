@@ -26,7 +26,9 @@ pub fn lsp_to_preview(message: i_slint_preview_protocol::LspToPreviewMessage) {
         M::InvalidateContents { url } => preview::invalidate_contents(&url),
         M::ForgetFile { url } => preview::delete_document(&url),
         M::SetContents { url, contents } => {
-            preview::set_contents(&url, contents);
+            if let Ok(contents) = String::from_utf8(contents) {
+                preview::set_contents(&url, contents);
+            }
         }
         M::SetConfiguration { config } => {
             preview::config_changed(config);

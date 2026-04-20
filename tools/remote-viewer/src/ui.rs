@@ -1,18 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{net::SocketAddr, rc::Rc};
+use std::{net::SocketAddr, rc::Rc, sync::Arc};
 
-use i_slint_compiler::diagnostics::BuildDiagnostics;
+use dashmap::DashMap;
+use i_slint_compiler::{diagnostics::BuildDiagnostics, passes::ResourcePreloader};
 use i_slint_core::InternalToken;
 use i_slint_preview_protocol::PreviewToLspMessage;
+use lsp_types::Url;
 use mdns_sd::ServiceDaemon;
 use slint::{ComponentHandle as _, SharedString};
 use tokio::sync;
 #[cfg(target_vendor = "apple")]
 use zeroconf_tokio::txt_record::TTxtRecord as _;
 
-use crate::{compilation, connection, util};
+use crate::{
+    compilation,
+    connection::{self, CacheEntry},
+    util,
+};
 
 const MAIN_SLINT: &str = include_str!("../ui/main.slint");
 
@@ -34,7 +40,7 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
     let mut compiler = compilation::init_compiler(Rc::downgrade(&connection));
     let current_exe = std::env::current_exe().unwrap();
     let compilation_result = compiler
-        .build_from_source(MAIN_SLINT.to_owned(), current_exe.parent().unwrap().to_owned())
+        .build_from_source(MAIN_SLINT.to_owned(), current_exe.parent().unwrap().to_owned(), ())
         .await;
     if compilation_result.has_errors() {
         let mut build_diagnostics = BuildDiagnostics::default();
@@ -70,9 +76,24 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                     compiler.compiler_configuration(InternalToken).enable_experimental =
                         config.enable_experimental;
                 }
-                connection::ConnectionMessage::ShowPreview { preview_component } => {
-                    let compilation_result =
-                        compiler.build_from_path(preview_component.url.path()).await;
+                connection::ConnectionMessage::ShowPreview { preview_component, file_cache } => {
+                    let file_cache_preloader = FileCachePreloader { file_cache: &file_cache };
+                    let compilation_result = if let Some(entry) =
+                        file_cache.get(&preview_component.url)
+                        && let CacheEntry::Ready(file) = &*entry
+                    {
+                        compiler
+                            .build_from_source(
+                                str::from_utf8(&file.contents).unwrap().to_owned(),
+                                preview_component.url.path().into(),
+                                file_cache_preloader,
+                            )
+                            .await
+                    } else {
+                        compiler
+                            .build_from_path(preview_component.url.path(), file_cache_preloader)
+                            .await
+                    };
                     if compilation_result.has_errors() {
                         let mut build_diagnostics = BuildDiagnostics::default();
                         for d in compilation_result.diagnostics() {
@@ -202,4 +223,42 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
         .inspect_err(|err| tracing::error!("mdns shutdown: {err}"))?;
 
     Ok(())
+}
+
+struct FileCachePreloader<'a> {
+    file_cache: &'a DashMap<Url, CacheEntry>,
+}
+
+impl<'p> ResourcePreloader for FileCachePreloader<'p> {
+    fn load<'a>(
+        &self,
+        urls: impl Iterator<Item = &'a str>,
+        mut push: impl FnMut(
+            /* url */ &'a str,
+            /* extension */ String,
+            /* data */ Arc<[u8]>,
+        ),
+    ) -> impl Future<Output = ()> {
+        for url_str in urls {
+            let Ok(url) = Url::parse(url_str) else {
+                continue;
+            };
+            if let Some(entry) = self.file_cache.get(&url)
+                && let CacheEntry::Ready(file) = &*entry
+            {
+                let extension = url
+                    .to_file_path()
+                    .ok()
+                    .and_then(|path| {
+                        path.extension()
+                            .and_then(std::ffi::OsStr::to_str)
+                            .map(std::string::ToString::to_string)
+                    })
+                    .unwrap_or_default();
+
+                push(url_str, extension, file.contents.clone());
+            }
+        }
+        std::future::ready(())
+    }
 }

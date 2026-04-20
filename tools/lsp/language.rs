@@ -100,7 +100,7 @@ pub fn send_state_to_preview(ctx: &Context) {
 
         ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
             url: i_slint_preview_protocol::VersionedUrl::new(url, version),
-            contents: node.text().to_string(),
+            contents: node.text().to_string().into(),
         });
         doc_count += 1;
     }
@@ -865,7 +865,7 @@ pub(crate) async fn load_document_impl(
         FileAction::ProcessContent(content) => {
             ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
                 url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), version),
-                contents: content.clone(),
+                contents: content.clone().into(),
             });
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
             let _ = ctx.document_cache.load_url(&url, version, content, &mut diag).await;

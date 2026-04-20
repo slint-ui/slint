@@ -3,6 +3,7 @@
 
 mod compilation;
 mod connection;
+mod resources;
 mod ui;
 mod util;
 

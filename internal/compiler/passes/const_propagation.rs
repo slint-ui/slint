@@ -356,7 +356,7 @@ export component Foo {
         &mut test_diags,
     );
     let (doc, diag, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config, ()));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
     let expected_p = 3.0 * 2.0 + 15.0;
@@ -487,7 +487,7 @@ export component Foo inherits Window {{
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
         let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config, ()));
         assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
         let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
@@ -514,7 +514,7 @@ export component Foo inherits Window {
     compiler_config.style = Some("fluent".into());
     compiler_config.const_scale_factor = Some(2.);
     let (doc, diag, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config, ()));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
     let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;

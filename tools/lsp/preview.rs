@@ -1436,7 +1436,7 @@ async fn parse_source(
             common::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
         );
 
-    let result = builder.build_from_source(source_code, path).await;
+    let result = builder.build_from_source(source_code, path, ()).await;
 
     let compiled = result.components().next();
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)

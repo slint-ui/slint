@@ -420,7 +420,7 @@ async fn run_main_loop(
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
                 tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read_to_string(&path);
+                let contents = std::fs::read(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
                         to_preview.send(
@@ -435,7 +435,9 @@ async fn run_main_loop(
                         );
                     }
                 }
-                Some(contents.map(|c| (None, c)))
+                Some(contents.and_then(|c| {
+                    String::from_utf8(c).map(|s| (None, s)).map_err(std::io::Error::other)
+                }))
             })
         })),
         format: if init_param

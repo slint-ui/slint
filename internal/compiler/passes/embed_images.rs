@@ -14,13 +14,37 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::Arc;
 use typed_index_collections::TiVec;
+
+pub trait ResourcePreloader {
+    fn load<'a>(
+        &self,
+        urls: impl Iterator<Item = &'a str>,
+        push: impl FnMut(/* url */ &'a str, /* extension */ String, /* data */ Arc<[u8]>),
+    ) -> impl Future<Output = ()>;
+}
+
+impl ResourcePreloader for () {
+    fn load<'a>(
+        &self,
+        _urls: impl Iterator<Item = &'a str>,
+        _push: impl FnMut(
+            /* url */ &'a str,
+            /* extension */ String,
+            /* data */ Arc<[u8]>,
+        ),
+    ) -> impl Future<Output = ()> {
+        std::future::ready(())
+    }
+}
 
 pub async fn embed_images(
     doc: &Document,
     embed_files: EmbedResourcesKind,
     scale_factor: f32,
     resource_url_mapper: &Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+    resource_preloader: impl ResourcePreloader,
     diag: &mut BuildDiagnostics,
 ) {
     if embed_files == EmbedResourcesKind::Nothing && resource_url_mapper.is_none() {
@@ -53,6 +77,20 @@ pub async fn embed_images(
 
         urls
     };
+
+    resource_preloader
+        .load(
+            mapped_urls.values().filter_map(|url| url.as_ref().map(SmolStr::as_str)),
+            |url: &str, extension, data| {
+                let mut resources = global_embedded_resources.borrow_mut();
+                let id = resources.push_and_get_key(EmbeddedResources {
+                    path: Some(url.into()),
+                    kind: EmbeddedResourcesKind::DataUriPayload(data.to_vec(), extension),
+                });
+                path_to_id.insert(url.into(), id);
+            },
+        )
+        .await;
 
     // Use URLs (sync!):
     for component in &all_components {
