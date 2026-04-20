@@ -157,3 +157,40 @@ def test_model_writeback() -> None:
     assert list(instance.get_property("model")) == [100, 42]
     instance.invoke("write-to-model", 0, 25)
     assert list(instance.get_property("model")) == [25, 42]
+
+
+def test_model_modify() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> ints;
+            public function push-one(value: int) { ints.push(value) }
+            public function remove-one(index: int) { ints.remove(index) }
+            public function insert-one(index: int, value: int) { ints.insert(index, value) }
+        }
+        """,
+        Path("")
+    ).component("App")
+
+    assert compdef is not None
+
+    instance =compdef.create()
+    assert instance is not None
+
+    model = models.ListModel([1, 2, 3])
+    instance.set_property("ints", model)
+
+    assert instance.get_property("ints").row_count() == 3
+
+    instance.invoke("push-one", 10)
+    assert instance.get_property("ints").row_count() == 4
+    assert instance.get_property("ints").row_data(3) == 10
+
+    instance.invoke("remove-one", 1)
+    assert instance.get_property("ints").row_count() == 3
+    assert instance.get_property("ints").row_data(2) == 10
+
+    instance.invoke("insert-one", 1, 20)
+    assert instance.get_property("ints").row_count() == 4
+    assert instance.get_property("ints").row_data(1) == 20
