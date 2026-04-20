@@ -106,5 +106,7 @@ void slint_interpreter_struct_set_field(SlintGoStruct *stru, SlintGoByteSlice na
 void slint_testing_init_backend(void);
 void slint_testing_configure_test_fonts(void);
 void slint_testing_mock_elapsed_time(uint64_t time_in_ms);
+void slint_go_component_instance_send_mouse_click(const SlintGoComponentInstance *instance,
+                                                  double x, double y);
 
 extern SlintGoValue *slintGoInvokeCallback(void *user_data, SlintGoValue **args, uintptr_t arg_len);

@@ -211,9 +211,10 @@ fn write_go_main(dir: &Path, source: &str) -> Result<(), Box<dyn Error>> {
     let mut file = std::fs::File::create(dir.join("main.go"))?;
     file.write_all(b"package main\n\nimport (\n")?;
     file.write_all(b"\t\"runtime\"\n")?;
-    file.write_all(b"\tslint \"github.com/slint-ui/slint/api/go/slint\"\n")?;
     if !go_blocks.is_empty() {
         file.write_all(b"\t\"fmt\"\n")?;
+        file.write_all(b"\tslint \"github.com/slint-ui/slint/api/go/slint\"\n")?;
+        file.write_all(b"\tslint_testing \"github.com/slint-ui/slint/api/go/slint/testing\"\n")?;
         file.write_all(b"\tui \"github.com/slint-ui/slint/ui\"\n")?;
         file.write_all(b"\tassertpkg \"github.com/stretchr/testify/assert\"\n")?;
     } else {
@@ -238,7 +239,10 @@ var assertion = assertpkg.New(&panicT{})
     file.write_all(b"func main() {\n")?;
     writeln!(file, "\truntime.LockOSThread()")?;
     writeln!(file, "\tdefer runtime.UnlockOSThread()")?;
-    writeln!(file, "\tslint.InitTestingBackend()")?;
+    if !go_blocks.is_empty() {
+        writeln!(file, "\tslint_testing.InitTestingBackend()")?;
+        writeln!(file, "\t_ = slint.VoidValue()")?;
+    }
 
     for block in &go_blocks {
         writeln!(file, "\t{{")?;
@@ -257,16 +261,27 @@ fn copy_go_runtime_package(dir: &Path) -> Result<(), String> {
     let destination_dir = dir.join("api/go/slint");
     std::fs::create_dir_all(&destination_dir)
         .map_err(|err| format!("failed to create {}: {err}", destination_dir.display()))?;
-    for entry in std::fs::read_dir(&source_dir)
-        .map_err(|err| format!("failed to read {}: {err}", source_dir.display()))?
-    {
-        let entry =
-            entry.map_err(|err| format!("failed to inspect Go runtime package entry: {err}"))?;
-        if entry.file_type().map_err(|err| format!("failed to inspect file type: {err}"))?.is_file()
+    fn copy_recursive(source_dir: &Path, destination_dir: &Path) -> Result<(), String> {
+        std::fs::create_dir_all(destination_dir).map_err(|err| {
+            format!("failed to create {}: {err}", destination_dir.display())
+        })?;
+        for entry in std::fs::read_dir(source_dir)
+            .map_err(|err| format!("failed to read {}: {err}", source_dir.display()))?
         {
-            copy_file(&entry.path(), &destination_dir.join(entry.file_name()))?;
+            let entry =
+                entry.map_err(|err| format!("failed to inspect Go runtime package entry: {err}"))?;
+            let file_type =
+                entry.file_type().map_err(|err| format!("failed to inspect file type: {err}"))?;
+            let target = destination_dir.join(entry.file_name());
+            if file_type.is_dir() {
+                copy_recursive(&entry.path(), &target)?;
+            } else if file_type.is_file() {
+                copy_file(&entry.path(), &target)?;
+            }
         }
+        Ok(())
     }
+    copy_recursive(&source_dir, &destination_dir)?;
     Ok(())
 }
 

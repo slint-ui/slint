@@ -1245,6 +1245,21 @@ pub unsafe extern "C" fn slint_go_component_instance_run(
     unsafe { &*instance }.run().is_ok()
 }
 
+/// Simulate a mouse click on the component instance at the given logical coordinates.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_component_instance_send_mouse_click(
+    instance: *const ComponentInstance,
+    x: f64,
+    y: f64,
+) {
+    let instance = unsafe { &*instance };
+    i_slint_core::tests::slint_send_mouse_click(
+        x as f32,
+        y as f32,
+        &i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter(),
+    );
+}
+
 /// Gets a public property from a component instance. Returns null if the property does not exist.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_go_component_instance_get_property(

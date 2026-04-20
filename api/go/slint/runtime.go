@@ -305,6 +305,10 @@ func (i *ComponentInstance) Run() error {
 	return nil
 }
 
+func (i *ComponentInstance) SendMouseClick(x float64, y float64) {
+	C.slint_go_component_instance_send_mouse_click(i.raw(), C.double(x), C.double(y))
+}
+
 func (i *ComponentInstance) GetProperty(name string) (Value, error) {
 	nameSlice, nameBuf := makeByteSlice(name)
 	value := wrapValue(C.slint_go_component_instance_get_property(i.raw(), nameSlice))

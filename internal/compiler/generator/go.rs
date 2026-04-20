@@ -85,6 +85,18 @@ fn exported_ident(name: &str) -> String {
     out
 }
 
+fn unexported_ident(name: &str) -> String {
+    let exported = exported_ident(name);
+    let mut chars = exported.chars();
+    let Some(first) = chars.next() else {
+        return "generated".into();
+    };
+    let mut out = String::new();
+    out.extend(first.to_lowercase());
+    out.push_str(chars.as_str());
+    out
+}
+
 fn package_name(destination_path: Option<&std::path::Path>) -> SmolStr {
     let fallback = SmolStr::new_static("main");
     let Some(parent) = destination_path.and_then(|path| path.parent()) else {
@@ -412,6 +424,7 @@ fn go_string_literal(value: &str) -> String {
 fn emit_global_wrapper(
     out: &mut String,
     component: &GoComponent,
+    component_impl_name: &str,
     global: &GoGlobal,
 ) -> std::fmt::Result {
     let component_name = exported_ident(&component.name);
@@ -425,7 +438,7 @@ fn emit_global_wrapper(
     for accessor_name in std::iter::once(&global.name).chain(global.aliases.iter()) {
         writeln!(
             out,
-            "func (c *{component_name}) {}() *{global_type_name} {{",
+            "func (c *{component_impl_name}) {}() *{global_type_name} {{",
             exported_ident(accessor_name)
         )?;
         writeln!(out, "\treturn &{global_type_name}{{inner: c.inner}}")?;
@@ -654,13 +667,83 @@ fn emit_component(
     globals: &[GoGlobal],
 ) -> std::fmt::Result {
     let component_name = exported_ident(&component.name);
+    let component_impl_name = unexported_ident(&component.name);
 
-    writeln!(out, "type {component_name} struct {{")?;
+    writeln!(out, "type {component_name} interface {{")?;
+    writeln!(out, "\tInner() *slint.ComponentInstance")?;
+    writeln!(out, "\tShow() error")?;
+    writeln!(out, "\tHide() error")?;
+    writeln!(out, "\tRun() error")?;
+    for property in &component.properties {
+        let property_type = go_type_name(&property.ty);
+        writeln!(out, "\tGet{}() ({property_type}, error)", property.go_name)?;
+        if !property.read_only {
+            writeln!(out, "\tSet{}(value {property_type}) error", property.go_name)?;
+        }
+    }
+    for callback in &component.callbacks {
+        let params = callback
+            .args
+            .iter()
+            .enumerate()
+            .map(|(index, ty)| format!("arg_{index} {}", go_type_name(ty)))
+            .collect::<Vec<_>>();
+        let return_type = go_type_name(&callback.return_type);
+        let handler_signature = if matches!(callback.return_type, Type::Void) {
+            format!("func({})", params.join(", "))
+        } else {
+            format!("func({}) {return_type}", params.join(", "))
+        };
+        writeln!(out, "\tOn{}(handler {handler_signature}) error", callback.go_name)?;
+        if matches!(callback.return_type, Type::Void) {
+            writeln!(
+                out,
+                "\tInvoke{}({}) error",
+                callback.go_name,
+                params.join(", ")
+            )?;
+        } else {
+            writeln!(
+                out,
+                "\tInvoke{}({}) ({}, error)",
+                callback.go_name,
+                params.join(", "),
+                return_type
+            )?;
+        }
+    }
+    for function in &component.functions {
+        let params = function
+            .args
+            .iter()
+            .enumerate()
+            .map(|(index, ty)| format!("arg_{index} {}", go_type_name(ty)))
+            .collect::<Vec<_>>();
+        if matches!(function.return_type, Type::Void) {
+            writeln!(out, "\tInvoke{}({}) error", function.go_name, params.join(", "))?;
+        } else {
+            writeln!(
+                out,
+                "\tInvoke{}({}) ({}, error)",
+                function.go_name,
+                params.join(", "),
+                go_type_name(&function.return_type)
+            )?;
+        }
+    }
+    for global in globals {
+        let global_type_name = format!("{component_name}{}Global", exported_ident(&global.name));
+        writeln!(out, "\t{}() *{global_type_name}", exported_ident(&global.name))?;
+    }
+    writeln!(out, "}}")?;
+    writeln!(out)?;
+
+    writeln!(out, "type {component_impl_name} struct {{")?;
     writeln!(out, "\tinner *slint.ComponentInstance")?;
     writeln!(out, "}}")?;
     writeln!(out)?;
 
-    writeln!(out, "func New{component_name}() (*{component_name}, error) {{")?;
+    writeln!(out, "func New{component_name}() ({component_name}, error) {{")?;
     writeln!(out, "\tdefinition, err := generatedComponentDefinition({:?})", component.name)?;
     writeln!(out, "\tif err != nil {{")?;
     writeln!(out, "\t\treturn nil, err")?;
@@ -669,14 +752,14 @@ fn emit_component(
     writeln!(out, "\tif err != nil {{")?;
     writeln!(out, "\t\treturn nil, err")?;
     writeln!(out, "\t}}")?;
-    writeln!(out, "\treturn &{component_name}{{inner: inner}}, nil")?;
+    writeln!(out, "\treturn &{component_impl_name}{{inner: inner}}, nil")?;
     writeln!(out, "}}")?;
     writeln!(out)?;
 
     for alias in &component.aliases {
         writeln!(
             out,
-            "func New{}() (*{}, error) {{ return New{}() }}",
+            "func New{}() ({}, error) {{ return New{}() }}",
             exported_ident(alias),
             component_name,
             component_name
@@ -688,21 +771,21 @@ fn emit_component(
 
     writeln!(
         out,
-        "func (c *{component_name}) Inner() *slint.ComponentInstance {{ return c.inner }}"
+        "func (c *{component_impl_name}) Inner() *slint.ComponentInstance {{ return c.inner }}"
     )?;
     writeln!(out)?;
-    writeln!(out, "func (c *{component_name}) Show() error {{ return c.inner.Show() }}")?;
+    writeln!(out, "func (c *{component_impl_name}) Show() error {{ return c.inner.Show() }}")?;
     writeln!(out)?;
-    writeln!(out, "func (c *{component_name}) Hide() error {{ return c.inner.Hide() }}")?;
+    writeln!(out, "func (c *{component_impl_name}) Hide() error {{ return c.inner.Hide() }}")?;
     writeln!(out)?;
-    writeln!(out, "func (c *{component_name}) Run() error {{ return c.inner.Run() }}")?;
+    writeln!(out, "func (c *{component_impl_name}) Run() error {{ return c.inner.Run() }}")?;
     writeln!(out)?;
 
     for property in &component.properties {
         let property_type = go_type_name(&property.ty);
         writeln!(
             out,
-            "func (c *{component_name}) Get{}() ({property_type}, error) {{",
+            "func (c *{component_impl_name}) Get{}() ({property_type}, error) {{",
             property.go_name
         )?;
         writeln!(out, "\tvalue, err := c.inner.GetProperty({:?})", property.slint_name)?;
@@ -717,7 +800,7 @@ fn emit_component(
         if !property.read_only {
             writeln!(
                 out,
-                "func (c *{component_name}) Set{}(value {property_type}) error {{",
+                "func (c *{component_impl_name}) Set{}(value {property_type}) error {{",
                 property.go_name
             )?;
             writeln!(
@@ -732,14 +815,14 @@ fn emit_component(
     }
 
     for callback in &component.callbacks {
-        emit_callback_methods(out, &component_name, None, callback)?;
+        emit_callback_methods(out, &component_impl_name, None, callback)?;
     }
     for function in &component.functions {
-        emit_invoke_method(out, &component_name, None, function)?;
+        emit_invoke_method(out, &component_impl_name, None, function)?;
     }
 
     for global in globals {
-        emit_global_wrapper(out, component, global)?;
+        emit_global_wrapper(out, component, &component_impl_name, global)?;
     }
 
     Ok(())
