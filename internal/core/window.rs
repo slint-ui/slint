@@ -1280,7 +1280,6 @@ impl WindowInner {
                         // We have to draw the popup and consider the location for subelements because everything must
                         // be rendered relative to the main window position
                         if let PopupWindowLocation::ChildWindow(location) = &popup.location {
-                            println!("draw_contents. Location: {:?}", location);
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
                     }
