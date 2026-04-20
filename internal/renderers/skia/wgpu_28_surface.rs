@@ -258,7 +258,7 @@ impl raw_window_handle::HasDisplayHandle for WindowAndDisplayHandle {
     }
 }
 
-enum Backend {
+pub(crate) enum Backend {
     #[cfg(target_vendor = "apple")]
     Metal,
     #[cfg(target_family = "windows")]
@@ -290,7 +290,7 @@ impl TryFrom<wgpu::Backend> for Backend {
 }
 
 impl Backend {
-    fn make_context(
+    pub(crate) fn make_context(
         &self,
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
@@ -322,7 +322,30 @@ impl Backend {
         }
     }
 
-    fn import_texture(
+    pub(crate) fn make_surface_from_texture(
+        &self,
+        width: i32,
+        height: i32,
+        gr_context: &mut skia_safe::gpu::DirectContext,
+        texture: &wgpu::Texture,
+    ) -> Option<skia_safe::Surface> {
+        match self {
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => unsafe {
+                metal::make_metal_surface_from_texture(width, height, gr_context, texture)
+            },
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => unsafe {
+                dx12::make_dx12_surface_from_texture(width, height, gr_context, texture)
+            },
+            #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
+            Self::Vulkan => unsafe {
+                vulkan::make_vulkan_surface_from_texture(width, height, gr_context, texture)
+            },
+        }
+    }
+
+    pub(crate) fn import_texture(
         &self,
         canvas: &skia_safe::Canvas,
         texture: wgpu::Texture,

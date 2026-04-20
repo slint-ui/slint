@@ -61,6 +61,10 @@ pub mod opengl_surface;
 pub mod wgpu_27_surface;
 #[cfg(feature = "wgpu-28")]
 pub mod wgpu_28_surface;
+#[cfg(feature = "wgpu-28")]
+mod wgpu_renderer;
+#[cfg(feature = "wgpu-28")]
+pub use wgpu_renderer::SkiaWGPURenderer;
 
 use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
@@ -606,7 +610,7 @@ impl SkiaRenderer {
         )
     }
 
-    fn render_to_canvas(
+    pub(crate) fn render_to_canvas(
         &self,
         skia_canvas: &skia_safe::Canvas,
         rotation_angle_degrees: f32,

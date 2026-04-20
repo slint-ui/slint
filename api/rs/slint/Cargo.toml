@@ -162,7 +162,7 @@ renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-re
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-slint-renderer-femtovg/wgpu", "std"]
 
 ## Render using [Skia](https://skia.org/).
-renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
 ## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
@@ -230,6 +230,7 @@ unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
   "i-slint-backend-selector/unstable-wgpu-28",
   "i-slint-backend-android-activity?/unstable-wgpu-28",
+  "i-slint-renderer-skia?/unstable-wgpu-28",
   "dep:wgpu-28",
 ]
 
@@ -279,6 +280,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-core-macros = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
 
 const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }

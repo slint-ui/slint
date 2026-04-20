@@ -11,40 +11,87 @@ use windows::Win32::Graphics::Dxgi::Common::{
 
 use wgpu_28 as wgpu;
 
+/// # Safety
+/// `resource` must be a valid D3D12 resource for the lifetime of the returned Surface.
+unsafe fn wrap_dx12_texture(
+    width: i32,
+    height: i32,
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    resource: ID3D12Resource,
+    dxgi_format: windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT,
+    color_type: skia_safe::ColorType,
+) -> Option<skia_safe::Surface> {
+    let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
+        resource,
+        alloc: None,
+        resource_state: D3D12_RESOURCE_STATE_PRESENT,
+        format: dxgi_format,
+        sample_count: 1,
+        level_count: 1,
+        sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
+        protected: skia_safe::gpu::Protected::No,
+    };
+    let backend_render_target =
+        skia_safe::gpu::BackendRenderTarget::new_d3d((width, height), &texture_info);
+    skia_safe::gpu::surfaces::wrap_backend_render_target(
+        gr_context,
+        &backend_render_target,
+        skia_safe::gpu::SurfaceOrigin::TopLeft,
+        color_type,
+        None,
+        None,
+    )
+}
+
 pub unsafe fn make_dx12_surface(
     size: PhysicalWindowSize,
     gr_context: &mut skia_safe::gpu::DirectContext,
     frame: &wgpu::SurfaceTexture,
 ) -> Option<skia_safe::Surface> {
+    // SAFETY: frame.texture is alive for the duration of this call; the D3D12 resource is
+    // ref-counted (COM) and cloned into Skia's internal BackendRenderTarget.
     unsafe {
         let dx12_texture = frame.texture.as_hal::<wgpu::wgc::api::Dx12>();
-
-        let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
-            resource: windows_core::Interface::from_raw(windows_core::Interface::into_raw(
-                dx12_texture.unwrap().raw_resource().clone(),
-            )),
-            alloc: None,
-            resource_state: D3D12_RESOURCE_STATE_PRESENT,
-            format: DXGI_FORMAT_R8G8B8A8_UNORM,
-            sample_count: 1,
-            level_count: 1,
-            sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
-            protected: skia_safe::gpu::Protected::No,
-        };
-
-        let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_d3d(
-            (size.width as i32, size.height as i32),
-            &texture_info,
-        );
-
-        skia_safe::gpu::surfaces::wrap_backend_render_target(
+        let resource = windows_core::Interface::from_raw(windows_core::Interface::into_raw(
+            dx12_texture.unwrap().raw_resource().clone(),
+        ));
+        wrap_dx12_texture(
+            size.width as i32,
+            size.height as i32,
             gr_context,
-            &backend_render_target,
-            skia_safe::gpu::SurfaceOrigin::TopLeft,
+            resource,
+            DXGI_FORMAT_R8G8B8A8_UNORM,
             skia_safe::ColorType::RGBA8888,
-            None,
-            None,
         )
+    }
+}
+
+/// # Safety
+/// The caller must ensure `texture` was created by a DX12-backed wgpu device and remains
+/// valid for the lifetime of the returned `skia_safe::Surface`.
+pub unsafe fn make_dx12_surface_from_texture(
+    width: i32,
+    height: i32,
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    texture: &wgpu::Texture,
+) -> Option<skia_safe::Surface> {
+    // SAFETY: texture is borrowed for the duration of this call; the D3D12 resource is
+    // ref-counted (COM) and cloned into Skia's internal BackendRenderTarget via wrap_dx12_texture.
+    unsafe {
+        let dx12_texture = texture.as_hal::<wgpu::wgc::api::Dx12>()?;
+        let resource = windows_core::Interface::from_raw(windows_core::Interface::into_raw(
+            dx12_texture.raw_resource().clone(),
+        ));
+        let (dxgi_format, color_type) = match texture.format() {
+            wgpu::TextureFormat::Rgba8Unorm => {
+                (DXGI_FORMAT_R8G8B8A8_UNORM, skia_safe::ColorType::RGBA8888)
+            }
+            wgpu::TextureFormat::Rgba8UnormSrgb => {
+                (DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, skia_safe::ColorType::SRGBA8888)
+            }
+            _ => return None,
+        };
+        wrap_dx12_texture(width, height, gr_context, resource, dxgi_format, color_type)
     }
 }
 
