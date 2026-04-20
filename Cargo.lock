@@ -5214,6 +5214,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-preview-protocol"
+version = "1.17.0"
+dependencies = [
+ "lsp-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "i-slint-renderer-femtovg"
 version = "1.17.0"
 dependencies = [
@@ -10187,6 +10196,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-preview-protocol",
  "itertools 0.14.0",
  "js-sys",
  "lsp-server",

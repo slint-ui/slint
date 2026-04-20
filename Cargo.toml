@@ -57,6 +57,7 @@ members = [
   'internal/core',
   'internal/core-macros',
   'internal/interpreter',
+  'internal/preview-protocol',
   'tests/doctests',
   'tests/driver/cpp',
   'tests/driver/driverlib',
@@ -199,6 +200,9 @@ windows = { version = "0.62" }
 windows-core = { version = "0.62.0" }
 lyon_path = { version = "1.0", default-features = false }
 objc2 = { version = "0.6.3" }
+
+# Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
+lsp-types = "0.95.0"
 
 [profile.release]
 lto = true
