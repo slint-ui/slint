@@ -3,7 +3,7 @@
 
 use alloc::rc::Rc;
 
-use crate::{SharedString, api::PlatformError};
+use crate::{AnyData, SharedString, api::PlatformError};
 
 pub mod mime;
 
@@ -25,25 +25,6 @@ impl PlatformClipboard for DummyPlatformClipboard {
     fn set(&self, _: crate::platform::Clipboard, _: Rc<dyn ClipboardData>) {}
     fn get(&self, _: crate::platform::Clipboard) -> Result<Rc<dyn ClipboardData>, PlatformError> {
         Ok(Rc::new(()))
-    }
-}
-
-/// A piece of data of unspecified type. Use the accessor methods to downcast this to a specific type.
-#[derive(Clone)]
-pub struct AnyData {
-    inner: SharedString,
-}
-
-impl AnyData {
-    /// Returns a reference to the inner value if it is of type `T`, or `None` if it isn’t.
-    pub fn as_string(&self) -> Option<SharedString> {
-        Some(self.inner.clone())
-    }
-}
-
-impl From<SharedString> for AnyData {
-    fn from(value: SharedString) -> Self {
-        Self { inner: value }
     }
 }
 
