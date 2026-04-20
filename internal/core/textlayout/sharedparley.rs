@@ -1474,7 +1474,7 @@ pub fn text_input_byte_offset_for_position(
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let byte_offset = layout.byte_offset_from_point(pos);
-    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
+    visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
@@ -1510,8 +1510,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let visual_representation = text_input.visual_representation(None);
-    let byte_offset =
-        visual_representation.map_byte_offset_from_byte_offset_in_actual_text(byte_offset);
+    let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,

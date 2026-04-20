@@ -28,10 +28,7 @@ use crate::platform::Clipboard;
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use alloc::{
-    rc::Rc,
-    string::{String, ToString},
-};
+use alloc::{rc::Rc, string::String};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -1452,9 +1449,9 @@ impl TextInputVisualRepresentation {
         self.password_character = password_character;
     }
 
-    /// Use this function to make a byte offset in the text used for rendering back to a byte offset in the
+    /// Use this function to make a byte offset in the visual text (used for rendering) back to a byte offset in the
     /// TextInput's text. The offsets might differ for example for password text input fields.
-    pub fn map_byte_offset_from_byte_offset_in_visual_text(&self, byte_offset: usize) -> usize {
+    pub fn map_byte_offset_from_visual_text_to_actual_text(&self, byte_offset: usize) -> usize {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
             text_without_password
                 .char_indices()
@@ -1467,7 +1464,7 @@ impl TextInputVisualRepresentation {
 
     /// Map the byte_offset inside the TextInput's text to the byte offset in the visual text.
     /// This is the opposite of `map_byte_offset_from_byte_offset_in_visual_text`.
-    pub fn map_byte_offset_from_byte_offset_in_actual_text(&self, byte_offset: usize) -> usize {
+    pub fn map_byte_offset_from_actual_to_visual_text(&self, byte_offset: usize) -> usize {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
             text_without_password[..byte_offset].chars().count()
                 * self.password_character.len_utf8()
@@ -2014,12 +2011,8 @@ impl TextInput {
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
             let cursor_position = self.cursor_position(&text);
 
-            // FIXME: Ideally we should get rid of this String conversion.
-            // But SharedString currently doesn't have an insert_str function.
-            // But this is a rather rare case anyway.
-            let mut string = text.to_string();
-            string.insert_str(cursor_position, &preedit_text);
-            text = string.into();
+            text =
+                [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into();
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
             if let Some(preedit_sel) = self.preedit_selection().as_option() {
