@@ -77,25 +77,6 @@ impl GPURenderingContext {
         connection: &Connection,
         wgpu_device: &wgpu::Device,
     ) -> Result<surfman::Adapter, surfman::Error> {
-        #[derive(Debug, Clone, Copy)]
-        enum AdapterMode {
-            Hardware,
-            LowPower,
-            Default,
-        }
-
-        impl AdapterMode {
-            const ALL: [Self; 3] = [Self::Hardware, Self::LowPower, Self::Default];
-
-            fn create(&self, connection: &Connection) -> Result<surfman::Adapter, surfman::Error> {
-                match self {
-                    Self::Hardware => connection.create_hardware_adapter(),
-                    Self::LowPower => connection.create_low_power_adapter(),
-                    Self::Default => connection.create_adapter(),
-                }
-            }
-        }
-
         // On Windows, Slint and Surfman must use the exact same physical GPU (LUID)
         // to enable zero-copy texture sharing via shared handles.
         // This requires WGPU to be running on the DX12 backend.
@@ -114,8 +95,13 @@ impl GPURenderingContext {
         };
 
         // We iterate through Surfman's adapter presets to find the one that matches WGPU's selection.
-        for mode in AdapterMode::ALL {
-            if let Ok(surfman_adapter) = mode.create(connection) {
+        for create_adapter_fn in &[
+            Connection::create_hardware_adapter
+                as fn(&Connection) -> Result<surfman::Adapter, surfman::Error>,
+            Connection::create_low_power_adapter,
+            Connection::create_adapter,
+        ] {
+            if let Ok(surfman_adapter) = create_adapter_fn(connection) {
                 // To verify the match, we create a temporary device and extract its D3D11 LUID.
                 if let Ok(temp_device) = connection.create_device(&surfman_adapter) {
                     let d3d11_device_ptr = temp_device.native_device().d3d11_device;
@@ -137,7 +123,6 @@ impl GPURenderingContext {
                     if surfman_luid.HighPart == wgpu_luid.HighPart
                         && surfman_luid.LowPart == wgpu_luid.LowPart
                     {
-                        eprintln!("[GPU] Synchronized with WGPU via {:?} mode", mode);
                         return Ok(surfman_adapter);
                     }
                 }
