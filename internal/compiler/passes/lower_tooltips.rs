@@ -20,9 +20,6 @@ const TOOLTIP_ELEMENT: &str = "ToolTip";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
 
-// Builtin property keys use `parser::normalize_identifier` (underscores → hyphens). These must
-// match `NativeClass` keys so `remove_unused_properties` keeps `changed` callbacks (see
-// `materialize_fake_properties::has_declared_property`).
 const HAS_HOVER: &str = "has-hover";
 const MOUSE_X: &str = "mouse-x";
 const MOUSE_Y: &str = "mouse-y";
@@ -51,13 +48,10 @@ pub fn lower_tooltips(
 
     let mut tooltip_popup_id_counter: u32 = 0;
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        // Avoid re-lowering the `ToolTip` element that we moved into the generated popup.
         if elem.borrow().id.starts_with(TOOLTIP_POPUP_ID_PREFIX) {
             return;
         }
 
-        // We require hover tracking from the parent element (including properties inherited from
-        // builtins such as `TouchArea` — those are not listed in `property_declarations`).
         let supports_hover = {
             let elem_borrow = elem.borrow();
             !matches!(elem_borrow.lookup_property(HAS_HOVER).property_type, Type::Invalid)
@@ -75,7 +69,6 @@ pub fn lower_tooltips(
             return;
         };
 
-        // `NamedReference::new` borrows `elem` immutably; do not hold `elem.borrow_mut()` across it.
         let (tooltip_child, enclosing_component, popup_id, popup_id_for_text) = {
             let mut elem_borrow = elem.borrow_mut();
             let tooltip_child = elem_borrow.children.remove(tooltip_child_index);
@@ -190,6 +183,7 @@ pub fn lower_tooltips(
             id: popup_id,
             base_type: popup_window_type.clone(),
             enclosing_component,
+            popup_window_kind: PopupWindowKind::Tooltip,
             children: vec![tooltip_child, background_rect_rc],
             bindings: [
                 (
@@ -213,7 +207,6 @@ pub fn lower_tooltips(
         };
         let popup_window_rc = popup_window.make_rc();
 
-        // Show/close the popup when the parent hover state changes.
         let has_hover_nr = NamedReference::new(elem, SmolStr::new_static(HAS_HOVER));
         let popup_weak = Rc::downgrade(&popup_window_rc);
 
@@ -243,7 +236,6 @@ pub fn lower_tooltips(
                 .borrow_mut()
                 .push(callback);
 
-            // Replace the `ToolTip` child with our popup overlay.
             elem_borrow.children.insert(tooltip_child_index, popup_window_rc);
             elem_borrow.has_popup_child = true;
         }

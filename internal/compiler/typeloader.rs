@@ -677,7 +677,7 @@ impl Snapshotter {
             y: popup_window.y.snapshot(self),
             close_policy: popup_window.close_policy.clone(),
             parent_element: self.use_element(&popup_window.parent_element),
-            is_tooltip: popup_window.is_tooltip,
+            popup_kind: popup_window.popup_kind.clone(),
         }
     }
 

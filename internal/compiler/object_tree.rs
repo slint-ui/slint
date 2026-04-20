@@ -317,6 +317,13 @@ impl Document {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub enum PopupWindowKind {
+    #[default]
+    Regular,
+    Tooltip,
+}
+
 #[derive(Debug, Clone)]
 pub struct PopupWindow {
     pub component: Rc<Component>,
@@ -324,11 +331,7 @@ pub struct PopupWindow {
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
-    /// Whether this popup is an input-transparent tooltip overlay.
-    ///
-    /// Tooltip popups are allowed to render as an overlay, but should not affect
-    /// mouse hit-testing / dispatch.
-    pub is_tooltip: bool,
+    pub popup_kind: PopupWindowKind,
 }
 
 #[derive(Debug, Clone)]
@@ -828,6 +831,12 @@ pub struct Element {
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.
     pub has_popup_child: bool,
+
+    /// Semantic kind for elements that represent popup windows.
+    ///
+    /// Defaults to `Regular`; passes that synthesize specific popup kinds (such as tooltips)
+    /// should set this explicitly so later lowering does not rely on naming conventions.
+    pub popup_window_kind: PopupWindowKind,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.

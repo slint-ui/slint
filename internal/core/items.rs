@@ -1894,8 +1894,6 @@ impl Item for ToolTip {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
-        // Unlike `Empty`, do not stretch: tooltip popups are lowered with a `Text` sibling; sharing
-        // stretch with `Empty` can starve the label and yield a 0×0 popup.
         LayoutInfo::default()
     }
 

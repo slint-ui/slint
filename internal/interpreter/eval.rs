@@ -1069,8 +1069,7 @@ fn call_builtin_function(
                     position,
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
-                    true,
-                    false,
+                    corelib::window::PopupKind::Menu,
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });
@@ -1892,9 +1891,6 @@ pub fn load_property(component: InstanceRef, element: &ElementRc, name: &str) ->
     load_property_helper(&ComponentInstance::InstanceRef(component), element, name)
 }
 
-/// Native items register RTTI keys with hyphens (`has-hover`, `mouse-x`, …) matching
-/// `i-slint-core-macros` identifier normalization, while the compiler often uses underscores
-/// in [`NamedReference`].
 pub(crate) fn lookup_rtti_str_key<'a, T>(
     map: &'a HashMap<&'static str, T>,
     name: &str,

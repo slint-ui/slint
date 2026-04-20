@@ -137,8 +137,6 @@ pub async fn run_passes(
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
 
-        // Popups are created in `lower_tooltips` / `lower_popups`, after the style pass above ran.
-        // Without this, tooltip/dialog `Window` + `Text` never get palette defaults (invisible text).
         for p in component.popup_windows.borrow().iter() {
             apply_default_properties_from_style::apply_default_properties_from_style(
                 &p.component,

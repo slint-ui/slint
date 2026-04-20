@@ -851,7 +851,10 @@ fn lower_popup_component(
     PopupWindow {
         item_tree,
         position: position.into(),
-        is_tooltip: popup.is_tooltip,
+        popup_kind: match popup.popup_kind {
+            object_tree::PopupWindowKind::Regular => PopupWindowKind::Regular,
+            object_tree::PopupWindowKind::Tooltip => PopupWindowKind::Tooltip,
+        },
     }
 }
 

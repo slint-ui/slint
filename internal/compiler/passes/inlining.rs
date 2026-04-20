@@ -401,6 +401,7 @@ fn duplicate_element_with_mapping(
         item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
         has_popup_child: elem.has_popup_child,
+        popup_window_kind: elem.popup_window_kind.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
@@ -522,7 +523,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
             .clone(),
-        is_tooltip: p.is_tooltip,
+        popup_kind: p.popup_kind.clone(),
     }
 }
 

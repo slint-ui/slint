@@ -2770,8 +2770,6 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
-    // Run before `show_popup` so bindings and change-trackers are live; otherwise `WindowInner`
-    // computes size from layout before the popup subtree is fully initialized (tooltips could be 0×0).
     inst.run_setup_code();
     let pos = {
         generativity::make_guard!(guard);
@@ -2787,8 +2785,10 @@ pub fn show_popup(
             pos,
             close_policy,
             parent_item,
-            false,
-            popup.is_tooltip,
+            match popup.popup_kind {
+                object_tree::PopupWindowKind::Regular => i_slint_core::window::PopupKind::Regular,
+                object_tree::PopupWindowKind::Tooltip => i_slint_core::window::PopupKind::Tooltip,
+            },
         ),
     );
 }

@@ -498,10 +498,17 @@ pub struct SubComponent {
 }
 
 #[derive(Debug)]
+pub enum PopupWindowKind {
+    Regular,
+    Tooltip,
+    Menu,
+}
+
+#[derive(Debug)]
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
-    pub is_tooltip: bool,
+    pub popup_kind: PopupWindowKind,
 }
 
 #[derive(Debug)]
