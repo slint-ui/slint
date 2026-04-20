@@ -8,7 +8,7 @@ use crate::gl_bindings as gl;
 
 use gl::Gles2 as Gl;
 
-use slint::wgpu_28::{wgpu, hal};
+use slint::wgpu_28::wgpu::{self, hal};
 
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
