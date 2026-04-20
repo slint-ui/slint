@@ -26,6 +26,7 @@
         "path-browserify",
         "vscode-uri",
         "@lsp/slint_lsp_wasm.js",
+        "@lsp/slint_lsp_wasm_bg.wasm",
         "@interpreter/slint_wasm_interpreter.js"
       ]
     },

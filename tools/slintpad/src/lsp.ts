@@ -23,6 +23,7 @@ export { Position as LspPosition } from "vscode-languageserver-types";
 import type { Position as LspPosition } from "vscode-languageserver-types";
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
+import slint_lsp_wasm_url from "@lsp/slint_lsp_wasm_bg.wasm?url";
 
 import { report_panic_dialog } from "./dialogs";
 
@@ -133,7 +134,18 @@ export class LspWaiter {
             );
         });
 
-        this.#previewer_promise = slint_init({});
+        // Fetch and compile the LSP wasm once on the main thread and share the
+        // compiled module with the worker, so the browser does not have to
+        // download the same wasm twice.
+        this.#previewer_promise = (async () => {
+            const response = await fetch(slint_lsp_wasm_url);
+            const wasm_module = await WebAssembly.compileStreaming(response);
+            worker.postMessage({
+                type: "slintpad/init_wasm",
+                module: wasm_module,
+            });
+            return await slint_init({ module_or_path: wasm_module });
+        })();
     }
 
     async wait_for_lsp(): Promise<Lsp> {
