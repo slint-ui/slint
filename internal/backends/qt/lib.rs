@@ -406,24 +406,6 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
 
         return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.clone().into()));
     }
-
-    fn read_any(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        type_: std::any::TypeId,
-    ) -> Result<Rc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
-        use i_slint_core::SharedString;
-
-        if type_ == std::any::TypeId::of::<SharedString>() {
-            eprintln!(
-                "`read_any` used to read a `SharedString` from the clipboard. This would be more efficient using `read_string`"
-            );
-            self.read_string(clipboard, &i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8)
-                .map(|string| Rc::new(string) as _)
-        } else {
-            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
-        }
-    }
 }
 
 /// This helper trait can be used to obtain access to a pointer to a QtWidget for a given

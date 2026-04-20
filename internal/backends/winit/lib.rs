@@ -791,8 +791,11 @@ impl i_slint_core::platform::Platform for Backend {
 #[cfg(target_arch = "wasm32")]
 struct WinitPlatformClipboard;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(target_arch = "wasm32"))]
+struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
+
 impl PlatformClipboard for WinitPlatformClipboard {
+    #[cfg(target_arch = "wasm32")]
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
@@ -808,28 +811,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
         }
     }
 
-    fn read_any(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        type_: std::any::TypeId,
-    ) -> Result<Rc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
-        use i_slint_core::SharedString;
-
-        if type_ == std::any::TypeId::of::<SharedString>()
-            && let Some(text) = crate::wasm_input_helper::get_clipboard_text(clipboard)
-        {
-            Ok(Rc::new(SharedString::from(text)))
-        } else {
-            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
-
-#[cfg(not(target_arch = "wasm32"))]
-impl PlatformClipboard for WinitPlatformClipboard {
+    #[cfg(not(target_arch = "wasm32"))]
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
@@ -853,49 +835,36 @@ impl PlatformClipboard for WinitPlatformClipboard {
         }
     }
 
+    fn has_type(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::ClipboardType,
+    ) -> bool {
+        // Need to add this useless `if` since otherwise `let` patterns don't work
+        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard
+            && let i_slint_core::clipboard::ClipboardType::External(mime) = type_
+            && mime.is_plaintext()
+        {
+            true
+        } else {
+            false
+        }
+    }
+
     fn read_string(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
         type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> Result<i_slint_core::SharedString, i_slint_core::clipboard::ClipboardError> {
-        if ![
-            i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8,
-            i_slint_core::clipboard::mime::TEXT_PLAIN,
-        ]
-        .contains(type_)
-        {
-            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(
-                type_.clone().into(),
-            ));
+    ) -> Result<i_slint_core::SharedString, PlatformError> {
+        if !self.has_type(clipboard.clone(), &type_.clone().into()) {
+            return Err(PlatformError::ClipboardTypeNotFound(type_.clone().into()));
         }
 
         let mut pair = self.0.borrow_mut();
-        let clipboard =
-            clipboard::select_clipboard(&mut pair, clipboard.clone()).ok_or_else(|| {
-                i_slint_core::clipboard::ClipboardError::Message(format!(
-                    "Unknown clipboard: {clipboard:?}"
-                ))
-            })?;
+        let clipboard = clipboard::select_clipboard(&mut pair, clipboard.clone())
+            .ok_or_else(|| PlatformError::Other(format!("Unknown clipboard: {clipboard:?}")))?;
 
         Ok(clipboard.get_contents()?.into())
-    }
-
-    fn read_any(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        type_: std::any::TypeId,
-    ) -> Result<Rc<dyn std::any::Any>, i_slint_core::clipboard::ClipboardError> {
-        use i_slint_core::SharedString;
-
-        if type_ == std::any::TypeId::of::<SharedString>() {
-            eprintln!(
-                "`read_any` used to read a `SharedString` from the clipboard. This would be more efficient using `read_string`"
-            );
-            self.read_string(clipboard, &i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8)
-                .map(|string| Rc::new(string) as _)
-        } else {
-            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.into()));
-        }
     }
 }
 

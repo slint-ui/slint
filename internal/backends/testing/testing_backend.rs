@@ -54,26 +54,37 @@ impl PlatformClipboard for TestingPlatformClipboard {
         }
     }
 
+    fn has_type(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::ClipboardType,
+    ) -> bool {
+        // Need to add this useless `if` since otherwise `let` patterns don't work
+        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard
+            && let i_slint_core::clipboard::ClipboardType::External(mime) = type_
+            && mime.is_plaintext()
+        {
+            true
+        } else {
+            false
+        }
+    }
+
     fn read_string(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
         type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> Result<SharedString, i_slint_core::clipboard::ClipboardError> {
-        if ![
-            i_slint_core::clipboard::mime::TEXT_PLAIN_UTF_8,
-            i_slint_core::clipboard::mime::TEXT_PLAIN,
-        ]
-        .contains(type_)
-            || clipboard != i_slint_core::platform::Clipboard::DefaultClipboard
-        {
-            return Err(i_slint_core::clipboard::ClipboardError::TypeNotFound(
-                type_.clone().into(),
-            ));
+    ) -> Result<SharedString, PlatformError> {
+        if !self.has_type(clipboard, &type_.clone().into()) {
+            return Err(PlatformError::ClipboardTypeNotFound(type_.clone().into()));
         }
 
-        self.clipboard.lock().unwrap().as_ref().map(|str| str.clone()).ok_or_else(|| {
-            i_slint_core::clipboard::ClipboardError::TypeNotFound(type_.clone().into())
-        })
+        self.clipboard
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|str| str.clone())
+            .ok_or_else(|| PlatformError::ClipboardTypeNotFound(type_.clone().into()))
     }
 }
 

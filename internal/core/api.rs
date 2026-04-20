@@ -7,7 +7,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::clipboard::ClipboardError;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -1301,14 +1300,8 @@ pub enum PlatformError {
     #[cfg(feature = "std")]
     OtherError(Box<dyn std::error::Error + Send + Sync>),
 
-    /// An error happened while reading from the clipboard.
-    Clipboard(crate::clipboard::ClipboardError),
-}
-
-impl From<ClipboardError> for PlatformError {
-    fn from(value: ClipboardError) -> Self {
-        Self::Clipboard(value)
-    }
+    /// `read_*` was called on [`ClipboardData`], but no value of that type was provided. Consider calling [`ClipboardData::has_type`].
+    ClipboardTypeNotFound(crate::clipboard::ClipboardType),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1343,9 +1336,8 @@ impl core::fmt::Display for PlatformError {
             #[cfg(feature = "std")]
             PlatformError::OtherError(error) => error.fmt(f),
 
-            PlatformError::Clipboard(error) => {
-                write!(f, "Error reading clipboard: ")?;
-                error.fmt(f)
+            PlatformError::ClipboardTypeNotFound(type_) => {
+                write!(f, "Type not found on clipboard: {type_}")
             }
         }
     }
