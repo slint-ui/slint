@@ -150,13 +150,22 @@ impl GPURenderingContext {
                     "Unknown"
                 }
             }
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(target_os = "linux")]
             {
                 use api::{Gles, Vulkan};
                 if wgpu_device.as_hal::<Vulkan>().is_some() {
                     "Vulkan"
                 } else if wgpu_device.as_hal::<Gles>().is_some() {
                     "OpenGL"
+                } else {
+                    "Unknown"
+                }
+            }
+             #[cfg(target_os = "android")]
+            {
+                use api::Vulkan;
+                if wgpu_device.as_hal::<Vulkan>().is_some() {
+                    "Vulkan"
                 } else {
                     "Unknown"
                 }
