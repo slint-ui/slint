@@ -74,7 +74,7 @@ impl TestingClient {
                     window_handle.ok_or_else(|| {
                         "window properties request missing window handle".to_string()
                     })?,
-                ))?)
+                )?)?)
             }
             Req::RequestFindElementsById(proto::RequestFindElementsById {
                 window_handle,
@@ -83,7 +83,7 @@ impl TestingClient {
                 let elements = self.state.find_elements_by_id(
                     handle_to_index(window_handle.ok_or_else(|| {
                         "find elements by id request missing window handle".to_string()
-                    })?),
+                    })?)?,
                     &elements_id,
                 )?;
                 Resp::Elements(proto::ElementsResponse {
@@ -129,7 +129,7 @@ impl TestingClient {
                         window_handle.ok_or_else(|| {
                             "grab window request missing window handle".to_string()
                         })?,
-                    ),
+                    )?,
                     &image_mime_type,
                 )?)
             }
@@ -174,7 +174,7 @@ impl TestingClient {
                 self.state.dispatch_window_event(
                     handle_to_index(window_handle.ok_or_else(|| {
                         "window event dispatch request missing window handle".to_string()
-                    })?),
+                    })?)?,
                     convert_window_event(event.ok_or_else(|| {
                         "window event dispatch request missing event".to_string()
                     })?)?,
@@ -210,7 +210,7 @@ impl TestingClient {
     ) -> Result<ElementHandle, String> {
         let index = handle_to_index(
             element_handle.ok_or_else(|| format!("{request} missing element handle"))?,
-        );
+        )?;
         self.state.element(request, index)
     }
 
