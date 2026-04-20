@@ -80,5 +80,36 @@ slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.result, "(8)(9)");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+result, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("(0)(1)(2)", result)
+
+assertion.NoError(instance.SetResult(""))
+assertion.NoError(instance.SetScroll(-150.))
+slint_testing.SendMouseClick(instance, 5., 5.)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("(3)(4)", result)
+
+assertion.NoError(instance.SetResult(""))
+assertion.NoError(instance.SetScroll(-1000.))
+slint_testing.SendMouseClick(instance, 5., 5.)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("(10)(11)(12)", result)
+
+assertion.NoError(instance.SetResult(""))
+assertion.NoError(instance.SetScroll(-850.))
+slint_testing.SendMouseClick(instance, 5., 5.)
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal("(8)(9)", result)
+```
+
 
 */

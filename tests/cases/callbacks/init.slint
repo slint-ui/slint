@@ -123,5 +123,22 @@ slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.test_global_prop_value,  instance.expected_static_order + "|repeater0(i0)|repeater1(i1)");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+
+testGlobalPropValue, err := instance.GetTestGlobalPropValue()
+assertion.NoError(err)
+expectedStaticOrder, err := instance.GetExpectedStaticOrder()
+assertion.NoError(err)
+assertion.Equal(expectedStaticOrder+"|repeater0(i0)|repeater1(i1)", testGlobalPropValue)
+```
+
 
 */

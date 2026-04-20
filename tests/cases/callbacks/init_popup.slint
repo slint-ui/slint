@@ -44,5 +44,15 @@ slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.popup_created, 1);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+popupCreated, err := instance.GetPopupCreated()
+assertion.NoError(err)
+assertion.Equal(1, popupCreated)
+```
+
 
 */
