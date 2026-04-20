@@ -6,7 +6,6 @@ pub mod webview;
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "windows"))]
 mod gl_bindings {
     #![allow(unsafe_op_in_unsafe_fn)]
-
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
@@ -54,7 +53,7 @@ pub fn android_main(android_app: slint::android::AndroidApp) {
 }
 
 fn setup_slint_with_wgpu() {
-    use slint::wgpu_28::{self, WGPUConfiguration, WGPUSettings};
+    use slint::wgpu_28::{WGPUConfiguration, WGPUSettings};
 
     #[allow(unused_mut)]
     let mut wgpu_settings = WGPUSettings::default();
@@ -62,7 +61,7 @@ fn setup_slint_with_wgpu() {
     #[cfg(target_os = "windows")]
     {
         // Must be DX12 on Windows to support texture sharing from ANGLE's D3D11 via NT handles.
-        wgpu_settings.backends = wgpu_28::wgpu::Backends::DX12;
+        wgpu_settings.backends = slint::wgpu_28::wgpu::Backends::DX12;
     }
 
     slint::BackendSelector::new()
