@@ -861,7 +861,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
             return;
         };
 
-        let Some(string) = data.read(*mime_type).ok().and_then(|any_data| any_data.as_string())
+        let Some(string) = data.read(mime_type).ok().and_then(|any_data| any_data.as_string())
         else {
             eprintln!(
                 "Testing clipboard provided non-string data: {:?}",
