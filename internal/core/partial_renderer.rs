@@ -654,10 +654,8 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
         let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
         let draw = clipped_geom.is_some_and(|clipped_geom| {
-            let screen_geom = self
-                .current_transform()
-                .outer_transformed_rect(&clipped_geom.cast())
-                .cast();
+            let screen_geom =
+                self.current_transform().outer_transformed_rect(&clipped_geom.cast()).cast();
             self.dirty_region.draw_intersects(screen_geom)
         });
 

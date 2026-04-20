@@ -62,7 +62,10 @@ impl<'a> SkiaItemRenderer<'a> {
             window,
             surface,
             state_stack: Vec::new(),
-            current_state: RenderState { alpha: 1.0, transform: i_slint_core::lengths::ItemTransform::identity() },
+            current_state: RenderState {
+                alpha: 1.0,
+                transform: i_slint_core::lengths::ItemTransform::identity(),
+            },
             image_cache,
             layer_cache,
             path_cache,
@@ -802,8 +805,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     }
 
     fn translate(&mut self, distance: LogicalVector) {
-        self.current_state.transform =
-            self.current_state.transform.pre_translate(distance.cast());
+        self.current_state.transform = self.current_state.transform.pre_translate(distance.cast());
         let distance = distance * self.scale_factor;
         self.canvas.translate(skia_safe::Vector::from((distance.x, distance.y)));
     }
@@ -813,16 +815,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
-        self.current_state.transform = self
-            .current_state
-            .transform
-            .pre_rotate(euclid::Angle::degrees(angle_in_degrees));
+        self.current_state.transform =
+            self.current_state.transform.pre_rotate(euclid::Angle::degrees(angle_in_degrees));
         self.canvas.rotate(angle_in_degrees, None);
     }
 
     fn scale(&mut self, x_factor: f32, y_factor: f32) {
-        self.current_state.transform =
-            self.current_state.transform.pre_scale(x_factor, y_factor);
+        self.current_state.transform = self.current_state.transform.pre_scale(x_factor, y_factor);
         self.canvas.scale((x_factor, y_factor));
     }
 
