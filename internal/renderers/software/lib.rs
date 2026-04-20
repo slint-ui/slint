@@ -999,7 +999,7 @@ impl RendererSealed for SoftwareRenderer {
                     single_line: false,
                 };
 
-                visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
                 )
             }
@@ -1027,7 +1027,7 @@ impl RendererSealed for SoftwareRenderer {
                     single_line: false,
                 };
 
-                visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
                 )
             }
