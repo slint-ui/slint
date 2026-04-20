@@ -255,7 +255,36 @@ fn apply_interface_property_declaration(
 ) {
     let lookup_result = e.lookup_property(unresolved_prop_name);
 
+    fn find_conflicting_node(
+        e: &mut Element,
+        unresolved_prop_name: &SmolStr,
+    ) -> Option<parser::SyntaxNode> {
+        e.property_declarations.get(unresolved_prop_name).and_then(|decl| decl.node.clone())
+    }
+
     if lookup_result.property_type != Type::Invalid {
+        if lookup_result.is_local_to_component {
+            let property_type_name = match prop_decl.property_type {
+                Type::Invalid => Err(()),
+                Type::Callback { .. } => Ok("callback"),
+                Type::Function { .. } => Ok("function"),
+                _ => Ok("property"),
+            }
+            .expect("Expected valid property type");
+
+            let local_property_node = find_conflicting_node(e, unresolved_prop_name)
+                .expect("Expected local property to have a syntax node");
+
+            diag.push_error(
+                format!(
+                    "Conflict with '{}' which declares a {} with the same name",
+                    interface_name, property_type_name
+                ),
+                &local_property_node,
+            );
+            return;
+        }
+
         match property_matches_interface(&lookup_result, prop_decl) {
             Ok(()) => {
                 // The property already exists and matches the interface declaration, so we don't need to do anything.
@@ -264,11 +293,7 @@ fn apply_interface_property_declaration(
             Err(error) => {
                 // Attempt to find a node for the existing property for better diagnostics. If the property is not local
                 // to the component, we fall back to pointing at the implements specifier below.
-                if let Some(local_property_node) = e
-                    .property_declarations
-                    .get(unresolved_prop_name)
-                    .and_then(|decl| decl.node.clone())
-                {
+                if let Some(local_property_node) = find_conflicting_node(e, unresolved_prop_name) {
                     diag.push_error(
                         format!("Conflict with '{}' which {}", interface_name, error),
                         &local_property_node,
