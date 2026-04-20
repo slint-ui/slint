@@ -161,14 +161,10 @@ impl GPURenderingContext {
                     "Unknown"
                 }
             }
-             #[cfg(target_os = "android")]
+            #[cfg(target_os = "android")]
             {
                 use api::Vulkan;
-                if wgpu_device.as_hal::<Vulkan>().is_some() {
-                    "Vulkan"
-                } else {
-                    "Unknown"
-                }
+                if wgpu_device.as_hal::<Vulkan>().is_some() { "Vulkan" } else { "Unknown" }
             }
             #[cfg(target_vendor = "apple")]
             {
