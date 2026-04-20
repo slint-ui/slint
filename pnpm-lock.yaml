@@ -39,9 +39,6 @@ catalogs:
     rehype-external-links:
       specifier: 3.0.0
       version: 3.0.0
-    remark-parse:
-      specifier: 11.0.0
-      version: 11.0.0
     sharp:
       specifier: 0.34.5
       version: 0.34.5
@@ -51,12 +48,6 @@ catalogs:
     typescript:
       specifier: 6.0.3
       version: 6.0.3
-    unified:
-      specifier: 11.0.5
-      version: 11.0.5
-    unist-util-visit:
-      specifier: 5.1.0
-      version: 5.1.0
     vite:
       specifier: 8.0.10
       version: 8.0.10
@@ -156,9 +147,6 @@ importers:
       rehype-external-links:
         specifier: 'catalog:'
         version: 3.0.0
-      remark-parse:
-        specifier: 'catalog:'
-        version: 11.0.0
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
@@ -171,12 +159,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
-      unified:
-        specifier: 'catalog:'
-        version: 11.0.5
-      unist-util-visit:
-        specifier: 'catalog:'
-        version: 5.1.0
     devDependencies:
       '@playwright/test':
         specifier: 'catalog:'
