@@ -41,8 +41,8 @@ pub trait PlatformClipboard {
     fn read_any(
         &self,
         clipboard: crate::platform::Clipboard,
-        type_: std::any::TypeId,
-    ) -> Result<Rc<dyn std::any::Any>, PlatformError> {
+        type_: core::any::TypeId,
+    ) -> Result<Rc<dyn core::any::Any>, PlatformError> {
         let _ = clipboard;
         Err(PlatformError::ClipboardTypeNotFound(type_.into()))
     }

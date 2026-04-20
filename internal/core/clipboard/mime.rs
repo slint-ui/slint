@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use alloc::borrow::Cow;
 use core::fmt::{Debug, Display};
-use std::borrow::Cow;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Mime {
