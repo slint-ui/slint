@@ -17,7 +17,7 @@ export component Impl {
     @children
 }
 
-export component DerivedImplementsInterfaceImplicitly implements ValidInterface inherits Impl { }
+export component ComponentImplementsInterface implements ValidInterface inherits Impl { }
 
 export component IncorrectImpl {
     in-out property <float> value;
@@ -34,28 +34,32 @@ export component DerivedImplementsInterfaceIncorrectly implements ValidInterface
 //                                                                >             <^error{Cannot implement interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'IncorrectImpl'}
 //                                                                >             <^^error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
 
-export component ComponentImplementsInterfaceImplicitly implements ValidInterface {
+export component ComponentDeclaresInterfaceAPI implements ValidInterface {
     in-out property <int> value: 24;
+//  >                              <error{Conflict with 'ValidInterface' which declares a property with the same name}
     callback speak();
+//  >               <error{Conflict with 'ValidInterface' which declares a callback with the same name}
     public function reset() {
         self.value = 0;
     }
 }
 
-export component ComponentImplementsInterfaceImplicitlyWithTwoWayBinding implements ValidInterface {
+export component ComponentDeclaresInterfaceAPIWithTwoWayBinding implements ValidInterface {
     in-out property <int> other: 32;
     in-out property <int> value <=> self.other;
+//  >                                         <error{Conflict with 'ValidInterface' which declares a property with the same name}
     callback speak();
+//  >               <error{Conflict with 'ValidInterface' which declares a callback with the same name}
     public function reset() {
         self.value = 0;
     }
 }
 
-export component ComponentImplementsInterfaceIncorrectly implements ValidInterface {
+export component ComponentDeclaresInterfaceAPIIncorrectly implements ValidInterface {
     in-out property <float> value;
-//  >                            <error{Conflict with 'ValidInterface' which expected type: 'int'}
+//  >                            <error{Conflict with 'ValidInterface' which declares a property with the same name}
     callback speak(string);
-//  >                     <error{Conflict with 'ValidInterface' which expected type: 'callback-> void'}
+//  >                     <error{Conflict with 'ValidInterface' which declares a callback with the same name}
     public function reset(to: float) {
 //  >error{Incorrect arguments for implementation of 'reset' from interface 'ValidInterface'. Expected () but got (float)}
         self.value = to;
