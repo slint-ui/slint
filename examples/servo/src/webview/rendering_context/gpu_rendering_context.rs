@@ -35,24 +35,17 @@ impl Drop for GPURenderingContext {
 impl GPURenderingContext {
     pub fn new(
         size: PhysicalSize<u32>,
-        _wgpu_device: &wgpu::Device,
+        wgpu_device: &wgpu::Device,
     ) -> Result<Self, surfman::Error> {
-        let connection = Connection::new()?;
+        Self::print_wgpu_backend(wgpu_device);
 
-        // On Windows, surfman's create_adapter() calls create_hardware_adapter() which uses
-        // VendorPreference::Avoid(INTEL_PCI_ID). On systems with only an Intel GPU, this
-        // causes surfman to skip Intel and select the WARP software renderer instead
-        // (Microsoft Basic Render Driver, VendorId 0x1414 != 0x8086).
-        //
-        // Using create_low_power_adapter() reverses this: it prefers Intel (VendorId 0x8086),
-        // ensuring we always pick hardware over WARP. On systems without Intel, it falls back
-        // to the first adapter (which is the discrete GPU).
-        #[cfg(target_os = "windows")]
-        let adapter =
-            connection.create_low_power_adapter().or_else(|_| connection.create_adapter())?;
+        let connection = Connection::new()?;
 
         #[cfg(not(target_os = "windows"))]
         let adapter = connection.create_adapter()?;
+
+        #[cfg(target_os = "windows")]
+        let adapter = Self::pick_synchronized_adapter(&connection, wgpu_device)?;
 
         let surfman_rendering_info = SurfmanRenderingContext::new(&connection, &adapter)?;
 
@@ -77,6 +70,103 @@ impl GPURenderingContext {
             #[cfg(target_os = "windows")]
             d3d11_state,
         })
+    }
+
+    #[cfg(target_os = "windows")]
+    fn pick_synchronized_adapter(
+        connection: &Connection,
+        wgpu_device: &wgpu::Device,
+    ) -> Result<surfman::Adapter, surfman::Error> {
+        // On Windows, Slint and Surfman must use the exact same physical GPU (LUID)
+        // to enable zero-copy texture sharing via shared handles.
+        // This requires WGPU to be running on the DX12 backend.
+        let wgpu_luid = unsafe {
+            use slint::wgpu_28::wgpu::hal::api::Dx12;
+            wgpu_device
+                .as_hal::<Dx12>()
+                .ok_or(surfman::Error::Failed)?
+                .raw_device()
+                .GetAdapterLuid()
+        };
+
+        use windows::{
+            Win32::Graphics::{Direct3D11::ID3D11Device, Dxgi},
+            core::{IUnknown, Interface},
+        };
+
+        // We iterate through Surfman's adapter presets to find the one that matches WGPU's selection.
+        for create_adapter_fn in &[
+            Connection::create_hardware_adapter
+                as fn(&Connection) -> Result<surfman::Adapter, surfman::Error>,
+            Connection::create_low_power_adapter,
+            Connection::create_adapter,
+        ] {
+            if let Ok(surfman_adapter) = create_adapter_fn(connection) {
+                // To verify the match, we create a temporary device and extract its D3D11 LUID.
+                if let Ok(temp_device) = connection.create_device(&surfman_adapter) {
+                    let d3d11_device_ptr = temp_device.native_device().d3d11_device;
+                    let d3d11_device: ID3D11Device =
+                        unsafe { IUnknown::from_raw(d3d11_device_ptr as *mut _).cast().unwrap() };
+
+                    let surfman_luid = unsafe {
+                        d3d11_device
+                            .cast::<Dxgi::IDXGIDevice>()
+                            .unwrap()
+                            .GetAdapter()
+                            .unwrap()
+                            .GetDesc()
+                            .unwrap()
+                            .AdapterLuid
+                    };
+
+                    // Compare the Surfman LUID with the WGPU LUID.
+                    if surfman_luid.HighPart == wgpu_luid.HighPart
+                        && surfman_luid.LowPart == wgpu_luid.LowPart
+                    {
+                        return Ok(surfman_adapter);
+                    }
+                }
+            }
+        }
+
+        Err(surfman::Error::NoAdapterFound)
+    }
+
+    fn print_wgpu_backend(wgpu_device: &wgpu::Device) {
+        let backend = unsafe {
+            use slint::wgpu_28::wgpu::hal::api;
+
+            #[cfg(target_os = "windows")]
+            {
+                use api::{Dx12, Gles, Vulkan};
+                if wgpu_device.as_hal::<Dx12>().is_some() {
+                    "DirectX 12"
+                } else if wgpu_device.as_hal::<Vulkan>().is_some() {
+                    "Vulkan"
+                } else if wgpu_device.as_hal::<Gles>().is_some() {
+                    "OpenGL"
+                } else {
+                    "Unknown"
+                }
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            {
+                use api::{Gles, Vulkan};
+                if wgpu_device.as_hal::<Vulkan>().is_some() {
+                    "Vulkan"
+                } else if wgpu_device.as_hal::<Gles>().is_some() {
+                    "OpenGL"
+                } else {
+                    "Unknown"
+                }
+            }
+            #[cfg(target_vendor = "apple")]
+            {
+                use api::Metal;
+                if wgpu_device.as_hal::<Metal>().is_some() { "Metal" } else { "Unknown" }
+            }
+        };
+        eprintln!("[GPU] Active WGPU backend: {}", backend);
     }
 
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
