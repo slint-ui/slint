@@ -20,7 +20,7 @@ name = "test-driver-screenshot"
 [features]
 default = ["skia", "software"]
 software = ["slint/renderer-software", "dep:i-slint-compiler"]
-skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter", "dep:raw-window-handle"]
+skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
@@ -31,7 +31,6 @@ slint-interpreter = { workspace = true, features = ["display-diagnostics", "comp
 
 image = { workspace = true }
 crossterm = "0.29"
-raw-window-handle = { version = "0.6", features = ["std"], optional = true }
 
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"], optional = true }

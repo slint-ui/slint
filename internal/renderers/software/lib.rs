@@ -3090,8 +3090,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         self.current_state.clip = self.current_state.clip.translate(-distance)
     }
 
-    fn translation(&self) -> LogicalVector {
-        self.current_state.offset.to_vector()
+    fn current_transform(&self) -> i_slint_core::lengths::ItemTransform {
+        let v = self.current_state.offset.to_vector().cast::<f32>();
+        i_slint_core::lengths::ItemTransform::translation(v.x, v.y)
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {
