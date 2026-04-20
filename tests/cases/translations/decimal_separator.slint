@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that the correct decimal separator is used when specifying a locale
+
+export component TestCase {
+    in-out property <string> the-decimal-separator: Platform.decimal-separator;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+instance;
+// assert_eq!(instance.get_the_decimal_separator(), "."); // We didn't set any decimal separator yet
+
+// assert!(slint::select_bundled_translation("de"));
+// assert_eq!(instance.get_the_decimal_separator(), ",");
+
+// assert!(slint::select_bundled_translation("en"));
+// assert_eq!(instance.get_the_decimal_separator(), ".");
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_the_decimal_separator(), ".");
+
+assert(slint::select_bundled_translation("de"));
+assert_eq(instance.get_the_decimal_separator(), ",");
+
+assert(slint::select_bundled_translation("en"));
+assert_eq(instance.get_the_decimal_separator(), ".");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.the_decimal_separator, ".");
+```
+*/

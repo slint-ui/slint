@@ -26,6 +26,12 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                                 .unwrap_or(&type_loader.resolved_style)
                         });
                     *e = Expression::StringLiteral(style.into());
+                } else if nr.name() == "decimal-separator" {
+                    *e = Expression::FunctionCall {
+                        function: BuiltinFunction::DecimalSeparator.into(),
+                        arguments: Vec::new(),
+                        source_location: None,
+                    }
                 }
             }
             Expression::FunctionCall { function, .. }
