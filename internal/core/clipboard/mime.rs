@@ -2,11 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use alloc::borrow::Cow;
-use core::fmt::{Debug, Display};
+use core::{
+    any::TypeId,
+    fmt::{Debug, Display},
+};
+
+use alloc::format;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Mime {
     inner: Cow<'static, str>,
+}
+
+impl From<TypeId> for Mime {
+    fn from(value: TypeId) -> Self {
+        Self { inner: format!("#{value:?}").into() }
+    }
 }
 
 impl Display for Mime {

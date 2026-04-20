@@ -57,17 +57,9 @@ impl PlatformClipboard for TestingPlatformClipboard {
     fn has_type(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        type_: &i_slint_core::clipboard::ClipboardType,
+        type_: &i_slint_core::clipboard::mime::Mime,
     ) -> bool {
-        // Need to add this useless `if` since otherwise `let` patterns don't work
-        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard
-            && let i_slint_core::clipboard::ClipboardType::External(mime) = type_
-            && mime.is_plaintext()
-        {
-            true
-        } else {
-            false
-        }
+        clipboard == i_slint_core::platform::Clipboard::DefaultClipboard && type_.is_plaintext()
     }
 
     fn read_string(

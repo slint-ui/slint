@@ -1301,7 +1301,7 @@ pub enum PlatformError {
     OtherError(Box<dyn std::error::Error + Send + Sync>),
 
     /// `read_*` was called on [`ClipboardData`], but no value of that type was provided. Consider calling [`ClipboardData::has_type`].
-    ClipboardTypeNotFound(crate::clipboard::ClipboardType),
+    ClipboardTypeNotFound(crate::clipboard::mime::Mime),
 }
 
 #[cfg(target_arch = "wasm32")]
