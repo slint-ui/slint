@@ -1885,9 +1885,12 @@ pub struct ToolTip {
 impl Item for ToolTip {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1971,7 +1974,7 @@ impl ItemConsts for ToolTip {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ToolTip,
         CachedRenderingData,
-    > = ToolTip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ToolTip::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
