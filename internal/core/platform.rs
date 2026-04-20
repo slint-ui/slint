@@ -145,7 +145,14 @@ pub trait Platform {
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
-        self.clipboard().read_plaintext(clipboard).ok().map(|string| string.into())
+        let data = self.clipboard().get(clipboard).ok()?;
+        let data_for_mime_types = data.clone();
+        let mime_type = data_for_mime_types
+            .mime_types()
+            .iter()
+            .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
+
+        data.read(mime_type).ok()?.as_string().map(|string| string.into())
     }
 
     /// This function is called when debug() is used in .slint files. The implementation

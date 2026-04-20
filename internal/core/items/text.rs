@@ -1968,11 +1968,22 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        if let Ok(text) = WindowInner::from_pub(window_adapter.window())
+        if let Some(text) = WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
             .clipboard()
-            .read_plaintext(clipboard)
+            .get(clipboard)
+            .ok()
+            .and_then(|data| {
+                let data_for_mime_types = data.clone();
+                let mime_type = data_for_mime_types
+                    .mime_types()
+                    .iter()
+                    .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
+
+                data.read(mime_type).ok()
+            })
+            .and_then(|any_data| any_data.as_string())
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

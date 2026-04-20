@@ -1300,9 +1300,8 @@ pub enum PlatformError {
     #[cfg(feature = "std")]
     OtherError(Box<dyn std::error::Error + Send + Sync>),
 
-    /// `read_*` was called on [`ClipboardData`](crate::clipboard::ClipboardData), but no value of that type was provided. Consider
-    /// calling [`ClipboardData::has_type`](crate::clipboard::ClipboardData::has_type).
-    ClipboardTypeNotFound(crate::clipboard::mime::Mime),
+    /// [`ClipboardData::read`](crate::clipboard::ClipboardData::read) was called, but no value of that type was provided.
+    ClipboardTypeNotFound(String),
 }
 
 #[cfg(target_arch = "wasm32")]

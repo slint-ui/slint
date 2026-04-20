@@ -799,38 +799,41 @@ impl PlatformClipboard for WinitPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        value: Rc<dyn i_slint_core::clipboard::ClipboardData>,
+        data: Rc<dyn i_slint_core::clipboard::ClipboardData>,
     ) {
-        match value.read_plaintext() {
-            Ok(value) => {
-                crate::wasm_input_helper::set_clipboard_text(value.into(), clipboard);
-            }
-            Err(e) => {
-                eprintln!("Could not read clipboard item as string: {e}");
-            }
-        }
+        use i_slint_core::clipboard::mime;
+
+        let data_for_mime_types = data.clone();
+        let Some(mime_type) = data_for_mime_types
+            .mime_types()
+            .iter()
+            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        else {
+            return;
+        };
+
+        let Some(string) = data.read(mime_type).ok().and_then(|any_data| any_data.as_string())
+        else {
+            eprintln!(
+                "Testing clipboard provided non-string data: {:?}",
+                data_for_mime_types.mime_types()
+            );
+            return;
+        };
+
+        crate::wasm_input_helper::set_clipboard_text(string.into(), clipboard);
     }
 
-    fn read_string(
+    fn get(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> Result<i_slint_core::SharedString, PlatformError> {
-        if !self.has_type(clipboard.clone(), type_) {
-            return Err(PlatformError::ClipboardTypeNotFound(type_.clone()));
-        }
+    ) -> Result<Rc<dyn i_slint_core::clipboard::ClipboardData>, PlatformError> {
+        use i_slint_core::SharedString;
 
-        crate::wasm_input_helper::get_clipboard_text(clipboard)
-            .map(Into::into)
-            .ok_or_else(|| PlatformError::ClipboardTypeNotFound(type_.clone()))
-    }
-
-    fn has_type(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> bool {
-        type_.is_plaintext() && crate::wasm_input_helper::has_clipboard_text(clipboard)
+        Ok(crate::wasm_input_helper::get_clipboard_text(clipboard).map_or_else(
+            || Rc::new(()) as Rc<dyn i_slint_core::clipboard::ClipboardData>,
+            |string| Rc::new(SharedString::from(string)),
+        ))
     }
 }
 
@@ -839,48 +842,51 @@ impl PlatformClipboard for WinitPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        value: Rc<dyn i_slint_core::clipboard::ClipboardData>,
+        data: Rc<dyn i_slint_core::clipboard::ClipboardData>,
     ) {
+        use i_slint_core::clipboard::mime;
+
         let mut pair = self.0.borrow_mut();
         let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
             eprintln!("Unknown clipboard: {clipboard:?}");
             return;
         };
 
-        match value.read_plaintext() {
-            Ok(value) => {
-                if let Err(e) = clipboard.set_contents(value.into()) {
-                    eprintln!("Error writing clipboard: {e}");
-                }
-            }
-            Err(e) => {
-                eprintln!("Could not read clipboard item as string: {e}");
-            }
+        let data_for_mime_types = data.clone();
+        let Some(mime_type) = data_for_mime_types
+            .mime_types()
+            .iter()
+            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        else {
+            return;
+        };
+
+        let Some(string) = data.read(*mime_type).ok().and_then(|any_data| any_data.as_string())
+        else {
+            eprintln!(
+                "Testing clipboard provided non-string data: {:?}",
+                data_for_mime_types.mime_types()
+            );
+            return;
+        };
+
+        if let Err(e) = clipboard.set_contents(string.into()) {
+            eprintln!("Error writing clipboard: {e}");
         }
     }
 
-    fn read_string(
+    fn get(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> Result<i_slint_core::SharedString, PlatformError> {
-        if !self.has_type(clipboard.clone(), type_) {
-            return Err(PlatformError::ClipboardTypeNotFound(type_.clone()));
-        }
+    ) -> Result<Rc<dyn i_slint_core::clipboard::ClipboardData>, PlatformError> {
+        use i_slint_core::SharedString;
 
         let mut pair = self.0.borrow_mut();
-        let clipboard = clipboard::select_clipboard(&mut pair, clipboard.clone())
-            .ok_or_else(|| PlatformError::Other(format!("Unknown clipboard: {clipboard:?}")))?;
+        let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
+            return Err(PlatformError::Other(format!("No such clipboard {clipboard:?}")));
+        };
 
-        Ok(clipboard.get_contents()?.into())
-    }
-
-    fn has_type(
-        &self,
-        _: i_slint_core::platform::Clipboard,
-        type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> bool {
-        type_.is_plaintext()
+        Ok(Rc::new(SharedString::from(clipboard.get_contents()?)))
     }
 }
 

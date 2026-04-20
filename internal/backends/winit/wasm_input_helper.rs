@@ -324,20 +324,17 @@ fn event_text(e: &web_sys::KeyboardEvent, is_apple: bool) -> Option<SharedString
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WASM_CLIPBOARD_DATA : for<'a> &'a RefCell<String>);
 
 pub(crate) fn set_clipboard_text(data: String, clipboard: i_slint_core::platform::Clipboard) {
-    if has_clipboard_text(clipboard) {
+    if matches!(clipboard, i_slint_core::platform::Clipboard::DefaultClipboard) {
         CURRENT_WASM_CLIPBOARD_DATA.with(|current_data| *current_data.borrow_mut() = data)
     }
 }
 
 pub(crate) fn get_clipboard_text(clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-    if has_clipboard_text(clipboard) {
+    if CURRENT_WASM_CLIPBOARD_DATA.is_set()
+        && matches!(clipboard, i_slint_core::platform::Clipboard::DefaultClipboard)
+    {
         Some(CURRENT_WASM_CLIPBOARD_DATA.with(|current_data| current_data.borrow().clone()))
     } else {
         None
     }
-}
-
-pub(crate) fn has_clipboard_text(clipboard: i_slint_core::platform::Clipboard) -> bool {
-    CURRENT_WASM_CLIPBOARD_DATA.is_set()
-        && matches!(clipboard, i_slint_core::platform::Clipboard::DefaultClipboard)
 }
