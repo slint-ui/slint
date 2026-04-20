@@ -13,7 +13,6 @@ export default defineConfig({
         target: "chrome58",
         rollupOptions: {
             output: {
-                manualChunks: {},
                 entryFileNames: "code.js",
             },
             input: "./backend/code.ts",
