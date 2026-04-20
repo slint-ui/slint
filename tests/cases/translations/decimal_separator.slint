@@ -11,14 +11,13 @@ export component TestCase {
 
 ```rust
 let instance = TestCase::new().unwrap();
-instance;
-// assert_eq!(instance.get_the_decimal_separator(), "."); // We didn't set any decimal separator yet
+assert_eq!(instance.get_the_decimal_separator(), "."); // We didn't set any decimal separator yet
 
-// assert!(slint::select_bundled_translation("de"));
-// assert_eq!(instance.get_the_decimal_separator(), ",");
+assert!(slint::select_bundled_translation("fr").is_ok());
+assert_eq!(instance.get_the_decimal_separator(), ",");
 
-// assert!(slint::select_bundled_translation("en"));
-// assert_eq!(instance.get_the_decimal_separator(), ".");
+assert!(slint::select_bundled_translation("en").is_ok());
+assert_eq!(instance.get_the_decimal_separator(), ".");
 
 ```
 
