@@ -5342,7 +5342,6 @@ dependencies = [
  "lyon_extra",
  "lyon_geom",
  "lyon_path",
- "mime",
  "num-traits",
  "once_cell",
  "parley 0.8.0",
