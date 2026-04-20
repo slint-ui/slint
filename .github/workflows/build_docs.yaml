@@ -96,7 +96,7 @@ jobs:
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.1
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -192,7 +192,7 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.1
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
