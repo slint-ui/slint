@@ -422,11 +422,9 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(
-        (Rc<dyn WindowAdapter>, Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>),
-    ),
+    TopLevel(Rc<dyn WindowAdapter>),
     /// The popup is rendered as an embedded child window at the given position.
-    ChildWindow((LogicalPoint, Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>)),
+    ChildWindow(LogicalPoint),
 }
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
@@ -450,6 +448,8 @@ pub struct PopupWindow {
     /// Callback that returns the current desired logical position of the popup.
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     position_access: Box<dyn Fn() -> LogicalPosition>,
+    // tracks all relevant properties and reacts on changes
+    properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
 }
 
 #[pin_project::pin_project]
@@ -661,7 +661,7 @@ impl WindowInner {
         let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
-            if let PopupWindowLocation::TopLevel((wa, _)) = &p.location {
+            if let PopupWindowLocation::TopLevel(wa) = &p.location {
                 Rc::ptr_eq(wa, &window_adapter)
             } else {
                 false
@@ -674,7 +674,7 @@ impl WindowInner {
 
         let mut popup_to_close = active_popups.borrow().last().and_then(|popup| {
             let mouse_inside_popup = || {
-                if let PopupWindowLocation::ChildWindow((coordinates, _)) = &popup.location {
+                if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     event.position().is_none_or(|pos| {
                         ItemTreeRc::borrow_pin(&popup.component)
                             .as_ref()
@@ -712,7 +712,7 @@ impl WindowInner {
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
                 item_tree = None;
                 menubar_item = None;
-                if let PopupWindowLocation::ChildWindow((coordinates, _)) = &popup.location {
+                if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
                         .position()
@@ -1015,7 +1015,7 @@ impl WindowInner {
         }
 
         let popup_wa = self.active_popups.borrow().last().and_then(|p| match &p.location {
-            PopupWindowLocation::TopLevel((wa, _)) => Some(wa.clone()),
+            PopupWindowLocation::TopLevel(wa) => Some(wa.clone()),
             PopupWindowLocation::ChildWindow(..) => None,
         });
         if let Some(popup_wa) = popup_wa {
@@ -1226,9 +1226,9 @@ impl WindowInner {
         let mut active_popups = self.active_popups.borrow_mut();
         let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
         match &mut popup.location {
-            PopupWindowLocation::ChildWindow((location, tracker)) => {
+            PopupWindowLocation::ChildWindow(location) => {
                 *location = (popup.position_access)().to_euclid();
-                tracker.as_ref().evaluate_as_dependency_root(|| {
+                popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
                     (popup.position_access)();
                     let component = ItemTreeRc::borrow_pin(&popup.component);
                     let root_item = component.as_ref().get_item_ref(0);
@@ -1241,10 +1241,10 @@ impl WindowInner {
                     adapter.request_redraw();
                 }
             }
-            PopupWindowLocation::TopLevel((adapter, tracker)) => {
+            PopupWindowLocation::TopLevel(adapter) => {
                 // The size is already tracked in the windowadapter
                 let mut new_position = None;
-                tracker.as_ref().evaluate_as_dependency_root(|| {
+                popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
                     new_position = Some((popup.position_access)());
                 });
                 if let Some(pos) = new_position {
@@ -1279,7 +1279,8 @@ impl WindowInner {
                         // If the popup is not a real window and does not have its own coordinate system.
                         // We have to draw the popup and consider the location for subelements because everything must
                         // be rendered relative to the main window position
-                        if let PopupWindowLocation::ChildWindow((location, _)) = &popup.location {
+                        if let PopupWindowLocation::ChildWindow(location) = &popup.location {
+                            println!("draw_contents. Location: {:?}", location);
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
                     }
@@ -1402,7 +1403,7 @@ impl WindowInner {
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
-        popup_access_position: Rc<dyn Fn() -> LogicalPosition>,
+        popup_access_position: Box<dyn Fn() -> LogicalPosition>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         is_menu: bool,
@@ -1485,7 +1486,7 @@ impl WindowInner {
         {
             // Popup in a popup
             match &parent_popup.location {
-                PopupWindowLocation::TopLevel((wa, _)) => wa.clone(),
+                PopupWindowLocation::TopLevel(wa) => wa.clone(),
                 PopupWindowLocation::ChildWindow(_) => self.window_adapter(),
             }
         } else {
@@ -1494,6 +1495,7 @@ impl WindowInner {
 
         // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
         // of the current window
+        let properties_tracker;
         let location = match parent_window_adapter
             .internal(crate::InternalToken)
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
@@ -1508,25 +1510,25 @@ impl WindowInner {
                     &Some(clip),
                 );
                 self.window_adapter().request_redraw();
-                let tracker = Box::pin(PropertyTracker::new_with_dirty_handler(
+                properties_tracker = Box::pin(PropertyTracker::new_with_dirty_handler(
                     PopupWindowPropertiesTracker {
                         parent_window_adapter_weak: parent_window_adapter_weak.clone(),
                         popup_id,
                     },
                 ));
 
-                PopupWindowLocation::ChildWindow((rect.origin, tracker))
+                PopupWindowLocation::ChildWindow(rect.origin)
             }
             Some(window_adapter) => {
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                let tracker = Box::pin(PropertyTracker::new_with_dirty_handler(
+                properties_tracker = Box::pin(PropertyTracker::new_with_dirty_handler(
                     PopupWindowPropertiesTracker {
                         parent_window_adapter_weak: parent_window_adapter_weak.clone(),
                         popup_id,
                     },
                 ));
 
-                PopupWindowLocation::TopLevel((window_adapter, tracker))
+                PopupWindowLocation::TopLevel(window_adapter)
             }
         };
 
@@ -1544,6 +1546,7 @@ impl WindowInner {
             parent_item: parent_item.downgrade(),
             is_menu,
             position_access: popup_access_position,
+            properties_tracker,
         });
 
         self.update_popup_properties(popup_id);
@@ -1576,7 +1579,7 @@ impl WindowInner {
     // Close the popup associated with the given popup window.
     fn close_popup_impl(&self, current_popup: &PopupWindow) {
         match &current_popup.location {
-            PopupWindowLocation::ChildWindow((offset, _)) => {
+            PopupWindowLocation::ChildWindow(offset) => {
                 // Refresh the area that was previously covered by the popup.
                 let popup_region = crate::properties::evaluate_no_tracking(|| {
                     let popup_component = ItemTreeRc::borrow_pin(&current_popup.component);
@@ -1590,7 +1593,7 @@ impl WindowInner {
                     window_adapter.request_redraw();
                 }
             }
-            PopupWindowLocation::TopLevel((adapter, _)) => {
+            PopupWindowLocation::TopLevel(adapter) => {
                 let _ = adapter.set_visible(false);
             }
         }
