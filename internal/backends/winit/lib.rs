@@ -794,8 +794,8 @@ struct WinitPlatformClipboard;
 #[cfg(not(target_arch = "wasm32"))]
 struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
 
+#[cfg(target_arch = "wasm32")]
 impl PlatformClipboard for WinitPlatformClipboard {
-    #[cfg(target_arch = "wasm32")]
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
@@ -811,7 +811,31 @@ impl PlatformClipboard for WinitPlatformClipboard {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    fn read_string(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::mime::Mime,
+    ) -> Result<i_slint_core::SharedString, PlatformError> {
+        if !self.has_type(clipboard.clone(), type_) {
+            return Err(PlatformError::ClipboardTypeNotFound(type_.clone()));
+        }
+
+        crate::wasm_input_helper::get_clipboard_text(clipboard)
+            .map(Into::into)
+            .ok_or_else(|| PlatformError::ClipboardTypeNotFound(type_.clone()))
+    }
+
+    fn has_type(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::mime::Mime,
+    ) -> bool {
+        type_.is_plaintext() && crate::wasm_input_helper::has_clipboard_text(clipboard)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PlatformClipboard for WinitPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
@@ -835,21 +859,13 @@ impl PlatformClipboard for WinitPlatformClipboard {
         }
     }
 
-    fn has_type(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        type_: &i_slint_core::clipboard::mime::Mime,
-    ) -> bool {
-        clipboard == i_slint_core::platform::Clipboard::DefaultClipboard && type_.is_plaintext()
-    }
-
     fn read_string(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
         type_: &i_slint_core::clipboard::mime::Mime,
     ) -> Result<i_slint_core::SharedString, PlatformError> {
-        if !self.has_type(clipboard.clone(), &type_.clone().into()) {
-            return Err(PlatformError::ClipboardTypeNotFound(type_.clone().into()));
+        if !self.has_type(clipboard.clone(), type_) {
+            return Err(PlatformError::ClipboardTypeNotFound(type_.clone()));
         }
 
         let mut pair = self.0.borrow_mut();
@@ -857,6 +873,14 @@ impl PlatformClipboard for WinitPlatformClipboard {
             .ok_or_else(|| PlatformError::Other(format!("Unknown clipboard: {clipboard:?}")))?;
 
         Ok(clipboard.get_contents()?.into())
+    }
+
+    fn has_type(
+        &self,
+        _: i_slint_core::platform::Clipboard,
+        type_: &i_slint_core::clipboard::mime::Mime,
+    ) -> bool {
+        type_.is_plaintext()
     }
 }
 
