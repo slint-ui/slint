@@ -20,7 +20,7 @@ pub trait PlatformClipboard {
         clipboard: crate::platform::Clipboard,
     ) -> Result<SharedString, PlatformError> {
         for mime_type in [Mime::TEXT_PLAIN_UTF_8, Mime::TEXT_PLAIN] {
-            if self.has_type(clipboard.clone(), &mime_type.clone().into()) {
+            if self.has_type(clipboard.clone(), &mime_type) {
                 return self.read_string(clipboard.clone(), &mime_type);
             }
         }
@@ -106,11 +106,10 @@ impl ClipboardData for SharedString {
     }
 
     fn read_string(self: Rc<Self>, type_: &Mime) -> Result<SharedString, PlatformError> {
-        let clipboard_type = type_.clone().into();
-        if self.has_type(&clipboard_type) {
+        if self.has_type(type_) {
             Ok((*self).clone())
         } else {
-            Err(PlatformError::ClipboardTypeNotFound(clipboard_type))
+            Err(PlatformError::ClipboardTypeNotFound(type_.clone()))
         }
     }
 }

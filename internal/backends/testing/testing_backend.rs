@@ -67,8 +67,8 @@ impl PlatformClipboard for TestingPlatformClipboard {
         clipboard: i_slint_core::platform::Clipboard,
         type_: &i_slint_core::clipboard::mime::Mime,
     ) -> Result<SharedString, PlatformError> {
-        if !self.has_type(clipboard, &type_.clone().into()) {
-            return Err(PlatformError::ClipboardTypeNotFound(type_.clone().into()));
+        if !self.has_type(clipboard, type_) {
+            return Err(PlatformError::ClipboardTypeNotFound(type_.clone()));
         }
 
         self.clipboard
@@ -76,7 +76,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
             .unwrap()
             .as_ref()
             .map(|str| str.clone())
-            .ok_or_else(|| PlatformError::ClipboardTypeNotFound(type_.clone().into()))
+            .ok_or_else(|| PlatformError::ClipboardTypeNotFound(type_.clone()))
     }
 }
 
