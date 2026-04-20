@@ -124,12 +124,10 @@ impl SkiaWGPURenderer {
     ) -> Result<(), PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let mut skia_surface = self
-            .backend
-            .make_surface_from_texture(width, height, gr_context, texture)
-            .ok_or_else(|| {
-                PlatformError::from("Failed to wrap WGPU texture as Skia render target")
-            })?;
+        let mut skia_surface =
+            self.backend.make_surface_from_texture(width, height, gr_context, texture).ok_or_else(
+                || PlatformError::from("Failed to wrap WGPU texture as Skia render target"),
+            )?;
 
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();
@@ -156,10 +154,9 @@ impl SkiaWGPURenderer {
         // Transition any imported wgpu textures to sampling state before submitting.
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
         if !textures_to_transition.is_empty() {
-            let mut encoder =
-                self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Skia texture transition encoder"),
-                });
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia texture transition encoder"),
+            });
             encoder.transition_resources(
                 std::iter::empty(),
                 textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
@@ -228,7 +225,11 @@ impl crate::Surface for TextureSurface<'_> {
         &self,
         _: &i_slint_core::api::Window,
         _: PhysicalWindowSize,
-        _: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>, u8) -> Option<DirtyRegion>,
+        _: &dyn Fn(
+            &skia_safe::Canvas,
+            Option<&mut skia_safe::gpu::DirectContext>,
+            u8,
+        ) -> Option<DirtyRegion>,
         _: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), PlatformError> {
         Err("TextureSurface does not support render() — use render_to_texture() instead".into())
