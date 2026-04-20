@@ -72,6 +72,7 @@ export component ComboBox {
         spacing: 16px;
 
         label := Text {
+            horizontal-stretch: 1;
             text <=> root.current-value;
             color: MaterialPalette.control-foreground;
             vertical-alignment: center;
@@ -79,6 +80,7 @@ export component ComboBox {
             // font-family: MaterialFontSettings.body-large.font;
             font-size: MaterialFontSettings.body-large.font-size;
             font-weight: MaterialFontSettings.body-large.font-weight;
+            overflow: elide;
             accessible-role: none;
         }
 
