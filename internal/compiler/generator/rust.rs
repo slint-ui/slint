@@ -3293,7 +3293,7 @@ fn compile_builtin_function_call(
                     }
 
                     let popup_instance_vrc_for_position = popup_instance_vrc.clone();
-                    let access_position = sp::Rc::new(move || {
+                    let access_position = sp::Box::new(move || {
                         let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
                     });
 
@@ -3395,7 +3395,7 @@ fn compile_builtin_function_call(
 
             let slint_show = quote! {
                 #close_popup
-                let access_position = sp::Rc::new(move || position);
+                let access_position = sp::Box::new(move || position);
                 let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
                     access_position,
