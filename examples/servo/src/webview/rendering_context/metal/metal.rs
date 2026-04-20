@@ -19,6 +19,41 @@ use slint::wgpu_28::wgpu;
 
 use super::ServoTextureImporter;
 
+impl super::super::GPURenderingContext {
+    /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
+    /// Unbinds the surface, converts to WGPU texture, then rebinds it.
+    #[cfg(target_vendor = "apple")]
+    pub fn get_wgpu_texture_from_metal(
+        &self,
+        wgpu_device: &wgpu::Device,
+        wgpu_queue: &wgpu::Queue,
+    ) -> Result<wgpu::Texture, surfman::Error> {
+        use super::metal::WPGPUTextureFromMetal;
+
+        let device = &self.surfman_rendering_info.device.borrow();
+        let mut context = self.surfman_rendering_info.context.borrow_mut();
+
+        let surface = device.unbind_surface_from_context(&mut context)?.unwrap();
+
+        let size = self.size.get();
+
+        let wgpu_texture = WPGPUTextureFromMetal::new(size, wgpu_device).get(
+            wgpu_device,
+            wgpu_queue,
+            device,
+            &surface,
+        );
+
+        let _ =
+            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
+                let _ = device.destroy_surface(&mut context, &mut surface);
+                err
+            });
+
+        Ok(wgpu_texture)
+    }
+}
+
 /// WGPU texture wrapper for Metal IOSurface textures.
 ///
 /// This struct provides functionality to create WGPU textures from Metal IOSurfaces
