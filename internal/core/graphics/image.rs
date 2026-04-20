@@ -995,7 +995,37 @@ impl BorrowedOpenGLTextureBuilder {
     /// different windows.
     #[allow(unsafe_code)]
     pub unsafe fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
-        Self(BorrowedOpenGLTexture { texture_id, size, origin: Default::default() })
+        Self(BorrowedOpenGLTexture {
+            texture_id,
+            size,
+            external: false,
+            origin: Default::default(),
+        })
+    }
+
+    /// Generates the base configuration for a borrowed OpenGL texture that is marked as external.
+    ///
+    /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
+    /// for the pixel data.
+    ///
+    /// By default, when Slint renders the texture, it assumes that the origin of the texture is at the top-left.
+    /// This is different from the default OpenGL coordinate system. Use the `mirror_vertically` function
+    /// to reconfigure this.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because invalid texture ids may lead to undefined behavior in OpenGL
+    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
+    /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
+    /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
+    /// [`slint::Image`](Image) objects created from borrowed OpenGL textures cannot be shared between
+    /// different windows.
+    #[allow(unsafe_code)]
+    pub unsafe fn new_gl_2d_external_rgba_texture(
+        texture_id: core::num::NonZeroU32,
+        size: IntSize,
+    ) -> Self {
+        Self(BorrowedOpenGLTexture { texture_id, size, external: true, origin: Default::default() })
     }
 
     /// Configures the texture to be rendered vertically mirrored.
@@ -1467,6 +1497,8 @@ pub struct BorrowedOpenGLTexture {
     pub size: IntSize,
     /// Origin of the texture when rendering.
     pub origin: BorrowedOpenGLTextureOrigin,
+    /// The texture is external to opengl (e.g. a DMA buffer)
+    pub external: bool,
 }
 
 #[cfg(test)]
