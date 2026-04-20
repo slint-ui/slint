@@ -39,10 +39,6 @@ termcolor = "1.4.1"
 thiserror = "2.0.17"
 foreign-types-shared = "0.3.1"
 
-wgpu-hal = "28.0.0"
-wgpu-core = "28.0.0"
-wgpu = { version = "28.0.0", features = ["metal"] }
-
 surfman = { version = "0.11.0", features = ["chains"] }
 servo = "0.1.0"
 

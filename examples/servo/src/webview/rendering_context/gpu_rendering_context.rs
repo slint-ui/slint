@@ -5,6 +5,7 @@ use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use euclid::default::Size2D;
 use image::RgbaImage;
+use slint::wgpu_28::wgpu;
 use winit::dpi::PhysicalSize;
 
 use servo::{DeviceIntRect, RenderingContext};

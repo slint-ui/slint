@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use slint::wgpu_28::wgpu;
+
 /// Servo texture importer that manages WGPU resources for Metal IOSurface textures.
 ///
 /// This struct holds all the necessary WGPU rendering resources (shaders, pipeline, sampler, etc.)
