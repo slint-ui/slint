@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::api::PhysicalSize;
+use i_slint_core::clipboard::{ClipboardData, PlatformClipboard, mime};
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
@@ -29,8 +30,62 @@ pub struct TestingBackendOptions {
     pub threading: bool,
 }
 
+#[derive(Default)]
+struct TestingPlatformClipboard {
+    clipboard: Mutex<Option<Rc<SharedString>>>,
+}
+
+impl PlatformClipboard for TestingPlatformClipboard {
+    fn set(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+        data: std::rc::Rc<dyn i_slint_core::clipboard::ClipboardData>,
+    ) {
+        if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
+            eprintln!("No such clipboard {clipboard:?}");
+            return;
+        }
+
+        let data_for_mime_types = data.clone();
+        let Some(mime_type) = data_for_mime_types
+            .mime_types()
+            .iter()
+            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        else {
+            return;
+        };
+
+        let Some(string) = data.read(mime_type).ok().and_then(|any_data| any_data.as_string())
+        else {
+            eprintln!(
+                "Testing clipboard provided non-string data: {:?}",
+                data_for_mime_types.mime_types()
+            );
+            return;
+        };
+
+        *self.clipboard.lock().unwrap() = Some(Rc::new(string));
+    }
+
+    fn get(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+    ) -> Result<Rc<dyn ClipboardData>, PlatformError> {
+        if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
+            return Err(PlatformError::Other(format!("No such clipboard {clipboard:?}")));
+        }
+
+        Ok(self
+            .clipboard
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map_or_else(|| Rc::new(()) as Rc<dyn ClipboardData>, |value| value.clone()))
+    }
+}
+
 pub struct TestingBackend {
-    clipboard: Mutex<Option<String>>,
+    clipboard: TestingPlatformClipboard,
     queue: Option<Queue>,
     mock_time: bool,
     #[allow(dead_code)]
@@ -40,7 +95,7 @@ pub struct TestingBackend {
 impl TestingBackend {
     pub fn new(options: TestingBackendOptions) -> Self {
         Self {
-            clipboard: Mutex::default(),
+            clipboard: Default::default(),
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
             open_url: Default::default(),
@@ -74,18 +129,8 @@ impl i_slint_core::platform::Platform for TestingBackend {
         }
     }
 
-    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
-            *self.clipboard.lock().unwrap() = Some(text.into());
-        }
-    }
-
-    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
-            self.clipboard.lock().unwrap().clone()
-        } else {
-            None
-        }
+    fn clipboard(&self) -> &dyn i_slint_core::clipboard::PlatformClipboard {
+        &self.clipboard as _
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
