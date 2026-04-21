@@ -1,7 +1,53 @@
 // Copyright © 2025 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export interface DerivedInterface inherits
- HelloInterface {
-//>            <<error{Syntax error: expected '{'}
+export interface InterfaceA {
+    out property <string> text;
+    callback callback-a();
+    public pure function function-a();
 }
+
+export interface InterfaceB inherits InterfaceA {
+    out property <int> foo;
+    callback callback-b();
+    public pure function function-b();
+}
+
+export interface InterfaceOverrides inherits InterfaceA {
+    out property <string> text;
+//  >                         <error{Conflict with 'InterfaceA' which declares a property with the same name}
+    callback callback-a();
+//  >                    <error{Conflict with 'InterfaceA' which declares a callback with the same name}
+    public pure function function-a();
+//  >                                <error{Conflict with 'InterfaceA' which declares a function with the same name}
+
+    public function function-with-definition(a: int) -> int {
+//                                                          >error{Function declarations in interfaces must not have a body}
+        a * 2
+    }
+//  <error{Function declarations in interfaces must not have a body}
+}
+
+export component MyComponent implements InterfaceB {
+    text: "Hello Inheritance";
+    foo: 32;
+
+    public pure function function-a() {
+        debug("Function A called");
+    }
+
+    public pure function function-b() {
+        debug("Function B called");
+    }
+}
+
+export interface IncorrectInterfaceB inherits InterfaceA {
+    in-out property <string> text;
+//  >                            <error{Conflict with 'InterfaceA' which declares a property with the same name}
+}
+
+export component ComponentsCannotInheritInterfaces1 inherits InterfaceA { }
+//                                                           >         <error{Components cannot inherit from interfaces}
+
+export component ComponentsCannotInheritInterfaces2 inherits InterfaceB { }
+//                                                           >         <error{Components cannot inherit from interfaces}

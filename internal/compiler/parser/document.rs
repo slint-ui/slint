@@ -104,6 +104,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// component C { property<int> xx; }
 /// component C inherits D { }
 /// interface I { property<int> xx; }
+/// interface I inherits J { property<int> xx; }
 /// component E implements I { }
 /// component E implements I inherits D { }
 /// component F uses { I from A } { }
@@ -168,6 +169,9 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     } else if is_interface {
         if p.peek().kind() == SyntaxKind::ColonEqual {
             p.error("':=' to declare an interface is not supported. Remove the ':='");
+            p.consume();
+        }
+        if p.peek().as_str() == "inherits" {
             p.consume();
         }
     } else if !is_new_component {

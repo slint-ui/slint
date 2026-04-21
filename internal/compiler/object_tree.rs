@@ -1144,6 +1144,7 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let mut inherited_interface: Option<interfaces::ImplementedInterface> = None;
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
@@ -1154,6 +1155,23 @@ impl Element {
                         &base_node,
                     );
                     ElementType::Error
+                }
+                Ok(ElementType::Component(c)) if c.is_interface() => {
+                    if parent_type == ElementType::Interface {
+                        #[cfg(feature = "slint-sc")]
+                        diag.slint_sc_error("Interface inheritance is", &base_node);
+                        c.used.set(true);
+                        inherited_interface = Some(
+                            interfaces::ImplementedInterface::from_inherits(base_node.clone(), c),
+                        );
+                        ElementType::Interface
+                    } else {
+                        diag.push_error(
+                            "Components cannot inherit from interfaces".into(),
+                            &base_node,
+                        );
+                        ElementType::Error
+                    }
                 }
                 Ok(ty) => {
                     #[cfg(feature = "slint-sc")]
@@ -1180,9 +1198,20 @@ impl Element {
                 }
             }
         } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
-            // This must be a global component or interface. It can only have properties and callbacks
+            parent_type
+        } else if parent_type != ElementType::Error {
+            // This should normally never happen because the parser does not allow for this
+            assert!(diag.has_errors());
+            return ElementRc::default();
+        } else {
+            tr.empty_type()
+        };
+        let is_interface = base_type == ElementType::Interface;
+
+        // Globals and interfaces can only have properties and callbacks.
+        if base_type == ElementType::Global || is_interface {
             let mut error_on = |node: &dyn Spanned, what: &str| {
-                let element_type = match parent_type {
+                let element_type = match base_type {
                     ElementType::Global => "A global component",
                     ElementType::Interface => "An interface",
                     _ => "An unexpected type",
@@ -1208,20 +1237,12 @@ impl Element {
                 }
             });
 
-            if parent_type == ElementType::Interface {
+            if is_interface {
                 node.Binding().for_each(|n| error_on(&n, "bindings"));
                 node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
             }
+        }
 
-            parent_type
-        } else if parent_type != ElementType::Error {
-            // This should normally never happen because the parser does not allow for this
-            assert!(diag.has_errors());
-            return ElementRc::default();
-        } else {
-            tr.empty_type()
-        };
-        let is_interface = base_type == ElementType::Interface;
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -1387,6 +1408,11 @@ impl Element {
         }
 
         let implemented_interface = interfaces::get_implemented_interface(&r, &node, tr, diag);
+        // An interface may inherit another interface, but cannot implement an interface.
+        // A component may implement an interface, but cannot inherit an interface.
+        // We should never have both at the same time.
+        debug_assert_eq!(implemented_interface.is_some() && inherited_interface.is_some(), false);
+        let implemented_interface = implemented_interface.or(inherited_interface);
         interfaces::apply_properties(&mut r, &implemented_interface, diag);
 
         for (prop_name, csn, source) in property_bindings {
@@ -1635,6 +1661,8 @@ impl Element {
 
             r.property_declarations.insert(name, declaration);
         }
+
+        interfaces::apply_functions(&mut r, &implemented_interface, diag);
 
         for con_node in node.CallbackConnection() {
             #[cfg(feature = "slint-sc")]

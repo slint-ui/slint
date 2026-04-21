@@ -124,12 +124,40 @@ fn validate_property_declaration_for_interface(
     }
 }
 
+/// How an interface is attached to an element: by a component's `implements` clause, or by a
+/// derived interface's `inherits` clause.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(super) enum InterfaceUseKind {
+    /// `component X implements I`
+    Implements,
+    /// `interface D inherits B`
+    Inherits,
+}
+
 /// A reference to an interface element, carrying the QualifiedName syntax node used to refer to it for use in
 /// diagnostics.
 pub(super) struct ImplementedInterface {
     interface_name_node: syntax_nodes::QualifiedName,
     interface: ElementRc,
     interface_name: SmolStr,
+    kind: InterfaceUseKind,
+}
+
+impl ImplementedInterface {
+    /// Construct an ImplementedInterface for a derived interface's `inherits` clause, given the
+    /// already-resolved parent interface Component.
+    pub(super) fn from_inherits(
+        interface_name_node: syntax_nodes::QualifiedName,
+        interface_component: Rc<Component>,
+    ) -> Self {
+        let interface_name = QualifiedTypeName::from_node(interface_name_node.clone()).to_smolstr();
+        Self {
+            interface_name_node,
+            interface: interface_component.root_element.clone(),
+            interface_name,
+            kind: InterfaceUseKind::Inherits,
+        }
+    }
 }
 
 /// If the element implements a valid interface, return the corresponding ImplementedInterface. Otherwise return None.
@@ -171,6 +199,7 @@ pub(super) fn get_implemented_interface(
                 interface_name_node,
                 interface: c.root_element.clone(),
                 interface_name,
+                kind: InterfaceUseKind::Implements,
             })
         }
         Ok(_) => {
@@ -194,7 +223,7 @@ pub(super) fn apply_properties(
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(ImplementedInterface { interface, interface_name_node, interface_name }) =
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name, .. }) =
         implemented_interface
     else {
         return;
@@ -212,13 +241,33 @@ pub(super) fn apply_callbacks(
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(ImplementedInterface { interface, interface_name_node, interface_name }) =
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name, .. }) =
         implemented_interface
     else {
         return;
     };
     apply_declarations(e, interface, interface_name_node, interface_name, diag, |prop_decl| {
         matches!(prop_decl.property_type, Type::Callback { .. })
+    });
+}
+
+/// Apply the function declarations from an inherited parent interface to the derived interface.
+/// This is a no-op for `implements` - components are expected to implement functions manually.
+pub(super) fn apply_functions(
+    e: &mut Element,
+    implemented_interface: &Option<ImplementedInterface>,
+    diag: &mut BuildDiagnostics,
+) {
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name, kind }) =
+        implemented_interface
+    else {
+        return;
+    };
+    if *kind == InterfaceUseKind::Implements {
+        return;
+    }
+    apply_declarations(e, interface, interface_name_node, interface_name, diag, |prop_decl| {
+        matches!(prop_decl.property_type, Type::Function { .. })
     });
 }
 
@@ -378,11 +427,17 @@ pub(super) fn validate_function_implementations(
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(ImplementedInterface { interface, interface_name_node, interface_name }) =
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name, kind }) =
         implemented_interface
     else {
         return;
     };
+
+    // Inherited interfaces propagate function declarations without bodies, so there's nothing to
+    // validate — the implementing component must provide the bodies.
+    if *kind == InterfaceUseKind::Inherits {
+        return;
+    }
 
     for (function_name, function_property_decl) in interface
         .borrow()

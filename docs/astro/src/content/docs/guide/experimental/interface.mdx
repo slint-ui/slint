@@ -33,6 +33,23 @@ An interface body may contain:
 An interface body may **not** contain bindings, child elements, layouts, `states`, two-way bindings, `animate` blocks, or private properties.
 An interface can be exported with `export interface`.
 
+### Inheritance
+
+An interface may inherit from another interface.
+
+
+```slint no-test
+interface Text {
+    in-out property text;
+}
+
+interface Button inherits Text {
+    callback clicked();
+}
+```
+
+A component implementing Button would have a `text` property and a `clicked` callback.
+
 ## Implementing an interface
 
 A component declares that it implements an interface with the `implements` keyword.
