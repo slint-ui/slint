@@ -21,6 +21,7 @@ Slint's <Link type="KeyBinding" label="KeyBinding"/> elements and the built-in <
  This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
 
 - **`text`** (_string_):  The unicode representation of the key pressed.
+- **`physical-key`** (_string_): The physical key that was pressed, if the backend reports it. This uses the same names as `@physical-keys(...)`, for example `A`, `Digit1`, or `LeftArrow`.
 - **`modifiers`** (_KeyboardModifiers_):  The keyboard modifiers active at the time of the key press event.
 - **`repeat`** (_bool_):  This field is set to true for key press events that are repeated, i.e. the key is held down. It's always false for key release events.
 
@@ -29,7 +30,7 @@ Slint's <Link type="KeyBinding" label="KeyBinding"/> elements and the built-in <
 Use the <Link type="KeyBinding" label="KeyBinding element"/> inside a `FocusScope` to declare key bindings (or keyboard shortcuts).
 The `KeyBinding`'s `keys` property takes an instance of the <Link label="keys type" type="keys"/> and invokes the `activated` callback when the key combination is detected.
 
-The `keys` type represents a key, combined with modifiers and is constructed with the `@keys` macro.
+The `keys` type represents a key, combined with modifiers and is constructed with either the `@keys` macro for logical keys or the `@physical-keys` macro for physical key positions.
 
 Key bindings in Slint are based on **logical keys** — the character a keypress produces on the current keyboard layout — not the physical position of a key.
 This means, for example, that `@keys(Control + Z)` activates when the user presses the key that produces `z` on their layout, regardless of where that key sits on the keyboard.
@@ -100,6 +101,26 @@ For example, to support key bindings that produce a Euro-Sign (€), add both `S
 This will allow your users to reach the binding on almost all keyboard layouts that have a key with this label.
 
 As another example, `@keys(Control + Plus)` is equivalent to `@keys(Control + Shift? + "+")`.
+
+### Physical Key Bindings
+
+If you want to match a physical key position instead of the character produced on the current keyboard layout, use `@physical-keys(..)`.
+
+```slint
+export component Example inherits Window {
+    forward-focus: scope;
+
+    scope := FocusScope {
+        KeyBinding {
+            keys: @physical-keys(Control + A);
+            activated => { debug("The physical A key was pressed"); }
+        }
+    }
+}
+```
+
+Physical key names reuse familiar `Key` names such as `A`, `Digit1`, `BackQuote`, or `LeftArrow`, but they refer to a physical key location instead of logical text. Today these names refer to positions on a U.S. keyboard layout.
+Unlike `@keys(..)`, `@physical-keys(..)` does not accept string literals.
 
 ## Key Namespace
 
