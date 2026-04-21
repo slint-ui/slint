@@ -3754,60 +3754,38 @@ fn compile_builtin_function_call(
             }})
         }
         BuiltinFunction::ArrayPush => {
-            let inner_ty = match arguments[0].ty(ctx) {
-                Type::Array(elem) => rust_primitive_type(&elem).unwrap(),
-                _ => panic!("internal error: ArrayPush first argument is not an array: {:?}", arguments[0]),
-            };
             let model = a.next().unwrap();
             let value = a.next().unwrap();
             quote!({
                 let model = &#model;
                 let value = #value;
-                model
-                    .as_any()
-                    .downcast_ref::<sp::VecModel<#inner_ty>>()
-                    .unwrap()
-                    .push(value);
+                model.push_row(value);
             })
         }
         BuiltinFunction::ArrayRemove => {
-            let inner_ty = match arguments[0].ty(ctx) {
-                Type::Array(elem) => rust_primitive_type(&elem).unwrap(),
-                _ => panic!("internal error: ArrayRemove first argument is not an array: {:?}", arguments[0]),
-            };
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             quote!({
                 let model = &#model;
-                let index = #index;
+                let index = #index as usize;
 
-                // Check for index out of bound errors to avoid runtime crash ?
-                model
-                    .as_any()
-                    .downcast_ref::<sp::VecModel<#inner_ty>>()
-                    .unwrap()
-                    .remove(index as usize);
+                if index < model.row_count() {
+                    model.remove_row(index);
+                }
             })
         }
         BuiltinFunction::ArrayInsert => {
-            let inner_ty = match arguments[0].ty(ctx) {
-                Type::Array(elem) => rust_primitive_type(&elem).unwrap(),
-                _ => panic!("internal error: ArrayInsert first argument is not an array: {:?}", arguments[0]),
-            };
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             let value = a.next().unwrap();
             quote!({
                 let model = &#model;
-                let index = #index;
+                let index = #index as usize;
                 let value = #value;
 
-                // Check for index out of bound errors to avoid runtime crash ?
-                model
-                    .as_any()
-                    .downcast_ref::<sp::VecModel<#inner_ty>>()
-                    .unwrap()
-                    .insert(index as usize, value);
+                if index <= model.row_count() {
+                    model.insert_row(index, value);
+                }
             })
         }
         BuiltinFunction::Rgb => {

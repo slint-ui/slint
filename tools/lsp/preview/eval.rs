@@ -632,11 +632,7 @@ fn handle_builtin_function(
             };
             let value = eval_expression(&arguments[1], local_context, None);
 
-
-            model.as_any()
-                .downcast_ref::<i_slint_core::model::SharedVectorModel<Value>>()
-                .expect("ArrayPush only works on mutable arrays")
-                .push(value);
+            model.push_row(value);
 
             Value::Void
         }
@@ -655,16 +651,15 @@ fn handle_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
-            model.as_any()
-                .downcast_ref::<i_slint_core::model::SharedVectorModel<Value>>()
-                .expect("ArrayRemove only works on mutable arrays")
-                .remove(index);
+            if index < model.row_count() {
+                model.remove_row(index);
+            }
 
             Value::Void
         }
-        BuiltinFunction::ArrayRemove => {
+        BuiltinFunction::ArrayInsert => {
             if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to ArrayRemove")
+                panic!("internal error: incorrect argument count to ArrayInsert")
             }
 
             let model = match eval_expression(&arguments[0], local_context, None) {
@@ -675,12 +670,13 @@ fn handle_builtin_function(
                 Value::Number(i) => i as usize,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
-            let value=  eval_expression(&arguments[2], local_context, None);
 
-            model.as_any()
-                .downcast_ref::<i_slint_core::model::SharedVectorModel<Value>>()
-                .expect("ArrayRemove only works on mutable arrays")
-                .insert(index, value);
+            if index > model.row_count() {
+                return Value::Void;
+            }
+
+            let value=  eval_expression(&arguments[2], local_context, None);
+            model.insert_row(index, value);
 
             Value::Void
         }

@@ -527,6 +527,21 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        self.array.borrow_mut().push(data);
+        self.notify.row_added(self.array.borrow().len() - 1, 1);
+    }
+
+    fn remove_row(&self, row: usize) {
+        self.array.borrow_mut().remove(row);
+        self.notify.row_removed(row, 1);
+    }
+
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        self.array.borrow_mut().insert(row, data);
+        self.notify.row_added(row, 1);
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.notify
     }
@@ -578,6 +593,25 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         self.array.borrow_mut().make_mut_slice()[row] = data;
         self.notify.row_changed(row);
+    }
+
+    fn push_row(&self, data: Self::Data) {
+        self.array.borrow_mut().push(data);
+        self.notify.row_added(self.array.borrow().len() - 1, 1);
+    }
+
+    fn remove_row(&self, row: usize) {
+        let mut array = self.array.borrow_mut();
+        array.make_mut_slice()[row..].rotate_left(1);
+        array.pop();
+        self.notify.row_removed(row, 1);
+    }
+
+    fn insert_row(&self, row: usize, data: Self::Data) {
+        let mut array = self.array.borrow_mut();
+        array.push(data);
+        array.make_mut_slice()[row..].rotate_right(1);
+        self.notify.row_added(row, 1);
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {

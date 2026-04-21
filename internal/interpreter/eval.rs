@@ -1421,7 +1421,9 @@ fn call_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
-            model.remove_row(index);
+            if index < model.row_count() {
+                model.remove_row(index);
+            }
 
             Value::Void
         }
@@ -1439,8 +1441,12 @@ fn call_builtin_function(
                 Value::Number(i) => i as usize,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
-            let value = eval_expression(&arguments[2], local_context);
 
+            if index > model.row_count() {
+                return Value::Void;
+            }
+
+            let value = eval_expression(&arguments[2], local_context);
             model.insert_row(index, value);
 
             Value::Void
