@@ -5,13 +5,16 @@ use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
 use crate::Coord;
+use crate::api::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::items::{DropOperations, StringArg};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
+use crate::model::ModelRc;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -23,6 +26,16 @@ use core::pin::Pin;
 use i_slint_core_macros::*;
 
 pub type DropEventArg = (DropEvent,);
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct DragItem {
+    pub valid_operations: Property<DropOperations>,
+    pub mime_types: Property<ModelRc<SharedString>>,
+    pub provide_string: Callback<StringArg, SharedString>,
+    pub provide_image: Callback<StringArg, Image>,
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]

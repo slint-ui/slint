@@ -55,6 +55,22 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
+            /// Represents a bitset of the available operations on an item being dragged. This varies across platforms,
+            /// so for now we only support the set of operations understood by every platform.
+            #[non_exhaustive]
+            #[derive(Copy, Eq)]
+            struct DropOperations {
+                @name = BuiltinPublicStruct::DropOperations,
+                export {
+                    /// Whether the item being dragged can be moved (called "cut" on Windows).
+                    r#move: bool,
+                    /// Whether the item being dragged can be copied.
+                    copy: bool,
+                }
+                private {
+                }
+            }
+
             /// Represents a Pointer event sent by the windowing system.
             /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
             struct PointerEvent {

@@ -129,9 +129,7 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
         )?);
 
-        output.write_all(
-            b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n",
-        )?;
+        output.write_all(b"#![warn(rust_2018_idioms)]\n#![warn(unsafe_code)]\n")?;
 
         #[cfg(not(feature = "build-time"))]
         if !generate_macro(&source, &mut output, testcase)? {

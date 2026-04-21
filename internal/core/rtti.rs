@@ -42,6 +42,7 @@ macro_rules! declare_ValueType_2 {
             crate::animations::EasingCurve,
             crate::items::StandardListViewItem,
             crate::items::TableColumn,
+            crate::items::DropOperations,
             crate::input::KeyEvent,
             crate::Brush,
             crate::graphics::Point,
@@ -57,6 +58,7 @@ macro_rules! declare_ValueType_2 {
             crate::items::MenuEntry,
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
+            crate::model::ModelRc<SharedString>,
             crate::styled_text::StyledText,
             crate::input::Keys,
             $(crate::items::$Name,)*

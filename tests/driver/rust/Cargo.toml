@@ -18,10 +18,11 @@ path = "main.rs"
 name = "test-driver-rust"
 
 [features]
-default = ["backend-qt"]
+default = ["backend-qt", "deny-warnings"]
 
 build-time = ["i-slint-compiler", "spin_on"]
 backend-qt = ["slint/backend-qt"]
+deny-warnings = []
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"] }
