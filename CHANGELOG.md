@@ -2,6 +2,26 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.16.1] - Unreleased
+
+ - `ListView`: Fixed panic with a graceful fallback in the dirty region computation.
+ - `ComboBox`: Elide long selected values when the text is wider than the available width. (#11332)
+ - winit/macOS: Use muda `KeyAccelerator` so keyboard shortcuts are represented in the native menu bar. (#11253)
+ - winit/Windows: Fix retrieving the system accent color. (#11461)
+ - LinuxKMS: Fix wgpu support when enabling `renderer-skia` and `unstable-wgpu-28`/`-27`.
+ - Documented limitations of the `SwipeGestureHandler` more prominently.
+
+### Rust
+
+ - **breaking change**: Marked `KeyEvent` and `KeyboardModifiers` as `#[non_exhaustive]`. We missed this in 1.16.0,
+   but this is unlikely to affect users as those data structures are typically not created in Rust code.
+
+### Tooling
+
+ - LSP: Replaced `eprintln!` with tracing and forbid `print_stdout`/`print_stderr` to avoid corrupting
+   the protocol stream and to prevent panics when stderr is closed.
+ - SlintPad: Show a dialog with a pre-filled bug report when wasm code panics. (#6313)
+
 ## [1.16.0] - 2026-04-16
 
 ### General
