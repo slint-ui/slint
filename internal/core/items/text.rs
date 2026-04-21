@@ -1092,7 +1092,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.text.as_str(), window_adapter) {
+                if !self.accept_text_input(event.key_event.text.as_str(), window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1142,7 +1142,7 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.text, window_adapter) {
+                if !self.accept_text_input(&event.key_event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
