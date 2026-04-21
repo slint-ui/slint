@@ -124,9 +124,10 @@ fn validate_property_declaration_for_interface(
     }
 }
 
-/// An ImplementsSpecifier and the corresponding interface element.
+/// A reference to an interface element, carrying the QualifiedName syntax node used to refer to it for use in
+/// diagnostics.
 pub(super) struct ImplementedInterface {
-    implements_specifier: syntax_nodes::ImplementsSpecifier,
+    interface_name_node: syntax_nodes::QualifiedName,
     interface: ElementRc,
     interface_name: SmolStr,
 }
@@ -152,22 +153,22 @@ pub(super) fn get_implemented_interface(
         return None;
     }
 
-    let interface_name =
-        QualifiedTypeName::from_node(implements_specifier.QualifiedName()).to_smolstr();
+    let interface_name_node = implements_specifier.QualifiedName();
+    let interface_name = QualifiedTypeName::from_node(interface_name_node.clone()).to_smolstr();
 
     match e.base_type.lookup_type_for_child_element(&interface_name, tr) {
         Ok(ElementType::Component(c)) => {
             if !c.is_interface() {
                 diag.push_error(
                     format!("Cannot implement {}. It is not an interface", interface_name),
-                    &implements_specifier.QualifiedName(),
+                    &interface_name_node,
                 );
                 return None;
             }
 
             c.used.set(true);
             Some(ImplementedInterface {
-                implements_specifier,
+                interface_name_node,
                 interface: c.root_element.clone(),
                 interface_name,
             })
@@ -175,12 +176,12 @@ pub(super) fn get_implemented_interface(
         Ok(_) => {
             diag.push_error(
                 format!("Cannot implement {}. It is not an interface", interface_name),
-                &implements_specifier.QualifiedName(),
+                &interface_name_node,
             );
             None
         }
         Err(err) => {
-            diag.push_error(err, &implements_specifier.QualifiedName());
+            diag.push_error(err, &interface_name_node);
             None
         }
     }
@@ -193,7 +194,7 @@ pub(super) fn apply_properties(
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name }) =
         implemented_interface
     else {
         return;
@@ -209,7 +210,7 @@ pub(super) fn apply_properties(
             e,
             unresolved_prop_name,
             prop_decl,
-            implements_specifier,
+            interface_name_node,
             interface_name,
             diag,
         );
@@ -223,7 +224,7 @@ pub(super) fn apply_callbacks(
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name }) =
         implemented_interface
     else {
         return;
@@ -239,7 +240,7 @@ pub(super) fn apply_callbacks(
             e,
             unresolved_prop_name,
             prop_decl,
-            implements_specifier,
+            interface_name_node,
             interface_name,
             diag,
         );
@@ -252,7 +253,7 @@ fn apply_interface_property_declaration(
     e: &mut Element,
     unresolved_prop_name: &SmolStr,
     prop_decl: &PropertyDeclaration,
-    implements_specifier: &syntax_nodes::ImplementsSpecifier,
+    interface_name_node: &syntax_nodes::QualifiedName,
     interface_name: &SmolStr,
     diag: &mut BuildDiagnostics,
 ) {
@@ -318,7 +319,7 @@ fn apply_interface_property_declaration(
         &e.base_type,
         &interface_name,
     ) {
-        diag.push_error(message, &implements_specifier.QualifiedName());
+        diag.push_error(message, interface_name_node);
         return;
     }
 
@@ -377,7 +378,7 @@ pub(super) fn validate_function_implementations(
     implemented_interface: &Option<ImplementedInterface>,
     diag: &mut BuildDiagnostics,
 ) {
-    let Some(ImplementedInterface { interface, implements_specifier, interface_name }) =
+    let Some(ImplementedInterface { interface, interface_name_node, interface_name }) =
         implemented_interface
     else {
         return;
@@ -401,12 +402,12 @@ pub(super) fn validate_function_implementations(
                     .get(function_name)
                     .and_then(|decl| decl.node.clone())
                     .map_or_else(
-                        || parser::NodeOrToken::Node(implements_specifier.QualifiedName().into()),
+                        || parser::NodeOrToken::Node(interface_name_node.clone().into()),
                         parser::NodeOrToken::Node,
                     );
                 diag.push_error(error, &source);
             } else {
-                diag.push_error(error, &implements_specifier.QualifiedName());
+                diag.push_error(error, interface_name_node);
             }
         };
 
@@ -415,7 +416,7 @@ pub(super) fn validate_function_implementations(
             Type::Invalid => {
                 diag.push_error(
                     format!("Missing implementation of function '{}'", function_name),
-                    &implements_specifier.QualifiedName(),
+                    interface_name_node,
                 );
                 None
             }
