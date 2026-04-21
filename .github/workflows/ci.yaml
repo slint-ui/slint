@@ -585,6 +585,8 @@ jobs:
                   default: true
                   buildtargets: esp32
                   ldproxy: false
+                  # Pin due to https://github.com/esp-rs/rust/issues/276
+                  version: "1.94.0.0"
             - uses: Swatinem/rust-cache@v2
             - name: Build and Test Printer demo
               shell: bash
