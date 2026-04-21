@@ -8,7 +8,7 @@ use crate::gl_bindings as gl;
 
 use gl::Gles2 as Gl;
 
-use slint::wgpu_28::wgpu;
+use slint::wgpu_28::wgpu::{self, hal};
 
 #[derive(thiserror::Error, Debug)]
 pub enum VulkanTextureError {
@@ -184,7 +184,7 @@ impl super::GPURenderingContext {
             wgpu_device.create_texture_from_hal::<wgpu::wgc::api::Vulkan>(
                 hal_device.texture_from_raw(
                     vulkan_image,
-                    &wgpu_hal::TextureDescriptor {
+                    &hal::TextureDescriptor {
                         label: None,
                         size: wgpu::Extent3d {
                             width: size.width,
@@ -197,7 +197,7 @@ impl super::GPURenderingContext {
                         sample_count: 1,
                         usage: wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COLOR_TARGET,
                         view_formats: Vec::new(),
-                        memory_flags: wgpu_hal::MemoryFlags::empty(),
+                        memory_flags: hal::MemoryFlags::empty(),
                     },
                     Some(Box::new(move || {
                         // Images aren't cleaned up by wgpu-hal if theres a drop callback set so do it manually
@@ -205,7 +205,7 @@ impl super::GPURenderingContext {
                         // Free the memory
                         vulkan_device.free_memory(memory, None);
                     })),
-                    wgpu_hal::vulkan::TextureMemory::External,
+                    hal::vulkan::TextureMemory::External,
                 ),
                 &wgpu::TextureDescriptor {
                     label: None,

@@ -1,4 +1,3 @@
-
 # Slint Servo Example
 
 > Disclaimer: Servo is still experimental and not ready for production use.
@@ -47,52 +46,47 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
     slint::include_modules!();
 
     pub fn main() {
-        let (device, queue) = setup_wgpu();
+        setup_slint_with_wgpu();
 
         let app = MyApp::new().unwrap();
 
-        WebView::new(
-            app.clone_strong(),
-            "https://slint.dev".into(),
-            device,
-            queue,
-        );
+        let initialized = Cell::new(false);
+        let app_weak = app.as_weak();
+
+        app.window()
+            .set_rendering_notifier(move |state, graphics_api| {
+                if !matches!(state, slint::RenderingState::RenderingSetup) || initialized.get() {
+                    return;
+                }
+                let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api else {
+                    panic!(
+                        "Slint did not select a wgpu-28 renderer; \
+                        enable a wgpu-capable renderer feature"
+                    );
+                };
+                let app = app_weak.upgrade().unwrap();
+                WebView::new(app, "https://slint.dev".into(), device.clone(), queue.clone());
+                initialized.set(true);
+            }).unwrap();
 
         app.run().unwrap();
     }
 
-    fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
-        let backends = wgpu::Backends::from_env().unwrap_or_default();
+    fn setup_slint_with_wgpu() {
+        use slint::wgpu_28::{WGPUConfiguration, WGPUSettings};
 
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends,
-            flags: Default::default(),
-            backend_options: Default::default(),
-            memory_budget_thresholds: Default::default(),
-        });
+        #[allow(unused_mut)]
+        let mut wgpu_settings = WGPUSettings::default();
 
-        let adapter = spin_on::spin_on(async {
-            instance
-                .request_adapter(&Default::default())
-                .await
-                .unwrap()
-        });
-
-        let (device, queue) = spin_on::spin_on(async {
-            adapter.request_device(&Default::default()).await.unwrap()
-        });
+        #[cfg(target_os = "windows")]
+        {
+            wgpu_settings.backends = slint::wgpu_28::wgpu::Backends::DX12;
+        }
 
         slint::BackendSelector::new()
-            .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Manual {
-                instance,
-                adapter,
-                device: device.clone(),
-                queue: queue.clone()
-            })
+            .require_wgpu_28(WGPUConfiguration::Automatic(wgpu_settings))
             .select()
             .unwrap();
-
-        (device, queue)
     }
     ```
 

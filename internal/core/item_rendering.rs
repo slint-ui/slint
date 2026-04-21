@@ -547,8 +547,10 @@ pub trait ItemRenderer {
     fn get_current_clip(&self) -> LogicalRect;
 
     fn translate(&mut self, distance: LogicalVector);
-    fn translation(&self) -> LogicalVector {
-        unimplemented!()
+    /// Returns the accumulated local-to-screen transform, including
+    /// translate, scale, and rotate.
+    fn current_transform(&self) -> crate::lengths::ItemTransform {
+        todo!("this renderer does not track transforms for partial rendering")
     }
     fn rotate(&mut self, angle_in_degrees: f32);
     fn scale(&mut self, scale_x_factor: f32, scale_y_factor: f32);

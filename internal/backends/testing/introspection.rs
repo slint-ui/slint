@@ -7,11 +7,16 @@
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
+use slotmap::{Key, KeyData, SlotMap};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
+
+slotmap::new_key_type! {
+    pub(crate) struct ArenaIndex;
+}
 
 #[allow(non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto {
@@ -81,14 +86,14 @@ impl super::Sealed for RootWrapper<'_> {}
 /// A tracked window with its adapter and cached root element handle.
 pub(crate) struct TrackedWindow {
     pub window_adapter: Weak<dyn WindowAdapter>,
-    pub root_element_handle: generational_arena::Index,
+    pub root_element_handle: ArenaIndex,
 }
 
 /// Shared introspection state: window and element handle arenas.
 pub(crate) struct IntrospectionState {
-    pub windows: RefCell<generational_arena::Arena<TrackedWindow>>,
-    pub element_handles: RefCell<generational_arena::Arena<ElementHandle>>,
-    element_handle_order: RefCell<VecDeque<generational_arena::Index>>,
+    pub windows: RefCell<SlotMap<ArenaIndex, TrackedWindow>>,
+    pub element_handles: RefCell<SlotMap<ArenaIndex, ElementHandle>>,
+    element_handle_order: RefCell<VecDeque<ArenaIndex>>,
 }
 
 impl IntrospectionState {
@@ -112,13 +117,13 @@ impl IntrospectionState {
             .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter), root_element_handle });
     }
 
-    pub fn window_handles(&self) -> Vec<generational_arena::Index> {
+    pub fn window_handles(&self) -> Vec<ArenaIndex> {
         self.windows.borrow().iter().map(|(index, _)| index).collect()
     }
 
     pub fn window_adapter(
         &self,
-        window_index: generational_arena::Index,
+        window_index: ArenaIndex,
     ) -> Result<Rc<dyn WindowAdapter>, String> {
         self.windows
             .borrow()
@@ -129,10 +134,7 @@ impl IntrospectionState {
             .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
 
-    pub fn root_element_handle(
-        &self,
-        window_index: generational_arena::Index,
-    ) -> Result<generational_arena::Index, String> {
+    pub fn root_element_handle(&self, window_index: ArenaIndex) -> Result<ArenaIndex, String> {
         Ok(self
             .windows
             .borrow()
@@ -141,19 +143,19 @@ impl IntrospectionState {
             .root_element_handle)
     }
 
-    pub fn element_to_handle(&self, element: ElementHandle) -> generational_arena::Index {
+    pub fn element_to_handle(&self, element: ElementHandle) -> ArenaIndex {
         let mut arena = self.element_handles.borrow_mut();
         let index = arena.insert(element);
         let mut order = self.element_handle_order.borrow_mut();
         order.push_back(index);
         if arena.len() > ELEMENT_HANDLE_CAP {
-            let root_indices: std::collections::HashSet<generational_arena::Index> =
+            let root_indices: std::collections::HashSet<ArenaIndex> =
                 self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
             let mut budget = order.len();
             while arena.len() > ELEMENT_HANDLE_CAP && budget > 0 {
                 budget -= 1;
                 let Some(oldest) = order.pop_front() else { break };
-                if !arena.contains(oldest) {
+                if !arena.contains_key(oldest) {
                     continue;
                 }
                 if root_indices.contains(&oldest) {
@@ -166,11 +168,7 @@ impl IntrospectionState {
         index
     }
 
-    pub fn element(
-        &self,
-        request: &str,
-        index: generational_arena::Index,
-    ) -> Result<ElementHandle, String> {
+    pub fn element(&self, request: &str, index: ArenaIndex) -> Result<ElementHandle, String> {
         let element = self
             .element_handles
             .borrow()
@@ -188,7 +186,7 @@ impl IntrospectionState {
 
     pub fn find_elements_by_id(
         &self,
-        window_index: generational_arena::Index,
+        window_index: ArenaIndex,
         elements_id: &str,
     ) -> Result<Vec<ElementHandle>, String> {
         let adapter = self.window_adapter(window_index)?;
@@ -200,7 +198,7 @@ impl IntrospectionState {
 
     pub fn take_snapshot(
         &self,
-        window_index: generational_arena::Index,
+        window_index: ArenaIndex,
         image_mime_type: &str,
     ) -> Result<Vec<u8>, String> {
         let adapter = self.window_adapter(window_index)?;
@@ -232,7 +230,7 @@ impl IntrospectionState {
 
     pub fn dispatch_window_event(
         &self,
-        window_index: generational_arena::Index,
+        window_index: ArenaIndex,
         event: i_slint_core::platform::WindowEvent,
     ) -> Result<(), String> {
         let adapter = self.window_adapter(window_index)?;
@@ -243,7 +241,7 @@ impl IntrospectionState {
 
     pub fn window_properties(
         &self,
-        window_index: generational_arena::Index,
+        window_index: ArenaIndex,
     ) -> Result<proto::WindowPropertiesResponse, String> {
         let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
@@ -265,7 +263,7 @@ impl IntrospectionState {
 
     pub fn take_snapshot_response(
         &self,
-        window_index: generational_arena::Index,
+        window_index: ArenaIndex,
         image_mime_type: &str,
     ) -> Result<proto::TakeSnapshotResponse, String> {
         let window_contents_as_encoded_image = self.take_snapshot(window_index, image_mime_type)?;
@@ -451,13 +449,40 @@ pub(crate) fn convert_pointer_event_button(
 // Index ↔ parts conversion
 // ============================================================================
 
-pub(crate) fn index_to_handle(index: generational_arena::Index) -> proto::Handle {
-    let (idx, generation) = index.into_raw_parts();
-    proto::Handle { index: idx as u64, generation }
+pub(crate) fn index_to_handle(index: ArenaIndex) -> proto::Handle {
+    let ffi = index.data().as_ffi();
+    proto::Handle { index: ffi & 0xffff_ffff, generation: ffi >> 32 }
 }
 
-pub(crate) fn handle_to_index(handle: proto::Handle) -> generational_arena::Index {
-    generational_arena::Index::from_raw_parts(handle.index as usize, handle.generation)
+pub(crate) fn handle_to_index(handle: proto::Handle) -> Result<ArenaIndex, String> {
+    if handle.index > u64::from(u32::MAX) || handle.generation > u64::from(u32::MAX) {
+        return Err("Invalid handle".to_string());
+    }
+
+    let ffi = (handle.generation << 32) | handle.index;
+    let index: ArenaIndex = KeyData::from_ffi(ffi).into();
+
+    // Reject malformed handles instead of accepting slotmap's normalization.
+    if index.data().as_ffi() != ffi {
+        return Err("Invalid handle".to_string());
+    }
+
+    Ok(index)
+}
+
+#[test]
+fn test_handle_to_index_rejects_noncanonical_generation() {
+    assert!(handle_to_index(proto::Handle { index: 42, generation: 6 }).is_err());
+}
+
+#[test]
+fn test_handle_to_index_rejects_out_of_range_parts() {
+    assert!(
+        handle_to_index(proto::Handle { index: u64::from(u32::MAX) + 1, generation: 7 }).is_err()
+    );
+    assert!(
+        handle_to_index(proto::Handle { index: 42, generation: u64::from(u32::MAX) + 1 }).is_err()
+    );
 }
 
 #[test]
