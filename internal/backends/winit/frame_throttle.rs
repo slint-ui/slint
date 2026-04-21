@@ -12,13 +12,16 @@ use crate::winitwindowadapter::WinitWindowAdapter;
 
 pub fn create_frame_throttle(
     window_adapter: Weak<WinitWindowAdapter>,
+    _winit_window: &winit::window::Window,
     _is_wayland: bool,
 ) -> Box<dyn FrameThrottle> {
     if _is_wayland {
-        WinitBasedFrameThrottle::create(window_adapter)
+        WinitBasedFrameThrottle::create()
     } else {
         #[cfg(target_os = "macos")]
-        if let Some(throttle) = macos_display_link::try_create(window_adapter.clone()) {
+        if let Some(throttle) =
+            macos_display_link::try_create(window_adapter.clone(), _winit_window)
+        {
             return throttle;
         }
         TimerBasedFrameThrottle::create(window_adapter)
@@ -26,7 +29,7 @@ pub fn create_frame_throttle(
 }
 
 pub trait FrameThrottle {
-    fn request_throttled_redraw(&self);
+    fn request_throttled_redraw(&self, winit_window: &winit::window::Window);
 }
 
 struct TimerBasedFrameThrottle {
@@ -41,15 +44,12 @@ impl TimerBasedFrameThrottle {
 }
 
 impl FrameThrottle for TimerBasedFrameThrottle {
-    fn request_throttled_redraw(&self) {
+    fn request_throttled_redraw(&self, winit_window: &winit::window::Window) {
         if self.timer.running() {
             return;
         }
-        let refresh_interval_millihertz = self
-            .window_adapter
-            .upgrade()
-            .and_then(|adapter| adapter.winit_window())
-            .and_then(|winit_window| winit_window.current_monitor())
+        let refresh_interval_millihertz = winit_window
+            .current_monitor()
             .and_then(|monitor| monitor.refresh_rate_millihertz())
             .unwrap_or(60000) as u64;
         let window_adapter = self.window_adapter.clone();
@@ -83,18 +83,16 @@ fn redraw_now(window_adapter: &Weak<WinitWindowAdapter>) {
     winit_window.request_redraw();
 }
 
-struct WinitBasedFrameThrottle {
-    window_adapter: Weak<WinitWindowAdapter>,
-}
+struct WinitBasedFrameThrottle;
 
 impl WinitBasedFrameThrottle {
-    fn create(window_adapter: Weak<WinitWindowAdapter>) -> Box<dyn FrameThrottle> {
-        Box::new(Self { window_adapter })
+    fn create() -> Box<dyn FrameThrottle> {
+        Box::new(Self)
     }
 }
 
 impl FrameThrottle for WinitBasedFrameThrottle {
-    fn request_throttled_redraw(&self) {
-        redraw_now(&self.window_adapter)
+    fn request_throttled_redraw(&self, winit_window: &winit::window::Window) {
+        winit_window.request_redraw();
     }
 }
