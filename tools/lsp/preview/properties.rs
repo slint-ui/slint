@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{self, Result, SourceFileVersion};
+use crate::common::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Expression, Unit};
@@ -10,6 +10,7 @@ use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, Pro
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
+use i_slint_preview_protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 

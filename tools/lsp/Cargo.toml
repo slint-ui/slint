@@ -92,11 +92,11 @@ dissimilar = "1.0.7"
 itertools = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-# Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
-lsp-types = { version = "0.95.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
+i-slint-preview-protocol = { version = "=1.17.0", path = "../../internal/preview-protocol" }
+lsp-types = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }
