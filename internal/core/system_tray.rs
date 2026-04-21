@@ -15,7 +15,7 @@ use ksni::TrayMethods;
 struct KsniTray {
     icon: ksni::Icon,
     title: std::string::String,
-    menu: std::vec::Vec<SystemTrayListItem>,
+    //menu: std::vec::Vec<SystemTrayListItem>,
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -34,6 +34,7 @@ impl ksni::Tray for KsniTray {
     }
 
     fn menu(&self) -> std::vec::Vec<ksni::MenuItem<KsniTray>> {
+        /*
         self.menu
             .iter()
             .map(|item| {
@@ -45,13 +46,15 @@ impl ksni::Tray for KsniTray {
                 .into()
             })
             .collect()
+            */
+        std::vec::Vec::new()
     }
 }
 
 pub struct Params<'a> {
     pub icon: &'a Image,
     pub title: &'a str,
-    pub menu: ModelRc<SystemTrayListItem>,
+    //pub menu: ModelRc<SystemTrayListItem>,
 }
 
 pub struct SystemTray {

@@ -1879,7 +1879,7 @@ impl Item for SystemTray {
                     match crate::system_tray::SystemTray::new(crate::system_tray::Params {
                         icon: &tray.icon(),
                         title: &tray.title(),
-                        menu: tray.menu(),
+                        //menu: tray.menu(),
                     }) {
                         Ok(system_tray) => system_tray,
                         Err(err) => panic!("{}", err),
