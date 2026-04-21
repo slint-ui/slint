@@ -381,11 +381,10 @@ cpp! {{
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
+                    let mut key_event = KeyEvent::default();
+                    key_event.text = i_slint_core::format!("{}", commit_string);
                     let event = InternalKeyEvent {
-                        key_event: KeyEvent {
-                            text: i_slint_core::format!("{}", commit_string),
-                            ..Default::default()
-                        },
+                        key_event,
                         event_type: KeyEventType::UpdateComposition,
                         preedit_text: i_slint_core::format!("{}", preedit_string),
                         preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
