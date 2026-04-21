@@ -135,7 +135,7 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

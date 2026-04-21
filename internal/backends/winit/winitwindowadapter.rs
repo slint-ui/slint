@@ -814,7 +814,21 @@ impl WinitWindowAdapter {
     fn query_system_accent_color() -> Color {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
-                use windows::Win32::Graphics::Gdi::{GetSysColor, COLOR_HIGHLIGHT};
+                use windows::Win32::Graphics::{
+                    Dwm::DwmGetColorizationColor,
+                    Gdi::{GetSysColor, COLOR_HIGHLIGHT},
+                };
+
+                let mut argb = 0u32;
+                let mut _opaque_blend = windows::core::BOOL::default();
+                if unsafe { DwmGetColorizationColor(&mut argb, &mut _opaque_blend) }.is_ok() {
+                    let a = ((argb >> 24) & 0xFF) as u8;
+                    let r = ((argb >> 16) & 0xFF) as u8;
+                    let g = ((argb >> 8) & 0xFF) as u8;
+                    let b = (argb & 0xFF) as u8;
+                    return Color::from_argb_u8(a, r, g, b);
+                }
+
                 let colorref = unsafe { GetSysColor(COLOR_HIGHLIGHT) };
                 let r = (colorref & 0xFF) as u8;
                 let g = ((colorref >> 8) & 0xFF) as u8;
