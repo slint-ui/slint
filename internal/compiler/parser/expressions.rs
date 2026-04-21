@@ -261,10 +261,13 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "keys" => {
             parse_keys(p);
         }
+        "physical-keys" | "physical_keys" => {
+            parse_physical_keys(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'tr', 'keys', 'physical-keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }
@@ -487,10 +490,26 @@ fn parse_markdown(p: &mut impl Parser) {
 /// @keys(Control +Shift + Alt?+Meta+Return)
 /// ```
 fn parse_keys(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::AtKeys);
+    parse_key_like_macro(p, SyntaxKind::AtKeys, "keys");
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtPhysicalKeys
+/// @physical-keys(A)
+/// @physical-keys(Control + Shift + Digit1)
+/// @physical-keys(Meta + LeftArrow)
+/// @physical-keys(Alt? + BackQuote)
+/// @physical-keys(Control + PageDown)
+/// ```
+fn parse_physical_keys(p: &mut impl Parser) {
+    parse_key_like_macro(p, SyntaxKind::AtPhysicalKeys, "physical-keys");
+}
+
+fn parse_key_like_macro(p: &mut impl Parser, syntax_kind: SyntaxKind, macro_name: &str) {
+    let mut p = p.start_node(syntax_kind);
     p.expect(SyntaxKind::At);
-    debug_assert_eq!(p.peek().as_str(), "keys");
-    p.expect(SyntaxKind::Identifier); //"keys"
+    debug_assert_eq!(p.peek().as_str(), macro_name);
+    p.expect(SyntaxKind::Identifier);
     p.expect(SyntaxKind::LParent);
 
     // Parse custom syntax here...

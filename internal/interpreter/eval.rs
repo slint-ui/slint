@@ -478,6 +478,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 modifiers,
                 ks.ignore_shift,
                 ks.ignore_alt,
+                ks.is_physical,
             ))
         }
         Expression::ReturnStatement(x) => {

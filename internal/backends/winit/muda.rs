@@ -335,6 +335,21 @@ fn key_string_to_key(string: &str) -> muda::accelerator::Key {
     i_slint_common::for_each_keys!(key_string_to_code_impl)
 }
 
+fn physical_key_string_to_code(string: &str) -> Option<muda::accelerator::Code> {
+    use muda::accelerator::Code;
+
+    macro_rules! key_string_to_code_impl {
+        ($($name:ident # $code:ident;)*) => {
+            match string {
+                $(stringify!($name) => Some(Code::$code),)*
+                _ => None,
+            }
+        };
+    }
+
+    i_slint_common::for_each_physical_keys!(key_string_to_code_impl)
+}
+
 fn keys_to_accelerator(
     keys: &i_slint_core::input::Keys,
 ) -> Option<muda::accelerator::KeyAccelerator> {
@@ -367,9 +382,12 @@ fn keys_to_accelerator(
             modifiers |= Modifiers::SUPER;
         }
     }
-    let key = key_string_to_key(&shortcut.key);
-
-    Some(KeyAccelerator::new(Some(modifiers), key))
+    if shortcut.is_physical {
+        Some(Accelerator::new(Some(modifiers), physical_key_string_to_code(&shortcut.key)?).into())
+    } else {
+        let key = key_string_to_key(&shortcut.key);
+        Some(KeyAccelerator::new(Some(modifiers), key))
+    }
 }
 
 fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {
