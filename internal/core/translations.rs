@@ -408,7 +408,7 @@ fn update_locale_decimal_separator() {
         {
             // Check bundled
             let language_index = ctx.0.translations_dirty.as_ref().get();
-            if let Some(l) = l.get(language_index) {
+            if let Some(_l) = l.get(language_index) {
                 if let Some(c) = ctx
                     .0
                     .translations_bundle_decimal_separators
@@ -418,8 +418,9 @@ fn update_locale_decimal_separator() {
                 {
                     ctx.0.locale_decimal_separator.set(Some(c))
                 } else {
-                    #[cfg(feature = "std")]
-                    ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(l));
+                    // Fallback: We use icu to determine the decimal separator from the provided language
+                    // #[cfg(feature = "std")]
+                    // ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(_l));
                 }
             }
         } else {
@@ -439,9 +440,10 @@ fn update_locale_decimal_separator() {
                 if !translated.is_empty() {
                     ctx.0.locale_decimal_separator.set(translated.chars().next());
                 } else {
-                    if let Some(locale) = sys_locale::get_locale() {
-                        ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(&locale))
-                    }
+                    // Fallback: We use the system locale and determining with icu the decimal separator
+                    // if let Some(locale) = sys_locale::get_locale() {
+                    //     ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(&locale))
+                    // }
                 }
             }
         }
