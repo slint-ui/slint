@@ -468,7 +468,6 @@ fn layout(
             max_physical_width.filter(|_| text_wrap != TextWrap::NoWrap).map(|width| width.get()),
         );
         para.layout.align(
-            max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
                 TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
                     parley::Alignment::Left
@@ -605,7 +604,7 @@ impl TextParagraph {
                     // we want to place an elipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.max_coord
+                        max_physical_height.get().ceil() >= metrics.block_max_coord
                     }
                     _ => true,
                 }
