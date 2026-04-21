@@ -4,8 +4,6 @@
 use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
-use crate::Coord;
-use crate::api::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -18,6 +16,7 @@ use crate::model::ModelRc;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
+use crate::{AnyData, Coord};
 use crate::{Callback, Property, SharedString};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -33,8 +32,7 @@ pub type DropEventArg = (DropEvent,);
 pub struct DragItem {
     pub valid_operations: Property<DropOperations>,
     pub mime_types: Property<ModelRc<SharedString>>,
-    pub provide_string: Callback<StringArg, SharedString>,
-    pub provide_image: Callback<StringArg, Image>,
+    pub provide: Callback<StringArg, AnyData>,
 }
 
 #[repr(C)]

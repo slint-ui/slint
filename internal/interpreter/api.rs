@@ -3,7 +3,6 @@
 
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
@@ -13,6 +12,7 @@ use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
+use i_slint_core::{AnyData, PathData};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::future::Future;
@@ -216,6 +216,74 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+        }
+    }
+}
+
+impl TryFrom<AnyData> for Value {
+    type Error = ();
+
+    fn try_from(value: AnyData) -> Result<Self, Self::Error> {
+        let mut value = Some(value);
+
+        macro_rules! check_ty {
+            ($($typ:ty),*) => {
+                $(
+                    match <$typ>::try_from(value.take().unwrap()) {
+                        Ok(value) => return Ok(value.into()),
+                        Err(any) => value = Some(any),
+                    }
+                )*
+            }
+        }
+
+        match value.take().unwrap().downcast::<Struct>() {
+            Ok(value) => return Ok(value.into()),
+            Err(any) => value = Some(any),
+        }
+
+        check_ty! {
+            (),
+            f64,
+            SharedString,
+            bool,
+            Image,
+            ModelRc<Value>,
+            Brush,
+            PathData,
+            i_slint_core::animations::EasingCurve,
+            SharedVector<f32>,
+            ComponentFactory,
+            StyledText,
+            SharedVector<u16>,
+            Keys
+        };
+
+        let _ = value;
+
+        Err(())
+    }
+}
+
+impl From<Value> for AnyData {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Void => ().into(),
+            Value::Number(n) => n.into(),
+            Value::String(shared_string) => shared_string.into(),
+            Value::Bool(b) => b.into(),
+            Value::Image(image) => image.into(),
+            Value::Model(model_rc) => model_rc.into(),
+            Value::Struct(s) => AnyData::from_any(s),
+            Value::Brush(brush) => brush.into(),
+            Value::PathData(path_data) => path_data.into(),
+            Value::EasingCurve(easing_curve) => easing_curve.into(),
+            Value::EnumerationValue(_, _) => todo!(),
+            Value::LayoutCache(shared_vector) => shared_vector.into(),
+            Value::ComponentFactory(component_factory) => component_factory.into(),
+            Value::StyledText(styled_text) => styled_text.into(),
+            Value::ArrayOfU16(shared_vector) => shared_vector.into(),
+            Value::Keys(keys) => keys.into(),
         }
     }
 }
@@ -546,6 +614,7 @@ impl<T: Into<Value> + TryFrom<Value> + 'static> From<ModelRc<T>> for Value {
         }
     }
 }
+
 impl<T: TryFrom<Value> + Default + 'static> TryFrom<Value> for ModelRc<T> {
     type Error = Value;
     #[inline]
