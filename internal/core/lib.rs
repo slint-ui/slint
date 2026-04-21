@@ -31,8 +31,10 @@ pub use std::thread_local;
 
 pub mod accessibility;
 pub mod animations;
+pub mod any_data;
 pub mod api;
 pub mod callbacks;
+pub mod clipboard;
 pub mod component_factory;
 pub mod context;
 pub mod date_time;
@@ -65,6 +67,9 @@ pub mod window;
 
 #[doc(inline)]
 pub use string::SharedString;
+
+#[doc(inline)]
+pub use any_data::AnyData;
 
 #[doc(inline)]
 pub use sharedvector::SharedVector;

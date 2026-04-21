@@ -1964,7 +1964,8 @@ impl TextInput {
         WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .set_clipboard_text(&text[anchor..cursor], clipboard);
+            .clipboard()
+            .set(clipboard, alloc::rc::Rc::new(text));
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1980,7 +1981,19 @@ impl TextInput {
         if let Some(text) = WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .clipboard_text(clipboard)
+            .clipboard()
+            .get(clipboard)
+            .ok()
+            .and_then(|data| {
+                let data_for_mime_types = data.clone();
+                let mime_type = data_for_mime_types
+                    .mime_types()
+                    .iter()
+                    .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
+
+                data.read(mime_type).ok()
+            })
+            .and_then(|any_data| any_data.as_string())
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);
