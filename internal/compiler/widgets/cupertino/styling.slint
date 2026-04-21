@@ -9,25 +9,21 @@ export struct TextStyle {
 }
 
 export global CupertinoFontSettings {
-    out property <int> light-font-weight: FontWeight.light;
-    out property <int> regular-font-weight: FontWeight.normal;
-    out property <int> semibold-font-weight: FontWeight.semi-bold;
-
     out property <TextStyle> body: {
         font-size: 13 * 0.0769rem,
-        font-weight: regular-font-weight
+        font-weight: FontWeight.normal
     };
 
 
     out property <TextStyle> title: {
         font-size: 28 * 0.0769rem,
-        font-weight: light-font-weight
+        font-weight: FontWeight.light
     };
 
     // needed?
     out property <TextStyle> body-strong: {
         font-size: 14 * 0.0769rem,
-        font-weight: semibold-font-weight
+        font-weight: FontWeight.semi-bold
     };
 }
 export global CupertinoColors {

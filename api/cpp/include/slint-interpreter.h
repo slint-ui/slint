@@ -396,7 +396,8 @@ public:
     }
 
 private:
-    inline Value(const void *) = delete; // Avoid that for example Value("foo") turns to Value(bool)
+    inline Value(const void *) =
+            SLINT_DELETED_FUNCTION("pointers would otherwise implicitly convert to Value(bool)");
     slint::cbindgen_private::Value *inner;
     friend struct Struct;
     friend class ComponentInstance;

@@ -466,17 +466,20 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
-        Expression::Keys(ks) => Value::Keys(i_slint_core::input::make_keys(
-            SharedString::from(&*ks.key),
-            i_slint_core::input::KeyboardModifiers {
-                alt: ks.modifiers.alt,
-                control: ks.modifiers.control,
-                shift: ks.modifiers.shift,
-                meta: ks.modifiers.meta,
-            },
-            ks.ignore_shift,
-            ks.ignore_alt,
-        )),
+        Expression::Keys(ks) => {
+            let mut modifiers = i_slint_core::input::KeyboardModifiers::default();
+            modifiers.alt = ks.modifiers.alt;
+            modifiers.control = ks.modifiers.control;
+            modifiers.shift = ks.modifiers.shift;
+            modifiers.meta = ks.modifiers.meta;
+
+            Value::Keys(i_slint_core::input::make_keys(
+                SharedString::from(&*ks.key),
+                modifiers,
+                ks.ignore_shift,
+                ks.ignore_alt,
+            ))
+        }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -1537,8 +1540,11 @@ fn call_builtin_function(
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             let component = local_context.component_instance;
-            if let [Expression::ElementReference(item)] = arguments {
+            if let [Expression::ElementReference(item), constraint_expr] = arguments {
                 generativity::make_guard!(guard);
+
+                let constraint: f32 =
+                    eval_expression(constraint_expr, local_context).try_into().unwrap_or(-1.);
 
                 let item = item.upgrade().unwrap();
                 let enclosing_component = enclosing_component_for_element(&item, component, guard);
@@ -1552,6 +1558,7 @@ fn call_builtin_function(
                     .as_ref()
                     .layout_info(
                         crate::eval_layout::to_runtime(orient),
+                        constraint,
                         &window_adapter,
                         &ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index()),
                     )

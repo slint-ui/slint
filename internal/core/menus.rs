@@ -202,9 +202,12 @@ pub struct MenuItem {
 impl crate::items::Item for MenuItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: crate::items::Orientation,
+        _cross_axis_constraint: crate::Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::layout::LayoutInfo {

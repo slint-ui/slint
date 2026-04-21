@@ -188,6 +188,9 @@ Slint looks for images in the following places:
 1. The absolute path or the path relative to the current `.slint` file.
 2. The include path used by the compiler to look up `.slint` files.
 
+Images can also be loaded from [`data:` URIs](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data), with either base64 or URL-encoded content.
+For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
+
 Access an `image`'s source dimension using its `source.width` and `source.height` properties.
 
 ```slint

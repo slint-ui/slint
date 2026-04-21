@@ -12,13 +12,16 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+build = "build.rs"
+
 [lib]
 path = "lib.rs"
 
 [features]
 renderer-skia = ["renderer-skia-opengl"]
-renderer-skia-vulkan = ["i-slint-renderer-skia/wgpu-27", "drm", "dep:memmap2"]
-unstable-wgpu-28 = ["i-slint-renderer-skia/wgpu-28"]
+renderer-skia-vulkan = ["unstable-wgpu-28"]
+unstable-wgpu-27 = ["i-slint-renderer-skia/wgpu-27", "drm", "dep:memmap2"]
+unstable-wgpu-28 = ["i-slint-renderer-skia/wgpu-28", "drm", "dep:memmap2"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm"]
@@ -46,6 +49,9 @@ glutin = { workspace = true, optional = true, default-features = false, features
 raw-window-handle = { version = "0.6.2", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 memmap2 = { version = "0.9.4", optional = true }
+
+[build-dependencies]
+cfg_aliases = { workspace = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

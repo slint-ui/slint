@@ -5,6 +5,9 @@ use std::rc::{Rc, Weak};
 
 use i_slint_core::timers::{Timer, TimerMode};
 
+#[cfg(target_os = "macos")]
+mod macos_display_link;
+
 use crate::winitwindowadapter::WinitWindowAdapter;
 
 pub fn create_frame_throttle(
@@ -14,6 +17,10 @@ pub fn create_frame_throttle(
     if _is_wayland {
         WinitBasedFrameThrottle::create(window_adapter)
     } else {
+        #[cfg(target_os = "macos")]
+        if let Some(throttle) = macos_display_link::try_create(window_adapter.clone()) {
+            return throttle;
+        }
         TimerBasedFrameThrottle::create(window_adapter)
     }
 }

@@ -603,8 +603,10 @@ pub fn compile_with_output_path(
     write!(code_formatter, "{generated}").map_err(CompileError::SaveError)?;
     dependencies.push(input_slint_file_path.as_ref().to_path_buf());
 
-    for resource in doc.embedded_file_resources.borrow().keys() {
-        if !resource.starts_with("builtin:") {
+    for er in doc.embedded_file_resources.borrow().iter() {
+        if let Some(resource) = er.path.as_deref()
+            && !resource.starts_with("builtin:")
+        {
             dependencies.push(Path::new(resource).to_path_buf());
         }
     }

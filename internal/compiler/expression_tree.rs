@@ -216,7 +216,7 @@ declare_builtin_function_types!(
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type().into(),
+    ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
@@ -835,7 +835,7 @@ pub enum Expression {
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
     },
-    /// Determine the coordinates of the items
+    /// Determine the coordinates of the items in the given orientation.
     SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
@@ -1836,8 +1836,8 @@ pub enum EasingCurve {
 pub enum ImageReference {
     None,
     AbsolutePath(SmolStr),
-    EmbeddedData { resource_id: usize, extension: String },
-    EmbeddedTexture { resource_id: usize },
+    EmbeddedData { resource_id: crate::embedded_resources::EmbeddedResourcesIdx, extension: String },
+    EmbeddedTexture { resource_id: crate::embedded_resources::EmbeddedResourcesIdx },
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)

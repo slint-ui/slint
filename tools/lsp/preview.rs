@@ -9,8 +9,7 @@
 //! the case of `native` runs in a separate thread at this time.
 
 use crate::common::{
-    self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig,
-    PreviewToLspMessage, SourceFileVersion, component_catalog, rename_component, text_edit,
+    self, ComponentInformation, ElementRcNode, component_catalog, rename_component, text_edit,
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
@@ -19,6 +18,9 @@ use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
+use i_slint_preview_protocol::{
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+};
 use lsp_types::Url;
 use slint::PlatformError;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
@@ -67,7 +69,9 @@ pub fn run(config: &crate::LivePreview) -> std::result::Result<(), slint::Platfo
     ui.window().set_fullscreen(config.fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
-    to_lsp.send(&common::PreviewToLspMessage::RequestState { unused: true }).unwrap();
+    to_lsp
+        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { unused: true })
+        .unwrap();
 
     let ui_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -257,7 +261,7 @@ fn apply_live_preview_data() {
     }
 }
 
-fn set_contents(url: &common::VersionedUrl, content: String) {
+fn set_contents(url: &i_slint_preview_protocol::VersionedUrl, content: String) {
     if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -918,7 +922,10 @@ fn resize_selected_element_impl(
 
     properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(common::VersionedUrl::new(url, version), offset),
+        common::VersionedPosition::new(
+            i_slint_preview_protocol::VersionedUrl::new(url, version),
+            offset,
+        ),
         properties,
     )
     .map(|edit| (edit, format!("{op} element")))
@@ -1061,8 +1068,8 @@ fn extract_resources(
         result.extend(
             doc.embedded_file_resources
                 .borrow()
-                .keys()
-                .filter_map(|fp| Url::from_file_path(fp).ok()),
+                .iter()
+                .filter_map(|er| Url::from_file_path(er.path.as_deref()?).ok()),
         );
     }
 
@@ -1194,20 +1201,21 @@ fn config_changed(config: PreviewConfig) {
 
 /// If the file is in the cache, returns it.
 ///
-/// If the file is not known, the return an empty string marked as "from disk". This is fine:
-/// The LSP side will load the file and inform us about it soon.
+/// If the file is not known, return a NotFound error:
+/// Usually the LSP side will load the file and inform us about it soon.
+/// Otherwise the file is indeed missing.
 ///
 /// In any way, register it as a dependency
-fn get_url_from_cache(url: &Url) -> (SourceFileVersion, String) {
+fn get_url_from_cache(url: &Url) -> std::io::Result<(SourceFileVersion, String)> {
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.dependencies.insert(url.to_owned());
 
-        preview_state
-            .source_code
-            .get(url)
-            .map(|r| (r.version, r.code.clone()))
-            .unwrap_or_default()
-            .clone()
+        preview_state.source_code.get(url).map(|r| (r.version, r.code.clone())).ok_or(
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "File not registered in Live-Preview!",
+            ),
+        )
     })
 }
 
@@ -1215,7 +1223,7 @@ fn get_path_from_cache(path: &Path) -> std::io::Result<(SourceFileVersion, Strin
     let url = Url::from_file_path(path).map_err(|()| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "Failed to convert path to URL")
     })?;
-    Ok(get_url_from_cache(&url))
+    get_url_from_cache(&url)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -1273,7 +1281,7 @@ async fn reload_timer_function() {
                 PREVIEW_STATE.with_borrow_mut(|preview_state| {
                     preview_state.loading_state = PreviewFutureState::Pending;
                 });
-                eprintln!("{e}");
+                tracing::error!("{e}");
                 std::process::exit(3);
             }
         }
@@ -1377,9 +1385,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 }
 
 async fn parse_source(
-    config: common::PreviewConfig,
+    config: i_slint_preview_protocol::PreviewConfig,
     path: PathBuf,
-    version: common::SourceFileVersion,
+    version: i_slint_preview_protocol::SourceFileVersion,
     source_code: String,
     style: String,
     component: Option<String>,
@@ -1388,7 +1396,9 @@ async fn parse_source(
     ) -> core::pin::Pin<
         Box<
             dyn core::future::Future<
-                    Output = Option<std::io::Result<(common::SourceFileVersion, String)>>,
+                    Output = Option<
+                        std::io::Result<(i_slint_preview_protocol::SourceFileVersion, String)>,
+                    >,
                 >,
         >,
     > + 'static,
@@ -1451,11 +1461,10 @@ async fn reload_preview_impl(
     }
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (version, source) = get_url_from_cache(&component.url);
-
-    if source.is_empty() {
-        tracing::debug!("Preview: source is empty for {}", component.url);
-    }
+    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
+        tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
+        Default::default()
+    });
 
     let format =
         if config.format_utf8 { common::ByteFormat::Utf8 } else { common::ByteFormat::Utf16 };

@@ -296,18 +296,31 @@ impl AndroidWindowAdapter {
             WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
-                    key_event: KeyEvent { text, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event
+                    },
                     ..Default::default()
                 }),
             WindowEvent::KeyPressRepeated { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
-                    key_event: KeyEvent { text, repeat: true, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event.repeat = true;
+                        key_event
+                    },
                     ..Default::default()
                 }),
             WindowEvent::KeyReleased { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
-                    key_event: KeyEvent { text, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event
+                    },
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()
                 }),
@@ -469,6 +482,13 @@ impl AndroidWindowAdapter {
                     let event = if let Some(r) = state.compose_region {
                         let adjust =
                             |pos| if pos > r.start { pos - r.start + r.end } else { pos } as i32;
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = i_slint_core::format!(
+                            "{}{}",
+                            &state.text[..r.start],
+                            &state.text[r.end..]
+                        );
+
                         InternalKeyEvent {
                             event_type: KeyEventType::UpdateComposition,
                             preedit_text: state.text[r.start..r.end].into(),
@@ -476,26 +496,18 @@ impl AndroidWindowAdapter {
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(adjust(state.selection.end)),
                             anchor_position: Some(adjust(state.selection.start)),
-                            key_event: KeyEvent {
-                                text: i_slint_core::format!(
-                                    "{}{}",
-                                    &state.text[..r.start],
-                                    &state.text[r.end..]
-                                ),
-                                ..Default::default()
-                            },
+                            key_event,
                             ..Default::default()
                         }
                     } else {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = state.text.as_str().into();
                         InternalKeyEvent {
                             event_type: KeyEventType::CommitComposition,
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(state.selection.end as _),
                             anchor_position: Some(state.selection.start as _),
-                            key_event: KeyEvent {
-                                text: state.text.as_str().into(),
-                                ..Default::default()
-                            },
+                            key_event,
                             ..Default::default()
                         }
                     };
@@ -515,14 +527,7 @@ impl AndroidWindowAdapter {
 
     fn resize(&self) -> Result<(), PlatformError> {
         let Some(win) = self.app.native_window() else { return Ok(()) };
-        let (offset, size) = if self.fullscreen.get() {
-            (
-                Default::default(),
-                PhysicalSize { width: win.width() as u32, height: win.height() as u32 },
-            )
-        } else {
-            self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e))
-        };
+        let size = PhysicalSize { width: win.width() as u32, height: win.height() as u32 };
 
         let scale_factor = self.window.scale_factor();
         self.window
@@ -532,7 +537,7 @@ impl AndroidWindowAdapter {
                 .map(|internal| internal.safe_area_inset().to_logical(scale_factor))
                 .unwrap_or_default(),
         );
-        self.offset.set(offset);
+        self.offset.set(Default::default());
         Ok(())
     }
 

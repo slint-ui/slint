@@ -397,9 +397,9 @@ mod tests {
             if diag.is_empty() {
                 continue;
             }
-            eprintln!("Diags for {u}");
+            tracing::debug!("Diags for {u}");
             for d in diag {
-                eprintln!("{d:#?}");
+                tracing::debug!("{d:#?}");
             }
         }
         if let Some((e, p)) =
@@ -412,7 +412,7 @@ mod tests {
     }
 
     fn property_conversion_test(contents: &str, property_line: u32) -> ui::PropertyValue {
-        eprintln!("\n\n\n{contents}:");
+        tracing::debug!("\n\n\n{contents}:");
         let (e, pi, dc, _) = properties_at_position(contents, property_line, 30).unwrap();
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
         super::map_property_to_ui(&dc, &e.element, test1, None).0

@@ -1,0 +1,52 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexboxLayout containing Text with word-wrap (height-for-width behavior).
+// The text should wrap within its assigned width, producing a multi-line layout.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 300px;
+
+    FlexboxLayout {
+        spacing: 10px;
+        flex-wrap: no-wrap;
+
+        r := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        t := Text {
+            text: "This is a text with word-wrap inside a FlexboxLayout";
+            wrap: word-wrap;
+            horizontal-alignment: left;
+            flex-shrink: 1;
+        }
+    }
+
+    // Text should be beside the rectangle (x=60) and wrapping (height > single line)
+    out property <bool> test_r: r.x == 0px && r.width == 50px;
+    out property <bool> test_t_pos: t.x == 60px;
+    out property <bool> test_t_wrap: t.height > 20px;
+
+    out property <bool> test: test_r && test_t_pos && test_t_wrap;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

@@ -66,9 +66,12 @@
                 "mdx"
             ],
             "words": [
+                "DSLINT",
                 "Espressif",
+                "libname",
                 "linebuffer",
                 "mylibrary",
+                "mywidgets",
                 "otherlibrary",
                 "Lmylibrary",
                 "progressindicator",

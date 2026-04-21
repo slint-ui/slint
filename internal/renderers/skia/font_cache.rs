@@ -86,15 +86,15 @@ impl FontCache {
         // with an index > 0 fail to load on macOS. As a workaround, we manually extract the font from the
         // collection and load it as a single font.
         #[cfg(target_vendor = "apple")]
-        if font.index > 0 && typeface.is_none() {
-            if let Some(typeface) = read_fonts::CollectionRef::new(font.data.as_ref())
+        if font.index > 0
+            && typeface.is_none()
+            && let Some(typeface) = read_fonts::CollectionRef::new(font.data.as_ref())
                 .ok()
                 .and_then(|ttc| ttc.get(font.index).ok())
                 .map(|ttf| write_fonts::FontBuilder::new().copy_missing_tables(ttf).build())
                 .and_then(|new_ttf| self.font_mgr.new_from_data(&new_ttf, None))
-            {
-                return Some(typeface);
-            }
+        {
+            return Some(typeface);
         }
 
         typeface

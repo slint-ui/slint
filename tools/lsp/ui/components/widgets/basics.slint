@@ -25,7 +25,7 @@ export component NameLabel inherits HorizontalLayout {
         height: root.property-name != "" ? self.preferred-height : 0;
         text: root.property-name;
         font-size: 1rem;
-        font-weight: root.property-value.code != "" ? EditorFontSettings.regular-font-weight : EditorFontSettings.light-font-weight;
+        font-weight: root.property-value.code != "" ? FontWeight.normal : FontWeight.thin;
         font-italic: root.property-value.code == "";
         opacity: root.property-value.code != "" ? 1.0 : 0.5;
 

@@ -2624,11 +2624,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(
                     sp::make_keys(
                         #key.into(),
-                        sp::KeyboardModifiers {
-                            alt: #alt,
-                            control: #control,
-                            shift: #shift,
-                            meta: #meta
+                        {
+                            let mut modifiers = sp::KeyboardModifiers::default();
+                            modifiers.alt = #alt;
+                            modifiers.control = #control;
+                            modifiers.shift = #shift;
+                            modifiers.meta = #meta;
+                            modifiers
                         },
                         #ignore_shift,
                         #ignore_alt))
@@ -2922,12 +2924,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
                 }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
                     let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                     quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
                 }
                 crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
                     quote!(
                         sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
                     )
@@ -3518,13 +3520,14 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            if let [Expression::PropertyReference(pr)] = arguments {
+            if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let item = access_member(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
+                let constraint = compile_expression(constraint_expr, ctx);
                 item.then(|item| {
                     let item_rc = access_item_rc(pr, ctx);
                     quote!(
-                        sp::Item::layout_info(#item, #orient, #window_adapter_tokens, &#item_rc)
+                        sp::Item::layout_info(#item, #orient, #constraint as _, #window_adapter_tokens, &#item_rc)
                     )
                 })
             } else {
@@ -4372,15 +4375,16 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
 
     doc.embedded_file_resources
         .borrow()
-        .iter()
-        .map(|(path, er)| {
-            let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", er.id);
+        .iter_enumerated()
+        .map(|(resource_id, er)| {
+            let resource_id = resource_id.0;
+            let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
             match &er.kind {
                 &crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {
                     quote!()
                 },
                 crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-                    let data = embedded_file_tokens(path);
+                    let data = embedded_file_tokens(er.path.as_deref().unwrap());
                     quote!(static #symbol: &'static [u8] = #data;)
                 }
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
@@ -4398,7 +4402,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     } else {
                         quote!(sp::Color::from_argb_encoded(0))
                     };
-                    let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", er.id);
+                    let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", resource_id);
                     let data_size = data.len();
                     quote!(
                         #link_section

@@ -761,10 +761,18 @@ fn lower_box_layout(
         orientation,
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
+        cross_alignment: binding_reference(layout_element, "align-items"),
     };
 
     let layout_cache_prop =
         create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+    let layout_cache_ortho_prop = layout.cross_alignment.is_some().then(|| {
+        create_new_prop(
+            layout_element,
+            SmolStr::new_static("layout-cache-ortho"),
+            Type::LayoutCache,
+        )
+    });
     let layout_info_prop_v = create_new_prop(
         layout_element,
         SmolStr::new_static("layoutinfo-v"),
@@ -778,33 +786,34 @@ fn lower_box_layout(
 
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
 
-    let (begin_padding, end_padding) = match orientation {
-        Orientation::Horizontal => (&layout.geometry.padding.top, &layout.geometry.padding.bottom),
-        Orientation::Vertical => (&layout.geometry.padding.left, &layout.geometry.padding.right),
-    };
     let (pos, size, pad, ortho) = match orientation {
         Orientation::Horizontal => ("x", "width", "y", "height"),
         Orientation::Vertical => ("y", "height", "x", "width"),
     };
-    let pad_expr = begin_padding.clone().map(Expression::PropertyReference);
-    let mut size_expr = Expression::PropertyReference(NamedReference::new(
-        layout_element,
-        SmolStr::new_static(ortho),
-    ));
-    if let Some(p) = begin_padding {
-        size_expr = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut size_expr)),
-            rhs: Box::new(Expression::PropertyReference(p.clone())),
-            op: '-',
+    // Default stretch bindings, only used when there is no `align-items`.
+    let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
+        let (begin_padding, end_padding) = match orientation {
+            Orientation::Horizontal => {
+                (&layout.geometry.padding.top, &layout.geometry.padding.bottom)
+            }
+            Orientation::Vertical => {
+                (&layout.geometry.padding.left, &layout.geometry.padding.right)
+            }
+        };
+        let pad_expr = begin_padding.clone().map(Expression::PropertyReference);
+        let mut size_expr = Expression::PropertyReference(NamedReference::new(
+            layout_element,
+            SmolStr::new_static(ortho),
+        ));
+        for p in [begin_padding, end_padding].into_iter().flatten() {
+            size_expr = Expression::BinaryExpression {
+                lhs: Box::new(std::mem::take(&mut size_expr)),
+                rhs: Box::new(Expression::PropertyReference(p.clone())),
+                op: '-',
+            };
         }
-    }
-    if let Some(p) = end_padding {
-        size_expr = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut size_expr)),
-            rhs: Box::new(Expression::PropertyReference(p.clone())),
-            op: '-',
-        }
-    }
+        (pad_expr, size_expr)
+    });
 
     for layout_child in &layout_children {
         let item = create_layout_item(layout_child, diag);
@@ -819,19 +828,29 @@ fn lower_box_layout(
             }
         };
         let actual_elem = &item.elem;
-        // step=1 for box layout items (single element per repeater iteration)
         set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, 2, diag);
         if !fixed_size {
             set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx, 2, diag);
         }
-        if let Some(pad_expr) = pad_expr.clone() {
-            actual_elem.borrow_mut().bindings.insert(pad.into(), RefCell::new(pad_expr.into()));
-        }
-        if !fixed_ortho {
-            actual_elem
-                .borrow_mut()
-                .bindings
-                .insert(ortho.into(), RefCell::new(size_expr.clone().into()));
+        if let Some(cache_ortho) = &layout_cache_ortho_prop {
+            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, 2, diag);
+            if !fixed_ortho {
+                set_prop_from_cache(actual_elem, ortho, cache_ortho, index + 1, rep_idx, 2, diag);
+            }
+        } else {
+            let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
+            if let Some(pad_expr) = pad_expr {
+                actual_elem
+                    .borrow_mut()
+                    .bindings
+                    .insert(pad.into(), RefCell::new(pad_expr.clone().into()));
+            }
+            if !fixed_ortho {
+                actual_elem
+                    .borrow_mut()
+                    .bindings
+                    .insert(ortho.into(), RefCell::new(size_expr.clone().into()));
+            }
         }
         layout.elems.push(item.item);
     }
@@ -845,6 +864,16 @@ fn lower_box_layout(
         )
         .into(),
     );
+    if let Some(cache_ortho) = &layout_cache_ortho_prop {
+        cache_ortho.element().borrow_mut().bindings.insert(
+            cache_ortho.name().clone(),
+            BindingExpression::new_with_span(
+                Expression::SolveBoxLayout(layout.clone(), orientation.orthogonal()),
+                span.clone(),
+            )
+            .into(),
+        );
+    }
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(

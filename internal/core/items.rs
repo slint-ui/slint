@@ -127,16 +127,22 @@ pub struct ItemVTable {
     /// bindings are set.
     pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
 
+    pub deinit: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapterRc),
+
     /// offset in bytes from the *const ItemImpl.
-    /// isize::MAX  means None
+    /// usize::MAX  means None
     #[allow(non_upper_case_globals)]
     #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
 
-    /// We would need max/min/preferred size, and all layout info
+    /// We would need max/min/preferred size, and all layout info.
+    /// `cross_axis_constraint` is the available width when querying vertical
+    /// layout info, enabling height-for-width (Text word-wrap, Image aspect
+    /// ratio). Negative values mean unconstrained.
     pub layout_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> LayoutInfo,
@@ -224,9 +230,12 @@ pub struct Empty {
 impl Item for Empty {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -327,9 +336,12 @@ pub struct Rectangle {
 impl Item for Rectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -439,9 +451,12 @@ pub struct BasicBorderRectangle {
 impl Item for BasicBorderRectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -564,9 +579,12 @@ pub struct BorderRectangle {
 impl Item for BorderRectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -712,9 +730,12 @@ pub struct Clip {
 impl Item for Clip {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -835,9 +856,12 @@ pub struct Opacity {
 impl Item for Opacity {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -964,9 +988,12 @@ pub struct Layer {
 impl Item for Layer {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1070,9 +1097,12 @@ pub struct Transform {
 impl Item for Transform {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1239,9 +1269,12 @@ impl Item for WindowItem {
         self.full_screen.set(std::env::var("SLINT_FULLSCREEN").is_ok());
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1484,9 +1517,12 @@ pub struct ContextMenu {
 impl Item for ContextMenu {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1684,9 +1720,12 @@ pub struct BoxShadow {
 impl Item for BoxShadow {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {

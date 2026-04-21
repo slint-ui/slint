@@ -3,6 +3,7 @@
 
 #![cfg(not(target_arch = "wasm32"))]
 #![allow(clippy::await_holding_refcell_ref)]
+#![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
 #[cfg(all(feature = "preview-engine", not(feature = "preview-builtin")))]
 compile_error!(
@@ -19,13 +20,13 @@ pub mod util;
 use common::{LspToPreview, Result};
 use language::*;
 
-use lsp_types::notification::{
-    DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
-    DidOpenTextDocument, Notification,
-};
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, InitializeParams, Url,
+    notification::{
+        DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
+        DidOpenTextDocument, Notification,
+    },
 };
 use tokio::sync::mpsc;
 
@@ -217,6 +218,7 @@ impl RequestHandler {
 
 fn main() {
     tracing_subscriber::fmt()
+        .log_internal_errors(false)
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -268,7 +270,7 @@ fn main() {
             Commands::Format(fmt) => match fmt::tool::run(&fmt.paths, fmt.inline) {
                 Ok(()) => std::process::exit(0),
                 Err(e) => {
-                    eprintln!("Format Error: {e}");
+                    tracing::error!("Format Error: {e}");
                     std::process::exit(1)
                 }
             },
@@ -276,7 +278,7 @@ fn main() {
             Commands::LivePreview(live_preview) => match preview::run(live_preview) {
                 Ok(()) => std::process::exit(0),
                 Err(e) => {
-                    eprintln!("Preview Error: {e}");
+                    tracing::error!("Preview Error: {e}");
                     std::process::exit(2);
                 }
             },
@@ -291,7 +293,7 @@ fn main() {
         match local_set.block_on(&rt, run_lsp_server(args)) {
             Ok(threads) => threads.join().unwrap(),
             Err(error) => {
-                eprintln!("Error running LSP server: {error}");
+                tracing::error!("Error running LSP server: {error}");
                 std::process::exit(3);
             }
         }
@@ -317,13 +319,10 @@ async fn main_loop(
     init_param: InitializeParams,
     cli_args: Cli,
 ) -> Result<()> {
-    let mut rh = RequestHandler::default();
-    register_request_handlers(&mut rh);
-
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
-    let (preview_to_lsp_sender, mut preview_to_lsp_receiver) =
-        mpsc::unbounded_channel::<crate::common::PreviewToLspMessage>();
+    let (preview_to_lsp_sender, preview_to_lsp_receiver) =
+        mpsc::unbounded_channel::<i_slint_preview_protocol::PreviewToLspMessage>();
 
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
@@ -350,6 +349,37 @@ async fn main_loop(
         )
     };
 
+    let result = run_main_loop(
+        connection,
+        init_param,
+        cli_args,
+        request_queue,
+        server_notifier,
+        preview_to_lsp_receiver,
+        to_preview.clone(),
+    )
+    .await;
+
+    to_preview.shutdown().await;
+
+    result
+}
+
+async fn run_main_loop(
+    connection: Connection,
+    init_param: InitializeParams,
+    cli_args: Cli,
+    request_queue: OutgoingRequestQueue,
+    server_notifier: ServerNotifier,
+    #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
+    mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<
+        i_slint_preview_protocol::PreviewToLspMessage,
+    >,
+    to_preview: Rc<dyn LspToPreview>,
+) -> Result<()> {
+    let mut rh = RequestHandler::default();
+    register_request_handlers(&mut rh);
+
     let to_preview_clone = to_preview.clone();
     let compiler_config = CompilerConfiguration {
         style: Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style }),
@@ -367,12 +397,16 @@ async fn main_loop(
                 let contents = std::fs::read_to_string(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        to_preview.send(&common::LspToPreviewMessage::SetContents {
-                            url: common::VersionedUrl::new(url, None),
-                            contents: contents.clone(),
-                        });
+                        to_preview.send(
+                            &i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                                url: i_slint_preview_protocol::VersionedUrl::new(url, None),
+                                contents: contents.clone(),
+                            },
+                        );
                     } else {
-                        to_preview.send(&common::LspToPreviewMessage::ForgetFile { url });
+                        to_preview.send(
+                            &i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url },
+                        );
                     }
                 }
                 Some(contents.map(|c| (None, c)))
@@ -614,10 +648,10 @@ async fn send_workspace_edit(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
-    message: crate::common::PreviewToLspMessage,
+    message: i_slint_preview_protocol::PreviewToLspMessage,
     ctx: &Context,
 ) -> Result<()> {
-    use crate::common::PreviewToLspMessage as M;
+    use i_slint_preview_protocol::PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
             if diagnostics.is_empty() {

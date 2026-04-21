@@ -1,7 +1,7 @@
 {
   "name": "slint.figma.plugin",
   "private": true,
-  "version": "1.16.0",
+  "version": "1.17.0",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode dev",
@@ -33,14 +33,14 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
-    "vite-plugin-singlefile": "2.3.2",
+    "vite-plugin-singlefile": "2.3.3",
     "vitest": "catalog:"
   },
   "dependencies": {
     "figma-kit": "1.0.0-beta.22",
-    "html-react-parser": "6.0.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "html-react-parser": "6.0.1",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "react-rnd": "10.5.3",
     "zustand": "5.0.12"
   }

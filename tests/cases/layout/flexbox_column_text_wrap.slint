@@ -1,0 +1,50 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test column-direction FlexboxLayout with Text word-wrap.
+// In column direction, the main axis is vertical and the cross axis is horizontal.
+// The text gets the container's width and should wrap within it.
+
+export component TestCase inherits Window {
+    width: 150px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-direction: column;
+        spacing: 10px;
+
+        r := Rectangle {
+            height: 50px;
+            background: red;
+        }
+        t := Text {
+            text: "This is a long text that should word-wrap inside a column FlexboxLayout";
+            wrap: word-wrap;
+            horizontal-alignment: left;
+        }
+    }
+
+    // In column direction, items stack vertically.
+    // The text should be below the rectangle and wrap within the container width.
+    out property <bool> test_r: r.height == 50px;
+    out property <bool> test_t: t.y == 60px && t.width <= 150px && t.height > 30px;
+
+    out property <bool> test: test_r && test_t;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

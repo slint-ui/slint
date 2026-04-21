@@ -201,3 +201,56 @@ the event loop is started, and that will start polling the async closure passed 
 In this closure we can now call `.await` on the future [`ElementHandle::single_click()`] returns, which
 will keep running the event loop until the click is complete, and then continue with the test function.
 
+## Embedded MCP Server
+
+The testing backend includes an embedded [MCP (Model Context Protocol)](https://modelcontextprotocol.io/)
+server that allows AI agents to inspect and interact with a running Slint application in real time.
+The server provides tools for exploring the UI tree, taking screenshots, clicking elements, dragging,
+typing, and more. Agents discover the available tools and usage instructions automatically via the
+MCP protocol — no additional configuration is needed beyond enabling the server.
+
+### Enabling the MCP Server
+
+Add the `mcp` feature to the backend selector crate:
+
+```toml
+[dependencies]
+slint = "x.y.z"
+i-slint-backend-selector = { version = "=x.y.z", features = ["mcp"] }
+```
+
+Then set the following environment variables when running your application:
+
+```sh
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app
+```
+
+`SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
+metadata into the compiled UI). `SLINT_MCP_PORT` controls which port the MCP server listens on.
+If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
+
+### Usage with AI Agents
+
+The simplest approach is to tell the agent to run the application with both environment variables
+set and then interact with it. For example, in Claude Code:
+
+> "Run `SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-app` in the background. The
+> app includes a built-in MCP server. Connect to it and toggle the dark mode switch."
+
+The agent will discover the MCP endpoint, connect, and use the tools to accomplish the task.
+You can also register the server in your MCP client's configuration if you prefer:
+
+```json
+{
+  "mcpServers": {
+    "my-slint-app": {
+      "type": "streamable-http",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+For architecture and internals, see
+[docs/development/mcp-server.md](../../../docs/development/mcp-server.md).
+

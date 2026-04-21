@@ -749,10 +749,8 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
         }
         let base = elem.borrow().base_type.clone();
         match base {
-            ElementType::Native(n) => {
-                if n.properties.get(p).is_some_and(|p| p.is_native_output()) {
-                    a.is_set = true;
-                }
+            ElementType::Native(n) if n.properties.get(p).is_some_and(|p| p.is_native_output()) => {
+                a.is_set = true;
             }
             ElementType::Component(c) => {
                 elem = c.root_element.clone();

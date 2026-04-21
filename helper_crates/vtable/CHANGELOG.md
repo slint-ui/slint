@@ -9,7 +9,7 @@ All notable changes to this crate will be documented in this file.
  - Use absolute `::core::` paths in the generated code to avoid conflicts when
    user code declares a type named `core`.
  - Upgraded to edition 2024.
- - The minimum supported Rust version is now 1.85.
+ - The minimum supported Rust version is now 1.88.
  - Fixed clippy warnings in `vtable-macro`.
 
 ## [0.3.0] - 2025-06-16

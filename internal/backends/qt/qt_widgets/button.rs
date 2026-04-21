@@ -215,9 +215,12 @@ impl Item for NativeButton {
             .set(LogicalLength::new(icon_size as i_slint_core::Coord));
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {

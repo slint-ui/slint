@@ -135,13 +135,14 @@ fn do_move_declarations(component: &Rc<Component>) {
     }
 }
 
+/// Map the reference to the previous properties to the new moved property at the root
 fn fixup_reference(nr: &mut NamedReference) {
     let e = nr.element();
-    let component = e.borrow().enclosing_component.upgrade().unwrap();
-    if !Rc::ptr_eq(&e, &component.root_element)
+    let parent_component = e.borrow().enclosing_component.upgrade().unwrap();
+    if !Rc::ptr_eq(&e, &parent_component.root_element)
         && e.borrow().property_declarations.contains_key(nr.name())
     {
-        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()));
+        *nr = NamedReference::new(&parent_component.root_element, map_name(&e, nr.name()));
     }
 }
 

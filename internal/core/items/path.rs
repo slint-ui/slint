@@ -59,9 +59,12 @@ pub struct Path {
 impl Item for Path {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {

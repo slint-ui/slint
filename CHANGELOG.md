@@ -2,7 +2,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.16.0] - Unreleased
+## [1.16.0] - 2026-04-16
 
 ### General
 
@@ -22,6 +22,8 @@ All notable changes to this project are documented in this file.
  - Software renderer: Fixed division by zero with tiny images (#7863)
  - ContextMenuArea now uses a native menu on MacOS. (#8141)
  - Wasm: Changed default font to `Inter`.
+ - Android: fixed incorrect window size when the surface size is not the same as the activity size.
+ - Fixed virtual keyboard not closing on popup close
 
 ### Slint
 
@@ -32,7 +34,6 @@ All notable changes to this project are documented in this file.
  - Added support for Keyboard shortcuts with `KeyBinding` element, `keys` type, and `@keys(...)` macro.
  - Added `shortcut` property to `MenuItem` element in `MenuBar`.
  - Added printable keys in the `Key` namespace.
- - Added `FlexboxLayout`.
  - Added support for styled text with `StyledText` element, `styled-text` type, and `@markdown(...)` macro.
  - Added `ScaleRotateGestureHandler` element for handling multi-touch pinch gestures.
  - Fixed compiler panic when accessing model data from a repeated menu. (#10927)
@@ -41,6 +42,7 @@ All notable changes to this project are documented in this file.
  - Added `Platform::open-url` function to open a URL in the default browser.
  - Fixed two-way binding to struct field of type length (#10844)
  - Added `FontWeight` namespace with standards constants. (#11207)
+ - Added support for `data:...` url in `@image-url()`.
 
 ### Widgets
 
@@ -86,10 +88,12 @@ All notable changes to this project are documented in this file.
 
   - LSP: fix formatting of struct type (#10647)
   - LSP: fix jump to definition of path with a leading `@library` (#10864)
+  - LSP: do not autocomplete reserved properties in context where they do not apply (eg. `col` outside of a GridLayout)
   - viewer: handle global properties with the `--save-data` and `--load-data` arguments
   - Error message for binding loop now contains the entire cycle and the order is reversed.
   - Slintpad: persist editor content in history state across reloads.
   - Slintpad: Added File > New menu item
+  - slint-tr-extractor: Fixed bad default for plural rules in generated pot file
 
 ## [1.15.1] - 2026-02-12
 
@@ -2305,3 +2309,5 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.14.0]: https://github.com/slint-ui/slint/releases/tag/v1.14.0
 [1.14.1]: https://github.com/slint-ui/slint/releases/tag/v1.14.1
 [1.15.0]: https://github.com/slint-ui/slint/releases/tag/v1.15.0
+[1.15.1]: https://github.com/slint-ui/slint/releases/tag/v1.15.1
+[1.16.0]: https://github.com/slint-ui/slint/releases/tag/v1.16.0

@@ -25,12 +25,29 @@ system-testing = [
   "prost",
   "pbjson",
   "serde",
-  "generational-arena",
+  "slotmap",
   "async-net",
   "futures-lite",
   "byteorder",
   "image",
   "prost-build",
+  "prost-types",
+  "pbjson-build",
+  "protox",
+]
+mcp = [
+  "prost",
+  "pbjson",
+  "serde",
+  "serde_json",
+  "slotmap",
+  "async-net",
+  "futures-lite",
+  "image",
+  "base64",
+  "httparse",
+  "prost-build",
+  "prost-types",
   "pbjson-build",
   "protox",
 ]
@@ -42,7 +59,10 @@ vtable = { workspace = true }
 prost = { version = "0.14", optional = true }
 pbjson = { version = "0.9", optional = true }
 serde = { version = "1", optional = true }
-generational-arena = { version = "0.2.9", optional = true }
+serde_json = { workspace = true, optional = true }
+base64 = { version = "0.22", optional = true }
+httparse = { version = "1", optional = true }
+slotmap = { version = "1.1", optional = true }
 async-net = { version = "2.0.0", optional = true }
 futures-lite = { version = "2.3.0", optional = true }
 byteorder = { version = "1.5.0", optional = true }
@@ -52,6 +72,7 @@ include_dir = { version = "0.7", optional = true }
 [build-dependencies]
 prost = { version = "0.14", optional = true }
 prost-build = { version = "0.14", optional = true }
+prost-types = { version = "0.14", optional = true }
 pbjson-build = { version = "0.9", optional = true }
 protox = { version = "0.9", optional = true }
 

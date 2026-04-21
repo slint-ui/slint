@@ -23,7 +23,7 @@ pub mod unsafe_single_threaded;
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
-use crate::items::OperatingSystemType;
+pub use crate::items::OperatingSystemType;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 pub use crate::unsafe_single_threaded::thread_local;
 #[cfg(feature = "std")]

@@ -37,6 +37,7 @@ macro_rules! for_each_builtin_structs {
             /// Slint maps the Command key to the control modifier, and the Control key to the meta modifier.
             ///
             /// On Windows, the Windows key is mapped to the meta modifier.
+            #[non_exhaustive]
             #[derive(Copy, Eq)]
             struct KeyboardModifiers {
                 @name = BuiltinPublicStruct::KeyboardModifiers,
@@ -89,6 +90,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
+            #[non_exhaustive]
             struct KeyEvent {
                 @name = BuiltinPublicStruct::KeyEvent,
                 export {

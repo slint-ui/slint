@@ -4,6 +4,7 @@
 use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
+use crate::Coord;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -39,9 +40,12 @@ pub struct DragArea {
 impl Item for DragArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -225,9 +229,12 @@ pub struct DropArea {
 impl Item for DropArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {

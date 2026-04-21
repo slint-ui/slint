@@ -825,7 +825,8 @@ impl WindowInner {
             self.context().0.modifiers.set(updated_modifier);
         }
 
-        internal_key_event.key_event.modifiers = self.context().0.modifiers.get().into();
+        internal_key_event.key_event.modifiers =
+            self.context().0.modifiers.get().modifiers_for(&internal_key_event);
 
         // Emulate macOS menubar behavior: The OS consumes the event before it reaches any
         // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
@@ -1323,7 +1324,7 @@ impl WindowInner {
                 let mut result = menu_entries.clone();
 
                 for entry in menu_entries {
-                    result.extend(flatten_menu(root, Some(&entry)).into_iter());
+                    result.extend(flatten_menu(root, Some(&entry)));
                 }
                 result
             }
@@ -1584,6 +1585,10 @@ impl WindowInner {
 
     /// Sets the global property `TextInputInterface.text-input-focused`
     pub fn set_text_input_focused(&self, value: bool) {
+        if !value && let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken)
+        {
+            window_adapter.input_method_request(InputMethodRequest::Disable);
+        }
         self.pinned_fields.text_input_focused.set(value)
     }
 

@@ -11,8 +11,6 @@ use crate::properties::InterpolatedPropertyValue;
 use euclid::default::{Point2D, Size2D};
 
 #[cfg(not(feature = "std"))]
-use num_traits::Euclid;
-#[cfg(not(feature = "std"))]
 use num_traits::float::Float;
 
 /// A brush is a data structure that is used to describe how
@@ -392,10 +390,10 @@ impl ConicGradientBrush {
         stops = stops
             .iter()
             .map(|stop| {
-                #[cfg(feature = "std")]
-                let rotated_position = (stop.position + normalized_from_angle).rem_euclid(1.0);
-                #[cfg(not(feature = "std"))]
-                let rotated_position = (stop.position + normalized_from_angle).rem_euclid(&1.0);
+                // f32::rem_euclid is not always available, and when it is it has a
+                // different signature than num_traits::Euclid::rem_euclid (issue #11333).
+                let rotated_position =
+                    num_traits::Euclid::rem_euclid(&(stop.position + normalized_from_angle), &1.0);
                 GradientStop { position: rotated_position, color: stop.color }
             })
             .collect();

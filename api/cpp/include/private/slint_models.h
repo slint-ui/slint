@@ -904,14 +904,20 @@ class Repeater
 
         void row_added(size_t index, size_t count) override
         {
-            const auto offset = layout_state.offset;
-            if (index < offset) {
-                if (index + count <= offset)
+            if (index < layout_state.offset) {
+                if (index + count <= layout_state.offset) {
+                    // Entirely before the visible range: shift the offset.
+                    layout_state.offset += count;
+                    is_dirty.set(true);
+                    for (auto &c : data) {
+                        c.state = State::Dirty;
+                    }
                     return;
-                count -= offset - index;
+                }
+                count -= layout_state.offset - index;
                 index = 0;
             } else {
-                index -= offset;
+                index -= layout_state.offset;
             }
             if (count == 0 || index > data.size()) {
                 return;
@@ -941,14 +947,21 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            const auto offset = layout_state.offset;
-            if (index < offset) {
-                if (index + count <= offset)
+            if (index < layout_state.offset) {
+                if (index + count <= layout_state.offset) {
+                    // Entirely before the visible range: shift the offset.
+                    layout_state.offset -= count;
+                    is_dirty.set(true);
+                    for (auto &c : data) {
+                        c.state = State::Dirty;
+                    }
                     return;
-                count -= offset - index;
+                }
+                count -= layout_state.offset - index;
+                layout_state.offset = index;
                 index = 0;
             } else {
-                index -= offset;
+                index -= layout_state.offset;
             }
             if (count == 0 || index >= data.size()) {
                 return;

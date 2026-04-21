@@ -10,7 +10,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.16.0"
+version = "1.17.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 
@@ -74,9 +74,6 @@ preview-engine = [
   "dep:i-slint-core",
   "dep:i-slint-backend-selector",
   "dep:slint-build",
-  "dep:i-slint-backend-winit",
-  "dep:muda",
-  "dep:objc2-foundation",
 ]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine"]
@@ -95,11 +92,11 @@ dissimilar = "1.0.7"
 itertools = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-# Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
-lsp-types = { version = "0.95.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
+i-slint-preview-protocol = { version = "=1.17.0", path = "../../internal/preview-protocol" }
+lsp-types = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }
@@ -129,11 +126,6 @@ wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
 i-slint-backend-winit = { workspace = true }
 tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
-
-[target.'cfg(target_vendor = "apple")'.dependencies]
-i-slint-backend-winit = { workspace = true, optional = true }
-muda = { version = "0.17.0", optional = true, default-features = false }
-objc2-foundation = { version = "0.3.0", optional = true }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
