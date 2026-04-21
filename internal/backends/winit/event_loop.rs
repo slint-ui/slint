@@ -296,6 +296,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 ) -> SharedString {
                     macro_rules! winit_physical_key_to_name {
                         ($($name:ident # $code:ident;)*) => {
+                            #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                             match physical_key {
                                 $(winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::$code) => stringify!($name).into(),)*
                                 _ => Default::default(),

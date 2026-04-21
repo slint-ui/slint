@@ -679,8 +679,8 @@ impl Window {
             crate::platform::WindowEvent::Key { event_type, event } => {
                 self.0.process_key_input(InternalKeyEvent {
                     event_type: match event_type {
-                        crate::platform::KeyEventType::Pressed => KeyEventType::KeyPressed,
-                        crate::platform::KeyEventType::Released => KeyEventType::KeyReleased,
+                        crate::platform::WindowKeyEventType::Pressed => KeyEventType::KeyPressed,
+                        crate::platform::WindowKeyEventType::Released => KeyEventType::KeyReleased,
                     },
                     key_event: crate::input::KeyEvent {
                         text: event.text,

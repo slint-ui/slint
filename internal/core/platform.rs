@@ -343,9 +343,9 @@ pub enum WindowEvent {
     /// A key was pressed or released.
     Key {
         /// Whether the key was pressed or released.
-        event_type: KeyEventType,
+        event_type: WindowKeyEventType,
         /// The key event details.
-        event: KeyEvent,
+        event: WindowKeyEvent,
     },
     /// A key was pressed.
     KeyPressed {
@@ -415,7 +415,7 @@ pub enum WindowEvent {
 /// The kind of key event delivered through [`WindowEvent::Key`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum KeyEventType {
+pub enum WindowKeyEventType {
     /// A key was pressed.
     Pressed,
     /// A key was released.
@@ -425,7 +425,7 @@ pub enum KeyEventType {
 /// A platform key event delivered through [`WindowEvent::Key`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct KeyEvent {
+pub struct WindowKeyEvent {
     /// The unicode representation of the key.
     pub text: SharedString,
     /// The physical key that was pressed, if the backend can report it.
