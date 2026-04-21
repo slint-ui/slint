@@ -56,8 +56,6 @@ pub unsafe fn make_metal_surface(
 /// The caller must ensure `texture` was created by a Metal-backed wgpu device and remains
 /// valid for the lifetime of the returned `skia_safe::Surface`.
 pub unsafe fn make_metal_surface_from_texture(
-    width: i32,
-    height: i32,
     gr_context: &mut skia_safe::gpu::DirectContext,
     texture: &wgpu::Texture,
 ) -> Option<skia_safe::Surface> {
@@ -66,13 +64,14 @@ pub unsafe fn make_metal_surface_from_texture(
     unsafe {
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>()?;
         let handle = metal_texture.raw_handle().as_ptr() as mtl::Handle;
+        let size = texture.size();
         let color_type = match texture.format() {
             wgpu::TextureFormat::Bgra8Unorm => skia_safe::ColorType::BGRA8888,
             wgpu::TextureFormat::Rgba8Unorm => skia_safe::ColorType::RGBA8888,
             wgpu::TextureFormat::Rgba8UnormSrgb => skia_safe::ColorType::SRGBA8888,
             _ => return None,
         };
-        wrap_metal_texture(width, height, gr_context, handle, color_type)
+        wrap_metal_texture(size.width as i32, size.height as i32, gr_context, handle, color_type)
     }
 }
 

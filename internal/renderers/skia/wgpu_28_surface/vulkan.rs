@@ -87,8 +87,6 @@ pub unsafe fn make_vulkan_surface(
 /// The caller must ensure `texture` was created by a Vulkan-backed wgpu device and remains
 /// valid for the lifetime of the returned `skia_safe::Surface`.
 pub unsafe fn make_vulkan_surface_from_texture(
-    width: i32,
-    height: i32,
     gr_context: &mut skia_safe::gpu::DirectContext,
     texture: &wgpu::Texture,
 ) -> Option<skia_safe::Surface> {
@@ -97,8 +95,16 @@ pub unsafe fn make_vulkan_surface_from_texture(
     unsafe {
         let vulkan_texture = texture.as_hal::<wgpu::wgc::api::Vulkan>()?;
         let vk_image_raw = vulkan_texture.raw_handle().as_raw();
+        let size = texture.size();
         let (vk_format, color_type) = vk_format_and_color_type(texture.format())?;
-        wrap_vulkan_texture(width, height, gr_context, vk_image_raw, vk_format, color_type)
+        wrap_vulkan_texture(
+            size.width as i32,
+            size.height as i32,
+            gr_context,
+            vk_image_raw,
+            vk_format,
+            color_type,
+        )
     }
 }
 

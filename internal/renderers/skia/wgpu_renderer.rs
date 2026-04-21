@@ -92,42 +92,14 @@ impl SkiaWGPURenderer {
     /// The texture must have been created with `RENDER_ATTACHMENT` usage and have a supported
     /// format (`Rgba8Unorm`, `Bgra8Unorm`, or sRGB variants on Vulkan).
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
-        let size = texture.size();
-        self.render_to_texture_impl(texture, size.width as i32, size.height as i32)
-    }
-
-    /// Render the scene to a sub-region of the given texture, specified by width and height.
-    ///
-    /// `width` and `height` must not exceed the texture's dimensions.
-    pub fn render_to_texture_view(
-        &self,
-        texture: &wgpu::Texture,
-        width: u32,
-        height: u32,
-    ) -> Result<(), PlatformError> {
-        let size = texture.size();
-        if width > size.width || height > size.height {
-            return Err(format!(
-                "render_to_texture_view: requested size {}x{} exceeds texture size {}x{}",
-                width, height, size.width, size.height
-            )
-            .into());
-        }
-        self.render_to_texture_impl(texture, width as i32, height as i32)
-    }
-
-    fn render_to_texture_impl(
-        &self,
-        texture: &wgpu::Texture,
-        width: i32,
-        height: i32,
-    ) -> Result<(), PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let mut skia_surface =
-            self.backend.make_surface_from_texture(width, height, gr_context, texture).ok_or_else(
-                || PlatformError::from("Failed to wrap WGPU texture as Skia render target"),
-            )?;
+        let mut skia_surface = self
+            .backend
+            .make_surface_from_texture(gr_context, texture)
+            .ok_or_else(|| {
+                PlatformError::from("Failed to wrap WGPU texture as Skia render target")
+            })?;
 
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();

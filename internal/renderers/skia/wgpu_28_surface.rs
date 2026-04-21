@@ -324,23 +324,21 @@ impl Backend {
 
     pub(crate) fn make_surface_from_texture(
         &self,
-        width: i32,
-        height: i32,
         gr_context: &mut skia_safe::gpu::DirectContext,
         texture: &wgpu::Texture,
     ) -> Option<skia_safe::Surface> {
         match self {
             #[cfg(target_vendor = "apple")]
             Self::Metal => unsafe {
-                metal::make_metal_surface_from_texture(width, height, gr_context, texture)
+                metal::make_metal_surface_from_texture(gr_context, texture)
             },
             #[cfg(target_family = "windows")]
             Self::Dx12 => unsafe {
-                dx12::make_dx12_surface_from_texture(width, height, gr_context, texture)
+                dx12::make_dx12_surface_from_texture(gr_context, texture)
             },
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
             Self::Vulkan => unsafe {
-                vulkan::make_vulkan_surface_from_texture(width, height, gr_context, texture)
+                vulkan::make_vulkan_surface_from_texture(gr_context, texture)
             },
         }
     }

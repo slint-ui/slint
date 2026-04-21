@@ -72,8 +72,6 @@ pub unsafe fn make_dx12_surface(
 /// The caller must ensure `texture` was created by a DX12-backed wgpu device and remains
 /// valid for the lifetime of the returned `skia_safe::Surface`.
 pub unsafe fn make_dx12_surface_from_texture(
-    width: i32,
-    height: i32,
     gr_context: &mut skia_safe::gpu::DirectContext,
     texture: &wgpu::Texture,
 ) -> Option<skia_safe::Surface> {
@@ -84,6 +82,7 @@ pub unsafe fn make_dx12_surface_from_texture(
         let resource = windows_core::Interface::from_raw(windows_core::Interface::into_raw(
             dx12_texture.raw_resource().clone(),
         ));
+        let size = texture.size();
         let (dxgi_format, color_type) = match texture.format() {
             wgpu::TextureFormat::Rgba8Unorm => {
                 (DXGI_FORMAT_R8G8B8A8_UNORM, skia_safe::ColorType::RGBA8888)
@@ -93,7 +92,14 @@ pub unsafe fn make_dx12_surface_from_texture(
             }
             _ => return None,
         };
-        wrap_dx12_texture(width, height, gr_context, resource, dxgi_format, color_type)
+        wrap_dx12_texture(
+            size.width as i32,
+            size.height as i32,
+            gr_context,
+            resource,
+            dxgi_format,
+            color_type,
+        )
     }
 }
 
