@@ -36,6 +36,44 @@ use self::ksni::PlatformTray;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use self::tray_icon::PlatformTray;
 
+std::thread_local! {
+    /// Map from `tray_id` to the `SystemTray` item it refers to. Populated by
+    /// [`register_tray`] when a menu is installed on a tray; entries are removed when
+    /// the owning [`MenuState`] is dropped.
+    static TRAYS: core::cell::RefCell<std::collections::HashMap<u64, crate::item_tree::ItemWeak>> =
+        core::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// Register a new platform tray and return its freshly-allocated id. Ids are not
+/// reused across trays, so stale ids from platform menus never dispatch to the wrong
+/// tray after a tray is dropped and another created.
+fn register_tray(self_weak: crate::item_tree::ItemWeak) -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    TRAYS.with(|t| {
+        t.borrow_mut().insert(id, self_weak);
+    });
+    id
+}
+
+fn unregister_tray(id: u64) {
+    TRAYS.with(|t| {
+        t.borrow_mut().remove(&id);
+    });
+}
+
+fn activate_tray_menu_entry(tray_id: u64, entry_index: usize) {
+    let Some(item_weak) = TRAYS.with(|t| t.borrow().get(&tray_id).cloned()) else { return };
+    let Some(item_rc) = item_weak.upgrade() else { return };
+    let Some(tray) = item_rc.downcast::<SystemTray>() else { return };
+    let tray = tray.as_pin_ref();
+    let menu_borrow = tray.data.menu.borrow();
+    let Some(state) = menu_borrow.as_ref() else { return };
+    if let Some(entry) = state.entries.get(entry_index) {
+        vtable::VRc::borrow(&state.menu_vrc).activate(entry);
+    }
+}
+
 /// Parameters passed to the platform-specific tray backend when building a tray icon.
 pub struct Params<'a> {
     pub icon: &'a Image,
@@ -60,11 +98,20 @@ pub enum Error {
 }
 
 /// Owning handle to a live platform tray icon. Dropping it removes the icon.
-pub struct SystemTrayHandle(#[allow(dead_code)] PlatformTray);
+pub struct SystemTrayHandle(PlatformTray);
 
 impl SystemTrayHandle {
     pub fn new(params: Params) -> Result<Self, Error> {
         PlatformTray::new(params).map(Self)
+    }
+
+    pub fn rebuild_menu(
+        &self,
+        menu: vtable::VRef<'_, crate::menus::MenuVTable>,
+        tray_id: u64,
+        entries_out: &mut std::vec::Vec<crate::items::MenuEntry>,
+    ) {
+        self.0.rebuild_menu(menu, tray_id, entries_out);
     }
 }
 
@@ -100,6 +147,35 @@ impl core::ops::Deref for SystemTrayDataBox {
 pub struct SystemTrayData {
     inner: std::cell::OnceCell<SystemTrayHandle>,
     change_tracker: crate::properties::ChangeTracker,
+    menu: core::cell::RefCell<Option<MenuState>>,
+}
+
+struct MenuState {
+    tray_id: u64,
+    menu_vrc: vtable::VRc<crate::menus::MenuVTable>,
+    entries: std::vec::Vec<crate::items::MenuEntry>,
+    tracker: Pin<Box<crate::properties::PropertyTracker<false, MenuDirtyHandler>>>,
+}
+
+impl Drop for MenuState {
+    fn drop(&mut self) {
+        unregister_tray(self.tray_id);
+    }
+}
+
+struct MenuDirtyHandler {
+    self_weak: crate::item_tree::ItemWeak,
+}
+
+impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
+    fn notify(self: Pin<&Self>) {
+        let self_weak = self.self_weak.clone();
+        crate::timers::Timer::single_shot(Default::default(), move || {
+            let Some(item_rc) = self_weak.upgrade() else { return };
+            let Some(tray) = item_rc.downcast::<SystemTray>() else { return };
+            tray.as_pin_ref().rebuild_menu();
+        });
+    }
 }
 
 #[repr(C)]
@@ -110,6 +186,45 @@ pub struct SystemTray {
     pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayDataBox,
+}
+
+impl SystemTray {
+    /// Called from generated code (via the `SetupSystemTray` builtin) to hand off the
+    /// lowered menu's `VRc<MenuVTable>` to the native item. The item walks the menu via
+    /// this vtable inside its own `PropertyTracker`, so property changes inside the menu
+    /// tree automatically trigger a rebuild of the platform tray menu. The menu is also
+    /// registered in a thread-local dispatch table so platform click events can route
+    /// back through `MenuVTable::activate`. Subsequent calls replace any previously
+    /// installed menu.
+    pub fn set_menu(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        menu_vrc: vtable::VRc<crate::menus::MenuVTable>,
+    ) {
+        let tray_id = register_tray(self_rc.downgrade());
+        let tracker = Box::pin(crate::properties::PropertyTracker::new_with_dirty_handler(
+            MenuDirtyHandler { self_weak: self_rc.downgrade() },
+        ));
+        // Replacing a previous MenuState drops it, which unregisters the old tray_id
+        // via MenuState::drop — safe because registration is keyed by the unique id.
+        *self.data.menu.borrow_mut() =
+            Some(MenuState { tray_id, menu_vrc, entries: std::vec::Vec::new(), tracker });
+        // If the platform tray is already up (icon was set before the menu), populate
+        // the menu now; otherwise the icon tracker's notify will call rebuild_menu
+        // once the handle exists.
+        self.rebuild_menu();
+    }
+
+    fn rebuild_menu(self: Pin<&Self>) {
+        let Some(handle) = self.data.inner.get() else { return };
+        let mut menu_borrow = self.data.menu.borrow_mut();
+        let Some(MenuState { tray_id, menu_vrc, entries, tracker }) = menu_borrow.as_mut() else {
+            return;
+        };
+        tracker.as_ref().evaluate(|| {
+            handle.rebuild_menu(vtable::VRc::borrow(menu_vrc), *tray_id, entries);
+        });
+    }
 }
 
 impl Item for SystemTray {
@@ -137,6 +252,9 @@ impl Item for SystemTray {
                 };
 
                 let _ = tray.data.inner.set(handle);
+                // If a menu was already installed before the icon was set, build it now
+                // that we have a platform handle.
+                tray.rebuild_menu();
             },
         );
     }
