@@ -12,6 +12,7 @@ pub mod builtin_structs;
 pub mod color_parsing;
 pub mod enums;
 pub mod key_codes;
+pub mod physical_key_codes;
 
 #[cfg(feature = "shared-fontique")]
 pub mod sharedfontique;
