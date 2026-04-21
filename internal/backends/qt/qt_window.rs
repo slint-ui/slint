@@ -1684,6 +1684,12 @@ impl QtItemRenderer<'_> {
                 height: (layer_size.height * dpr) as _,
             };
 
+            // Skip rendering if the size is zero since QPainter fails to draw
+            // on an empty QImage (and also to avoid wasting CPU cycles).
+            if layer_size.width == 0 || layer_size.height == 0 {
+                return qttypes::QPixmap::default();
+            }
+
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
             layer_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
 
