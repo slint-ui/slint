@@ -59,6 +59,7 @@ impl SlintContext {
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
             translations_bundle_decimal_separators: Default::default(),
+            #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
             gettext_bindtextdomain_domain: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: core::cell::Cell::new(None),
