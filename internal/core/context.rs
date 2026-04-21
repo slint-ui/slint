@@ -23,6 +23,8 @@ pub(crate) struct SlintContextInner {
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
     pub(crate) translations_bundle_languages:
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
+    pub(crate) translations_bundle_decimal_separators:
+        core::cell::RefCell<Option<alloc::vec::Vec<Option<char>>>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -54,6 +56,7 @@ impl SlintContext {
             window_count: 0.into(),
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
+            translations_bundle_decimal_separators: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: core::cell::Cell::new(None),
             #[cfg(all(unix, not(target_os = "macos")))]
