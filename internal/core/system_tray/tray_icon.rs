@@ -4,7 +4,32 @@
 //! macOS and Windows system tray backend using the `tray-icon` crate (muda-based).
 
 use super::{Error, Params};
+use crate::SharedVector;
+use crate::api::invoke_from_event_loop;
 use crate::graphics::Image;
+use crate::items::MenuEntry;
+use crate::menus::MenuVTable;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+fn install_menu_event_handler() {
+    // `muda::MenuEvent::set_event_handler` is install-once (OnceCell); we own
+    // tray-icon's muda copy so claiming it from here is safe.
+    static INSTALLED: AtomicBool = AtomicBool::new(false);
+    if INSTALLED.load(Ordering::Relaxed) {
+        return;
+    }
+    ::tray_icon::menu::MenuEvent::set_event_handler(Some(|event: ::tray_icon::menu::MenuEvent| {
+        // muda delivers events on an arbitrary thread — hop to the Slint event loop.
+        let id = event.id().0.clone();
+        let _ = invoke_from_event_loop(move || {
+            let Some((tid, eid)) = id.split_once('|') else { return };
+            let Ok(tray_id) = tid.parse::<u64>() else { return };
+            let Ok(entry_index) = eid.parse::<usize>() else { return };
+            super::activate_tray_menu_entry(tray_id, entry_index);
+        });
+    }));
+    INSTALLED.store(true, Ordering::Relaxed);
+}
 
 fn icon_to_tray_icon(icon: &Image) -> Result<::tray_icon::Icon, Error> {
     let pixel_buffer = icon.to_rgba8().ok_or(Error::Rgba8)?;
@@ -20,11 +45,13 @@ fn icon_to_tray_icon(icon: &Image) -> Result<::tray_icon::Icon, Error> {
 }
 
 pub struct PlatformTray {
-    _tray_icon: ::tray_icon::TrayIcon,
+    tray_icon: ::tray_icon::TrayIcon,
 }
 
 impl PlatformTray {
     pub fn new(params: Params) -> Result<Self, Error> {
+        install_menu_event_handler();
+
         let icon = icon_to_tray_icon(params.icon)?;
 
         let tray_icon = ::tray_icon::TrayIconBuilder::new()
@@ -33,6 +60,71 @@ impl PlatformTray {
             .build()
             .map_err(Error::BuildError)?;
 
-        Ok(Self { _tray_icon: tray_icon })
+        Ok(Self { tray_icon })
+    }
+
+    pub fn rebuild_menu(
+        &self,
+        menu: vtable::VRef<'_, MenuVTable>,
+        tray_id: u64,
+        entries_out: &mut std::vec::Vec<MenuEntry>,
+    ) {
+        entries_out.clear();
+        let muda_menu = build_muda_menu(menu, tray_id, entries_out);
+        self.tray_icon.set_menu(Some(muda_menu));
+    }
+}
+
+fn build_muda_menu(
+    menu: vtable::VRef<'_, MenuVTable>,
+    tray_id: u64,
+    entries_out: &mut std::vec::Vec<MenuEntry>,
+) -> std::boxed::Box<dyn ::tray_icon::menu::ContextMenu> {
+    let root = ::tray_icon::menu::Menu::new();
+    let mut top = SharedVector::<MenuEntry>::default();
+    menu.sub_menu(None, &mut top);
+    for entry in top.iter() {
+        let item = entry_to_muda(menu, entry, 0, tray_id, entries_out);
+        let _ = root.append(item.as_ref());
+    }
+    std::boxed::Box::new(root)
+}
+
+fn entry_to_muda(
+    menu: vtable::VRef<'_, MenuVTable>,
+    entry: &MenuEntry,
+    depth: usize,
+    tray_id: u64,
+    entries_out: &mut std::vec::Vec<MenuEntry>,
+) -> std::boxed::Box<dyn ::tray_icon::menu::IsMenuItem> {
+    use ::tray_icon::menu::{IsMenuItem, MenuId, MenuItem, PredefinedMenuItem, Submenu};
+
+    // Mirror muda.rs's depth cap to protect against accidental infinite menu trees.
+    const MAX_DEPTH: usize = 15;
+
+    if entry.is_separator {
+        return std::boxed::Box::new(PredefinedMenuItem::separator());
+    }
+
+    if entry.has_sub_menu && depth < MAX_DEPTH {
+        // Sub-menu headers don't get clicked directly, so they don't need a registry
+        // entry. Use a non-numeric second field so the event handler's parse bails.
+        let submenu = Submenu::with_id(
+            MenuId(std::format!("{tray_id}|submenu")),
+            entry.title.as_str(),
+            entry.enabled,
+        );
+        let mut children = SharedVector::<MenuEntry>::default();
+        menu.sub_menu(Some(entry), &mut children);
+        for child in children.iter() {
+            let child_item = entry_to_muda(menu, child, depth + 1, tray_id, entries_out);
+            let _ = submenu.append(child_item.as_ref());
+        }
+        std::boxed::Box::new(submenu) as std::boxed::Box<dyn IsMenuItem>
+    } else {
+        let entry_index = entries_out.len();
+        entries_out.push(entry.clone());
+        let id = MenuId(std::format!("{tray_id}|{entry_index}"));
+        std::boxed::Box::new(MenuItem::with_id(id, entry.title.as_str(), entry.enabled, None))
     }
 }

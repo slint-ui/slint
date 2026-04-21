@@ -1922,3 +1922,13 @@ pub unsafe extern "C" fn slint_item_absolute_position(
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     self_rc.map_to_window(Default::default())
 }
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_system_tray_set_menu(
+    system_tray: &SystemTray,
+    item_rc: &ItemRc,
+    menu_vrc: &vtable::VRc<crate::menus::MenuVTable>,
+) {
+    unsafe { Pin::new_unchecked(system_tray) }.set_menu(item_rc, menu_vrc.clone());
+}
