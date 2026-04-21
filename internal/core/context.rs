@@ -27,6 +27,8 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<alloc::vec::Vec<Option<char>>>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+    pub(crate) gettext_bindtextdomain_domain: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
@@ -57,6 +59,7 @@ impl SlintContext {
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
             translations_bundle_decimal_separators: Default::default(),
+            gettext_bindtextdomain_domain: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: core::cell::Cell::new(None),
             #[cfg(all(unix, not(target_os = "macos")))]

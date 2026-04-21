@@ -312,6 +312,12 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
         START.call_once(|| {
             gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
         });
+
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let Some(ctx) = ctx.get() else { return };
+            ctx.0.gettext_bindtextdomain_domain.replace(Some(_domain.into()));
+        });
+
         mark_all_translations_dirty();
     }
     Ok(())
@@ -426,17 +432,15 @@ fn update_locale_decimal_separator() {
         } else {
             // No bundled languages
 
-            // TODO: the domain must be changed!!!!!!!!!!!!!!!
-            #[cfg(feature = "std")]
+            #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
             {
-                let translated = translate(
-                    ".",
-                    "SlintDecimalSeparator",
-                    "weather",
-                    &[] as &[SharedString],
-                    1,
-                    "",
-                );
+                let translated = if let Some(domain) =
+                    ctx.0.gettext_bindtextdomain_domain.borrow().as_ref()
+                {
+                    translate(".", "SlintDecimalSeparator", domain, &[] as &[SharedString], 1, "")
+                } else {
+                    "".into()
+                };
                 if !translated.is_empty() {
                     ctx.0.locale_decimal_separator.set(translated.chars().next());
                 } else {
