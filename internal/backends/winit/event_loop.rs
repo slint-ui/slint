@@ -337,9 +337,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         corelib::input::KeyEventType::KeyReleased
                     }
                 };
+                let mut key_event = KeyEvent::default();
+                key_event.text = text;
 
                 let event = corelib::input::InternalKeyEvent {
-                    key_event: corelib::input::KeyEvent { text, ..Default::default() },
+                    key_event,
                     event_type,
                     #[cfg(target_os = "windows")]
                     text_without_modifiers,
@@ -358,9 +360,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 runtime_window.process_key_input(event);
             }
             WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
+                let mut key_event = KeyEvent::default();
+                key_event.text = string.into();
                 let event = InternalKeyEvent {
                     event_type: KeyEventType::CommitComposition,
-                    key_event: KeyEvent { text: string.into(), ..Default::default() },
+                    key_event,
                     ..Default::default()
                 };
                 runtime_window.process_key_input(event);
