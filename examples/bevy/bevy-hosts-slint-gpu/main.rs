@@ -4,27 +4,27 @@
 //! # Slint + Bevy GPU Integration Example
 //!
 //! This example demonstrates how to embed Slint UI within a Bevy application using
-//! **GPU-accelerated rendering** via FemtoVG and WGPU. The Slint UI is rendered directly
+//! **GPU-accelerated rendering** via Skia and WGPU. The Slint UI is rendered directly
 //! to a GPU texture that can be displayed on 3D geometry in the scene.
 //!
 //! ## Architecture Overview
 //!
-//! The integration uses Slint's `FemtoVGWGPURenderer` to render UI directly to a WGPU texture:
+//! The integration uses Slint's `SkiaWGPURenderer` to render UI directly to a WGPU texture:
 //!
 //! 1. Bevy creates a texture in its asset system
 //! 2. The texture handle is extracted to Bevy's render world via `ExtractResourcePlugin`
 //! 3. A channel passes the underlying WGPU texture from render world back to main world
-//! 4. `FemtoVGWGPURenderer::render_to_texture()` renders the UI directly to the GPU texture
+//! 4. `SkiaWGPURenderer::render_to_texture()` renders the UI directly to the GPU texture
 //! 5. Mouse input is handled by raycasting against the 3D quad and converting to Slint coordinates
 //!
 //! ## Key Difference from bevy-hosts-slint
 //!
 //! - **bevy-hosts-slint**: Uses `SoftwareRenderer` to CPU-render UI to a pixel buffer, then uploads to GPU
-//! - **bevy-hosts-slint-gpu**: Uses `FemtoVGWGPURenderer` for direct GPU rendering (better performance)
+//! - **bevy-hosts-slint-gpu**: Uses `SkiaWGPURenderer` for direct GPU rendering (better performance)
 //!
 //! ## Key Components
 //!
-//! - [`BevyWindowAdapter`]: Implements `slint::platform::WindowAdapter` using `FemtoVGWGPURenderer`
+//! - [`BevyWindowAdapter`]: Implements `slint::platform::WindowAdapter` using `SkiaWGPURenderer`
 //! - [`SlintBevyPlatform`]: Implements `slint::platform::Platform` to create window adapters
 //! - [`SlintSharedTexture`]: Manages texture sharing between Bevy's main and render worlds
 //! - [`render_slint`]: Bevy system that renders the Slint UI to the shared texture each frame
@@ -33,7 +33,7 @@
 //! ## Usage Pattern
 //!
 //! This example can serve as a template for GPU-accelerated Slint integration:
-//! 1. Implement the `Platform` and `WindowAdapter` traits with `FemtoVGWGPURenderer`
+//! 1. Implement the `Platform` and `WindowAdapter` traits with `SkiaWGPURenderer`
 //! 2. Share the WGPU texture between Bevy's render world and your Slint renderer
 //! 3. Call `render_to_texture()` each frame to render the UI directly on the GPU
 //! 4. Handle input by converting your coordinate system to Slint's logical coordinates
@@ -61,7 +61,8 @@ use bevy::{
         texture::GpuImage,
     },
 };
-use slint::platform::femtovg_renderer::FemtoVGWGPURenderer;
+use slint::platform::skia_renderer::SkiaWGPURenderer;
+use bevy::render::renderer::RenderAdapter;
 use slint::{LogicalPosition, PhysicalSize, platform::WindowEvent};
 use std::{
     cell::{Cell, RefCell},
@@ -119,13 +120,13 @@ slint::slint! {
 
 /// Window adapter that bridges Slint to Bevy using GPU rendering.
 ///
-/// Instead of rendering to a native OS window, this adapter uses `FemtoVGWGPURenderer`
+/// Instead of rendering to a native OS window, this adapter uses `SkiaWGPURenderer`
 /// to render directly to a WGPU texture that Bevy displays on 3D geometry.
 struct BevyWindowAdapter {
     size: Cell<slint::PhysicalSize>,
     scale_factor: Cell<f32>,
     slint_window: slint::Window,
-    renderer: FemtoVGWGPURenderer,
+    renderer: SkiaWGPURenderer,
 }
 
 impl slint::platform::WindowAdapter for BevyWindowAdapter {
@@ -149,10 +150,14 @@ impl slint::platform::WindowAdapter for BevyWindowAdapter {
 }
 
 impl BevyWindowAdapter {
-    fn new(instance: wgpu::Instance, device: wgpu::Device, queue: wgpu::Queue) -> Rc<Self> {
-        // Create renderer using the new helper
-        let renderer =
-            FemtoVGWGPURenderer::new(instance, device, queue).expect("Failed to create renderer");
+    fn new(
+        instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+    ) -> Rc<Self> {
+        let renderer = SkiaWGPURenderer::new(None, instance, adapter, device, queue)
+            .expect("Failed to create renderer");
 
         Rc::new_cyclic(|self_weak: &Weak<Self>| Self {
             size: Cell::new(slint::PhysicalSize::new(UI_WIDTH, UI_HEIGHT)),
@@ -176,9 +181,10 @@ impl BevyWindowAdapter {
 /// Slint platform implementation that creates GPU-rendered window adapters.
 ///
 /// Registered via `slint::platform::set_platform()` before creating Slint components.
-/// Stores the WGPU device and queue needed to create `FemtoVGWGPURenderer` instances.
+/// Stores the WGPU device and queue needed to create `SkiaWGPURenderer` instances.
 struct SlintBevyPlatform {
     instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
@@ -187,8 +193,12 @@ impl slint::platform::Platform for SlintBevyPlatform {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        let adapter =
-            BevyWindowAdapter::new(self.instance.clone(), self.device.clone(), self.queue.clone());
+        let adapter = BevyWindowAdapter::new(
+            self.instance.clone(),
+            self.adapter.clone(),
+            self.device.clone(),
+            self.queue.clone(),
+        );
         SLINT_WINDOWS.with(|windows| {
             windows.borrow_mut().push(Rc::downgrade(&adapter));
         });
@@ -453,15 +463,18 @@ fn render_slint(slint_context: Option<NonSend<SlintContext>>, shared: Res<SlintS
 /// This runs as a startup system after `setup` to ensure Bevy's render device is available.
 fn initialize_slint(
     render_instance: &RenderInstance,
+    render_adapter: &RenderAdapter,
     render_device: &RenderDevice,
     render_queue: &bevy::render::renderer::RenderQueue,
 ) -> impl Fn(&mut World) + use<> {
     let instance = (**render_instance.0).clone();
+    let wgpu_adapter = (**render_adapter.0).clone();
     let device = render_device.wgpu_device().clone();
     let queue = (**render_queue.0).clone();
     move |world: &mut World| {
         let platform = SlintBevyPlatform {
             instance: instance.clone(),
+            adapter: wgpu_adapter.clone(),
             device: device.clone(),
             queue: queue.clone(),
         };
@@ -534,7 +547,7 @@ fn main() {
         &bevy::render::settings::WgpuSettings::default(),
     ));
 
-    let slint_init = initialize_slint(&instance, &render_device, &render_queue);
+    let slint_init = initialize_slint(&instance, &adapter, &render_device, &render_queue);
 
     let mut app = App::new();
 
