@@ -1852,7 +1852,7 @@ pub struct SystemTrayData {
 pub struct SystemTray {
     pub icon: Property<crate::graphics::Image>,
     pub title: Property<SharedString>,
-    pub menu: Property<crate::model::ModelRc<SystemTrayListItem>>,
+    //pub menu: Property<crate::model::ModelRc<SystemTrayListItem>>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayDataBox,
 }
