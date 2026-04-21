@@ -502,6 +502,10 @@ fn callback_update_text<'local>(
                         preedit_start
                     }
                 } as i32;
+                let mut key_event = KeyEvent::default();
+                key_event.text =
+                    i_slint_core::format!("{}{}", &text[..preedit_start], &text[preedit_end..]);
+
                 InternalKeyEvent {
                     event_type: KeyEventType::UpdateComposition,
                     preedit_text: text[preedit_start..preedit_end].into(),
@@ -509,23 +513,19 @@ fn callback_update_text<'local>(
                     replacement_range: Some(i32::MIN..i32::MAX),
                     cursor_position: Some(adjust(cursor_position)),
                     anchor_position: Some(adjust(anchor_position)),
-                    key_event: KeyEvent {
-                        text: i_slint_core::format!(
-                            "{}{}",
-                            &text[..preedit_start],
-                            &text[preedit_end..]
-                        ),
-                        ..Default::default()
-                    },
+                    key_event,
                     ..Default::default()
                 }
             } else {
+                let mut key_event = KeyEvent::default();
+                key_event.text = text;
+
                 InternalKeyEvent {
                     event_type: KeyEventType::CommitComposition,
                     replacement_range: Some(i32::MIN..i32::MAX),
                     cursor_position: Some(cursor_position as _),
                     anchor_position: Some(anchor_position as _),
-                    key_event: KeyEvent { text: text, ..Default::default() },
+                    key_event,
                     ..Default::default()
                 }
             };

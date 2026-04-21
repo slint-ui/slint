@@ -2624,11 +2624,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(
                     sp::make_keys(
                         #key.into(),
-                        sp::KeyboardModifiers {
-                            alt: #alt,
-                            control: #control,
-                            shift: #shift,
-                            meta: #meta
+                        {
+                            let mut modifiers = sp::KeyboardModifiers::default();
+                            modifiers.alt = #alt;
+                            modifiers.control = #control;
+                            modifiers.shift = #shift;
+                            modifiers.meta = #meta;
+                            modifiers
                         },
                         #ignore_shift,
                         #ignore_alt))
