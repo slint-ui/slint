@@ -94,10 +94,8 @@ impl SkiaWGPURenderer {
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let mut skia_surface = self
-            .backend
-            .make_surface_from_texture(gr_context, texture)
-            .ok_or_else(|| {
+        let mut skia_surface =
+            self.backend.make_surface_from_texture(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
             })?;
 

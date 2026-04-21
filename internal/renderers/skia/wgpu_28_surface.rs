@@ -329,13 +329,9 @@ impl Backend {
     ) -> Option<skia_safe::Surface> {
         match self {
             #[cfg(target_vendor = "apple")]
-            Self::Metal => unsafe {
-                metal::make_metal_surface_from_texture(gr_context, texture)
-            },
+            Self::Metal => unsafe { metal::make_metal_surface_from_texture(gr_context, texture) },
             #[cfg(target_family = "windows")]
-            Self::Dx12 => unsafe {
-                dx12::make_dx12_surface_from_texture(gr_context, texture)
-            },
+            Self::Dx12 => unsafe { dx12::make_dx12_surface_from_texture(gr_context, texture) },
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
             Self::Vulkan => unsafe {
                 vulkan::make_vulkan_surface_from_texture(gr_context, texture)
