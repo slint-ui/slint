@@ -46,6 +46,7 @@
 //!
 //! Use arrow keys to rotate the cube. Click the button and interact with the slider on the UI.
 
+use bevy::render::renderer::RenderAdapter;
 use bevy::{
     input::{ButtonState, mouse::MouseButtonInput},
     prelude::*,
@@ -62,7 +63,6 @@ use bevy::{
     },
 };
 use slint::platform::skia_renderer::SkiaWGPURenderer;
-use bevy::render::renderer::RenderAdapter;
 use slint::{LogicalPosition, PhysicalSize, platform::WindowEvent};
 use std::{
     cell::{Cell, RefCell},
