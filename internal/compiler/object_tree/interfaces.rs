@@ -199,22 +199,10 @@ pub(super) fn apply_properties(
     else {
         return;
     };
-
-    for (unresolved_prop_name, prop_decl) in
-        interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
-            // Functions are expected to be implemented manually, so we don't automatically add them.
-            !matches!(prop_decl.property_type, Type::Function { .. } | Type::Callback { .. })
-        })
-    {
-        apply_interface_property_declaration(
-            e,
-            unresolved_prop_name,
-            prop_decl,
-            interface_name_node,
-            interface_name,
-            diag,
-        );
-    }
+    apply_declarations(e, interface, interface_name_node, interface_name, diag, |prop_decl| {
+        // Functions are expected to be implemented manually, so we don't automatically add them.
+        !matches!(prop_decl.property_type, Type::Function { .. } | Type::Callback { .. })
+    });
 }
 
 /// Apply the callbacks declared in the interface to the element, emitting diagnostics if there are any conflicts.
@@ -229,12 +217,24 @@ pub(super) fn apply_callbacks(
     else {
         return;
     };
+    apply_declarations(e, interface, interface_name_node, interface_name, diag, |prop_decl| {
+        matches!(prop_decl.property_type, Type::Callback { .. })
+    });
+}
 
+/// Shared iteration helper: applies each declaration in `interface` matching `filter` to `e`.
+fn apply_declarations<F>(
+    e: &mut Element,
+    interface: &ElementRc,
+    interface_name_node: &syntax_nodes::QualifiedName,
+    interface_name: &SmolStr,
+    diag: &mut BuildDiagnostics,
+    filter: F,
+) where
+    F: Fn(&PropertyDeclaration) -> bool,
+{
     for (unresolved_prop_name, prop_decl) in
-        interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| {
-            // Functions are expected to be implemented manually, so we don't automatically add them.
-            matches!(prop_decl.property_type, Type::Callback { .. })
-        })
+        interface.borrow().property_declarations.iter().filter(|(_, prop_decl)| filter(prop_decl))
     {
         apply_interface_property_declaration(
             e,
