@@ -3477,7 +3477,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 
 #[inline(never)]
 fn compile_keys_literal(expr: &Expression) -> TokenStream {
-    let Expression::KeysLiteral(keys) = expr else { unreachable!() };
     let key = &*keys.key;
     let alt = keys.modifiers.alt;
     let control = keys.modifiers.control;
@@ -3485,20 +3484,22 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
     let meta = keys.modifiers.meta;
     let ignore_shift = keys.ignore_shift;
     let ignore_alt = keys.ignore_alt;
+    let is_physical = keys.is_physical;
 
     quote!(
         sp::make_keys(
-            #key.into(),
-            {
-                let mut modifiers = sp::KeyboardModifiers::default();
-                modifiers.alt = #alt;
-                modifiers.control = #control;
-                modifiers.shift = #shift;
-                modifiers.meta = #meta;
-                modifiers
-            },
-            #ignore_shift,
-            #ignore_alt))
+	    #key.into(),
+	    {
+	        let mut modifiers = sp::KeyboardModifiers::default();
+	        modifiers.alt = #alt;
+	        modifiers.control = #control;
+	        modifiers.shift = #shift;
+	        modifiers.meta = #meta;
+	        modifiers
+	    },
+	    #ignore_shift,
+	    #ignore_alt,
+	    #is_physical))
 }
 
 #[inline(never)]

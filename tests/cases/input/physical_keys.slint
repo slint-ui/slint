@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> matched: "";
+    forward-focus: scope;
+
+    init => {
+        scope.focus();
+    }
+
+    scope := FocusScope {
+        KeyBinding {
+            keys: @physical-keys(Control + A);
+            activated => {
+                matched = "physical-a";
+            }
+        }
+
+        KeyBinding {
+            keys: @keys(Control + A);
+            activated => {
+                matched = "logical-a";
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let inner = i_slint_core::window::WindowInner::from_pub(instance.window());
+
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use i_slint_core::items::{KeyEvent, KeyboardModifiers};
+
+let send = |text: &str, physical_key: &str| {
+    inner.process_key_input(InternalKeyEvent {
+        event_type: KeyEventType::KeyPressed,
+        key_event: KeyEvent {
+            text: text.into(),
+            physical_key: physical_key.into(),
+            modifiers: KeyboardModifiers { control: true, alt: false, shift: false, meta: false },
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+};
+
+send("z", "A");
+assert_eq!(instance.get_matched(), "physical-a");
+instance.set_matched("".into());
+
+send("a", "Q");
+assert_eq!(instance.get_matched(), "logical-a");
+instance.set_matched("".into());
+
+send("a", "");
+assert_eq!(instance.get_matched(), "logical-a");
+```
+*/
