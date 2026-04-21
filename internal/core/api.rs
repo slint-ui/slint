@@ -1281,6 +1281,7 @@ pub enum PlatformError {
     /// or call [`platform::set_platform()`](crate::platform::set_platform)
     /// before running the event loop
     NoPlatform,
+
     /// The Slint Platform does not provide an event loop.
     ///
     /// The [`Platform::run_event_loop`](crate::platform::Platform::run_event_loop)
@@ -1298,6 +1299,9 @@ pub enum PlatformError {
     /// Another platform-specific error occurred.
     #[cfg(feature = "std")]
     OtherError(Box<dyn std::error::Error + Send + Sync>),
+
+    /// [`ClipboardData::read`](crate::clipboard::ClipboardData::read) was called, but no value of that type was provided.
+    ClipboardTypeNotFound(String),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1331,6 +1335,10 @@ impl core::fmt::Display for PlatformError {
             PlatformError::Other(str) => f.write_str(str),
             #[cfg(feature = "std")]
             PlatformError::OtherError(error) => error.fmt(f),
+
+            PlatformError::ClipboardTypeNotFound(type_) => {
+                write!(f, "Type not found on clipboard: {type_}")
+            }
         }
     }
 }
