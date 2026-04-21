@@ -31,6 +31,7 @@ pub struct Translations {
 
     /// The "names" of the languages
     pub languages: Vec<SmolStr>,
+
 }
 
 #[derive(Clone)]
@@ -170,6 +171,7 @@ impl TranslationsBuilder {
         self.result
     }
 
+    /// Add all characters in any po file to `characters_seen` if they are not yet there
     pub fn collect_characters_seen(&self, characters_seen: &mut impl Extend<char>) {
         characters_seen.extend(
             self.catalogs

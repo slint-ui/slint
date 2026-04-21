@@ -2257,10 +2257,10 @@ impl TextInput {
             let to_parse = if input_type == InputType::DecimalLocalized {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 let sep = window_inner.context().locale_decimal_separator();
-                // Only allow the locale's decimal separator, not '.'
-                if sep != '.' && candidate.contains('.') {
-                    return false;
-                }
+                // // Only allow the locale's decimal separator, not '.'
+                // if sep != '.' && candidate.contains('.') {
+                //     return false;
+                // }
                 // Normalize locale separator to '.' because f64::parse only accepts '.'
                 if sep != '.' { candidate.replace(sep, ".") } else { candidate }
             } else {
@@ -2268,7 +2268,7 @@ impl TextInput {
             };
 
             return matches!(to_parse.as_str(), "." | "-" | "-.")
-                || to_parse.parse::<f64>().is_ok();
+                || to_parse.parse::<f64>().is_ok(); // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
         }
 
         true

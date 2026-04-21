@@ -294,7 +294,6 @@ pub fn mark_all_translations_dirty() {
         }
     }
 
-    #[cfg(feature = "std")]
     update_locale_decimal_separator();
 
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
@@ -318,6 +317,10 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
     Ok(())
 }
 
+/// Translate the strings bundled into the applications. If the desired language is not available, use the default
+///
+/// `strs` - the string which should be translated. The slice contains the string in multiple languages
+/// `arguments` - arguments for the translation
 pub fn translate_from_bundle(
     strs: &[Option<&str>],
     arguments: &(impl FormatArgs + ?Sized),
@@ -333,6 +336,11 @@ pub fn translate_from_bundle(
     output
 }
 
+/// Translate the strings bundled into the applications with plurals. If the desired language is not available, use the default
+///
+/// `strs` - the string which should be translated
+/// `plural_rules` - the rules to create the plurals
+/// `arguments` - arguments for the translation
 pub fn translate_from_bundle_with_plural(
     strs: &[Option<&[&str]>],
     plural_rules: &[Option<fn(i32) -> usize>],
@@ -383,18 +391,60 @@ pub(crate) fn decimal_separator_for_locale(locale: &str) -> Option<char> {
         .and_then(|r| r.payload.get().decimal_separator().chars().next())
 }
 
-/// Query the system locale and update the stored decimal separator.
-#[cfg(feature = "std")]
+/// Determine the decimal separator
+/// 1) Bundled case
+///     - If the translated strings contain the SlintDecimalSeparator context use that decimal separator
+///     - Otherwise use the default .
+/// 2) Not bundled case
+///     - If the gettext finds a translation of `.` in the SlintDecimalSeparator context use that decimal separator
+///     - Otherwise use the default .
 fn update_locale_decimal_separator() {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        let sep = sys_locale::get_locale().and_then(|l| decimal_separator_for_locale(&l));
-        ctx.0.locale_decimal_separator.set(sep);
+        ctx.0.locale_decimal_separator.set(None);
+
+        if let Some(l) = ctx.0.translations_bundle_languages.borrow().as_ref()
+            && l.len() > 0
+        {
+            // Check bundled
+            let language_index = ctx.0.translations_dirty.as_ref().get();
+            if let Some(l) = l.get(language_index) {
+                // if decimal separator in translated strings {
+
+                // } else {
+                #[cfg(feature = "std")]
+                ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(l));
+                // }
+            }
+        } else {
+            // No bundled languages
+
+            // TODO: the domain must be changed!!!!!!!!!!!!!!!
+            #[cfg(feature = "std")]
+            {
+                let translated = translate(
+                    ".",
+                    "SlintDecimalSeparator",
+                    "weather",
+                    &[] as &[SharedString],
+                    1,
+                    "",
+                );
+                if !translated.is_empty() {
+                    ctx.0.locale_decimal_separator.set(translated.chars().next());
+                } else {
+                    if let Some(locale) = sys_locale::get_locale() {
+                        ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(&locale))
+                    }
+                }
+            }
+        }
     });
 }
 
 /// This function is called by the generated code to assign the list of bundled languages.
 /// Do nothing if the list is already assigned.
+/// It selects also the language based on the system locale as default
 pub fn set_bundled_languages(languages: &[&'static str]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
@@ -402,7 +452,7 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
             ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
             #[cfg(feature = "std")]
             {
-                if let Some(idx) = index_for_locale(languages) {
+                if let Some(idx) = language_index_from_sys_locale(languages) {
                     ctx.0.translations_dirty.as_ref().set(idx);
                 }
                 update_locale_decimal_separator();
@@ -411,9 +461,9 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
     });
 }
 
-/// attempt to select the right bundled translation based on the current locale
+/// attempt to select the right bundled translation based on the current system locale
 #[cfg(feature = "std")]
-fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
+fn language_index_from_sys_locale(languages: &[&'static str]) -> Option<usize> {
     let locale = sys_locale::get_locale()?;
     // first, try an exact match
     let idx = languages.iter().position(|x| *x == locale);
@@ -451,8 +501,7 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
-            #[cfg(feature = "std")]
-            ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(language));
+            update_locale_decimal_separator();
             Ok(())
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
