@@ -2257,10 +2257,10 @@ impl TextInput {
             let to_parse = if input_type == InputType::DecimalLocalized {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 let sep = window_inner.context().locale_decimal_separator();
-                // // Only allow the locale's decimal separator, not '.'
-                // if sep != '.' && candidate.contains('.') {
-                //     return false;
-                // }
+                // Only allow the locale's decimal separator, not '.'
+                if sep != '.' && candidate.contains('.') {
+                    return false;
+                }
                 // Normalize locale separator to '.' because f64::parse only accepts '.'
                 if sep != '.' { candidate.replace(sep, ".") } else { candidate }
             } else {
