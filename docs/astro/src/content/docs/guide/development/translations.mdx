@@ -303,3 +303,14 @@ Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init
 
 Make sure the `gettext` feature was enabled when building slint-viewer.
 Use the `--translation-domain` and `--translation-dir` command line options to load translations for preview.
+
+## Selecting the decimal separator
+
+The current used decimal separator can be read with [decimal-separator](../../references/global-namespaces/platform.mdx#decimal-separator). As default the dot `.` is used as decimal separator.
+To set a custom decimal separator for every language add the following to your `.po` files
+
+```
+msgctxt "SlintDecimalSeparator"
+msgid "."  # keep the default here
+msgstr "," # <---------- Change to the desired decimal separator
+```
