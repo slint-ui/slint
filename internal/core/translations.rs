@@ -581,6 +581,20 @@ mod ffi {
     use super::*;
     use crate::slice::Slice;
 
+    /// return the current decimal-separator for the `Platform.decimal-separator` property
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_decimal_separator(out: &mut SharedString) {
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            const DEFAULT_SEPARATOR: char = '.';
+            let separator = if let Some(ctx) = ctx.get() {
+                ctx.0.locale_decimal_separator.as_ref().get().unwrap_or(DEFAULT_SEPARATOR)
+            } else {
+                DEFAULT_SEPARATOR
+            };
+            *out = crate::SharedString::from(separator)
+        })
+    }
+
     /// Perform the translation and formatting.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_translate(

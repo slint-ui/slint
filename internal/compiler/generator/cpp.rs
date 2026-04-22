@@ -4146,7 +4146,7 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.iostream.set(true);
             format!("slint::private_api::debug({});", a.join(","))
         }
-        BuiltinFunction::DecimalSeparator => format!("{}.context().locale_decimal_separator()", access_window_field(ctx)),
+        BuiltinFunction::DecimalSeparator => "slint::private_api::decimal_separator()".into(),
         BuiltinFunction::Mod => {
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("([](float a, float b) {{ auto r = std::fmod(a, b); return r >= 0 ? r : r + std::abs(b); }})({},{})", a.next().unwrap(), a.next().unwrap())
