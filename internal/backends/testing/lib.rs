@@ -89,17 +89,18 @@ pub fn configure_test_fonts() {
                 system_fonts: false,
             });
             font_context.source_cache = fontique::SourceCache::new_shared();
+            let mut all_families = Vec::new();
             for file in
                 FONTS_DIR.files().filter(|f| f.path().extension().is_some_and(|ext| ext == "ttf"))
             {
                 let fonts =
                     font_context.collection.register_fonts(file.contents().to_vec().into(), None);
-                for generic_family in FALLBACK_FAMILIES {
-                    font_context.collection.set_generic_families(
-                        generic_family,
-                        fonts.iter().map(|(family_id, _)| *family_id),
-                    );
-                }
+                all_families.extend(fonts.iter().map(|(family_id, _)| *family_id));
+            }
+            for generic_family in FALLBACK_FAMILIES {
+                font_context
+                    .collection
+                    .set_generic_families(generic_family, all_families.iter().copied());
             }
         },
     )
