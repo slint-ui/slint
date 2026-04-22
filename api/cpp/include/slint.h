@@ -328,7 +328,8 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
-inline SharedString decimal_separator() {
+inline SharedString decimal_separator()
+{
     SharedString out;
     cbindgen_private::slint_decimal_separator(&out);
     return out;
