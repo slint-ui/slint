@@ -410,7 +410,7 @@ fn update_locale_decimal_separator() {
         ctx.0.locale_decimal_separator.as_ref().set(None);
 
         if let Some(l) = ctx.0.translations_bundle_languages.borrow().as_ref()
-            && l.len() > 0
+            && !l.is_empty()
         {
             // Check bundled
             let language_index = ctx.0.translations_dirty.as_ref().get();
