@@ -1328,7 +1328,9 @@ pub unsafe extern "C" fn slint_go_element_handle_size(
     if handle.is_null() || out.is_null() {
         return false;
     }
-    let Some(item) = unsafe { &*(handle as *const GoElementHandle) }.item.upgrade() else { return false };
+    let Some(item) = unsafe { &*(handle as *const GoElementHandle) }.item.upgrade() else {
+        return false;
+    };
     let geometry = item.geometry();
     unsafe { *out = i_slint_core::lengths::logical_size_to_api(geometry.size) };
     true
@@ -1343,7 +1345,9 @@ pub unsafe extern "C" fn slint_go_element_handle_absolute_position(
     if handle.is_null() || out.is_null() {
         return false;
     }
-    let Some(item) = unsafe { &*(handle as *const GoElementHandle) }.item.upgrade() else { return false };
+    let Some(item) = unsafe { &*(handle as *const GoElementHandle) }.item.upgrade() else {
+        return false;
+    };
     let geometry = item.geometry();
     let pos = item.map_to_window(geometry.origin);
     unsafe { *out = i_slint_core::lengths::logical_position_to_api(pos) };
