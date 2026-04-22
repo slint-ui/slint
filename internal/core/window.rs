@@ -6,8 +6,8 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 use crate::api::{
-    CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
-    WindowPosition, WindowSize,
+    CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
+    PlatformError, Window, WindowPosition, WindowSize,
 };
 use crate::graphics::Color;
 use crate::input::{
@@ -178,12 +178,12 @@ pub trait WindowAdapterInternal: core::any::Any {
     }
 
     /// Create a window for a popup.
-    ///
-    /// `geometry` is the location of the popup in the window coordinate
+    /// This function will create only the window adapter but does not show the popup it self
+    /// Use this window adapter to create a new popup window and show it with `show_popup()`
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
 
@@ -1338,6 +1338,13 @@ impl WindowInner {
                 .collect()
         });
     }
+    /// Create a new popup window adapter
+    /// This window adapter can be used on a popup component and shown with show_popup()
+    pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.window_adapter()
+            .internal(crate::InternalToken)
+            .and_then(|s| s.create_popup_window_adapter())
+    }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
@@ -1433,28 +1440,34 @@ impl WindowInner {
             self.window_adapter()
         };
 
-        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
-        // of the current window
-        let location = match parent_window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
-        {
-            None => {
-                let clip = LogicalRect::new(
-                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                );
-                let rect = popup::place_popup(
-                    popup::Placement::Fixed(LogicalRect::new(position, size)),
-                    &Some(clip),
-                );
-                self.window_adapter().request_redraw();
-                PopupWindowLocation::ChildWindow(rect.origin)
-            }
-            Some(window_adapter) => {
-                WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                PopupWindowLocation::TopLevel(window_adapter)
-            }
+        let mut popup_window_adapter = None;
+        ItemTreeRc::borrow_pin(popup_componentrc)
+            .as_ref()
+            .window_adapter(false, &mut popup_window_adapter);
+        let popup_window_adapter =
+            popup_window_adapter.expect("It must be there because we set the global");
+
+        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
+        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
+        let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
+            let clip = LogicalRect::new(
+                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+            );
+            let rect = popup::place_popup(
+                popup::Placement::Fixed(LogicalRect::new(position, size)),
+                &Some(clip),
+            );
+            self.window_adapter().request_redraw();
+            PopupWindowLocation::ChildWindow(rect.origin)
+        } else {
+            let popup_window = popup_window_adapter.window();
+            WindowInner::from_pub(popup_window).set_component(popup_componentrc);
+            popup_window.set_position(LogicalPosition::from_euclid(position));
+            popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
+
+            popup_window_adapter.set_visible(true).expect("Unable to show popup");
+            PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 
         let focus_item = self
@@ -1953,6 +1966,26 @@ pub mod ffi {
                 parent_item,
                 is_menu,
             )
+        }
+    }
+
+    /// Create a popup window adapter. Returns true if a new adapter was created and written to result.
+    /// Returns false if the backend does not support top-level popups.
+    /// This can be used to set the correct window adapter on a popup component before showing it.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_create_popup_window_adapter(
+        handle: *const WindowAdapterRcOpaque,
+        result: *mut WindowAdapterRcOpaque,
+    ) -> bool {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            match WindowInner::from_pub(window_adapter.window()).create_popup_window_adapter() {
+                Some(wa) => {
+                    core::ptr::write(result as *mut Rc<dyn WindowAdapter>, wa);
+                    true
+                }
+                None => false,
+            }
         }
     }
 

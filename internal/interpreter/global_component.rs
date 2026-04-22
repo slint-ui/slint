@@ -88,6 +88,27 @@ impl GlobalStorage {
             GlobalStorage::Weak(_) => None,
         }
     }
+
+    /// Clone this GlobalStorage but with a different window adapter.
+    /// Used for popup windows so they get their own window adapter but share global instances.
+    pub fn clone_with_window_adapter(
+        &self,
+        window_adapter: i_slint_core::window::WindowAdapterRc,
+    ) -> GlobalStorage {
+        let GlobalStorage::Strong(storage) = self else {
+            panic!("Cannot clone_with_window_adapter on a Weak GlobalStorage")
+        };
+        let new_storage = Rc::new(GlobalStorageInner {
+            globals: RefCell::new(storage.globals.borrow().clone()),
+            window_adapter: OnceCell::new(),
+        });
+        new_storage
+            .window_adapter
+            .set(window_adapter)
+            .map_err(|_| ())
+            .expect("The window adapter should not be initialized before this call");
+        GlobalStorage::Strong(new_storage)
+    }
 }
 
 impl Default for GlobalStorage {
