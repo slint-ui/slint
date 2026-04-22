@@ -83,6 +83,7 @@ pub struct Params<'a> {
 }
 
 /// Errors raised while constructing a platform tray icon.
+#[allow(dead_code)]
 #[derive(Debug, derive_more::Error, derive_more::Display)]
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
