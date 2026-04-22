@@ -4,8 +4,8 @@
 //! System tray integration.
 //!
 //! This module hosts the `SystemTray` native item (the element exposed to `.slint`) and
-//! wraps the platform-specific tray icon backends: [`ksni`](ksni) on Linux/BSD and
-//! [`tray-icon`](tray_icon) (muda-based) on macOS and Windows.
+//! wraps the platform-specific tray icon backends: `ksni` on Linux/BSD and
+//! `tray-icon` (muda-based) on macOS and Windows.
 
 #![allow(unsafe_code)]
 
