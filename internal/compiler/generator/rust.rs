@@ -519,18 +519,13 @@ fn generate_shared_globals(
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
             #[allow(dead_code)]
             #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
-                let _self = sp::Rc::new(Self {
+                sp::Rc::new(Self {
                     #(#global_names : self.#global_names.clone(),)*
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
-                    window_adapter: ::core::default::Default::default(),
+                    window_adapter: window_adapter.into(),
                     root_item_tree_weak: self.root_item_tree_weak.clone(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
-                });
-                _self.window_adapter
-                    .set(window_adapter)
-                    .map_err(|_| ())
-                    .expect("The window adapter should not be initialized before this call");
-                _self
+                })
             }
 
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
