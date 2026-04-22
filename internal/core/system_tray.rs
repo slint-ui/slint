@@ -29,14 +29,14 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 
-#[cfg(all(feature = "system-tray", not(any(target_os = "macos", target_os = "windows"))))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod ksni;
-#[cfg(all(feature = "system-tray", any(target_os = "macos", target_os = "windows")))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 mod tray_icon;
 
-#[cfg(all(feature = "system-tray", not(any(target_os = "macos", target_os = "windows"))))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use self::ksni::PlatformTray;
-#[cfg(all(feature = "system-tray", any(target_os = "macos", target_os = "windows")))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use self::tray_icon::PlatformTray;
 
 /// Parameters passed to the platform-specific tray backend when building a tray icon.
@@ -50,10 +50,10 @@ pub struct Params<'a> {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[cfg(all(feature = "system-tray", any(target_os = "macos", target_os = "windows")))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[display("Bad icon: {}", 0)]
     BadIcon(::tray_icon::BadIcon),
-    #[cfg(all(feature = "system-tray", any(target_os = "macos", target_os = "windows")))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[display("Build error: {}", 0)]
     BuildError(::tray_icon::Error),
     #[display("{}", 0)]
@@ -63,10 +63,8 @@ pub enum Error {
 }
 
 /// Owning handle to a live platform tray icon. Dropping it removes the icon.
-#[cfg(feature = "system-tray")]
 pub struct SystemTrayHandle(#[allow(dead_code)] PlatformTray);
 
-#[cfg(feature = "system-tray")]
 impl SystemTrayHandle {
     pub fn new(params: Params) -> Result<Self, Error> {
         PlatformTray::new(params).map(Self)
@@ -103,9 +101,7 @@ impl core::ops::Deref for SystemTrayDataBox {
 
 #[derive(Default)]
 pub struct SystemTrayData {
-    #[cfg(feature = "system-tray")]
     inner: std::cell::OnceCell<SystemTrayHandle>,
-    #[cfg_attr(not(feature = "system-tray"), allow(unused))]
     change_tracker: crate::properties::ChangeTracker,
 }
 
@@ -120,9 +116,7 @@ pub struct SystemTray {
 }
 
 impl Item for SystemTray {
-    #[cfg_attr(not(feature = "system-tray"), allow(unused))]
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
-        #[cfg(feature = "system-tray")]
         self.data.change_tracker.init_delayed(
             self_rc.downgrade(),
             |_| true,
