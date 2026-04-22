@@ -1,12 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{
-    graphics::Image,
-    items::SystemTrayListItem,
-    model::{Model, ModelRc},
-};
-use std::string::ToString;
+use crate::graphics::Image;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use ksni::TrayMethods;
