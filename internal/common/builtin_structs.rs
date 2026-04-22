@@ -106,6 +106,20 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
+            /// This structure is used to define draggable or copyable data from Slint
+            #[non_exhaustive]
+            struct MimeData {
+                @name = BuiltinPublicStruct::MimeData,
+                export {
+                    /// Plaintext data being dragged. Considered unset if it equals `Image::default()`
+                    plaintext: SharedString,
+                    /// Image data being dragged. Considered unset if it equals `Image::default()`
+                    image: Image,
+                }
+                private {
+                }
+            }
+
             /// This structure is passed to the callbacks of the `DropArea` element
             struct DropEvent {
                 @name = BuiltinPrivateStruct::DropEvent,

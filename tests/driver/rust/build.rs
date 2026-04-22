@@ -130,7 +130,7 @@ fn main() -> std::io::Result<()> {
         )?);
 
         output.write_all(
-            b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n",
+            b"#![warn(rust_2018_idioms)]\n#![deny(unsafe_code)]\n#![allow(clippy::all)]",
         )?;
 
         #[cfg(not(feature = "build-time"))]

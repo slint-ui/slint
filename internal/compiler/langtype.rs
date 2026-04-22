@@ -718,6 +718,7 @@ pub enum BuiltinPublicStruct {
     Keys,
     KeyEvent,
     KeyboardModifiers,
+    MimeData,
 }
 
 impl BuiltinPublicStruct {
@@ -730,6 +731,7 @@ impl BuiltinPublicStruct {
             Self::Keys => Some(SmolStr::new_static("Keys")),
             Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
+            Self::MimeData => Some(SmolStr::new_static("MimeData")),
         }
     }
 }
