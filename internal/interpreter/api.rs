@@ -1411,6 +1411,7 @@ impl ComponentInstance {
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
+    #[cfg(feature = "ffi")]
     pub(crate) fn get_property_unchecked(&self, name: &str) -> Result<Value, GetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);

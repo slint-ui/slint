@@ -21,12 +21,13 @@ pub struct SlintGoValueSlice {
 }
 
 #[repr(C)]
-pub struct SlintGoElementHandle {
+pub struct SlintGoElementHandle;
+
+struct GoElementHandle {
     item: ItemWeak,
-    element_index: usize,
 }
 
-fn find_element_in_item(item: ItemRc, element_id: &str) -> Option<SlintGoElementHandle> {
+fn find_element_in_item(item: ItemRc, element_id: &str) -> Option<GoElementHandle> {
     if !item.is_visible() {
         return None;
     }
@@ -35,7 +36,7 @@ fn find_element_in_item(item: ItemRc, element_id: &str) -> Option<SlintGoElement
         for element_index in 0..element_count {
             if let Some(type_names_and_ids) = item.element_type_names_and_ids(element_index) {
                 if type_names_and_ids.iter().any(|(_, id)| id == element_id) {
-                    return Some(SlintGoElementHandle { item: item.downgrade(), element_index });
+                    return Some(GoElementHandle { item: item.downgrade() });
                 }
             }
         }
@@ -1306,7 +1307,7 @@ pub unsafe extern "C" fn slint_go_element_handle_find_by_element_id(
     let root = instance_ref.root_weak().upgrade().unwrap();
     let root_item = ItemRc::new_root(vtable::VRc::into_dyn(root));
     find_element_in_item(root_item, element_id)
-        .map(|handle| Box::into_raw(Box::new(handle)))
+        .map(|handle| Box::into_raw(Box::new(handle)) as *mut SlintGoElementHandle)
         .unwrap_or(std::ptr::null_mut())
 }
 
@@ -1314,7 +1315,7 @@ pub unsafe extern "C" fn slint_go_element_handle_find_by_element_id(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_go_element_handle_destructor(handle: *mut SlintGoElementHandle) {
     if !handle.is_null() {
-        drop(unsafe { Box::from_raw(handle) });
+        drop(unsafe { Box::from_raw(handle as *mut GoElementHandle) });
     }
 }
 
@@ -1327,7 +1328,7 @@ pub unsafe extern "C" fn slint_go_element_handle_size(
     if handle.is_null() || out.is_null() {
         return false;
     }
-    let Some(item) = unsafe { &*handle }.item.upgrade() else { return false };
+    let Some(item) = unsafe { &*(handle as *const GoElementHandle) }.item.upgrade() else { return false };
     let geometry = item.geometry();
     unsafe { *out = i_slint_core::lengths::logical_size_to_api(geometry.size) };
     true
@@ -1342,7 +1343,7 @@ pub unsafe extern "C" fn slint_go_element_handle_absolute_position(
     if handle.is_null() || out.is_null() {
         return false;
     }
-    let Some(item) = unsafe { &*handle }.item.upgrade() else { return false };
+    let Some(item) = unsafe { &*(handle as *const GoElementHandle) }.item.upgrade() else { return false };
     let geometry = item.geometry();
     let pos = item.map_to_window(geometry.origin);
     unsafe { *out = i_slint_core::lengths::logical_position_to_api(pos) };
