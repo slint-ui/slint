@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component TooltipCard inherits Rectangle {
+    in-out property <int> created;
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        ToolTip {
+            text: "nested tooltip";
+            init => { root.created += 1; }
+        }
+    }
+}
+
+export component TestCase {
+    width: 240px;
+    height: 160px;
+
+    in-out property <int> tooltip-created;
+    out property <bool> test: true;
+
+    VerticalLayout {
+        spacing: 4px;
+        for _ in [0, 1, 2] : TooltipCard {
+            width: 200px;
+            height: 30px;
+            created <=> root.tooltip-created;
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_tooltip_created(), 0);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(20.0, 15.0),
+});
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_tooltip_created(), 1);
+```
+
+*/

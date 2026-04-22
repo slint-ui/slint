@@ -4,6 +4,7 @@
 export component TestCase {
     width: 200phx;
     height: 200phx;
+    in-out property <bool> tooltip-created;
 
     TouchArea {
         x: 0px;
@@ -13,7 +14,28 @@ export component TestCase {
 
         ToolTip {
             text: "hello tooltip";
+            init => {
+                root.tooltip-created = true;
+            }
         }
     }
 }
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_tooltip_created());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(50.0, 50.0),
+});
+assert!(!instance.get_tooltip_created());
+slint_testing::mock_elapsed_time(600);
+assert!(instance.get_tooltip_created());
+```
+
+*/
 
