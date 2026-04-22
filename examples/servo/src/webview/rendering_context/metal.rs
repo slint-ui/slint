@@ -16,7 +16,7 @@ use winit::dpi::PhysicalSize;
 
 use slint::wgpu_28::wgpu;
 
-impl super::super::GPURenderingContext {
+impl super::GPURenderingContext {
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
     /// Unbinds the surface, converts to WGPU texture, then rebinds it.
     #[cfg(target_vendor = "apple")]
