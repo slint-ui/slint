@@ -148,4 +148,49 @@ instance.cond = true;
 slintlib.private_api.send_mouse_click(instance, 5., 70.);
 assert.equal(instance.value, 2);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+value, err := instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(0, value)
+
+slint_testing.SendMouseClick(instance, 5., 52.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(2, value)
+
+slint_testing.SendMouseClick(instance, 5., 30.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(1, value)
+
+slint_testing.SendMouseClick(instance, 5., 80.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(4, value)
+
+assertion.NoError(instance.SetCond(false))
+slint_testing.SendMouseClick(instance, 5., 35.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(1, value)
+slint_testing.SendMouseClick(instance, 5., 30.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(0, value)
+slint_testing.SendMouseClick(instance, 5., 67.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(4, value)
+
+assertion.NoError(instance.SetCond(true))
+slint_testing.SendMouseClick(instance, 5., 70.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(2, value)
+```
 */

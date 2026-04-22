@@ -69,4 +69,26 @@ assert.equal(instance.last_clicked, 12);
 slintlib.private_api.send_mouse_click(instance, 295., 56.);
 assert.equal(instance.last_clicked, 31);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, 5., 95.)
+lastClicked, err := instance.GetLastClicked()
+assertion.NoError(err)
+assertion.Equal(11, lastClicked)
+slint_testing.SendMouseClick(instance, 105., 205.)
+lastClicked, err = instance.GetLastClicked()
+assertion.NoError(err)
+assertion.Equal(23, lastClicked)
+slint_testing.SendMouseClick(instance, 95., 195.)
+lastClicked, err = instance.GetLastClicked()
+assertion.NoError(err)
+assertion.Equal(12, lastClicked)
+slint_testing.SendMouseClick(instance, 295., 56.)
+lastClicked, err = instance.GetLastClicked()
+assertion.NoError(err)
+assertion.Equal(31, lastClicked)
+```
 */

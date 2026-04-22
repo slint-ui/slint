@@ -204,6 +204,14 @@ func (i *ComponentInstance) raw() *C.SlintGoComponentInstance {
 	return i.handle.ptr
 }
 
+func (i *ComponentInstance) Raw() *C.SlintGoComponentInstance {
+	return i.raw()
+}
+
+func (i *ComponentInstance) RawPointer() unsafe.Pointer {
+	return unsafe.Pointer(i.raw())
+}
+
 func (v Value) raw() *C.SlintGoValue {
 	if v.handle == nil {
 		return nil

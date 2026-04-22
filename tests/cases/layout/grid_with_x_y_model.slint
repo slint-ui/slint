@@ -88,4 +88,12 @@ assert.deepEqual(instance.clicked_text, "2, -1");
 assert(instance.test);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

@@ -137,4 +137,12 @@ instance.set_row_model(slint::ModelRc::new(slint::VecModel::from(vec![
 assert_eq!(instance.get_end_row(), 7);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

@@ -733,7 +733,9 @@ fn emit_component(
     }
     for global in globals {
         let global_type_name = format!("{component_name}{}Global", exported_ident(&global.name));
-        writeln!(out, "\t{}() *{global_type_name}", exported_ident(&global.name))?;
+        for accessor_name in std::iter::once(&global.name).chain(global.aliases.iter()) {
+            writeln!(out, "\t{}() *{global_type_name}", exported_ident(accessor_name))?;
+        }
     }
     writeln!(out, "}}")?;
     writeln!(out)?;

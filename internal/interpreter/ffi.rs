@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::dynamic_item_tree::ErasedItemTreeBox;
+use crate::dynamic_item_tree::InstanceRef;
 
 use super::*;
 use core::ptr::NonNull;
+use core::ops::ControlFlow;
+use i_slint_core::item_tree::{ItemRc, ItemWeak};
 use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -15,6 +18,39 @@ use vtable::VRef;
 pub struct SlintGoValueSlice {
     pub ptr: *mut *mut Value,
     pub len: usize,
+}
+
+#[repr(C)]
+pub struct SlintGoElementHandle {
+    item: ItemWeak,
+    element_index: usize,
+}
+
+fn find_element_in_item(item: ItemRc, element_id: &str) -> Option<SlintGoElementHandle> {
+    if !item.is_visible() {
+        return None;
+    }
+
+    if let Some(element_count) = item.element_count() {
+        for element_index in 0..element_count {
+            if let Some(type_names_and_ids) = item.element_type_names_and_ids(element_index) {
+                if type_names_and_ids.iter().any(|(_, id)| id == element_id) {
+                    return Some(SlintGoElementHandle {
+                        item: item.downgrade(),
+                        element_index,
+                    });
+                }
+            }
+        }
+    }
+
+    item.visit_descendants(|child| {
+        if let Some(found) = find_element_in_item(child.clone(), element_id) {
+            ControlFlow::Break(found)
+        } else {
+            ControlFlow::Continue(())
+        }
+    })
 }
 
 /// Construct a new Value in the given memory location
@@ -1260,14 +1296,70 @@ pub unsafe extern "C" fn slint_go_component_instance_send_mouse_click(
     );
 }
 
-/// Gets a public property from a component instance. Returns null if the property does not exist.
+/// Finds the first element by id in the component instance.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_element_handle_find_by_element_id(
+    instance: *const ComponentInstance,
+    element_id: Slice<u8>,
+) -> *mut SlintGoElementHandle {
+    let instance = unsafe { &*instance };
+    let Ok(element_id) = std::str::from_utf8(&element_id) else { return std::ptr::null_mut() };
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(instance.inner.borrow(), guard) };
+    let root = instance_ref.root_weak().upgrade().unwrap();
+    let root_item = ItemRc::new_root(vtable::VRc::into_dyn(root));
+    find_element_in_item(root_item, element_id)
+        .map(|handle| Box::into_raw(Box::new(handle)))
+        .unwrap_or(std::ptr::null_mut())
+}
+
+/// Destroys a Go-owned element handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_element_handle_destructor(handle: *mut SlintGoElementHandle) {
+    if !handle.is_null() {
+        drop(unsafe { Box::from_raw(handle) });
+    }
+}
+
+/// Retrieves the size of an element handle in logical pixels.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_element_handle_size(
+    handle: *const SlintGoElementHandle,
+    out: *mut i_slint_core::api::LogicalSize,
+) -> bool {
+    if handle.is_null() || out.is_null() {
+        return false;
+    }
+    let Some(item) = unsafe { &*handle }.item.upgrade() else { return false };
+    let geometry = item.geometry();
+    unsafe { *out = i_slint_core::lengths::logical_size_to_api(geometry.size) };
+    true
+}
+
+/// Retrieves the absolute position of an element handle in logical pixels.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_go_element_handle_absolute_position(
+    handle: *const SlintGoElementHandle,
+    out: *mut i_slint_core::api::LogicalPosition,
+) -> bool {
+    if handle.is_null() || out.is_null() {
+        return false;
+    }
+    let Some(item) = unsafe { &*handle }.item.upgrade() else { return false };
+    let geometry = item.geometry();
+    let pos = item.map_to_window(geometry.origin);
+    unsafe { *out = i_slint_core::lengths::logical_position_to_api(pos) };
+    true
+}
+
+/// Gets a property from a component instance. Returns null if the property does not exist.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_go_component_instance_get_property(
     instance: *const ComponentInstance,
     name: Slice<u8>,
 ) -> *mut Value {
     unsafe { &*instance }
-        .get_property(std::str::from_utf8(&name).unwrap())
+        .get_property_unchecked(std::str::from_utf8(&name).unwrap())
         .ok()
         .map(|value| Box::into_raw(Box::new(value)))
         .unwrap_or(core::ptr::null_mut())

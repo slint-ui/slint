@@ -67,4 +67,12 @@ assert!(instance.get_test());
 var instance = new slint.TestCase({});
 assert(instance.test);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

@@ -83,4 +83,12 @@ assert!(instance.get_yellow_rect_ok());
 assert!(instance.get_pink_rect_ok());
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

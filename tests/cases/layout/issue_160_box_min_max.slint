@@ -60,4 +60,12 @@ var instance = new slint.TestCase();
 slintlib.private_api.send_mouse_click(instance, 1., 1.);
 assert(instance.check_ok);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

@@ -131,4 +131,12 @@ slintlib.private_api.send_mouse_click(instance, 10. + 400. + 5., 75.);
 assert.deepEqual(instance.clicked_text, "1, 2");
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

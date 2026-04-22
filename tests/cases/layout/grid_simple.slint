@@ -55,4 +55,12 @@ assert!(instance.get_rect3_pos_ok());
 assert!(instance.get_row_col_ok());
 assert_eq!(instance.get_layout_width(), 300.);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

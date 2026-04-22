@@ -26,4 +26,11 @@ let instance = HelloWorld::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 5.);
 ```
 
+
+```go
+instance, err := ui.NewHelloWorld()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+```
 */

@@ -152,4 +152,12 @@ assert_eq(instance.get_clicked_text(), "eor@1");
 assert_eq(instance.get_clicked_row(), 4);
 assert_eq(instance.get_clicked_col(), 1);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */
