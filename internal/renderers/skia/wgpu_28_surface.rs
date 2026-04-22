@@ -161,7 +161,7 @@ impl super::Surface for WGPUSurface {
             }
         };
 
-        let skia_surface = self.backend.make_surface(size, gr_context, &frame);
+        let skia_surface = self.backend.make_surface(gr_context, &frame.texture);
 
         let mut skia_surface = skia_surface
             .ok_or_else(|| PlatformError::from("Failed to create Skia surface from WGPU"))?;
