@@ -78,10 +78,8 @@ impl SystemTray {
                 pixel.rotate_right(1) // rgba to argb
             }
 
-            let tray = KsniTray {
-                icon: ksni::Icon { width, height, data },
-                title: params.title.into(),
-            };
+            let tray =
+                KsniTray { icon: ksni::Icon { width, height, data }, title: params.title.into() };
 
             let tray = crate::context::with_global_context(
                 || panic!(""),
