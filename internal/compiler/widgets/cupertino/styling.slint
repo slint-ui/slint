@@ -9,23 +9,14 @@ export struct TextStyle {
 }
 
 export global CupertinoFontSettings {
-    out property <TextStyle> body: {
-        font-size: 13 * 0.0769rem,
-        font-weight: FontWeight.normal
-    };
+    out property <TextStyle> body: { font-size: 13 * 0.0769rem, font-weight: FontWeight.normal };
 
-
-    out property <TextStyle> title: {
-        font-size: 28 * 0.0769rem,
-        font-weight: FontWeight.light
-    };
+    out property <TextStyle> title: { font-size: 28 * 0.0769rem, font-weight: FontWeight.light };
 
     // needed?
-    out property <TextStyle> body-strong: {
-        font-size: 14 * 0.0769rem,
-        font-weight: FontWeight.semi-bold
-    };
+    out property <TextStyle> body-strong: { font-size: 14 * 0.0769rem, font-weight: FontWeight.semi-bold };
 }
+
 export global CupertinoColors {
     out property <color> systemGray: #8E8E93;
     out property <color> systemGray2: #AEAEB2;
@@ -59,6 +50,7 @@ export global CupertinoColors {
 
     out property <brush> selection-color: self.blue;
 }
+
 export global CupertinoPalette {
     in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
     property <bool> dark-color-scheme: {
@@ -71,14 +63,15 @@ export global CupertinoPalette {
     pure function accentify(default-color: color) -> color {
         let accent-color = SlintInternal.accent-color;
         if (accent-color.alpha > 0) {
-            let lch = default-color.to-oklch();
-            return oklch(lch.lightness, lch.chroma, accent-color.to-oklch().hue);
+            let default-lch = default-color.to-oklch();
+            let accent-lch = accent-color.to-oklch();
+            return oklch(default-lch.lightness, accent-lch.chroma, accent-lch.hue);
         }
         return default-color;
     }
 
     // base palette
-    out property <brush> background: dark-color-scheme ? CupertinoColors.systemGray55-dark: CupertinoColors.systemGray55;
+    out property <brush> background: dark-color-scheme ? CupertinoColors.systemGray55-dark : CupertinoColors.systemGray55;
     out property <brush> foreground: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
     out property <brush> alternate-background: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray5;
     out property <brush> alternate-foreground: dark-color-scheme ? CupertinoColors.systemGray5 : CupertinoColors.systemGray5-dark;
@@ -109,7 +102,7 @@ export global CupertinoPalette {
     out property <brush> separator: dark-color-scheme ? CupertinoColors.systemGray6-dark : CupertinoColors.systemGray4;
     out property <brush> bar-background: dark-color-scheme ? CupertinoColors.systemGray4-dark : CupertinoColors.systemGray4;
     out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, CupertinoColors.systemGray4-dark 0%, CupertinoColors.systemGray3-dark 80%, CupertinoColors.systemGray2-dark 100%) : CupertinoColors.systemGray5;
-    out property <brush> inner-border: dark-color-scheme ? CupertinoColors.systemGray5-dark: CupertinoColors.systemGray4;
+    out property <brush> inner-border: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray4;
     out property <brush> inner-shadow: dark-color-scheme ? CupertinoColors.systemGray5-dark : CupertinoColors.systemGray6;
 
     out property <brush> state: dark-color-scheme ? CupertinoColors.systemGray6 : CupertinoColors.systemGray6-dark;
