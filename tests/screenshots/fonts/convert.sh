@@ -36,22 +36,23 @@ fetch "NotoSans-unhinted/NotoSansSymbols2-Regular.ttf" \
 # U+2026: horizontal ellipsis (used for text truncation)
 NOTOSANS_UNICODES="U+0020-00FF,U+2026"
 
-# Subset the upright variable font (keeps wdth + wght axes)
-uvx --from fonttools pyftsubset NotoSans-unhinted/NotoSans-VariableFont_wdth,wght.ttf \
-    --unicodes="$NOTOSANS_UNICODES" \
-    --output-file=NotoSans-Regular.ttf
+subset_font() {
+    local input="$1" output="$2" unicodes="$3"
+    uvx --from fonttools pyftsubset "$input" \
+        --unicodes="$unicodes" \
+        --output-file="$output"
+}
 
-# Subset the italic variable font (keeps wdth + wght axes)
-uvx --from fonttools pyftsubset NotoSans-unhinted/NotoSans-Italic-VariableFont_wdth,wght.ttf \
-    --unicodes="$NOTOSANS_UNICODES" \
-    --output-file=NotoSans-Italic.ttf
+# NotoSans subsets keep the wdth + wght axes.
+subset_font "NotoSans-unhinted/NotoSans-VariableFont_wdth,wght.ttf" \
+    NotoSans-Regular.ttf "$NOTOSANS_UNICODES"
+subset_font "NotoSans-unhinted/NotoSans-Italic-VariableFont_wdth,wght.ttf" \
+    NotoSans-Italic.ttf "$NOTOSANS_UNICODES"
 
-# Subset NotoSansSymbols2 down to just U+25CF BLACK CIRCLE — the default
-# password-input replacement character used by Slint. NotoSans doesn't
-# include this glyph, so we ship it as a separate fallback font.
-uvx --from fonttools pyftsubset NotoSans-unhinted/NotoSansSymbols2-Regular.ttf \
-    --unicodes="U+25CF" \
-    --output-file=NotoSansSymbols2-Regular.ttf
+# U+25CF BLACK CIRCLE is the default Slint password-input replacement
+# character. NotoSans doesn't include it, so ship it as a separate fallback.
+subset_font NotoSans-unhinted/NotoSansSymbols2-Regular.ttf \
+    NotoSansSymbols2-Regular.ttf "U+25CF"
 
 # Generate .license files
 for f in NotoSans-Regular.ttf NotoSans-Italic.ttf NotoSansSymbols2-Regular.ttf; do
