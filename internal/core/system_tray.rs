@@ -7,6 +7,8 @@
 //! wraps the platform-specific tray icon backends: [`ksni`](ksni) on Linux/BSD and
 //! [`tray-icon`](tray_icon) (muda-based) on macOS and Windows.
 
+#![allow(unsafe_code)]
+
 use crate::graphics::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
