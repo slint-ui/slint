@@ -3,8 +3,15 @@
 
 // Check that the correct decimal separator is used when specifying a locale
 
+// Include this keyword to bundle the translations
+//bundle-translations
+
 export component TestCase {
     in-out property <string> the-decimal-separator: Platform.decimal-separator;
+
+    // \{ cannot be in a slint macro, so we add it here, because we wanna execute the Test with
+    // compiled source (otherwise bundling tranlations is not possible)
+    out property <string> same_or_diff: "\{the-decimal-separator}";
 }
 
 /*
