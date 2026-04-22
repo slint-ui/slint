@@ -523,7 +523,8 @@ fn generate_shared_globals(
                     #(#global_names : self.#global_names.clone(),)*
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
                     window_adapter: window_adapter.into(),
-                    root_item_tree_weak: self.root_item_tree_weak.clone(),
+                    // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
+                    root_item_tree_weak: ::core::default::Default::default(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
                 })
             }
