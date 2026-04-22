@@ -16,13 +16,14 @@ use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
+use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_preview_protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
 use lsp_types::Url;
-use slint::PlatformError;
+use slint::{PlatformError, SharedString, ToSharedString as _};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -741,7 +742,58 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) -> bool {
+const SLINT_COMPONENT_MIME_TYPE: &str = "application/x-slint-component";
+const SLINT_COMPONENT_MOVE_MIME_TYPE: &str = "application/x-slint-component-move";
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+enum DropCommand {
+    Move { uri: SharedString, offset: u32 },
+    Copy { index: usize },
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct InvalidDropCommand;
+
+impl DropCommand {
+    fn try_parse_move(data: &DataTransfer) -> Option<Self> {
+        data.fetch(SLINT_COMPONENT_MOVE_MIME_TYPE).ok().and_then(|bytes| {
+            let string = str::from_utf8(&bytes).ok()?;
+            let (uri, offset_str) = string.rsplit_once(':')?;
+            let uri = uri.to_shared_string();
+            let offset = offset_str.parse().ok()?;
+
+            Some(DropCommand::Move { uri, offset })
+        })
+    }
+
+    fn try_parse_copy(data: &DataTransfer) -> Option<Self> {
+        data.fetch(SLINT_COMPONENT_MIME_TYPE).ok().and_then(|bytes| {
+            let string = str::from_utf8(&bytes).ok()?;
+            let index = string.parse().ok()?;
+
+            Some(DropCommand::Copy { index })
+        })
+    }
+}
+
+impl TryFrom<DataTransfer> for DropCommand {
+    type Error = InvalidDropCommand;
+    fn try_from(data: DataTransfer) -> Result<DropCommand, Self::Error> {
+        if let Some(move_cmd) = Self::try_parse_move(&data) {
+            Ok(move_cmd)
+        } else if let Some(copy_cmd) = Self::try_parse_copy(&data) {
+            Ok(copy_cmd)
+        } else {
+            Err(InvalidDropCommand)
+        }
+    }
+}
+
+fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
+    let Ok(DropCommand::Copy { index: component_index }) = data.try_into() else {
+        return false;
+    };
+
     if !on_drop_area {
         set_drop_mark(&None);
         return false;
@@ -753,9 +805,8 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
     let position = LogicalPoint::new(x, y);
 
-    let component = PREVIEW_STATE.with_borrow(|preview_state| {
-        preview_state.known_components.get(component_index as usize).cloned()
-    });
+    let component = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned());
 
     let Some(component) = component else {
         return false;
@@ -764,16 +815,20 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn drop_component(component_index: i32, x: f32, y: f32) {
+fn drop_component(data: DataTransfer, x: f32, y: f32) {
+    let Ok(DropCommand::Copy { index: component_index }) = data.try_into() else {
+        return;
+    };
+
     let Some(document_cache) = document_cache() else {
         return;
     };
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = PREVIEW_STATE.with_borrow(|preview_state| {
-        preview_state.known_components.get(component_index as usize).cloned()
-    }) else {
+    let Some(component) = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
+    else {
         return;
     };
 

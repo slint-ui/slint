@@ -21,8 +21,8 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core as corelib;
 use i_slint_core::api::ToSharedString;
+use i_slint_core::{self as corelib};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -243,16 +243,15 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
-            match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+            match eval_expression(from, local_context).try_cast(to.clone()) {
+                Ok(value) => value,
+                Err(value) => {
+                    let actual_ty = value.value_type();
+                    eprintln!(
+                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
+                    );
+                    value
                 }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -362,7 +361,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         i_slint_compiler::data_uri::decode_data_uri(path)
                             .ok()
                             .and_then(|(data, extension)| {
-                                corelib::graphics::decode_image_data(&data, &extension)
+                                corelib::graphics::Image::load_from_dynamic_data(&data, &extension)
+                                    .ok()
                             })
                             .ok_or_else(Default::default)
                     } else {
@@ -668,6 +668,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
+        Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
 }
@@ -2068,6 +2069,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::DataTransfer => matches!(value, Value::DataTransfer(_)),
     }
 }
 
@@ -2359,6 +2361,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Keys => Value::Keys(Default::default()),
+        Type::DataTransfer => Value::DataTransfer(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

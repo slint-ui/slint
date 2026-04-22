@@ -556,6 +556,80 @@ impl ImageInner {
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }
+
+    /// Internal helper to abstract over either loading from a file or parsing internal data.
+    ///
+    /// This can create an `ImageInner` with a dangling cache key reference if used incorrectly,
+    /// which could lead to bad behaviour. This constructor should be called from within
+    /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
+    /// supplied.
+    #[cfg(feature = "image-decoders")]
+    pub(crate) fn load_from_data_with_cache_key(
+        cache_key: ImageCacheKey,
+        data: Slice<'_, u8>,
+        format: Slice<'_, u8>,
+    ) -> Option<Self> {
+        #[cfg(feature = "svg")]
+        if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
+            return Some(ImageInner::Svg(vtable::VRc::new(
+                svg::load_from_data(data.as_slice(), cache_key).map_or_else(
+                    |svg_err| {
+                        crate::debug_log!("Error loading SVG: {}", svg_err);
+                        None
+                    },
+                    Some,
+                )?,
+            )));
+        }
+
+        let format = std::str::from_utf8(format.as_slice())
+            .ok()
+            .and_then(image::ImageFormat::from_extension);
+        let maybe_image = if let Some(format) = format {
+            image::load_from_memory_with_format(data.as_slice(), format)
+        } else {
+            image::load_from_memory(data.as_slice())
+        };
+
+        match maybe_image {
+            Ok(image) => Some(ImageInner::EmbeddedImage {
+                cache_key,
+                buffer: dynamic_image_to_shared_image_buffer(image),
+            }),
+            Err(decode_err) => {
+                crate::debug_log!("Error decoding embedded image: {}", decode_err);
+                None
+            }
+        }
+    }
+}
+
+/// Convert `image::DynamicImage` to `SharedImageBuffer`
+#[cfg(feature = "image-decoders")]
+fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
+    use rgb::AsPixels;
+
+    if dynamic_image.color().has_alpha() {
+        let rgba8image = dynamic_image.to_rgba8();
+        // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
+        // in the renderers.
+        SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer {
+            width: rgba8image.width(),
+            height: rgba8image.height(),
+            data: rgba8image
+                .as_pixels()
+                .iter()
+                .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
+                .collect(),
+        })
+    } else {
+        let rgb8image = dynamic_image.to_rgb8();
+        SharedImageBuffer::RGB8(SharedPixelBuffer::clone_from_slice(
+            rgb8image.as_raw(),
+            rgb8image.width(),
+            rgb8image.height(),
+        ))
+    }
 }
 
 impl PartialEq for ImageInner {
@@ -711,6 +785,23 @@ impl Image {
             let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
             global_cache.borrow_mut().load_image_from_path(&path).ok_or(LoadImageError(()))
         })
+    }
+
+    #[cfg(feature = "image-decoders")]
+    /// Load an Image from a path to a file containing an image.
+    ///
+    /// Supported formats are SVG, PNG and JPEG.
+    /// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
+    /// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
+    /// by enabling the `image-default-formats` cargo feature.
+    pub fn load_from_dynamic_data(bytes: &[u8], format: &str) -> Result<Self, LoadImageError> {
+        ImageInner::load_from_data_with_cache_key(
+            ImageCacheKey::Invalid,
+            bytes.into(),
+            format.as_bytes().into(),
+        )
+        .map(Self)
+        .ok_or(Default::default())
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
@@ -1017,33 +1108,6 @@ pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_,
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
     })
-}
-
-/// Decode image data with the given format hint (a file extension such as "png" or "svg").
-/// The result is not cached.
-#[cfg(feature = "image-decoders")]
-pub fn decode_image_data(data: &[u8], format: &str) -> Option<Image> {
-    #[cfg(feature = "svg")]
-    if format == "svg" || format == "svgz" {
-        return Image::load_from_svg_data(data).ok();
-    }
-
-    let image_format = image::ImageFormat::from_extension(format);
-    let decoded = if let Some(fmt) = image_format {
-        image::load_from_memory_with_format(data, fmt)
-    } else {
-        image::load_from_memory(data)
-    };
-    match decoded {
-        Ok(image) => Some(Image(ImageInner::EmbeddedImage {
-            cache_key: ImageCacheKey::Invalid,
-            buffer: cache::dynamic_image_to_shared_image_buffer(image),
-        })),
-        Err(err) => {
-            crate::debug_log!("Error decoding image data: {}", err);
-            None
-        }
-    }
 }
 
 #[test]

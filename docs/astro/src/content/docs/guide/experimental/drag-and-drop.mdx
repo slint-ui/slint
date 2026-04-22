@@ -2,18 +2,30 @@
 title: Drag and Drop
 description: Experimental DragArea and DropArea elements.
 ---
-
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `DragArea` and `DropArea` let the user drag data from one part of the UI and drop it on another.
 They can also accept drops from other applications on platforms that support it.
+
+The `data` field stores a `data-transfer` value, which is a type that abstracts over the
+multi-filetype transfer mechanisms supported by various platforms. Due to the complexity of
+this type, there is currently no way to interact with it from Slint code. To either create
+or fetch data from a `data-transfer` you need to register callbacks so that the host can
+handle it.
 
 > **Note**: These elements are experimental and subject to change.
 > Tracking issue: [slint-ui/slint#1967](https://github.com/slint-ui/slint/issues/1967).
 
 ## Example
 
-```slint playground
+```slint
+export global Api {
+    pure callback string-to-transfer(string) -> data-transfer;
+    pure callback transfer-to-string(data-transfer) -> string;
+    pure callback can-drop(data-transfer) -> bool;
+}
+
 export component Example inherits Window {
     width: 300px;
     height: 200px;
@@ -25,8 +37,7 @@ export component Example inherits Window {
         Rectangle {
             background: #f0c000;
             DragArea {
-                mime-type: "text/plain";
-                data: "Hello World";
+                data: Api.string-to-transfer("Hello World");
             }
             Text { text: "Drag me"; }
         }
@@ -35,10 +46,10 @@ export component Example inherits Window {
             background: drop.contains-drag ? #80e080 : #a0a0a0;
             drop := DropArea {
                 can-drop(event) => {
-                    event.mime-type == "text/plain"
+                    Api.can-drop(event.data)
                 }
                 dropped(event) => {
-                    debug("Got:", event.data);
+                    debug("Got: ", Api.transfer-to-string(event.data));
                 }
             }
             Text { text: "Drop here"; }
@@ -46,6 +57,49 @@ export component Example inherits Window {
     }
 }
 ```
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
+
+```rust
+fn main() {
+    let app = Example::new();
+    // For simple plaintext and image transfers, a simple conversion is supplied
+    // which handles the common case.
+    let api = app.global::<Api>();
+    api.on_string_to_transfer(Into::into);
+    // A helper for reading plaintext from a `DataTransfer` is also supplied.
+    api.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
+    api.on_can_drop(|data| {
+        // The set of plaintext and image MIME types that are supported by the
+        // helper methods is available as an associated constant.
+        data.mime_types()
+            .contains(|ty| slint::DataTransfer::PLAINTEXT_MIME_TYPES.contains(&ty)))
+    });
+    // ...
+}
+```
+
+</TabItem>
+<TabItem label="C++">
+
+```cpp
+// `DataTransfer` is currently not fully implemented in C++
+```
+</TabItem>
+<TabItem label="NodeJS">
+
+```js
+// `DataTransfer` is currently not fully implemented in NodeJS
+```
+</TabItem>
+<TabItem label="Python">
+
+```python
+# `DataTransfer` is currently not fully implemented in Python
+```
+</TabItem>
+</Tabs>
 
 ## DragArea
 
@@ -58,14 +112,8 @@ Any child elements are still interactive: a simple click does not start a drag.
 When `false`, the element does not start drag operations.
 </SlintProperty>
 
-### mime-type
-<SlintProperty propName="mime-type" typeName="string">
-The MIME type that describes the dragged data, for example `"text/plain"`.
-A `DropArea` can use this to decide whether to accept the drop.
-</SlintProperty>
-
 ### data
-<SlintProperty propName="data" typeName="string">
+<SlintProperty propName="data" typeName="data-transfer">
 The payload that is transferred to the `DropArea` when the drop happens.
 </SlintProperty>
 

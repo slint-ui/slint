@@ -8,13 +8,17 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
+use i_slint_core::DataTransfer;
 use itertools::Itertools;
-use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, SharedVector, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{self, SelectionNotification, preview_data, properties};
+use crate::preview::{
+    self, SLINT_COMPONENT_MIME_TYPE, SLINT_COMPONENT_MOVE_MIME_TYPE, SelectionNotification,
+    preview_data, properties,
+};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -166,13 +170,30 @@ pub fn create_ui(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_drop(move |component_index: i32, x: f32, y: f32| {
+    api.on_transfer_component(|index: i32| -> DataTransfer {
+        let mut transfer = DataTransfer::default();
+        transfer.set_data(
+            SLINT_COMPONENT_MIME_TYPE.to_shared_string(),
+            SharedVector::from_slice(index.to_string().as_bytes()),
+        );
+        transfer
+    });
+    api.on_transfer_component_move(|uri: SharedString, index: i32| -> DataTransfer {
+        let string = format!("{uri}:{index}");
+        let mut transfer = DataTransfer::default();
+        transfer.set_data(
+            SLINT_COMPONENT_MOVE_MIME_TYPE.to_shared_string(),
+            SharedVector::from_slice(string.as_bytes()),
+        );
+        transfer
+    });
+    api.on_drop(move |data: DataTransfer, x: f32, y: f32| {
         lsp.send_telemetry(&mut [(
             "type".to_string(),
             serde_json::to_value("component_dropped").unwrap(),
         )])
         .unwrap();
-        super::drop_component(component_index, x, y)
+        super::drop_component(data, x, y)
     });
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);

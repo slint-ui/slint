@@ -7,13 +7,13 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
+use crate::{DataTransfer, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -132,7 +132,7 @@ pub trait Platform {
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
-        self.clipboard().set(clipboard, alloc::rc::Rc::new(SharedString::from(text)));
+        self.clipboard().set(clipboard, SharedString::from(text).into());
     }
 
     /// Returns a copy of text stored in the system clipboard, if any.
@@ -144,13 +144,8 @@ pub trait Platform {
     )]
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
         let data = self.clipboard().get(clipboard).ok()?;
-        let data_for_mime_types = data.clone();
-        let mime_type = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
 
-        data.read(mime_type).ok()?.as_string().map(|string| string.into())
+        data.fetch_plaintext().ok().map(|s| s.into())
     }
 
     /// This function is called when debug() is used in .slint files. The implementation
@@ -172,6 +167,32 @@ pub trait Platform {
     /// The long press interval before showing a context menu
     fn long_press_interval(&self, _: crate::InternalToken) -> core::time::Duration {
         core::time::Duration::from_millis(500)
+    }
+}
+
+/// A trait representing the functions needed to get and set the data on the system clipboard.
+///
+/// An implementation of this trait is returned from [`Platform::clipboard`] and allows the
+/// user to interact with arbitrary data stored on the clipboard.
+pub trait PlatformClipboard {
+    /// Set the data stored on the specified clipboard to `value` (see [`DataTransfer`]).
+    fn set(&self, clipboard: Clipboard, value: DataTransfer);
+    /// Read the data stored on the specified clipboard.
+    fn get(&self, clipboard: Clipboard) -> Result<DataTransfer, PlatformError>;
+
+    /// Remove all data from the specified clipboard.
+    fn clear(&self, clipboard: Clipboard) {
+        self.set(clipboard, Default::default())
+    }
+}
+
+/// A default implemenation of [`PlatformClipboard`] which does not support reading or writing.
+pub struct DummyPlatformClipboard;
+
+impl PlatformClipboard for DummyPlatformClipboard {
+    fn set(&self, _: crate::platform::Clipboard, _: DataTransfer) {}
+    fn get(&self, _: crate::platform::Clipboard) -> Result<DataTransfer, PlatformError> {
+        Ok(Default::default())
     }
 }
 
@@ -256,8 +277,7 @@ impl core::fmt::Display for SetPlatformError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for SetPlatformError {}
+impl core::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///

@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::preview::{self, ui};
+use crate::preview::{self, DropCommand, ui};
 use core::cell::RefCell;
 use core::num::NonZeroUsize;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{self, TextSize, syntax_nodes};
+use i_slint_core::DataTransfer;
 use lsp_types::Url;
 use slint::{Model, ModelRc, SharedString, ToSharedString as _};
 use std::rc::Rc;
@@ -279,12 +280,17 @@ pub fn setup(api: &ui::Api<'_>) {
     });
 }
 
-fn drop_edit(
-    data: SharedString,
+fn drop_edit<T>(
+    data: T,
     target_uri: SharedString,
     target_offset: i32,
     location: ui::DropLocation,
-) -> Option<lsp_types::WorkspaceEdit> {
+) -> Option<lsp_types::WorkspaceEdit>
+where
+    T: TryInto<DropCommand>,
+{
+    let cmd: DropCommand = data.try_into().ok()?;
+
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
     let target_elem =
@@ -328,47 +334,52 @@ fn drop_edit(
         }
     };
 
-    let workspace_edit = if let Some((item_uri, item_offset)) = data.rsplit_once(':') {
-        if *item_uri != *target_uri {
-            return None;
+    let workspace_edit = match cmd {
+        DropCommand::Move { uri: item_uri, offset: item_offset } => {
+            if *item_uri != *target_uri {
+                return None;
+            }
+            let moving_element =
+                document_cache.element_at_offset(&url, TextSize::new(item_offset))?;
+            if moving_element == drop_info.target_element_node {
+                return None;
+            }
+            preview::drop_location::create_swap_element_workspace_edit(
+                &drop_info,
+                &moving_element,
+                Default::default(),
+                document_cache.format,
+            )?
         }
-        let moving_element =
-            document_cache.element_at_offset(&url, TextSize::new(item_offset.parse().ok()?))?;
-        if moving_element == drop_info.target_element_node {
-            return None;
+        DropCommand::Copy { index: library_index } => {
+            let component = super::PREVIEW_STATE.with(|preview_state| {
+                let preview_state = preview_state.borrow();
+                preview_state.known_components.get(library_index).cloned()
+            })?;
+            preview::drop_location::create_drop_element_workspace_edit(
+                &document_cache,
+                &component,
+                &drop_info,
+            )?
         }
-        preview::drop_location::create_swap_element_workspace_edit(
-            &drop_info,
-            &moving_element,
-            Default::default(),
-            document_cache.format,
-        )?
-    } else if let Ok(library_index) = data.parse::<usize>() {
-        let component = super::PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-            preview_state.known_components.get(library_index).cloned()
-        })?;
-        preview::drop_location::create_drop_element_workspace_edit(
-            &document_cache,
-            &component,
-            &drop_info,
-        )?
-    } else {
-        return None;
     };
 
     Some(workspace_edit.0)
 }
 
 fn can_drop(
-    data: SharedString,
+    data: DataTransfer,
     target_uri: SharedString,
     target_offset: i32,
     location: ui::DropLocation,
 ) -> bool {
+    let Some(data) = data.try_into().ok() else {
+        return false;
+    };
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     struct CacheEntry {
-        data: SharedString,
+        data: DropCommand,
         target_uri: SharedString,
         target_offset: i32,
         location: bool,
