@@ -3304,11 +3304,11 @@ fn compile_builtin_function_call(
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
                     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
+                    let shared_global = #component_access_tokens.globals.get().unwrap();
                     let globals = if let Some(popup_window_adapter) = sp::WindowInner::from_pub(#window_adapter_tokens.window()).create_popup_window_adapter() {
-                        let globals = #component_access_tokens.globals.get().unwrap().clone_with_window_adapter(popup_window_adapter);
-                        globals
+                        shared_global.clone_with_window_adapter(popup_window_adapter)
                     } else {
-                        #component_access_tokens.globals.get().unwrap().clone()
+                        shared_global.clone()
                     };
 
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
