@@ -407,7 +407,7 @@ pub(crate) fn decimal_separator_for_locale(locale: &str) -> Option<char> {
 fn update_locale_decimal_separator() {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        ctx.0.locale_decimal_separator.set(None);
+        ctx.0.locale_decimal_separator.as_ref().set(None);
 
         if let Some(l) = ctx.0.translations_bundle_languages.borrow().as_ref()
             && l.len() > 0
@@ -422,11 +422,11 @@ fn update_locale_decimal_separator() {
                     .as_ref()
                     .and_then(|v| v.get(language_index).and_then(|v| *v))
                 {
-                    ctx.0.locale_decimal_separator.set(Some(c))
+                    ctx.0.locale_decimal_separator.as_ref().set(Some(c))
                 } else {
                     // Fallback: We use icu to determine the decimal separator from the provided language
                     // #[cfg(feature = "std")]
-                    // ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(_l));
+                    // ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(_l));
                 }
             }
         } else {
@@ -442,11 +442,11 @@ fn update_locale_decimal_separator() {
                     "".into()
                 };
                 if !translated.is_empty() {
-                    ctx.0.locale_decimal_separator.set(translated.chars().next());
+                    ctx.0.locale_decimal_separator.as_ref().set(translated.chars().next());
                 } else {
                     // Fallback: We use the system locale and determining with icu the decimal separator
                     // if let Some(locale) = sys_locale::get_locale() {
-                    //     ctx.0.locale_decimal_separator.set(decimal_separator_for_locale(&locale))
+                    //     ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(&locale))
                     // }
                 }
             }
@@ -533,7 +533,7 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
             #[cfg(feature = "std")]
-            ctx.0.locale_decimal_separator.set(None);
+            ctx.0.locale_decimal_separator.as_ref().set(None);
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {
