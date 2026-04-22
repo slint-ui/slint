@@ -81,7 +81,6 @@ impl SystemTray {
             let tray = KsniTray {
                 icon: ksni::Icon { width, height, data },
                 title: params.title.into(),
-                menu: params.menu.iter().collect(),
             };
 
             let tray = crate::context::with_global_context(
