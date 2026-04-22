@@ -33,8 +33,15 @@ impl super::super::GPURenderingContext {
 
         let surface = device.unbind_surface_from_context(&mut context)?.unwrap();
 
-        let wgpu_texture =
-            import_iosurface(self.size.get(), wgpu_device, wgpu_queue, device, &surface);
+       
+        let size = self.size.get();
+
+        let objc2_metal_texture =
+            objc2_metal_texture_from_iosurface(size, wgpu_device, device, &surface);
+
+        let hal_texture = wgpu_hal_texture(size,wgpu_device, objc2_metal_texture);
+
+        let wgpu_texture =create_flipped_texture_render(size ,wgpu_device, wgpu_queue, &hal_texture);
 
         let _ =
             device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
@@ -44,22 +51,6 @@ impl super::super::GPURenderingContext {
 
         Ok(wgpu_texture)
     }
-}
-
-
-fn import_iosurface(
-    size: PhysicalSize<u32>,
-    wgpu_device: &wgpu::Device,
-    wgpu_queue: &wgpu::Queue,
-    surfman_device: &surfman::Device,
-    surfman_surface: &surfman::Surface,
-) -> wgpu::Texture {
-    let objc2_metal_texture =
-        objc2_metal_texture_from_iosurface(size, wgpu_device, surfman_device, surfman_surface);
-
-    let hal_texture = wgpu_hal_texture(size,wgpu_device, objc2_metal_texture);
-
-    create_flipped_texture_render(size,wgpu_device, wgpu_queue, &hal_texture)
 }
 
 /// Creates a Metal texture object from an IOSurface using the WGPU Metal backend.
