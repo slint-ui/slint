@@ -57,6 +57,7 @@ pub mod sharedvector;
 pub mod slice;
 pub mod string;
 pub mod styled_text;
+#[cfg(system_tray)]
 pub mod system_tray;
 pub mod tests;
 pub mod textlayout;

@@ -37,6 +37,7 @@ use crate::lengths::{
 pub use crate::menus::MenuItem;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+#[cfg(system_tray)]
 pub use crate::system_tray::SystemTray;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
@@ -1851,6 +1852,7 @@ declare_item_vtable! {
     fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
 }
 
+#[cfg(system_tray)]
 declare_item_vtable! {
     fn slint_get_SystemTrayVTable() -> SystemTrayVTable for SystemTray
 }
