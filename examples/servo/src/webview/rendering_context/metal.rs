@@ -145,8 +145,6 @@ fn create_flipped_texture_render(
     wgpu_queue: &wgpu::Queue,
     source_texture: &wgpu::Texture,
 ) -> wgpu::Texture {
-    
-
     let (bind_group_layout, pipeline, sampler) = create_flip_pipeline_resources(wgpu_device);
 
     // Create the output texture
@@ -159,7 +157,7 @@ fn create_flipped_texture_render(
 
     let flipped_texture = wgpu_device.create_texture(&descriptor);
 
-    let source_view = source_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let source_view = source_texture.create_view(&Default::default());
 
     let bind_group = wgpu_device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Metal Texture Flip Bind Group"),
@@ -174,7 +172,7 @@ fn create_flipped_texture_render(
     });
 
     // Execute the render pass
-    let target_view = &flipped_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let target_view = &flipped_texture.create_view(&Default::default());
 
     let mut encoder = wgpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Metal Texture Flip Command Encoder"),
@@ -186,16 +184,16 @@ fn create_flipped_texture_render(
             timestamp_writes: None,
             occlusion_query_set: None,
             depth_stencil_attachment: None,
+            multiview_mask: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target_view,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    store: wgpu::StoreOp::Store,
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
                 },
             })],
-            multiview_mask: None,
         });
 
         render_pass.set_pipeline(&pipeline);
@@ -282,40 +280,20 @@ fn create_flip_pipeline_resources(
                 blend: None,
                 write_mask: wgpu::ColorWrites::ALL,
             })],
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            compilation_options: Default::default(),
         }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            strip_index_format: None,
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: None,
-            unclipped_depth: false,
-            polygon_mode: wgpu::PolygonMode::Fill,
-            conservative: false,
-        },
+        primitive: Default::default(),
         depth_stencil: None,
-        multisample: wgpu::MultisampleState {
-            count: 1,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        },
+        multisample: Default::default(),
         multiview_mask: None,
         cache: None,
     });
 
     let sampler = wgpu_device.create_sampler(&wgpu::SamplerDescriptor {
         label: Some("Metal Texture Sampler"),
-        compare: None,
-        border_color: None,
-        lod_min_clamp: 0.0,
-        lod_max_clamp: 0.0,
-        anisotropy_clamp: 1,
         mag_filter: wgpu::FilterMode::Linear,
         min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        ..Default::default()
     });
 
     (bind_group_layout, pipeline, sampler)
