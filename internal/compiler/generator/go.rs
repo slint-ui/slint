@@ -696,12 +696,7 @@ fn emit_component(
         };
         writeln!(out, "\tOn{}(handler {handler_signature}) error", callback.go_name)?;
         if matches!(callback.return_type, Type::Void) {
-            writeln!(
-                out,
-                "\tInvoke{}({}) error",
-                callback.go_name,
-                params.join(", ")
-            )?;
+            writeln!(out, "\tInvoke{}({}) error", callback.go_name, params.join(", "))?;
         } else {
             writeln!(
                 out,

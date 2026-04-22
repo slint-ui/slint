@@ -5,8 +5,8 @@ use crate::dynamic_item_tree::ErasedItemTreeBox;
 use crate::dynamic_item_tree::InstanceRef;
 
 use super::*;
-use core::ptr::NonNull;
 use core::ops::ControlFlow;
+use core::ptr::NonNull;
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
 use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
 use i_slint_core::slice::Slice;
@@ -35,10 +35,7 @@ fn find_element_in_item(item: ItemRc, element_id: &str) -> Option<SlintGoElement
         for element_index in 0..element_count {
             if let Some(type_names_and_ids) = item.element_type_names_and_ids(element_index) {
                 if type_names_and_ids.iter().any(|(_, id)| id == element_id) {
-                    return Some(SlintGoElementHandle {
-                        item: item.downgrade(),
-                        element_index,
-                    });
+                    return Some(SlintGoElementHandle { item: item.downgrade(), element_index });
                 }
             }
         }

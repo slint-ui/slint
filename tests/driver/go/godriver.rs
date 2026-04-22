@@ -262,14 +262,13 @@ fn copy_go_runtime_package(dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(&destination_dir)
         .map_err(|err| format!("failed to create {}: {err}", destination_dir.display()))?;
     fn copy_recursive(source_dir: &Path, destination_dir: &Path) -> Result<(), String> {
-        std::fs::create_dir_all(destination_dir).map_err(|err| {
-            format!("failed to create {}: {err}", destination_dir.display())
-        })?;
+        std::fs::create_dir_all(destination_dir)
+            .map_err(|err| format!("failed to create {}: {err}", destination_dir.display()))?;
         for entry in std::fs::read_dir(source_dir)
             .map_err(|err| format!("failed to read {}: {err}", source_dir.display()))?
         {
-            let entry =
-                entry.map_err(|err| format!("failed to inspect Go runtime package entry: {err}"))?;
+            let entry = entry
+                .map_err(|err| format!("failed to inspect Go runtime package entry: {err}"))?;
             let file_type =
                 entry.file_type().map_err(|err| format!("failed to inspect file type: {err}"))?;
             let target = destination_dir.join(entry.file_name());

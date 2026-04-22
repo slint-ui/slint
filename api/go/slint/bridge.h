@@ -88,8 +88,9 @@ bool slint_go_component_instance_set_callback(const SlintGoComponentInstance *in
 bool slint_go_component_instance_set_global_callback(const SlintGoComponentInstance *instance,
                                                      SlintGoByteSlice global, SlintGoByteSlice name,
                                                      uintptr_t user_data, SlintGoCallback callback);
-SlintGoElementHandle *slint_go_element_handle_find_by_element_id(const SlintGoComponentInstance *instance,
-                                                                 SlintGoByteSlice element_id);
+SlintGoElementHandle *
+slint_go_element_handle_find_by_element_id(const SlintGoComponentInstance *instance,
+                                           SlintGoByteSlice element_id);
 void slint_go_element_handle_destructor(SlintGoElementHandle *handle);
 bool slint_go_element_handle_size(const SlintGoElementHandle *handle, SlintGoLogicalSize *out);
 bool slint_go_element_handle_absolute_position(const SlintGoElementHandle *handle,
