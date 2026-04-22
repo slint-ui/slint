@@ -1727,10 +1727,9 @@ pub fn instantiate(
                     } else {
                         let item_within_component = &description.items[&elem.id];
                         let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                        if let Some(callback) = eval::lookup_rtti_str_key(
-                            &item_within_component.rtti.callbacks,
-                            prop_name.as_str(),
-                        ) {
+                        if let Some(callback) =
+                            item_within_component.rtti.callbacks.get(prop_name.as_str())
+                        {
                             callback.set_handler(
                                 item,
                                 Box::new(make_callback_eval_closure(expr, self_weak.clone())),
@@ -1809,10 +1808,8 @@ pub fn instantiate(
             } else {
                 let item_within_component = &description.items[&elem.id];
                 let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                if let Some(prop_rtti) = eval::lookup_rtti_str_key(
-                    &item_within_component.rtti.properties,
-                    prop_name.as_str(),
-                ) {
+                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name.as_str())
+                {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
 
                     for twb in &binding.two_way_bindings {

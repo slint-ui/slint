@@ -132,7 +132,13 @@ pub async fn run_passes(
             diag,
         );
         repeater_component::process_repeater_components(component);
-        lower_tooltips::lower_tooltips(component, &doc.local_registry, &palette, &style_metrics);
+        lower_tooltips::lower_tooltips(
+            component,
+            &doc.local_registry,
+            &palette,
+            &style_metrics,
+            diag,
+        );
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);

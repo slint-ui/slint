@@ -58,7 +58,7 @@ pub fn ensure_window(
         accessibility_props: Default::default(),
         geometry_props: Default::default(),
         is_flickable_viewport: false,
-        popup_window_kind: PopupWindowKind::Regular,
+        popup_window_kind: Some(PopupWindowKind::Regular),
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
         grid_layout_cell: None,

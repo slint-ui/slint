@@ -224,7 +224,11 @@ fn lower_popup_window(
         y: coord_y,
         close_policy,
         parent_element: parent_element.clone(),
-        popup_kind: popup_window_element.borrow().popup_window_kind.clone(),
+        popup_kind: popup_window_element
+            .borrow()
+            .popup_window_kind
+            .clone()
+            .unwrap_or(PopupWindowKind::Regular),
     });
 }
 

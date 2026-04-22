@@ -317,9 +317,8 @@ impl Document {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub enum PopupWindowKind {
-    #[default]
     Regular,
     Tooltip,
 }
@@ -834,9 +833,8 @@ pub struct Element {
 
     /// Semantic kind for elements that represent popup windows.
     ///
-    /// Defaults to `Regular`; passes that synthesize specific popup kinds (such as tooltips)
-    /// should set this explicitly so later lowering does not rely on naming conventions.
-    pub popup_window_kind: PopupWindowKind,
+    /// `None` means this is a regular non-popup element.
+    pub popup_window_kind: Option<PopupWindowKind>,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.

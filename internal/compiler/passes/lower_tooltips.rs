@@ -3,11 +3,18 @@
 
 //! Lowers `ToolTip { text: ... }` to an input-transparent popup overlay.
 //!
-//! The tooltip is shown when the parent gets hovered and closed when the hover ends.
-//! This pass uses `PopupWindow` for the overlay and relies on runtime support
-//! to ensure tooltip popups do not take over pointer input dispatch.
+//! For each `ToolTip` child, this pass synthesizes a `PopupWindow` that follows the
+//! parent's pointer position (`mouse-x`/`mouse-y`) and contains the tooltip content.
+//! Visibility is driven by the parent's `has-hover` change callback:
+//! - hover enters: start/restart a delay timer
+//! - timer fires: `ShowPopupWindow`
+//! - hover leaves: stop timer and `ClosePopupWindow`
+//!
+//! Runtime popup handling marks tooltip popups as input-transparent overlays.
+//! Tooltip show/hide delay currently uses a fixed delay constant.
 
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::diagnostics::BuildDiagnostics;
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
 use crate::langtype::{EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -19,6 +26,7 @@ use std::rc::Rc;
 const TOOLTIP_ELEMENT: &str = "ToolTip";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
+const TOOLTIP_DELAY_MS: f64 = 500.;
 
 const HAS_HOVER: &str = "has-hover";
 const MOUSE_X: &str = "mouse-x";
@@ -29,9 +37,11 @@ pub fn lower_tooltips(
     type_register: &TypeRegister,
     palette: &Rc<Component>,
     style_metrics: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
 ) {
     let tooltip_type = type_register.lookup_builtin_element(TOOLTIP_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
+    let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
     let text_type = type_register.lookup_builtin_element("Text").unwrap();
     let rectangle_type = type_register.lookup_builtin_element("Rectangle").unwrap();
     let vertical_layout_type = type_register.lookup_builtin_element("VerticalLayout").unwrap();
@@ -48,17 +58,14 @@ pub fn lower_tooltips(
 
     let mut tooltip_popup_id_counter: u32 = 0;
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        if elem.borrow().id.starts_with(TOOLTIP_POPUP_ID_PREFIX) {
-            return;
-        }
-
-        let supports_hover = {
+        // Recurse-with-subcomponents traversal also visits generated children. Skip tooltip popup
+        // overlays produced by this pass, otherwise we'd try to lower our own output again.
+        let is_generated_tooltip_popup = {
             let elem_borrow = elem.borrow();
-            !matches!(elem_borrow.lookup_property(HAS_HOVER).property_type, Type::Invalid)
-                && !matches!(elem_borrow.lookup_property(MOUSE_X).property_type, Type::Invalid)
-                && !matches!(elem_borrow.lookup_property(MOUSE_Y).property_type, Type::Invalid)
+            matches!(&elem_borrow.base_type, t if *t == popup_window_type)
+                && matches!(elem_borrow.popup_window_kind, Some(PopupWindowKind::Tooltip))
         };
-        if !supports_hover {
+        if is_generated_tooltip_popup {
             return;
         }
 
@@ -68,6 +75,22 @@ pub fn lower_tooltips(
         let Some(tooltip_child_index) = tooltip_child_index else {
             return;
         };
+
+        let supports_hover = {
+            let elem_borrow = elem.borrow();
+            !matches!(elem_borrow.lookup_property(HAS_HOVER).property_type, Type::Invalid)
+                && !matches!(elem_borrow.lookup_property(MOUSE_X).property_type, Type::Invalid)
+                && !matches!(elem_borrow.lookup_property(MOUSE_Y).property_type, Type::Invalid)
+        };
+        if !supports_hover {
+            diag.push_error(
+                "ToolTip parent must provide hover and mouse position properties \
+                 (currently expected under TouchArea-like elements)"
+                    .into(),
+                &*elem.borrow(),
+            );
+            return;
+        }
 
         let (tooltip_child, enclosing_component, popup_id, popup_id_for_text) = {
             let mut elem_borrow = elem.borrow_mut();
@@ -182,8 +205,8 @@ pub fn lower_tooltips(
         let popup_window = Element {
             id: popup_id,
             base_type: popup_window_type.clone(),
-            enclosing_component,
-            popup_window_kind: PopupWindowKind::Tooltip,
+            enclosing_component: enclosing_component.clone(),
+            popup_window_kind: Some(PopupWindowKind::Tooltip),
             children: vec![tooltip_child, background_rect_rc],
             bindings: [
                 (
@@ -209,6 +232,25 @@ pub fn lower_tooltips(
 
         let has_hover_nr = NamedReference::new(elem, SmolStr::new_static(HAS_HOVER));
         let popup_weak = Rc::downgrade(&popup_window_rc);
+        let timer_id = format_smolstr!("{}-delay", popup_id_for_text);
+        let mut timer_interval: BindingExpression =
+            Expression::NumberLiteral(TOOLTIP_DELAY_MS, Unit::Ms).into();
+        timer_interval.priority = 1;
+        let timer_element = Element {
+            id: timer_id,
+            base_type: timer_type.clone(),
+            enclosing_component: enclosing_component.clone(),
+            bindings: [(
+                SmolStr::new_static("interval"),
+                RefCell::new(timer_interval),
+            )]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+        let timer_element_rc = timer_element.make_rc();
+        let timer_running = NamedReference::new(&timer_element_rc, SmolStr::new_static("running"));
+        let timer_weak = Rc::downgrade(&timer_element_rc);
 
         let show_popup = Expression::FunctionCall {
             function: BuiltinFunction::ShowPopupWindow.into(),
@@ -220,12 +262,30 @@ pub fn lower_tooltips(
             arguments: vec![Expression::ElementReference(popup_weak)],
             source_location: None,
         };
+        let restart_timer = Expression::FunctionCall {
+            function: BuiltinFunction::RestartTimer.into(),
+            arguments: vec![Expression::ElementReference(timer_weak)],
+            source_location: None,
+        };
+        let set_running_true = Expression::SelfAssignment {
+            lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
+            rhs: Box::new(Expression::BoolLiteral(true)),
+            op: '=',
+            node: None,
+        };
+        let set_running_false = Expression::SelfAssignment {
+            lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
+            rhs: Box::new(Expression::BoolLiteral(false)),
+            op: '=',
+            node: None,
+        };
 
         let callback = Expression::Condition {
             condition: Box::new(Expression::PropertyReference(has_hover_nr)),
-            true_expr: Box::new(Expression::CodeBlock(vec![show_popup])),
-            false_expr: Box::new(Expression::CodeBlock(vec![close_popup])),
+            true_expr: Box::new(Expression::CodeBlock(vec![set_running_true, restart_timer])),
+            false_expr: Box::new(Expression::CodeBlock(vec![set_running_false.clone(), close_popup])),
         };
+        let timer_triggered = Expression::CodeBlock(vec![show_popup, set_running_false]);
 
         {
             let mut elem_borrow = elem.borrow_mut();
@@ -236,8 +296,15 @@ pub fn lower_tooltips(
                 .borrow_mut()
                 .push(callback);
 
-            elem_borrow.children.insert(tooltip_child_index, popup_window_rc);
+            elem_borrow.children.insert(tooltip_child_index, timer_element_rc.clone());
+            elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
             elem_borrow.has_popup_child = true;
         }
+        let mut timer_triggered_binding: BindingExpression = timer_triggered.into();
+        timer_triggered_binding.priority = 1;
+        timer_element_rc
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static("triggered"), RefCell::new(timer_triggered_binding));
     });
 }
