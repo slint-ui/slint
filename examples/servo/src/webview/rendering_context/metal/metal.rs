@@ -102,29 +102,6 @@ fn objc2_metal_texture_from_iosurface(
     }
 }
 
-/// Creates a WGPU texture descriptor with standard settings for this use case.
-fn create_wgpu_texture_descriptor(
-    size: PhysicalSize<u32>,
-    label: &str,
-    usage: wgpu::TextureUsages,
-    format: wgpu::TextureFormat,
-) -> wgpu::TextureDescriptor<'_> {
-    wgpu::TextureDescriptor {
-        label: Some(label),
-        size: wgpu::Extent3d {
-            width: size.width,
-            height: size.height,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format,
-        usage,
-        view_formats: &[],
-    }
-}
-
 /// Converts a Metal texture object into a WGPU texture.
 ///
 /// This method takes a Metal texture (as an NSObject) and wraps it in WGPU's
@@ -157,7 +134,7 @@ fn wgpu_hal_texture(
             },
         );
 
-        let wgpu_descriptor = create_wgpu_texture_descriptor(
+        let descriptor = create_wgpu_texture_descriptor(
             size,
             "Metal IOSurface Texture",
             wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -165,7 +142,7 @@ fn wgpu_hal_texture(
         );
 
         wgpu_device
-            .create_texture_from_hal::<wgpu::wgc::api::Metal>(hal_texture, &wgpu_descriptor)
+            .create_texture_from_hal::<wgpu::wgc::api::Metal>(hal_texture, &descriptor)
     }
 }
 
@@ -240,3 +217,25 @@ fn create_flipped_texture_render(
     flipped_texture
 }
 
+/// Creates a WGPU texture descriptor with standard settings for this use case.
+fn create_wgpu_texture_descriptor(
+    size: PhysicalSize<u32>,
+    label: &str,
+    usage: wgpu::TextureUsages,
+    format: wgpu::TextureFormat,
+) -> wgpu::TextureDescriptor<'_> {
+    wgpu::TextureDescriptor {
+        label: Some(label),
+        size: wgpu::Extent3d {
+            width: size.width,
+            height: size.height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage,
+        view_formats: &[],
+    }
+}
