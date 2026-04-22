@@ -33,7 +33,7 @@ pub(crate) struct SlintContextInner {
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
-    pub(crate) locale_decimal_separator: core::cell::Cell<Option<char>>,
+    pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<Option<char>>>>,
     #[cfg(feature = "shared-parley")]
     pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
     #[cfg(feature = "shared-swash")]
@@ -62,7 +62,10 @@ impl SlintContext {
             #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
             gettext_bindtextdomain_domain: Default::default(),
             window_shown_hook: Default::default(),
-            locale_decimal_separator: core::cell::Cell::new(None),
+            locale_decimal_separator: Box::pin(Property::new_named(
+                None,
+                "SlintContext::locale_decimal_separator",
+            )),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "tr")]
@@ -136,7 +139,7 @@ impl SlintContext {
 
     /// Returns the locale's decimal separator, falling back to `'.'`.
     pub fn locale_decimal_separator(&self) -> char {
-        self.0.locale_decimal_separator.get().unwrap_or('.')
+        self.0.locale_decimal_separator.as_ref().get().unwrap_or('.')
     }
 
     /// Override the locale used for decimal separator detection (testing only).
@@ -144,6 +147,7 @@ impl SlintContext {
     pub fn set_locale(&self, locale: &str) {
         self.0
             .locale_decimal_separator
+            .as_ref()
             .set(crate::translations::decimal_separator_for_locale(locale));
     }
 
