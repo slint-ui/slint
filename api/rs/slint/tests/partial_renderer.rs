@@ -936,3 +936,207 @@ fn position_tracking_without_partial_rendering() {
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
+
+/// Items under a `transform-scale` parent at large local coordinates must not
+/// be culled when their screen-space position (after scaling) is within the
+/// viewport.
+#[test]
+fn partial_rendering_does_not_cull_scaled_items() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            background: white;
+            in property <float> scale-val: 0.5;
+
+            Rectangle {
+                x: 0px; y: 0px;
+                width: 1000px; height: 1000px;
+                transform-origin: { x: 0px, y: 0px };
+                transform-scale-x: scale-val;
+                transform-scale-y: scale-val;
+
+                Rectangle {
+                    x: 400px; y: 400px;
+                    width: 100px; height: 100px;
+                    background: red;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(300, 300).into());
+    ui.show().unwrap();
+
+    // Frame 1: full repaint.
+    assert!(window.draw_if_needed());
+
+    // Check that the scaled rectangle is visible via pixel data.
+    // At scale 0.5 from origin (0,0), rect at local (400,400) size 100
+    // → screen (200,200) size 50.
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            // RGBA8888, pixel at (220, 220)
+            let offset = ((220 * 300 + 220) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Frame 1: pixel at (220,220) should be red, got rgb=({r},{g},{b})"
+            );
+        }
+    }
+
+    assert!(!window.draw_if_needed());
+
+    // Change scale to trigger a partial repaint.
+    ui.set_scale_val(0.5001);
+
+    // Frame 2: partial repaint. The item must not be culled.
+    assert!(window.draw_if_needed());
+
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            let offset = ((220 * 300 + 220) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Frame 2: pixel at (220,220) should still be red after partial repaint, \
+                 got rgb=({r},{g},{b})"
+            );
+        }
+    }
+}
+
+/// Items under a `transform-rotation` parent must not be culled when their
+/// screen-space position (after rotation) is within the viewport.
+#[test]
+fn partial_rendering_does_not_cull_rotated_items() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            background: white;
+            in property <angle> rot: 90deg;
+
+            Rectangle {
+                x: 0px; y: 0px;
+                width: 600px; height: 600px;
+                transform-origin: { x: 150px, y: 150px };
+                transform-rotation: rot;
+
+                Rectangle {
+                    x: 250px; y: 150px;
+                    width: 50px; height: 50px;
+                    background: red;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(300, 300).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    // 90° clockwise rotation around (150,150):
+    // local (250,150) → screen (100,250). Check center at (125, 275).
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            let offset = ((275 * 300 + 125) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Rotated rectangle should be visible at (125,275), got rgb=({r},{g},{b})"
+            );
+        }
+    }
+}
+
+/// Nested scale transforms must compose correctly across save/restore.
+#[test]
+fn partial_rendering_nested_scales() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            background: white;
+
+            Rectangle {
+                x: 0px; y: 0px;
+                width: 2000px; height: 2000px;
+                transform-origin: { x: 0px, y: 0px };
+                transform-scale-x: 0.5;
+                transform-scale-y: 0.5;
+
+                Rectangle {
+                    x: 0px; y: 0px;
+                    width: 2000px; height: 2000px;
+                    transform-origin: { x: 0px, y: 0px };
+                    transform-scale-x: 0.5;
+                    transform-scale-y: 0.5;
+
+                    Rectangle {
+                        x: 800px; y: 800px;
+                        width: 200px; height: 200px;
+                        background: red;
+                    }
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(300, 300).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    // Combined scale 0.25: local (800,800) size 200 → screen (200,200) size 50.
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            // Inside at (220,220)
+            let offset = ((220 * 300 + 220) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Nested scale: pixel at (220,220) should be red, got rgb=({r},{g},{b})"
+            );
+            // Outside at (260,260)
+            let offset2 = ((260 * 300 + 260) * 4) as usize;
+            let (r2, g2, b2) = (data[offset2], data[offset2 + 1], data[offset2 + 2]);
+            assert!(
+                r2 > 200 && g2 > 200 && b2 > 200,
+                "Nested scale: pixel at (260,260) should be white, got rgb=({r2},{g2},{b2})"
+            );
+        }
+    }
+}

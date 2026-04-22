@@ -97,26 +97,21 @@ fn create_repeater_components(component: &Rc<Component>) {
         drop(original_elem);
 
         // Move all the menus that belong to the newly created component
-        // Could use Vec::extract_if if MSRV >= 1.87
-        component.menu_item_tree.borrow_mut().retain(|menu_item| {
-            let mut parent_elem = menu_item.parent_element.borrow_mut();
+        repeated_component.menu_item_tree.borrow_mut().extend(
+            component.menu_item_tree.borrow_mut().extract_if(.., |menu_item| {
+                let mut parent_elem = menu_item.parent_element.borrow_mut();
 
-            // When parent_element IS the element being split, update the parent_elem
-            // to point to the new sub-component's root.
-            if Weak::ptr_eq(&parent_elem, &original_elem_as_weak) {
-                *parent_elem = Rc::downgrade(&repeated_component.root_element);
-            }
+                // When parent_element IS the element being split, update the parent_elem
+                // to point to the new sub-component's root.
+                if Weak::ptr_eq(&parent_elem, &original_elem_as_weak) {
+                    *parent_elem = Rc::downgrade(&repeated_component.root_element);
+                }
 
-            let enclosing_component =
-                parent_elem.upgrade().unwrap().borrow().enclosing_component.clone();
-            let should_move = Weak::ptr_eq(&enclosing_component, &repeated_component_weak);
-            if should_move {
-                repeated_component.menu_item_tree.borrow_mut().push(menu_item.clone());
-                false
-            } else {
-                true
-            }
-        });
+                let enclosing_component =
+                    parent_elem.upgrade().unwrap().borrow().enclosing_component.clone();
+                Weak::ptr_eq(&enclosing_component, &repeated_component_weak)
+            }),
+        );
 
         create_repeater_components(&repeated_component);
         original_elem_rc.borrow_mut().base_type = ElementType::Component(repeated_component);

@@ -5,8 +5,10 @@ description: ScaleRotateGestureHandler element api.
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 
-Use the `ScaleRotateGestureHandler` to handle pinch and rotation gestures from trackpads or touchscreens.
+Use the `ScaleRotateGestureHandler` to handle pinch and rotation gestures.
 Recognition is limited to the element's geometry.
+
+The `ScaleRoteGestureHandler` supports touchscreens on all platforms, and additionally supports trackpad gestures on macOS and iOS.
 
 ```slint playground
 export component Example inherits Window {
@@ -49,9 +51,6 @@ export component Example inherits Window {
 The `scale` property provides a cumulative scale factor relative to the start of the gesture (starting at `1.0`).
 The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
 Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
-
-On macOS and iOS, the handler responds to trackpad pinch and rotation gestures (platform gesture events).
-On other platforms, it processes raw two-finger touch input for pinch and rotation.
 
 ## Properties
 

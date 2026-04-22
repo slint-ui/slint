@@ -131,7 +131,12 @@ pub fn default_debug_log(_arguments: core::fmt::Arguments) {
 
             log(&_arguments.to_string());
         } else if #[cfg(feature = "std")] {
-            std::eprintln!("{_arguments}");
+            use std::io::Write;
+            // We were seeing intermittent, albeit very rare, crashes due to `eprintln` panicking
+            // if the write to stderr fails. Since this is just for debug printing, it's safe
+            // to silently drop this if we can't write (since it wouldn't be written to stderr
+            // anyway)
+            let _ = writeln!(std::io::stderr(), "{_arguments}");
         }
     }
 }

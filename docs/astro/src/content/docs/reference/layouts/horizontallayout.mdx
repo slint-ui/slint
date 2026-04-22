@@ -55,6 +55,28 @@ To target specific sides with different values use the following properties:
 
 ### alignment
 <SlintProperty propName="alignment" typeName="enum" enumName="LayoutAlignment">
-Set the alignment. Matches the CSS flex box.
+Set the alignment along the main (horizontal) axis. Matches the CSS flex box.
+</SlintProperty>
+
+### align-items
+<SlintProperty propName="align-items" typeName="enum" enumName="LayoutAlignItems">
+Set the alignment of items along the cross (vertical) axis.
+The default is `stretch`, meaning each item fills the full height of the layout.
+The other values (`start`, `end`, `center`) size each
+item to its preferred height, clamped to its min/max, and position it at the
+top, bottom, or center of the layout's content box.
+
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    HorizontalLayout {
+        align-items: center;
+        Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
+        Rectangle { background: blue; preferred-width: 30px; preferred-height: 40px; }
+        Rectangle { background: green; preferred-width: 30px; preferred-height: 60px; }
+    }
+}
+```
 </SlintProperty>
 

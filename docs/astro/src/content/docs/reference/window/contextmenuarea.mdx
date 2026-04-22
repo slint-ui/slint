@@ -91,17 +91,11 @@ The icon shown next to the title.
 </SlintProperty>
 
 ### shortcut
+
 <SlintProperty propName="shortcut" typeName="keys">
 The keyboard shortcut for this `MenuItem`.
 
 This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
-
-:::note{Note}
-When Slint uses the native menu bar on macOS or Windows, shortcuts with non-alphabetic keys might not be displayed in the menu bar due to API incompatibilities.
-
-The shortcuts will still work, even if they are not displayed.
-For the best compatibility stick to shortcuts that use A-Z and 0-9 in the menu bar.
-:::
 </SlintProperty>
 
 ### Callbacks of `MenuItem`

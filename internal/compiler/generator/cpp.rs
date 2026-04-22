@@ -129,6 +129,7 @@ pub mod cpp_ast {
     }
 
     impl File {
+        #[allow(clippy::manual_checked_ops)]
         pub fn split_off_cpp_files(&mut self, header_file_name: String, count: usize) -> Vec<File> {
             let mut cpp_files = Vec::with_capacity(count);
             if count > 0 {
@@ -718,8 +719,8 @@ pub fn generate(
 
     let mut file = generate_types(&doc.used_types.borrow().structs_and_enums, &config);
 
-    for (path, er) in doc.embedded_file_resources.borrow().iter() {
-        embed_resource(er, path, &mut file.resources);
+    for (resource_id, er) in doc.embedded_file_resources.borrow().iter_enumerated() {
+        embed_resource(er, resource_id, &mut file.resources);
     }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
@@ -959,18 +960,21 @@ fn expand_data_to_cpp_u8_array(data: &[u8]) -> String {
 
 fn embed_resource(
     resource: &crate::embedded_resources::EmbeddedResources,
-    path: &SmolStr,
+    resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
     declarations: &mut Vec<Declaration>,
 ) {
     match &resource.kind {
         crate::embedded_resources::EmbeddedResourcesKind::ListOnly => {}
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-            let resource_file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+            let resource_file = crate::fileaccess::load_file(std::path::Path::new(
+                resource.path.as_deref().unwrap(),
+            ))
+            .unwrap(); // embedding pass ensured that the file exists
             let data = resource_file.read();
 
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
-                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: Some(data.len()),
                 init: Some(expand_data_to_cpp_u8_array(data.as_ref())),
                 ..Default::default()
@@ -979,7 +983,7 @@ fn embed_resource(
         crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(data, _) => {
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
-                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: Some(data.len()),
                 init: Some(expand_data_to_cpp_u8_array(data)),
                 ..Default::default()
@@ -1005,7 +1009,7 @@ fn embed_resource(
             };
             let count = data.len();
             let data = data.iter().map(ToString::to_string).join(", ");
-            let data_name = format_smolstr!("slint_embedded_resource_{}_data", resource.id);
+            let data_name = format_smolstr!("slint_embedded_resource_{}_data", resource_id);
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
                 name: data_name.clone(),
@@ -1013,7 +1017,7 @@ fn embed_resource(
                 init: Some(format!("{{ {data} }}")),
                 ..Default::default()
             }));
-            let texture_name = format_smolstr!("slint_embedded_resource_{}_texture", resource.id);
+            let texture_name = format_smolstr!("slint_embedded_resource_{}_texture", resource_id);
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::types::StaticTexture".into(),
                 name: texture_name.clone(),
@@ -1038,7 +1042,7 @@ fn embed_resource(
             );
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::types::StaticTextures".into(),
-                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: None,
                 init: Some(init),
                 ..Default::default()
@@ -1061,7 +1065,7 @@ fn embed_resource(
             },
         ) => {
             let family_name_var =
-                format_smolstr!("slint_embedded_resource_{}_family_name", resource.id);
+                format_smolstr!("slint_embedded_resource_{}_family_name", resource_id);
             let family_name_size = family_name.len();
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
@@ -1074,7 +1078,7 @@ fn embed_resource(
                 ..Default::default()
             }));
 
-            let charmap_var = format_smolstr!("slint_embedded_resource_{}_charmap", resource.id);
+            let charmap_var = format_smolstr!("slint_embedded_resource_{}_charmap", resource_id);
             let charmap_size = character_map.len();
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
@@ -1099,7 +1103,7 @@ fn embed_resource(
                         ty: "const uint8_t".into(),
                         name: format_smolstr!(
                             "slint_embedded_resource_{}_gs_{}_gd_{}",
-                            resource.id,
+                            resource_id,
                             glyphset_index,
                             glyph_index
                         ),
@@ -1114,12 +1118,12 @@ fn embed_resource(
 
                 declarations.push(Declaration::Var(Var{
                     ty: "const slint::cbindgen_private::BitmapGlyph".into(),
-                    name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index),
+                    name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource_id, glyphset_index),
                     array_size: Some(glyphset.glyph_data.len()),
                     init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
                         format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = slint::private_api::make_slice({}, {}) }}",
                         glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance,
-                        format_args!("slint_embedded_resource_{}_gs_{}_gd_{}", resource.id, glyphset_index, glyph_index),
+                        format_args!("slint_embedded_resource_{}_gs_{}_gd_{}", resource_id, glyphset_index, glyph_index),
                         glyph.data.len()
                     )
                     }).join(", \n"))),
@@ -1128,7 +1132,7 @@ fn embed_resource(
             }
 
             let glyphsets_var =
-                format_smolstr!("slint_embedded_resource_{}_glyphsets", resource.id);
+                format_smolstr!("slint_embedded_resource_{}_glyphsets", resource_id);
             let glyphsets_size = glyphs.len();
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
@@ -1141,7 +1145,7 @@ fn embed_resource(
                         .enumerate()
                         .map(|(glyphset_index, glyphset)| format!(
                             "{{ .pixel_size = {}, .glyph_data = slint::private_api::make_slice({}, {}) }}",
-                            glyphset.pixel_size, format_args!("slint_embedded_resource_{}_glyphset_{}", resource.id, glyphset_index), glyphset.glyph_data.len()
+                            glyphset.pixel_size, format_args!("slint_embedded_resource_{}_glyphset_{}", resource_id, glyphset_index), glyphset.glyph_data.len()
                         ))
                         .join(", \n")
                 )),
@@ -1166,7 +1170,7 @@ fn embed_resource(
 
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::BitmapFont".into(),
-                name: format_smolstr!("slint_embedded_resource_{}", resource.id),
+                name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: None,
                 init: Some(init),
                 ..Default::default()
@@ -2219,11 +2223,11 @@ fn generate_sub_component(
         ));
 
         let ensure_updated = if let Some(listview) = &repeated.listview {
-            let vp_y = access_local_member(&listview.viewport_y, &ctx);
-            let vp_h = access_local_member(&listview.viewport_height, &ctx);
-            let lv_h = access_local_member(&listview.listview_height, &ctx);
-            let vp_w = access_local_member(&listview.viewport_width, &ctx);
-            let lv_w = access_local_member(&listview.listview_width, &ctx);
+            let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
+            let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
+            let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
+            let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
+            let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
             format!(
                 "self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
@@ -3207,7 +3211,7 @@ fn generate_public_api_for_properties(
                     Declaration::Function(Function {
                         name: format_smolstr!("set_{}", &prop_ident),
                         signature: format!(
-                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
+                            "(const {cpp_property_type} &) const = SLINT_DELETED_FUNCTION(\"property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter\")", p.name
                         ),
                         ..Default::default()
                     }),
@@ -3226,7 +3230,7 @@ fn generate_public_api_for_properties(
                 Declaration::Function(Function {
                     name: format_smolstr!("invoke_{prop_ident}"),
                     signature: format!(
-                        "({param_types}) const = delete /* the function '{name}' is declared as private. Declare it as 'public' */",
+                        "({param_types}) const = SLINT_DELETED_FUNCTION(\"the function '{name}' is declared as private. Declare it as 'public'\")",
                     ),
                     ..Default::default()
                 }),
@@ -3237,7 +3241,7 @@ fn generate_public_api_for_properties(
                 Declaration::Function(Function {
                     name: format_smolstr!("get_{prop_ident}"),
                     signature: format!(
-                        "() const = delete /* the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public */",
+                        "() const = SLINT_DELETED_FUNCTION(\"the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public\")",
                     ),
                     ..Default::default()
                 }),
@@ -3247,7 +3251,7 @@ fn generate_public_api_for_properties(
                 Declaration::Function(Function {
                     name: format_smolstr!("set_{}", &prop_ident),
                     signature: format!(
-                        "(const auto &) const = delete /* property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public */",
+                        "(const auto &) const = SLINT_DELETED_FUNCTION(\"property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public\")",
                     ),
                     ..Default::default()
                 }),
@@ -4623,12 +4627,13 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            if let [llr::Expression::PropertyReference(pr)] = arguments {
+            if let [llr::Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let native = native_prop_info(pr, ctx).0;
                 let item_rc = access_item_rc(pr, ctx);
+                let constraint = compile_expression(constraint_expr, ctx);
                 access_member(pr, ctx).then(|item|
                 format!(
-                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, &{window}, {item_rc})",
+                    "slint::private_api::item_layout_info({vt}, const_cast<slint::cbindgen_private::{ty}*>(&{item}), {o}, {constraint}, &{window}, {item_rc})",
                     vt = native.cpp_vtable_getter,
                     ty = native.class_name,
                     o = to_cpp_orientation(orient),

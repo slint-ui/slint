@@ -46,11 +46,11 @@ export component ActionButton {
 
     content-layer := HorizontalLayout {
         alignment: center;
+        align-items: center;
 
         icon-image := Image {
             source: root.icon;
             height: SizeSettings.control-icon-big-height;
-            y: (parent.height - self.height) / 2;
             colorize: TodoPalette.accent-foreground;
         }
    }

@@ -17,7 +17,7 @@ impl i_slint_core::platform::Platform for Backend {
         std::rc::Rc<dyn i_slint_core::window::WindowAdapter>,
         i_slint_core::platform::PlatformError,
     > {
-        Err(format!("The linuxkms backend is only supported on Linux").into())
+        Err("The linuxkms backend is only supported on Linux".into())
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {

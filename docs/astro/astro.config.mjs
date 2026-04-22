@@ -15,6 +15,8 @@ import {
     PYTHON_BASE_URL,
 } from "@slint/common-files/src/utils/site-config";
 
+const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
+
 // https://astro.build/config
 export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
@@ -200,6 +202,48 @@ export default defineConfig({
                                     "guide/backends-and-renderers/backend_winit",
                                 ],
                             },
+                            ...(experimentalDocs
+                                ? [
+                                      {
+                                          label: "Experimental Features",
+                                          collapsed: true,
+                                          items: [
+                                              {
+                                                  label: "Overview",
+                                                  slug: "guide/experimental/overview",
+                                              },
+                                              {
+                                                  label: "AI Coding Assistants",
+                                                  slug: "guide/experimental/ai-coding-assistants",
+                                              },
+                                              {
+                                                  label: "FlexboxLayout",
+                                                  slug: "guide/experimental/flexboxlayout",
+                                              },
+                                              {
+                                                  label: "Drag and Drop",
+                                                  slug: "guide/experimental/drag-and-drop",
+                                              },
+                                              {
+                                                  label: "Interface",
+                                                  slug: "guide/experimental/interface",
+                                              },
+                                              {
+                                                  label: "ComponentContainer",
+                                                  slug: "guide/experimental/component-container",
+                                              },
+                                              {
+                                                  label: "Window.hide()",
+                                                  slug: "guide/experimental/window-hide",
+                                              },
+                                              {
+                                                  label: "Library Modules",
+                                                  slug: "guide/experimental/library-modules",
+                                              },
+                                          ],
+                                      },
+                                  ]
+                                : []),
                         ],
                     },
                     {
@@ -289,10 +333,12 @@ export default defineConfig({
                                                 label: "VerticalLayout",
                                                 slug: "reference/layouts/verticallayout",
                                             },
-                                            {
-                                                label: "FlexboxLayout",
-                                                slug: "reference/layouts/flexboxlayout",
-                                            },
+                                            // FlexboxLayout is experimental. When it ships, drop
+                                            // `draft: true` from flexboxlayout.mdx and uncomment:
+                                            // {
+                                            //     label: "FlexboxLayout",
+                                            //     slug: "reference/layouts/flexboxlayout",
+                                            // },
                                         ],
                                     },
                                     {

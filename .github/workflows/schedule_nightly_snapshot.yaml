@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         branch:
-          - pre-release/1.15
+          - pre-release/1.16
           - master
 
     steps:

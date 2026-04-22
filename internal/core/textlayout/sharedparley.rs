@@ -12,7 +12,7 @@ use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
 
 use crate::{
-    Color, SharedString,
+    Color,
     graphics::FontRequest,
     item_rendering::PlainOrStyledText,
     items::TextStrokeStyle,
@@ -190,7 +190,7 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
+        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
@@ -278,7 +278,8 @@ impl LayoutWithoutLineBreaksBuilder {
                 }
             }
 
-            for span in formatting {
+            // filter empty ranges otherwise parley will panic on assert
+            for span in formatting.into_iter().filter(|s| !s.range.is_empty()) {
                 match span.style {
                     Style::Emphasis => {
                         builder.push(
@@ -778,7 +779,8 @@ impl TextParagraph {
                 PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(glyph_run.offset()),
-                        para_y + PhysicalLength::new(run.font_size() - metrics.underline_offset),
+                        para_y
+                            + PhysicalLength::new(glyph_run.baseline() - metrics.underline_offset),
                     ),
                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                 ),
@@ -792,7 +794,9 @@ impl TextParagraph {
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(glyph_run.offset()),
                         para_y
-                            + PhysicalLength::new(run.font_size() - metrics.strikethrough_offset),
+                            + PhysicalLength::new(
+                                glyph_run.baseline() - metrics.strikethrough_offset,
+                            ),
                     ),
                     PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
                 ),
@@ -1234,7 +1238,7 @@ pub fn draw_text_input(
         scale_factor,
     );
 
-    let text: SharedString = visual_representation.text.into();
+    let text = visual_representation.text.clone();
 
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
@@ -1452,11 +1456,11 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text.clone()),
         None,
         Color::default(),
     );
@@ -1470,8 +1474,7 @@ pub fn text_input_byte_offset_for_position(
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let byte_offset = layout.byte_offset_from_point(pos);
-    let visual_representation = text_input.visual_representation(None);
-    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
+    visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
@@ -1503,13 +1506,16 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let Some(ctx) = renderer.slint_context() else {
         return LogicalRect::default();
     };
+
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
+    let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
+
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text),
         None,
         Color::default(),
     );

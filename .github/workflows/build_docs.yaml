@@ -36,6 +36,7 @@ jobs:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
+            BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
             - name: Set up crate rustdoc link
@@ -58,7 +59,7 @@ jobs:
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS=""
-                if [ "$RELEASE_INPUT" != "true" ]; then
+                if [ "$RELEASE_INPUT" != "true" ] && [[ ! "$BRANCH_NAME" =~ ^pre-release/ ]]; then
                     CPPDOCS_EXTRA_FLAGS="--experimental"
                 fi
                 cargo xtask cppdocs --show-warnings $CPPDOCS_EXTRA_FLAGS
@@ -92,6 +93,7 @@ jobs:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
+            BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
             - uses: pnpm/action-setup@v5.0.0
@@ -140,7 +142,12 @@ jobs:
                 sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
                 sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
             - name: "Slint Language Documentation"
-              run: cargo xtask slintdocs
+              run: |
+                SLINTDOCS_EXTRA_FLAGS=""
+                if [ "$RELEASE_INPUT" != "true" ] && [[ ! "$BRANCH_NAME" =~ ^pre-release/ ]]; then
+                  SLINTDOCS_EXTRA_FLAGS="--experimental"
+                fi
+                cargo xtask slintdocs $SLINTDOCS_EXTRA_FLAGS
             - name: Spellcheck
               working-directory: docs/astro
               run: pnpm spellcheck

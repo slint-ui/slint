@@ -78,6 +78,12 @@ message WindowEvent {
     }
 }
 
+enum KeyEventType {
+    PressAndRelease = 0;
+    Press = 1;
+    Release = 2;
+}
+
 enum LayoutKind {
     NotALayout = 0;
     HorizontalLayout = 1;
@@ -161,9 +167,26 @@ message RequestElementClick {
     PointerEventButton button = 3;
 }
 
+message RequestElementDrag {
+    Handle element_handle = 1;
+    LogicalPosition target = 2;
+    PointerEventButton button = 3;
+}
+
 message RequestDispatchWindowEvent {
     Handle window_handle = 1;
     WindowEvent event = 2;
+}
+
+message RequestDispatchKeyEvent {
+    Handle window_handle = 1;
+    string text = 2;
+    KeyEventType event_type = 3;
+}
+
+message RequestGetElementTree {
+    Handle element_handle = 1;
+    uint32 max_elements = 2;
 }
 
 message RequestQueryElementDescendants {
@@ -184,6 +207,9 @@ message RequestToAUT {
         RequestElementClick request_element_click = 8;
         RequestDispatchWindowEvent request_dispatch_window_event = 9;
         RequestQueryElementDescendants request_query_element_descendants = 10;
+        RequestElementDrag request_element_drag = 11;
+        RequestDispatchKeyEvent request_dispatch_key_event = 12;
+        RequestGetElementTree request_get_element_tree = 13;
     }
 }
 
@@ -268,7 +294,16 @@ message TakeSnapshotResponse {
 message ElementClickResponse {
 }
 
+message ElementDragResponse {
+}
+
 message DispatchWindowEventResponse {
+}
+
+message DispatchKeyEventResponse {
+}
+
+message GetElementTreeResponse {
 }
 
 message ElementQueryResponse {
@@ -288,5 +323,8 @@ message AUTResponse {
         ElementClickResponse element_click_response = 9;
         DispatchWindowEventResponse dispatch_window_event_response = 10;
         ElementQueryResponse element_query_response = 11;
+        ElementDragResponse element_drag_response = 12;
+        DispatchKeyEventResponse dispatch_key_event_response = 13;
+        GetElementTreeResponse get_element_tree_response = 14;
     }
 }

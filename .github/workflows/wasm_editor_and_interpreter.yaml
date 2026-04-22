@@ -80,6 +80,14 @@ jobs:
               if: ${{ always() }}
               working-directory: tools/slintpad
               run: npx github-actions-ctrf playwright-report/ctrf-report.json
+            - name: "Upload Playwright Report"
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slintpad-playwright-report
+                  path: |
+                      tools/slintpad/playwright-report/
+                      tools/slintpad/test-results/
             - name: "Upload slintpad Artifacts"
               uses: actions/upload-artifact@v7
               with:

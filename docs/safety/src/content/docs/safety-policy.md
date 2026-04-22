@@ -16,6 +16,7 @@ The safety and quality of Slint SC are the primary objectives of all management,
 * Processes are work products that are constantly being improved.
 * Technical support, use of tools, automation where possible.
 
+
 ## External assessment of functional safety
 
 The functional safety of Slint SC will be assessed independently by TÜV Nord in Germany.

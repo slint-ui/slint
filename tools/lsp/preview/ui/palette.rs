@@ -305,9 +305,9 @@ mod tests {
             if diag.is_empty() {
                 continue;
             }
-            eprintln!("Diags for {u}");
+            tracing::debug!("Diags for {u}");
             for d in diag {
-                eprintln!("{d:#?}");
+                tracing::debug!("{d:#?}");
                 assert!(!matches!(d.severity, Some(lsp_types::DiagnosticSeverity::ERROR)));
             }
         }
@@ -328,7 +328,7 @@ mod tests {
 
     #[track_caller]
     fn compare_brush(entry: &PaletteEntry, name: &str, brush: &slint::Brush) {
-        eprintln!("\n\n\n{name}:\n{entry:#?}");
+        tracing::debug!("\n\n\n{name}:\n{entry:#?}");
         assert_eq!(entry.name, name);
         assert_eq!(entry.value.display_string, name);
         assert_eq!(entry.value.code, name);

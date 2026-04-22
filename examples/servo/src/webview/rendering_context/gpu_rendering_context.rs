@@ -5,6 +5,7 @@ use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use euclid::default::Size2D;
 use image::RgbaImage;
+use slint::wgpu_28::wgpu;
 use winit::dpi::PhysicalSize;
 
 use servo::{DeviceIntRect, RenderingContext};
@@ -14,32 +15,14 @@ use surfman::{
     chains::{PreserveBuffer, SwapChain},
 };
 
-#[cfg(not(target_os = "windows"))]
-use slint::wgpu_28::wgpu;
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-#[derive(thiserror::Error, Debug)]
-pub enum VulkanTextureError {
-    #[error("{0:?}")]
-    Surfman(surfman::Error),
-    #[error("{0}")]
-    Vulkan(#[from] ash::vk::Result),
-    #[error("No surface returned when the surface was unbound from the context")]
-    NoSurface,
-    #[error("The surface didn't have a framebuffer object")]
-    NoFramebuffer,
-    #[error("Wgpu is not using the vulkan backend")]
-    WgpuNotVulkan,
-    #[error("{0}")]
-    OpenGL(String),
-}
-
 use super::surfman_context::SurfmanRenderingContext;
 
 pub struct GPURenderingContext {
     pub size: Cell<PhysicalSize<u32>>,
     pub swap_chain: SwapChain<Device>,
     pub surfman_rendering_info: SurfmanRenderingContext,
+    #[cfg(target_os = "windows")]
+    pub d3d11_state: super::directx::D3D11SharedState,
 }
 
 impl Drop for GPURenderingContext {
@@ -51,10 +34,19 @@ impl Drop for GPURenderingContext {
 }
 
 impl GPURenderingContext {
-    pub fn new(size: PhysicalSize<u32>) -> Result<Self, surfman::Error> {
+    pub fn new(
+        size: PhysicalSize<u32>,
+        wgpu_device: &wgpu::Device,
+    ) -> Result<Self, surfman::Error> {
+        Self::print_wgpu_backend(wgpu_device);
+
         let connection = Connection::new()?;
 
+        #[cfg(not(target_os = "windows"))]
         let adapter = connection.create_adapter()?;
+
+        #[cfg(target_os = "windows")]
+        let adapter = Self::pick_synchronized_adapter(&connection, wgpu_device)?;
 
         let surfman_rendering_info = SurfmanRenderingContext::new(&connection, &adapter)?;
 
@@ -69,256 +61,118 @@ impl GPURenderingContext {
 
         let swap_chain = surfman_rendering_info.create_attached_swap_chain()?;
 
-        Ok(Self { swap_chain, size: Cell::new(size), surfman_rendering_info })
+        #[cfg(target_os = "windows")]
+        let d3d11_state = Self::init_d3d11_shared_state(&surfman_rendering_info.device.borrow())?;
+
+        Ok(Self {
+            swap_chain,
+            size: Cell::new(size),
+            surfman_rendering_info,
+            #[cfg(target_os = "windows")]
+            d3d11_state,
+        })
     }
 
-    /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
-    /// Unbinds the surface, converts to WGPU texture, then rebinds it.
-    #[cfg(target_vendor = "apple")]
-    pub fn get_wgpu_texture_from_metal(
-        &self,
+    #[cfg(target_os = "windows")]
+    fn pick_synchronized_adapter(
+        connection: &Connection,
         wgpu_device: &wgpu::Device,
-        wgpu_queue: &wgpu::Queue,
-    ) -> Result<wgpu::Texture, surfman::Error> {
-        use super::metal::WPGPUTextureFromMetal;
-
-        let device = &self.surfman_rendering_info.device.borrow();
-        let mut context = self.surfman_rendering_info.context.borrow_mut();
-
-        let surface = device.unbind_surface_from_context(&mut context)?.unwrap();
-
-        let size = self.size.get();
-
-        let wgpu_texture = WPGPUTextureFromMetal::new(size, wgpu_device).get(
-            wgpu_device,
-            wgpu_queue,
-            device,
-            &surface,
-        );
-
-        let _ =
-            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
-                let _ = device.destroy_surface(&mut context, &mut surface);
-                err
-            });
-
-        Ok(wgpu_texture)
-    }
-
-    /// Imports Vulkan surface as a WGPU texture for rendering on Linux.
-    /// Creates a Vulkan image with external memory, imports to OpenGL, blits content, then wraps as WGPU texture.
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub fn get_wgpu_texture_from_vulkan(
-        &self,
-        wgpu_device: &wgpu::Device,
-        _wgpu_queue: &wgpu::Queue,
-    ) -> Result<wgpu::Texture, VulkanTextureError> {
-        use ash::vk;
-        use glow::HasContext;
-
-        use crate::gl_bindings as gl;
-
-        use gl::Gles2 as Gl;
-
-        let device = &self.surfman_rendering_info.device.borrow();
-        let mut context = self.surfman_rendering_info.context.borrow_mut();
-
-        let surface = device
-            .unbind_surface_from_context(&mut context)
-            .map_err(VulkanTextureError::Surfman)?
-            .ok_or(VulkanTextureError::NoSurface)?;
-
-        device.make_context_current(&mut context).map_err(VulkanTextureError::Surfman)?;
-
-        let surface_info = device.surface_info(&surface);
-
-        let size = self.size.get();
-
-        let texture = unsafe {
-            let hal_device = wgpu_device
-                .as_hal::<wgpu::wgc::api::Vulkan>()
-                .ok_or(VulkanTextureError::WgpuNotVulkan)?;
-            let vulkan_device = hal_device.raw_device().clone();
-            let vulkan_instance = hal_device.shared_instance().raw_instance();
-
-            // Create Vulkan image with external memory for sharing with OpenGL
-
-            let mut external_memory_image_info = vk::ExternalMemoryImageCreateInfo::default()
-                .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
-
-            let vulkan_image = vulkan_device.create_image(
-                &vk::ImageCreateInfo::default()
-                    .image_type(vk::ImageType::TYPE_2D)
-                    .format(vk::Format::R8G8B8A8_UNORM)
-                    .extent(vk::Extent3D { width: size.width, height: size.height, depth: 1 })
-                    .mip_levels(1)
-                    .array_layers(1)
-                    .samples(vk::SampleCountFlags::TYPE_1)
-                    .tiling(vk::ImageTiling::OPTIMAL)
-                    .usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::COLOR_ATTACHMENT)
-                    .sharing_mode(vk::SharingMode::EXCLUSIVE)
-                    .initial_layout(vk::ImageLayout::UNDEFINED)
-                    .push_next(&mut external_memory_image_info),
-                None,
-            )?;
-
-            // Allocate dedicated Vulkan memory and bind to the created image
-
-            let memory_requirements = vulkan_device.get_image_memory_requirements(vulkan_image);
-
-            let mut dedicated_allocate_info =
-                vk::MemoryDedicatedAllocateInfo::default().image(vulkan_image);
-
-            let mut export_info = vk::ExportMemoryAllocateInfo::default()
-                .handle_types(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD);
-
-            let memory = vulkan_device.allocate_memory(
-                &vk::MemoryAllocateInfo::default()
-                    .allocation_size(memory_requirements.size)
-                    // todo: required?
-                    //.memory_type_index(mem_type_index as _)
-                    .push_next(&mut dedicated_allocate_info)
-                    .push_next(&mut export_info),
-                None,
-            )?;
-
-            vulkan_device.bind_image_memory(vulkan_image, memory, 0)?;
-
-            // Export Vulkan memory as a file descriptor for OpenGL import
-
-            let external_memory_fd_api =
-                ash::khr::external_memory_fd::Device::new(&vulkan_instance, &vulkan_device);
-
-            let memory_handle = external_memory_fd_api.get_memory_fd(
-                &vk::MemoryGetFdInfoKHR::default()
-                    .memory(memory)
-                    .handle_type(vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD),
-            )?;
-
-            // Import Vulkan memory into OpenGL using EXT_external_objects
-
-            let gl = &self.surfman_rendering_info.glow_gl;
-
-            let gl_with_extensions =
-                Gl::load_with(|function_name| device.get_proc_address(&context, function_name));
-
-            let mut memory_object = 0;
-            gl_with_extensions.CreateMemoryObjectsEXT(1, &mut memory_object);
-            // We're using a dedicated allocation.
-            // todo: taken from https://bxt.rs/blog/fast-half-life-video-recording-with-vulkan/, not sure if required.
-            gl_with_extensions.MemoryObjectParameterivEXT(
-                memory_object,
-                gl::DEDICATED_MEMORY_OBJECT_EXT,
-                &1,
-            );
-            gl_with_extensions.ImportMemoryFdEXT(
-                memory_object,
-                memory_requirements.size,
-                gl::HANDLE_TYPE_OPAQUE_FD_EXT,
-                memory_handle,
-            );
-            // Create a texture and bind it to the imported memory.
-            let texture = gl.create_texture().map_err(VulkanTextureError::OpenGL)?;
-            gl.bind_texture(gl::TEXTURE_2D, Some(texture));
-            gl_with_extensions.TexStorageMem2DEXT(
-                gl::TEXTURE_2D,
-                1,
-                gl::RGBA8,
-                size.width as i32,
-                size.height as i32,
-                memory_object,
-                0,
-            );
-
-            // Blit Servo's framebuffer to the imported texture
-
-            let draw_framebuffer = gl.create_framebuffer().map_err(VulkanTextureError::OpenGL)?;
-            let read_framebuffer =
-                surface_info.framebuffer_object.ok_or(VulkanTextureError::NoFramebuffer)?;
-            // todo: tried using gl.named_framebuffer_texture instead but it errored.
-            gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
-            gl.framebuffer_texture_2d(
-                gl::DRAW_FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                Some(texture),
-                0,
-            );
-
-            gl.bind_framebuffer(gl::READ_FRAMEBUFFER, Some(read_framebuffer));
-            gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, Some(draw_framebuffer));
-
-            gl.blit_framebuffer(
-                0,
-                0,
-                size.width as i32,
-                size.height as i32,
-                // Flip vertically - OpenGL origin is bottom-left, texture origin is top-left
-                0,
-                size.height as i32,
-                size.width as i32,
-                0,
-                gl::COLOR_BUFFER_BIT,
-                gl::NEAREST,
-            );
-            gl.flush();
-            // Delete all the opengl objects. Seems to be required to prevent memory leaks
-            // according to `amdgpu_top`.
-            gl.delete_framebuffer(draw_framebuffer);
-            gl.delete_texture(texture);
-            gl_with_extensions.DeleteMemoryObjectsEXT(1, &memory_object);
-
-            wgpu_device.create_texture_from_hal::<wgpu::wgc::api::Vulkan>(
-                hal_device.texture_from_raw(
-                    vulkan_image,
-                    &wgpu_hal::TextureDescriptor {
-                        label: None,
-                        size: wgpu::Extent3d {
-                            width: size.width,
-                            height: size.height,
-                            depth_or_array_layers: 1,
-                        },
-                        format: wgpu::TextureFormat::Rgba8Unorm,
-                        dimension: wgpu::TextureDimension::D2,
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        usage: wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COLOR_TARGET,
-                        view_formats: Vec::new(),
-                        memory_flags: wgpu_hal::MemoryFlags::empty(),
-                    },
-                    Some(Box::new(move || {
-                        // Images aren't cleaned up by wgpu-hal if theres a drop callback set so do it manually
-                        vulkan_device.destroy_image(vulkan_image, None);
-                        // Free the memory
-                        vulkan_device.free_memory(memory, None);
-                    })),
-                    wgpu_hal::vulkan::TextureMemory::External,
-                ),
-                &wgpu::TextureDescriptor {
-                    label: None,
-                    size: wgpu::Extent3d {
-                        width: size.width,
-                        height: size.height,
-                        depth_or_array_layers: 1,
-                    },
-                    format: wgpu::TextureFormat::Rgba8Unorm,
-                    dimension: wgpu::TextureDimension::D2,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING
-                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                },
-            )
+    ) -> Result<surfman::Adapter, surfman::Error> {
+        // On Windows, Slint and Surfman must use the exact same physical GPU (LUID)
+        // to enable zero-copy texture sharing via shared handles.
+        // This requires WGPU to be running on the DX12 backend.
+        let wgpu_luid = unsafe {
+            use slint::wgpu_28::wgpu::hal::api::Dx12;
+            wgpu_device
+                .as_hal::<Dx12>()
+                .ok_or(surfman::Error::Failed)?
+                .raw_device()
+                .GetAdapterLuid()
         };
 
-        let _ =
-            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
-                let _ = device.destroy_surface(&mut context, &mut surface);
-                err
-            });
+        use windows::{
+            Win32::Graphics::{Direct3D11::ID3D11Device, Dxgi},
+            core::{IUnknown, Interface},
+        };
 
-        Ok(texture)
+        // We iterate through Surfman's adapter presets to find the one that matches WGPU's selection.
+        for create_adapter_fn in &[
+            Connection::create_hardware_adapter
+                as fn(&Connection) -> Result<surfman::Adapter, surfman::Error>,
+            Connection::create_low_power_adapter,
+            Connection::create_adapter,
+        ] {
+            if let Ok(surfman_adapter) = create_adapter_fn(connection) {
+                // To verify the match, we create a temporary device and extract its D3D11 LUID.
+                if let Ok(temp_device) = connection.create_device(&surfman_adapter) {
+                    let d3d11_device_ptr = temp_device.native_device().d3d11_device;
+                    let d3d11_device: ID3D11Device =
+                        unsafe { IUnknown::from_raw(d3d11_device_ptr as *mut _).cast().unwrap() };
+
+                    let surfman_luid = unsafe {
+                        d3d11_device
+                            .cast::<Dxgi::IDXGIDevice>()
+                            .unwrap()
+                            .GetAdapter()
+                            .unwrap()
+                            .GetDesc()
+                            .unwrap()
+                            .AdapterLuid
+                    };
+
+                    // Compare the Surfman LUID with the WGPU LUID.
+                    if surfman_luid.HighPart == wgpu_luid.HighPart
+                        && surfman_luid.LowPart == wgpu_luid.LowPart
+                    {
+                        return Ok(surfman_adapter);
+                    }
+                }
+            }
+        }
+
+        Err(surfman::Error::NoAdapterFound)
+    }
+
+    fn print_wgpu_backend(wgpu_device: &wgpu::Device) {
+        let backend = unsafe {
+            use slint::wgpu_28::wgpu::hal::api;
+
+            #[cfg(target_os = "windows")]
+            {
+                use api::{Dx12, Gles, Vulkan};
+                if wgpu_device.as_hal::<Dx12>().is_some() {
+                    "DirectX 12"
+                } else if wgpu_device.as_hal::<Vulkan>().is_some() {
+                    "Vulkan"
+                } else if wgpu_device.as_hal::<Gles>().is_some() {
+                    "OpenGL"
+                } else {
+                    "Unknown"
+                }
+            }
+            #[cfg(target_os = "linux")]
+            {
+                use api::{Gles, Vulkan};
+                if wgpu_device.as_hal::<Vulkan>().is_some() {
+                    "Vulkan"
+                } else if wgpu_device.as_hal::<Gles>().is_some() {
+                    "OpenGL"
+                } else {
+                    "Unknown"
+                }
+            }
+            #[cfg(target_os = "android")]
+            {
+                use api::Vulkan;
+                if wgpu_device.as_hal::<Vulkan>().is_some() { "Vulkan" } else { "Unknown" }
+            }
+            #[cfg(target_vendor = "apple")]
+            {
+                use api::Metal;
+                if wgpu_device.as_hal::<Metal>().is_some() { "Metal" } else { "Unknown" }
+            }
+        };
+        eprintln!("[GPU] Active WGPU backend: {}", backend);
     }
 }
 

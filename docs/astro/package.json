@@ -1,11 +1,11 @@
 {
   "name": "slint-docs",
   "type": "module",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro check && astro build",
+    "build": "astro check && astro build && node scripts/validate-md-links.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "format": "biome format",
@@ -26,10 +26,13 @@
     "astro-embed": "catalog:",
     "playwright-ctrf-json-reporter": "catalog:",
     "rehype-external-links": "catalog:",
+    "remark-parse": "catalog:",
     "sharp": "catalog:",
     "starlight-links-validator": "catalog:",
     "starlight-sidebar-topics": "0.7.1",
     "typescript": "catalog:",
+    "unified": "catalog:",
+    "unist-util-visit": "catalog:",
     "@slint/common-files": "workspace:*"
   },
   "devDependencies": {

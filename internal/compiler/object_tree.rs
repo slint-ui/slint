@@ -57,10 +57,16 @@ pub struct Document {
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
 
-    /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
-    /// disk on the build system
-    pub embedded_file_resources:
-        RefCell<BTreeMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
+    /// Resources to embed in the generated code.
+    ///
+    /// The [`crate::embedded_resources::EmbeddedResourcesIdx`] is the identifier used by code generators.
+    /// Each entry's `path` is the absolute path on disk, or `None` for in-memory data URI payloads.
+    pub embedded_file_resources: RefCell<
+        typed_index_collections::TiVec<
+            crate::embedded_resources::EmbeddedResourcesIdx,
+            crate::embedded_resources::EmbeddedResources,
+        >,
+    >,
 
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
@@ -1806,7 +1812,9 @@ impl Element {
             diag,
             tr,
         );
-        let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
+        let is_listview = if parent.borrow().base_type.to_string() == "ListView"
+            && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
+        {
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
@@ -1820,7 +1828,7 @@ impl Element {
             // these properties are set by the ListView layouting code
             lvi.viewport_height.mark_as_set();
             lvi.viewport_width.mark_as_set();
-            e.borrow().geometry_props.as_ref().unwrap().y.mark_as_set();
+            geometry_props.y.mark_as_set();
             Some(lvi)
         } else {
             None

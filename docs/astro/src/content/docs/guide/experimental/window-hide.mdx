@@ -1,0 +1,28 @@
+---
+title: Window.hide()
+description: Experimental hide() function on the Window element.
+---
+
+The `Window` element exposes an experimental `hide()` function that closes the window from inside `.slint` code.
+It is the counterpart to the already-stable `show()` method available on component handles in Rust, C++, and other languages.
+
+> **Note**: `Window.hide()` is experimental and subject to change.
+> Tracking issue: [slint-ui/slint#10502](https://github.com/slint-ui/slint/issues/10502).
+
+## Usage
+
+Call `hide()` on the window through any context that resolves to the root `Window`:
+
+```slint no-test
+export component MainWindow inherits Window {
+    VerticalLayout {
+        Text { text: "Close me"; }
+        TouchArea {
+            clicked => { root.hide(); }
+        }
+    }
+}
+```
+
+When the function is called, the window is hidden and its event loop reference is dropped, just like calling `window().hide()` from Rust or C++ code.
+Any component handles still held by the application keep the component alive, so you can call `show()` again later to bring the window back.

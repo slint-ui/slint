@@ -18,6 +18,7 @@ import {
     report_export_error_dialog,
     export_gist_dialog,
     about_dialog,
+    set_panic_share_url_getter,
 } from "./dialogs";
 
 import { CommandRegistry } from "@lumino/commands";
@@ -34,6 +35,7 @@ const url_style = url_params.get("style");
 
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
+    set_panic_share_url_getter(() => editor.share_url());
     const preview = new PreviewWidget(
         lsp,
         (url: string) => editor.map_url(url),

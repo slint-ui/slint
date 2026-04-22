@@ -160,6 +160,8 @@ path = [
   "ui-libraries/material/docs/src/assets/images/material-design.jpg",
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
+
+  ".claude-plugin/*.json",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

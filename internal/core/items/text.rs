@@ -28,8 +28,7 @@ use crate::platform::Clipboard;
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::{rc::Rc, string::String};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -66,9 +65,12 @@ pub struct ComplexText {
 impl Item for ComplexText {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -78,6 +80,7 @@ impl Item for ComplexText {
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -234,6 +237,8 @@ pub struct StyledTextItem {
     pub height: Property<LogicalLength>,
     pub text: Property<crate::styled_text::StyledText>,
     pub default_color: Property<Brush>,
+    pub default_font_size: Property<LogicalLength>,
+    pub default_font_family: Property<SharedString>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub link_clicked: Callback<StringArg>,
@@ -244,9 +249,12 @@ pub struct StyledTextItem {
 impl Item for StyledTextItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -256,6 +264,7 @@ impl Item for StyledTextItem {
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -380,9 +389,9 @@ impl HasFont for StyledTextItem {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
+            self.default_font_family(),
             Default::default(),
-            Default::default(),
-            Default::default(),
+            self.default_font_size(),
             Default::default(),
             Default::default(),
         )
@@ -462,9 +471,12 @@ pub struct SimpleText {
 impl Item for SimpleText {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -474,6 +486,7 @@ impl Item for SimpleText {
             window_adapter,
             orientation,
             Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -626,6 +639,7 @@ fn text_layout_info(
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
+    cross_axis_constraint: Coord,
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
@@ -655,8 +669,14 @@ fn text_layout_info(
         Orientation::Vertical => {
             let h = match text.wrap() {
                 TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
-                TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
+                wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                    let w = if cross_axis_constraint >= 0 as Coord {
+                        LogicalLength::new(cross_axis_constraint)
+                    } else {
+                        width.get()
+                    };
+                    implicit_size(Some(w), wrap).height
+                }
             }
             .ceil();
             LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -754,9 +774,17 @@ pub struct TextInput {
 impl Item for TextInput {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        if self.has_focus() {
+            let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+            window_inner.set_text_input_focused(false);
+        }
+    }
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -783,11 +811,13 @@ impl Item for TextInput {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                    TextWrap::WordWrap => {
-                        implicit_size(Some(self.width()), TextWrap::WordWrap).height
-                    }
-                    TextWrap::CharWrap => {
-                        implicit_size(Some(self.width()), TextWrap::CharWrap).height
+                    wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                        let w = if cross_axis_constraint >= 0 as Coord {
+                            LogicalLength::new(cross_axis_constraint)
+                        } else {
+                            self.width()
+                        };
+                        implicit_size(Some(w), wrap).height
                     }
                 }
                 .ceil();
@@ -1191,9 +1221,6 @@ impl Item for TextInput {
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Disable);
-                    }
                     // commit the preedit text on android
                     #[cfg(target_os = "android")]
                     {
@@ -1278,7 +1305,7 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().text())
+        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
     }
 }
 
@@ -1371,7 +1398,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
 #[derive(Debug)]
 pub struct TextInputVisualRepresentation {
     /// The text to be rendered including any pre-edit string
-    pub text: String,
+    pub text: SharedString,
     /// If set, this field specifies the range as byte offsets within the text field where the composition
     /// is in progress. Renderers typically provide visual feedback for the currently composed text, such as
     /// by using underlines.
@@ -1384,7 +1411,7 @@ pub struct TextInputVisualRepresentation {
     pub text_color: Brush,
     /// The color of the blinking cursor
     pub cursor_color: Color,
-    text_without_password: Option<String>,
+    text_without_password: Option<SharedString>,
     password_character: char,
 }
 
@@ -1422,14 +1449,25 @@ impl TextInputVisualRepresentation {
         self.password_character = password_character;
     }
 
-    /// Use this function to make a byte offset in the text used for rendering back to a byte offset in the
+    /// Use this function to make a byte offset in the visual text (used for rendering) back to a byte offset in the
     /// TextInput's text. The offsets might differ for example for password text input fields.
-    pub fn map_byte_offset_from_byte_offset_in_visual_text(&self, byte_offset: usize) -> usize {
+    pub fn map_byte_offset_from_visual_text_to_actual_text(&self, byte_offset: usize) -> usize {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
             text_without_password
                 .char_indices()
                 .nth(byte_offset / self.password_character.len_utf8())
                 .map_or(text_without_password.len(), |(r, _)| r)
+        } else {
+            byte_offset
+        }
+    }
+
+    /// Map the byte_offset inside the TextInput's text to the byte offset in the visual text.
+    /// This is the opposite of `map_byte_offset_from_byte_offset_in_visual_text`.
+    pub fn map_byte_offset_from_actual_to_visual_text(&self, byte_offset: usize) -> usize {
+        if let Some(text_without_password) = self.text_without_password.as_ref() {
+            text_without_password[..byte_offset].chars().count()
+                * self.password_character.len_utf8()
         } else {
             byte_offset
         }
@@ -1967,13 +2005,14 @@ impl TextInput {
         self: Pin<&Self>,
         password_character_fn: Option<fn() -> char>,
     ) -> TextInputVisualRepresentation {
-        let mut text: String = self.text().into();
+        let mut text = self.text();
 
         let preedit_text = self.preedit_text();
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
             let cursor_position = self.cursor_position(&text);
 
-            text.insert_str(cursor_position, &preedit_text);
+            text =
+                [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into();
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
             if let Some(preedit_sel) = self.preedit_selection().as_option() {
@@ -2080,16 +2119,14 @@ impl TextInput {
                         items.push(item);
                     }
                 }
-                (UndoItemKind::TextRemove, UndoItemKind::TextRemove) => {
-                    if item.pos + item.text.len() == last.pos {
-                        last.pos = item.pos;
-                        let old_text = last.text.clone();
-                        last.text = item.text;
-                        last.text += &old_text;
-                        // prepend
-                    } else {
-                        items.push(item);
-                    }
+                (UndoItemKind::TextRemove, UndoItemKind::TextRemove)
+                    if item.pos + item.text.len() == last.pos =>
+                {
+                    last.pos = item.pos;
+                    let old_text = last.text.clone();
+                    last.text = item.text;
+                    last.text += &old_text;
+                    // prepend
                 }
                 _ => {
                     items.push(item);

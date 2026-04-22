@@ -24,3 +24,9 @@
 #        define SLINT_DLL_IMPORT
 #    endif
 #endif // !defined(DOXYGEN)
+
+#if defined(__cpp_deleted_function) && __cpp_deleted_function >= 202403L
+#    define SLINT_DELETED_FUNCTION(reason) delete (reason)
+#else
+#    define SLINT_DELETED_FUNCTION(reason) delete
+#endif

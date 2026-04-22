@@ -76,11 +76,11 @@ export component MainWindow inherits Window {
         FlexboxLayoutAlignContent.space-evenly
     ];
     property <[string]> align_items_options: ["Stretch", "Start", "End", "Center"];
-    property <[FlexboxLayoutAlignItems]> align_items_values: [
-        FlexboxLayoutAlignItems.stretch,
-        FlexboxLayoutAlignItems.start,
-        FlexboxLayoutAlignItems.end,
-        FlexboxLayoutAlignItems.center
+    property <[LayoutAlignItems]> align_items_values: [
+        LayoutAlignItems.stretch,
+        LayoutAlignItems.start,
+        LayoutAlignItems.end,
+        LayoutAlignItems.center
     ];
     property <[string]> flex_wrap_options: ["Wrap", "NoWrap", "WrapReverse"];
     property <[FlexboxLayoutWrap]> flex_wrap_values: [FlexboxLayoutWrap.wrap, FlexboxLayoutWrap.no-wrap, FlexboxLayoutWrap.wrap-reverse];

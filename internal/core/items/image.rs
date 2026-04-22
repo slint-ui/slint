@@ -45,9 +45,12 @@ pub struct ImageItem {
 impl Item for ImageItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -57,7 +60,12 @@ impl Item for ImageItem {
                 _ if natural_size.width == 0 || natural_size.height == 0 => 0 as Coord,
                 Orientation::Horizontal => natural_size.width as Coord,
                 Orientation::Vertical => {
-                    natural_size.height as Coord * self.width().get() / natural_size.width as Coord
+                    let w = if cross_axis_constraint >= 0 as Coord {
+                        cross_axis_constraint
+                    } else {
+                        self.width().get()
+                    };
+                    natural_size.height as Coord * w / natural_size.width as Coord
                 }
             },
             ..Default::default()
@@ -203,9 +211,12 @@ pub struct ClippedImage {
 impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -217,8 +228,12 @@ impl Item for ClippedImage {
                     if source_clip_width == 0 {
                         0 as Coord
                     } else {
-                        self.source_clip_height() as Coord * self.width().get()
-                            / source_clip_width as Coord
+                        let w = if cross_axis_constraint >= 0 as Coord {
+                            cross_axis_constraint
+                        } else {
+                            self.width().get()
+                        };
+                        self.source_clip_height() as Coord * w / source_clip_width as Coord
                     }
                 }
             },

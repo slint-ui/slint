@@ -685,11 +685,11 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         .map(|en| en.path_and_offset())
         .collect::<Vec<_>>();
 
-        eprintln!("Covers:");
+        tracing::debug!("Covers:");
         for (i, (p, ts)) in covers_center.iter().enumerate() {
-            println!("   {i}: {p:?}:{ts:?}");
+            tracing::debug!("   {i}: {p:?}:{ts:?}");
         }
-        eprintln!("Done");
+        tracing::debug!("Done");
 
         // Select without crossing boundaries
         // --------------------------------------------------------------------

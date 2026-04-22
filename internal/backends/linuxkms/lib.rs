@@ -26,7 +26,7 @@ mod renderer {
 
     use crate::fullscreenwindowadapter::FullscreenRenderer;
 
-    #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+    #[cfg(enable_skia)]
     pub mod skia;
 
     #[cfg(feature = "renderer-femtovg")]
@@ -48,10 +48,10 @@ mod renderer {
         ) -> Result<Box<(dyn FullscreenRenderer)>, PlatformError>;
 
         let renderers = [
-            #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+            #[cfg(enable_skia)]
             (
                 "Skia",
-                skia::SkiaRendererAdapter::new_try_vulkan_then_opengl_then_software as FactoryFn,
+                skia::SkiaRendererAdapter::new_try_wgpu_then_opengl_then_software as FactoryFn,
             ),
             #[cfg(feature = "renderer-femtovg")]
             ("FemtoVG", femtovg::FemtoVGRendererAdapter::new as FactoryFn),

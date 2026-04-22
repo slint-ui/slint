@@ -1,0 +1,106 @@
+---
+title: Drag and Drop
+description: Experimental DragArea and DropArea elements.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+
+`DragArea` and `DropArea` let the user drag data from one part of the UI and drop it on another.
+They can also accept drops from other applications on platforms that support it.
+
+> **Note**: These elements are experimental and subject to change.
+> Tracking issue: [slint-ui/slint#1967](https://github.com/slint-ui/slint/issues/1967).
+
+## Example
+
+```slint playground
+export component Example inherits Window {
+    width: 300px;
+    height: 200px;
+
+    VerticalLayout {
+        spacing: 8px;
+        padding: 8px;
+
+        Rectangle {
+            background: #f0c000;
+            DragArea {
+                mime-type: "text/plain";
+                data: "Hello World";
+            }
+            Text { text: "Drag me"; }
+        }
+
+        Rectangle {
+            background: drop.contains-drag ? #80e080 : #a0a0a0;
+            drop := DropArea {
+                can-drop(event) => {
+                    event.mime-type == "text/plain"
+                }
+                dropped(event) => {
+                    debug("Got:", event.data);
+                }
+            }
+            Text { text: "Drop here"; }
+        }
+    }
+}
+```
+
+## DragArea
+
+`DragArea` is a non-visual element that makes its content draggable.
+When the user presses the mouse inside it and moves past a small threshold, a drag operation starts.
+Any child elements are still interactive: a simple click does not start a drag.
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When `false`, the element does not start drag operations.
+</SlintProperty>
+
+### mime-type
+<SlintProperty propName="mime-type" typeName="string">
+The MIME type that describes the dragged data, for example `"text/plain"`.
+A `DropArea` can use this to decide whether to accept the drop.
+</SlintProperty>
+
+### data
+<SlintProperty propName="data" typeName="string">
+The payload that is transferred to the `DropArea` when the drop happens.
+</SlintProperty>
+
+## DropArea
+
+`DropArea` is a non-visual element that accepts drops from a `DragArea` (or from another application).
+It calls `can-drop` as the cursor moves over it to decide whether to accept the drag, and `dropped` when the user releases the mouse.
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When `false`, the element does not accept any drops.
+</SlintProperty>
+
+### contains-drag
+<SlintProperty propName="contains-drag" typeName="bool" defaultValue="false">
+Output property.
+Set to `true` while an accepted drag hovers over the area, and `false` otherwise.
+Use it to give visual feedback, for example by changing a background color.
+</SlintProperty>
+
+### can-drop(event: DropEvent) -> bool
+Called while the cursor moves over the area during a drag.
+Return `true` to accept the drag, or `false` to reject it.
+When the drag is accepted, `contains-drag` becomes `true` and the cursor changes to a "copy" shape.
+
+### dropped(event: DropEvent)
+Called when the user releases the mouse over the area after `can-drop` returned `true`.
+Use this callback to read `event.data` and apply the drop.
+
+## DropEvent
+
+`DropEvent` is the struct passed to the `can-drop` and `dropped` callbacks.
+
+| Field       | Type              | Description                                             |
+| ----------- | ----------------- | ------------------------------------------------------- |
+| `mime-type` | `string`          | The MIME type set on the source `DragArea`.             |
+| `data`      | `string`          | The payload set on the source `DragArea`.               |
+| `position`  | `LogicalPosition` | The cursor position in the `DropArea`'s local coordinates. |
