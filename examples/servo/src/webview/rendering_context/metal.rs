@@ -19,6 +19,18 @@ use slint::wgpu_28::wgpu::{
     Queue, ShaderStages, Texture, TextureFormat, TextureUsages,
 };
 
+#[derive(thiserror::Error, Debug)]
+pub enum MetalTextureError {
+    #[error("{0:?}")]
+    Surfman(surfman::Error),
+    #[error("No surface returned when the surface was unbound from the context")]
+    NoSurface,
+    #[error("WGPU is not using the Metal backend")]
+    WgpuNotMetal,
+    #[error("Failed to create Metal texture from IOSurface")]
+    TextureCreation,
+}
+
 impl super::GPURenderingContext {
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
     /// Unbinds the surface, converts to WGPU texture, then rebinds it.
@@ -27,16 +39,19 @@ impl super::GPURenderingContext {
         &self,
         wgpu_device: &Device,
         wgpu_queue: &Queue,
-    ) -> Result<Texture, surfman::Error> {
+    ) -> Result<Texture, MetalTextureError> {
         let surfman_device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
 
-        let surface = surfman_device.unbind_surface_from_context(&mut context)?.unwrap();
+        let surface = surfman_device
+            .unbind_surface_from_context(&mut context)
+            .map_err(MetalTextureError::Surfman)?
+            .ok_or(MetalTextureError::NoSurface)?;
 
         let size = self.size.get();
 
         let objc2_metal_texture =
-            objc2_metal_texture_from_iosurface(size, wgpu_device, surfman_device, &surface);
+            objc2_metal_texture_from_iosurface(size, wgpu_device, surfman_device, &surface)?;
 
         let hal_texture = wgpu_hal_texture(size, wgpu_device, objc2_metal_texture);
 
@@ -66,13 +81,13 @@ fn objc2_metal_texture_from_iosurface(
     wgpu_device: &Device,
     surfman_device: &surfman::Device,
     surfman_surface: &surfman::Surface,
-) -> Retained<NSObject> {
+) -> Result<Retained<NSObject>, MetalTextureError> {
     // SAFETY: We're working with WGPU Metal backend, so the device extraction
     // and pointer manipulations are safe within this controlled context.
     unsafe {
         let metal_device = wgpu_device
             .as_hal::<wgpu::wgc::api::Metal>()
-            .expect("WGPU device is not using Metal backend");
+            .ok_or(MetalTextureError::WgpuNotMetal)?;
 
         let device_raw = metal_device.raw_device().clone();
 
@@ -98,7 +113,7 @@ fn objc2_metal_texture_from_iosurface(
             plane: 0usize
         ];
 
-        texture.expect("Failed to create Metal texture from IOSurface")
+        texture.ok_or(MetalTextureError::TextureCreation)
     }
 }
 
