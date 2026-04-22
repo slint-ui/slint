@@ -1447,8 +1447,8 @@ impl WindowInner {
         let popup_window_adapter =
             popup_window_adapter.expect("It must be there because we set the global");
 
-        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
-        // of the current window
+        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
+        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
         let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
             let clip = LogicalRect::new(
                 LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
