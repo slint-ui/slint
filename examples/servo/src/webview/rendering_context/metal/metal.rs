@@ -9,7 +9,6 @@
 
 use objc2::runtime::NSObject;
 use objc2::{msg_send, rc::Retained};
-use objc2_io_surface::IOSurfaceRef;
 use objc2_metal::{MTLPixelFormat, MTLTextureDescriptor, MTLTextureType, MTLTextureUsage};
 
 use foreign_types_shared::ForeignType;
@@ -35,9 +34,7 @@ impl super::super::GPURenderingContext {
 
         let surface = device.unbind_surface_from_context(&mut context)?.unwrap();
 
-        let size = self.size.get();
-
-        let wgpu_texture = WPGPUTextureFromMetal::new(size, wgpu_device).get(
+        let wgpu_texture = WPGPUTextureFromMetal::new(self.size.get(), wgpu_device).get(
             wgpu_device,
             wgpu_queue,
             device,
@@ -76,29 +73,11 @@ impl WPGPUTextureFromMetal {
         surfman_surface: &surfman::Surface,
     ) -> wgpu::Texture {
         let objc2_metal_texture =
-            self.objc2_metal_texture(wgpu_device, surfman_device, surfman_surface);
+            self.objc2_metal_texture_from_iosurface(wgpu_device, surfman_device, surfman_surface);
 
         let hal_texture = self.wgpu_hal_texture(wgpu_device, objc2_metal_texture);
 
         self.create_flipped_texture_render(wgpu_device, wgpu_queue, &hal_texture)
-    }
-
-    /// Creates a Metal texture from an IOSurface using Objective-C messaging.
-    ///
-    /// This function uses unsafe Objective-C messaging. The caller must ensure:
-    /// - The device pointer is valid and points to a Metal device
-    /// - The descriptor contains valid configuration
-    /// - The IOSurface is valid and compatible with the descriptor
-    fn create_texture_from_iosurface(
-        &self,
-        device: &objc2::runtime::NSObject,
-        descriptor: &MTLTextureDescriptor,
-        iosurface: &IOSurfaceRef,
-        plane: objc2_foundation::NSUInteger,
-    ) -> Option<Retained<NSObject>> {
-        unsafe {
-            msg_send![device, newTextureWithDescriptor:descriptor, iosurface:iosurface, plane:plane]
-        }
     }
 
     /// Creates a Metal texture object from an IOSurface using the WGPU Metal backend.
@@ -109,10 +88,9 @@ impl WPGPUTextureFromMetal {
     /// This function contains unsafe code for:
     /// - Extracting the raw Metal device from WGPU
     /// - Converting device pointers for Objective-C messaging
-    fn objc2_metal_texture(
+    fn objc2_metal_texture_from_iosurface(
         &self,
         wgpu_device: &wgpu::Device,
-
         surfman_device: &surfman::Device,
         surfman_surface: &surfman::Surface,
     ) -> Retained<NSObject> {
@@ -135,23 +113,19 @@ impl WPGPUTextureFromMetal {
             descriptor.setPixelFormat(MTLPixelFormat::BGRA8Unorm);
             descriptor.setTextureType(MTLTextureType::Type2D);
 
-            // let texture_descriptor = Self::create_metal_texture_descriptor(self.size);
-
             let native_surface = surfman_device.native_surface(surfman_surface);
             let io_surface = native_surface.0;
 
-            // SAFETY: The device_raw pointer is valid (obtained from WGPU Metal backend)
-            // and we're casting it appropriately for Objective-C messaging.
-            let texture = self
-                .create_texture_from_iosurface(
-                    &*(device_raw.as_ptr() as *mut objc2::runtime::NSObject),
-                    &descriptor,
-                    &io_surface,
-                    0,
-                )
-                .expect("Failed to create Metal texture from IOSurface");
+            let device_ns = &*(device_raw.as_ptr() as *mut NSObject);
 
-            texture
+            let texture: Option<Retained<NSObject>> = msg_send![
+                device_ns,
+                newTextureWithDescriptor: &*descriptor,
+                iosurface: &*io_surface,
+                plane: 0usize
+            ];
+
+            texture.expect("Failed to create Metal texture from IOSurface")
         }
     }
 
