@@ -16,8 +16,6 @@ use winit::dpi::PhysicalSize;
 
 use slint::wgpu_28::wgpu;
 
-use super::ServoTextureImporter;
-
 impl super::super::GPURenderingContext {
     /// Imports Metal surface as a WGPU texture for rendering on macOS/iOS.
     /// Unbinds the surface, converts to WGPU texture, then rebinds it.
@@ -27,21 +25,20 @@ impl super::super::GPURenderingContext {
         wgpu_device: &wgpu::Device,
         wgpu_queue: &wgpu::Queue,
     ) -> Result<wgpu::Texture, surfman::Error> {
-
         let device = &self.surfman_rendering_info.device.borrow();
         let mut context = self.surfman_rendering_info.context.borrow_mut();
 
         let surface = device.unbind_surface_from_context(&mut context)?.unwrap();
 
-       
         let size = self.size.get();
 
         let objc2_metal_texture =
             objc2_metal_texture_from_iosurface(size, wgpu_device, device, &surface);
 
-        let hal_texture = wgpu_hal_texture(size,wgpu_device, objc2_metal_texture);
+        let hal_texture = wgpu_hal_texture(size, wgpu_device, objc2_metal_texture);
 
-        let wgpu_texture =create_flipped_texture_render(size ,wgpu_device, wgpu_queue, &hal_texture);
+        let wgpu_texture =
+            create_flipped_texture_render(size, wgpu_device, wgpu_queue, &hal_texture);
 
         let _ =
             device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
@@ -127,11 +124,7 @@ fn wgpu_hal_texture(
             metal::MTLTextureType::D2,
             0,
             0,
-            wgpu::hal::CopyExtent {
-                width: size.width,
-                height: size.height,
-                depth: 0,
-            },
+            wgpu::hal::CopyExtent { width: size.width, height: size.height, depth: 0 },
         );
 
         let descriptor = create_wgpu_texture_descriptor(
@@ -141,8 +134,7 @@ fn wgpu_hal_texture(
             wgpu::TextureFormat::Bgra8Unorm,
         );
 
-        wgpu_device
-            .create_texture_from_hal::<wgpu::wgc::api::Metal>(hal_texture, &descriptor)
+        wgpu_device.create_texture_from_hal::<wgpu::wgc::api::Metal>(hal_texture, &descriptor)
     }
 }
 
@@ -153,6 +145,10 @@ fn create_flipped_texture_render(
     wgpu_queue: &wgpu::Queue,
     source_texture: &wgpu::Texture,
 ) -> wgpu::Texture {
+    
+
+    let (bind_group_layout, pipeline, sampler) = create_flip_pipeline_resources(wgpu_device);
+
     // Create the output texture
     let descriptor = create_wgpu_texture_descriptor(
         size,
@@ -165,20 +161,15 @@ fn create_flipped_texture_render(
 
     let source_view = source_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let texture_importer = ServoTextureImporter::new(wgpu_device);
-
     let bind_group = wgpu_device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Metal Texture Flip Bind Group"),
-        layout: &texture_importer.bind_group_layout,
+        layout: &bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::TextureView(&source_view),
             },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(&texture_importer.sampler),
-            },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
         ],
     });
 
@@ -207,7 +198,7 @@ fn create_flipped_texture_render(
             multiview_mask: None,
         });
 
-        render_pass.set_pipeline(&texture_importer.render_pipeline);
+        render_pass.set_pipeline(&pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1); // Draw a fullscreen triangle
     }
@@ -215,6 +206,119 @@ fn create_flipped_texture_render(
     wgpu_queue.submit(std::iter::once(encoder.finish()));
 
     flipped_texture
+}
+
+fn create_flip_pipeline_resources(
+    wgpu_device: &wgpu::Device,
+) -> (wgpu::BindGroupLayout, wgpu::RenderPipeline, wgpu::Sampler) {
+    // Vertex and fragment in one module. The vertex shader emits a fullscreen triangle;
+    // the fragment shader samples the source texture with a vertical flip.
+    const FLIP_SHADER: &str = r#"
+        @vertex
+        fn vs_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+            let uv = vec2<f32>(f32(i >> 1u), f32(i & 1u)) * 2.0;
+            return vec4<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0), 0.0, 1.0);
+        }
+
+        @group(0) @binding(0) var src: texture_2d<f32>;
+        @group(0) @binding(1) var smp: sampler;
+
+        @fragment
+        fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+            let sz = textureDimensions(src);
+            let uv = vec2<f32>(pos.x / f32(sz.x), 1.0 - pos.y / f32(sz.y));
+            return textureSample(src, smp, uv);
+        }
+    "#;
+
+    let shader = wgpu_device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Metal Flip Shader"),
+        source: wgpu::ShaderSource::Wgsl(FLIP_SHADER.into()),
+    });
+
+    let bind_group_layout =
+        wgpu_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Metal Texture Flip Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
+
+    let layout = wgpu_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Metal Texture Flip Pipeline Layout"),
+        bind_group_layouts: &[&bind_group_layout],
+        immediate_size: 0,
+    });
+
+    let pipeline = wgpu_device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Metal Texture Flip Render Pipeline"),
+        layout: Some(&layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            unclipped_depth: false,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            conservative: false,
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
+        },
+        multiview_mask: None,
+        cache: None,
+    });
+
+    let sampler = wgpu_device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("Metal Texture Sampler"),
+        compare: None,
+        border_color: None,
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 0.0,
+        anisotropy_clamp: 1,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+    });
+
+    (bind_group_layout, pipeline, sampler)
 }
 
 /// Creates a WGPU texture descriptor with standard settings for this use case.
@@ -226,11 +330,7 @@ fn create_wgpu_texture_descriptor(
 ) -> wgpu::TextureDescriptor<'_> {
     wgpu::TextureDescriptor {
         label: Some(label),
-        size: wgpu::Extent3d {
-            width: size.width,
-            height: size.height,
-            depth_or_array_layers: 1,
-        },
+        size: wgpu::Extent3d { width: size.width, height: size.height, depth_or_array_layers: 1 },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
