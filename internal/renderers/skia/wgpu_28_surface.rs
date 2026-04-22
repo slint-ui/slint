@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::api::{GraphicsAPI, PhysicalSize as PhysicalWindowSize, Window};
+#[cfg(feature = "unstable-wgpu-28")]
+use i_slint_core::api::GraphicsAPI;
+use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
@@ -20,17 +22,17 @@ mod metal;
 #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
 mod vulkan;
 
-/// This surface renders into the given window using Metal. The provided display argument
-/// is ignored, as it has no meaning on macOS.
+/// Skia rendering surface backed by WGPU. Supports both on-screen rendering (with a
+/// window surface) and offscreen rendering into caller-provided textures.
 pub struct WGPUSurface {
-    gr_context: RefCell<skia_safe::gpu::DirectContext>,
+    pub(crate) gr_context: RefCell<skia_safe::gpu::DirectContext>,
     instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    surface_config: RefCell<wgpu::SurfaceConfiguration>,
-    surface: wgpu::Surface<'static>,
+    surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
+    surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
-    backend: Backend,
+    pub(crate) backend: Backend,
 }
 
 impl WGPUSurface {
@@ -79,15 +81,57 @@ impl WGPUSurface {
             instance,
             device,
             queue,
-            surface_config: surface_config.into(),
-            surface,
+            surface_config: Some(surface_config).into(),
+            surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
             backend,
         })
     }
+
+    pub(crate) fn new_offscreen(
+        instance: wgpu::Instance,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        backend: Backend,
+        gr_context: skia_safe::gpu::DirectContext,
+    ) -> Self {
+        Self {
+            gr_context: RefCell::new(gr_context),
+            instance,
+            device,
+            queue,
+            surface_config: None.into(),
+            surface: None,
+            textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            backend,
+        }
+    }
+
+    /// Transitions any imported wgpu textures to sampling state and flushes
+    /// the Skia graphics context. Must be called after rendering to ensure
+    /// Skia's GPU work is submitted.
+    pub(crate) fn flush_and_submit(&self, gr_context: &mut skia_safe::gpu::DirectContext) {
+        let textures_to_transition = self.textures_to_transition_for_sampling.take();
+        if !textures_to_transition.is_empty() {
+            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia texture transition encoder"),
+            });
+            encoder.transition_resources(
+                std::iter::empty(),
+                textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
+                    texture,
+                    selector: None,
+                    state: wgpu::TextureUses::RESOURCE,
+                }),
+            );
+            self.queue.submit(Some(encoder.finish()));
+        }
+
+        gr_context.submit(None);
+    }
 }
 
-impl super::Surface for WGPUSurface {
+impl crate::Surface for WGPUSurface {
     fn new(
         _shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
@@ -104,11 +148,15 @@ impl super::Surface for WGPUSurface {
     }
 
     fn name(&self) -> &'static str {
-        "wgpu"
+        if self.surface.is_some() { "wgpu" } else { "wgpu-texture" }
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        let mut surface_config = self.surface_config.borrow_mut();
+        let mut surface_config_opt = self.surface_config.borrow_mut();
+        let (Some(surface_config), Some(surface)) = (surface_config_opt.as_mut(), &self.surface)
+        else {
+            return Ok(());
+        };
 
         // Skip reconfigure if size hasn't changed — DRM/KMS surfaces don't
         // support being reconfigured.
@@ -128,14 +176,14 @@ impl super::Surface for WGPUSurface {
         surface_config.width = size.width;
         surface_config.height = size.height;
 
-        self.surface.configure(&self.device, &surface_config);
+        surface.configure(&self.device, surface_config);
         Ok(())
     }
 
     fn render(
         &self,
         _window: &Window,
-        size: PhysicalWindowSize,
+        _size: PhysicalWindowSize,
         callback: &dyn Fn(
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
@@ -143,19 +191,22 @@ impl super::Surface for WGPUSurface {
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), PlatformError> {
+        let (Some(surface), Some(surface_config)) = (&self.surface, &*self.surface_config.borrow())
+        else {
+            return Err("WGPUSurface::render() called on offscreen surface".into());
+        };
+
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let frame = match self.surface.get_current_texture() {
+        let frame = match surface.get_current_texture() {
             Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Timeout) => {
-                self.surface.get_current_texture().map_err(|e| {
-                    format!("Error obtaining current surface texture after timeout: {e}")
-                })?
-            }
+            Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture().map_err(|e| {
+                format!("Error obtaining current surface texture after timeout: {e}")
+            })?,
             // Outdated or lost: re-configure and try again
             Err(_) => {
-                self.surface.configure(&self.device, &self.surface_config.borrow());
-                self.surface.get_current_texture().map_err(|e| {
+                surface.configure(&self.device, surface_config);
+                surface.get_current_texture().map_err(|e| {
                     format!("Error obtaining current surface texture after initial error: {e}")
                 })?
             }
@@ -168,24 +219,7 @@ impl super::Surface for WGPUSurface {
 
         callback(skia_surface.canvas(), Some(gr_context), 0);
 
-        let textures_to_transition = self.textures_to_transition_for_sampling.take();
-        if !textures_to_transition.is_empty() {
-            let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Skia texture transition encoder"),
-            });
-            encoder.transition_resources(
-                std::iter::empty(),
-                textures_to_transition.iter().map(|texture| wgpu::TextureTransition {
-                    texture,
-                    selector: None,
-                    state: wgpu::TextureUses::RESOURCE,
-                }),
-            );
-
-            self.queue.submit(Some(encoder.finish()));
-        }
-
-        gr_context.submit(None);
+        self.flush_and_submit(gr_context);
 
         if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
@@ -197,13 +231,18 @@ impl super::Surface for WGPUSurface {
     }
 
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
-        Ok(match self.surface_config.borrow().format {
-            wgpu_28::TextureFormat::Rgba8Unorm
-            | wgpu_28::TextureFormat::Rgba8UnormSrgb
-            | wgpu_28::TextureFormat::Bgra8Unorm
-            | wgpu_28::TextureFormat::Bgra8UnormSrgb => 32,
-            fmt => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
-        })
+        if let Some(surface_config) = &*self.surface_config.borrow() {
+            Ok(match surface_config.format {
+                wgpu_28::TextureFormat::Rgba8Unorm
+                | wgpu_28::TextureFormat::Rgba8UnormSrgb
+                | wgpu_28::TextureFormat::Bgra8Unorm
+                | wgpu_28::TextureFormat::Bgra8UnormSrgb => 32,
+                fmt => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
+            })
+        } else {
+            // All supported render-target formats (Rgba8Unorm, Bgra8Unorm, and sRGB variants) are 32bpp.
+            Ok(32)
+        }
     }
 
     #[cfg(feature = "unstable-wgpu-28")]
@@ -258,7 +297,7 @@ impl raw_window_handle::HasDisplayHandle for WindowAndDisplayHandle {
     }
 }
 
-enum Backend {
+pub(crate) enum Backend {
     #[cfg(target_vendor = "apple")]
     Metal,
     #[cfg(target_family = "windows")]
@@ -290,7 +329,7 @@ impl TryFrom<wgpu::Backend> for Backend {
 }
 
 impl Backend {
-    fn make_context(
+    pub(crate) fn make_context(
         &self,
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
@@ -306,23 +345,22 @@ impl Backend {
         }
     }
 
-    fn make_surface(
+    pub(crate) fn make_surface(
         &self,
-        size: PhysicalWindowSize,
         gr_context: &mut skia_safe::gpu::DirectContext,
-        frame: &wgpu::SurfaceTexture,
+        texture: &wgpu::Texture,
     ) -> Option<skia_safe::Surface> {
         match self {
             #[cfg(target_vendor = "apple")]
-            Self::Metal => unsafe { metal::make_metal_surface(size, gr_context, frame) },
+            Self::Metal => unsafe { metal::make_metal_surface(gr_context, texture) },
             #[cfg(target_family = "windows")]
-            Self::Dx12 => unsafe { dx12::make_dx12_surface(size, gr_context, frame) },
+            Self::Dx12 => unsafe { dx12::make_dx12_surface(gr_context, texture) },
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            Self::Vulkan => unsafe { vulkan::make_vulkan_surface(size, gr_context, frame) },
+            Self::Vulkan => unsafe { vulkan::make_vulkan_surface(gr_context, texture) },
         }
     }
 
-    fn import_texture(
+    pub(crate) fn import_texture(
         &self,
         canvas: &skia_safe::Canvas,
         texture: wgpu::Texture,
