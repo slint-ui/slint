@@ -1923,7 +1923,7 @@ pub unsafe extern "C" fn slint_item_absolute_position(
     self_rc.map_to_window(Default::default())
 }
 
-#[cfg(feature = "ffi")]
+#[cfg(all(feature = "ffi", system_tray))]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_system_tray_set_menu(
     system_tray: &SystemTray,
