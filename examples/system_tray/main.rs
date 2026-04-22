@@ -4,7 +4,6 @@
 slint::slint! {
     export component ExampleTray inherits SystemTray {
         icon: @image-url("favicon-white.png");
-        menu: [{label: "wow", enabled: true}, {label: "wow"}];
     }
 }
 
