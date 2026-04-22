@@ -20,6 +20,8 @@ pub enum Type {
     /// Correspond to an uninitialized type, or an error
     #[default]
     Invalid,
+    /// A dynamically-typed piece of data
+    Any,
     /// The type of an expression that return nothing
     Void,
     /// The type of a property two way binding whose type was not yet inferred
@@ -75,6 +77,7 @@ impl core::cmp::PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Type::Invalid => matches!(other, Type::Invalid),
+            Type::Any => matches!(other, Type::Any),
             Type::Void => matches!(other, Type::Void),
             Type::InferredProperty => matches!(other, Type::InferredProperty),
             Type::InferredCallback => matches!(other, Type::InferredCallback),
@@ -120,6 +123,7 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Invalid => write!(f, "<error>"),
+            Type::Any => write!(f, "any"),
             Type::Void => write!(f, "void"),
             Type::InferredProperty => write!(f, "?"),
             Type::InferredCallback => write!(f, "callback"),
@@ -204,7 +208,8 @@ impl Type {
     pub fn is_property_type(&self) -> bool {
         matches!(
             self,
-            Self::Float32
+            Self::Any
+                | Self::Float32
                 | Self::Int32
                 | Self::String
                 | Self::Color
@@ -263,8 +268,7 @@ impl Type {
         };
         match (self, other) {
             (a, b) if a == b => true,
-            (_, Type::Invalid)
-            | (_, Type::Void)
+            (_, Type::Invalid | Type::Void | Type::Any)
             | (Type::Float32, Type::Int32)
             | (Type::Float32, Type::String)
             | (Type::Int32, Type::Float32)
@@ -306,6 +310,7 @@ impl Type {
             Type::Percent => None,
             Type::Angle => Some(Unit::Deg),
             Type::Invalid => None,
+            Type::Any => None,
             Type::Void => None,
             Type::InferredProperty | Type::InferredCallback => None,
             Type::Callback { .. } => None,

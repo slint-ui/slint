@@ -1520,7 +1520,7 @@ impl Expression {
             | Type::ElementReference
             | Type::LayoutCache
             | Type::ArrayOfU16 => Expression::Invalid,
-            Type::Void => Expression::CodeBlock(Vec::new()),
+            Type::Void | Type::Any => Expression::CodeBlock(Vec::new()),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {

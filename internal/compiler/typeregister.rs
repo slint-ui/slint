@@ -446,6 +446,7 @@ impl TypeRegister {
     fn builtin_internal() -> Self {
         let mut register = TypeRegister::default();
 
+        register.insert_type(Type::Any);
         register.insert_type(Type::Float32);
         register.insert_type(Type::Int32);
         register.insert_type(Type::String);

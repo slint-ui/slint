@@ -1973,7 +1973,7 @@ pub fn store_property(
 /// Return true if the Value can be used for a property of the given type
 fn check_value_type(value: &mut Value, ty: &Type) -> bool {
     match ty {
-        Type::Void => true,
+        Type::Void | Type::Any => true,
         Type::Invalid
         | Type::InferredProperty
         | Type::InferredCallback
@@ -2316,7 +2316,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         ),
         Type::Keys => Value::Keys(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
-        Type::Void | Type::Invalid => Value::Void,
+        Type::Void | Type::Invalid | Type::Any => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
         Type::LayoutCache => Value::LayoutCache(Default::default()),

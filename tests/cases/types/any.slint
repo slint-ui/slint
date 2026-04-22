@@ -1,0 +1,18 @@
+Test := Rectangle {
+    property<any> foo: "Hello, world!";
+    callback make-foo(input: any) -> any;
+}
+
+/*
+```rust
+let t = Test::new().unwrap();
+let Ok(foo_str) = slint::SharedString::try_from(t.get_foo()) else {
+    panic!("Test.foo was not string");
+};
+assert_eq!(foo_str, "Hello, world!");
+let Ok(foo_str) = t.get_foo().downcast::<slint::SharedString>() else {
+    panic!("Test.foo was not string");
+};
+assert_eq!(foo_str, "Hello, world!");
+```
+*/

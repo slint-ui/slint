@@ -272,6 +272,7 @@ impl Expression {
             | Type::Callback { .. }
             | Type::Function { .. }
             | Type::Void
+            | Type::Any
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference

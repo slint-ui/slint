@@ -409,9 +409,8 @@ fn to_debug_string(
         | Type::Image
         | Type::Easing
         | Type::StyledText
-        | Type::Array(_) => {
-            Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
-        }
+        | Type::Array(_)
+        | Type::Any => Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into()),
         Type::Duration
         | Type::PhysicalLength
         | Type::LogicalLength

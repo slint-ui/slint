@@ -79,6 +79,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Void => Some(quote!(())),
         Type::Int32 => Some(quote!(i32)),
         Type::Float32 => Some(quote!(f32)),
+        Type::Any => Some(quote!(sp::AnyData)),
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
@@ -2641,6 +2642,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
+                (_, Type::Any) => {
+                    quote!(sp::AnyData::from(#f))
+                }
                 (Type::Float32, Type::Int32) => {
                     quote!(((#f) as i32))
                 }

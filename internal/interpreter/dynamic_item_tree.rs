@@ -1347,6 +1347,7 @@ pub(crate) fn generate_item_tree<'id>(
             // These can't be used in properties
             Type::Invalid
             | Type::Void
+            | Type::Any
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::Model
