@@ -1461,11 +1461,10 @@ impl WindowInner {
             self.window_adapter().request_redraw();
             PopupWindowLocation::ChildWindow(rect.origin)
         } else {
-            WindowInner::from_pub(popup_window_adapter.window()).set_component(popup_componentrc);
-            popup_window_adapter.window().set_position(LogicalPosition::from_euclid(position));
-            popup_window_adapter
-                .window()
-                .set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
+            let popup_window = popup_window_adapter.window();
+            WindowInner::from_pub(popup_window).set_component(popup_componentrc);
+            popup_window.set_position(LogicalPosition::from_euclid(position));
+            popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
 
             popup_window_adapter.set_visible(true).expect("Unable to show popup");
             PopupWindowLocation::TopLevel(popup_window_adapter)
