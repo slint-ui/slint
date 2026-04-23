@@ -42,8 +42,8 @@ export component TestCase {
         triggered => {
             Properties.popup-x-increment = 10px;
             Properties.popup-y-increment = 20px;
-            // Properties.popup-width-increment = 30px;
-            // Properties.popup-height-increment = 40px;
+            Properties.popup-width-increment = 30px;
+            Properties.popup-height-increment = 40px;
             Properties.update-popup += 1;
         }
     }
@@ -56,8 +56,8 @@ export component TestCase {
     change-popup-properties(x-increment, y-increment, width-increment, height-increment) => {
         Properties.popup-x-increment = x-increment;
         Properties.popup-y-increment = y-increment;
-        // Properties.popup-width-increment = width-increment;
-        // Properties.popup-height-increment = height-increment;
+        Properties.popup-width-increment = width-increment;
+        Properties.popup-height-increment = height-increment;
 
         Properties.update-popup += 1;
     }
@@ -73,8 +73,8 @@ export component TestCase {
         changed properties-changed => {
             self.x += Properties.popup-x-increment;
             self.y += Properties.popup-y-increment;
-            // self.width += Properties.popup-width-increment;
-            // self.height += Properties.popup-height-increment;
+            self.width += Properties.popup-width-increment;
+            self.height += Properties.popup-height-increment;
         }
 
         changed width => {

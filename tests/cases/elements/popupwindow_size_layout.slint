@@ -150,4 +150,10 @@ let horizontal_box_height = padding + button_height + padding;
 assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), padding + text_height + spacing + horizontal_box_height + spacing + button_height + padding);
 
 ```
+
+```cpp
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);
+```
 */
