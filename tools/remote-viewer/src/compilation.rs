@@ -3,8 +3,6 @@
 
 use std::{path::PathBuf, rc::Weak};
 
-use lsp_types::Url;
-
 use crate::connection::Connection;
 
 pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compiler {
@@ -17,7 +15,7 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
         Box::pin(async move {
             Some(if let Some(connection) = connection.upgrade() {
                 connection
-                    .request_file(Url::from_file_path(path).unwrap())
+                    .request_file(path.as_os_str().to_str().unwrap().to_owned())
                     .await
                     .map(|file_content| String::from_utf8_lossy(&file_content.contents).to_string())
             } else {

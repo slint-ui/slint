@@ -1,22 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{net::SocketAddr, rc::Rc, sync::Arc};
+use std::{net::SocketAddr, path::Path, rc::Rc, sync::Arc};
 
-use dashmap::DashMap;
+use futures_util::FutureExt;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, passes::ResourcePreloader};
 use i_slint_core::InternalToken;
 use i_slint_preview_protocol::PreviewToLspMessage;
-use lsp_types::Url;
 use mdns_sd::ServiceDaemon;
 use slint::{ComponentHandle as _, SharedString};
+use slint_interpreter::ComponentInstance;
 use tokio::sync;
 #[cfg(target_vendor = "apple")]
 use zeroconf_tokio::txt_record::TTxtRecord as _;
 
 use crate::{
     compilation,
-    connection::{self, CacheEntry},
+    connection::{self, CacheEntry, Connection},
     util,
 };
 
@@ -77,11 +77,17 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                         config.enable_experimental;
                 }
                 connection::ConnectionMessage::ShowPreview { preview_component, file_cache } => {
-                    let file_cache_preloader = FileCachePreloader { file_cache: &file_cache };
-                    let compilation_result = if let Some(entry) =
-                        file_cache.get(&preview_component.url)
-                        && let CacheEntry::Ready(file) = &*entry
+                    tracing::debug!(
+                        "Cached files: {:#?}",
+                        file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
+                    );
+                    let file_cache_preloader =
+                        FileCachePreloader { connection: &connection, window: &inner_window };
+                    let compilation_result = if let Some(entry) = file_cache.get(
+                        preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap(),
+                    ) && let CacheEntry::Ready(file) = &*entry
                     {
+                        tracing::debug!("Fetched file {} from cache.", preview_component.url);
                         compiler
                             .build_from_source(
                                 str::from_utf8(&file.contents).unwrap().to_owned(),
@@ -90,6 +96,10 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                             )
                             .await
                     } else {
+                        tracing::debug!(
+                            "Failed fetching file {} from cache.",
+                            preview_component.url
+                        );
                         compiler
                             .build_from_path(preview_component.url.path(), file_cache_preloader)
                             .await
@@ -226,39 +236,43 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
 }
 
 struct FileCachePreloader<'a> {
-    file_cache: &'a DashMap<Url, CacheEntry>,
+    connection: &'a Connection,
+    window: &'a ComponentInstance,
 }
 
 impl<'p> ResourcePreloader for FileCachePreloader<'p> {
     fn load<'a>(
         &self,
-        urls: impl Iterator<Item = &'a str>,
-        mut push: impl FnMut(
-            /* url */ &'a str,
-            /* extension */ String,
-            /* data */ Arc<[u8]>,
-        ),
+        paths: impl Iterator<Item = &'a str>,
+        push: Rc<impl Fn(/* url */ &'a str, /* extension */ String, /* data */ Arc<[u8]>)>,
     ) -> impl Future<Output = ()> {
-        for url_str in urls {
-            let Ok(url) = Url::parse(url_str) else {
-                continue;
-            };
-            if let Some(entry) = self.file_cache.get(&url)
-                && let CacheEntry::Ready(file) = &*entry
-            {
-                let extension = url
-                    .to_file_path()
-                    .ok()
-                    .and_then(|path| {
-                        path.extension()
+        if let Err(err) =
+            self.window.set_property("message", SharedString::from("Loading resources...").into())
+        {
+            tracing::error!("Failed setting property: {err}");
+        }
+
+        futures_util::future::join_all(paths.map(|path| {
+            tracing::debug!("Preloading file {path}");
+            let push = push.clone();
+            async move {
+                match self.connection.request_file(path.to_owned()).await {
+                    Ok(file) => {
+                        tracing::debug!("Got file {path} with {} bytes", file.contents.len());
+                        let extension = Path::new(&path)
+                            .extension()
                             .and_then(std::ffi::OsStr::to_str)
                             .map(std::string::ToString::to_string)
-                    })
-                    .unwrap_or_default();
+                            .unwrap_or_default();
 
-                push(url_str, extension, file.contents.clone());
+                        push(&path, extension, file.contents.clone());
+                    }
+                    Err(err) => {
+                        tracing::error!("Failed requesting file {path}: {err}");
+                    }
+                }
             }
-        }
-        std::future::ready(())
+        }))
+        .map(|_| ())
     }
 }

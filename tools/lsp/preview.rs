@@ -65,7 +65,7 @@ pub fn run(
 
     tracing::debug!("Preview: requesting state from LSP");
     to_lsp
-        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { unused: true })
+        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { files: Vec::new() })
         .unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {

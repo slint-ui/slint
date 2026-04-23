@@ -71,6 +71,7 @@ impl RemoteLspToPreview {
             .inspect_err(|err| tracing::error!("Failed to start mDNS browsing: {err}"))
             .ok()?;
 
+        #[allow(clippy::disallowed_methods)]
         Some(tokio::task::spawn_local(async move {
             while let Ok(event) = receiver.recv_async().await {
                 match event {
@@ -161,6 +162,7 @@ impl RemoteLspToPreview {
 
             let (socket_sender, socket_receiver) = stream.split();
 
+            #[allow(clippy::disallowed_methods)]
             let Some(old) = connection.lock().await.replace(RemoteLspConnection {
                 sender: socket_sender,
                 task: tokio::task::spawn_local(Self::receive_task(
@@ -301,7 +303,7 @@ impl Drop for RemoteLspToPreview {
                 });
             }
             let browse_task = std::mem::take(&mut self.browse_task);
-            tokio::task::spawn_local(async move {
+            crate::common::spawn_local(async move {
                 if let Some(join_handle) = browse_task.write().await.take()
                     && let Err(err) = join_handle.await
                 {
@@ -321,7 +323,7 @@ impl crate::common::LspToPreview for RemoteLspToPreview {
         tracing::debug!("Sending websocket message {message:?}");
         let connection = Arc::downgrade(&self.connection);
         let message = postcard::to_allocvec(message).unwrap();
-        tokio::task::spawn_local(async move {
+        crate::common::spawn_local(async move {
             let Some(connection) = connection.upgrade() else {
                 tracing::warn!("Not connected to remote preview server, dropping message");
                 return;

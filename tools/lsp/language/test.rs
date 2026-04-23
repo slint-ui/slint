@@ -35,6 +35,7 @@ pub fn mock_context() -> Context {
         open_urls: HashSet::new(),
         to_preview: Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default())),
         pending_recompile: Default::default(),
+        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
     }
 }
 
@@ -80,6 +81,7 @@ pub fn loaded_document_cache_with_file_name(
             common::DummyLspToPreview::default(),
         )),
         pending_recompile: Default::default(),
+        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
     };
     let (extra_files, diag) =
         spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));

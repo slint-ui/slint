@@ -203,6 +203,7 @@ fn test_goto_definition_multi_files() {
             common::DummyLspToPreview::default(),
         )),
         pending_recompile: Default::default(),
+        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
     };
     let (extra_files, diag) = spin_on::spin_on(crate::language::load_document_impl(
         &mut ctx,

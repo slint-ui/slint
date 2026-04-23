@@ -28,7 +28,10 @@ pub enum PreviewToLspMessage {
     PreviewTypeChanged { target: PreviewTarget },
     /// Request all documents and configuration to be sent from the LSP to the
     /// Preview.
-    RequestState { unused: bool },
+    RequestState {
+        #[serde(default)]
+        files: Vec<Url>,
+    },
     /// Pass a `WorkspaceEdit` on to the editor
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
     /// Pass a `ShowMessage` notification on to the editor

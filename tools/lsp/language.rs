@@ -23,6 +23,7 @@ use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+use i_slint_preview_protocol::PreviewToLspMessage;
 use itertools::Itertools;
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
@@ -173,6 +174,7 @@ pub struct Context {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
+    pub preview_to_lsp_sender: tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 /// An error from a LSP request
@@ -400,7 +402,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
             POPULATE_COMMAND => {
                 let future = populate_command(&params.arguments, ctx)?;
-                tokio::task::spawn_local(async move {
+                crate::common::spawn_local(async move {
                     if let Err(err) = future.await {
                         tracing::error!("Error executing populate command: {err}");
                     }
@@ -653,22 +655,24 @@ pub fn connect_remote_preview_command(
     });
     let port = params.get(1).and_then(serde_json::Value::as_u64);
 
-    let to_preview = ctx.to_preview.clone();
-
     if let Some(addresses) = addresses {
         if let Some(port) = port {
             use crate::preview::connector::remote::RemoteLspToPreview;
 
-            let _ = to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
-            to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
-                move |remote| {
+            let _ =
+                ctx.to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
+            ctx.to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
+                |remote| {
+                    let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
                     let future = remote.connect(addresses, port as u16);
-                    tokio::task::spawn_local(async move {
+                    crate::common::spawn_local(async move {
                         if let Err(err) = future.await {
                             LspError {
                                 code: LspErrorCode::RequestFailed,
                                 message: format!("Failed to connect to remote preview: {err}"),
                             };
+                        } else {
+                            let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState { files: Vec::new() });
                         }
                     });
                     Ok(None)
@@ -692,7 +696,7 @@ pub fn disconnect_remote_preview_command(ctx: &Context) {
     let to_preview = ctx.to_preview.clone();
     tracing::debug!("disconnect_remote_preview_command");
     to_preview.with_preview_target::<crate::preview::connector::RemoteLspToPreview, _>(|remote| {
-        tokio::task::spawn_local(remote.disconnect());
+        crate::common::spawn_local(remote.disconnect());
     });
 }
 

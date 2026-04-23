@@ -230,7 +230,7 @@ function initPreviewPanel(
                     map_url(panel.webview, message.url);
                     return;
                 case "preview_ready":
-                    send_to_lsp({ RequestState: { unused: true } });
+                    send_to_lsp({ RequestState: {} });
                     return;
                 case "slint/preview_to_lsp":
                     send_to_lsp(message.params);

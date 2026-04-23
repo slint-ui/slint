@@ -360,8 +360,9 @@ async fn main_loop(
         let embedded_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
         #[cfg(feature = "preview-remote")]
-        let remote_preview: Box<dyn common::LspToPreview> =
-            Box::new(preview::connector::RemoteLspToPreview::new(sn, preview_to_lsp_sender));
+        let remote_preview: Box<dyn common::LspToPreview> = Box::new(
+            preview::connector::RemoteLspToPreview::new(sn, preview_to_lsp_sender.clone()),
+        );
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
                 std::collections::HashMap::from([
@@ -381,6 +382,7 @@ async fn main_loop(
         cli_args,
         request_queue,
         server_notifier,
+        preview_to_lsp_sender,
         preview_to_lsp_receiver,
         to_preview.clone(),
     )
@@ -397,6 +399,7 @@ async fn run_main_loop(
     cli_args: Cli,
     request_queue: OutgoingRequestQueue,
     server_notifier: ServerNotifier,
+    preview_to_lsp_sender: mpsc::UnboundedSender<i_slint_preview_protocol::PreviewToLspMessage>,
     #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
     mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<
         i_slint_preview_protocol::PreviewToLspMessage,
@@ -456,6 +459,7 @@ async fn run_main_loop(
         enable_experimental: false,
     };
 
+    let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let mut ctx = Context {
         document_cache: crate::common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
@@ -466,10 +470,10 @@ async fn run_main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
+        preview_to_lsp_sender,
     };
 
     let connection = Arc::new(connection);
-    let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let inner_connection = connection.clone();
     let adapter_thread = std::thread::spawn(move || {
         crossbeam_tokio_adapter(inner_connection, from_lsp_sender, request_queue);
@@ -713,9 +717,13 @@ async fn handle_preview_to_lsp_message(
             tracing::debug!("Preview type changed: {target:?}");
             ctx.to_preview.set_preview_target(target)?;
         }
-        M::RequestState { .. } => {
+        M::RequestState { files } => {
             tracing::debug!("Preview requested state");
-            crate::language::send_state_to_preview(ctx);
+            if files.is_empty() {
+                crate::language::send_state_to_preview(ctx);
+            } else {
+                send_files_to_preview(ctx, files);
+            }
         }
         M::SendWorkspaceEdit { label, edit } => {
             let sn = ctx.server_notifier.clone();
@@ -732,4 +740,27 @@ async fn handle_preview_to_lsp_message(
         }
     }
     Ok(())
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+fn send_files_to_preview(ctx: &Context, files: Vec<Url>) {
+    let to_preview = ctx.to_preview.clone();
+    common::spawn_local(futures_util::future::join_all(files.into_iter().map(|url| {
+        let to_preview = to_preview.clone();
+        async move {
+            match tokio::fs::read(url.to_file_path().unwrap()).await {
+                Ok(contents) => {
+                    use i_slint_preview_protocol::VersionedUrl;
+
+                    to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(url, None),
+                        contents,
+                    });
+                }
+                Err(err) => {
+                    tracing::error!("Failed loading file: {err}");
+                }
+            }
+        }
+    })));
 }

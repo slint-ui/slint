@@ -35,18 +35,30 @@ pub enum CacheEntry {
 
 #[derive(Debug)]
 pub enum ConnectionMessage {
-    Connected { remote_addr: SocketAddr },
-    Disconnected { remote_addr: SocketAddr },
-    SetConfiguration { config: PreviewConfig },
-    ShowPreview { preview_component: PreviewComponent, file_cache: Arc<DashMap<Url, CacheEntry>> },
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
+    Connected {
+        remote_addr: SocketAddr,
+    },
+    Disconnected {
+        remote_addr: SocketAddr,
+    },
+    SetConfiguration {
+        config: PreviewConfig,
+    },
+    ShowPreview {
+        preview_component: PreviewComponent,
+        file_cache: Arc<DashMap<String, CacheEntry>>,
+    },
+    HighlightFromEditor {
+        url: Option<Url>,
+        offset: u32,
+    },
 }
 
 pub struct Connection {
     local_addr: SocketAddr,
     task_handle: JoinHandle<()>,
     message_sender: sync::mpsc::UnboundedSender<Message>,
-    file_cache: Arc<DashMap<Url, CacheEntry>>,
+    file_cache: Arc<DashMap<String, CacheEntry>>,
 }
 
 impl Connection {
@@ -60,7 +72,7 @@ impl Connection {
         .await?;
         let local_addr = listener.local_addr().map_err(Box::new)?;
         tracing::info!("Listening on {}", local_addr);
-        let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
+        let file_cache = Arc::new(DashMap::<String, CacheEntry>::new());
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
         let inner_file_cache = file_cache.clone();
@@ -118,7 +130,7 @@ impl Connection {
     async fn handle_connection(
         mut receiver: SplitStream<WebSocketStream<TcpStream>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-        file_cache: Arc<DashMap<Url, CacheEntry>>,
+        file_cache: Arc<DashMap<String, CacheEntry>>,
         message_sender: UnboundedSender<Message>,
         remote_addr: SocketAddr,
     ) {
@@ -137,11 +149,19 @@ impl Connection {
                             // Process the data
                             match message {
                                 LspToPreviewMessage::InvalidateContents { url } => {
-                                    file_cache.remove(&url);
+                                    file_cache.remove(
+                                        url.to_file_path().unwrap().as_os_str().to_str().unwrap(),
+                                    );
                                 }
                                 LspToPreviewMessage::ForgetFile { url } => {
-                                    if let Some((_, CacheEntry::Loading(senders))) =
-                                        file_cache.remove(&url)
+                                    if let Some((_, CacheEntry::Loading(senders))) = file_cache
+                                        .remove(
+                                            url.to_file_path()
+                                                .unwrap()
+                                                .as_os_str()
+                                                .to_str()
+                                                .unwrap(),
+                                        )
                                     {
                                         for sender in senders {
                                             let _ = sender.send(Err(std::io::Error::new(
@@ -152,12 +172,24 @@ impl Connection {
                                     }
                                 }
                                 LspToPreviewMessage::SetContents { url, contents } => {
+                                    tracing::debug!(
+                                        "Inserting file {} with {} bytes.",
+                                        url.url(),
+                                        contents.len()
+                                    );
                                     let versioned_content = VersionedFileContent {
                                         version: *url.version(),
                                         contents: contents.into(),
                                     };
                                     file_cache
-                                        .entry(url.url().clone())
+                                        .entry(
+                                            url.url()
+                                                .to_file_path()
+                                                .unwrap()
+                                                .to_str()
+                                                .unwrap()
+                                                .to_owned(),
+                                        )
                                         .and_modify(|entry| {
                                             if let CacheEntry::Loading(senders) = entry {
                                                 for sender in senders.drain(..) {
@@ -218,7 +250,7 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn request_file(&self, file: Url) -> std::io::Result<VersionedFileContent> {
+    pub async fn request_file(&self, file: String) -> std::io::Result<VersionedFileContent> {
         if let Some(entry) = self.file_cache.get(&file)
             && let CacheEntry::Ready(entry) = entry.value()
         {
@@ -242,7 +274,10 @@ impl Connection {
             }
         }
         if request_file {
-            // self.send(PreviewToLspMessage::RequestFile { file }).map_err(std::io::Error::other)?;
+            self.send(i_slint_preview_protocol::PreviewToLspMessage::RequestState {
+                files: vec![Url::from_file_path(file).unwrap()],
+            })
+            .map_err(std::io::Error::other)?;
         }
         receiver.await.map_err(std::io::Error::other)?
     }

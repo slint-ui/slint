@@ -243,12 +243,12 @@ pub async fn run_passes(
         }
     });
 
+    embed_images::preload_images(doc, resource_preloader).await;
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,
         type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
-        resource_preloader,
         diag,
     )
     .await;
