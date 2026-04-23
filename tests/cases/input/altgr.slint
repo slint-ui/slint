@@ -93,13 +93,12 @@ Ideally we should only remove the Ctrl+Alt modifiers if they actually caused a d
     let inner = i_slint_core::window::WindowInner::from_pub(instance.window());
     // If the text_without_modifiers is "@", then we know that this layout doesn't
     // have AltGr behavior to produce an `@`, and we can trigger the Ctrl+Alt+@ shortcut
+    let mut key_event = KeyEvent::default();
+    key_event.text = "@".into();
     inner.process_key_input(
         InternalKeyEvent {
             event_type: KeyEventType::KeyPressed,
-            key_event: KeyEvent {
-                text: "@".into(),
-                ..Default::default()
-            },
+            key_event,
             text_without_modifiers: "@".into(),
             ..Default::default()
         }
@@ -108,13 +107,12 @@ Ideally we should only remove the Ctrl+Alt modifiers if they actually caused a d
 
     // But if the text_without_modifiers is "q", then we know that this layout produces
     // an `@` when AltGr is pressed, and Ctrl+Alt+@ should just be interpreted as `@`
+    let mut key_event = KeyEvent::default();
+    key_event.text = "@".into();
     inner.process_key_input(
         InternalKeyEvent {
             event_type: KeyEventType::KeyPressed,
-            key_event: KeyEvent {
-                text: "@".into(),
-                ..Default::default()
-            },
+            key_event,
             text_without_modifiers: "q".into(),
             ..Default::default()
         }
