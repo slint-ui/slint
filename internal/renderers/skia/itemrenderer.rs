@@ -36,7 +36,8 @@ pub struct SkiaItemRenderer<'a> {
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
     surface: Option<&'a dyn crate::Surface>,
-    dummy_surface: skia_safe::Surface,
+    // Shared canvas for when we want to call rendering functions without actually doing anything.
+    dummy_canvas: skia_safe::OwnedCanvas<'static>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
@@ -57,19 +58,12 @@ impl<'a> SkiaItemRenderer<'a> {
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
-        let dummy_image_info = skia_safe::ImageInfo::new(
-            skia_safe::ISize::new(1, 1),
-            skia_safe::ColorType::RGBA8888,
-            skia_safe::AlphaType::Premul,
-            None,
-        );
-
         Self {
             canvas,
             scale_factor: ScaleFactor::new(window.scale_factor()),
             window,
             surface,
-            dummy_surface: canvas.new_surface(&dummy_image_info, None).unwrap(),
+            dummy_canvas: Default::default(),
             state_stack: Vec::new(),
             current_state: RenderState {
                 alpha: 1.0,
@@ -382,15 +376,12 @@ impl<'a> SkiaItemRenderer<'a> {
                 skia_safe::AlphaType::Premul,
                 None,
             );
-            let mut surface = self
-                .canvas
-                .new_surface(&image_info, None)
-                // We need `new_surface` to actually return something, so `render_item_children`
-                // can be called and any dependencies between the layer size and the descendents'
-                // bounding boxes can be tracked.
-                .unwrap_or_else(|| self.dummy_surface.clone());
+            let mut surface = self.canvas.new_surface(&image_info, None);
 
-            let canvas = surface.canvas();
+            let canvas = match &mut surface {
+                Some(surface) => surface.canvas(),
+                None => &self.dummy_canvas,
+            };
             canvas.clear(skia_safe::Color::TRANSPARENT);
 
             let mut sub_renderer = SkiaItemRenderer::new(
@@ -412,7 +403,8 @@ impl<'a> SkiaItemRenderer<'a> {
                 &WindowInner::from_pub(self.window).window_adapter(),
             );
 
-            Some((physical_origin.to_vector(), surface.image_snapshot()))
+            //
+            Some((physical_origin.to_vector(), surface?.image_snapshot()))
         })
     }
 
