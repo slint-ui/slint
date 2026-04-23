@@ -102,7 +102,7 @@ impl PreviewConnector {
                 let to_lsp: Rc<dyn common::PreviewToLsp> = Rc::new(WasmPreviewToLsp::default());
 
                 preview::PREVIEW_STATE.with(move |preview_state| {
-                    if preview_state.borrow().ui.is_some() {
+                    if preview_state.borrow().app_window.is_some() {
                         reject_c
                             .take()
                             .call1(
@@ -111,12 +111,11 @@ impl PreviewConnector {
                             )
                             .unwrap_throw();
                     } else {
-                        match ui::create_ui(&to_lsp, &style) {
-                            Ok(ui) => {
-                                let api = ui.global::<crate::preview::ui::Api>();
-
-                                init_slintpad_specific_ui(&api);
-                                preview_state.borrow_mut().ui = Some(ui);
+                        match ui::create_ui(&to_lsp, &style, false) {
+                            Ok(app_window) => {
+                                init_slintpad_specific_ui(&app_window.api());
+                                preview_state.borrow_mut().api = app_window.api_weak();
+                                preview_state.borrow_mut().app_window = Some(app_window);
                                 *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
 
                                 resolve
@@ -171,12 +170,12 @@ impl PreviewConnector {
 }
 
 fn invoke_from_event_loop_wrapped_in_promise(
-    callback: impl FnOnce(&ui::PreviewUi) -> Result<(), slint_interpreter::PlatformError> + 'static,
+    callback: impl FnOnce(&ui::AppWindow) -> Result<(), slint_interpreter::PlatformError> + 'static,
 ) -> Result<js_sys::Promise, JsValue> {
     let callback = std::cell::RefCell::new(Some(callback));
     Ok(js_sys::Promise::new(&mut |resolve, reject| {
         preview::PREVIEW_STATE.with(|preview_state| {
-        let Some(inst_weak) = preview_state.borrow().ui.as_ref().map(|ui| ui.as_weak()) else {
+        if preview_state.borrow().app_window.is_none() {
             reject.call1(&JsValue::UNDEFINED, &JsValue::from("Ui is not up yet")).unwrap_throw();
             return;
         };
@@ -186,31 +185,33 @@ fn invoke_from_event_loop_wrapped_in_promise(
                 send_wrapper::SendWrapper::new((resolve, reject.clone(), callback.take().unwrap()));
             move || {
                 let (resolve, reject, callback) = params.take();
-                match inst_weak.upgrade() {
-                    Some(instance) => match callback(&instance) {
-                        Ok(()) => {
-                            resolve.call0(&JsValue::UNDEFINED).unwrap_throw();
-                        }
-                        Err(e) => {
+                preview::PREVIEW_STATE.with(|preview_state| {
+                    match preview_state.borrow().app_window.as_ref() {
+                        Some(app_window) => match callback(app_window) {
+                            Ok(()) => {
+                                resolve.call0(&JsValue::UNDEFINED).unwrap_throw();
+                            }
+                            Err(e) => {
+                                reject
+                                        .call1(
+                                            &JsValue::UNDEFINED,
+                                            &JsValue::from(format!(
+                                                "Invocation on AppWindow from within event loop failed: {e}"
+                                            )),
+                                        )
+                                        .unwrap_throw();
+                            }
+                        },
+                        None => {
                             reject
-                                    .call1(
-                                        &JsValue::UNDEFINED,
-                                        &JsValue::from(format!(
-                                            "Invocation on PreviewUi from within event loop failed: {e}"
-                                        )),
-                                    )
-                                    .unwrap_throw();
+                                .call1(
+                                    &JsValue::UNDEFINED,
+                                    &JsValue::from("Invocation on AppWindow failed because instance was deleted too soon"),
+                                )
+                                .unwrap_throw();
                         }
-                    },
-                    None => {
-                        reject
-                            .call1(
-                                &JsValue::UNDEFINED,
-                                &JsValue::from("Invocation on PreviewUi failed because instance was deleted too soon"),
-                            )
-                            .unwrap_throw();
                     }
-                }
+                });
             }
         }) {
             reject

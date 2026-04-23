@@ -11,11 +11,9 @@ use crate::{
 use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
-use slint::{ComponentHandle, Model, ModelRc, SharedString};
+use slint::{Model, ModelRc, SharedString};
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
-
+pub fn setup(api: &ui::Api<'_>) {
     api.on_filter_palettes(filter_palettes);
     api.on_is_css_color(is_css_color);
 }
@@ -74,8 +72,7 @@ pub fn collect_palette(
     ModelRc::new(model)
 }
 
-pub fn set_palette(ui: &ui::PreviewUi, values: ModelRc<ui::PaletteEntry>) {
-    let api = ui.global::<ui::Api>();
+pub fn set_palette(api: &ui::Api<'_>, values: ModelRc<ui::PaletteEntry>) {
     api.set_palettes(values);
 }
 
