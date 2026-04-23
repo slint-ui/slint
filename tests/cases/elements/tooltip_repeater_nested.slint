@@ -8,6 +8,7 @@ component TooltipCard inherits Rectangle {
         height: parent.height;
         ToolTip {
             text: "nested tooltip";
+            placement: right;
             init => { root.created += 1; }
         }
     }

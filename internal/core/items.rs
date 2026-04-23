@@ -1879,6 +1879,7 @@ i_slint_common::for_each_enums!(declare_enums);
 /// The implementation of the `ToolTip` builtin (content is composed by the compiler lowering).
 pub struct ToolTip {
     pub text: Property<SharedString>,
+    pub placement: Property<ToolTipPlacement>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

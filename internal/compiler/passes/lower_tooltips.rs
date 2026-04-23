@@ -3,8 +3,9 @@
 
 //! Lowers `ToolTip { text: ... }` to an input-transparent popup overlay.
 //!
-//! For each `ToolTip` child, this pass synthesizes a `PopupWindow` that follows the
-//! parent's pointer position (`mouse-x`/`mouse-y`) and contains the tooltip content.
+//! For each `ToolTip` child, this pass synthesizes a `PopupWindow` anchored around
+//! the hovered parent element and contains the tooltip content.
+//! The `ToolTip.placement` enum controls whether it appears at top/bottom/left/right.
 //! Visibility is driven by the parent's `has-hover` change callback:
 //! - hover enters: start/restart a delay timer
 //! - timer fires: `ShowPopupWindow`
@@ -15,7 +16,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
-use crate::langtype::{EnumerationValue, Type};
+use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::typeregister::{TypeRegister, BUILTIN};
@@ -27,10 +28,319 @@ const TOOLTIP_ELEMENT: &str = "ToolTip";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
 const TOOLTIP_DELAY_MS: f64 = 500.;
+const TOOLTIP_GAP_PX: f64 = 8.;
 
 const HAS_HOVER: &str = "has-hover";
-const MOUSE_X: &str = "mouse-x";
-const MOUSE_Y: &str = "mouse-y";
+const WIDTH: &str = "width";
+const HEIGHT: &str = "height";
+const PLACEMENT: &str = "placement";
+
+fn build_tooltip_background(
+    popup_id: &SmolStr,
+    tooltip_text: NamedReference,
+    enclosing_component: &std::rc::Weak<Component>,
+    text_type: &ElementType,
+    vertical_layout_type: &ElementType,
+    rectangle_type: &ElementType,
+    palette: &Rc<Component>,
+    style_metrics: &Rc<Component>,
+) -> ElementRc {
+    let text_element = Element {
+        id: format_smolstr!("{}-text", popup_id),
+        base_type: text_type.clone(),
+        enclosing_component: enclosing_component.clone(),
+        bindings: [(
+            SmolStr::new_static("text"),
+            RefCell::new(Expression::PropertyReference(tooltip_text).into()),
+        )]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    let text_element_rc = text_element.make_rc();
+
+    let padded_text = Element {
+        id: format_smolstr!("{}-padded", popup_id),
+        base_type: vertical_layout_type.clone(),
+        enclosing_component: enclosing_component.clone(),
+        children: vec![text_element_rc],
+        bindings: [(
+            SmolStr::new_static("padding"),
+            RefCell::new(
+                Expression::PropertyReference(NamedReference::new(
+                    &style_metrics.root_element,
+                    SmolStr::new_static("layout-padding"),
+                ))
+                .into(),
+            ),
+        )]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    let padded_text_rc = padded_text.make_rc();
+
+    let background_rect = Element {
+        id: format_smolstr!("{}-bg", popup_id),
+        base_type: rectangle_type.clone(),
+        enclosing_component: enclosing_component.clone(),
+        children: vec![padded_text_rc],
+        bindings: [
+            (
+                SmolStr::new_static("background"),
+                RefCell::new(
+                    Expression::Cast {
+                        from: Expression::PropertyReference(NamedReference::new(
+                            &palette.root_element,
+                            SmolStr::new_static("alternate-background"),
+                        ))
+                        .into(),
+                        to: Type::Brush,
+                    }
+                    .into(),
+                ),
+            ),
+            (
+                SmolStr::new_static("border-radius"),
+                RefCell::new(
+                    Expression::PropertyReference(NamedReference::new(
+                        &style_metrics.root_element,
+                        SmolStr::new_static("layout-padding"),
+                    ))
+                    .into(),
+                ),
+            ),
+            (
+                SmolStr::new_static("border-width"),
+                RefCell::new(Expression::NumberLiteral(1., Unit::Px).into()),
+            ),
+            (
+                SmolStr::new_static("border-color"),
+                RefCell::new(
+                    Expression::Cast {
+                        from: Expression::PropertyReference(NamedReference::new(
+                            &palette.root_element,
+                            SmolStr::new_static("border"),
+                        ))
+                        .into(),
+                        to: Type::Brush,
+                    }
+                    .into(),
+                ),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    background_rect.make_rc()
+}
+
+fn build_tooltip_delay_timer(
+    popup_id: &SmolStr,
+    enclosing_component: &std::rc::Weak<Component>,
+    timer_type: &ElementType,
+) -> ElementRc {
+    let mut timer_interval: BindingExpression = Expression::NumberLiteral(TOOLTIP_DELAY_MS, Unit::Ms).into();
+    timer_interval.priority = 1;
+    Element {
+        id: format_smolstr!("{}-delay", popup_id),
+        base_type: timer_type.clone(),
+        enclosing_component: enclosing_component.clone(),
+        bindings: [(SmolStr::new_static("interval"), RefCell::new(timer_interval))]
+            .into_iter()
+            .collect(),
+        ..Default::default()
+    }
+    .make_rc()
+}
+
+fn wire_tooltip_placement(
+    popup_window_rc: &ElementRc,
+    parent_width: NamedReference,
+    parent_height: NamedReference,
+    tooltip_placement: NamedReference,
+    placement_enum: Rc<Enumeration>,
+) {
+    let popup_preferred_width =
+        NamedReference::new(popup_window_rc, SmolStr::new_static("preferred-width"));
+    let popup_preferred_height =
+        NamedReference::new(popup_window_rc, SmolStr::new_static("preferred-height"));
+    let placement_value = |name: &str| -> EnumerationValue {
+        EnumerationValue {
+            value: placement_enum
+                .values
+                .iter()
+                .position(|v| v == name)
+                .expect("ToolTipPlacement variant must exist"),
+            enumeration: placement_enum.clone(),
+        }
+    };
+
+    let is_left = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("left"))),
+        op: '=',
+    };
+    let is_right = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("right"))),
+        op: '=',
+    };
+    let is_top = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("top"))),
+        op: '=',
+    };
+    let is_bottom = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(tooltip_placement)),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("bottom"))),
+        op: '=',
+    };
+    let centered_x = Expression::BinaryExpression {
+        lhs: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(Expression::PropertyReference(parent_width.clone())),
+            rhs: Box::new(Expression::PropertyReference(popup_preferred_width.clone())),
+            op: '-',
+        }),
+        rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
+        op: '/',
+    };
+    let centered_y = Expression::BinaryExpression {
+        lhs: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(Expression::PropertyReference(parent_height.clone())),
+            rhs: Box::new(Expression::PropertyReference(popup_preferred_height.clone())),
+            op: '-',
+        }),
+        rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
+        op: '/',
+    };
+    let x_left = Expression::BinaryExpression {
+        lhs: Box::new(Expression::UnaryOp {
+            sub: Box::new(Expression::PropertyReference(popup_preferred_width)),
+            op: '-',
+        }),
+        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        op: '-',
+    };
+    let x_right = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(parent_width)),
+        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        op: '+',
+    };
+    let y_top = Expression::BinaryExpression {
+        lhs: Box::new(Expression::UnaryOp {
+            sub: Box::new(Expression::PropertyReference(popup_preferred_height)),
+            op: '-',
+        }),
+        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        op: '-',
+    };
+    let y_bottom = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(parent_height)),
+        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        op: '+',
+    };
+
+    let mut x_binding: BindingExpression = Expression::Condition {
+        condition: Box::new(is_left),
+        true_expr: Box::new(x_left),
+        false_expr: Box::new(Expression::Condition {
+            condition: Box::new(is_right),
+            true_expr: Box::new(x_right),
+            false_expr: Box::new(centered_x),
+        }),
+    }
+    .into();
+    x_binding.priority = 1;
+    popup_window_rc
+        .borrow_mut()
+        .bindings
+        .insert(SmolStr::new_static("x"), RefCell::new(x_binding));
+
+    let mut y_binding: BindingExpression = Expression::Condition {
+        condition: Box::new(is_top),
+        true_expr: Box::new(y_top),
+        false_expr: Box::new(Expression::Condition {
+            condition: Box::new(is_bottom),
+            true_expr: Box::new(y_bottom),
+            false_expr: Box::new(centered_y),
+        }),
+    }
+    .into();
+    y_binding.priority = 1;
+    popup_window_rc
+        .borrow_mut()
+        .bindings
+        .insert(SmolStr::new_static("y"), RefCell::new(y_binding));
+}
+
+fn wire_tooltip_visibility_behavior(
+    elem: &ElementRc,
+    tooltip_child_index: usize,
+    popup_window_rc: ElementRc,
+    timer_element_rc: ElementRc,
+) {
+    let has_hover_nr = NamedReference::new(elem, SmolStr::new_static(HAS_HOVER));
+    let popup_weak = Rc::downgrade(&popup_window_rc);
+    let timer_running = NamedReference::new(&timer_element_rc, SmolStr::new_static("running"));
+    let timer_weak = Rc::downgrade(&timer_element_rc);
+
+    let show_popup = Expression::FunctionCall {
+        function: BuiltinFunction::ShowPopupWindow.into(),
+        arguments: vec![Expression::ElementReference(popup_weak.clone())],
+        source_location: None,
+    };
+    let close_popup = Expression::FunctionCall {
+        function: BuiltinFunction::ClosePopupWindow.into(),
+        arguments: vec![Expression::ElementReference(popup_weak)],
+        source_location: None,
+    };
+    let restart_timer = Expression::FunctionCall {
+        function: BuiltinFunction::RestartTimer.into(),
+        arguments: vec![Expression::ElementReference(timer_weak)],
+        source_location: None,
+    };
+    let set_running_true = Expression::SelfAssignment {
+        lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
+        rhs: Box::new(Expression::BoolLiteral(true)),
+        op: '=',
+        node: None,
+    };
+    let set_running_false = Expression::SelfAssignment {
+        lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
+        rhs: Box::new(Expression::BoolLiteral(false)),
+        op: '=',
+        node: None,
+    };
+
+    let callback = Expression::Condition {
+        condition: Box::new(Expression::PropertyReference(has_hover_nr)),
+        true_expr: Box::new(Expression::CodeBlock(vec![set_running_true, restart_timer])),
+        false_expr: Box::new(Expression::CodeBlock(vec![set_running_false.clone(), close_popup])),
+    };
+    let timer_triggered = Expression::CodeBlock(vec![show_popup, set_running_false]);
+
+    {
+        let mut elem_borrow = elem.borrow_mut();
+        elem_borrow
+            .change_callbacks
+            .entry(SmolStr::new_static(HAS_HOVER))
+            .or_default()
+            .borrow_mut()
+            .push(callback);
+
+        elem_borrow.children.insert(tooltip_child_index, timer_element_rc.clone());
+        elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
+        elem_borrow.has_popup_child = true;
+    }
+    let mut timer_triggered_binding: BindingExpression = timer_triggered.into();
+    timer_triggered_binding.priority = 1;
+    timer_element_rc
+        .borrow_mut()
+        .bindings
+        .insert(SmolStr::new_static("triggered"), RefCell::new(timer_triggered_binding));
+}
 
 pub fn lower_tooltips(
     component: &Rc<Component>,
@@ -79,12 +389,10 @@ pub fn lower_tooltips(
         let supports_hover = {
             let elem_borrow = elem.borrow();
             !matches!(elem_borrow.lookup_property(HAS_HOVER).property_type, Type::Invalid)
-                && !matches!(elem_borrow.lookup_property(MOUSE_X).property_type, Type::Invalid)
-                && !matches!(elem_borrow.lookup_property(MOUSE_Y).property_type, Type::Invalid)
         };
         if !supports_hover {
             diag.push_error(
-                "ToolTip parent must provide hover and mouse position properties \
+                "ToolTip parent must provide hover properties \
                  (currently expected under TouchArea-like elements)"
                     .into(),
                 &*elem.borrow(),
@@ -106,101 +414,29 @@ pub fn lower_tooltips(
             (tooltip_child, enclosing_component, popup_id, popup_id_for_text)
         };
 
-        let mouse_x = NamedReference::new(elem, SmolStr::new_static(MOUSE_X));
-        let mouse_y = NamedReference::new(elem, SmolStr::new_static(MOUSE_Y));
+        let parent_width = NamedReference::new(elem, SmolStr::new_static(WIDTH));
+        let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
 
         let tooltip_text = NamedReference::new(&tooltip_child, SmolStr::new_static("text"));
-        let text_element = Element {
-            id: format_smolstr!("{}-text", popup_id_for_text),
-            base_type: text_type.clone(),
-            enclosing_component: enclosing_component.clone(),
-            bindings: [
-                (
-                    SmolStr::new_static("text"),
-                    RefCell::new(Expression::PropertyReference(tooltip_text).into()),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-            ..Default::default()
-        };
-        let text_element_rc = text_element.make_rc();
+        let tooltip_placement = NamedReference::new(&tooltip_child, SmolStr::new_static(PLACEMENT));
+        let background_rect_rc = build_tooltip_background(
+            &popup_id_for_text,
+            tooltip_text,
+            &enclosing_component,
+            &text_type,
+            &vertical_layout_type,
+            &rectangle_type,
+            palette,
+            style_metrics,
+        );
 
-        let padded_text = Element {
-            id: format_smolstr!("{}-padded", popup_id_for_text),
-            base_type: vertical_layout_type.clone(),
-            enclosing_component: enclosing_component.clone(),
-            children: vec![text_element_rc],
-            bindings: [(
-                SmolStr::new_static("padding"),
-                RefCell::new(
-                    Expression::PropertyReference(NamedReference::new(
-                        &style_metrics.root_element,
-                        SmolStr::new_static("layout-padding"),
-                    ))
-                    .into(),
-                ),
-            )]
-            .into_iter()
-            .collect(),
-            ..Default::default()
+        let placement_enum = match tooltip_child.borrow().lookup_property(PLACEMENT).property_type {
+            Type::Enumeration(en) => en,
+            _ => {
+                diag.push_error("ToolTip.placement must be an enum value".into(), &*tooltip_child.borrow());
+                return;
+            }
         };
-        let padded_text_rc = padded_text.make_rc();
-
-        let background_rect = Element {
-            id: format_smolstr!("{}-bg", popup_id_for_text),
-            base_type: rectangle_type.clone(),
-            enclosing_component: enclosing_component.clone(),
-            children: vec![padded_text_rc],
-            bindings: [
-                (
-                    SmolStr::new_static("background"),
-                    RefCell::new(
-                        Expression::Cast {
-                            from: Expression::PropertyReference(NamedReference::new(
-                                &palette.root_element,
-                                SmolStr::new_static("alternate-background"),
-                            ))
-                            .into(),
-                            to: Type::Brush,
-                        }
-                        .into(),
-                    ),
-                ),
-                (
-                    SmolStr::new_static("border-radius"),
-                    RefCell::new(
-                        Expression::PropertyReference(NamedReference::new(
-                            &style_metrics.root_element,
-                            SmolStr::new_static("layout-padding"),
-                        ))
-                        .into(),
-                    ),
-                ),
-                (
-                    SmolStr::new_static("border-width"),
-                    RefCell::new(Expression::NumberLiteral(1., Unit::Px).into()),
-                ),
-                (
-                    SmolStr::new_static("border-color"),
-                    RefCell::new(
-                        Expression::Cast {
-                            from: Expression::PropertyReference(NamedReference::new(
-                                &palette.root_element,
-                                SmolStr::new_static("border"),
-                            ))
-                            .into(),
-                            to: Type::Brush,
-                        }
-                        .into(),
-                    ),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-            ..Default::default()
-        };
-        let background_rect_rc = background_rect.make_rc();
 
         let popup_window = Element {
             id: popup_id,
@@ -209,14 +445,6 @@ pub fn lower_tooltips(
             popup_window_kind: Some(PopupWindowKind::Tooltip),
             children: vec![tooltip_child, background_rect_rc],
             bindings: [
-                (
-                    SmolStr::new_static("x"),
-                    RefCell::new(Expression::PropertyReference(mouse_x).into()),
-                ),
-                (
-                    SmolStr::new_static("y"),
-                    RefCell::new(Expression::PropertyReference(mouse_y).into()),
-                ),
                 (
                     SmolStr::new_static("close-policy"),
                     RefCell::new(
@@ -229,82 +457,21 @@ pub fn lower_tooltips(
             ..Default::default()
         };
         let popup_window_rc = popup_window.make_rc();
+        wire_tooltip_placement(
+            &popup_window_rc,
+            parent_width,
+            parent_height,
+            tooltip_placement,
+            placement_enum,
+        );
 
-        let has_hover_nr = NamedReference::new(elem, SmolStr::new_static(HAS_HOVER));
-        let popup_weak = Rc::downgrade(&popup_window_rc);
-        let timer_id = format_smolstr!("{}-delay", popup_id_for_text);
-        let mut timer_interval: BindingExpression =
-            Expression::NumberLiteral(TOOLTIP_DELAY_MS, Unit::Ms).into();
-        timer_interval.priority = 1;
-        let timer_element = Element {
-            id: timer_id,
-            base_type: timer_type.clone(),
-            enclosing_component: enclosing_component.clone(),
-            bindings: [(
-                SmolStr::new_static("interval"),
-                RefCell::new(timer_interval),
-            )]
-            .into_iter()
-            .collect(),
-            ..Default::default()
-        };
-        let timer_element_rc = timer_element.make_rc();
-        let timer_running = NamedReference::new(&timer_element_rc, SmolStr::new_static("running"));
-        let timer_weak = Rc::downgrade(&timer_element_rc);
-
-        let show_popup = Expression::FunctionCall {
-            function: BuiltinFunction::ShowPopupWindow.into(),
-            arguments: vec![Expression::ElementReference(popup_weak.clone())],
-            source_location: None,
-        };
-        let close_popup = Expression::FunctionCall {
-            function: BuiltinFunction::ClosePopupWindow.into(),
-            arguments: vec![Expression::ElementReference(popup_weak)],
-            source_location: None,
-        };
-        let restart_timer = Expression::FunctionCall {
-            function: BuiltinFunction::RestartTimer.into(),
-            arguments: vec![Expression::ElementReference(timer_weak)],
-            source_location: None,
-        };
-        let set_running_true = Expression::SelfAssignment {
-            lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
-            rhs: Box::new(Expression::BoolLiteral(true)),
-            op: '=',
-            node: None,
-        };
-        let set_running_false = Expression::SelfAssignment {
-            lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
-            rhs: Box::new(Expression::BoolLiteral(false)),
-            op: '=',
-            node: None,
-        };
-
-        let callback = Expression::Condition {
-            condition: Box::new(Expression::PropertyReference(has_hover_nr)),
-            true_expr: Box::new(Expression::CodeBlock(vec![set_running_true, restart_timer])),
-            false_expr: Box::new(Expression::CodeBlock(vec![set_running_false.clone(), close_popup])),
-        };
-        let timer_triggered = Expression::CodeBlock(vec![show_popup, set_running_false]);
-
-        {
-            let mut elem_borrow = elem.borrow_mut();
-            elem_borrow
-                .change_callbacks
-                .entry(SmolStr::new_static(HAS_HOVER))
-                .or_default()
-                .borrow_mut()
-                .push(callback);
-
-            elem_borrow.children.insert(tooltip_child_index, timer_element_rc.clone());
-            elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
-            elem_borrow.has_popup_child = true;
-        }
-        let mut timer_triggered_binding: BindingExpression = timer_triggered.into();
-        timer_triggered_binding.priority = 1;
-        timer_element_rc
-            .borrow_mut()
-            .bindings
-            .insert(SmolStr::new_static("triggered"), RefCell::new(timer_triggered_binding));
+        let timer_element_rc =
+            build_tooltip_delay_timer(&popup_id_for_text, &enclosing_component, &timer_type);
+        wire_tooltip_visibility_behavior(
+            elem,
+            tooltip_child_index,
+            popup_window_rc,
+            timer_element_rc,
+        );
     });
 }

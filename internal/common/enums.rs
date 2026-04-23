@@ -573,6 +573,19 @@ macro_rules! for_each_enums {
                 NoAutoClose,
             }
 
+            /// This enum describes where a `ToolTip` is placed relative to the hovered element.
+            #[non_exhaustive]
+            enum ToolTipPlacement {
+                /// Place the tooltip centered above the hovered element.
+                Top,
+                /// Place the tooltip centered below the hovered element.
+                Bottom,
+                /// Place the tooltip centered left of the hovered element.
+                Left,
+                /// Place the tooltip centered right of the hovered element.
+                Right,
+            }
+
             /// This enum describes the appearance of the ends of stroked paths.
             #[non_exhaustive]
             enum LineCap {
