@@ -20,7 +20,7 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -1247,7 +1247,10 @@ impl WindowInner {
                         // Access the properties to set them as dependencies
                         LogicalRect::new(
                             (popup.position_access)().to_euclid(),
-                            LogicalSize::new(window_item.width().0, window_item.height().0),
+                            crate::lengths::LogicalSize::new(
+                                window_item.width().0,
+                                window_item.height().0,
+                            ),
                         )
                     });
                 if let Some(adapter) = self.window_adapter_weak.upgrade() {
@@ -1529,37 +1532,43 @@ impl WindowInner {
 
         // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
         // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
-        let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-            let clip = LogicalRect::new(
-                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-            );
-            let rect = popup::place_popup(
-                popup::Placement::Fixed(LogicalRect::new(position, size)),
-                &Some(clip),
-            );
-            self.window_adapter().request_redraw();
-            properties_tracker =
-                Box::pin(PropertyTracker::new_with_dirty_handler(PopupWindowPropertiesTracker {
-                    parent_window_adapter_weak: parent_window_adapter_weak.clone(),
-                    popup_id,
-                }));
-            PopupWindowLocation::ChildWindow(rect.origin)
-        } else {
-            let popup_window = popup_window_adapter.window();
-            WindowInner::from_pub(popup_window).set_component(popup_componentrc);
-            popup_window.set_position(LogicalPosition::from_euclid(position));
-            popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
+        let (location, properties_tracker) =
+            if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
+                let clip = LogicalRect::new(
+                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                );
+                let rect = popup::place_popup(
+                    popup::Placement::Fixed(LogicalRect::new(position, size)),
+                    &Some(clip),
+                );
+                self.window_adapter().request_redraw();
+                (
+                    PopupWindowLocation::ChildWindow(rect.origin),
+                    Box::pin(PropertyTracker::new_with_dirty_handler(
+                        PopupWindowPropertiesTracker {
+                            parent_window_adapter_weak: parent_window_adapter_weak.clone(),
+                            popup_id,
+                        },
+                    )),
+                )
+            } else {
+                let popup_window = popup_window_adapter.window();
+                WindowInner::from_pub(popup_window).set_component(popup_componentrc);
+                popup_window.set_position(LogicalPosition::from_euclid(position));
+                popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
 
-            properties_tracker =
-                Box::pin(PropertyTracker::new_with_dirty_handler(PopupWindowPropertiesTracker {
-                    parent_window_adapter_weak: parent_window_adapter_weak.clone(),
-                    popup_id,
-                }));
-
-            popup_window_adapter.set_visible(true).expect("Unable to show popup");
-            PopupWindowLocation::TopLevel(popup_window_adapter)
-        };
+                popup_window_adapter.set_visible(true).expect("Unable to show popup");
+                (
+                    PopupWindowLocation::TopLevel(popup_window_adapter),
+                    Box::pin(PropertyTracker::new_with_dirty_handler(
+                        PopupWindowPropertiesTracker {
+                            parent_window_adapter_weak: parent_window_adapter_weak.clone(),
+                            popup_id,
+                        },
+                    )),
+                )
+            };
 
         let focus_item = self
             .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
