@@ -5,9 +5,7 @@
 import { ColorSchemeSelector } from "color-scheme.slint";
 
 // typo settings
-struct TextStyle  {
-    font-size: relative-font-size,
-    font-weight: int}
+struct TextStyle { font-size: relative-font-size, font-weight: int}
 
 export global MaterialFontSettings {
     out property <TextStyle> label-large: { font-size: 14 * 0.0625rem, font-weight: FontWeight.medium };
@@ -15,10 +13,7 @@ export global MaterialFontSettings {
     out property <TextStyle> body-large: { font-size: 16 * 0.0625rem, font-weight: FontWeight.normal };
     out property <TextStyle> body-small: { font-size: 12 * 0.0625rem, font-weight: FontWeight.normal };
     out property <TextStyle> title-small: { font-size: 14 * 0.0625rem, font-weight: FontWeight.medium };
-    out property <TextStyle> headline-large: {
-        font-size: 32 * 0.0625rem,
-        font-weight: FontWeight.medium
-    };
+    out property <TextStyle> headline-large: { font-size: 32 * 0.0625rem, font-weight: FontWeight.medium };
 }
 
 export global Elevation {
@@ -39,8 +34,9 @@ export global MaterialPalette {
     pure function accentify(default-color: color) -> color {
         let accent-color = SlintInternal.accent-color;
         if (accent-color.alpha > 0) {
-            let lch = default-color.to-oklch();
-            return oklch(lch.lightness, lch.chroma, accent-color.to-oklch().hue);
+            let default-lch = default-color.to-oklch();
+            let accent-lch = accent-color.to-oklch();
+            return oklch(default-lch.lightness, accent-lch.chroma, accent-lch.hue);
         }
         return default-color;
     }
