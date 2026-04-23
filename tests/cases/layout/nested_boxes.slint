@@ -169,4 +169,12 @@ assert!(instance.get_rect_black1_ok());
 assert!(instance.get_rect_black2_ok());
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

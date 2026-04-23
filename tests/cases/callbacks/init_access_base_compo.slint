@@ -98,5 +98,33 @@ assert.equal(instance.test1, "OK");
 assert.equal(instance.test2, "OK");
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test1, err := instance.GetTest1()
+assertion.NoError(err)
+assertion.Equal("KO", test1)
+
+test2, err := instance.GetTest2()
+assertion.NoError(err)
+assertion.Equal("KO", test2)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+assertion.NoError(instance.SetCond(true))
+slint_testing.SendMouseClick(instance, 5., 5.)
+
+test1, err = instance.GetTest1()
+assertion.NoError(err)
+assertion.Equal("OK", test1)
+
+test2, err = instance.GetTest2()
+assertion.NoError(err)
+assertion.Equal("OK", test2)
+```
+
 
 */

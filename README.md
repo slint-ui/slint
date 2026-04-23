@@ -7,7 +7,7 @@
 
 **Slint** is an open-source declarative GUI toolkit for building native user interfaces for embedded systems, desktops, and mobile platforms.
 
-Write your UI once in `.slint`, a simple markup language. Connect it to business logic written in Rust, C++, JavaScript, or Python.
+Write your UI once in `.slint`, a simple markup language. Connect it to business logic written in Rust, C++, JavaScript, Python, or Go.
 
 ## Why Slint?
 
@@ -103,11 +103,16 @@ Refer to the README of each language directory in the `api` folder:
 - [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial Video][#22] | [Getting Started Template][#23])
 - [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Getting Started Template][#28])
 - [Python (Beta)](api/python/slint) [![pypi][#31]][#32] ([Documentation][#33] | [Getting Started Template][#34])
+- [Go (Experimental)](api/go) ([Hello Example](examples/go/hello))
+
+The Go bindings use `go generate` to compile `.slint` files into Go wrappers. For cross-generation,
+set `SLINT_GOOS` and `SLINT_GOARCH` instead of `GOOS` and `GOARCH`, so the generator itself still runs
+on the host architecture.
 
 ## Architecture
 
-An application is composed of the business logic written in Rust, C++, or
-JavaScript and the `.slint` user interface design markup, which is compiled to
+An application is composed of the business logic written in Rust, C++, JavaScript,
+Python, or Go and the `.slint` user interface design markup, which is compiled to
 native code.
 
 ![Architecture Overview](https://slint.dev/resources/architecture.drawio.svg)
@@ -122,7 +127,7 @@ unchanged.
 The compiler uses the typical compiler phases of lexing, parsing, optimization,
 and finally code generation. It provides different back-ends for code generation
 in the target language. The C++ code generator produces a C++ header file, the
-Rust generator produces Rust code, and so on. An interpreter for dynamic
+Rust generator produces Rust code, the Go generator produces Go code, and so on. An interpreter for dynamic
 languages is also included.
 
 ### Runtime
@@ -181,7 +186,7 @@ Please see our separate [FAQ](FAQ.md).
 
 We are passionate about software - API design, cross-platform software
 development and user interface components. Our aim is to make developing user
-interfaces fun for everyone: from Python, JavaScript, C++, or Rust developers all the
+interfaces fun for everyone: from Python, JavaScript, Go, C++, or Rust developers all the
 way to UI/UX designers. We believe that software grows organically and keeping
 it open source is the best way to sustain that growth. Our team members are
 located remotely in Germany, Finland, and US.

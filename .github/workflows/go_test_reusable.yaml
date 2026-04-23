@@ -1,0 +1,66 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Go Test (Reusable)
+
+on:
+    workflow_call:
+      inputs:
+        name:
+            description: 'Name of the job'
+            required: true
+            type: string
+        os:
+            description: 'Operating system to run on'
+            required: true
+            type: string
+
+env:
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: 1
+
+
+jobs:
+    go_test:
+        name: ${{ inputs.name }}
+        runs-on: ${{ inputs.os }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - name: Setup headless display
+              if: runner.os != 'macOS'
+              uses: pyvista/setup-headless-display-action@v4
+            - uses: actions/setup-go@v6
+              id: go-install
+              with:
+                  go-version: '1.26'
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-go-v0-${{ steps.go-install.outputs.go-version }}
+                  target: ${{ runner.os == 'Windows' && 'x86_64-pc-windows-gnu' || '' }}
+            - name: Run Go package tests
+              working-directory: api/go
+              run: go test ./...
+            - name: Prebuild slint-cpp for Go test driver
+              if: runner.os == 'Windows'
+              run: cargo build --verbose -p slint-cpp --target x86_64-pc-windows-gnu --no-default-features --features interpreter,testing,backend-testing
+            - name: Run Go test driver
+              run: ${{ runner.os == 'Windows' && 'cargo test --verbose -p test-driver-go --target x86_64-pc-windows-gnu' || 'cargo test --verbose -p test-driver-go' }}
+            - name: Generate Go example
+              working-directory: examples/go/hello
+              env:
+                  SLINT_FEATURES: ${{ runner.os == 'Windows' && 'backend-winit,renderer-software' || '' }}
+              run: go generate
+            - name: Build Go example dynamically
+              working-directory: examples/go/hello
+              env:
+                  CGO_ENABLED: "1"
+              run: go build -o slint-shared .
+            - name: Build Go example statically
+              working-directory: examples/go/hello
+              env:
+                  CGO_ENABLED: "1"
+              run: go build -o slint-static -tags slint_static .

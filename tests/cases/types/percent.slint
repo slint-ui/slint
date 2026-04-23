@@ -57,4 +57,24 @@ assert(instance.test);
 
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+p1, err := instance.GetP1()
+assertion.NoError(err)
+assertion.Equal(1.0, p1)
+p2, err := instance.GetP2()
+assertion.NoError(err)
+assertion.InDelta(0.01, p2, 0.000001)
+p3, err := instance.GetP3()
+assertion.NoError(err)
+assertion.InDelta(0.055, p3, 0.000001)
+p4, err := instance.GetP4()
+assertion.NoError(err)
+assertion.Equal(10.5, p4)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

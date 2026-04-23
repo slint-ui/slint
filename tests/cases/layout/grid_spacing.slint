@@ -106,4 +106,12 @@ assert!(instance.get_rect3_pos_ok());
 assert!(instance.get_rect4_pos_ok());
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

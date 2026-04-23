@@ -96,4 +96,12 @@ assert.equal(instance.materialized_rect_min_height, 25);
 assert.equal(instance.materialized_rect_max_width, FLT_MAX);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

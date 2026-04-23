@@ -25,4 +25,12 @@ var instance = new slint.MainWindow({});
 assert.equal(instance.some_prop, 42);
 ```
 
+```go
+instance, err := ui.NewMainWindow()
+assertion.NoError(err)
+someProp, err := instance.GetSomeProp()
+assertion.NoError(err)
+assertion.Equal(42, someProp)
+```
+
 */

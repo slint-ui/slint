@@ -28,4 +28,19 @@ assert(Math.abs(instance.t1) < 0.0001);
 assert(Math.abs(instance.t2 - 1) < 0.0001);
 assert(Math.abs(instance.t3 - (2 + Math.sqrt(3))) < 0.0001);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.InDelta(0.0, t1, 0.0001)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.InDelta(1.0, t2, 0.0001)
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.InDelta(3.732050807568877, t3, 0.0001)
+```
 */

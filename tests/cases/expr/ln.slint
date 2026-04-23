@@ -24,4 +24,16 @@ var instance = new slint.TestCase({});
 assert.equal(instance.t1, 0);
 assert.equal(instance.t2, 3);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.InDelta(0.0, t1, 0.0001)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.InDelta(3.0, t2, 0.0001)
+```
 */

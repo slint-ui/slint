@@ -32,4 +32,15 @@ assert.equal(instance.p1, 42);
 assert.equal(instance.p2, 44);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+p1, err := instance.GetP1()
+assertion.NoError(err)
+assertion.Equal(42, p1)
+p2, err := instance.GetP2()
+assertion.NoError(err)
+assertion.Equal(44, p2)
+```
+
 */

@@ -29,6 +29,7 @@ interpreter = ["slint-interpreter", "std"]
 live-preview = ["interpreter", "slint-interpreter/internal-live-preview"]
 # Enable some function used by the integration tests
 testing = ["dep:i-slint-backend-testing"]
+backend-testing = ["i-slint-backend-selector/backend-testing"]
 
 backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]

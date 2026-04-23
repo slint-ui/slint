@@ -63,4 +63,42 @@ var instance = new slint.TestCase();
 assert.equal(instance.cb1({a: {member: 123}}).b, 124);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+result, err := instance.InvokeCb1(slint.StructValue(map[string]slint.Value{
+	"a": slint.StructValue(map[string]slint.Value{
+		"member": slint.NumberValue(123),
+	}),
+}))
+assertion.NoError(err)
+resultStruct, err := result.Struct()
+assertion.NoError(err)
+b, err := resultStruct.GetField("b")
+assertion.NoError(err)
+assertion.True(b.Equal(slint.NumberValue(124)))
+
+assertion.NoError(instance.SetXx(slint.StructValue(map[string]slint.Value{
+	"a": slint.StructValue(map[string]slint.Value{
+		"member": slint.NumberValue(456),
+	}),
+})))
+
+xx, err := instance.GetXx()
+assertion.NoError(err)
+xxStruct, err := xx.Struct()
+assertion.NoError(err)
+a, err := xxStruct.GetField("a")
+assertion.NoError(err)
+aStruct, err := a.Struct()
+assertion.NoError(err)
+member, err := aStruct.GetField("member")
+assertion.NoError(err)
+assertion.True(member.Equal(slint.NumberValue(456)))
+
+_, err = instance.GetPalette()
+assertion.NoError(err)
+```
+
 */

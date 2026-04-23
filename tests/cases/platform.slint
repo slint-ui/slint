@@ -50,4 +50,25 @@ if (platform === 'win32') {
     throw new Error("Unknown platform for this test: " + platform);
 }
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+os, err := instance.GetOs()
+assertion.NoError(err)
+styleName, err := instance.GetStyleName()
+assertion.NoError(err)
+
+switch runtime.GOOS {
+case "windows":
+	assertion.Equal("windows", os)
+case "darwin":
+	assertion.Equal("macos", os)
+case "linux":
+	assertion.Equal("linux", os)
+default:
+	assertion.Equal("error", os)
+}
+assertion.Equal("fluent", styleName)
+```
 */

@@ -64,4 +64,12 @@ assert_eq!(instance.get_red_w(), 100.);
 ```
 
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

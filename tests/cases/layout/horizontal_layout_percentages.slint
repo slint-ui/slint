@@ -54,4 +54,24 @@ assert(instance.check_y);
 assert(instance.check_width);
 assert(instance.check_height);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+checkPadding, err := instance.GetCheckPadding()
+assertion.NoError(err)
+assertion.True(checkPadding)
+checkX, err := instance.GetCheckX()
+assertion.NoError(err)
+assertion.True(checkX)
+checkY, err := instance.GetCheckY()
+assertion.NoError(err)
+assertion.True(checkY)
+checkWidth, err := instance.GetCheckWidth()
+assertion.NoError(err)
+assertion.True(checkWidth)
+checkHeight, err := instance.GetCheckHeight()
+assertion.NoError(err)
+assertion.True(checkHeight)
+```
 */

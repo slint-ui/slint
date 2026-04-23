@@ -50,4 +50,30 @@ instance.condition2 = true;
 assert.equal(instance.test_value2, 3);
 assert.equal(instance.test_value3, 12);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+assertion.NoError(instance.SetCondition(true))
+testValue, err := instance.GetTestValue()
+assertion.NoError(err)
+assertion.Equal(1, testValue)
+testValue2, err := instance.GetTestValue2()
+assertion.NoError(err)
+assertion.Equal(2, testValue2)
+assertion.NoError(instance.SetCondition(false))
+testValue, err = instance.GetTestValue()
+assertion.NoError(err)
+assertion.Equal(2, testValue)
+testValue2, err = instance.GetTestValue2()
+assertion.NoError(err)
+assertion.Equal(4, testValue2)
+assertion.NoError(instance.SetCondition2(true))
+testValue2, err = instance.GetTestValue2()
+assertion.NoError(err)
+assertion.Equal(3, testValue2)
+testValue3, err := instance.GetTestValue3()
+assertion.NoError(err)
+assertion.Equal(12.0, testValue3)
+```
 */

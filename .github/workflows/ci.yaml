@@ -41,6 +41,7 @@ jobs:
         api_cpp : ${{ steps.filter.outputs.api_cpp }}
         api_python : ${{ steps.filter.outputs.api_python }}
         api_node : ${{ steps.filter.outputs.api_node }}
+        api_go : ${{ steps.filter.outputs.api_go }}
         api_rs : ${{ steps.filter.outputs.api_rs }}
         tests : ${{ steps.filter.outputs.tests }}
         examples : ${{ steps.filter.outputs.examples }}
@@ -134,6 +135,30 @@ jobs:
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
+          os: "windows-2022"
+
+    go_test_linux:
+        needs: files-changed
+        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_go == 'true' || needs.files-changed.outputs.tests == 'true'
+        uses: ./.github/workflows/go_test_reusable.yaml
+        with:
+          name: "Go Linux"
+          os: "ubuntu-22.04"
+
+    go_test_macos:
+        needs: files-changed
+        if: needs.files-changed.outputs.api_go == 'true' || needs.files-changed.outputs.tests == 'true'
+        uses: ./.github/workflows/go_test_reusable.yaml
+        with:
+          name: "Go macOS"
+          os: "macos-14"
+
+    go_test_windows:
+        needs: files-changed
+        if: needs.files-changed.outputs.api_go == 'true' || needs.files-changed.outputs.tests == 'true'
+        uses: ./.github/workflows/go_test_reusable.yaml
+        with:
+          name: "Go Windows"
           os: "windows-2022"
 
     cpp_test_driver:

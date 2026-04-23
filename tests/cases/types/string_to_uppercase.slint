@@ -37,4 +37,24 @@ assert.equal(instance.odysseus, "ὈΔΥΣΣΕΎΣ");
 assert.equal(instance.new_year, "农历新年");
 assert.equal(instance.bye, "TSCHÜSS");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+hello, err := instance.GetHello()
+assertion.NoError(err)
+assertion.Equal("HELLO", hello)
+sigma, err := instance.GetSigma()
+assertion.NoError(err)
+assertion.Equal("Σ", sigma)
+odysseus, err := instance.GetOdysseus()
+assertion.NoError(err)
+assertion.Equal("ὈΔΥΣΣΕΎΣ", odysseus)
+newYear, err := instance.GetNewYear()
+assertion.NoError(err)
+assertion.Equal("农历新年", newYear)
+bye, err := instance.GetBye()
+assertion.NoError(err)
+assertion.Equal("TSCHÜSS", bye)
+```
 */

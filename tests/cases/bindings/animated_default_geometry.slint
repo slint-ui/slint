@@ -33,4 +33,12 @@ let instance = new slint.TestCase({});
 assert(instance.test, 1);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

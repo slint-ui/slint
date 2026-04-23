@@ -76,4 +76,36 @@ instance.test_callback2();
 assert.equal(instance.callback_emission_count, 88);
 assert.equal(callback_3_emitted, 1);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+callback3Emitted := 0
+assertion.NoError(instance.OnTestCallback3(func() {
+	callback3Emitted++
+}))
+
+assertion.NoError(instance.SetCallbackEmissionCount(0))
+callbackEmissionCount, err := instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(0, callbackEmissionCount)
+
+assertion.NoError(instance.InvokeTestCallback())
+callbackEmissionCount, err = instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(1, callbackEmissionCount)
+
+assertion.NoError(instance.InvokeTestCallback())
+callbackEmissionCount, err = instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(2, callbackEmissionCount)
+assertion.Equal(0, callback3Emitted)
+
+assertion.NoError(instance.InvokeTestCallback2())
+callbackEmissionCount, err = instance.GetCallbackEmissionCount()
+assertion.NoError(err)
+assertion.Equal(88, callbackEmissionCount)
+assertion.Equal(1, callback3Emitted)
+```
 */

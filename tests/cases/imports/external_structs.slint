@@ -36,4 +36,25 @@ assert.equal(instance.p1, 2003);
 assert.equal(instance.exp.e.a, 2001);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+p1, err := instance.GetP1()
+assertion.NoError(err)
+assertion.Equal(2003, p1)
+
+exp, err := instance.GetExp()
+assertion.NoError(err)
+expStruct, err := exp.Struct()
+assertion.NoError(err)
+e, err := expStruct.GetField("e")
+assertion.NoError(err)
+eStruct, err := e.Struct()
+assertion.NoError(err)
+a, err := eStruct.GetField("a")
+assertion.NoError(err)
+assertion.True(a.Equal(slint.NumberValue(2001)))
+```
+
 */

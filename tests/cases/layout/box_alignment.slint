@@ -103,4 +103,12 @@ assert(instance.b1);
 assert(instance.c1);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

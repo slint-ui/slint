@@ -1411,6 +1411,17 @@ impl ComponentInstance {
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
+    #[cfg(feature = "ffi")]
+    pub(crate) fn get_property_unchecked(&self, name: &str) -> Result<Value, GetPropertyError> {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        let name = normalize_identifier(name);
+
+        comp.description()
+            .get_property(comp.borrow(), &name)
+            .map_err(|()| GetPropertyError::NoSuchProperty)
+    }
+
     /// Set the value for a public property of this component.
     pub fn set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
         let name = normalize_identifier(name);

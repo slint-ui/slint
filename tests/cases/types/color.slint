@@ -239,6 +239,47 @@ assert.equal(t.i1.toString(), "#00ff00");
 
 assert(t.test_rgb);
 assert(t.test);
+```
 
+```go
+t, err := ui.NewTest()
+assertion.NoError(err)
+
+b1, err := t.GetB1()
+assertion.NoError(err)
+color, err := b1.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorRGB(0, 0, 255), color)
+
+r1, err := t.GetR1()
+assertion.NoError(err)
+color, err = r1.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorRGB(255, 0, 0), color)
+
+y1, err := t.GetY1()
+assertion.NoError(err)
+color, err = y1.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorRGB(255, 255, 0), color)
+
+c1, err := t.GetC1()
+assertion.NoError(err)
+color, err = c1.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorARGB(136, 255, 51, 85), color)
+
+i1, err := t.GetI1()
+assertion.NoError(err)
+color, err = i1.Color()
+assertion.NoError(err)
+assertion.Equal(slint.ColorRGB(0, 255, 0), color)
+
+assertion.NoError(t.SetG1(slint.ColorValue(slint.ColorRGB(0, 255, 0))))
+assertion.NoError(t.SetG1(slint.ColorValue(slint.ColorRGB(0, 0, 255))))
+
+test, err := t.GetTest()
+assertion.NoError(err)
+assertion.True(test)
 ```
 */

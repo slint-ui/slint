@@ -52,4 +52,29 @@ instance.foo();
 assert.equal(instance.s3, "x42x42");
 assert.equal(instance.s4, "ayoxxx");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+s1, err := instance.GetS1()
+assertion.NoError(err)
+assertion.Equal("hello1212", s1)
+s2, err := instance.GetS2()
+assertion.NoError(err)
+assertion.Equal("10hello5.1", s2)
+
+assertion.NoError(instance.SetA(42))
+s1, err = instance.GetS1()
+assertion.NoError(err)
+assertion.Equal("hello4242", s1)
+
+assertion.NoError(instance.InvokeFoo())
+s3, err := instance.GetS3()
+assertion.NoError(err)
+assertion.Equal("x42x42", s3)
+s4, err := instance.GetS4()
+assertion.NoError(err)
+assertion.Equal("ayoxxx", s4)
+```
 */

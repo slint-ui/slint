@@ -33,4 +33,17 @@ var instance = new slint.TestCase();
 assert.equal(instance.test_prop, 6);
 assert.equal(instance.test_prop2, "hello=54");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+testProp, err := instance.GetTestProp()
+assertion.NoError(err)
+assertion.Equal(6, testProp)
+
+testProp2, err := instance.GetTestProp2()
+assertion.NoError(err)
+assertion.Equal("hello=54", testProp2)
+```
 */

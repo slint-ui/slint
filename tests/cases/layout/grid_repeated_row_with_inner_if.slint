@@ -51,4 +51,12 @@ assert_eq!(instance.get_end_row(), 2);
 assert!(instance.get_test());
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

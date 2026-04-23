@@ -125,4 +125,63 @@ assert.equal(instance.binding_dep, 150);
 assert.equal(instance.unset_property, 100);
 
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+hello, err := instance.GetHello()
+assertion.NoError(err)
+assertion.Equal(40, hello)
+bindingDep, err := instance.GetBindingDep()
+assertion.NoError(err)
+assertion.Equal(100, bindingDep)
+unsetProperty, err := instance.GetUnsetProperty()
+assertion.NoError(err)
+assertion.Equal(0, unsetProperty)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+
+hello, err = instance.GetHello()
+assertion.NoError(err)
+assertion.Equal(40, hello)
+bindingDep, err = instance.GetBindingDep()
+assertion.NoError(err)
+assertion.Equal(100, bindingDep)
+unsetProperty, err = instance.GetUnsetProperty()
+assertion.NoError(err)
+assertion.Equal(0, unsetProperty)
+
+slint.MockElapsedTime(600)
+hello, err = instance.GetHello()
+assertion.NoError(err)
+assertion.Equal(50, hello)
+bindingDep, err = instance.GetBindingDep()
+assertion.NoError(err)
+assertion.Equal(125, bindingDep)
+unsetProperty, err = instance.GetUnsetProperty()
+assertion.NoError(err)
+assertion.Equal(50, unsetProperty)
+
+slint.MockElapsedTime(600)
+hello, err = instance.GetHello()
+assertion.NoError(err)
+assertion.Equal(60, hello)
+bindingDep, err = instance.GetBindingDep()
+assertion.NoError(err)
+assertion.Equal(150, bindingDep)
+unsetProperty, err = instance.GetUnsetProperty()
+assertion.NoError(err)
+assertion.Equal(100, unsetProperty)
+
+slint.MockElapsedTime(100)
+hello, err = instance.GetHello()
+assertion.NoError(err)
+assertion.Equal(60, hello)
+bindingDep, err = instance.GetBindingDep()
+assertion.NoError(err)
+assertion.Equal(150, bindingDep)
+unsetProperty, err = instance.GetUnsetProperty()
+assertion.NoError(err)
+assertion.Equal(100, unsetProperty)
+```
 */

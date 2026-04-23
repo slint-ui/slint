@@ -120,4 +120,12 @@ assert!(instance.get_elem4_ok());
 assert!(instance.get_test());
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

@@ -39,4 +39,18 @@ assert.equal(instance.int_val, -7);
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+text, err := instance.GetText()
+assertion.NoError(err)
+assertion.Equal("2", text)
+intVal, err := instance.GetIntVal()
+assertion.NoError(err)
+assertion.Equal(-7, intVal)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

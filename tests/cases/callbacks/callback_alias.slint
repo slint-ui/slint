@@ -67,4 +67,26 @@ assert instance.foo1_alias(100) == 122;
 assert instance.foo2_alias(100) == 188;
 assert instance.call_foo2(100) == 188;
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+foo1Alias, err := instance.InvokeFoo1Alias(100)
+assertion.NoError(err)
+assertion.Equal(122, foo1Alias)
+
+foo2Alias, err := instance.InvokeFoo2Alias(100)
+assertion.NoError(err)
+assertion.Equal(188, foo2Alias)
+
+callFoo2, err := instance.InvokeCallFoo2(100)
+assertion.NoError(err)
+assertion.Equal(188, callFoo2)
+
+assertion.NoError(instance.OnFoo2Alias(func(val int) int { return val - 20 }))
+callFoo2, err = instance.InvokeCallFoo2(200)
+assertion.NoError(err)
+assertion.Equal(180, callFoo2)
+```
 */

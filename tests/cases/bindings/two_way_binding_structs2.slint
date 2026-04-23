@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // FIXME: only works with rust
-//ignore: cpp,interpreter,js
+//ignore: cpp,interpreter,js,go
 
 
 component Link {
@@ -54,6 +54,23 @@ assert(instance.get_test());
 ```js
 let instance = new slint.TestCase({});
 assert(instance.test);
+```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+s1, err := instance.GetS1()
+assertion.NoError(err)
+assertion.Equal(slint.ValueTypeStruct, s1.Type())
+
+s2, err := instance.GetS2()
+assertion.NoError(err)
+assertion.Equal(slint.ValueTypeStruct, s2.Type())
 ```
 
 */

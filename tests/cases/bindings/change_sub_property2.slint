@@ -41,4 +41,16 @@ instance.change();
 assert.equal(instance.toplevel, 56+44+44);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+toplevel, err := instance.GetToplevel()
+assertion.NoError(err)
+assertion.Equal(56, toplevel)
+assertion.NoError(instance.InvokeChange())
+toplevel, err = instance.GetToplevel()
+assertion.NoError(err)
+assertion.Equal(144, toplevel)
+```
+
 */

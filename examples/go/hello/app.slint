@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export global Logic {
+    pure callback make-greeting(string) -> string;
+}
+
+export component AppWindow inherits Window {
+    in-out property <string> name: "World";
+
+    title: "Slint + Go";
+    width: 360px;
+    height: 140px;
+
+    Text {
+        text: Logic.make-greeting(root.name);
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

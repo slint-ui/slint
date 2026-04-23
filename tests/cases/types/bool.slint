@@ -31,4 +31,15 @@ instance = TestCase()
 assert instance.truevar
 assert not instance.falsevar
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+truevar, err := instance.GetTruevar()
+assertion.NoError(err)
+assertion.True(truevar)
+falsevar, err := instance.GetFalsevar()
+assertion.NoError(err)
+assertion.False(falsevar)
+```
 */

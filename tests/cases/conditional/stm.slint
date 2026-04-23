@@ -95,4 +95,36 @@ assert.equal(instance.elseif(1), 41);
 assert.equal(instance.elseif(2), 42);
 assert.equal(instance.elseif(3), 43);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+assertion.NoError(instance.InvokeAction())
+result, err := instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(3, result)
+assertion.NoError(instance.SetValue(5))
+assertion.NoError(instance.InvokeAction())
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(5, result)
+assertion.NoError(instance.SetValue(8))
+assertion.NoError(instance.InvokeAction())
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(38, result)
+assertion.NoError(instance.InvokeXxx())
+result, err = instance.GetResult()
+assertion.NoError(err)
+assertion.Equal(37, result)
+elseif, err := instance.InvokeElseif(1)
+assertion.NoError(err)
+assertion.Equal(41, elseif)
+elseif, err = instance.InvokeElseif(2)
+assertion.NoError(err)
+assertion.Equal(42, elseif)
+elseif, err = instance.InvokeElseif(3)
+assertion.NoError(err)
+assertion.Equal(43, elseif)
+```
 */

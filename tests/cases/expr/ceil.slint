@@ -49,4 +49,34 @@ assert.equal(instance.n2, -23);
 assert.equal(instance.n3, -24);
 assert.equal(instance.n4, -25);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.Equal(43, t1)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.Equal(24, t2)
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.Equal(25, t3)
+t4, err := instance.GetT4()
+assertion.NoError(err)
+assertion.Equal(25, t4)
+n1, err := instance.GetN1()
+assertion.NoError(err)
+assertion.Equal(-42, n1)
+n2, err := instance.GetN2()
+assertion.NoError(err)
+assertion.Equal(-23, n2)
+n3, err := instance.GetN3()
+assertion.NoError(err)
+assertion.Equal(-24, n3)
+n4, err := instance.GetN4()
+assertion.NoError(err)
+assertion.Equal(-25, n4)
+```
 */

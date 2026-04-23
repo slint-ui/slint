@@ -68,4 +68,33 @@ assert.equal(instance.test_call_callback, 10);
 assert.equal(instance.PublicGlobal.sum(4, 5), 9);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+testGlobalPropValue, err := instance.GetTestGlobalPropValue()
+assertion.NoError(err)
+assertion.False(testGlobalPropValue)
+
+publicGlobal := instance.PublicGlobal()
+hello, err := publicGlobal.GetHello()
+assertion.NoError(err)
+assertion.Equal(42, hello)
+assertion.NoError(publicGlobal.SetHello(100))
+testGlobalPropValue, err = instance.GetTestGlobalPropValue()
+assertion.NoError(err)
+assertion.True(testGlobalPropValue)
+
+foo, err := instance.ReexportedGlobal().GetFoo()
+assertion.NoError(err)
+assertion.Equal(44, foo)
+
+assertion.NoError(publicGlobal.OnSum(func(a int, b int) int { return a + b }))
+testCallCallback, err := instance.GetTestCallCallback()
+assertion.NoError(err)
+assertion.Equal(10, testCallCallback)
+sum, err := publicGlobal.InvokeSum(4, 5)
+assertion.NoError(err)
+assertion.Equal(9, sum)
+```
+
 */

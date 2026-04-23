@@ -78,4 +78,12 @@ assert.equal(instance.second_image_height, 300.);
 assert(instance.hfw_rect_ok);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

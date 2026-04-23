@@ -57,4 +57,19 @@ assert_eq!(instance.get_value(), 1+1+2);
 ```
 
 // FIXME: JS test because layout are not computed
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, -1., -1.)
+slint_testing.SendMouseClick(instance, 190., 190.)
+value, err := instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(2, value)
+slint_testing.SendMouseClick(instance, 5., 290.)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(4, value)
+```
 */

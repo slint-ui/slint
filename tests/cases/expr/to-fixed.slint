@@ -56,4 +56,40 @@ assert.equal(instance.t8, "2.4");
 assert.equal(instance.t9, "2.5");
 assert.equal(instance.t10, "12346");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+t1, err := instance.GetT1()
+assertion.NoError(err)
+assertion.Equal("12346", t1)
+t2, err := instance.GetT2()
+assertion.NoError(err)
+assertion.Equal("12345.7", t2)
+t3, err := instance.GetT3()
+assertion.NoError(err)
+assertion.Equal("12345.678900", t3)
+t4, err := instance.GetT4()
+assertion.NoError(err)
+assertion.Equal("-12346", t4)
+t5, err := instance.GetT5()
+assertion.NoError(err)
+assertion.Equal("-12345.7", t5)
+t6, err := instance.GetT6()
+assertion.NoError(err)
+assertion.Equal("-12345.678900", t6)
+t7, err := instance.GetT7()
+assertion.NoError(err)
+assertion.Equal("2.3", t7)
+t8, err := instance.GetT8()
+assertion.NoError(err)
+assertion.Equal("2.4", t8)
+t9, err := instance.GetT9()
+assertion.NoError(err)
+assertion.Equal("2.5", t9)
+t10, err := instance.GetT10()
+assertion.NoError(err)
+assertion.Equal("12346", t10)
+```
 */

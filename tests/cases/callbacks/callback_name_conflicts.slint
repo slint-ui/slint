@@ -32,4 +32,14 @@ var instance = new slint.TestCase();
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.value, 1);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+slint_testing.SendMouseClick(instance, 5., 5.)
+value, err := instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(1, value)
+```
 */

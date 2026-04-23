@@ -60,4 +60,22 @@ instance.controller = 50.;
 assert.equal(instance.controlled_test_length, 100.);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+testLength, err := instance.GetTestLength()
+assertion.NoError(err)
+assertion.InDelta(300, testLength, 0.0001)
+testInnerInnerLength, err := instance.GetTestInnerInnerLength()
+assertion.NoError(err)
+assertion.InDelta(75, testInnerInnerLength, 0.0001)
+controlledTestLength, err := instance.GetControlledTestLength()
+assertion.NoError(err)
+assertion.InDelta(20, controlledTestLength, 0.0001)
+assertion.NoError(instance.SetController(50))
+controlledTestLength, err = instance.GetControlledTestLength()
+assertion.NoError(err)
+assertion.InDelta(100, controlledTestLength, 0.0001)
+```
+
 */

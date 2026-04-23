@@ -38,4 +38,15 @@ var instance = new slint.TestCase({});
 assert(instance.text == "Hello TextInterface");
 assert.equal(instance.length("Hello"), 5);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+text, err := instance.GetText()
+assertion.NoError(err)
+assertion.Equal("Hello TextInterface", text)
+length, err := instance.InvokeLength("Hello")
+assertion.NoError(err)
+assertion.Equal(5, length)
+```
 */

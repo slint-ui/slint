@@ -56,4 +56,18 @@ var instance = new slint.TestCase({});
 assert(instance.test);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+phxToRem, err := instance.GetPhxToRem()
+assertion.NoError(err)
+assertion.Equal(2.0, phxToRem)
+pxToRem, err := instance.GetPxToRem()
+assertion.NoError(err)
+assertion.Equal(2.0, pxToRem)
+```
+
 */

@@ -215,4 +215,12 @@ assert.equal(instance.clicked_row, 5);
 assert.equal(instance.clicked_col, 0);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

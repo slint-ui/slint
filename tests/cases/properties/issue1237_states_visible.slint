@@ -48,6 +48,29 @@ assert!(!instance.get_test());
 slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq!(instance.get_niceness(), -1);
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+
+slint_testing.SendMouseClick(instance, 50., 50.)
+niceness, err := instance.GetNiceness()
+assertion.NoError(err)
+assertion.Equal(34, niceness)
+
+assertion.NoError(instance.SetNiceness(-1))
+test, err = instance.GetTest()
+assertion.NoError(err)
+assertion.False(test)
+
+slint_testing.SendMouseClick(instance, 50., 50.)
+niceness, err = instance.GetNiceness()
+assertion.NoError(err)
+assertion.Equal(-1, niceness)
+```
 
 
 */

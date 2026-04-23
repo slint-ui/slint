@@ -42,4 +42,29 @@ assert.equal(instance.cat_width, 320);
 assert.equal(instance.cat_height, 480);
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+emptyWidth, err := instance.GetEmptyWidth()
+assertion.NoError(err)
+assertion.Equal(0, emptyWidth)
+
+emptyHeight, err := instance.GetEmptyHeight()
+assertion.NoError(err)
+assertion.Equal(0, emptyHeight)
+
+catWidth, err := instance.GetCatWidth()
+assertion.NoError(err)
+assertion.Equal(320, catWidth)
+
+catHeight, err := instance.GetCatHeight()
+assertion.NoError(err)
+assertion.Equal(480, catHeight)
+
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

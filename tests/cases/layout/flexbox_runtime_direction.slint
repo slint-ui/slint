@@ -70,4 +70,17 @@ assert(instance.test_row);
 instance.use_column = true;
 assert(instance.test_column);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+instance.SetUseColumn(false)
+testRow, err := instance.GetTestRow()
+assertion.NoError(err)
+assertion.True(testRow)
+instance.SetUseColumn(true)
+testColumn, err := instance.GetTestColumn()
+assertion.NoError(err)
+assertion.True(testColumn)
+```
 */

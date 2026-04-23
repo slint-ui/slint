@@ -62,4 +62,34 @@ assert.equal(instance.test_prop2, "hello=44");
 
 assert.equal(instance.test_func2("xxx", 1), "xxx=3");
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+assertion.NoError(instance.OnTestFunc(func(a int) int {
+	someValue, err := instance.GetSomeValue()
+	assertion.NoError(err)
+	return someValue * a
+}))
+
+testProp, err := instance.GetTestProp()
+assertion.NoError(err)
+assertion.Equal(20, testProp)
+testProp2, err := instance.GetTestProp2()
+assertion.NoError(err)
+assertion.Equal("hello=50", testProp2)
+
+assertion.NoError(instance.SetSomeValue(2))
+testProp, err = instance.GetTestProp()
+assertion.NoError(err)
+assertion.Equal(8, testProp)
+testProp2, err = instance.GetTestProp2()
+assertion.NoError(err)
+assertion.Equal("hello=44", testProp2)
+
+testFunc2, err := instance.InvokeTestFunc2("xxx", 1)
+assertion.NoError(err)
+assertion.Equal("xxx=3", testFunc2)
+```
 */

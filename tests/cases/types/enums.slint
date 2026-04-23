@@ -88,4 +88,25 @@ instance.dash = With_dash.hallo
 instance.dash = With_dash.hello_world
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+foo, err := instance.GetFoo()
+assertion.NoError(err)
+assertion.Equal(ui.FooBla, foo)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+assertion.NoError(instance.SetFoo(ui.FooBlu))
+test, err = instance.GetTest()
+assertion.NoError(err)
+assertion.False(test)
+
+dash, err := instance.GetDash()
+assertion.NoError(err)
+assertion.Equal(ui.WithDashHalloWorld, dash)
+assertion.NoError(instance.SetDash(ui.WithDashHallo))
+assertion.NoError(instance.SetDash(ui.WithDashHelloWorld))
+```
 */

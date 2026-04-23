@@ -61,6 +61,7 @@ members = [
   'tests/doctests',
   'tests/driver/cpp',
   'tests/driver/driverlib',
+  'tests/driver/go',
   'tests/driver/interpreter',
   'tests/driver/nodejs',
   'tests/driver/python',

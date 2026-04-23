@@ -20,6 +20,7 @@ path = "lib.rs"
 # Generators
 cpp = []
 rust = ["quote", "proc-macro2"]
+go = ["dep:pathdiff"]
 python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:flate2", "dep:base64"]
 
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
@@ -103,6 +104,7 @@ features = [
   "bundle-translations",
   "cpp",
   "rust",
+  "go",
   "python",
   "experimental-library-module",
 ]

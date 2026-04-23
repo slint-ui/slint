@@ -88,4 +88,12 @@ assert(instance.rect3_pos_ok);
 assert(instance.rect4_pos_ok);
 assert(instance.rect5_pos_ok);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

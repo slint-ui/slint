@@ -115,4 +115,12 @@ assert(instance.test, 1);
 assert.deepEqual(instance.coords, { x: 40, y: 60});
 ```
 
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
+
 */

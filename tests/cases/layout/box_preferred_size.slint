@@ -50,4 +50,12 @@ assert(instance.fake_image_width_ok);
 assert(instance.fake_image_height_ok);
 ```
 
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

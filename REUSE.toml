@@ -62,6 +62,8 @@ path = [
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
+  "go.mod",
+  "go.sum",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -133,6 +135,8 @@ path = [
   "examples/orbit-animation/images/**.svg",
   "examples/sprite-sheet/images/**.png",
   "examples/speedometer/needle.png",
+  "examples/**/.gitkeep",
+  "examples/**/*.slint.go",
 
   "demos/printerdemo/ui/images/action-button-frame.png",
   "demos/printerdemo/ui/images/mcu/combo-active-background.png",

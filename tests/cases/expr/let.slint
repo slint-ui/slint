@@ -85,4 +85,31 @@ assert_eq(instance.invoke_test_struct_conversion(), 2);
 assert_eq(instance.invoke_test_enum(), 1);
 assert(instance.get_test_background());
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+testSimple, err := instance.InvokeTestSimple()
+assertion.NoError(err)
+assertion.Equal(1, testSimple)
+testTypeAnnotation, err := instance.InvokeTestTypeAnnotation()
+assertion.NoError(err)
+assertion.Equal(1, testTypeAnnotation)
+testTypeAnnotationConversion, err := instance.InvokeTestTypeAnnotationConversion()
+assertion.NoError(err)
+assertion.Equal(1, testTypeAnnotationConversion)
+testStructConversion, err := instance.InvokeTestStructConversion()
+assertion.NoError(err)
+assertion.Equal(2, testStructConversion)
+testEnum, err := instance.InvokeTestEnum()
+assertion.NoError(err)
+assertion.Equal(1, testEnum)
+testBackground, err := instance.GetTestBackground()
+assertion.NoError(err)
+assertion.True(testBackground)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

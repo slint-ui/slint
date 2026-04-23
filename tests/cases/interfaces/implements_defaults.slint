@@ -50,4 +50,24 @@ assert.equal(instance.precision, 2);
 assert.equal(instance.confidence, 0.5);
 assert(instance.test);
 ```
+
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+text, err := instance.GetText()
+assertion.NoError(err)
+assertion.Equal("Hello", text)
+enabled, err := instance.GetEnabled()
+assertion.NoError(err)
+assertion.True(enabled)
+precision, err := instance.GetPrecision()
+assertion.NoError(err)
+assertion.Equal(2, precision)
+confidence, err := instance.GetConfidence()
+assertion.NoError(err)
+assertion.Equal(0.5, confidence)
+test, err := instance.GetTest()
+assertion.NoError(err)
+assertion.True(test)
+```
 */

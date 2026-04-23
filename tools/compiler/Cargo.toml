@@ -27,7 +27,7 @@ fontconfig-dlopen = ["i-slint-common/fontconfig-dlopen"]
 default = ["software-renderer", "jemalloc"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "bundle-translations", "cpp", "rust", "python"] }
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "bundle-translations", "cpp", "rust", "go", "python"] }
 i-slint-common = { workspace = true }
 
 clap = { workspace = true }
