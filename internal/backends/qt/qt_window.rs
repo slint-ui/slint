@@ -2044,7 +2044,12 @@ impl WindowAdapter for QtWindow {
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos);
+            const auto* parent = widget_ptr->parentWidget();
+            if (parent) {
+                widget_ptr->move(parent->mapToGlobal(QPoint(0,0)) + pos);
+            } else {
+                widget_ptr->move(pos);
+            }
         }};
     }
 
