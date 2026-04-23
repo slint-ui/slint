@@ -65,7 +65,7 @@ export component LineEdit uses { LineEditInterface from base } {
                 horizontal-stretch: 1;
             }
 
-            if root.input-type == InputType.password: LineEditPasswordIcon {
+            if root.input-type == InputType.password && root.enabled: LineEditPasswordIcon {
                 width: self.source.width * 1px;
                 show-password-image: @image-url("_visibility.svg");
                 hide-password-image: @image-url("_visibility_off.svg");
