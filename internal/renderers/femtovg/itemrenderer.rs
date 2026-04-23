@@ -1112,7 +1112,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let origin = bounding_rect.origin * self.scale_factor;
-            let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
+            let size = (bounding_rect.size * self.scale_factor)
+                .ceil()
+                .max(euclid::Size2D::splat(1.))
+                .try_cast()
+                .unwrap_or(euclid::Size2D::splat(1));
 
             let layer_image = existing_layer_texture
                 .and_then(|layer_texture| {
@@ -1130,14 +1134,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 .or_else(|| {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
                     Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
-                })?;
+                })
+                .expect("Could not create render target texture");
 
             let previous_render_target = self.current_render_target();
 
+            self.save_state();
             {
                 let mut canvas = self.canvas.borrow_mut();
-                canvas.save();
-
                 canvas.set_render_target(layer_image.as_render_target());
 
                 canvas.reset();
@@ -1162,12 +1166,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 &window_adapter,
             );
 
-            {
-                let mut canvas = self.canvas.borrow_mut();
-                canvas.restore();
-
-                canvas.set_render_target(previous_render_target);
-            }
+            self.restore_state();
+            self.canvas.borrow_mut().set_render_target(previous_render_target);
 
             Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image, origin })
         });

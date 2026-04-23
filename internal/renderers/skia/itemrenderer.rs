@@ -364,7 +364,8 @@ impl<'a> SkiaItemRenderer<'a> {
         self.layer_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let physical_origin = bounding_rect.origin * self.scale_factor;
-            let layer_size = bounding_rect.size * self.scale_factor;
+            let layer_size =
+                (bounding_rect.size * self.scale_factor).max(euclid::Size2D::splat(1.));
 
             let image_info = skia_safe::ImageInfo::new(
                 to_skia_size(&layer_size).to_ceil(),
@@ -372,7 +373,8 @@ impl<'a> SkiaItemRenderer<'a> {
                 skia_safe::AlphaType::Premul,
                 None,
             );
-            let mut surface = self.canvas.new_surface(&image_info, None)?;
+            let mut surface =
+                self.canvas.new_surface(&image_info, None).expect("Could not create surface");
             let canvas = surface.canvas();
             canvas.clear(skia_safe::Color::TRANSPARENT);
 
