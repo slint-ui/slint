@@ -1123,13 +1123,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
             let layer_image = existing_layer_texture
                 .and_then(|layer_texture| {
-                    if Rc::strong_count(&layer_texture) > 2 {
-                        // If we have an existing layer texture, there must be only one reference from within
-                        // the existing cache entry and one through the `existing_layer_texture` variable.
-                        // Then it is safe to render new content into it in this callback and when we return
-                        // into `get_or_update_cache_entry` the first ref is dropped.
-                        None
-                    } else if layer_texture.size() == Some(size.to_untyped()) {
+                    // If we have an existing layer texture, there must be only one reference from within
+                    // the existing cache entry and one through the `existing_layer_texture` variable.
+                    // Then it is safe to render new content into it in this callback and when we return
+                    // into `get_or_update_cache_entry` the first ref is dropped.
+                    debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
+                    if layer_texture.size() == Some(size.to_untyped()) {
                         Some(layer_texture)
                     } else {
                         None
@@ -1138,19 +1137,22 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 .or_else(|| {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
                     Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
-                })
+                });
+
+            let previous_render_target = self.current_render_target();
+            let layer_render_target = layer_image
+                .as_ref()
                 // We need something to render to, so `render_item_children` can be called and any
                 // dependencies between the layer size and the descendents' bounding boxes can be
                 // tracked. If the size is 0, the above `new_empty_on_gpu` call will fail, so we
                 // use a dummy texture here.
-                .unwrap_or_else(|| self.dummy_texture.clone());
-
-            let previous_render_target = self.current_render_target();
+                .unwrap_or_else(|| &self.dummy_texture)
+                .as_render_target();
 
             self.save_state();
             {
                 let mut canvas = self.canvas.borrow_mut();
-                canvas.set_render_target(layer_image.as_render_target());
+                canvas.set_render_target(layer_render_target);
 
                 canvas.reset();
 
@@ -1162,7 +1164,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             *self.state.last_mut().unwrap() = State {
                 scissor: bounding_rect,
                 global_alpha: 1.,
-                current_render_target: layer_image.as_render_target(),
+                current_render_target: layer_render_target,
             };
 
             let window_adapter = self.window().window_adapter();
@@ -1177,7 +1179,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             self.restore_state();
             self.canvas.borrow_mut().set_render_target(previous_render_target);
 
-            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image, origin })
+            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image?, origin })
         });
 
         cache_entry.and_then(|item_cache_entry| match item_cache_entry {
