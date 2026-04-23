@@ -36,6 +36,7 @@ pub struct SkiaItemRenderer<'a> {
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
     surface: Option<&'a dyn crate::Surface>,
+    dummy_surface: skia_safe::Surface,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
@@ -56,11 +57,19 @@ impl<'a> SkiaItemRenderer<'a> {
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
+        let dummy_image_info = skia_safe::ImageInfo::new(
+            skia_safe::ISize::new(1, 1),
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+
         Self {
             canvas,
             scale_factor: ScaleFactor::new(window.scale_factor()),
             window,
             surface,
+            dummy_surface: canvas.new_surface(&dummy_image_info, None).unwrap(),
             state_stack: Vec::new(),
             current_state: RenderState {
                 alpha: 1.0,
@@ -364,9 +373,6 @@ impl<'a> SkiaItemRenderer<'a> {
         self.layer_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let physical_origin = bounding_rect.origin * self.scale_factor;
-            // We need `new_surface` to actually return something, so `render_item_children`
-            // can be called and any dependencies between the layer size and the descendents'
-            // bounding boxes can be tracked.
             let layer_size =
                 (bounding_rect.size * self.scale_factor).max(euclid::Size2D::splat(1.));
 
@@ -376,9 +382,14 @@ impl<'a> SkiaItemRenderer<'a> {
                 skia_safe::AlphaType::Premul,
                 None,
             );
-            // Explicitly panic here to prevent silently causing dependencies to be untracked
-            let mut surface =
-                self.canvas.new_surface(&image_info, None).expect("Could not create surface");
+            let mut surface = self
+                .canvas
+                .new_surface(&image_info, None)
+                // We need `new_surface` to actually return something, so `render_item_children`
+                // can be called and any dependencies between the layer size and the descendents'
+                // bounding boxes can be tracked.
+                .unwrap_or_else(|| self.dummy_surface.clone());
+
             let canvas = surface.canvas();
             canvas.clear(skia_safe::Color::TRANSPARENT);
 

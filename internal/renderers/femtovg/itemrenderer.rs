@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
+use std::ops::Deref as _;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -103,6 +104,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
+    dummy_texture: Rc<super::images::Texture<R>>,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
     metrics: RenderingMetrics,
@@ -1044,6 +1046,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         height: u32,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
+        let dummy_texture =
+            Texture::new_empty_on_gpu(canvas, 1, 1).expect("Could not create dummy texture");
         Self {
             graphics_cache,
             texture_cache,
@@ -1053,6 +1057,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             window,
             scale_factor,
             text_layout_cache,
+            dummy_texture,
             state: vec![State {
                 scissor: LogicalRect::new(
                     LogicalPoint::default(),
@@ -1112,23 +1117,20 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let origin = bounding_rect.origin * self.scale_factor;
-            // We need `Texture::new_empty_on_gpu` to actually return something, so
-            // `render_item_children` can be called and any dependencies between the
-            // layer size and the descendents' bounding boxes can be tracked.
             let size = (bounding_rect.size * self.scale_factor)
                 .ceil()
-                .max(euclid::Size2D::splat(1.))
                 .try_cast()
-                .unwrap_or(euclid::Size2D::splat(1));
+                .unwrap_or(euclid::Size2D::splat(0));
 
             let layer_image = existing_layer_texture
                 .and_then(|layer_texture| {
-                    // If we have an existing layer texture, there must be only one reference from within
-                    // the existing cache entry and one through the `existing_layer_texture` variable.
-                    // Then it is safe to render new content into it in this callback and when we return
-                    // into `get_or_update_cache_entry` the first ref is dropped.
-                    debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
-                    if layer_texture.size() == Some(size.to_untyped()) {
+                    if Rc::strong_count(&layer_texture) > 2 {
+                        // If we have an existing layer texture, there must be only one reference from within
+                        // the existing cache entry and one through the `existing_layer_texture` variable.
+                        // Then it is safe to render new content into it in this callback and when we return
+                        // into `get_or_update_cache_entry` the first ref is dropped.
+                        None
+                    } else if layer_texture.size() == Some(size.to_untyped()) {
                         Some(layer_texture)
                     } else {
                         None
@@ -1138,8 +1140,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
                     Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
                 })
-                // Explicitly panic here to prevent silently causing dependencies to be untracked
-                .expect("Could not create render target texture");
+                // We need something to render to, so `render_item_children` can be called and any
+                // dependencies between the layer size and the descendents' bounding boxes can be
+                // tracked. If the size is 0, the above `new_empty_on_gpu` call will fail, so we
+                // use a dummy texture here.
+                .unwrap_or_else(|| self.dummy_texture.clone());
 
             let previous_render_target = self.current_render_target();
 
