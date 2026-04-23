@@ -355,6 +355,12 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
     }
 }
 
+/// Convert a string to a float
+#[inline]
+pub fn string_to_float(string: &str) -> Result<f32, core::num::ParseFloatError> {
+    string.parse::<f32>()
+}
+
 #[test]
 fn simple_test() {
     use std::string::ToString;

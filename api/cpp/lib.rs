@@ -147,12 +147,11 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
-    match string.as_str().parse::<f32>() {
-        Ok(v) => {
-            *value = v;
-            true
-        }
-        Err(_) => false,
+    if let Ok(v) = i_slint_core::string_to_float(string.as_str()) {
+        *value = v;
+        true
+    } else {
+        false
     }
 }
 
