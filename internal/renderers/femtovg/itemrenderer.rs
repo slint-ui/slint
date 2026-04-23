@@ -1112,6 +1112,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let origin = bounding_rect.origin * self.scale_factor;
+            // We need `Texture::new_empty_on_gpu` to actually return something, so
+            // `render_item_children` can be called and any dependencies between the
+            // layer size and the descendents' bounding boxes can be tracked.
             let size = (bounding_rect.size * self.scale_factor)
                 .ceil()
                 .max(euclid::Size2D::splat(1.))
@@ -1135,6 +1138,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
                     Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
                 })
+                // Explicitly panic here to prevent silently causing dependencies to be untracked
                 .expect("Could not create render target texture");
 
             let previous_render_target = self.current_render_target();

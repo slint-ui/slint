@@ -364,6 +364,9 @@ impl<'a> SkiaItemRenderer<'a> {
         self.layer_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let physical_origin = bounding_rect.origin * self.scale_factor;
+            // We need `new_surface` to actually return something, so `render_item_children`
+            // can be called and any dependencies between the layer size and the descendents'
+            // bounding boxes can be tracked.
             let layer_size =
                 (bounding_rect.size * self.scale_factor).max(euclid::Size2D::splat(1.));
 
@@ -373,6 +376,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 skia_safe::AlphaType::Premul,
                 None,
             );
+            // Explicitly panic here to prevent silently causing dependencies to be untracked
             let mut surface =
                 self.canvas.new_surface(&image_info, None).expect("Could not create surface");
             let canvas = surface.canvas();
