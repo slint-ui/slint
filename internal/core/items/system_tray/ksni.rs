@@ -18,17 +18,26 @@ enum MenuNode {
     Standard { label: std::string::String, enabled: bool, entry_index: usize },
 }
 
+enum Event {
+    Activate(i32, i32),
+    Menu(usize),
+}
+
 struct KsniTray {
     icon: ::ksni::Icon,
     title: std::string::String,
     menu: std::vec::Vec<MenuNode>,
-    activate_tx: async_channel::Sender<usize>,
+    event_tx: async_channel::Sender<Event>,
 }
 
 impl ::ksni::Tray for KsniTray {
     fn id(&self) -> std::string::String {
         // This cannot be empty.
         "slint-tray".into()
+    }
+
+    fn activate(&mut self, x: i32, y: i32) {
+        let _ = self.event_tx.try_send(Event::Activate(x, y));
     }
 
     fn title(&self) -> std::string::String {
@@ -40,25 +49,25 @@ impl ::ksni::Tray for KsniTray {
     }
 
     fn menu(&self) -> std::vec::Vec<::ksni::MenuItem<KsniTray>> {
-        self.menu.iter().map(|n| node_to_ksni(n, &self.activate_tx)).collect()
+        self.menu.iter().map(|n| node_to_ksni(n, &self.event_tx)).collect()
     }
 }
 
 fn node_to_ksni(
     node: &MenuNode,
-    activate_tx: &async_channel::Sender<usize>,
+    event_tx: &async_channel::Sender<Event>,
 ) -> ::ksni::MenuItem<KsniTray> {
     match node {
         MenuNode::Separator => ::ksni::MenuItem::Separator,
         MenuNode::SubMenu { label, enabled, children } => ::ksni::menu::SubMenu {
             label: label.clone(),
             enabled: *enabled,
-            submenu: children.iter().map(|c| node_to_ksni(c, activate_tx)).collect(),
+            submenu: children.iter().map(|c| node_to_ksni(c, event_tx)).collect(),
             ..Default::default()
         }
         .into(),
         MenuNode::Standard { label, enabled, entry_index } => {
-            let tx = activate_tx.clone();
+            let tx = event_tx.clone();
             let entry_index = *entry_index;
             ::ksni::menu::StandardItem {
                 label: label.clone(),
@@ -66,7 +75,7 @@ fn node_to_ksni(
                 activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
                     // ksni runs the callback on its own thread; the channel hands the
                     // click off to the dispatcher task living on the Slint event loop.
-                    let _ = tx.try_send(entry_index);
+                    let _ = tx.try_send(Event::Menu(entry_index));
                 }),
                 ..Default::default()
             }
@@ -96,13 +105,13 @@ impl PlatformTray {
             pixel.rotate_right(1) // rgba to argb
         }
 
-        let (activate_tx, activate_rx) = async_channel::unbounded();
+        let (event_tx, event_rx) = async_channel::unbounded();
 
         let tray = KsniTray {
             icon: ::ksni::Icon { width, height, data },
             title: params.title.into(),
             menu: std::vec::Vec::new(),
-            activate_tx,
+            event_tx,
         };
 
         // Blocks briefly on D-Bus name claim / service setup, then spawns the
@@ -116,7 +125,7 @@ impl PlatformTray {
         })?;
 
         let dispatcher = context
-            .spawn_local(dispatch_loop(activate_rx, self_weak))
+            .spawn_local(dispatch_loop(event_rx, self_weak))
             .map_err(Error::EventLoopError)?;
 
         Ok(Self { handle, _dispatcher: dispatcher })
@@ -135,15 +144,23 @@ impl PlatformTray {
     }
 }
 
-async fn dispatch_loop(rx: async_channel::Receiver<usize>, self_weak: crate::item_tree::ItemWeak) {
-    while let Ok(entry_index) = rx.recv().await {
+async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
+    while let Ok(event) = rx.recv().await {
         let Some(item_rc) = self_weak.upgrade() else { continue };
         let Some(tray) = item_rc.downcast::<super::SystemTray>() else { continue };
         let tray = tray.as_pin_ref();
-        let menu_borrow = tray.data.menu.borrow();
-        let Some(state) = menu_borrow.as_ref() else { continue };
-        if let Some(entry) = state.entries.get(entry_index) {
-            vtable::VRc::borrow(&state.menu_vrc).activate(entry);
+
+        match event {
+            Event::Menu(entry_index) => {
+                let menu_borrow = tray.data.menu.borrow();
+                let Some(state) = menu_borrow.as_ref() else { continue };
+                if let Some(entry) = state.entries.get(entry_index) {
+                    vtable::VRc::borrow(&state.menu_vrc).activate(entry);
+                }
+            }
+            Event::Activate(_x, _y) => {
+                tray.clicked.call(&());
+            }
         }
     }
 }

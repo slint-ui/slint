@@ -840,6 +840,7 @@ export global NativePalette {
 export component SystemTray {
     in property <image> icon;
     in property <string> title;
+    callback clicked();
     Menu { }
     //-disallow_global_types_as_child_elements
 }

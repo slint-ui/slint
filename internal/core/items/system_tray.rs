@@ -15,13 +15,13 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::{Item, ItemConsts, ItemRc, MouseCursor, Orientation, RenderingResult};
+use crate::items::{Item, ItemConsts, ItemRc, MouseCursor, Orientation, RenderingResult, VoidArg};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::{Coord, Property, SharedString};
+use crate::{Coord, Property, SharedString, Callback};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -145,6 +145,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
 pub struct SystemTray {
     pub icon: Property<Image>,
     pub title: Property<SharedString>,
+    pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayDataBox,
 }
