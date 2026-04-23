@@ -1179,6 +1179,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             self.restore_state();
             self.canvas.borrow_mut().set_render_target(previous_render_target);
 
+            // We do the `?` short-circuiting right at the end - we don't want to store the dummy texture in
+            // the layer cache, but we still want to call `render_item_children` in order to set up
+            // dependencies. This means that we still handle dependencies but ultimately return `None` if
+            // `layer_image` is `None`.
             Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image?, origin })
         });
 
