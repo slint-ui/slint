@@ -496,7 +496,7 @@ pub struct WindowInner {
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
     /// Stack of currently active popups
-    active_popups: RefCell<Vec<PopupWindow>>,
+    pub active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
