@@ -63,4 +63,29 @@ assert.equal(instance.__test_property2, 23);
 
 assert.equal(instance.__Foo__.__foo_, 815);
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+propertyX1, err := instance.GetPropertyX1()
+assertion.NoError(err)
+assertion.Equal(42.0, propertyX1)
+propertyX2, err := instance.GetPropertyX2()
+assertion.NoError(err)
+assertion.Equal(42.0, propertyX2)
+thisHas6Slashes, err := instance.GetThisHas6Slashes()
+assertion.NoError(err)
+assertion.Equal(86, thisHas6Slashes)
+testProperty, err := instance.GetTestProperty()
+assertion.NoError(err)
+assertion.Equal(42, testProperty)
+testProperty2, err := instance.GetTestProperty2()
+assertion.NoError(err)
+assertion.Equal(23, testProperty2)
+
+foo := instance.Foo()
+fooValue, err := foo.GetFoo()
+assertion.NoError(err)
+assertion.Equal(815, fooValue)
+```
 */

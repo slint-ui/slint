@@ -128,4 +128,69 @@ assert_eq(instance.get_aaa_binding(), 0.0);
 assert_eq(instance.get_zzz_binding(), 0.0);
 assert_eq(instance.get_value(), 0.0);
 ```
+```go
+instance, err := ui.NewTestCase()
+assertion.NoError(err)
+
+aaaBinding, err := instance.GetAaaBinding()
+assertion.NoError(err)
+assertion.Equal(0.0, aaaBinding)
+zzzBinding, err := instance.GetZzzBinding()
+assertion.NoError(err)
+assertion.Equal(0.0, zzzBinding)
+value, err := instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(0.0, value)
+
+assertion.NoError(instance.SetIsPressed(true))
+assertion.NoError(instance.SetValue(1.0))
+
+slint.MockElapsedTime(500)
+aaaBinding, err = instance.GetAaaBinding()
+assertion.NoError(err)
+assertion.InDelta(0.5, aaaBinding, 0.05)
+zzzBinding, err = instance.GetZzzBinding()
+assertion.NoError(err)
+assertion.InDelta(0.5, zzzBinding, 0.05)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.InDelta(0.5, value, 0.05)
+
+slint.MockElapsedTime(500)
+aaaBinding, err = instance.GetAaaBinding()
+assertion.NoError(err)
+assertion.Equal(1.0, aaaBinding)
+zzzBinding, err = instance.GetZzzBinding()
+assertion.NoError(err)
+assertion.Equal(1.0, zzzBinding)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(1.0, value)
+
+assertion.NoError(instance.SetDur(500))
+assertion.NoError(instance.SetIsPressed(false))
+assertion.NoError(instance.SetValue(0.0))
+
+slint.MockElapsedTime(250)
+aaaBinding, err = instance.GetAaaBinding()
+assertion.NoError(err)
+assertion.InDelta(0.5, aaaBinding, 0.05)
+zzzBinding, err = instance.GetZzzBinding()
+assertion.NoError(err)
+assertion.InDelta(0.5, zzzBinding, 0.05)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.InDelta(0.5, value, 0.05)
+
+slint.MockElapsedTime(250)
+aaaBinding, err = instance.GetAaaBinding()
+assertion.NoError(err)
+assertion.Equal(0.0, aaaBinding)
+zzzBinding, err = instance.GetZzzBinding()
+assertion.NoError(err)
+assertion.Equal(0.0, zzzBinding)
+value, err = instance.GetValue()
+assertion.NoError(err)
+assertion.Equal(0.0, value)
+```
 */
