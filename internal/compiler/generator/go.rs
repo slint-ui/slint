@@ -336,11 +336,32 @@ fn source_path_snippet(
     let destination_dir = destination_path
         .and_then(|path| path.parent())
         .and_then(|path| std::fs::canonicalize(path).ok());
-    let relative = destination_dir
-        .and_then(|dir| pathdiff::diff_paths(&main_file, dir))
-        .unwrap_or_else(|| std::path::PathBuf::from(main_file.file_name().unwrap()));
+    let relative = match destination_dir {
+        Some(dir) if same_windows_volume(&main_file, &dir) => pathdiff::diff_paths(&main_file, dir)
+            .unwrap_or_else(|| std::path::PathBuf::from(main_file.file_name().unwrap())),
+        Some(_) => main_file.clone(),
+        None => std::path::PathBuf::from(main_file.file_name().unwrap()),
+    };
 
     Ok(relative.to_string_lossy().replace('\\', "/"))
+}
+
+fn same_windows_volume(left: &std::path::Path, right: &std::path::Path) -> bool {
+    #[cfg(windows)]
+    {
+        use std::path::Component;
+        match (left.components().next(), right.components().next()) {
+            (Some(Component::Prefix(l)), Some(Component::Prefix(r))) => l.kind() == r.kind(),
+            (Some(Component::Prefix(_)), _) | (_, Some(Component::Prefix(_))) => false,
+            _ => true,
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = (left, right);
+        true
+    }
 }
 
 fn emit_struct(out: &mut String, go_struct: &GoStruct) -> std::fmt::Result {
@@ -959,6 +980,9 @@ pub fn generate(
         writeln!(output, "\t_, file, _, ok := runtime.Caller(0)")?;
         writeln!(output, "\tif !ok {{")?;
         writeln!(output, "\t\treturn generatedSourcePathRelative")?;
+        writeln!(output, "\t}}")?;
+        writeln!(output, "\tif filepath.IsAbs(generatedSourcePathRelative) {{")?;
+        writeln!(output, "\t\treturn filepath.Clean(generatedSourcePathRelative)")?;
         writeln!(output, "\t}}")?;
         writeln!(
             output,
