@@ -8,12 +8,14 @@ TestCase := Window {
         padding: 0;
         spacing: 0;
         ti := TextInput { }
+
         Rectangle { }
     }
 
     property <string> text <=> ti.text;
     property <bool> input_focused: ti.has_focus;
-    property<int> test_cursor_pos: ti.cursor_position_byte_offset;
+    property <int> test_cursor_pos: ti.cursor_position_byte_offset;
+    property <int> test_anchor_pos: ti.anchor_position_byte_offset;
 }
 
 /*
@@ -32,8 +34,17 @@ assert_eq!(instance.get_text(), "Yo");
 slint_testing::send_keyboard_string_sequence(&instance, "Hello Again");
 assert_eq!(instance.get_text(), "YoHello Again");
 instance.set_text("Yo".into());
-// Issue #331: assert_eq!(instance.get_test_cursor_pos(), 2);
+
+slint_testing::mock_elapsed_time(1); // let change handlers run
+
+assert_eq!(instance.get_test_cursor_pos(), 2);
+assert_eq!(instance.get_test_anchor_pos(), 2);
+
 slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+
+slint_testing::mock_elapsed_time(1); // let change handlers run
+
 assert_eq!(instance.get_test_cursor_pos(), 1);
+assert_eq!(instance.get_test_anchor_pos(), 1);
 ```
 */
