@@ -7,9 +7,45 @@ use super::{Error, Params};
 use crate::SharedVector;
 use crate::api::invoke_from_event_loop;
 use crate::graphics::Image;
+use crate::item_tree::ItemWeak;
 use crate::items::MenuEntry;
 use crate::menus::MenuVTable;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+std::thread_local! {
+    /// Map from `tray_id` to the `SystemTray` item that owns it. muda's global menu
+    /// event handler is shared across all trays, so clicks arrive as a bare `MenuId`
+    /// and we need this side table to route each one back to the right tray.
+    static TRAYS: core::cell::RefCell<std::collections::HashMap<u64, ItemWeak>> =
+        core::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+fn register_tray(self_weak: ItemWeak) -> u64 {
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    TRAYS.with(|t| {
+        t.borrow_mut().insert(id, self_weak);
+    });
+    id
+}
+
+fn unregister_tray(id: u64) {
+    TRAYS.with(|t| {
+        t.borrow_mut().remove(&id);
+    });
+}
+
+fn activate_tray_menu_entry(tray_id: u64, entry_index: usize) {
+    let Some(item_weak) = TRAYS.with(|t| t.borrow().get(&tray_id).cloned()) else { return };
+    let Some(item_rc) = item_weak.upgrade() else { return };
+    let Some(tray) = item_rc.downcast::<super::SystemTray>() else { return };
+    let tray = tray.as_pin_ref();
+    let menu_borrow = tray.data.menu.borrow();
+    let Some(state) = menu_borrow.as_ref() else { return };
+    if let Some(entry) = state.entries.get(entry_index) {
+        vtable::VRc::borrow(&state.menu_vrc).activate(entry);
+    }
+}
 
 fn install_menu_event_handler() {
     // `muda::MenuEvent::set_event_handler` is install-once (OnceCell); we own
@@ -25,7 +61,7 @@ fn install_menu_event_handler() {
             let Some((tid, eid)) = id.split_once('|') else { return };
             let Ok(tray_id) = tid.parse::<u64>() else { return };
             let Ok(entry_index) = eid.parse::<usize>() else { return };
-            super::activate_tray_menu_entry(tray_id, entry_index);
+            activate_tray_menu_entry(tray_id, entry_index);
         });
     }));
     INSTALLED.store(true, Ordering::Relaxed);
@@ -46,10 +82,15 @@ fn icon_to_tray_icon(icon: &Image) -> Result<::tray_icon::Icon, Error> {
 
 pub struct PlatformTray {
     tray_icon: ::tray_icon::TrayIcon,
+    tray_id: u64,
 }
 
 impl PlatformTray {
-    pub fn new(params: Params) -> Result<Self, Error> {
+    pub fn new(
+        params: Params,
+        self_weak: ItemWeak,
+        _context: &crate::SlintContext,
+    ) -> Result<Self, Error> {
         install_menu_event_handler();
 
         let icon = icon_to_tray_icon(params.icon)?;
@@ -60,18 +101,25 @@ impl PlatformTray {
             .build()
             .map_err(Error::BuildError)?;
 
-        Ok(Self { tray_icon })
+        let tray_id = register_tray(self_weak);
+
+        Ok(Self { tray_icon, tray_id })
     }
 
     pub fn rebuild_menu(
         &self,
         menu: vtable::VRef<'_, MenuVTable>,
-        tray_id: u64,
         entries_out: &mut std::vec::Vec<MenuEntry>,
     ) {
         entries_out.clear();
-        let muda_menu = build_muda_menu(menu, tray_id, entries_out);
+        let muda_menu = build_muda_menu(menu, self.tray_id, entries_out);
         self.tray_icon.set_menu(Some(muda_menu));
+    }
+}
+
+impl Drop for PlatformTray {
+    fn drop(&mut self) {
+        unregister_tray(self.tray_id);
     }
 }
 

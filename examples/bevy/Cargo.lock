@@ -5356,6 +5356,7 @@ dependencies = [
 name = "i-slint-core"
 version = "1.17.0"
 dependencies = [
+ "async-channel",
  "auto_enums",
  "bitflags 2.11.1",
  "cfg-if",

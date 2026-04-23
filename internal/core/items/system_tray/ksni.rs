@@ -5,7 +5,6 @@
 
 use super::{Error, Params};
 use crate::SharedVector;
-use crate::api::invoke_from_event_loop;
 use crate::items::MenuEntry;
 use crate::menus::MenuVTable;
 use ::ksni::blocking::TrayMethods;
@@ -16,13 +15,14 @@ use ::ksni::blocking::TrayMethods;
 enum MenuNode {
     Separator,
     SubMenu { label: std::string::String, enabled: bool, children: std::vec::Vec<MenuNode> },
-    Standard { label: std::string::String, enabled: bool, tray_id: u64, entry_index: usize },
+    Standard { label: std::string::String, enabled: bool, entry_index: usize },
 }
 
 struct KsniTray {
     icon: ::ksni::Icon,
     title: std::string::String,
     menu: std::vec::Vec<MenuNode>,
+    activate_tx: async_channel::Sender<usize>,
 }
 
 impl ::ksni::Tray for KsniTray {
@@ -40,32 +40,33 @@ impl ::ksni::Tray for KsniTray {
     }
 
     fn menu(&self) -> std::vec::Vec<::ksni::MenuItem<KsniTray>> {
-        self.menu.iter().map(node_to_ksni).collect()
+        self.menu.iter().map(|n| node_to_ksni(n, &self.activate_tx)).collect()
     }
 }
 
-fn node_to_ksni(node: &MenuNode) -> ::ksni::MenuItem<KsniTray> {
+fn node_to_ksni(
+    node: &MenuNode,
+    activate_tx: &async_channel::Sender<usize>,
+) -> ::ksni::MenuItem<KsniTray> {
     match node {
         MenuNode::Separator => ::ksni::MenuItem::Separator,
         MenuNode::SubMenu { label, enabled, children } => ::ksni::menu::SubMenu {
             label: label.clone(),
             enabled: *enabled,
-            submenu: children.iter().map(node_to_ksni).collect(),
+            submenu: children.iter().map(|c| node_to_ksni(c, activate_tx)).collect(),
             ..Default::default()
         }
         .into(),
-        MenuNode::Standard { label, enabled, tray_id, entry_index } => {
-            let tray_id = *tray_id;
+        MenuNode::Standard { label, enabled, entry_index } => {
+            let tx = activate_tx.clone();
             let entry_index = *entry_index;
             ::ksni::menu::StandardItem {
                 label: label.clone(),
                 enabled: *enabled,
                 activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
-                    // ksni requires the callback to be `Send`; hop to the Slint event loop
-                    // so the click can be resolved against the (`!Send`) tray registry.
-                    let _ = invoke_from_event_loop(move || {
-                        super::activate_tray_menu_entry(tray_id, entry_index);
-                    });
+                    // ksni runs the callback on its own thread; the channel hands the
+                    // click off to the dispatcher task living on the Slint event loop.
+                    let _ = tx.try_send(entry_index);
                 }),
                 ..Default::default()
             }
@@ -76,10 +77,15 @@ fn node_to_ksni(node: &MenuNode) -> ::ksni::MenuItem<KsniTray> {
 
 pub struct PlatformTray {
     handle: ::ksni::blocking::Handle<KsniTray>,
+    _dispatcher: crate::future::JoinHandle<()>,
 }
 
 impl PlatformTray {
-    pub fn new(params: Params) -> Result<Self, Error> {
+    pub fn new(
+        params: Params,
+        self_weak: crate::item_tree::ItemWeak,
+        context: &crate::SlintContext,
+    ) -> Result<Self, Error> {
         let pixel_buffer = params.icon.to_rgba8().ok_or(Error::Rgba8)?;
 
         let mut data = pixel_buffer.as_bytes().to_vec();
@@ -90,10 +96,13 @@ impl PlatformTray {
             pixel.rotate_right(1) // rgba to argb
         }
 
+        let (activate_tx, activate_rx) = async_channel::unbounded();
+
         let tray = KsniTray {
             icon: ::ksni::Icon { width, height, data },
             title: params.title.into(),
             menu: std::vec::Vec::new(),
+            activate_tx,
         };
 
         // Blocks briefly on D-Bus name claim / service setup, then spawns the
@@ -105,38 +114,53 @@ impl PlatformTray {
                 "Failed to spawn ksni tray: {e}"
             )))
         })?;
-        Ok(Self { handle })
+
+        let dispatcher = context
+            .spawn_local(dispatch_loop(activate_rx, self_weak))
+            .map_err(Error::EventLoopError)?;
+
+        Ok(Self { handle, _dispatcher: dispatcher })
     }
 
     pub fn rebuild_menu(
         &self,
         menu: vtable::VRef<'_, MenuVTable>,
-        tray_id: u64,
         entries_out: &mut std::vec::Vec<MenuEntry>,
     ) {
         entries_out.clear();
-        let new_menu = build_ksni_menu(menu, tray_id, entries_out);
+        let new_menu = build_ksni_menu(menu, entries_out);
         self.handle.update(move |tray: &mut KsniTray| {
             tray.menu = new_menu;
         });
     }
 }
 
+async fn dispatch_loop(rx: async_channel::Receiver<usize>, self_weak: crate::item_tree::ItemWeak) {
+    while let Ok(entry_index) = rx.recv().await {
+        let Some(item_rc) = self_weak.upgrade() else { continue };
+        let Some(tray) = item_rc.downcast::<super::SystemTray>() else { continue };
+        let tray = tray.as_pin_ref();
+        let menu_borrow = tray.data.menu.borrow();
+        let Some(state) = menu_borrow.as_ref() else { continue };
+        if let Some(entry) = state.entries.get(entry_index) {
+            vtable::VRc::borrow(&state.menu_vrc).activate(entry);
+        }
+    }
+}
+
 fn build_ksni_menu(
     menu: vtable::VRef<'_, MenuVTable>,
-    tray_id: u64,
     entries_out: &mut std::vec::Vec<MenuEntry>,
 ) -> std::vec::Vec<MenuNode> {
     let mut top = SharedVector::<MenuEntry>::default();
     menu.sub_menu(None, &mut top);
-    top.iter().map(|entry| entry_to_node(menu, entry, 0, tray_id, entries_out)).collect()
+    top.iter().map(|entry| entry_to_node(menu, entry, 0, entries_out)).collect()
 }
 
 fn entry_to_node(
     menu: vtable::VRef<'_, MenuVTable>,
     entry: &MenuEntry,
     depth: usize,
-    tray_id: u64,
     entries_out: &mut std::vec::Vec<MenuEntry>,
 ) -> MenuNode {
     if entry.is_separator {
@@ -154,7 +178,7 @@ fn entry_to_node(
             enabled: entry.enabled,
             children: children
                 .iter()
-                .map(|c| entry_to_node(menu, c, depth + 1, tray_id, entries_out))
+                .map(|c| entry_to_node(menu, c, depth + 1, entries_out))
                 .collect(),
         }
     } else {
@@ -163,7 +187,6 @@ fn entry_to_node(
         MenuNode::Standard {
             label: entry.title.as_str().into(),
             enabled: entry.enabled,
-            tray_id,
             entry_index,
         }
     }
