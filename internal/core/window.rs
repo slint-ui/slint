@@ -20,7 +20,7 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -1227,17 +1227,37 @@ impl WindowInner {
         let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
         match &mut popup.location {
             PopupWindowLocation::ChildWindow(location) => {
+                // Refresh the area that was previously covered by the popup.
+                let old_popup_region = crate::properties::evaluate_no_tracking(|| {
+                    let popup_component = ItemTreeRc::borrow_pin(&popup.component);
+                    popup_component.as_ref().item_geometry(0)
+                })
+                .translate(location.to_vector());
+
+                // Set new location
                 *location = (popup.position_access)().to_euclid();
-                popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-                    (popup.position_access)();
-                    let component = ItemTreeRc::borrow_pin(&popup.component);
-                    let root_item = component.as_ref().get_item_ref(0);
-                    let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
-                        .expect("Popup component is a Window item");
-                    window_item.width();
-                    window_item.height();
-                });
+
+                let new_popup_region =
+                    popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+                        let component = ItemTreeRc::borrow_pin(&popup.component);
+                        let root_item = component.as_ref().get_item_ref(0);
+                        let window_item =
+                            ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                                .expect("Popup component is a Window item");
+                        // Access the properties to set them as dependencies
+                        LogicalRect::new(
+                            (popup.position_access)().to_euclid(),
+                            LogicalSize::new(window_item.width().0, window_item.height().0),
+                        )
+                    });
                 if let Some(adapter) = self.window_adapter_weak.upgrade() {
+                    if !old_popup_region.is_empty() {
+                        adapter.renderer().mark_dirty_region(old_popup_region.into());
+                    }
+
+                    if !new_popup_region.is_empty() {
+                        adapter.renderer().mark_dirty_region(new_popup_region.into());
+                    }
                     adapter.request_redraw();
                 }
             }
