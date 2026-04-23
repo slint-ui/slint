@@ -156,9 +156,6 @@ wasm-bindgen = { version = "0.2" }
 web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
 
 
-[build-dependencies]
-cfg_aliases = { workspace = true }
-
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 i-slint-backend-testing = { path = "../backends/testing" }
