@@ -3,6 +3,11 @@
 
 //ignore: pyi
 
+export struct TestStruct {
+    label: string,
+    text: styled-text,
+}
+
 export component TestCase inherits Window {
     property <string> world: "World";
     VerticalLayout {
@@ -36,6 +41,11 @@ export component TestCase inherits Window {
     out property<styled-text> t1: s1.text;
     out property<styled-text> t2: s2.text;
     out property<styled-text> t3: s3.text;
+    // Regression test for #11471 - StyledText type must have a default,
+    // otherwise it crashes when left out of a struct declaration!
+    out property<TestStruct> default-struct : {
+        label: "test",
+    };
 
     out property<length> w1: s1.preferred-width;
     out property<length> w2: s2.preferred-width;
@@ -61,6 +71,8 @@ assert_eq!(instance.get_w3(), 64.0);
 assert_eq!(instance.get_w4(), 64.0);
 assert_eq!(instance.get_w5(), 65.0);
 assert!(instance.get_test());
+
+assert_eq!(instance.get_default_struct().text, StyledText::default());
 ```
 ```cpp
 auto handle = TestCase::create();
