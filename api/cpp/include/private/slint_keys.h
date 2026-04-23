@@ -12,7 +12,7 @@ class Keys;
 namespace private_api {
 
 void make_keys(Keys &out, const slint::SharedString &key, bool alt, bool control, bool shift,
-               bool meta, bool ignoreShift, bool ignoreAlt);
+               bool meta, bool ignoreShift, bool ignoreAlt, bool isPhysical);
 
 } // namespace private_api
 
@@ -67,7 +67,7 @@ private:
     Keys(cbindgen_private::types::Keys &&data) : data(std::move(data)) { }
     friend void private_api::make_keys(Keys &out, const slint::SharedString &key, bool alt,
                                        bool control, bool shift, bool meta, bool ignoreShift,
-                                       bool ignoreAlt);
+                                       bool ignoreAlt, bool isPhysical);
 };
 
 namespace private_api {
@@ -75,10 +75,10 @@ namespace private_api {
 // We need to use Keys& out so that we can forward-declare this and then use it as a friend
 // Otherwise the size of `Keys` is not yet known.
 inline void make_keys(Keys &out, const slint::SharedString &key, bool alt, bool control, bool shift,
-                      bool meta, bool ignoreShift, bool ignoreAlt)
+                      bool meta, bool ignoreShift, bool ignoreAlt, bool isPhysical)
 {
     ::slint::cbindgen_private::types::slint_keys(&key, alt, control, shift, meta, ignoreShift,
-                                                 ignoreAlt, &out.data);
+                                                 ignoreAlt, isPhysical, &out.data);
 }
 
 } // namespace private_api

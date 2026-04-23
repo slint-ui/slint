@@ -306,7 +306,11 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::NumberLiteral(x) => write!(f, "{x:?}"),
             Expression::BoolLiteral(x) => write!(f, "{x:?}"),
             Expression::KeysLiteral(keys) => {
-                write!(f, "@keys({keys})",)
+                if keys.is_physical {
+                    write!(f, "@physical-keys({keys})",)
+                } else {
+                    write!(f, "@keys({keys})",)
+                }
             }
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
             Expression::FunctionParameterReference { index } => write!(f, "arg_{index}"),

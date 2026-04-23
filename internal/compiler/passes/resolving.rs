@@ -17,7 +17,7 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
-use i_slint_common::for_each_keys;
+use i_slint_common::{for_each_keys, for_each_physical_keys};
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -90,6 +90,9 @@ fn resolve_expression(
             }
             SyntaxKind::AtKeys => {
                 Expression::from_at_keys_node(node.clone().into(), &mut lookup_ctx)
+            }
+            SyntaxKind::AtPhysicalKeys => {
+                Expression::from_at_physical_keys_node(node.clone().into(), &mut lookup_ctx)
             }
             _ => {
                 debug_assert!(diag.has_errors());
@@ -371,6 +374,9 @@ impl Expression {
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
                     SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
+                    SyntaxKind::AtPhysicalKeys => {
+                        Some(Self::from_at_physical_keys_node(node.into(), ctx))
+                    }
                     SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
                         node.clone().into(),
                         ctx,
@@ -1135,6 +1141,77 @@ impl Expression {
         Expression::Keys(keys)
     }
 
+    pub fn from_at_physical_keys_node(
+        node: syntax_nodes::AtPhysicalKeys,
+        ctx: &mut LookupCtx,
+    ) -> Self {
+        let mut keys = langtype::Keys { is_physical: true, ..Default::default() };
+
+        let idents_and_questions: Vec<_> = node
+            .children_with_tokens()
+            .filter(|n| matches!(n.kind(), SyntaxKind::Identifier | SyntaxKind::Question))
+            .skip(1)
+            .collect();
+
+        for (index, ident_or_question) in idents_and_questions.iter().enumerate() {
+            if ident_or_question.kind() == SyntaxKind::Question {
+                continue;
+            }
+            let identifier = ident_or_question;
+
+            let is_question = || -> bool {
+                matches!(
+                    idents_and_questions.get(index + 1).map(NodeOrToken::kind),
+                    Some(SyntaxKind::Question)
+                )
+            };
+
+            match identifier.as_token().unwrap().text() {
+                "Alt" => {
+                    if is_question() {
+                        keys.ignore_alt = true;
+                    } else {
+                        keys.modifiers.alt = true;
+                    }
+                }
+                "Control" => keys.modifiers.control = true,
+                "Meta" => keys.modifiers.meta = true,
+                "Shift" => {
+                    if is_question() {
+                        keys.ignore_shift = true;
+                    } else {
+                        keys.modifiers.shift = true;
+                    }
+                }
+                key_name => {
+                    if let Some(key) = lookup_physical_key(key_name) {
+                        keys.key = key.into();
+                    } else {
+                        ctx.diag.push_error(
+                            format!(
+                                "{key_name} is not supported by @physical-keys\n\
+                                Use a physical key name such as A, Digit1, BackQuote, or LeftArrow"
+                            ),
+                            identifier,
+                        );
+                        keys.modifiers = KeyboardModifiers::default();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if let Some(token) = node.child_token(SyntaxKind::StringLiteral) {
+            ctx.diag.push_error(
+                "String literals are not supported in @physical-keys (use a key name such as A or LeftArrow)"
+                    .into(),
+                &token,
+            );
+        }
+
+        Expression::Keys(keys)
+    }
+
     /// Perform the lookup
     fn from_qualified_name_node(
         node: syntax_nodes::QualifiedName,
@@ -1722,6 +1799,27 @@ fn with_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, (char, ShiftBehavior)
 /// Look up the given key in the Keys namespace, including its shift behavior
 fn lookup_key(keycode: &str) -> Option<(char, ShiftBehavior)> {
     with_key_map(|map| map.get(keycode).cloned())
+}
+
+fn with_physical_key_map<R>(fun: impl FnOnce(&HashMap<&'static str, &'static str>) -> R) -> R {
+    macro_rules! generate_physical_key_map {
+        [ $($name:ident # $code:ident;)* ] => {
+            {
+                [$( (stringify!($name), stringify!($name)) ),*]
+            }
+        };
+    }
+
+    thread_local! {
+        pub static PHYSICAL_KEY_MAP: HashMap<&'static str, &'static str> =
+            for_each_physical_keys!(generate_physical_key_map).into_iter().collect();
+    }
+
+    PHYSICAL_KEY_MAP.with(fun)
+}
+
+fn lookup_physical_key(keycode: &str) -> Option<&'static str> {
+    with_physical_key_map(|map| map.get(keycode).copied())
 }
 
 /// Return the type that merge two times when they are used in two branch of a condition

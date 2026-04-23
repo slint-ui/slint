@@ -3543,11 +3543,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::KeysLiteral(ks) => {
             format!(
-                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
+                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt, bool isPhysical) {{
                     slint::Keys out;
-                    slint::private_api::make_keys(out, key, alt, control, shift, meta, ignoreShift, ignoreAlt);
+                    slint::private_api::make_keys(out, key, alt, control, shift, meta, ignoreShift, ignoreAlt, isPhysical);
                     return out;
-                }}({}, {}, {}, {}, {}, {}, {})",
+                }}({}, {}, {}, {}, {}, {}, {}, {})",
                 shared_string_literal(&ks.key),
                 ks.modifiers.alt,
                 ks.modifiers.control,
@@ -3555,6 +3555,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ks.modifiers.meta,
                 ks.ignore_shift,
                 ks.ignore_alt,
+                ks.is_physical,
             )
         }
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),

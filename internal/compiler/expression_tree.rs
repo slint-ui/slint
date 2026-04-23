@@ -1987,7 +1987,11 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },
         Expression::Keys(keys) => {
-            write!(f, "@keys({keys})")
+            if keys.is_physical {
+                write!(f, "@physical-keys({keys})")
+            } else {
+                write!(f, "@keys({keys})")
+            }
         }
         Expression::ReturnStatement(e) => {
             write!(f, "return ")?;

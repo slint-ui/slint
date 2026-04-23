@@ -1036,6 +1036,7 @@ pub struct Keys {
     pub modifiers: KeyboardModifiers,
     pub ignore_shift: bool,
     pub ignore_alt: bool,
+    pub is_physical: bool,
 }
 
 impl std::fmt::Display for Keys {
@@ -1056,20 +1057,24 @@ impl std::fmt::Display for Keys {
                 .then_some("Shift?+")
                 .or(self.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
-            let keycode: String = self
-                .key
-                .chars()
-                .flat_map(|character| {
-                    let mut escaped = vec![];
-                    if character.is_control() {
-                        escaped.extend(character.escape_unicode());
-                    } else {
-                        escaped.push(character);
-                    }
-                    escaped
-                })
-                .collect();
-            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+            if self.is_physical {
+                write!(f, "{meta}{ctrl}{alt}{shift}{}", self.key)
+            } else {
+                let keycode: String = self
+                    .key
+                    .chars()
+                    .flat_map(|character| {
+                        let mut escaped = vec![];
+                        if character.is_control() {
+                            escaped.extend(character.escape_unicode());
+                        } else {
+                            escaped.push(character);
+                        }
+                        escaped
+                    })
+                    .collect();
+                write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+            }
         }
     }
 }

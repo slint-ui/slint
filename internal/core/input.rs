@@ -442,9 +442,16 @@ pub fn make_keys(
     modifiers: KeyboardModifiers,
     ignore_shift: bool,
     ignore_alt: bool,
+    is_physical: bool,
 ) -> Keys {
     Keys {
-        inner: KeysInner { key: key.to_lowercase().into(), modifiers, ignore_shift, ignore_alt },
+        inner: KeysInner {
+            key: if is_physical { key } else { key.to_lowercase().into() },
+            modifiers,
+            ignore_shift,
+            ignore_alt,
+            is_physical,
+        },
     }
 }
 
@@ -464,6 +471,7 @@ pub(crate) mod ffi {
         meta: bool,
         ignore_shift: bool,
         ignore_alt: bool,
+        is_physical: bool,
         out: &mut Keys,
     ) {
         *out = make_keys(
@@ -471,6 +479,7 @@ pub(crate) mod ffi {
             KeyboardModifiers { alt, control, shift, meta },
             ignore_shift,
             ignore_alt,
+            is_physical,
         );
     }
 
@@ -491,8 +500,6 @@ pub(crate) mod ffi {
 #[repr(C)]
 pub struct KeysInner {
     /// The `key` used to trigger the shortcut
-    ///
-    /// Note: This is currently converted to lowercase when the shortcut is created!
     pub key: SharedString,
     /// `KeyboardModifier`s that need to be pressed for the shortcut to fire
     pub modifiers: KeyboardModifiers,
@@ -500,6 +507,8 @@ pub struct KeysInner {
     pub ignore_shift: bool,
     /// Whether to ignore alt state when matching the shortcut
     pub ignore_alt: bool,
+    /// Whether this shortcut matches the physical key code instead of the logical key text.
+    pub is_physical: bool,
 }
 
 impl KeysInner {
@@ -526,20 +535,30 @@ impl Keys {
         if inner.ignore_alt {
             expected_modifiers.alt = key_event.modifiers.alt;
         }
-        // Note: The shortcut's key is already in lowercase and NFC-normalized
-        // (by the compiler and backends respectively), so we only need to
-        // lowercase the event text. Backends are expected to NFC-normalize
-        // key event text before dispatching.
-        //
-        // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
-        // if caps lock is active, even if shift is not pressed.
-        let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
+        let key_matches = if inner.is_physical {
+            key_event.physical_key == inner.key
+        } else {
+            // Note: The shortcut's key is already in lowercase and NFC-normalized
+            // (by the compiler and backends respectively), so we only need to
+            // lowercase the event text. Backends are expected to NFC-normalize
+            // key event text before dispatching.
+            //
+            // This improves our handling of CapsLock and Shift, as the event text will be in uppercase
+            // if caps lock is active, even if shift is not pressed.
+            let event_text = key_event.text.chars().flat_map(|character| character.to_lowercase());
+            event_text.eq(inner.key.chars())
+        };
 
-        event_text.eq(inner.key.chars()) && key_event.modifiers == expected_modifiers
+        key_matches && key_event.modifiers == expected_modifiers
     }
 
     fn format_key_for_display(&self) -> crate::SharedString {
         let key_str = self.inner.key.as_str();
+
+        if self.inner.is_physical {
+            return key_str.into();
+        }
+
         let first_char = key_str.chars().next();
 
         if let Some(first_char) = first_char {
@@ -662,20 +681,24 @@ impl core::fmt::Debug for Keys {
                 .then_some("Shift?+")
                 .or(inner.modifiers.shift.then_some("Shift+"))
                 .unwrap_or_default();
-            let keycode: SharedString = inner
-                .key
-                .chars()
-                .flat_map(|character| {
-                    let mut escaped = alloc::vec![];
-                    if character.is_control() {
-                        escaped.extend(character.escape_unicode());
-                    } else {
-                        escaped.push(character);
-                    }
-                    escaped
-                })
-                .collect();
-            write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+            if inner.is_physical {
+                write!(f, "{meta}{ctrl}{alt}{shift}{}", inner.key)
+            } else {
+                let keycode: SharedString = inner
+                    .key
+                    .chars()
+                    .flat_map(|character| {
+                        let mut escaped = alloc::vec![];
+                        if character.is_control() {
+                            escaped.extend(character.escape_unicode());
+                        } else {
+                            escaped.push(character);
+                        }
+                        escaped
+                    })
+                    .collect();
+                write!(f, "{meta}{ctrl}{alt}{shift}\"{keycode}\"")
+            }
         }
     }
 }
@@ -2417,7 +2440,7 @@ mod tests {
             _expected_linux,
         ) in test_cases
         {
-            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt);
+            let shortcut = make_keys(key.into(), modifiers, ignore_shift, ignore_alt, false);
 
             use crate::alloc::string::ToString;
             let result = shortcut.to_string();

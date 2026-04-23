@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> matched: "";
+    forward-focus: scope;
+
+    init => {
+        scope.focus();
+    }
+
+    scope := FocusScope {
+        KeyBinding {
+            keys: @physical-keys(Control + A);
+            activated => {
+                matched = "physical-a";
+            }
+        }
+
+        KeyBinding {
+            keys: @keys(Control + A);
+            activated => {
+                matched = "logical-a";
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let inner = i_slint_core::window::WindowInner::from_pub(instance.window());
+
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use i_slint_core::input::key_codes::Key;
+use i_slint_core::items::KeyEvent;
+
+let send = |text: &str, physical_key: &str| {
+    let mut control_event = KeyEvent::default();
+    control_event.text = Key::Control.into();
+    inner.process_key_input(InternalKeyEvent {
+        event_type: KeyEventType::KeyPressed,
+        key_event: control_event,
+        ..Default::default()
+    });
+
+    let mut key_event = KeyEvent::default();
+    key_event.text = text.into();
+    key_event.physical_key = physical_key.into();
+
+    inner.process_key_input(InternalKeyEvent {
+        event_type: KeyEventType::KeyPressed,
+        key_event,
+        ..Default::default()
+    });
+
+    let mut control_release = KeyEvent::default();
+    control_release.text = Key::Control.into();
+    inner.process_key_input(InternalKeyEvent {
+        event_type: KeyEventType::KeyReleased,
+        key_event: control_release,
+        ..Default::default()
+    });
+};
+
+send("z", "A");
+assert_eq!(instance.get_matched(), "physical-a");
+instance.set_matched("".into());
+
+send("a", "Q");
+assert_eq!(instance.get_matched(), "logical-a");
+instance.set_matched("".into());
+
+send("a", "");
+assert_eq!(instance.get_matched(), "logical-a");
+```
+*/

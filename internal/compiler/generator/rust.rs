@@ -2633,6 +2633,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let meta = keys.modifiers.meta;
                 let ignore_shift = keys.ignore_shift;
                 let ignore_alt = keys.ignore_alt;
+                let is_physical = keys.is_physical;
 
                 quote!(
                     sp::make_keys(
@@ -2646,7 +2647,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             modifiers
                         },
                         #ignore_shift,
-                        #ignore_alt))
+                        #ignore_alt,
+                        #is_physical))
         },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
         Expression::NumberLiteral(_) => quote!(0.),

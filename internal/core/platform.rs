@@ -340,6 +340,13 @@ pub enum WindowEvent {
     },
     /// The pointer exited the window.
     PointerExited,
+    /// A key was pressed or released.
+    Key {
+        /// Whether the key was pressed or released.
+        event_type: WindowKeyEventType,
+        /// The key event details.
+        event: WindowKeyEvent,
+    },
     /// A key was pressed.
     KeyPressed {
         /// The unicode representation of the key pressed.
@@ -403,6 +410,31 @@ pub enum WindowEvent {
     /// The backend should dispatch this event with true when the window gains focus
     /// and false when the window loses focus.
     WindowActiveChanged(bool),
+}
+
+/// The kind of key event delivered through [`WindowEvent::Key`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WindowKeyEventType {
+    /// A key was pressed.
+    Pressed,
+    /// A key was released.
+    Released,
+}
+
+/// A platform key event delivered through [`WindowEvent::Key`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct WindowKeyEvent {
+    /// The unicode representation of the key.
+    pub text: SharedString,
+    /// The physical key that was pressed, if the backend can report it.
+    ///
+    /// This uses the same names as `@physical-keys(...)`, for example `A`,
+    /// `Digit1`, or `LeftArrow`.
+    pub physical_key: SharedString,
+    /// This field is set to true for repeated key press events.
+    pub repeat: bool,
 }
 
 impl WindowEvent {

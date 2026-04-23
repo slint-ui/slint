@@ -676,6 +676,21 @@ impl Window {
             crate::platform::WindowEvent::PointerExited => {
                 self.0.process_mouse_input(MouseEvent::Exit)
             }
+            crate::platform::WindowEvent::Key { event_type, event } => {
+                self.0.process_key_input(InternalKeyEvent {
+                    event_type: match event_type {
+                        crate::platform::WindowKeyEventType::Pressed => KeyEventType::KeyPressed,
+                        crate::platform::WindowKeyEventType::Released => KeyEventType::KeyReleased,
+                    },
+                    key_event: crate::input::KeyEvent {
+                        text: event.text,
+                        physical_key: event.physical_key,
+                        repeat: event.repeat,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                });
+            }
 
             crate::platform::WindowEvent::KeyPressed { text } => {
                 self.0.process_key_input(InternalKeyEvent {
