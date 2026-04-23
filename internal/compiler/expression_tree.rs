@@ -1562,7 +1562,11 @@ impl Expression {
             }
             Type::Keys => Expression::Keys(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
-            Type::StyledText => Expression::Invalid,
+            Type::StyledText => Expression::FunctionCall {
+                function: Callable::Builtin(BuiltinFunction::StringToStyledText),
+                arguments: vec![Self::default_value_for_type(&Type::String)],
+                source_location: None,
+            },
         }
     }
 

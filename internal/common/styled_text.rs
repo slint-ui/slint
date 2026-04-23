@@ -149,27 +149,33 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
                 if let Some(arg) = args.get(arg_index) {
                     let arg_paragraphs = arg.as_ref();
-                    if arg_paragraphs.len() != 1 {
-                        return Err(StyledTextError::MultiParagraphInterpolation);
-                    }
-                    let arg_paragraph = &arg_paragraphs[0];
 
-                    let offset = paragraph.text.len();
-                    paragraph.text.push_str(&arg_paragraph.text);
-                    paragraph.formatting.extend(arg_paragraph.formatting.iter().cloned().map(
-                        |mut f| {
-                            f.range.start += offset;
-                            f.range.end += offset;
-                            f
-                        },
-                    ));
-                    paragraph.links.extend(arg_paragraph.links.iter().cloned().map(
-                        |(mut range, link)| {
-                            range.start += offset;
-                            range.end += offset;
-                            (range, link)
-                        },
-                    ));
+                    match arg_paragraphs {
+                        [arg_paragraph] => {
+                            let offset = paragraph.text.len();
+                            paragraph.text.push_str(&arg_paragraph.text);
+                            paragraph.formatting.extend(
+                                arg_paragraph.formatting.iter().cloned().map(|mut f| {
+                                    f.range.start += offset;
+                                    f.range.end += offset;
+                                    f
+                                }),
+                            );
+                            paragraph.links.extend(arg_paragraph.links.iter().cloned().map(
+                                |(mut range, link)| {
+                                    range.start += offset;
+                                    range.end += offset;
+                                    (range, link)
+                                },
+                            ));
+                        }
+                        [] => {
+                            // No paragraphs in the argument, so nothing to add
+                        }
+                        _ => {
+                            return Err(StyledTextError::MultiParagraphInterpolation);
+                        }
+                    }
                 } else {
                     return Err(StyledTextError::ArgumentOutOfRange(arg_index, args.len()));
                 }
@@ -736,4 +742,11 @@ fn markdown_parsing_interpolated() {
             links: alloc::vec![]
         }]
     );
+    // Empty paragraph list might be caused by a StyledText::default()
+    assert_eq!(
+        parse_interpolated(&format!("{MARKDOWN_INTERPOLATION_PLACEHOLDER}"), &[[]])
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap(),
+        [StyledTextParagraph { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }]
+    )
 }
