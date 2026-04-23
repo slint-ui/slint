@@ -1278,9 +1278,9 @@ impl WindowInner {
             }
             PopupWindowLocation::TopLevel(adapter) => {
                 // The size is already tracked in the windowadapter
-                let mut new_position = None;
+                let mut new_position: Option<LogicalPosition> = None;
                 popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-                    new_position = Some((popup.position_access)());
+                    new_position = Some(LogicalPosition::from_euclid(offset));
                 });
                 if let Some(pos) = new_position {
                     adapter.window().set_position(pos);
