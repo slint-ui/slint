@@ -235,11 +235,11 @@ public:
         auto popup_dyn = popup.into_dyn();
         auto position_data = new LogicalPosition(pos);
         auto id = cbindgen_private::slint_windowrc_show_popup(
-            &inner, &popup_dyn,
-            [](void *user_data) { return *reinterpret_cast<LogicalPosition *>(user_data); },
-            [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
-            position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-            &context_menu_rc, true);
+                &inner, &popup_dyn,
+                [](void *user_data) { return *reinterpret_cast<LogicalPosition *>(user_data); },
+                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
+                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
+                &context_menu_rc, true);
         popup->user_init();
         return id;
     }
