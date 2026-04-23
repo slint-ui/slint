@@ -65,6 +65,15 @@ impl AppWindow {
         }
     }
 
+    pub fn api(&self) -> Api<'_> {
+        match self {
+            AppWindow::Preview(ui) => ui.global::<Api>(),
+            AppWindow::Editor(ui) => ui.global::<Api>(),
+        }
+    }
+
+    // Convenience accessor. Because Api implements Global for both EditorUi and PreviewUi
+    // we need to fully-qualify the as_weak call, which is annoying.
     pub fn api_weak(&self) -> slint::Weak<Api<'static>> {
         match self {
             AppWindow::Preview(ui) => {
@@ -92,8 +101,8 @@ pub fn create_ui(
         AppWindow::Preview(PreviewUi::new()?)
     };
 
+    let api = app_window.api();
     let api_weak = app_window.api_weak();
-    let api: Api<'static> = api_weak.upgrade().unwrap();
 
     // styles:
     let known_styles = once(&"native")

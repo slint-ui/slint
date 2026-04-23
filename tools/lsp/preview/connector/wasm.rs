@@ -113,12 +113,8 @@ impl PreviewConnector {
                     } else {
                         match ui::create_ui(&to_lsp, &style, false) {
                             Ok(app_window) => {
-                                let api: ui::Api<'static> =
-                                    app_window.api_weak().upgrade().unwrap();
-
-                                init_slintpad_specific_ui(&api);
-                                let api_weak = app_window.api_weak();
-                                preview_state.borrow_mut().api = api_weak;
+                                init_slintpad_specific_ui(&app_window.api());
+                                preview_state.borrow_mut().api = app_window.api_weak();
                                 preview_state.borrow_mut().app_window = Some(app_window);
                                 *preview_state.borrow().to_lsp.borrow_mut() = Some(to_lsp);
 

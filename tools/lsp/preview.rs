@@ -71,8 +71,7 @@ pub fn run(
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
         *preview_state.to_lsp.borrow_mut() = Some(to_lsp);
-        let api_weak = app_window.api_weak();
-        preview_state.api = api_weak;
+        preview_state.api = app_window.api_weak();
         preview_state.app_window = Some(app_window.clone_strong());
         app_window
     });
