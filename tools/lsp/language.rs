@@ -585,10 +585,16 @@ pub fn show_preview_command(
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
     let c = i_slint_preview_protocol::PreviewComponent { url, component };
-    ctx.to_show = Some(c.clone());
-    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(c));
+    show_preview(c, ctx);
 
     Ok(())
+}
+
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+pub fn show_preview(component: i_slint_preview_protocol::PreviewComponent, ctx: &mut Context) {
+    ctx.pending_recompile.insert(component.url.clone());
+    ctx.to_show = Some(component.clone());
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(component));
 }
 
 fn populate_command_range(
