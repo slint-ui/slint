@@ -321,7 +321,9 @@ pub(super) fn apply_default_property_values(
         })
         .filter(|(property_name, _)| {
             // Only apply the default binding if there isn't already a binding set on the element.
-            !e.borrow().is_binding_set(property_name, true)
+            // `need_explicit: false` includes two-way bindings from a `uses { ... }` alias on
+            // a base component — overriding those with an interface default would sever the alias.
+            !e.borrow().is_binding_set(property_name, false)
         })
         .collect();
 
