@@ -55,13 +55,13 @@ export component OutlineView inherits VerticalLayout {
     lv := ListView {
         for item[idx] in outline-data: DragArea {
             height: 38px;
-            data: { plaintext: item.uri + ":" + item.offset };
+            data: item.uri + ":" + item.offset;
 
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
 
             drop-as-child := DropArea {
                 can-drop(event) => {
-                    if !event.has-plaintext {
+                    if !event.data.has-type("text/plain") {
                         return false;
                     }
                     if !item.is-expanded && item.has-children {
@@ -70,10 +70,10 @@ export component OutlineView inherits VerticalLayout {
                         }
                         return false;
                     }
-                    return Api.outline-can-drop(event.plaintext, item.uri, item.offset, DropLocation.onto);
+                    return Api.outline-can-drop(event.data.read-string("text/plain"), item.uri, item.offset, DropLocation.onto);
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.plaintext, item.uri, item.offset, DropLocation.onto);
+                    Api.outline-drop(event.data.read-string("text/plain"), item.uri, item.offset, DropLocation.onto);
                 }
             }
 
@@ -86,14 +86,14 @@ export component OutlineView inherits VerticalLayout {
                 width: parent.width - self.x;
 
                 can-drop(event) => {
-                    if !event.has-plaintext {
+                    if !event.data.has-type("text/plain") {
                         return false;
                     }
                     //return Api.outline-can-drop(event.data, item.uri, item.offset, -1);
                     true;
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.plaintext, item.uri, item.offset, DropLocation.before);
+                    Api.outline-drop(event.data.read-string("text/plain"), item.uri, item.offset, DropLocation.before);
                 }
                 Rectangle {
                     height: 1px;
@@ -111,14 +111,14 @@ export component OutlineView inherits VerticalLayout {
                 enabled: item.indent-level > 0;
 
                 can-drop(event) => {
-                    if !event.has-plaintext {
+                    if !event.data.has-type("text/plain") {
                         return false;
                     }
                     //return Api.outline-can-drop(event.data, item.uri, item.offset, 1);
                     true;
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.plaintext, item.uri, item.offset, DropLocation.after);
+                    Api.outline-drop(event.data.read-string("text/plain"), item.uri, item.offset, DropLocation.after);
                 }
                 Rectangle {
                     height: 1px;
