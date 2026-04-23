@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "lib": ["es2017", "dom"],
+    "lib": ["es2021", "dom"],
     "types": ["plugin-typings", "node"],
     "typeRoots": [
       "../../node_modules/@figma",
