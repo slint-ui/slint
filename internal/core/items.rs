@@ -37,8 +37,6 @@ use crate::lengths::{
 pub use crate::menus::MenuItem;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-#[cfg(system_tray)]
-pub use crate::system_tray::SystemTray;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
@@ -47,6 +45,8 @@ use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+#[cfg(system_tray)]
+pub use system_tray::SystemTray;
 use vtable::*;
 
 mod component_container;
@@ -65,6 +65,8 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
+#[cfg(system_tray)]
+pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object
