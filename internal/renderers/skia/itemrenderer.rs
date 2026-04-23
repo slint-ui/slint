@@ -367,8 +367,7 @@ impl<'a> SkiaItemRenderer<'a> {
         self.layer_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let physical_origin = bounding_rect.origin * self.scale_factor;
-            let layer_size =
-                (bounding_rect.size * self.scale_factor).max(euclid::Size2D::splat(1.));
+            let layer_size = bounding_rect.size * self.scale_factor;
 
             let image_info = skia_safe::ImageInfo::new(
                 to_skia_size(&layer_size).to_ceil(),
@@ -378,30 +377,32 @@ impl<'a> SkiaItemRenderer<'a> {
             );
             let mut surface = self.canvas.new_surface(&image_info, None);
 
-            let canvas = match &mut surface {
-                Some(surface) => surface.canvas(),
-                None => &self.dummy_canvas,
-            };
-            canvas.clear(skia_safe::Color::TRANSPARENT);
+            {
+                let canvas = match &mut surface {
+                    Some(surface) => surface.canvas(),
+                    None => &self.dummy_canvas,
+                };
+                canvas.clear(skia_safe::Color::TRANSPARENT);
 
-            let mut sub_renderer = SkiaItemRenderer::new(
-                canvas,
-                self.window,
-                self.surface,
-                self.image_cache,
-                self.layer_cache,
-                self.path_cache,
-                self.text_layout_cache,
-                self.box_shadow_cache,
-            );
-            sub_renderer.translate(-bounding_rect.origin.to_vector());
+                let mut sub_renderer = SkiaItemRenderer::new(
+                    canvas,
+                    self.window,
+                    self.surface,
+                    self.image_cache,
+                    self.layer_cache,
+                    self.path_cache,
+                    self.text_layout_cache,
+                    self.box_shadow_cache,
+                );
+                sub_renderer.translate(-bounding_rect.origin.to_vector());
 
-            i_slint_core::item_rendering::render_item_children(
-                &mut sub_renderer,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &WindowInner::from_pub(self.window).window_adapter(),
-            );
+                i_slint_core::item_rendering::render_item_children(
+                    &mut sub_renderer,
+                    item_rc.item_tree(),
+                    item_rc.index() as isize,
+                    &WindowInner::from_pub(self.window).window_adapter(),
+                );
+            }
 
             // We do the `?` short-circuiting right at the end - we don't want to store an empty surface in
             // the layer cache, but we still want to call `render_item_children` in order to set up
