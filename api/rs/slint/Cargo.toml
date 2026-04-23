@@ -166,18 +166,10 @@ renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
 ## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
-renderer-skia-opengl = [
-  "i-slint-backend-selector/renderer-skia-opengl",
-  "dep:i-slint-renderer-skia",
-  "std",
-]
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use Vulkan.
-renderer-skia-vulkan = [
-  "i-slint-backend-selector/renderer-skia-vulkan",
-  "dep:i-slint-renderer-skia",
-  "std",
-]
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
