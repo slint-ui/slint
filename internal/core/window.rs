@@ -1225,6 +1225,14 @@ impl WindowInner {
     fn update_popup_properties(&self, popup_id: NonZeroU32) {
         let mut active_popups = self.active_popups.borrow_mut();
         let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
+        let parent_item = popup.parent_item.clone();
+        let position_from_access = (popup.position_access)().to_euclid().to_vector();
+        drop(active_popups);
+        let offset = parent_item.upgrade().unwrap().map_to_native_window(
+            parent_item.upgrade().unwrap().geometry().origin + position_from_access,
+        );
+        let mut active_popups = self.active_popups.borrow_mut();
+        let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
         match &mut popup.location {
             PopupWindowLocation::ChildWindow(location) => {
                 // Refresh the area that was previously covered by the popup.
@@ -1235,7 +1243,11 @@ impl WindowInner {
                 .translate(location.to_vector());
 
                 // Set new location
-                *location = (popup.position_access)().to_euclid();
+                *location = if let Some(parent_item) = popup.parent_item.upgrade() {
+                    offset
+                } else {
+                    (popup.position_access)().to_euclid()
+                };
 
                 let new_popup_region =
                     popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
