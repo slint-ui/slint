@@ -2569,7 +2569,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            alloc::rc::Rc::new(move || POPUP_LOCATION),
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
@@ -2607,7 +2607,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            alloc::rc::Rc::new(move || POPUP_LOCATION),
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
@@ -2700,7 +2700,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items_dynamic_elements();
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            alloc::rc::Rc::new(move || POPUP_LOCATION),
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
