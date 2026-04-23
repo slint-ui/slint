@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [1.16.1] - 2026-04-23
 
- - `ListView`: Fixed panic with a graceful fallback in the dirty region computation.
+ - `ListView`: Fixed compiler panic with a graceful fallback in the dirty region computation.
  - `ComboBox`: Elide long selected values when the text is wider than the available width. (#11332)
  - winit/macOS: Use muda `KeyAccelerator` so keyboard shortcuts are represented in the native menu bar. (#11253)
  - winit/macOS: Fixed animations/updates not working on some setups. (#11472)
@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
  - Fixed password field text layout calculations. (#11434)
  - Skia: Fixed partial rendering artifacts when using transforms.
  - Qt: Fixed QPainter warnings when rendering zero sized layers.
+ - Fixed compile time panic when default initializing a `styled-text` struct field.
 
 ### Rust
 
