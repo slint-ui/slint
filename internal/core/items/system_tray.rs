@@ -348,3 +348,30 @@ impl ItemConsts for SystemTray {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold a SystemTrayDataBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_system_tray_data_init(data: *mut SystemTrayDataBox) {
+    unsafe { core::ptr::write(data, SystemTrayDataBox::default()) };
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized SystemTrayDataBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_system_tray_data_free(data: *mut SystemTrayDataBox) {
+    unsafe { core::ptr::drop_in_place(data) };
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_system_tray_set_menu(
+    system_tray: &SystemTray,
+    item_rc: &ItemRc,
+    menu_vrc: &vtable::VRc<crate::menus::MenuVTable>,
+) {
+    unsafe { Pin::new_unchecked(system_tray) }.set_menu(item_rc, menu_vrc.clone());
+}

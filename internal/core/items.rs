@@ -1924,34 +1924,3 @@ pub unsafe extern "C" fn slint_item_absolute_position(
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     self_rc.map_to_window(Default::default())
 }
-
-#[cfg(all(feature = "ffi", system_tray))]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_set_menu(
-    system_tray: &SystemTray,
-    item_rc: &ItemRc,
-    menu_vrc: &vtable::VRc<crate::menus::MenuVTable>,
-) {
-    unsafe { Pin::new_unchecked(system_tray) }.set_menu(item_rc, menu_vrc.clone());
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a SystemTrayDataBox
-#[cfg(all(feature = "ffi", system_tray))]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_data_init(
-    data: *mut crate::system_tray::SystemTrayDataBox,
-) {
-    unsafe { core::ptr::write(data, crate::system_tray::SystemTrayDataBox::default()) };
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to an initialized SystemTrayDataBox
-#[cfg(all(feature = "ffi", system_tray))]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_data_free(
-    data: *mut crate::system_tray::SystemTrayDataBox,
-) {
-    unsafe { core::ptr::drop_in_place(data) };
-}
