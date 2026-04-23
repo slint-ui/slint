@@ -1223,8 +1223,8 @@ impl WindowInner {
     /// Re-evaluates the position tracker for the popup with the given ID, re-subscribing to its
     /// property dependencies so subsequent changes continue to trigger notifications.
     fn update_popup_properties(&self, popup_id: NonZeroU32) {
-        let mut active_popups = self.active_popups.borrow_mut();
-        let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
+        let active_popups = self.active_popups.borrow();
+        let Some(popup) = active_popups.iter().find(|p| p.popup_id == popup_id) else { return };
         let parent_item = popup.parent_item.clone();
         let position_from_access = (popup.position_access)().to_euclid().to_vector();
         drop(active_popups);
