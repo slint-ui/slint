@@ -971,6 +971,7 @@ impl LookupObject for Expression {
                 }
                 Type::String => StringExpression(self).for_each_entry(ctx, f),
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
+                Type::ClipboardData => ClipboardDataExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
                 Type::Float32 | Type::Int32 | Type::Percent => {
@@ -997,6 +998,7 @@ impl LookupObject for Expression {
                 }),
                 Type::String => StringExpression(self).lookup(ctx, name),
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
+                Type::ClipboardData => ClipboardDataExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
                 Type::Float32 | Type::Int32 | Type::Percent => {
@@ -1037,6 +1039,28 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| f("to-uppercase", member_function(BuiltinFunction::StringToUppercase)))
     }
 }
+
+struct ClipboardDataExpression<'a>(&'a Expression);
+impl LookupObject for ClipboardDataExpression<'_> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
+            })
+        };
+
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
+        None.or_else(|| f("has-type", member_function(BuiltinFunction::ClipboardDataHasType)))
+            .or_else(|| f("read-string", member_function(BuiltinFunction::ClipboardDataReadString)))
+    }
+}
+
 struct ColorExpression<'a>(&'a Expression);
 impl LookupObject for ColorExpression<'_> {
     fn for_each_entry<R>(

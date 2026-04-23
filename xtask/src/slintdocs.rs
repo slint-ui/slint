@@ -267,6 +267,9 @@ pub fn extract_builtin_structs(
         (Image) => {
             "image"
         };
+        (ClipboardData) => {
+            "clipboard-data"
+        };
         ($pub_type:ident) => {
             stringify!($pub_type)
         };

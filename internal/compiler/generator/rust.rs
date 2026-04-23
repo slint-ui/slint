@@ -14,9 +14,7 @@ Some convention used in the generated code:
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{
-    Enumeration, EnumerationValue, Struct, StructName, Type,
-};
+use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
@@ -83,6 +81,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
+        Type::ClipboardData => Some(quote!(sp::ClipboardData)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
@@ -2742,6 +2741,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
+                (Type::String | Type::Image, Type::ClipboardData) => {
+                    quote!(sp::ClipboardData::from(#f))
+                }
                 (Type::Struct(lhs), Type::Struct(rhs)) => {
                     debug_assert_eq!(
                         lhs.fields, rhs.fields,
@@ -3746,6 +3748,16 @@ fn compile_builtin_function_call(
             let x = a.next().unwrap();
             let alpha = a.next().unwrap();
             quote!(#x.with_alpha(#alpha as f32))
+        }
+        BuiltinFunction::ClipboardDataHasType => {
+            let x = a.next().unwrap();
+            let type_ = a.next().unwrap();
+            quote!(#x.has_type(&*#type_))
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            let x = a.next().unwrap();
+            let type_ = a.next().unwrap();
+            quote!(#x.read::<sp::SharedString>(&*#type_).unwrap_or_default())
         }
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
         BuiltinFunction::ArrayLength => {

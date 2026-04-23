@@ -5,12 +5,9 @@
 */
 #![warn(missing_docs)]
 
-use crate::api::Image;
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
-use crate::items::{
-    DropEvent, ItemRef, MimeData, MouseCursor, OperatingSystemType, TextCursorDirection,
-};
+use crate::items::{DropEvent, ItemRef, MouseCursor, OperatingSystemType, TextCursorDirection};
 pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventButton};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::timers::Timer;
@@ -1095,15 +1092,9 @@ pub(crate) fn handle_mouse_grab(
         InputEventResult::StartDrag => {
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
-            let MimeData { plaintext, image } = drag_area_item.as_pin_ref().data();
+            let data = drag_area_item.as_pin_ref().data().clone();
 
-            mouse_input_state.drag_data = Some(DropEvent {
-                has_plaintext: plaintext == SharedString::default(),
-                has_image: image == Image::default(),
-                plaintext,
-                image,
-                position: Default::default(),
-            });
+            mouse_input_state.drag_data = Some(DropEvent { data, position: Default::default() });
             None
         }
         _ => {
@@ -1362,15 +1353,9 @@ fn send_mouse_event_to_item(
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
-            let MimeData { plaintext, image } = drag_area_item.as_pin_ref().data();
+            let data = drag_area_item.as_pin_ref().data().clone();
 
-            result.drag_data = Some(DropEvent {
-                has_plaintext: plaintext == SharedString::default(),
-                has_image: image == Image::default(),
-                plaintext,
-                image,
-                position: Default::default(),
-            });
+            result.drag_data = Some(DropEvent { data, position: Default::default() });
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }

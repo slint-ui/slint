@@ -1965,7 +1965,7 @@ impl TextInput {
             .context()
             .platform()
             .clipboard()
-            .set(clipboard, alloc::rc::Rc::new(text).into());
+            .set(clipboard, text.into());
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {

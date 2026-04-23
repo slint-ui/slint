@@ -123,7 +123,7 @@ pub struct TestingBackendOptions {
 
 #[derive(Default)]
 struct TestingPlatformClipboard {
-    clipboard: Mutex<Option<Rc<SharedString>>>,
+    clipboard: Mutex<Option<SharedString>>,
 }
 
 impl PlatformClipboard for TestingPlatformClipboard {
@@ -150,7 +150,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
             return;
         };
 
-        *self.clipboard.lock().unwrap() = Some(Rc::new(string));
+        *self.clipboard.lock().unwrap() = Some(string);
     }
 
     fn get(
@@ -166,7 +166,8 @@ impl PlatformClipboard for TestingPlatformClipboard {
             .lock()
             .unwrap()
             .as_ref()
-            .map_or_else(|| Rc::new(()).into(), |value| value.clone().into()))
+            .map(|value| value.clone().into())
+            .unwrap_or_default())
     }
 }
 

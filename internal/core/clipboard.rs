@@ -12,16 +12,22 @@ pub trait PlatformClipboard {
     fn get(&self, clipboard: crate::platform::Clipboard) -> Result<ClipboardData, PlatformError>;
 
     fn clear(&self, clipboard: crate::platform::Clipboard) {
-        self.set(clipboard, Rc::new(()).into())
+        self.set(clipboard, Default::default())
     }
 }
 
-impl<T> From<Rc<T>> for ClipboardData
+/// Private version of [`ClipboardData`] so we can implement the traits that we expect
+#[derive(Clone)]
+pub struct ClipboardData {
+    provider: Rc<dyn ClipboardDataProvider>,
+}
+
+impl<T> From<T> for ClipboardData
 where
     T: ClipboardDataProvider + 'static,
 {
-    fn from(value: Rc<T>) -> Self {
-        Self { provider: value }
+    fn from(value: T) -> Self {
+        Self { provider: Rc::new(value) }
     }
 }
 
@@ -31,14 +37,33 @@ impl From<Rc<dyn ClipboardDataProvider>> for ClipboardData {
     }
 }
 
-#[derive(Clone)]
-pub struct ClipboardData {
-    provider: Rc<dyn ClipboardDataProvider>,
+impl core::fmt::Debug for ClipboardData {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ClipboardData")
+            .field("mime_types", &self.provider.mime_types())
+            .finish_non_exhaustive()
+    }
+}
+
+impl Default for ClipboardData {
+    fn default() -> Self {
+        Self::from(())
+    }
+}
+
+impl PartialEq for ClipboardData {
+    fn eq(&self, other: &Self) -> bool {
+        core::ptr::addr_eq(&*self.provider, &*other.provider)
+    }
 }
 
 impl ClipboardData {
     pub fn mime_types(&self) -> &[&str] {
         self.provider.mime_types()
+    }
+
+    pub fn has_type(&self, type_: &str) -> bool {
+        self.mime_types().contains(&type_)
     }
 
     pub fn read<T>(&self, type_: &str) -> Result<T, PlatformError>
@@ -61,7 +86,7 @@ pub struct DummyPlatformClipboard;
 impl PlatformClipboard for DummyPlatformClipboard {
     fn set(&self, _: crate::platform::Clipboard, _: ClipboardData) {}
     fn get(&self, _: crate::platform::Clipboard) -> Result<ClipboardData, PlatformError> {
-        Ok(Rc::new(()).into())
+        Ok(Default::default())
     }
 }
 

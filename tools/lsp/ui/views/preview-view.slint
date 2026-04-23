@@ -397,7 +397,7 @@ export component PreviewView inherits Rectangle {
 
                     DropArea {
                         can-drop(event) => {
-                            if !event.has-plaintext {
+                            if !event.has-mime-type("application/x-slint-component") && !event.has-mime-type("application/x-slint-component-move") {
                                 return false;
                             }
                             return Api.can-drop(event.plaintext.to-float(), event.position.x, event.position.y, true);

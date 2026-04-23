@@ -11,8 +11,7 @@ export component TestCase inherits Window {
         Rectangle {
             background: inner_touch_area.has-hover ? yellow : red;
             DragArea {
-                mime-type: "text/plain";
-                data: { plaintext: "Hello World" };
+                data: "Hello World";
 
                 inner_touch_area := TouchArea {
                     x: 50px;
@@ -30,7 +29,7 @@ export component TestCase inherits Window {
                     true
                 }
                 dropped(event) => {
-                    result += "D[" + event.plaintext + "];";
+                    result += "D[" + event.data.read-string("text/plain") + "];";
                     debug("dropped", event);
                 }
 

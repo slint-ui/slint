@@ -106,36 +106,12 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
-            /// This structure is used to define draggable or copyable data from Slint
-            #[non_exhaustive]
-            struct MimeData {
-                @name = BuiltinPublicStruct::MimeData,
-                export {
-                    /// Plaintext data being dragged. Considered unset if it equals `SharedString::default()`
-                    plaintext: SharedString,
-                    /// Image data being dragged. Considered unset if it equals `Image::default()`
-                    image: Image,
-                }
-                private {
-                }
-            }
-
             /// This structure is passed to the callbacks of the `DropArea` element
             struct DropEvent {
                 @name = BuiltinPrivateStruct::DropEvent,
                 export {
-                    // TODO: `plaintext` and `image` should be optionals, see https://github.com/slint-ui/slint/pull/10992
-                    /// Whether `plaintext` contains valid data
-                    has_plaintext: bool,
-                    /// Whether `image` contains valid data
-                    has_image: bool,
-
-                    // TODO: We can't reuse `MimeData` due to limitations of some macros
-                    /// Plaintext data being dragged. Considered unset if it equals `SharedString::default()`
-                    plaintext: SharedString,
-
-                    /// Image data being dragged. Considered unset if it equals `Image::default()`
-                    image: Image,
+                    /// The data to be accessed.
+                    data: ClipboardData,
 
                     /// The current mouse position in coordinates of the `DropArea` element
                     position: LogicalPosition,

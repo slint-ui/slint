@@ -404,14 +404,14 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
         } };
 
         if !has_type {
-            return Ok(Rc::new(()).into());
+            return Ok(Default::default());
         }
 
         let clipboard_string: String = cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
             return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
         }}.into();
 
-        Ok(Rc::new(i_slint_core::SharedString::from(clipboard_string)).into())
+        Ok(i_slint_core::SharedString::from(clipboard_string).into())
     }
 }
 

@@ -61,6 +61,7 @@ mod drag_n_drop;
 pub use drag_n_drop::*;
 #[cfg(feature = "path")]
 mod path;
+pub use crate::ClipboardData;
 #[cfg(feature = "path")]
 pub use path::*;
 

@@ -79,7 +79,7 @@ component ItemTemplate {
 
     DragArea {
         mime-type: "application/x-slint-component";
-        data: { plaintext: data.index };
+        data: data.index;
 
         touch-area := TouchArea {
             changed has-hover => {

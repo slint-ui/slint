@@ -99,6 +99,9 @@ pub use graphics::PathData;
 #[doc(inline)]
 pub use graphics::BorderRadius;
 
+#[doc(inline)]
+pub use clipboard::ClipboardData;
+
 pub use context::{SlintContext, with_global_context};
 
 #[cfg(not(slint_int_coord))]

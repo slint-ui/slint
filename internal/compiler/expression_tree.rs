@@ -82,6 +82,8 @@ pub enum BuiltinFunction {
     ColorTransparentize,
     ColorMix,
     ColorWithAlpha,
+    ClipboardDataHasType,
+    ClipboardDataReadString,
     ImageSize,
     ArrayLength,
     Rgb,
@@ -252,6 +254,8 @@ declare_builtin_function_types!(
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
+    ClipboardDataHasType: (Type::ClipboardData, Type::String) -> Type::Bool,
+    ClipboardDataReadString: (Type::ClipboardData, Type::String) -> Type::String,
     ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("width"), Type::Int32),
@@ -375,6 +379,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
+            BuiltinFunction::ClipboardDataHasType | BuiltinFunction::ClipboardDataReadString => {
+                false
+            }
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
             // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
@@ -466,6 +473,8 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
+            BuiltinFunction::ClipboardDataHasType => true,
+            BuiltinFunction::ClipboardDataReadString => false,
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
@@ -1520,7 +1529,7 @@ impl Expression {
             | Type::ElementReference
             | Type::LayoutCache
             | Type::ArrayOfU16 => Expression::Invalid,
-            Type::Void => Expression::CodeBlock(Vec::new()),
+            Type::Void | Type::ClipboardData => Expression::CodeBlock(Vec::new()),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {

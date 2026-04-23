@@ -276,7 +276,8 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
-            | Type::ArrayOfU16 => return None,
+            | Type::ArrayOfU16
+            | Type::ClipboardData => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32

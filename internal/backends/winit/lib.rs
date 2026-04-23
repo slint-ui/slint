@@ -826,10 +826,9 @@ impl PlatformClipboard for WinitPlatformClipboard {
     ) -> Result<ClipboardData, PlatformError> {
         use i_slint_core::SharedString;
 
-        Ok(crate::wasm_input_helper::get_clipboard_text(clipboard).map_or_else(
-            || Rc::new(()).into(),
-            |string| Rc::new(SharedString::from(string)).into(),
-        ))
+        Ok(crate::wasm_input_helper::get_clipboard_text(clipboard)
+            .map(|string| SharedString::from(string).into())
+            .unwrap_or_default())
     }
 }
 
@@ -875,7 +874,7 @@ impl PlatformClipboard for WinitPlatformClipboard {
             return Err(PlatformError::Other(format!("No such clipboard {clipboard:?}")));
         };
 
-        Ok(Rc::new(SharedString::from(clipboard.get_contents()?)).into())
+        Ok(SharedString::from(clipboard.get_contents()?).into())
     }
 }
 

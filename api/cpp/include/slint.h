@@ -10,6 +10,7 @@
 #include "private/slint_models.h"
 #include "private/slint_item_tree.h"
 #include "private/slint_keys.h"
+#include "private/slint_clipboard.h"
 
 #include <vector>
 #include <chrono>

@@ -1368,6 +1368,34 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ClipboardDataHasType => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ClipboardDataHasType")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+            let Value::String(type_) = eval_expression(&arguments[1], local_context) else {
+                panic!("First argument not a string");
+            };
+
+            data.has_type(&*type_).into()
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ClipboardDataHasType")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+            let Value::String(type_) = eval_expression(&arguments[1], local_context) else {
+                panic!("First argument not a string");
+            };
+
+            data.read::<SharedString>(&*type_).unwrap_or_default().into()
+        }
         BuiltinFunction::ImageSize => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ImageSize")
@@ -2040,6 +2068,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::ClipboardData => matches!(value, Value::ClipboardData(_)),
     }
 }
 
@@ -2331,6 +2360,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Keys => Value::Keys(Default::default()),
+        Type::ClipboardData => Value::ClipboardData(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

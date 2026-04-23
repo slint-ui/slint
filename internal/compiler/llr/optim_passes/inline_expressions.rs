@@ -134,6 +134,10 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorTransparentize => 50,
         BuiltinFunction::ColorMix => 50,
         BuiltinFunction::ColorWithAlpha => 50,
+        // `ClipboardData` should fetch the MIME types on construction
+        BuiltinFunction::ClipboardDataHasType => PROPERTY_ACCESS_COST,
+        // May do IO, and on X11 may even access the network
+        BuiltinFunction::ClipboardDataReadString => isize::MAX,
         BuiltinFunction::ImageSize => 50,
         BuiltinFunction::ArrayLength => 50,
         BuiltinFunction::Rgb => 50,

@@ -36,7 +36,7 @@ use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::timers::Timer;
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
-use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
+use i_slint_core::{Brush, ClipboardData, Color, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
 use once_cell::unsync::{Lazy, OnceCell};
@@ -1340,6 +1340,7 @@ pub(crate) fn generate_item_tree<'id>(
                 }
             }
             Type::Keys => property_info::<Keys>(),
+            Type::ClipboardData => property_info::<ClipboardData>(),
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::ArrayOfU16 => property_info::<SharedVector<u16>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,

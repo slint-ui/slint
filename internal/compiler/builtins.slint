@@ -239,8 +239,7 @@ export component ScaleRotateGestureHandler {
 export component DragArea {
     in property <bool> enabled: true;
     //out property <bool> dragging;
-    in property <string> mime-type;
-    in property <MimeData> data;
+    in property <clipboard-data> data;
     //-default_size_binding:expands_to_parent_geometry
 
 }
