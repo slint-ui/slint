@@ -25,3 +25,22 @@ impl From<SharedString> for AnyData {
         Self { inner: value }
     }
 }
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct AnyDataCastError;
+
+impl core::fmt::Display for AnyDataCastError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Could not cast AnyData to target type")
+    }
+}
+
+impl core::error::Error for AnyDataCastError {}
+
+impl TryFrom<AnyData> for SharedString {
+    type Error = AnyDataCastError;
+
+    fn try_from(value: AnyData) -> Result<Self, Self::Error> {
+        value.as_string().ok_or(AnyDataCastError)
+    }
+}

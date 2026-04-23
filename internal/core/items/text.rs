@@ -1965,7 +1965,7 @@ impl TextInput {
             .context()
             .platform()
             .clipboard()
-            .set(clipboard, alloc::rc::Rc::new(text));
+            .set(clipboard, alloc::rc::Rc::new(text).into());
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1991,9 +1991,8 @@ impl TextInput {
                     .iter()
                     .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
 
-                data.read(mime_type).ok()
+                data.read::<SharedString>(mime_type).ok()
             })
-            .and_then(|any_data| any_data.as_string())
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

@@ -14,7 +14,7 @@
 extern crate alloc;
 
 #[cfg(not(no_qt))]
-use i_slint_core::clipboard::ClipboardData;
+use i_slint_core::SharedString;
 use i_slint_core::platform::PlatformError;
 use std::rc::Rc;
 #[cfg(not(no_qt))]
@@ -343,7 +343,7 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
     fn set(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-        data: Rc<dyn i_slint_core::clipboard::ClipboardData>,
+        data: i_slint_core::clipboard::ClipboardData,
     ) {
         use cpp::cpp;
 
@@ -358,8 +358,7 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
             return;
         };
 
-        let Some(string) = data.read(mime_type).ok().and_then(|any_data| any_data.as_string())
-        else {
+        let Some(string) = data.read::<SharedString>(mime_type).ok() else {
             eprintln!(
                 "Testing clipboard provided non-string data: {:?}",
                 data_for_mime_types.mime_types()
@@ -386,7 +385,7 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
     fn get(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-    ) -> Result<Rc<dyn ClipboardData>, i_slint_core::platform::PlatformError> {
+    ) -> Result<i_slint_core::clipboard::ClipboardData, i_slint_core::platform::PlatformError> {
         use cpp::cpp;
 
         let is_selection: bool = match clipboard {
@@ -405,14 +404,14 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
         } };
 
         if !has_type {
-            return Ok(Rc::new(()));
+            return Ok(Rc::new(()).into());
         }
 
         let clipboard_string: String = cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
             return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
         }}.into();
 
-        Ok(Rc::new(i_slint_core::SharedString::from(clipboard_string)))
+        Ok(Rc::new(i_slint_core::SharedString::from(clipboard_string)).into())
     }
 }
 

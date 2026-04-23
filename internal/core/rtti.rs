@@ -42,6 +42,7 @@ macro_rules! declare_ValueType_2 {
             crate::animations::EasingCurve,
             crate::items::StandardListViewItem,
             crate::items::TableColumn,
+            crate::items::MimeData,
             crate::input::KeyEvent,
             crate::Brush,
             crate::graphics::Point,

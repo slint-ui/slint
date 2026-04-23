@@ -127,11 +127,7 @@ struct TestingPlatformClipboard {
 }
 
 impl PlatformClipboard for TestingPlatformClipboard {
-    fn set(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        data: std::rc::Rc<dyn i_slint_core::clipboard::ClipboardData>,
-    ) {
+    fn set(&self, clipboard: i_slint_core::platform::Clipboard, data: ClipboardData) {
         if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
             eprintln!("No such clipboard {clipboard:?}");
             return;
@@ -146,8 +142,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
             return;
         };
 
-        let Some(string) = data.read(mime_type).ok().and_then(|any_data| any_data.as_string())
-        else {
+        let Some(string) = data.read::<SharedString>(mime_type).ok() else {
             eprintln!(
                 "Testing clipboard provided non-string data: {:?}",
                 data_for_mime_types.mime_types()
@@ -161,7 +156,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
     fn get(
         &self,
         clipboard: i_slint_core::platform::Clipboard,
-    ) -> Result<Rc<dyn ClipboardData>, PlatformError> {
+    ) -> Result<ClipboardData, PlatformError> {
         if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
             return Err(PlatformError::Other(format!("No such clipboard {clipboard:?}")));
         }
@@ -171,7 +166,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
             .lock()
             .unwrap()
             .as_ref()
-            .map_or_else(|| Rc::new(()) as Rc<dyn ClipboardData>, |value| value.clone()))
+            .map_or_else(|| Rc::new(()).into(), |value| value.clone().into()))
     }
 }
 

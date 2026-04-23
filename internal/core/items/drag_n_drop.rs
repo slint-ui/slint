@@ -10,6 +10,7 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::items::MimeData;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -31,7 +32,7 @@ pub type DropEventArg = (DropEvent,);
 pub struct DragArea {
     pub enabled: Property<bool>,
     pub mime_type: Property<SharedString>,
-    pub data: Property<SharedString>,
+    pub data: Property<MimeData>,
     pressed: Cell<bool>,
     pressed_position: Cell<LogicalPoint>,
     pub cached_rendering_data: CachedRenderingData,

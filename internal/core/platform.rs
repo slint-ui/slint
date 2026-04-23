@@ -134,7 +134,7 @@ pub trait Platform {
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
-        self.clipboard().set(clipboard, alloc::rc::Rc::new(SharedString::from(text)));
+        self.clipboard().set(clipboard, alloc::rc::Rc::new(SharedString::from(text)).into());
     }
 
     /// Returns a copy of text stored in the system clipboard, if any.
@@ -152,7 +152,7 @@ pub trait Platform {
             .iter()
             .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
 
-        data.read(mime_type).ok()?.as_string().map(|string| string.into())
+        data.read::<SharedString>(mime_type).ok().map(|s| s.into())
     }
 
     /// This function is called when debug() is used in .slint files. The implementation
@@ -258,8 +258,7 @@ impl core::fmt::Display for SetPlatformError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for SetPlatformError {}
+impl core::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///

@@ -14,7 +14,9 @@ Some convention used in the generated code:
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
+use crate::langtype::{
+    Enumeration, EnumerationValue, Struct, StructName, Type,
+};
 use crate::layout::Orientation;
 use crate::llr::{
     self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,

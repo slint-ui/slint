@@ -111,7 +111,7 @@ macro_rules! for_each_builtin_structs {
             struct MimeData {
                 @name = BuiltinPublicStruct::MimeData,
                 export {
-                    /// Plaintext data being dragged. Considered unset if it equals `Image::default()`
+                    /// Plaintext data being dragged. Considered unset if it equals `SharedString::default()`
                     plaintext: SharedString,
                     /// Image data being dragged. Considered unset if it equals `Image::default()`
                     image: Image,
@@ -124,10 +124,19 @@ macro_rules! for_each_builtin_structs {
             struct DropEvent {
                 @name = BuiltinPrivateStruct::DropEvent,
                 export {
-                    /// The mime type of the data being dragged
-                    mime_type: SharedString,
-                    /// The data being dragged
-                    data: SharedString,
+                    // TODO: `plaintext` and `image` should be optionals, see https://github.com/slint-ui/slint/pull/10992
+                    /// Whether `plaintext` contains valid data
+                    has_plaintext: bool,
+                    /// Whether `image` contains valid data
+                    has_image: bool,
+
+                    // TODO: We can't reuse `MimeData` due to limitations of some macros
+                    /// Plaintext data being dragged. Considered unset if it equals `SharedString::default()`
+                    plaintext: SharedString,
+
+                    /// Image data being dragged. Considered unset if it equals `Image::default()`
+                    image: Image,
+
                     /// The current mouse position in coordinates of the `DropArea` element
                     position: LogicalPosition,
                 }

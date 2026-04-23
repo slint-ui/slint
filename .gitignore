@@ -25,6 +25,9 @@ global-structs-enums.mdx
 /.mise.local.toml
 /.mise/tasks/local/
 
+# Helix local config
+/.helix
+
 .claude
 
 *.node

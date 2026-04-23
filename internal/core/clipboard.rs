@@ -1,30 +1,67 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use alloc::rc::Rc;
+use alloc::{boxed::Box, rc::Rc};
 
 use crate::{AnyData, SharedString, api::PlatformError};
 
 pub mod mime;
 
 pub trait PlatformClipboard {
-    fn set(&self, clipboard: crate::platform::Clipboard, value: Rc<dyn ClipboardData>);
-    fn get(
-        &self,
-        clipboard: crate::platform::Clipboard,
-    ) -> Result<Rc<dyn ClipboardData>, PlatformError>;
+    fn set(&self, clipboard: crate::platform::Clipboard, value: ClipboardData);
+    fn get(&self, clipboard: crate::platform::Clipboard) -> Result<ClipboardData, PlatformError>;
 
     fn clear(&self, clipboard: crate::platform::Clipboard) {
-        self.set(clipboard, Rc::new(()))
+        self.set(clipboard, Rc::new(()).into())
+    }
+}
+
+impl<T> From<Rc<T>> for ClipboardData
+where
+    T: ClipboardDataProvider + 'static,
+{
+    fn from(value: Rc<T>) -> Self {
+        Self { provider: value }
+    }
+}
+
+impl From<Rc<dyn ClipboardDataProvider>> for ClipboardData {
+    fn from(value: Rc<dyn ClipboardDataProvider>) -> Self {
+        Self { provider: value }
+    }
+}
+
+#[derive(Clone)]
+pub struct ClipboardData {
+    provider: Rc<dyn ClipboardDataProvider>,
+}
+
+impl ClipboardData {
+    pub fn mime_types(&self) -> &[&str] {
+        self.provider.mime_types()
+    }
+
+    pub fn read<T>(&self, type_: &str) -> Result<T, PlatformError>
+    where
+        T: TryFrom<AnyData>,
+        T::Error: core::error::Error + Send + Sync + 'static,
+    {
+        self.provider.clone().read(type_).and_then(|any| {
+            any.try_into().map_err(|err| {
+                PlatformError::OtherError(
+                    Box::new(err) as Box<dyn core::error::Error + Send + Sync + 'static>
+                )
+            })
+        })
     }
 }
 
 pub struct DummyPlatformClipboard;
 
 impl PlatformClipboard for DummyPlatformClipboard {
-    fn set(&self, _: crate::platform::Clipboard, _: Rc<dyn ClipboardData>) {}
-    fn get(&self, _: crate::platform::Clipboard) -> Result<Rc<dyn ClipboardData>, PlatformError> {
-        Ok(Rc::new(()))
+    fn set(&self, _: crate::platform::Clipboard, _: ClipboardData) {}
+    fn get(&self, _: crate::platform::Clipboard) -> Result<ClipboardData, PlatformError> {
+        Ok(Rc::new(()).into())
     }
 }
 
@@ -39,7 +76,7 @@ impl PlatformClipboard for DummyPlatformClipboard {
 /// not followed then consumers may act inconsistently.
 ///
 /// - `text/*`: `SharedString` (this will require boxing the `SharedString` inside an `Rc`)
-pub trait ClipboardData {
+pub trait ClipboardDataProvider {
     /// This should be called before `read`, and returns the set of available MIME types.
     fn mime_types(&self) -> &[&str];
 
@@ -47,7 +84,7 @@ pub trait ClipboardData {
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError>;
 }
 
-impl ClipboardData for SharedString {
+impl ClipboardDataProvider for SharedString {
     fn mime_types(&self) -> &[&str] {
         self::mime::PLAINTEXT
     }
@@ -62,7 +99,7 @@ impl ClipboardData for SharedString {
 }
 
 // Dummy implementation of `ClipboardData` that does nothing, used to clear the clipboard.
-impl ClipboardData for () {
+impl ClipboardDataProvider for () {
     fn mime_types(&self) -> &[&str] {
         &[]
     }
