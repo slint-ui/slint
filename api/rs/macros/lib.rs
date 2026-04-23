@@ -137,7 +137,17 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                         SyntaxKind::RAngle
                     }
                     '#' => SyntaxKind::ColorLiteral,
-                    '?' => SyntaxKind::Question,
+                    '?' => {
+                        if let Some(last) = vec.last_mut()
+                            && last.kind == SyntaxKind::Question
+                            && prev_spacing == Spacing::Joint
+                        {
+                            last.kind = SyntaxKind::QuestionQuestion;
+                            last.text = "??".into();
+                            continue;
+                        }
+                        SyntaxKind::Question
+                    }
                     ',' => SyntaxKind::Comma,
                     '&' => {
                         // Since the '&' alone does not exist or cannot be part of any other token that &&

@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test edge cases for optional types
+
+TestCase := Rectangle {
+    // Optionals with different types
+    property <duration?> opt_duration: none;
+    property <length?> opt_length: none;
+    property <color?> opt_color: none;
+    property <brush?> opt_brush: none;
+    property <image?> opt_image: none;
+
+    // Optionals with values
+    property <duration?> duration_val: 500ms;
+    property <length?> length_val: 100px;
+    property <color?> color_val: #FF0000;
+
+    // value-or with different types
+    property <duration> duration_or_default: opt_duration.value-or(1s);
+    property <length> length_or_default: opt_length.value-or(50px);
+    property <color> color_or_default: opt_color.value-or(#000000);
+
+    // Chained value-or
+    property <string?> first: none;
+    property <string?> second: none;
+    property <string?> third: "fallback";
+    property <string> chained_coalesce: first.value-or(second.value-or(third.value-or("final")));
+
+    // Optional in conditional expressions
+    property <string?> opt_text: none;
+    property <string?> text_wrapped: "value";
+    property <int?> opt_number: none;
+    property <int?> number_wrapped: 42;
+
+    property <string> conditional_opt: opt_text != none ? "has value" : "is none";
+
+    // Comparison combinations
+    property <bool> both_none: opt_text == none && opt_number == none;
+    property <bool> any_has_value: text_wrapped != none || number_wrapped != none;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Test type-specific optionals
+assert_eq!(instance.get_opt_duration(), None);
+assert_eq!(instance.get_duration_val(), Some(500));
+
+assert_eq!(instance.get_opt_length(), None);
+assert_eq!(instance.get_length_val(), Some(100.0));
+
+// Test value-or
+assert_eq!(instance.get_duration_or_default(), 1000);
+assert_eq!(instance.get_length_or_default(), 50.0);
+
+// Test chained value-or
+assert_eq!(instance.get_chained_coalesce(), slint::SharedString::from("fallback"));
+
+// Test comparisons
+assert_eq!(instance.get_conditional_opt(), slint::SharedString::from("is none"));
+assert_eq!(instance.get_both_none(), true);
+assert_eq!(instance.get_any_has_value(), true);
+```
+*/

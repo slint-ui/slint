@@ -41,6 +41,8 @@ pub fn parse_expression(p: &mut impl Parser) -> bool {
 enum OperatorPrecedence {
     /// ` ?: `
     Default,
+    /// `??`
+    NullCoalesce,
     /// `||`, `&&`
     Logical,
     /// `==` `!=` `>=` `<=` `<` `>`
@@ -132,6 +134,13 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
                 parse_expression(&mut *p);
                 p.expect(SyntaxKind::RBracket);
             }
+            SyntaxKind::Bang => {
+                {
+                    let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+                }
+                let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::UnwrapExpression);
+                p.consume(); // consume '!'
+            }
             _ => break,
         }
         possible_range = false;
@@ -215,6 +224,20 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::BinaryExpression);
         p.consume();
         parse_expression_helper(&mut *p, OperatorPrecedence::Logical);
+    }
+
+    if precedence >= OperatorPrecedence::NullCoalesce {
+        return true;
+    }
+
+    // Null-coalescing operator (??)
+    if p.nth(0).kind() == SyntaxKind::QuestionQuestion {
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        }
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::NullCoalesceExpression);
+        p.consume(); // consume '??'
+        parse_expression_helper(&mut *p, OperatorPrecedence::NullCoalesce);
     }
 
     if p.nth(0).kind() == SyntaxKind::Question {
