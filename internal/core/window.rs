@@ -2037,16 +2037,37 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: Box<dyn Fn() -> LogicalPosition>,
+        position: extern "C" fn(user_data: *mut c_void) -> LogicalPosition,
+        drop_user_data: extern "C" fn(user_data: *mut c_void),
+        user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         is_menu: bool,
     ) -> NonZeroU32 {
         unsafe {
+            struct WithUserData {
+                callback: extern "C" fn(user_data: *mut c_void) -> LogicalPosition,
+                drop_user_data: extern "C" fn(*mut c_void),
+                user_data: *mut c_void,
+            }
+
+            impl Drop for WithUserData {
+                fn drop(&mut self) {
+                    (self.drop_user_data)(self.user_data)
+                }
+            }
+
+            impl WithUserData {
+                fn call(&self) -> LogicalPosition {
+                    (self.callback)(self.user_data)
+                }
+            }
+
+            let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
-                position,
+                Box::new(move || with_user_data.call()),
                 close_policy,
                 parent_item,
                 is_menu,
