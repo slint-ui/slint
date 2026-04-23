@@ -1045,6 +1045,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         height: u32,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
+        // femtovg doesn't have a concept of a null renderer, so we need to create _something_ to
+        // render to. Textures can't be zero-sized, so we need to give it a size of 1px. When we use
+        // this texture in `render_layer`, we discard the result, so we can safely reuse it many
+        // times.
         let dummy_texture =
             Texture::new_empty_on_gpu(canvas, 1, 1).expect("Could not create dummy texture");
         Self {
