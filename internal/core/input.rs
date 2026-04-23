@@ -251,7 +251,7 @@ pub enum InputEventFilterResult {
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
-       ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
+       ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
             $(pub const $name : char = $char;)*
 
             #[allow(missing_docs)]
@@ -544,7 +544,7 @@ impl Keys {
 
         if let Some(first_char) = first_char {
             macro_rules! check_special_key {
-                ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+                ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
                     match first_char {
                     $($(
                         // Use $qt as a marker - if it exists, generate the check
@@ -1696,6 +1696,7 @@ impl TouchState {
         // 3+ fingers: tracked in active_touches but ignored for gesture.
     }
 
+    #[allow(clippy::collapsible_match)]
     fn process_moved(&mut self, id: u64, position: LogicalPoint, events: &mut TouchEventBuffer) {
         if let Some(tp) = self.active_touches.get_mut(id) {
             tp.position = position;
@@ -1785,6 +1786,7 @@ impl TouchState {
         }
     }
 
+    #[allow(clippy::collapsible_match)]
     fn process_ended(
         &mut self,
         id: u64,

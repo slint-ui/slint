@@ -165,8 +165,18 @@ public:
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item) const
     {
-        auto popup = Component::create(parent_component);
+        using SharedGlobals = decltype(parent_component->globals);
+        SharedGlobals _own_globals = nullptr;
+        if (auto _popup_adapter = create_popup_window_adapter()) {
+            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        }
+        if (!_own_globals) {
+            _own_globals = parent_component->globals;
+        }
+
+        auto popup = Component::create(parent_component, _own_globals);
         auto popup_dyn = popup.into_dyn();
+
         struct PopupPositionData
         {
             PosGetter pos;
@@ -191,6 +201,20 @@ public:
         if (popup_id > 0) {
             cbindgen_private::slint_windowrc_close_popup(&inner, popup_id);
         }
+    }
+
+    /// Try to create a window adapter for a popup window.
+    /// Returns std::nullopt if the backend renders popups as child windows.
+    std::optional<WindowAdapterRc> create_popup_window_adapter() const
+    {
+        cbindgen_private::WindowAdapterRcOpaque raw_result;
+        if (cbindgen_private::slint_windowrc_create_popup_window_adapter(&inner, &raw_result)) {
+            std::optional<WindowAdapterRc> result;
+            result.emplace(raw_result); // clone: refcount = 2
+            cbindgen_private::slint_windowrc_drop(&raw_result); // drop original: refcount = 1
+            return result;
+        }
+        return std::nullopt;
     }
 
     template<typename Component, typename SharedGlobals, typename InitFn>

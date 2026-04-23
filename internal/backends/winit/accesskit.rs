@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::Weak;
 
-use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeUpdate};
+use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeId, TreeUpdate};
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
@@ -135,6 +135,7 @@ impl AccessKitAdapter {
         self.inner.update_if_active(|| TreeUpdate {
             nodes: Vec::new(),
             tree: None,
+            tree_id: TreeId::ROOT,
             focus: self.nodes.focus_node(&self.window_adapter_weak),
         })
     }
@@ -145,7 +146,7 @@ impl AccessKitAdapter {
             Action::Focus => {
                 return self
                     .nodes
-                    .item_rc_for_node_id(request.target)
+                    .item_rc_for_node_id(request.target_node)
                     .map(DeferredAccessKitAction::SetFocus);
             }
             Action::Decrement => AccessibilityAction::Decrement,
@@ -167,7 +168,7 @@ impl AccessKitAdapter {
             _ => return None,
         };
         self.nodes
-            .item_rc_for_node_id(request.target)
+            .item_rc_for_node_id(request.target_node)
             .map(|item| DeferredAccessKitAction::InvokeAccessibleAction(item, a))
     }
 
@@ -239,6 +240,7 @@ impl AccessKitAdapter {
                 TreeUpdate {
                     nodes: nodes.collect(),
                     tree: None,
+                    tree_id: TreeId::ROOT,
                     focus: self.nodes.focus_node(&self.window_adapter_weak),
                 }
             })
@@ -429,6 +431,7 @@ impl NodeCollection {
             return TreeUpdate {
                 nodes: Default::default(),
                 tree: Default::default(),
+                tree_id: TreeId::ROOT,
                 focus: self.root_node_id,
             };
         };
@@ -473,6 +476,7 @@ impl NodeCollection {
         TreeUpdate {
             nodes,
             tree: Some(self.tree_info(root_id)),
+            tree_id: TreeId::ROOT,
             focus: self.focus_node(window_adapter_weak),
         }
     }

@@ -394,7 +394,7 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     macro_rules! collect_special_key {
-        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
+        ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
             $(
                  write!(file, r#"-   **`{}`**
 "#, stringify!($name)

@@ -233,14 +233,14 @@ mod plural_rule_parser {
 
     impl ParsingState<'_> {
         fn skip_whitespace(self) -> Self {
-            let rest = skip_whitespace(self.rest);
+            let rest = self.rest.trim_ascii_start();
             Self { rest, ..self }
         }
     }
 
     /// `<condition> ('?' <expr> : <expr> )?`
     fn parse_expression(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
-        let string = skip_whitespace(string);
+        let string = string.trim_ascii_start();
         let state = parse_condition(string)?.skip_whitespace();
         if state.ty != Ty::Boolean {
             return Ok(state);
@@ -258,7 +258,7 @@ mod plural_rule_parser {
                     true_expr: s1.expr.into(),
                     false_expr: s2.expr.into(),
                 },
-                rest: skip_whitespace(s2.rest),
+                rest: s2.rest.trim_ascii_start(),
                 ty: s2.ty,
             })
         } else {
@@ -268,7 +268,7 @@ mod plural_rule_parser {
 
     /// `<and_expr> ("||" <condition>)?`
     fn parse_condition(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
-        let string = skip_whitespace(string);
+        let string = string.trim_ascii_start();
         let state = parse_and_expr(string)?.skip_whitespace();
         if state.rest.is_empty() {
             return Ok(state);
@@ -285,7 +285,7 @@ mod plural_rule_parser {
                     op: '|',
                 },
                 ty: Ty::Boolean,
-                rest: skip_whitespace(state2.rest),
+                rest: state2.rest.trim_ascii_start(),
             })
         } else {
             Ok(state)
@@ -294,7 +294,7 @@ mod plural_rule_parser {
 
     /// `<cmp_expr> ("&&" <and_expr>)?`
     fn parse_and_expr(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
-        let string = skip_whitespace(string);
+        let string = string.trim_ascii_start();
         let state = parse_cmp_expr(string)?.skip_whitespace();
         if state.rest.is_empty() {
             return Ok(state);
@@ -311,7 +311,7 @@ mod plural_rule_parser {
                     op: '&',
                 },
                 ty: Ty::Boolean,
-                rest: skip_whitespace(state2.rest),
+                rest: state2.rest.trim_ascii_start(),
             })
         } else {
             Ok(state)
@@ -320,9 +320,9 @@ mod plural_rule_parser {
 
     /// `<value> ('=='|'!='|'<'|'>'|'<='|'>=' <cmp_expr>)?`
     fn parse_cmp_expr(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
-        let string = skip_whitespace(string);
+        let string = string.trim_ascii_start();
         let mut state = parse_value(string)?;
-        state.rest = skip_whitespace(state.rest);
+        state.rest = state.rest.trim_ascii_start();
         if state.rest.is_empty() {
             return Ok(state);
         }
@@ -346,7 +346,7 @@ mod plural_rule_parser {
                         op,
                     },
                     ty: Ty::Boolean,
-                    rest: skip_whitespace(state2.rest),
+                    rest: state2.rest.trim_ascii_start(),
                 });
             }
         }
@@ -355,9 +355,9 @@ mod plural_rule_parser {
 
     /// `<term> ('%' <term>)?`
     fn parse_value(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
-        let string = skip_whitespace(string);
+        let string = string.trim_ascii_start();
         let mut state = parse_term(string)?;
-        state.rest = skip_whitespace(state.rest);
+        state.rest = state.rest.trim_ascii_start();
         if state.rest.is_empty() {
             return Ok(state);
         }
@@ -372,7 +372,7 @@ mod plural_rule_parser {
                     arguments: vec![state.expr, state2.expr],
                 },
                 ty: Ty::Number,
-                rest: skip_whitespace(state2.rest),
+                rest: state2.rest.trim_ascii_start(),
             })
         } else {
             Ok(state)
@@ -380,7 +380,7 @@ mod plural_rule_parser {
     }
 
     fn parse_term(string: &[u8]) -> Result<ParsingState<'_>, ParseError<'_>> {
-        let string = skip_whitespace(string);
+        let string = string.trim_ascii_start();
         let state = match string.first().ok_or(ParseError("unexpected end of string", string))? {
             b'n' => ParsingState {
                 expr: Expression::FunctionParameterReference { index: 0 },
@@ -408,14 +408,6 @@ mod plural_rule_parser {
             .map_err(|_| ParseError("can't parse number", string))?;
         Ok((n, &string[end..]))
     }
-    fn skip_whitespace(mut string: &[u8]) -> &[u8] {
-        // slice::trim_ascii_start when MSRV >= 1.80
-        while !string.is_empty() && string[0].is_ascii_whitespace() {
-            string = &string[1..];
-        }
-        string
-    }
-
     #[test]
     fn test_parse_rule_expression() {
         #[track_caller]

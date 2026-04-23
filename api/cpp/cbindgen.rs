@@ -87,7 +87,7 @@ namespace slint::platform::key_codes {{
 "#
     )?;
     macro_rules! print_key_codes {
-        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
+        ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
             $(
                 writeln!(enums_pub, "/// A constant that represents the key code to be used in slint::Window::dispatch_key_press_event()")?;
                 writeln!(enums_pub, r#"constexpr std::u8string_view {} = u8"\u{:04x}";"#, stringify!($name), $char as u32)?;
@@ -579,6 +579,7 @@ fn gen_corelib(
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",
             "slint_windowrc_close_popup",
+            "slint_windowrc_create_popup_window_adapter",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
             "slint_windowrc_on_close_requested",

@@ -1,7 +1,7 @@
 {
   "name": "slint.figma.plugin",
   "private": true,
-  "version": "1.16.0",
+  "version": "1.17.0",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode dev",
@@ -33,7 +33,7 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-figma-plugin": "0.0.24",
-    "vite-plugin-singlefile": "2.3.2",
+    "vite-plugin-singlefile": "2.3.3",
     "vitest": "catalog:"
   },
   "dependencies": {

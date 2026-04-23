@@ -520,23 +520,19 @@ impl SharedBackendData {
         }
 
         let sel = sel!(applicationShouldAutomaticallyLocalizeKeyEquivalents:);
-        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate") {
-            if cls.instance_method(sel).is_none() {
-                unsafe {
-                    objc2::ffi::class_addMethod(
-                        (cls as *const AnyClass).cast_mut(),
-                        sel,
-                        core::mem::transmute::<
-                            unsafe extern "C-unwind" fn(
-                                *mut AnyObject,
-                                Sel,
-                                *mut AnyObject,
-                            ) -> Bool,
-                            Imp,
-                        >(should_not_localize),
-                        c"B@:@".as_ptr(),
-                    );
-                }
+        if let Some(cls) = AnyClass::get(c"WinitApplicationDelegate")
+            && cls.instance_method(sel).is_none()
+        {
+            unsafe {
+                objc2::ffi::class_addMethod(
+                    (cls as *const AnyClass).cast_mut(),
+                    sel,
+                    core::mem::transmute::<
+                        unsafe extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject) -> Bool,
+                        Imp,
+                    >(should_not_localize),
+                    c"B@:@".as_ptr(),
+                );
             }
         }
     }
@@ -997,15 +993,15 @@ fn create_renderer(
         (Some("skia-wgpu"), maybe_graphics_api) => {
             if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    if cfg!(feature = "unstable-wgpu-28") {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
-                            shared_data,
-                        ));
-                    } else if cfg!(feature = "unstable-wgpu-27") {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
-                            shared_data,
-                        ));
-                    }
+                    #[cfg(feature = "unstable-wgpu-28")]
+                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                        shared_data,
+                    ));
+                    #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
+                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
+                        shared_data,
+                    ));
+                    #[allow(unreachable_code)]
                     None
                 },
                 |api| {

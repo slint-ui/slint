@@ -447,11 +447,13 @@ export component GridLayout {
 export component VerticalLayout {
     in property <length> spacing;
     in property <LayoutAlignment> alignment;
+    in property <LayoutAlignItems> align-items;
 }
 
 export component HorizontalLayout {
     in property <length> spacing;
     in property <LayoutAlignment> alignment;
+    in property <LayoutAlignItems> align-items;
 }
 
 export component FlexboxLayout {
@@ -461,7 +463,7 @@ export component FlexboxLayout {
     in property <LayoutAlignment> alignment: LayoutAlignment.start;  // CSS default is flex-start
     in property <FlexboxLayoutDirection> flex-direction;
     in property <FlexboxLayoutAlignContent> align-content;
-    in property <FlexboxLayoutAlignItems> align-items;
+    in property <LayoutAlignItems> align-items;
     in property <FlexboxLayoutWrap> flex-wrap;
 }
 

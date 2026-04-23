@@ -1152,24 +1152,24 @@ mod tests {
         document_cache: &common::DocumentCache,
         edit: &lsp_types::WorkspaceEdit,
     ) -> Vec<text_edit::EditedText> {
-        eprintln!("Edit:");
+        tracing::debug!("Edit:");
         for it in text_edit::EditIterator::new(edit) {
-            eprintln!("   {} => {:?}", it.0.uri, it.1);
+            tracing::debug!("   {} => {:?}", it.0.uri, it.1);
         }
-        eprintln!("*** All edits reported ***");
+        tracing::debug!("*** All edits reported ***");
 
         let changed_text = text_edit::apply_workspace_edit(document_cache, edit).unwrap();
         assert!(!changed_text.is_empty()); // there was a change!
 
-        eprintln!("After changes were applied:");
+        tracing::debug!("After changes were applied:");
         for ct in &changed_text {
-            eprintln!("File {}:", ct.url);
+            tracing::debug!("File {}:", ct.url);
             for (count, line) in ct.contents.split('\n').enumerate() {
-                eprintln!("    {:3}: {line}", count + 1);
+                tracing::debug!("    {:3}: {line}", count + 1);
             }
-            eprintln!("=========");
+            tracing::debug!("=========");
         }
-        eprintln!("*** All changes reported ***");
+        tracing::debug!("*** All changes reported ***");
 
         changed_text
     }

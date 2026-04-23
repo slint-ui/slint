@@ -179,8 +179,8 @@ impl Snapshotter {
         registry
             .borrow()
             .all_elements()
-            .iter()
-            .filter_map(|(_, ty)| match ty {
+            .values()
+            .filter_map(|ty| match ty {
                 langtype::ElementType::Component(c) if c.is_global() => Some(c),
                 _ => None,
             })

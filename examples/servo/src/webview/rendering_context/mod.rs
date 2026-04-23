@@ -16,3 +16,6 @@ mod metal;
 
 #[cfg(target_os = "windows")]
 pub mod directx;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod vulkan;

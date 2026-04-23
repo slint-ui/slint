@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
-    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
+    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf, FlexboxLayoutDirection,
+    FlexboxLayoutWrap, LayoutAlignItems, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1125,6 +1125,16 @@ pub struct BoxLayoutData<'a> {
     pub cells: Slice<'a, LayoutItemInfo>,
 }
 
+/// Input for `solve_box_layout_ortho`.
+#[repr(C)]
+#[derive(Debug)]
+pub struct BoxLayoutOrthoData<'a> {
+    pub size: Coord,
+    pub padding: Padding,
+    pub align_items: LayoutAlignItems,
+    pub cells: Slice<'a, LayoutItemInfo>,
+}
+
 #[repr(C)]
 #[derive(Debug)]
 /// The FlexboxLayoutData is used for a flex layout.
@@ -1138,7 +1148,7 @@ pub struct FlexboxLayoutData<'a> {
     pub alignment: LayoutAlignment,
     pub direction: FlexboxLayoutDirection,
     pub align_content: FlexboxLayoutAlignContent,
-    pub align_items: FlexboxLayoutAlignItems,
+    pub align_items: LayoutAlignItems,
     pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
@@ -1275,6 +1285,41 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indices: Slice<u32>) -> S
     result
 }
 
+/// Cross-axis solve: returns (position, size) per cell, like [`solve_box_layout`].
+pub fn solve_box_layout_ortho(
+    data: &BoxLayoutOrthoData,
+    repeater_indices: Slice<u32>,
+) -> SharedVector<Coord> {
+    let mut result = SharedVector::<Coord>::default();
+    result.resize(data.cells.len() * 2 + repeater_indices.len(), 0 as _);
+    if data.cells.is_empty() {
+        return result;
+    }
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let mut generator = LayoutCacheGenerator::new(&repeater_indices, &mut result);
+    for c in data.cells.iter() {
+        let min =
+            c.constraint.min.max(c.constraint.min_percent * size_without_padding / 100 as Coord);
+        let max =
+            c.constraint.max.min(c.constraint.max_percent * size_without_padding / 100 as Coord);
+        let size = match data.align_items {
+            LayoutAlignItems::Stretch => size_without_padding,
+            _ => c.constraint.preferred,
+        }
+        .min(max)
+        .max(min);
+        let pos = match data.align_items {
+            LayoutAlignItems::Stretch | LayoutAlignItems::Start => data.padding.begin,
+            LayoutAlignItems::End => data.padding.begin + size_without_padding - size,
+            LayoutAlignItems::Center => {
+                data.padding.begin + (size_without_padding - size) / 2 as Coord
+            }
+        };
+        generator.add(pos, size);
+    }
+    result
+}
+
 /// Return the LayoutInfo for a BoxLayout with the given cells.
 pub fn box_layout_info(
     cells: Slice<LayoutItemInfo>,
@@ -1322,9 +1367,9 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignItems, FlexboxLayoutAlignSelf,
-        FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
-        Padding, Slice,
+        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf, FlexboxLayoutItemInfo,
+        FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignItems, LayoutAlignment, Padding,
+        Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1340,7 +1385,7 @@ mod flexbox_taffy {
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
         pub align_content: FlexboxLayoutAlignContent,
-        pub align_items: FlexboxLayoutAlignItems,
+        pub align_items: LayoutAlignItems,
         pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
@@ -1402,8 +1447,12 @@ mod flexbox_taffy {
                                     width: match params.flex_direction {
                                         TaffyFlexDirection::Column
                                         | TaffyFlexDirection::ColumnReverse => {
+                                            // Cross-axis for column
                                             if let Some(cw) = params.container_width {
-                                                Dimension::length(cw as _)
+                                                // Fit inside the container's content box (subtract padding)
+                                                let pad =
+                                                    params.padding_h.begin + params.padding_h.end;
+                                                Dimension::length((cw - pad).max(0 as Coord) as _)
                                             } else if preferred_width > 0 as Coord {
                                                 Dimension::length(preferred_width as _)
                                             } else {
@@ -1504,10 +1553,10 @@ mod flexbox_taffy {
                             LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
                         align_items: Some(match params.align_items {
-                            FlexboxLayoutAlignItems::Stretch => AlignItems::Stretch,
-                            FlexboxLayoutAlignItems::Start => AlignItems::FlexStart,
-                            FlexboxLayoutAlignItems::End => AlignItems::FlexEnd,
-                            FlexboxLayoutAlignItems::Center => AlignItems::Center,
+                            LayoutAlignItems::Stretch => AlignItems::Stretch,
+                            LayoutAlignItems::Start => AlignItems::FlexStart,
+                            LayoutAlignItems::End => AlignItems::FlexEnd,
+                            LayoutAlignItems::Center => AlignItems::Center,
                         }),
                         align_content: Some(match params.align_content {
                             FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
@@ -1953,7 +2002,7 @@ pub fn flexbox_layout_info_cross_axis(
         padding_v,
         alignment: LayoutAlignment::Start,
         align_content: FlexboxLayoutAlignContent::Stretch,
-        align_items: FlexboxLayoutAlignItems::Stretch,
+        align_items: LayoutAlignItems::Stretch,
         flex_wrap,
         flex_direction: taffy_direction,
         container_width,
@@ -2059,6 +2108,15 @@ pub(crate) mod ffi {
         result: &mut SharedVector<Coord>,
     ) {
         *result = super::solve_box_layout(data, repeater_indices)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_solve_box_layout_ortho(
+        data: &BoxLayoutOrthoData,
+        repeater_indices: Slice<u32>,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_box_layout_ortho(data, repeater_indices)
     }
 
     #[unsafe(no_mangle)]

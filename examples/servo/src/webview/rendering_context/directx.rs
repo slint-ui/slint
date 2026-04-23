@@ -8,7 +8,7 @@ use winit::dpi::PhysicalSize;
 
 use slint::wgpu_28::wgpu::{
     Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    wgc::api::Dx12,
+    hal, wgc::api::Dx12,
 };
 
 use windows::{
@@ -30,9 +30,6 @@ struct D3D11SizeDependentState {
 
 pub struct D3D11SharedState {
     d3d11_device: ID3D11Device,
-    /// Recreated whenever the surface size changes; wrapped in a `RefCell` because
-    /// `get_wgpu_texture_from_directx` holds a shared `&self` borrow while needing
-    /// to swap this out on resize.
     size_dependent: RefCell<Option<D3D11SizeDependentState>>,
 }
 
@@ -42,7 +39,7 @@ pub enum DirectXTextureError {
     Surfman(surfman::Error),
     #[error("No surface returned when the surface was unbound from the context")]
     NoSurface,
-    #[error("Wgpu is not using the dx12 backend")]
+    #[error("WGPU is not using the DX12 backend")]
     WgpuNotDx12,
     #[error("d3d11_share_handle() returned null — surface not D3D11-backed")]
     NullShareHandle,
@@ -163,72 +160,74 @@ impl super::GPURenderingContext {
         size: PhysicalSize<u32>,
         wgpu_device: &Device,
     ) -> Result<D3D11SizeDependentState, DirectXTextureError> {
-        let (d3d11_shared_texture, wgpu_texture) =
-            unsafe {
-                let mut dx12_texture_ptr: Option<ID3D11Texture2D> = None;
+        let (d3d11_shared_texture, wgpu_texture) = unsafe {
+            let mut dx12_texture_ptr: Option<ID3D11Texture2D> = None;
 
-                d3d11_device.CreateTexture2D(
-                    &Direct3D11::D3D11_TEXTURE2D_DESC {
-                        Width: size.width,
-                        Height: size.height,
-                        MipLevels: 1,
-                        ArraySize: 1,
-                        CPUAccessFlags: 0,
-                        Format: Common::DXGI_FORMAT_R8G8B8A8_UNORM,
-                        SampleDesc: Common::DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-                        Usage: Direct3D11::D3D11_USAGE_DEFAULT,
-                        BindFlags: (Direct3D11::D3D11_BIND_RENDER_TARGET.0
-                            | Direct3D11::D3D11_BIND_SHADER_RESOURCE.0)
-                            as u32,
-                        MiscFlags: (Direct3D11::D3D11_RESOURCE_MISC_SHARED.0
-                            | Direct3D11::D3D11_RESOURCE_MISC_SHARED_NTHANDLE.0)
-                            as u32,
-                    },
-                    None,
-                    Some(&mut dx12_texture_ptr),
-                )?;
+            d3d11_device.CreateTexture2D(
+                &Direct3D11::D3D11_TEXTURE2D_DESC {
+                    Width: size.width,
+                    Height: size.height,
+                    MipLevels: 1,
+                    ArraySize: 1,
+                    CPUAccessFlags: 0,
+                    Format: Common::DXGI_FORMAT_R8G8B8A8_UNORM,
+                    SampleDesc: Common::DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+                    Usage: Direct3D11::D3D11_USAGE_DEFAULT,
+                    BindFlags: (Direct3D11::D3D11_BIND_RENDER_TARGET.0
+                        | Direct3D11::D3D11_BIND_SHADER_RESOURCE.0)
+                        as u32,
+                    MiscFlags: (Direct3D11::D3D11_RESOURCE_MISC_SHARED.0
+                        | Direct3D11::D3D11_RESOURCE_MISC_SHARED_NTHANDLE.0)
+                        as u32,
+                },
+                None,
+                Some(&mut dx12_texture_ptr),
+            )?;
 
-                let d3d11_dx12_texture = dx12_texture_ptr.unwrap();
+            let d3d11_dx12_texture = dx12_texture_ptr
+                .expect("D3D11 failed to return the shared DX12-compatible texture");
 
-                let nt_handle = d3d11_dx12_texture
-                    .cast::<Dxgi::IDXGIResource1>()?
-                    .CreateSharedHandle(None, Dxgi::DXGI_SHARED_RESOURCE_READ.0, None)?;
+            let hal_device =
+                wgpu_device.as_hal::<Dx12>().ok_or(DirectXTextureError::WgpuNotDx12)?;
+            let dx12_device = hal_device.raw_device();
 
-                let hal_device =
-                    wgpu_device.as_hal::<Dx12>().ok_or(DirectXTextureError::WgpuNotDx12)?;
-                let dx12_device = hal_device.raw_device().clone();
+            let dxgi_resource = d3d11_dx12_texture.cast::<Dxgi::IDXGIResource1>()?;
+            let nt_handle =
+                dxgi_resource.CreateSharedHandle(None, Foundation::GENERIC_ALL.0, None)?;
 
-                let mut dx12_resource_ptr: Option<Direct3D12::ID3D12Resource> = None;
-                dx12_device.OpenSharedHandle(nt_handle, &mut dx12_resource_ptr)?;
-                let dx12_resource = dx12_resource_ptr.unwrap();
-                Foundation::CloseHandle(nt_handle)?;
+            let mut dx12_resource_ptr: Option<Direct3D12::ID3D12Resource> = None;
+            dx12_device.OpenSharedHandle(nt_handle, &mut dx12_resource_ptr)?;
+            let dx12_resource = dx12_resource_ptr
+                .expect("D3D12 failed to open the shared handle from the D3D11 resource");
 
-                let extent =
-                    Extent3d { width: size.width, height: size.height, depth_or_array_layers: 1 };
+            Foundation::CloseHandle(nt_handle)?;
 
-                let wgpu_texture = wgpu_device.create_texture_from_hal::<Dx12>(
-                    <Dx12 as wgpu_hal::Api>::Device::texture_from_raw(
-                        dx12_resource,
-                        TextureFormat::Rgba8Unorm,
-                        TextureDimension::D2,
-                        extent,
-                        1,
-                        1,
-                    ),
-                    &TextureDescriptor {
-                        label: Some("servo webview shared texture"),
-                        size: extent,
-                        format: TextureFormat::Rgba8Unorm,
-                        dimension: TextureDimension::D2,
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                        view_formats: &[],
-                    },
-                );
+            let extent =
+                Extent3d { width: size.width, height: size.height, depth_or_array_layers: 1 };
 
-                (d3d11_dx12_texture, wgpu_texture)
-            };
+            let wgpu_texture = wgpu_device.create_texture_from_hal::<Dx12>(
+                <Dx12 as hal::Api>::Device::texture_from_raw(
+                    dx12_resource,
+                    TextureFormat::Rgba8Unorm,
+                    TextureDimension::D2,
+                    extent,
+                    1,
+                    1,
+                ),
+                &TextureDescriptor {
+                    label: Some("servo webview shared texture"),
+                    size: extent,
+                    format: TextureFormat::Rgba8Unorm,
+                    dimension: TextureDimension::D2,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                },
+            );
+
+            (d3d11_dx12_texture, wgpu_texture)
+        };
 
         Ok(D3D11SizeDependentState { d3d11_shared_texture, wgpu_texture })
     }

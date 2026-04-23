@@ -999,7 +999,7 @@ impl RendererSealed for SoftwareRenderer {
                     single_line: false,
                 };
 
-                visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
                 )
             }
@@ -1027,7 +1027,7 @@ impl RendererSealed for SoftwareRenderer {
                     single_line: false,
                 };
 
-                visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                visual_representation.map_byte_offset_from_visual_text_to_actual_text(
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
                 )
             }
@@ -3090,8 +3090,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         self.current_state.clip = self.current_state.clip.translate(-distance)
     }
 
-    fn translation(&self) -> LogicalVector {
-        self.current_state.offset.to_vector()
+    fn current_transform(&self) -> i_slint_core::lengths::ItemTransform {
+        let v = self.current_state.offset.to_vector().cast::<f32>();
+        i_slint_core::lengths::ItemTransform::translation(v.x, v.y)
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {

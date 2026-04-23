@@ -161,21 +161,41 @@ pub(crate) fn solve_box_layout(
         Some(&mut repeated_indices),
     );
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
-    let size_ref = match orientation {
-        Orientation::Horizontal => &box_layout.geometry.rect.width_reference,
-        Orientation::Vertical => &box_layout.geometry.rect.height_reference,
-    };
-    core_layout::solve_box_layout(
-        &core_layout::BoxLayoutData {
-            size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
-            spacing,
-            padding,
-            alignment,
-            cells: Slice::from(cells.as_slice()),
-        },
-        Slice::from(repeated_indices.as_slice()),
-    )
-    .into()
+    let size = box_layout.geometry.rect.size_reference(orientation).map(&expr_eval).unwrap_or(0.);
+    if orientation == box_layout.orientation {
+        core_layout::solve_box_layout(
+            &core_layout::BoxLayoutData {
+                size,
+                spacing,
+                padding,
+                alignment,
+                cells: Slice::from(cells.as_slice()),
+            },
+            Slice::from(repeated_indices.as_slice()),
+        )
+        .into()
+    } else {
+        let align_items = box_layout
+            .cross_alignment
+            .as_ref()
+            .map(|nr| {
+                eval::load_property(component, &nr.element(), nr.name())
+                    .unwrap()
+                    .try_into()
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
+        core_layout::solve_box_layout_ortho(
+            &core_layout::BoxLayoutOrthoData {
+                size,
+                padding,
+                align_items,
+                cells: Slice::from(cells.as_slice()),
+            },
+            Slice::from(repeated_indices.as_slice()),
+        )
+        .into()
+    }
 }
 
 pub(crate) fn solve_flexbox_layout(
@@ -225,7 +245,7 @@ pub(crate) fn solve_flexbox_layout(
     let align_items = flexbox_layout
         .align_items
         .as_ref()
-        .map_or(i_slint_core::items::FlexboxLayoutAlignItems::default(), |nr| {
+        .map_or(i_slint_core::items::LayoutAlignItems::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
     let flex_wrap = flexbox_layout

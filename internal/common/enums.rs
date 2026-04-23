@@ -394,10 +394,12 @@ macro_rules! for_each_enums {
                 SpaceEvenly,
             }
 
-            /// Controls the alignment of individual items along the cross axis within each flex line.
+            /// Controls the alignment of individual items along the cross axis of a layout.
+            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
+            /// and `FlexboxLayout`.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignItems {
-                /// Items are stretched to fill the line along the cross axis.
+            enum LayoutAlignItems {
+                /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
                 Start,

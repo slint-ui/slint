@@ -665,7 +665,7 @@ impl ColorSpecific {
 pub struct KeysLookup;
 
 macro_rules! special_keys_lookup {
-    ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
+    ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)? ;)*) => {
         impl LookupObject for KeysLookup {
             fn for_each_entry<R>(
                 &self,

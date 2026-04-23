@@ -137,24 +137,27 @@ impl MudaAdapter {
             if entry.is_separator {
                 Box::new(muda::PredefinedMenuItem::separator())
             } else if !entry.has_sub_menu {
-                let accelerator = keys_to_accelerator(&entry.shortcut)
-                    .map_err(|_err| {
-                        i_slint_core::debug_log!(
-                            "Warning: Cannot convert {} to native shortcut - it will not be listed in the menu",
-                            entry.shortcut
-                        )
-                    })
-                    .unwrap_or(None);
+                let accelerator = keys_to_accelerator(&entry.shortcut);
+
+                let err_handler = |err| {
+                    i_slint_core::debug_log!(
+                        "Warning: Could not set accelerator {} for menu item {}: {err}",
+                        entry.shortcut,
+                        entry.title
+                    )
+                };
 
                 // the top level always has a sub menu regardless of entry.has_sub_menu
                 if entry.checkable {
-                    Box::new(muda::CheckMenuItem::with_id(
+                    let check_menu = muda::CheckMenuItem::with_id(
                         id.clone(),
                         &entry.title,
                         entry.enabled,
                         entry.checked,
-                        accelerator,
-                    ))
+                        None,
+                    );
+                    check_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
+                    Box::new(check_menu)
                 } else if let Some(rgba) = entry.icon.to_rgba8() {
                     let icon = muda::Icon::from_rgba(
                         rgba.as_bytes().to_vec(),
@@ -162,20 +165,20 @@ impl MudaAdapter {
                         rgba.height(),
                     )
                     .ok();
-                    Box::new(muda::IconMenuItem::with_id(
+                    let icon_menu = muda::IconMenuItem::with_id(
                         id.clone(),
                         &entry.title,
                         entry.enabled,
                         icon,
-                        accelerator,
-                    ))
+                        None,
+                    );
+                    icon_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
+                    Box::new(icon_menu)
                 } else {
-                    Box::new(muda::MenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        accelerator,
-                    ))
+                    let menu_item =
+                        muda::MenuItem::with_id(id.clone(), &entry.title, entry.enabled, None);
+                    menu_item.set_key_accelerator(accelerator).map_err(err_handler).ok();
+                    Box::new(menu_item)
                 }
             } else {
                 let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
@@ -319,13 +322,13 @@ impl MudaAdapter {
     }
 }
 
-fn key_string_to_code(string: &str) -> Option<muda::accelerator::Code> {
-    use muda::accelerator::Code::*;
+fn key_string_to_key(string: &str) -> muda::accelerator::Key {
+    use muda::accelerator::Key;
     macro_rules! key_string_to_code_impl {
-        ($($char:literal # $_name:ident # $($_shifted:ident)? # $($muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
-            match string.chars().next()? {
-                $($($char => Some($muda),)?)*
-                _ => None,
+        ($($char:literal # $_name:ident # $($_shifted:ident)? $(=> $($muda:ident)? # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
+            match string.chars().next() {
+                $($($(Some($char) => Key::$muda,)?)?)*
+                _ => Key::Character(string.to_owned()),
             }
         };
     }
@@ -334,11 +337,11 @@ fn key_string_to_code(string: &str) -> Option<muda::accelerator::Code> {
 
 fn keys_to_accelerator(
     keys: &i_slint_core::input::Keys,
-) -> Result<Option<muda::accelerator::Accelerator>, ()> {
+) -> Option<muda::accelerator::KeyAccelerator> {
     use muda::accelerator::*;
 
     if *keys == i_slint_core::input::Keys::default() {
-        return Ok(None);
+        return None;
     }
 
     let shortcut = i_slint_core::input::KeysInner::from_pub(keys);
@@ -364,9 +367,9 @@ fn keys_to_accelerator(
             modifiers |= Modifiers::SUPER;
         }
     }
-    let key = key_string_to_code(&shortcut.key).ok_or(())?;
+    let key = key_string_to_key(&shortcut.key);
 
-    Ok(Some(Accelerator::new(Some(modifiers), key)))
+    Some(KeyAccelerator::new(Some(modifiers), key))
 }
 
 fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {

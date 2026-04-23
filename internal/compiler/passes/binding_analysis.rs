@@ -544,6 +544,14 @@ fn recurse_expression(
             }
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
+            // The orthogonal solve depends on `align-items`.
+            if matches!(expr, Expression::SolveBoxLayout(..))
+                && *o != l.orientation
+                && let Some(nr) = l.cross_alignment.as_ref()
+            {
+                vis(&nr.clone().into(), P);
+            }
+
             let mut g = l.geometry.clone();
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))

@@ -37,11 +37,11 @@ impl super::SkiaSharedContextInner {
 impl SharedMetalContext {
     fn new() -> Result<Self, i_slint_core::platform::PlatformError> {
         let device = objc2_metal::MTLCreateSystemDefaultDevice().ok_or_else(|| {
-            format!("Skia Renderer: Unable to obtain metal system default device")
+            "Skia Renderer: Unable to obtain metal system default device".to_string()
         })?;
         let command_queue = device
             .newCommandQueue()
-            .ok_or_else(|| format!("Skia Renderer: Unable to create command queue"))?;
+            .ok_or_else(|| "Skia Renderer: Unable to create command queue".to_string())?;
         Ok(Self { device, command_queue })
     }
 }
@@ -65,8 +65,8 @@ impl super::Surface for MetalSurface {
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
-        if requested_graphics_api.map_or(false, |api| !matches!(api, RequestedGraphicsAPI::Metal)) {
-            return Err(format!("Requested non-Metal rendering with Metal renderer").into());
+        if requested_graphics_api.is_some_and(|api| !matches!(api, RequestedGraphicsAPI::Metal)) {
+            return Err("Requested non-Metal rendering with Metal renderer".into());
         }
 
         let layer = match window_handle
@@ -90,7 +90,7 @@ impl super::Surface for MetalSurface {
 
         let device = &shared_context.device;
 
-        ca_layer.setDevice(Some(&device));
+        ca_layer.setDevice(Some(device));
         ca_layer.setPixelFormat(MTLPixelFormat::BGRA8Unorm);
         ca_layer.setOpaque(false);
         ca_layer.setPresentsWithTransaction(false);
@@ -109,7 +109,7 @@ impl super::Surface for MetalSurface {
 
         let backend = unsafe {
             mtl::BackendContext::new(
-                Retained::as_ptr(&device) as mtl::Handle,
+                Retained::as_ptr(device) as mtl::Handle,
                 Retained::as_ptr(&command_queue) as mtl::Handle,
             )
         };
@@ -152,10 +152,10 @@ impl super::Surface for MetalSurface {
             let drawable = match ca_layer.nextDrawable() {
                 Some(drawable) => drawable,
                 None => {
-                    return Err(format!(
+                    return Err(
                         "Skia Metal Renderer: Failed to retrieve next drawable for rendering"
-                    )
-                    .into());
+                            .into(),
+                    );
                 }
             };
 
@@ -207,7 +207,7 @@ impl super::Surface for MetalSurface {
             }
 
             let command_buffer = self.command_queue.commandBuffer().ok_or_else(|| {
-                format!("Skia Renderer: Unable to obtain command queue's command buffer")
+                "Skia Renderer: Unable to obtain command queue's command buffer".to_string()
             })?;
             command_buffer.presentDrawable(ProtocolObject::from_ref(&*drawable));
             command_buffer.commit();
@@ -257,7 +257,7 @@ impl super::Surface for MetalSurface {
             | MTLPixelFormat::RGBA16Uint
             | MTLPixelFormat::RGBA16Sint => 64,
             MTLPixelFormat::RGBA32Uint | MTLPixelFormat::RGBA32Sint => 128,
-            fmt @ _ => {
+            fmt => {
                 return Err(format!(
                     "Skia Metal Renderer: Unsupported layer pixel format found {fmt:?}"
                 )

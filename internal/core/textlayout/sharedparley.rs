@@ -12,7 +12,7 @@ use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
 
 use crate::{
-    Color, SharedString,
+    Color,
     graphics::FontRequest,
     item_rendering::PlainOrStyledText,
     items::TextStrokeStyle,
@@ -468,7 +468,6 @@ fn layout(
             max_physical_width.filter(|_| text_wrap != TextWrap::NoWrap).map(|width| width.get()),
         );
         para.layout.align(
-            max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
                 TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
                     parley::Alignment::Left
@@ -605,7 +604,7 @@ impl TextParagraph {
                     // we want to place an elipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.max_coord
+                        max_physical_height.get().ceil() >= metrics.block_max_coord
                     }
                     _ => true,
                 }
@@ -1238,7 +1237,7 @@ pub fn draw_text_input(
         scale_factor,
     );
 
-    let text: SharedString = visual_representation.text.into();
+    let text = visual_representation.text.clone();
 
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
@@ -1456,11 +1455,11 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text.clone()),
         None,
         Color::default(),
     );
@@ -1474,8 +1473,7 @@ pub fn text_input_byte_offset_for_position(
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let byte_offset = layout.byte_offset_from_point(pos);
-    let visual_representation = text_input.visual_representation(None);
-    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
+    visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
@@ -1507,13 +1505,16 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let Some(ctx) = renderer.slint_context() else {
         return LogicalRect::default();
     };
+
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
+    let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
+
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text),
         None,
         Color::default(),
     );

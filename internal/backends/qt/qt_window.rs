@@ -381,11 +381,10 @@ cpp! {{
                 preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
+                    let mut key_event = KeyEvent::default();
+                    key_event.text = i_slint_core::format!("{}", commit_string);
                     let event = InternalKeyEvent {
-                        key_event: KeyEvent {
-                            text: i_slint_core::format!("{}", commit_string),
-                            ..Default::default()
-                        },
+                        key_event,
                         event_type: KeyEventType::UpdateComposition,
                         preedit_text: i_slint_core::format!("{}", preedit_string),
                         preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
@@ -1685,6 +1684,12 @@ impl QtItemRenderer<'_> {
                 height: (layer_size.height * dpr) as _,
             };
 
+            // Skip rendering if the size is zero since QPainter fails to draw
+            // on an empty QImage (and also to avoid wasting CPU cycles).
+            if layer_size.width == 0 || layer_size.height == 0 {
+                return qttypes::QPixmap::default();
+            }
+
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
             layer_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
 
@@ -2227,18 +2232,12 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         let popup_window = QtWindow::new();
-
-        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
-
         let popup_ptr = popup_window.widget_ptr();
-        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
+        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
-            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
-            popup_ptr->show();
         }};
         Some(popup_window as _)
     }
@@ -2552,7 +2551,7 @@ pub(crate) fn restart_timer() {
 
 mod key_codes {
     macro_rules! define_qt_key_to_string_fn {
-        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
+        ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
             use crate::key_generated;
             pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<i_slint_core::SharedString> {
 

@@ -36,7 +36,7 @@ An interface can be exported with `export interface`.
 ## Implementing an interface
 
 A component declares that it implements an interface with the `implements` keyword.
-The component must provide every property, callback, and function listed in the interface, with matching types and signatures.
+The component may override property defaults. The component must provide an implementation of the functions listed in the interface, with matching types and signatures.
 
 ```slint no-test
 export component MyText implements TextInterface {
@@ -60,7 +60,7 @@ component MyText implements TextInterface inherits Rectangle {
 }
 ```
 
-A component can implement several interfaces by repeating `implements`.
+A component can only implement one interface.
 
 ## Delegating to a child with `uses`
 
@@ -86,6 +86,9 @@ interface Counter {
 }
 
 component CounterButton implements Counter {
+    preferred-width: 100%;
+    preferred-height: 100%;
+
     increment => { value += 1; }
     TouchArea {
         clicked => { root.increment(); }

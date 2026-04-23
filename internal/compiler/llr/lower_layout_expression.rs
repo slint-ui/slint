@@ -252,21 +252,46 @@ pub(super) fn solve_box_layout(
     let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
     let bld = box_layout_data(layout, o, ctx);
     let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
-    let data = make_struct(
-        BuiltinPrivateStruct::BoxLayoutData,
-        [
-            ("size", Type::Float32, size),
-            ("spacing", Type::Float32, spacing),
-            ("padding", padding.ty(ctx), padding),
-            (
-                "alignment",
-                crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
-                bld.alignment,
-            ),
-            ("cells", bld.cells.ty(ctx), bld.cells),
-        ],
-    );
+    let (data, function) = if o == layout.orientation {
+        let data = make_struct(
+            BuiltinPrivateStruct::BoxLayoutData,
+            [
+                ("size", Type::Float32, size),
+                ("spacing", Type::Float32, spacing),
+                ("padding", padding.ty(ctx), padding),
+                (
+                    "alignment",
+                    crate::typeregister::BUILTIN
+                        .with(|e| Type::Enumeration(e.enums.LayoutAlignment.clone())),
+                    bld.alignment,
+                ),
+                ("cells", bld.cells.ty(ctx), bld.cells),
+            ],
+        );
+        (data, "solve_box_layout")
+    } else {
+        let align_items_ty = crate::typeregister::BUILTIN
+            .with(|e| Type::Enumeration(e.enums.LayoutAlignItems.clone()));
+        let align_items = if let Some(nr) = &layout.cross_alignment {
+            llr_Expression::PropertyReference(ctx.map_property_reference(nr))
+        } else {
+            let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignItems.clone());
+            llr_Expression::EnumerationValue(EnumerationValue {
+                value: e.default_value,
+                enumeration: e,
+            })
+        };
+        let data = make_struct(
+            BuiltinPrivateStruct::BoxLayoutOrthoData,
+            [
+                ("size", Type::Float32, size),
+                ("padding", padding.ty(ctx), padding),
+                ("align_items", align_items_ty, align_items),
+                ("cells", bld.cells.ty(ctx), bld.cells),
+            ],
+        );
+        (data, "solve_box_layout_ortho")
+    };
     match bld.compute_cells {
         Some((cells_variable, elements)) => llr_Expression::WithLayoutItemInfo {
             cells_variable,
@@ -275,7 +300,7 @@ pub(super) fn solve_box_layout(
             elements,
             orientation: o,
             sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
-                function: "solve_box_layout".into(),
+                function: function.into(),
                 arguments: vec![
                     data,
                     llr_Expression::ReadLocalVariable {
@@ -287,7 +312,7 @@ pub(super) fn solve_box_layout(
             }),
         },
         None => llr_Expression::ExtraBuiltinFunctionCall {
-            function: "solve_box_layout".into(),
+            function: function.into(),
             arguments: vec![data, empty_int32_slice()],
             return_ty: Type::LayoutCache,
         },
@@ -335,7 +360,7 @@ pub(super) fn solve_flexbox_layout(
             (
                 "align_items",
                 crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.FlexboxLayoutAlignItems.clone())),
+                    .with(|e| Type::Enumeration(e.enums.LayoutAlignItems.clone())),
                 fld.align_items,
             ),
             (
@@ -609,7 +634,7 @@ fn flexbox_layout_data(
     let align_items = if let Some(expr) = &layout.align_items {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.FlexboxLayoutAlignItems.clone());
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignItems.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,

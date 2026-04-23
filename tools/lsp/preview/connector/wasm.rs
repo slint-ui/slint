@@ -251,9 +251,10 @@ impl WasmLspToPreview {
 }
 
 impl common::LspToPreview for WasmLspToPreview {
-    fn send(&self, message: &common::LspToPreviewMessage) {
-        let _ =
-            self.server_notifier.send_notification::<common::LspToPreviewMessage>(message.clone());
+    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
+        let _ = self
+            .server_notifier
+            .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
     }
 
     fn preview_target(&self) -> common::PreviewTarget {
@@ -269,7 +270,7 @@ impl common::LspToPreview for WasmLspToPreview {
 struct WasmPreviewToLsp {}
 
 impl common::PreviewToLsp for WasmPreviewToLsp {
-    fn send(&self, message: &common::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
         WASM_CALLBACKS.with_borrow(|callbacks| {
             let notifier = js_sys::Function::from(
                 (callbacks.as_ref().expect("Callbacks were set up earlier").lsp_notifier).clone(),

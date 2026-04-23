@@ -164,6 +164,7 @@ fn window_is_resizable(
 enum WinitWindowOrNone {
     HasWindow {
         window: Arc<winit::window::Window>,
+        frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
         #[cfg(enable_accesskit)]
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
         #[cfg(muda)]
@@ -371,8 +372,6 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
-
-    frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
 }
 
 impl WinitWindowAdapter {
@@ -420,10 +419,6 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
-            frame_throttle: crate::frame_throttle::create_frame_throttle(
-                self_weak.clone(),
-                shared_backend_data.is_wayland,
-            ),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -503,8 +498,15 @@ impl WinitWindowAdapter {
             (view, self.self_weak.clone())
         };
 
+        let frame_throttle = crate::frame_throttle::create_frame_throttle(
+            self.self_weak.clone(),
+            &winit_window,
+            self.shared_backend_data.is_wayland,
+        );
+
         *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
+            frame_throttle,
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self.self_weak.clone(),
@@ -696,7 +698,7 @@ impl WinitWindowAdapter {
         };
         let mut maybe_muda_adapter = maybe_muda_adapter.borrow_mut();
         let Some(muda_adapter) = maybe_muda_adapter.as_mut() else { return };
-        muda_adapter.rebuild_menu(&winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
+        muda_adapter.rebuild_menu(winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
     }
 
     #[cfg(muda)]
@@ -814,7 +816,21 @@ impl WinitWindowAdapter {
     fn query_system_accent_color() -> Color {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
-                use windows::Win32::Graphics::Gdi::{GetSysColor, COLOR_HIGHLIGHT};
+                use windows::Win32::Graphics::{
+                    Dwm::DwmGetColorizationColor,
+                    Gdi::{GetSysColor, COLOR_HIGHLIGHT},
+                };
+
+                let mut argb = 0u32;
+                let mut _opaque_blend = windows::core::BOOL::default();
+                if unsafe { DwmGetColorizationColor(&mut argb, &mut _opaque_blend) }.is_ok() {
+                    let a = ((argb >> 24) & 0xFF) as u8;
+                    let r = ((argb >> 16) & 0xFF) as u8;
+                    let g = ((argb >> 8) & 0xFF) as u8;
+                    let b = (argb & 0xFF) as u8;
+                    return Color::from_argb_u8(a, r, g, b);
+                }
+
                 let colorref = unsafe { GetSysColor(COLOR_HIGHLIGHT) };
                 let r = (colorref & 0xFF) as u8;
                 let g = ((colorref >> 8) & 0xFF) as u8;
@@ -1218,8 +1234,11 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn request_redraw(&self) {
-        if !self.pending_redraw.replace(true) {
-            self.frame_throttle.request_throttled_redraw();
+        if !self.pending_redraw.replace(true)
+            && let WinitWindowOrNone::HasWindow { window, frame_throttle, .. } =
+                &*self.winit_window_or_none.borrow()
+        {
+            frame_throttle.request_throttled_redraw(window);
         }
     }
 

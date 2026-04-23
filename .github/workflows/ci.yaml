@@ -150,7 +150,7 @@ jobs:
             matrix:
                 include:
                     - os: ubuntu-22.04
-                      rust_version: "1.88"
+                      rust_version: "1.92"
                     - os: macos-14
                       rust_version: beta
                     - os: windows-2022
@@ -222,7 +222,7 @@ jobs:
             matrix:
                 include:
                     - os: macos-14
-                      rust_version: "1.88"
+                      rust_version: "1.92"
                     - os: windows-2022
                       rust_version: "nightly"
                     - os: ubuntu-22.04
@@ -585,6 +585,8 @@ jobs:
                   default: true
                   buildtargets: esp32
                   ldproxy: false
+                  # Pin due to https://github.com/esp-rs/rust/issues/276
+                  version: "1.94.0.0"
             - uses: Swatinem/rust-cache@v2
             - name: Build and Test Printer demo
               shell: bash
