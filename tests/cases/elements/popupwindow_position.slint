@@ -143,4 +143,31 @@ for i in 1..11 {
 }
 
 ```
+
+```cpp
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.global<Properties>().get_popup_height(), -1.);
+assert_eq(instance.global<Properties>().get_popup_initialized(), false);
+
+instance.invoke_show_popup();
+
+assert_eq(instance.global<Properties>().get_popup_initialized(), true);
+assert_eq(instance.global<Properties>().get_popup_x(), 0.);
+assert_eq(instance.global<Properties>().get_popup_y(), 0.);
+assert_eq(instance.global<Properties>().get_popup_width(), 100.);
+assert_eq(instance.global<Properties>().get_popup_height(), 50.);
+
+slint_testing::mock_elapsed_time(500);
+
+for (size_t i=1; i < 11; i++) {
+    instance.invoke_change_popup_properties(10., 20., 30., 40.);
+    slint_testing::mock_elapsed_time(500); // First triggers the Property Tracker
+    slint_testing::mock_elapsed_time(500); // Second updates the popup properties, because the first just sets up the timer in single_shot
+    assert_eq(instance.global<Properties>().get_popup_x(), i * 10.);
+    assert_eq(instance.global<Properties>().get_popup_y(), i * 20.);
+}
+```
 */
