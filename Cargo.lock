@@ -5134,7 +5134,6 @@ dependencies = [
  "auto_enums",
  "bitflags 2.11.1",
  "cfg-if",
- "cfg_aliases",
  "chrono",
  "clru",
  "const-field-offset",
