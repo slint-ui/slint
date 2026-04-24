@@ -6,7 +6,7 @@ export component TestCase {
     height: 200phx;
     in-out property <bool> tooltip-created;
 
-    TouchArea {
+    Rectangle {
         x: 0px;
         y: 0px;
         width: parent.width;
@@ -28,6 +28,15 @@ export component TestCase {
 use slint::{platform::WindowEvent, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
+assert!(!instance.get_tooltip_created());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(50.0, 50.0),
+});
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(250.0, 250.0),
+});
+slint_testing::mock_elapsed_time(600);
 assert!(!instance.get_tooltip_created());
 
 instance.window().dispatch_event(WindowEvent::PointerMoved {

@@ -1070,6 +1070,8 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<BasicBorderRectangle>(),
             rtti_for::<BorderRectangle>(),
             rtti_for::<TouchArea>(),
+            rtti_for::<TooltipArea>(),
+            rtti_for::<ToolTip>(),
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
@@ -1087,7 +1089,6 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<DropArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
-            rtti_for::<ToolTip>(),
         ]
         .iter()
         .cloned(),

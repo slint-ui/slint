@@ -6,7 +6,7 @@
 //! For each `ToolTip` child, this pass synthesizes a `PopupWindow` anchored around
 //! the hovered parent element and contains the tooltip content.
 //! The `ToolTip.placement` enum controls whether it appears at top/bottom/left/right.
-//! Visibility is driven by the parent's `has-hover` change callback:
+//! Visibility is driven by an injected `TooltipArea` item's `has-hover` callback:
 //! - hover enters: start/restart a delay timer
 //! - timer fires: `ShowPopupWindow`
 //! - hover leaves: stop timer and `ClosePopupWindow`
@@ -25,6 +25,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 const TOOLTIP_ELEMENT: &str = "ToolTip";
+const TOOLTIP_AREA_ELEMENT: &str = "TooltipArea";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
 const TOOLTIP_DELAY_MS: f64 = 500.;
@@ -278,10 +279,11 @@ fn wire_tooltip_placement(
 fn wire_tooltip_visibility_behavior(
     elem: &ElementRc,
     tooltip_child_index: usize,
+    tooltip_area: &ElementRc,
     popup_window_rc: ElementRc,
     timer_element_rc: ElementRc,
 ) {
-    let has_hover_nr = NamedReference::new(elem, SmolStr::new_static(HAS_HOVER));
+    let has_hover_nr = NamedReference::new(tooltip_area, SmolStr::new_static(HAS_HOVER));
     let popup_weak = Rc::downgrade(&popup_window_rc);
     let timer_running = NamedReference::new(&timer_element_rc, SmolStr::new_static("running"));
     let timer_weak = Rc::downgrade(&timer_element_rc);
@@ -321,17 +323,19 @@ fn wire_tooltip_visibility_behavior(
     };
     let timer_triggered = Expression::CodeBlock(vec![show_popup, set_running_false]);
 
+    tooltip_area
+        .borrow_mut()
+        .change_callbacks
+        .entry(SmolStr::new_static(HAS_HOVER))
+        .or_default()
+        .borrow_mut()
+        .push(callback);
+
     {
         let mut elem_borrow = elem.borrow_mut();
-        elem_borrow
-            .change_callbacks
-            .entry(SmolStr::new_static(HAS_HOVER))
-            .or_default()
-            .borrow_mut()
-            .push(callback);
-
-        elem_borrow.children.insert(tooltip_child_index, timer_element_rc.clone());
-        elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
+        elem_borrow.children.insert(tooltip_child_index, tooltip_area.clone());
+        elem_borrow.children.insert(tooltip_child_index + 1, timer_element_rc.clone());
+        elem_borrow.children.insert(tooltip_child_index + 2, popup_window_rc);
         elem_borrow.has_popup_child = true;
     }
     let mut timer_triggered_binding: BindingExpression = timer_triggered.into();
@@ -350,6 +354,7 @@ pub fn lower_tooltips(
     diag: &mut BuildDiagnostics,
 ) {
     let tooltip_type = type_register.lookup_builtin_element(TOOLTIP_ELEMENT).unwrap();
+    let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
     let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
     let text_type = type_register.lookup_builtin_element("Text").unwrap();
@@ -386,23 +391,9 @@ pub fn lower_tooltips(
             return;
         };
 
-        let supports_hover = {
-            let elem_borrow = elem.borrow();
-            !matches!(elem_borrow.lookup_property(HAS_HOVER).property_type, Type::Invalid)
-        };
-        if !supports_hover {
-            diag.push_error(
-                "ToolTip parent must provide hover properties \
-                 (currently expected under TouchArea-like elements)"
-                    .into(),
-                &*elem.borrow(),
-            );
-            return;
-        }
-
-        let (tooltip_child, enclosing_component, popup_id, popup_id_for_text) = {
+        let (tooltip_config, enclosing_component, popup_id, popup_id_for_text) = {
             let mut elem_borrow = elem.borrow_mut();
-            let tooltip_child = elem_borrow.children.remove(tooltip_child_index);
+            let tooltip_config = elem_borrow.children.remove(tooltip_child_index);
             let enclosing_component = elem_borrow.enclosing_component.clone();
             let popup_id = format_smolstr!(
                 "{}{}",
@@ -411,14 +402,41 @@ pub fn lower_tooltips(
             );
             tooltip_popup_id_counter += 1;
             let popup_id_for_text = popup_id.clone();
-            (tooltip_child, enclosing_component, popup_id, popup_id_for_text)
+            (tooltip_config, enclosing_component, popup_id, popup_id_for_text)
         };
 
         let parent_width = NamedReference::new(elem, SmolStr::new_static(WIDTH));
         let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
 
-        let tooltip_text = NamedReference::new(&tooltip_child, SmolStr::new_static("text"));
-        let tooltip_placement = NamedReference::new(&tooltip_child, SmolStr::new_static(PLACEMENT));
+        let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
+        let tooltip_placement = NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
+        let tooltip_area = Element {
+            id: format_smolstr!("{}-area", popup_id_for_text),
+            base_type: tooltip_area_type.clone(),
+            enclosing_component: enclosing_component.clone(),
+            bindings: [
+                (
+                    SmolStr::new_static("x"),
+                    RefCell::new(Expression::NumberLiteral(0., Unit::Percent).into()),
+                ),
+                (
+                    SmolStr::new_static("y"),
+                    RefCell::new(Expression::NumberLiteral(0., Unit::Percent).into()),
+                ),
+                (
+                    SmolStr::new_static(WIDTH),
+                    RefCell::new(Expression::NumberLiteral(100., Unit::Percent).into()),
+                ),
+                (
+                    SmolStr::new_static(HEIGHT),
+                    RefCell::new(Expression::NumberLiteral(100., Unit::Percent).into()),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        }
+        .make_rc();
         let background_rect_rc = build_tooltip_background(
             &popup_id_for_text,
             tooltip_text,
@@ -430,10 +448,10 @@ pub fn lower_tooltips(
             style_metrics,
         );
 
-        let placement_enum = match tooltip_child.borrow().lookup_property(PLACEMENT).property_type {
+        let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type {
             Type::Enumeration(en) => en,
             _ => {
-                diag.push_error("ToolTip.placement must be an enum value".into(), &*tooltip_child.borrow());
+                diag.push_error("ToolTip.placement must be an enum value".into(), &*tooltip_config.borrow());
                 return;
             }
         };
@@ -443,7 +461,7 @@ pub fn lower_tooltips(
             base_type: popup_window_type.clone(),
             enclosing_component: enclosing_component.clone(),
             popup_window_kind: Some(PopupWindowKind::Tooltip),
-            children: vec![tooltip_child, background_rect_rc],
+            children: vec![tooltip_config, background_rect_rc],
             bindings: [
                 (
                     SmolStr::new_static("close-policy"),
@@ -470,6 +488,7 @@ pub fn lower_tooltips(
         wire_tooltip_visibility_behavior(
             elem,
             tooltip_child_index,
+            &tooltip_area,
             popup_window_rc,
             timer_element_rc,
         );

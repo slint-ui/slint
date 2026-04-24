@@ -153,6 +153,11 @@ export component TouchArea {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export component TooltipArea inherits Empty {
+    out property <bool> has-hover;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 export component ToolTip inherits Empty {
     in property <string> text;
     in property <ToolTipPlacement> placement: top;

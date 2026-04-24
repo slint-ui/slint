@@ -3,13 +3,11 @@
 
 component TooltipCard inherits Rectangle {
     in-out property <int> created;
-    TouchArea {
-        width: parent.width;
-        height: parent.height;
-        ToolTip {
-            text: "nested tooltip";
-            placement: right;
-            init => { root.created += 1; }
+    ToolTip {
+        text: "nested tooltip";
+        placement: right;
+        init => {
+            root.created += 1;
         }
     }
 }
@@ -23,7 +21,7 @@ export component TestCase {
 
     VerticalLayout {
         spacing: 4px;
-        for _ in [0, 1, 2] : TooltipCard {
+        for _ in [0, 1, 2]: TooltipCard {
             width: 200px;
             height: 30px;
             created <=> root.tooltip-created;

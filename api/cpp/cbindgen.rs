@@ -294,7 +294,6 @@ fn gen_corelib(
 
     let items = [
         "Empty",
-        "ToolTip",
         "Rectangle",
         "BasicBorderRectangle",
         "BorderRectangle",
@@ -303,6 +302,8 @@ fn gen_corelib(
         "ImageItem",
         "ClippedImage",
         "TouchArea",
+        "TooltipArea",
+        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",

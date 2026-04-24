@@ -1873,6 +1873,123 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
+/// Internal transparent hover tracker synthesized by tooltip lowering.
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct TooltipArea {
+    pub has_hover: Property<bool>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for TooltipArea {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _cross_axis_constraint: Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+            Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+        InputEventFilterResult::ForwardAndInterceptGrab
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        match event {
+            MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
+            MouseEvent::Exit => {
+                Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
+                InputEventResult::EventAccepted
+            }
+            _ => InputEventResult::EventIgnored,
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for TooltipArea {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        TooltipArea,
+        CachedRenderingData,
+    > = TooltipArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_TooltipAreaVTable() -> TooltipAreaVTable for TooltipArea
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
