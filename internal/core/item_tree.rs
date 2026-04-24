@@ -2780,7 +2780,7 @@ mod tests {
         }
 
         fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
-            unimplemented!("Not required in this test");
+            // Will be called when showing a popup to mark the previous position dirty
         }
 
         fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
