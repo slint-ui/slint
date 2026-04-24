@@ -45,6 +45,7 @@ assert_eq(instance.get_model()->row_count(), 1);
 assert(instance.get_hover());
 slint_testing::send_mouse_click(&instance, 95., 5.);
 assert_eq(instance.get_model()->row_count(), 0);
+slint_testing::mock_elapsed_time(16);
 assert(!instance.get_hover());
 ```
 
@@ -59,6 +60,7 @@ assert_eq!(instance.get_model().row_count(), 1);
 assert!(instance.get_hover());
 slint_testing::send_mouse_click(&instance, 95., 5.);
 assert_eq!(instance.get_model().row_count(), 0);
+slint_testing::mock_elapsed_time(16);
 assert!(!instance.get_hover());
 ```
 
@@ -73,6 +75,7 @@ assert.equal(instance.model.length, 1);
 assert(instance.hover);
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.model.length, 0);
+slintlib.private_api.mock_elapsed_time(16);
 assert(!instance.hover);
 ```
 */
