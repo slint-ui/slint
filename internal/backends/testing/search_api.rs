@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::testing_backend::mock_elapsed_time as slint_mock_elapsed_time;
 use core::ops::ControlFlow;
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
@@ -8,7 +9,6 @@ use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity, PointerEventButton};
 use i_slint_core::platform::WindowEvent;
-use i_slint_core::tests::slint_mock_elapsed_time;
 use i_slint_core::window::WindowInner;
 use std::rc::Rc;
 use std::time::Duration;

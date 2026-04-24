@@ -1682,6 +1682,21 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
+            name: "ensure_instantiated".into(),
+            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component) -> bool"
+                .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "return reinterpret_cast<const {}*>(component.instance)->ensure_instantiated();",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
             name: "item_geometry".into(),
             signature:
                 "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> slint::cbindgen_private::LogicalRect"
@@ -1810,6 +1825,7 @@ fn generate_item_tree(
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
+                ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
                 supported_accessibility_actions, element_infos, window_adapter, \
                 slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
@@ -1874,9 +1890,17 @@ fn generate_item_tree(
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
     // And in PopupWindow this is also called by the runtime
     if parent_ctx.is_none() && !is_popup_menu {
+        // Ensure that the window exists before user_init, consistent with the
+        // Rust codegen order.
+        create_code.push(format!("auto &window = {global_access}->window();"));
         create_code.push("self->user_init();".to_string());
-        // initialize the Window in this point to be consistent with Rust
-        create_code.push("self->window();".to_string())
+        create_code.push("self->m_globals.window();".to_string());
+        create_code.push(
+            "slint::cbindgen_private::slint_windowrc_ensure_tree_instantiated(\
+            reinterpret_cast<const slint::cbindgen_private::WindowAdapterRcOpaque*>\
+            (&window.window_handle()));"
+                .to_string(),
+        );
     }
 
     create_code
@@ -2076,6 +2100,7 @@ fn generate_sub_component(
     let mut children_visitor_cases = Vec::new();
     let mut subtrees_ranges_cases = Vec::new();
     let mut subtrees_components_cases = Vec::new();
+    let mut ensure_instantiated_stmts: Vec<String> = Vec::new();
 
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
@@ -2126,6 +2151,8 @@ fn generate_sub_component(
                         return;
                     }}",
             ));
+            ensure_instantiated_stmts
+                .push(format!("_changed |= self->{field_name}.ensure_instantiated();"));
         }
 
         target_struct.members.push((
@@ -2223,35 +2250,39 @@ fn generate_sub_component(
             "self->{repeater_id}.set_model_binding([self] {{ (void)self; return {model}; }});",
         ));
 
-        let ensure_updated = if let Some(listview) = &repeated.listview {
+        if let Some(listview) = &repeated.listview {
             let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
             let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
             let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
             let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
             let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
-            format!(
-                "self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
-            )
-        } else {
-            format!("self->{repeater_id}.ensure_updated(self);")
-        };
-
-        children_visitor_cases.push(format!(
-            "\n        case {idx}: {{
-                {ensure_updated}
+            children_visitor_cases.push(format!(
+                "\n        case {idx}: {{
+                self->{repeater_id}.track_changes_listview(&{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), &{lv_h});
                 return self->{repeater_id}.visit(order, visitor);
             }}",
-        ));
+            ));
+            ensure_instantiated_stmts.push(format!(
+                "_changed |= self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
+            ));
+        } else {
+            children_visitor_cases.push(format!(
+                "\n        case {idx}: {{
+                return self->{repeater_id}.visit(order, visitor);
+            }}",
+            ));
+            ensure_instantiated_stmts
+                .push(format!("_changed |= self->{repeater_id}.ensure_updated(self);"));
+        }
         subtrees_ranges_cases.push(format!(
             "\n        case {idx}: {{
-                {ensure_updated}
+                self->{repeater_id}.track_instance_changes();
                 return self->{repeater_id}.index_range();
             }}",
         ));
         subtrees_components_cases.push(format!(
             "\n        case {idx}: {{
-                {ensure_updated}
                 *result = self->{repeater_id}.instance_at(subtree_index);
                 return;
             }}",
@@ -2507,6 +2538,24 @@ fn generate_sub_component(
         element_infos_cases,
     );
 
+    {
+        let mut stmts = vec![
+            "[[maybe_unused]] auto self = this;".to_owned(),
+            "bool _changed = false;".to_owned(),
+        ];
+        stmts.extend(ensure_instantiated_stmts);
+        stmts.push("return _changed;".to_owned());
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "ensure_instantiated".into(),
+                signature: "() const -> bool".into(),
+                statements: Some(stmts),
+                ..Default::default()
+            }),
+        ));
+    }
+
     if !children_visitor_cases.is_empty() {
         target_struct.members.push((
             field_access,
@@ -2607,6 +2656,7 @@ fn generate_layout_item_info_decl(
                 write!(
                     body,
                     "{{\n\
+                     self->{inner_rep_id}.track_instance_changes();\n\
                      size_t inner_len = {inner_rep_id}.len();\n\
                      if (index >= count && index - count < inner_len) {{\n\
                          if (auto vrc = {inner_rep_id}.instance_at(index - count).lock()) {{\n\
@@ -2721,7 +2771,7 @@ fn generate_grid_layout_input_decl(
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                     write!(
                         fill_code,
-                        "this->{inner_rep_id}.ensure_updated(this);\n\
+                        "this->{inner_rep_id}.track_instance_changes();\n\
                          {inner_rep_id}.for_each([&]([[maybe_unused]] const auto &) {{\n\
                              if (write_idx < result.size()) {{\n\
                                  result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ (write_idx == 0) && new_row, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
@@ -4671,7 +4721,7 @@ fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count
             llr::RowChildTemplateInfo::Repeated { repeater_index } => {
                 let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                 Some(format!(
-                    "sub_comp->{inner_rep_id}.ensure_updated(&*sub_comp);\n\
+                    "sub_comp->{inner_rep_id}.track_instance_changes();\n\
                      max_total = std::max(max_total, {static_count} + sub_comp->{inner_rep_id}.len());\n"
                 ))
             }
@@ -4734,7 +4784,8 @@ fn generate_with_layout_item_info(
             }
             Either::Right(repeater) => {
                 let repeater_index = usize::from(repeater.repeater_index);
-                write!(push_code, "self->repeater_{repeater_index}.ensure_updated(self);").unwrap();
+                write!(push_code, "self->repeater_{repeater_index}.track_instance_changes();")
+                    .unwrap();
 
                 if let Some(ri) = &repeated_indices_var_name {
                     write!(
@@ -4849,7 +4900,8 @@ fn generate_with_flexbox_layout_item_info(
             }
             Either::Right(repeater) => {
                 let repeater_index = usize::from(repeater.repeater_index);
-                write!(push_code, "self->repeater_{repeater_index}.ensure_updated(self);").unwrap();
+                write!(push_code, "self->repeater_{repeater_index}.track_instance_changes();")
+                    .unwrap();
 
                 if let Some(ri) = &repeated_indices_var_name {
                     write!(
@@ -4920,7 +4972,7 @@ fn generate_with_grid_input_data(
             }
             Either::Right(repeater) => {
                 let repeater_id = format!("repeater_{}", usize::from(repeater.repeater_index));
-                write!(push_code, "self->{repeater_id}.ensure_updated(self);").unwrap();
+                write!(push_code, "self->{repeater_id}.track_instance_changes();").unwrap();
 
                 if let Some(ri) = &repeated_indices_var_name {
                     write!(push_code, "{ri}_array[{}] = cells_vector.size();", repeater_idx * 2)
