@@ -251,7 +251,7 @@ impl TestingWindow {
 
 impl WindowAdapterInternal for TestingWindow {
     fn get_parent(&self) -> std::rc::Weak<dyn WindowAdapter> {
-        std::rc::Weak::<TestingWindow>::new()
+        std::rc::Weak::<Self>::new()
     }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
