@@ -50,9 +50,7 @@ jobs:
                 script: |
                   const raw = (process.env.PREVIEW_URL || '').trim();
                   const noTrailingSlash = raw.replace(/\/+$/, '');
-                  const deploymentUrl = /\/docs$/.test(noTrailingSlash)
-                    ? `${noTrailingSlash}/`
-                    : `${noTrailingSlash}/docs/`;
+                  const deploymentUrl = `${noTrailingSlash}/`;
                   const ref = context.payload.pull_request.head.sha;
                   const deployment = await github.rest.repos.createDeployment({
                     owner: context.repo.owner,
