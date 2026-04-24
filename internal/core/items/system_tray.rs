@@ -21,7 +21,7 @@ use crate::lengths::{LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::{Coord, Property, SharedString, Callback};
+use crate::{Callback, Coord, Property, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
