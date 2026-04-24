@@ -102,6 +102,13 @@ pub struct ItemTreeVTable {
     pub layout_info:
         extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, Orientation) -> LayoutInfo,
 
+    /// Recursively materialize every Repeater, Conditional, and
+    /// ComponentContainer reachable from this ItemTree. Called at event-loop
+    /// boundaries so init code runs outside any in-flight property evaluation.
+    /// This is the "repeater instantiation pass".
+    /// Returns `true` if any instance was created or removed.
+    pub ensure_instantiated: extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>) -> bool,
+
     /// Returns the item's geometry (relative to its parent item)
     pub item_geometry:
         extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> LogicalRect,
@@ -166,6 +173,14 @@ pub type ItemTreeRefPin<'a> = core::pin::Pin<ItemTreeRef<'a>>;
 pub type ItemTreeRc = vtable::VRc<ItemTreeVTable, Dyn>;
 /// Type alias to the commonly used VWeak<ItemTreeVTable, Dyn>>
 pub type ItemTreeWeak = vtable::VWeak<ItemTreeVTable, Dyn>;
+
+/// Ensure all repeaters and conditionals within the given item tree are
+/// instantiated. Call this before non-rendering tree walks that use
+/// `first_child` / `next_sibling`.
+/// Returns `true` if any instance was created or removed.
+pub fn ensure_item_tree_instantiated(item_tree: &vtable::VRc<ItemTreeVTable>) -> bool {
+    vtable::VRc::borrow_pin(item_tree).as_ref().ensure_instantiated()
+}
 
 /// Call init() on the ItemVTable for each item of the ItemTree.
 pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<WindowAdapterRc>) {
@@ -992,12 +1007,20 @@ impl ItemRc {
         result
     }
 
-    /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
-    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    /// Visit the children of this element and call the visitor to each of them,
+    /// until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value.
+    /// If it doesn't break, the function returns None.
+    ///
+    /// Runs [`ensure_item_tree_instantiated`] once before the walk so all
+    /// repeaters, conditionals, and component containers are materialized.
+    /// The recursive descent uses the private `visit_descendants_impl`,
+    /// which doesn't call it again.
     pub fn visit_descendants<R>(
         &self,
         mut visitor: impl FnMut(&ItemRc) -> ControlFlow<R>,
     ) -> Option<R> {
+        ensure_item_tree_instantiated(self.item_tree());
         self.visit_descendants_impl(&mut visitor)
     }
 
@@ -1578,6 +1601,10 @@ mod tests {
             _parent_component: &ItemTreeWeak,
             _item_tree_index: u32,
         ) -> bool {
+            false
+        }
+
+        fn ensure_instantiated(self: core::pin::Pin<&Self>) -> bool {
             false
         }
 
@@ -2519,6 +2546,192 @@ mod tests {
                 window_item: Some(window_item),
             })),
         )
+    }
+
+    struct TransformTestItemTree {
+        item_tree: Vec<ItemTreeNode>,
+        geometries: Vec<LogicalRect>,
+        window_adapter: WindowAdapterRc,
+        root: WindowItem,
+        transform: Transform,
+        clip: Clip,
+        leaf: WindowItem,
+    }
+
+    impl ItemTree for TransformTestItemTree {
+        fn visit_children_item(
+            self: Pin<&Self>,
+            _index: isize,
+            _order: TraversalOrder,
+            _visitor: vtable::VRefMut<ItemVisitorVTable>,
+        ) -> VisitChildrenResult {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<VRef<'_, ItemVTable>> {
+            let this = self.get_ref();
+            match index {
+                0 => Pin::new(VRef::new(&this.root)),
+                1 => Pin::new(VRef::new(&this.transform)),
+                2 => Pin::new(VRef::new(&this.clip)),
+                3 => Pin::new(VRef::new(&this.leaf)),
+                _ => unimplemented!("Not needed for this test"),
+            }
+        }
+
+        fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
+            Slice::from_slice(&self.get_ref().item_tree)
+        }
+
+        fn parent_node(self: Pin<&Self>, _result: &mut ItemWeak) {}
+
+        fn embed_component(
+            self: Pin<&Self>,
+            _parent_component: &ItemTreeWeak,
+            _item_tree_index: u32,
+        ) -> bool {
+            false
+        }
+
+        fn layout_info(self: Pin<&Self>, _orientation: Orientation) -> LayoutInfo {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn subtree_index(self: Pin<&Self>) -> usize {
+            usize::MAX
+        }
+
+        fn get_subtree_range(self: Pin<&Self>, _subtree_index: u32) -> IndexRange {
+            (0..0).into()
+        }
+
+        fn get_subtree(
+            self: Pin<&Self>,
+            _subtree_index: u32,
+            _component_index: usize,
+            _result: &mut ItemTreeWeak,
+        ) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_role(self: Pin<&Self>, _index: u32) -> AccessibleRole {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _index: u32,
+            _what: AccessibleStringProperty,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _index: u32, _result: &mut SharedString) -> bool {
+            false
+        }
+
+        fn ensure_instantiated(self: Pin<&Self>) -> bool {
+            false
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            result: &mut Option<WindowAdapterRc>,
+        ) {
+            *result = Some(self.window_adapter.clone())
+        }
+
+        fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect {
+            self.geometries[index as usize]
+        }
+
+        fn accessibility_action(self: Pin<&Self>, _index: u32, _action: &AccessibilityAction) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(
+            self: Pin<&Self>,
+            _index: u32,
+        ) -> SupportedAccessibilityAction {
+            unimplemented!("Not needed for this test")
+        }
+    }
+
+    crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);
+
+    fn create_transform_test_items() -> VRc<ItemTreeVTable> {
+        let window_adapter = WindowAdapter::new_with_transformations(true);
+
+        let mut transform = Transform::default();
+        transform.transform_scale_x = Property::new(2.);
+        transform.transform_scale_y = Property::new(3.);
+        transform.transform_rotation = Property::new(0.);
+        transform.transform_origin = Property::new(LogicalPosition::new(0., 0.));
+
+        let mut clip = Clip::default();
+        clip.clip = Property::new(true);
+
+        VRc::into_dyn(VRc::new(TransformTestItemTree {
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 2,
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 3,
+                    parent_index: 1,
+                    item_array_index: 2,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 2,
+                    item_array_index: 3,
+                },
+            ],
+            geometries: vec![
+                LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
+                LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
+                LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
+                LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
+            ],
+            window_adapter,
+            root: WindowItem::default(),
+            transform,
+            clip,
+            leaf: WindowItem::default(),
+        }))
+    }
+
+    fn assert_point_approx_eq(actual: LogicalPoint, expected: LogicalPoint) {
+        const EPSILON: f32 = 0.0001;
+        assert!(
+            (actual.x - expected.x).abs() < EPSILON,
+            "actual x {}, expected x {}",
+            actual.x,
+            expected.x
+        );
+        assert!(
+            (actual.y - expected.y).abs() < EPSILON,
+            "actual y {}, expected y {}",
+            actual.y,
+            expected.y
+        );
     }
 
     #[test]

@@ -568,6 +568,7 @@ fn gen_corelib(
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",
+            "slint_windowrc_ensure_tree_instantiated",
             "slint_windowrc_show",
             "slint_windowrc_hide",
             "slint_windowrc_is_visible",
