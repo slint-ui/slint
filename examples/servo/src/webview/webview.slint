@@ -47,9 +47,7 @@ export component Webview {
     }
 
     property <ColorScheme> scheme: Palette.color-scheme;
-    changed scheme => {
-        WebviewLogic.theme(scheme);
-    }
+    changed scheme => WebviewLogic.theme(scheme);
 
     focus_scope := FocusScope {
         width: 100%;
@@ -72,19 +70,14 @@ export component Webview {
                 height: 100%;
             }
 
-            changed width => {
-                WebviewLogic.resize(self.width, self.height);
-            }
-            changed height => {
-                WebviewLogic.resize(self.width, self.height);
-            }
+            changed width => WebviewLogic.resize(self.width, self.height);
 
-            clicked => {
-                focus_scope.focus();
-            }
-            pointer-event(event) => {
-                WebviewLogic.pointer(event, self.mouse-x, self.mouse-y);
-            }
+            changed height => WebviewLogic.resize(self.width, self.height);
+
+            clicked => focus_scope.focus();
+
+            pointer-event(event) => WebviewLogic.pointer(event, self.mouse-x, self.mouse-y);
+
             scroll-event(event) => {
                 WebviewLogic.scroll(self.mouse-x, self.mouse-y, event.delta-x, event.delta-y);
                 return accept;
