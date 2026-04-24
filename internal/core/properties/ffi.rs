@@ -28,6 +28,16 @@ pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, va
     }
 }
 
+/// Register this property as a dependency of the current tracking scope
+/// without evaluating any binding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_register_as_dependency(handle: &PropertyHandleOpaque) {
+    unsafe {
+        let handle = Pin::new_unchecked(&handle.0);
+        handle.register_as_dependency_to_current_binding();
+    }
+}
+
 /// Mark the fact that the property was changed and that its binding need to be removed, and
 /// the dependencies marked dirty.
 /// To be called after the `value` has been changed
