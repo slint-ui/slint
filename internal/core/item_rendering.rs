@@ -647,15 +647,7 @@ pub trait LayerRenderer<'cache>: ItemRenderer {
 }
 
 /// Render the children of a [`Layer`] item through the given [`LayerRenderer`] backend.
-///
-/// Pass `Some` to override the layer's extent (e.g. clamping to the clipping
-/// item's geometry); `None` uses the children's bounding rect clipped to the
-/// current clip ∪ the layer's own geometry.
-pub fn render_layer<'cache, R>(
-    renderer: &mut R,
-    item_rc: &ItemRc,
-    layer_bounding_rect_fn: Option<&dyn Fn() -> LogicalRect>,
-) -> Option<R::Output>
+pub fn render_layer<'cache, R>(renderer: &mut R, item_rc: &ItemRc) -> Option<R::Output>
 where
     R: LayerRenderer<'cache> + ?Sized + 'cache,
 {
@@ -663,22 +655,15 @@ where
     let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
 
     let compute_bounds = |r: &R| -> LogicalRect {
-        match layer_bounding_rect_fn {
-            Some(f) => f(),
-            None => item_children_bounding_rect(item_rc, &r.window().window_adapter())
-                .intersection(&r.get_current_clip().union(&item_rc.geometry()))
-                .unwrap_or_default(),
-        }
+        item_children_bounding_rect(item_rc, &r.window().window_adapter())
+            .intersection(&r.get_current_clip().union(&item_rc.geometry()))
+            .unwrap_or_default()
     };
 
     let cache_entry = cache.get_or_update_cache_entry(item_rc, || {
-        // For the default bounds, don't track dependencies yet — the actual
+        // Don't track dependencies of the bounding rect here: the actual
         // rendering below will track them as it walks the children.
-        let bounding_rect = if layer_bounding_rect_fn.is_some() {
-            compute_bounds(renderer)
-        } else {
-            crate::properties::evaluate_no_tracking(|| compute_bounds(renderer))
-        };
+        let bounding_rect = crate::properties::evaluate_no_tracking(|| compute_bounds(renderer));
         let physical_origin = bounding_rect.origin * scale_factor;
         let layer_size = bounding_rect.size * scale_factor;
 
