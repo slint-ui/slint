@@ -15,6 +15,7 @@ packages:
   - docs/astro
   - docs/common
   - docs/safety
+  - docs/nodejs
   - ui-libraries/material/docs
 
 catalog:

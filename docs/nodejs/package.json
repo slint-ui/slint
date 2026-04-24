@@ -1,0 +1,27 @@
+{
+    "name": "slint-nodejs-docs",
+    "type": "module",
+    "version": "1.17.0",
+    "scripts": {
+        "dev": "astro dev",
+        "start": "astro dev",
+        "build": "astro check && astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "format": "biome format",
+        "format:fix": "biome format --write",
+        "lint": "biome lint",
+        "lint:fix": "biome lint --fix"
+    },
+    "dependencies": {
+        "@astrojs/check": "catalog:",
+        "@astrojs/starlight": "catalog:",
+        "@slint/common-files": "workspace:*",
+        "@types/node": "catalog:",
+        "astro": "catalog:",
+        "rehype-external-links": "catalog:",
+        "sharp": "catalog:",
+        "starlight-links-validator": "catalog:",
+        "typescript": "catalog:"
+    }
+}
