@@ -609,6 +609,7 @@ pub trait ItemRenderer {
 ///
 /// The `'cache` lifetime lets `layer_cache` hand out a reference that doesn't
 /// borrow `self`, so the orchestrator can call the other `&mut self` methods.
+#[cfg(feature = "std")]
 pub trait LayerRenderer<'cache>: ItemRenderer {
     /// Per-layer render target (for example a skia `Surface` or a reused GPU texture).
     type LayerTarget;
@@ -647,6 +648,7 @@ pub trait LayerRenderer<'cache>: ItemRenderer {
 }
 
 /// Render the children of a [`Layer`] item through the given [`LayerRenderer`] backend.
+#[cfg(feature = "std")]
 pub fn render_layer<'cache, R>(renderer: &mut R, item_rc: &ItemRc) -> Option<R::Output>
 where
     R: LayerRenderer<'cache> + ?Sized + 'cache,
@@ -664,8 +666,8 @@ where
         // Don't track dependencies of the bounding rect here: the actual
         // rendering below will track them as it walks the children.
         let bounding_rect = crate::properties::evaluate_no_tracking(|| compute_bounds(renderer));
-        let physical_origin = bounding_rect.origin * scale_factor;
-        let layer_size = bounding_rect.size * scale_factor;
+        let physical_origin = bounding_rect.origin.cast() * scale_factor;
+        let layer_size = bounding_rect.size.cast() * scale_factor;
 
         let Some(target) = renderer.create_layer_target(item_rc, layer_size) else {
             // Target allocation failed (typically a zero-sized layer). The
