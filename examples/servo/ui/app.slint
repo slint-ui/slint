@@ -11,8 +11,6 @@ import {
 import { Webview } from "../src/webview/webview.slint";
 
 export { WebviewLogic } from "../src/webview/webview.slint";
-export { Palette } from "std-widgets.slint";
-
 
 export component MyApp inherits Window {
     preferred-width: 1224px;
@@ -25,30 +23,25 @@ export component MyApp inherits Window {
     // On mobile (e.g. iOS/Android) safe-area-insets.top is non-zero.
     property <bool> is-mobile: root.safe-area-insets.top > 0px;
 
-    property <string> back-text: "Back";
-    property <string> forward-text: "Forward";
-    property <string> reload-text: "Reload";
-    property <string> go-text: "Go";
-
     contextMenuArea := ContextMenuArea {
         Menu {
             MenuItem {
-                title: root.back-text;
+                title: "Back";
                 activated => webview.back();
             }
 
             MenuItem {
-                title: root.forward-text;
+                title: "Forward";
                 activated => webview.forward();
             }
 
             MenuItem {
-                title: root.reload-text;
+                title: "Reload";
                 activated => webview.reload();
             }
 
             MenuItem {
-                title: root.go-text;
+                title: "Go";
                 activated => webview.loadUrl(lineEdit.text);
             }
         }
@@ -66,17 +59,17 @@ export component MyApp inherits Window {
             spacing: root.toolbar-spacing;
 
             if !root.is-mobile: Button {
-                text: root.back-text;
+                text: "Back";
                 clicked => webview.back();
             }
 
             if !root.is-mobile: Button {
-                text: root.forward-text;
+                text: "Forward";
                 clicked => webview.forward();
             }
 
             if !root.is-mobile: Button {
-                text: root.reload-text;
+                text: "Reload";
                 clicked => webview.reload();
             }
 
@@ -87,7 +80,7 @@ export component MyApp inherits Window {
             }
 
             if !root.is-mobile: Button {
-                text: root.go-text;
+                text: "Go";
                 clicked => webview.loadUrl(lineEdit.text);
             }
 
