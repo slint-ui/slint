@@ -11,11 +11,10 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, RenderImage, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, LayerRenderer, RenderImage,
+    RenderText,
 };
-use i_slint_core::items::{
-    ImageFit, ImageRendering, ItemRc, Layer, LayerRenderer, Opacity, RenderingResult,
-};
+use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
@@ -334,7 +333,9 @@ impl<'a> SkiaItemRenderer<'a> {
     }
 
     fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {
-        if let Some((layer_offset, layer_image)) = Layer::render(self, item_rc, None) {
+        if let Some((layer_offset, layer_image)) =
+            i_slint_core::item_rendering::render_layer(self, item_rc, None)
+        {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
             let _saved_canvas = self.pixel_align_origin_auto_restore();
             self.canvas.draw_image_with_sampling_options(
