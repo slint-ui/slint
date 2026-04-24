@@ -3,9 +3,10 @@
     "type": "module",
     "version": "1.17.0",
     "scripts": {
+        "thirdparty": "node ./scripts/generate-thirdparty.mjs",
         "dev": "astro dev",
         "start": "astro dev",
-        "build": "astro check && astro build",
+        "build": "node ./scripts/generate-thirdparty.mjs && astro check && astro build",
         "preview": "astro preview",
         "astro": "astro",
         "format": "biome format",

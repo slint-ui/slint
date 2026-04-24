@@ -1,3 +1,6 @@
+# cargo-about output (requires `cargo install cargo-about` in CI)
+public/thirdparty/
+
 # starlight-typedoc output (requires `pnpm -C api/node run build` first)
 src/content/docs/api/
 

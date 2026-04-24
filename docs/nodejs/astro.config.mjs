@@ -6,6 +6,7 @@ import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 import rehypeExternalLinks from "rehype-external-links";
+import { nodeDocsPublicAsset } from "./src/node-site-config.mjs";
 
 // https://astro.build/config
 // Production `site` / `base` are wired in PR4 (CI); local dev uses root URLs.
@@ -63,8 +64,64 @@ export default defineConfig({
                     href: "https://github.com/slint-ui/slint",
                 },
             ],
+            head: [
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/svg+xml",
+                        href: nodeDocsPublicAsset("favicon.svg"),
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/png",
+                        sizes: "32x32",
+                        href: nodeDocsPublicAsset("favicon-32x32.png"),
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/png",
+                        sizes: "16x16",
+                        href: nodeDocsPublicAsset("favicon-16x16.png"),
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "icon",
+                        type: "image/x-icon",
+                        href: nodeDocsPublicAsset("favicon.ico"),
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "mask-icon",
+                        href: nodeDocsPublicAsset("favicon.svg"),
+                        color: "#8D46E7",
+                    },
+                },
+                {
+                    tag: "link",
+                    attrs: {
+                        rel: "apple-touch-icon",
+                        sizes: "180x180",
+                        href: nodeDocsPublicAsset("apple-touch-icon.png"),
+                    },
+                },
+            ],
             sidebar: [
                 { label: "Overview", slug: "index" },
+                {
+                    label: "Third-party licenses",
+                    link: "/thirdparty/",
+                },
                 typeDocSidebarGroup,
             ],
         }),
