@@ -19,8 +19,8 @@ export global WebviewLogic {
     in property <image> web_content;
     in-out property <string> current_url;
 
-    out property <length> viewport_width: 1224px;
-    out property <length> viewport_height: 768px;
+    in-out property <length> viewport_width: 1224px;
+    in-out property <length> viewport_height: 768px;
 
     out property <length> mouse_x;
     out property <length> mouse_y;
@@ -70,9 +70,14 @@ export component Webview {
                 height: 100%;
             }
 
-            changed width => WebviewLogic.resize(self.width, self.height);
-
-            changed height => WebviewLogic.resize(self.width, self.height);
+            changed width => {
+                WebviewLogic.viewport_width = self.width;
+                WebviewLogic.resize(self.width, self.height);
+            }
+            changed height => {
+                WebviewLogic.viewport_height = self.height;
+                WebviewLogic.resize(self.width, self.height);
+            }
 
             clicked => focus_scope.focus();
 
