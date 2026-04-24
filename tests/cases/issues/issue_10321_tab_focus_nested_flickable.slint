@@ -3,35 +3,47 @@
 
 // cSpell: ignore backtab
 
+// Test tab/shift-tab with nested Flickables: the inner Flickable is
+// scrolled out of the outer Flickable's viewport.
+
 export component TestCase inherits Window {
     width: 120px;
-    height: 110px;
+    height: 200px;
 
     out property <int> focused-index: -1;
 
-    flick := Flickable {
+    outer := Flickable {
         width: 100%;
         height: 100%;
-        viewport-height: 420px;
+        viewport-height: 500px;
 
-        VerticalLayout {
-            width: parent.width;
-            spacing: 10px;
+        FocusScope {
+            y: 0;
+            width: 100%;
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 0; }
+            Rectangle { width: 100%; height: 100%; background: red; }
+        }
 
-            for _[index] in [0, 1, 2, 3, 4, 5] : FocusScope {
-                width: 100%;
-                height: 60px;
-                focus-gained(_) => { root.focused-index = index; }
+        inner := Flickable {
+            y: 300px;
+            width: 100%;
+            height: 200px;
+            viewport-height: 400px;
 
-                Rectangle {
+            VerticalLayout {
+                width: parent.width;
+                spacing: 10px;
+
+                for val[_] in [1, 2, 3] : FocusScope {
                     width: 100%;
-                    height: 100%;
-                    background: index == 0 ? red
-                        : index == 1 ? orange
-                        : index == 2 ? yellow
-                        : index == 3 ? green
-                        : index == 4 ? blue
-                        : purple;
+                    height: 60px;
+                    focus-gained(_) => { root.focused-index = val; }
+                    Rectangle {
+                        width: 100%;
+                        height: 100%;
+                        background: val == 1 ? green : val == 2 ? blue : purple;
+                    }
                 }
             }
         }
@@ -43,19 +55,19 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_focused_index(), -1);
 
-for i in 0..=5 {
+for i in 0..=3 {
     slint_testing::send_keyboard_string_sequence(&instance, "\t");
     assert_eq!(instance.get_focused_index(), i, "tab to item {i}");
 }
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq!(instance.get_focused_index(), 0, "tab wraps to item 0");
 
-for i in (0..=5).rev() {
+for i in (0..=3).rev() {
     slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
     assert_eq!(instance.get_focused_index(), i, "backtab to item {i}");
 }
 slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
-assert_eq!(instance.get_focused_index(), 5, "backtab wraps to item 5");
+assert_eq!(instance.get_focused_index(), 3, "backtab wraps to item 3");
 ```
 
 ```cpp
@@ -63,18 +75,18 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_focused_index(), -1);
 
-for (int i = 0; i <= 5; i++) {
+for (int i = 0; i <= 3; i++) {
     slint_testing::send_keyboard_string_sequence(&instance, "\t");
     assert_eq(instance.get_focused_index(), i);
 }
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq(instance.get_focused_index(), 0);
 
-for (int i = 5; i >= 0; i--) {
+for (int i = 3; i >= 0; i--) {
     slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
     assert_eq(instance.get_focused_index(), i);
 }
 slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
-assert_eq(instance.get_focused_index(), 5);
+assert_eq(instance.get_focused_index(), 3);
 ```
 */
