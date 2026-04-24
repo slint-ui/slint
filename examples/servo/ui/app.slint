@@ -9,7 +9,6 @@ import {
 } from "std-widgets.slint";
 
 import { Webview } from "../src/webview/webview.slint";
-import { MobileMenuContent } from "mobile_menu.slint";
 
 export { WebviewLogic } from "../src/webview/webview.slint";
 export { Palette } from "std-widgets.slint";
@@ -26,18 +25,32 @@ export component MyApp inherits Window {
     // On mobile (e.g. iOS/Android) safe-area-insets.top is non-zero.
     property <bool> is-mobile: root.safe-area-insets.top > 0px;
 
-    menu := PopupWindow {
-        x: root.width - self.width - root.safe-area-insets.right - root.toolbar-padding;
-        y: root.safe-area-insets.top + root.toolbar-height;
-        width: menu_content.width;
-        height: menu_content.height;
-        close-policy: close-on-click;
+    property <string> back-text: "Back";
+    property <string> forward-text: "Forward";
+    property <string> reload-text: "Reload";
+    property <string> go-text: "Go";
 
-        menu_content := MobileMenuContent {
-            back => webview.back();
-            forward => webview.forward();
-            reload => webview.reload();
-            go => webview.loadUrl(lineEdit.text);
+    contextMenuArea := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: root.back-text;
+                activated => webview.back();
+            }
+
+            MenuItem {
+                title: root.forward-text;
+                activated => webview.forward();
+            }
+
+            MenuItem {
+                title: root.reload-text;
+                activated => webview.reload();
+            }
+
+            MenuItem {
+                title: root.go-text;
+                activated => webview.loadUrl(lineEdit.text);
+            }
         }
     }
 
@@ -53,17 +66,17 @@ export component MyApp inherits Window {
             spacing: root.toolbar-spacing;
 
             if !root.is-mobile: Button {
-                text: "Back";
+                text: root.back-text;
                 clicked => webview.back();
             }
 
             if !root.is-mobile: Button {
-                text: "Forward";
+                text: root.forward-text;
                 clicked => webview.forward();
             }
 
             if !root.is-mobile: Button {
-                text: "Reload";
+                text: root.reload-text;
                 clicked => webview.reload();
             }
 
@@ -74,13 +87,13 @@ export component MyApp inherits Window {
             }
 
             if !root.is-mobile: Button {
-                text: "Go";
+                text: root.go-text;
                 clicked => webview.loadUrl(lineEdit.text);
             }
 
             if root.is-mobile: Button {
                 text: "...";
-                clicked => menu.show();
+                clicked => contextMenuArea.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height });
             }
         }
 
