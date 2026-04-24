@@ -60,12 +60,6 @@ safety_docs:
  - *js_config
  - *ci_config
 
-docs_astro:
- - 'docs/astro/**'
- - 'docs/common/**'
- - *js_config
- - *ci_config
-
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
  - 'internal/!({renderers,backends}/**)'
