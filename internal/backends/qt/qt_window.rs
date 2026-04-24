@@ -1684,6 +1684,12 @@ impl QtItemRenderer<'_> {
                 height: (layer_size.height * dpr) as _,
             };
 
+            // Skip rendering if the size is zero since QPainter fails to draw
+            // on an empty QImage (and also to avoid wasting CPU cycles).
+            if layer_size.width == 0 || layer_size.height == 0 {
+                return qttypes::QPixmap::default();
+            }
+
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
             layer_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
 
@@ -2226,18 +2232,12 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         let popup_window = QtWindow::new();
-
-        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
-
         let popup_ptr = popup_window.widget_ptr();
-        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
+        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
-            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
-            popup_ptr->show();
         }};
         Some(popup_window as _)
     }

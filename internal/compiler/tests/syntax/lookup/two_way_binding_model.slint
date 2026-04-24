@@ -2,13 +2,59 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 struct Foo {
-    field: string
+    field: string,
+    nested: { value: int },
 }
 
 export component Testcase  {
     property <[Foo]> model;
-    for item in model: Text {
+    for item[idx] in model: Text {
         text <=> item.field;
-//               >        <error{Two-way bindings to model data is not supported yet}
+
+        property <Foo> p1 <=> item;
+        property <string> p2 <=> item;
+//                           >       <error{The property 'p2' does not have the same type as the bound expression: string != Foo}
+        property <int> p3 <=> idx;
+//                        >      <error{The expression in a two way binding must be a property reference}
+
+        // Inferred type from a model field.
+        property p4 <=> item;
+        property <Foo> p4_check: p4;
+
+        property p5 <=> item.field;
+        property <string> p5_check: p5;
+
+        property <int> p7 <=> item.nope;
+//                        >            <error{Cannot access the field 'nope' of Foo}
+        property <int> p8: item.nope;
+//                              >  <error{Cannot access the field 'nope'}
+
+        property p10 <=> item.field.is-empty;
+//                   >                      <error{Cannot access the field 'is-empty' of string}
+        property p11 <=> item.field.nope;
+//                   >                  <error{Cannot access the field 'nope' of string}
+
+        // Nested struct field through a model row.
+        property <int> p12 <=> item.nested.value;
+        property p13 <=> item.nested.value;
+        property <int> p13_check: p13;
+
+        inner := Rectangle {
+            // Same model is visible from a nested element.
+            property i1 <=> item.field;
+            property <string> i1_check: i1;
+            property i2 <=> item;
+            property <Foo> i2_check: i2;
+        }
+
+        callback cb1 <=> item;
+        callback cb2 <=> item.field;
     }
+
+    property err1 <=> inner.i1;
+//                    >      <error{Cannot access id 'inner'}
+//  >                         <^error{Could not infer type of property 'err1'}
+    property err2 <=> inner.i2;
+//                    >      <error{Cannot access id 'inner'}
+//  >                         <^error{Could not infer type of property 'err2'}
 }

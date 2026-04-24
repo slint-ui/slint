@@ -1571,7 +1571,11 @@ impl Expression {
             }
             Type::Keys => Expression::Keys(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
-            Type::StyledText => Expression::Invalid,
+            Type::StyledText => Expression::FunctionCall {
+                function: Callable::Builtin(BuiltinFunction::StringToStyledText),
+                arguments: vec![Self::default_value_for_type(&Type::String)],
+                source_location: None,
+            },
         }
     }
 
@@ -1664,17 +1668,32 @@ fn model_inner_type(model: &Expression) -> Type {
 
 /// The right hand side of a two way binding
 #[derive(Clone, Debug)]
-pub struct TwoWayBinding {
-    /// The property being linked
-    pub property: NamedReference,
-    /// If property is a struct, this is the fields.
-    /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
-    pub field_access: Vec<SmolStr>,
+pub enum TwoWayBinding {
+    Property {
+        /// The property being linked
+        property: NamedReference,
+        /// If property is a struct, this is the fields.
+        /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
+        field_access: Vec<SmolStr>,
+    },
+    ModelData {
+        /// The model being linked
+        repeated_element: ElementWeak,
+        /// same as `Self::Property::field_access`
+        field_access: Vec<SmolStr>,
+    },
 }
 impl TwoWayBinding {
     pub fn ty(&self) -> Type {
-        let mut ty = self.property.ty();
-        for x in &self.field_access {
+        let (mut ty, field_access) = match self {
+            Self::Property { property, field_access } => (property.ty(), field_access),
+            Self::ModelData { repeated_element, field_access } => {
+                let ty =
+                    Expression::RepeaterModelReference { element: repeated_element.clone() }.ty();
+                (ty, field_access)
+            }
+        };
+        for x in field_access {
             ty = match ty {
                 Type::InferredProperty | Type::InferredCallback => return ty,
                 Type::Struct(s) => s.fields.get(x).cloned().unwrap_or_default(),
@@ -1683,11 +1702,25 @@ impl TwoWayBinding {
         }
         ty
     }
+
+    pub fn is_constant(&self) -> bool {
+        match self {
+            Self::Property { property, .. } => property.is_constant(),
+            Self::ModelData { .. } => false,
+        }
+    }
+
+    pub fn property(&self) -> Option<&NamedReference> {
+        match self {
+            Self::Property { property, .. } => Some(property),
+            Self::ModelData { .. } => None,
+        }
+    }
 }
 
 impl From<NamedReference> for TwoWayBinding {
     fn from(nr: NamedReference) -> Self {
-        Self { property: nr, field_access: Vec::new() }
+        Self::Property { property: nr, field_access: Vec::new() }
     }
 }
 

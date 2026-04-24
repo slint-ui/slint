@@ -1,0 +1,11 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Cloudflare Worker config for slintpad-staging (PR preview deployments).
+name = "slintpad-staging"
+compatibility_date = "2026-01-15"
+preview_urls = true
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"

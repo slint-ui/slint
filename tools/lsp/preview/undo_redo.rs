@@ -5,7 +5,6 @@ use super::ui;
 use crate::common::text_edit;
 use core::hash::{Hash as _, Hasher as _};
 use i_slint_preview_protocol::PreviewToLspMessage;
-use slint::ComponentHandle as _;
 
 use std::collections::HashMap;
 
@@ -86,8 +85,7 @@ impl UndoRedoStack {
     }
 }
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
+pub fn setup(api: &ui::Api<'_>) {
     api.on_undo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
@@ -151,8 +149,7 @@ pub fn setup(ui: &ui::PreviewUi) {
 }
 
 pub fn set_undo_redo_enabled(state: &super::PreviewState) {
-    if let Some(ui) = state.ui.as_ref() {
-        let api = ui.global::<ui::Api>();
+    if let Some(api) = state.api.upgrade() {
         api.set_undo_enabled(!state.undo_redo_stack.undo_stack.is_empty());
         api.set_redo_enabled(!state.undo_redo_stack.redo_stack.is_empty());
     }

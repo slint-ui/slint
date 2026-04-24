@@ -48,6 +48,7 @@ jobs:
         with:
           release: ${{ github.event.inputs.release }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
+          docs_astro: false
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
@@ -55,6 +56,9 @@ jobs:
             build_artifacts: true
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+        secrets:
+          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
         with:

@@ -3,16 +3,14 @@
 
 //! Handle colors and brushes in the UI
 
-use slint::{ComponentHandle, Model, VecModel};
+use slint::{Model, VecModel};
 
 use crate::preview::ui;
 
 use itertools::Itertools as _;
 use std::rc::Rc;
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
-
+pub fn setup(api: &ui::Api<'_>) {
     api.on_add_gradient_stop(add_gradient_stop);
     api.on_remove_gradient_stop(remove_gradient_stop);
     api.on_move_gradient_stop(move_gradient_stop);

@@ -96,10 +96,23 @@ pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph
 pub fn string_to_styled_text(_string: alloc::string::String) -> StyledText {
     #[cfg(feature = "std")]
     {
+        if _string.is_empty() {
+            return Default::default();
+        }
         StyledText {
             paragraphs: [i_slint_common::styled_text::paragraph_from_plain_text(_string)].into(),
         }
     }
     #[cfg(not(feature = "std"))]
     Default::default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn string_to_styled_text() {
+        assert_eq!(super::string_to_styled_text(Default::default()), StyledText::default());
+    }
 }

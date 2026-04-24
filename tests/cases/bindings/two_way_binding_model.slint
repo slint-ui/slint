@@ -1,0 +1,224 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+import { ListView } from "std-widgets.slint";
+struct ModelItem {
+    name: string,
+    checked: bool,
+    value: int,
+}
+
+
+component CheckBox {
+    width: 50px;
+    height: 50px;
+    in-out property <bool> checked;
+    callback toggled(bool);
+    Rectangle {
+        background: checked ? green : red;
+    }
+
+    TouchArea {
+        clicked => {
+            checked = !checked;
+            toggled(checked);
+        }
+    }
+}
+
+component ItemViewer {
+    in-out property <ModelItem> item;
+    callback toggled <=> chk.toggled;
+    height: 50px;
+    HorizontalLayout {
+        TextInput {
+            text <=> item.name;
+        }
+
+        chk := CheckBox { checked <=> item.checked; }
+    }
+
+}
+
+component ItemListView {
+    callback action(string);
+    in-out property <[ModelItem]> model;
+    VerticalLayout {
+        for itm[idx] in model : HorizontalLayout {
+            // Inferred-type two-way binding to a model field. Exercises the
+            // type-inference path (no `<string>` annotation) and is read
+            // through the binding on each click, so a row refresh done from
+            // native code via `set_row_data` must be observable here.
+            property row_name <=> itm.name;
+            CheckBox {
+                checked <=> itm.checked;
+                toggled(checked) => {
+                    action("ChkA:" + idx + ":" + (checked ? "on" : "off") + ":" + row_name);
+                }
+            }
+            iv := ItemViewer {
+                item <=> itm;
+                toggled(checked) => {
+                    action("ChkB:" + idx + ":" + (checked ? "on" : "off") + ":" + itm.name);
+                }
+            }
+        }
+
+    }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+
+    in-out property <[ModelItem]> model: [
+        { name: "Olivier", checked: true, value: 1 },
+        { name: "Simon", checked: true, value: 2 },
+        { name: "Auri", checked: false, value: 3 },
+    ];
+    in-out property <string> result;
+
+    ItemListView {
+        width: 100%;
+        height: 100%;
+        model <=> model;
+        action(s) => {
+            debug(s);
+            result += s + "\n";
+        }
+    }
+
+    Text {
+        text: result;
+        x: 0px;
+        y: 0px;
+    }
+
+    out property <bool> test: true;
+}
+
+
+/*
+
+```rust
+use slint::{Model, VecModel};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+// Provide the model from Rust so `set_row_data` is callable on it below.
+let m = Rc::new(VecModel::from(vec![
+    ModelItem { name: "Olivier".into(), checked: true, value: 1 },
+    ModelItem { name: "Simon".into(), checked: true, value: 2 },
+    ModelItem { name: "Auri".into(), checked: false, value: 3 },
+]));
+instance.set_model(m.clone().into());
+
+slint_testing::send_mouse_click(&instance, 490., 10.);
+assert_eq!(instance.get_result(), "ChkB:0:off:Olivier\n");
+assert_eq!(m.row_data(0).unwrap(), ModelItem { name: "Olivier".into(), checked: false, value: 1 });
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 10., 60.);
+assert_eq!(instance.get_result(), "ChkA:1:off:Simon\n");
+assert_eq!(m.row_data(1).unwrap(), ModelItem { name: "Simon".into(), checked: false, value: 2 });
+
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq!(instance.get_result(), "ChkA:0:on:Olivier\n");
+assert_eq!(m.row_data(0).unwrap(), ModelItem { name: "Olivier".into(), checked: true, value: 1 });
+
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 490., 60.);
+assert_eq!(instance.get_result(), "ChkB:1:on:Simon\n");
+assert_eq!(m.row_data(1).unwrap(), ModelItem { name: "Simon".into(), checked: true, value: 2 });
+
+assert_eq!(m.row_data(0).unwrap(), ModelItem { name: "Olivier".into(), checked: true, value: 1 });
+assert_eq!(m.row_data(2).unwrap(), ModelItem { name: "Auri".into(), checked: false, value: 3 });
+
+// Model -> UI: set row 0 from native code. The click handler reads `row_name`
+// which is two-way bound to `itm.name`, so it must see the new value.
+m.set_row_data(0, ModelItem { name: "Renamed".into(), checked: true, value: 7 });
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq!(instance.get_result(), "ChkA:0:off:Renamed\n");
+assert_eq!(m.row_data(0).unwrap(), ModelItem { name: "Renamed".into(), checked: false, value: 7 });
+
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 490., 10.);
+assert_eq(instance.get_result(), "ChkB:0:off:Olivier\n");
+assert(instance.get_model()->row_data(0).value() == (ModelItem { .name = "Olivier", .checked = false, .value = 1 }));
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 10., 60.);
+assert_eq(instance.get_result(), "ChkA:1:off:Simon\n");
+assert(instance.get_model()->row_data(1).value() == (ModelItem { .name = "Simon", .checked = false, .value = 2 }));
+
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq(instance.get_result(), "ChkA:0:on:Olivier\n");
+assert(instance.get_model()->row_data(0).value() == (ModelItem { .name = "Olivier", .checked = true, .value = 1 }));
+
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 490., 60.);
+assert_eq(instance.get_result(), "ChkB:1:on:Simon\n");
+assert(instance.get_model()->row_data(1).value() == (ModelItem { .name = "Simon", .checked = true, .value = 2 }));
+
+assert(instance.get_model()->row_data(0).value() == (ModelItem { .name = "Olivier", .checked = true, .value = 1 }));
+assert(instance.get_model()->row_data(2).value() == (ModelItem { .name = "Auri", .checked = false, .value = 3 }));
+
+// Model -> UI: set row 0 from native code, then click and observe the
+// new name via the two-way bound `row_name` property.
+instance.get_model()->set_row_data(0, ModelItem { .name = "Renamed", .checked = true, .value = 7 });
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq(instance.get_result(), "ChkA:0:off:Renamed\n");
+assert(instance.get_model()->row_data(0).value() == (ModelItem { .name = "Renamed", .checked = false, .value = 7 }));
+```
+
+
+```js
+let instance = new slint.TestCase({});
+// Provide the model from JS so setRowData is callable on it below.
+let m = new slintlib.ArrayModel([
+    { name: "Olivier", checked: true, value: 1 },
+    { name: "Simon", checked: true, value: 2 },
+    { name: "Auri", checked: false, value: 3 },
+]);
+instance.model = m;
+
+slintlib.private_api.send_mouse_click(instance, 490., 10.);
+assert.equal(instance.result, "ChkB:0:off:Olivier\n");
+assert.deepEqual(m.rowData(0), { name: "Olivier", checked: false, value: 1 });
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 10., 60.);
+assert.equal(instance.result, "ChkA:1:off:Simon\n");
+assert.deepEqual(m.rowData(1), { name: "Simon", checked: false, value: 2 });
+
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 10., 10.);
+assert.equal(instance.result, "ChkA:0:on:Olivier\n");
+assert.deepEqual(m.rowData(0), { name: "Olivier", checked: true, value: 1 });
+
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 490., 60.);
+assert.equal(instance.result, "ChkB:1:on:Simon\n");
+assert.deepEqual(m.rowData(1), { name: "Simon", checked: true, value: 2 });
+
+assert.deepEqual(m.rowData(0), { name: "Olivier", checked: true, value: 1 });
+assert.deepEqual(m.rowData(2), { name: "Auri", checked: false, value: 3 });
+
+// Model -> UI: set row 0 from native code, then click and observe the
+// new name via the two-way bound `row_name` property.
+m.setRowData(0, { name: "Renamed", checked: true, value: 7 });
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 10., 10.);
+assert.equal(instance.result, "ChkA:0:off:Renamed\n");
+assert.deepEqual(m.rowData(0), { name: "Renamed", checked: false, value: 7 });
+```
+
+*/

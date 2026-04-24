@@ -164,6 +164,7 @@ fn window_is_resizable(
 enum WinitWindowOrNone {
     HasWindow {
         window: Arc<winit::window::Window>,
+        frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
         #[cfg(enable_accesskit)]
         accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
         #[cfg(muda)]
@@ -371,8 +372,6 @@ pub struct WinitWindowAdapter {
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
-
-    frame_throttle: Box<dyn crate::frame_throttle::FrameThrottle>,
 }
 
 impl WinitWindowAdapter {
@@ -420,10 +419,6 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
-            frame_throttle: crate::frame_throttle::create_frame_throttle(
-                self_weak.clone(),
-                shared_backend_data.is_wayland,
-            ),
         });
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
@@ -503,8 +498,15 @@ impl WinitWindowAdapter {
             (view, self.self_weak.clone())
         };
 
+        let frame_throttle = crate::frame_throttle::create_frame_throttle(
+            self.self_weak.clone(),
+            &winit_window,
+            self.shared_backend_data.is_wayland,
+        );
+
         *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::HasWindow {
             window: winit_window.clone(),
+            frame_throttle,
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self.self_weak.clone(),
@@ -1232,8 +1234,11 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn request_redraw(&self) {
-        if !self.pending_redraw.replace(true) {
-            self.frame_throttle.request_throttled_redraw();
+        if !self.pending_redraw.replace(true)
+            && let WinitWindowOrNone::HasWindow { window, frame_throttle, .. } =
+                &*self.winit_window_or_none.borrow()
+        {
+            frame_throttle.request_throttled_redraw(window);
         }
     }
 
