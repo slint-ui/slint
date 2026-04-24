@@ -31,12 +31,10 @@ The application keeps running during reloads —
 properties, callbacks, and models are preserved.
 If a `.slint` file has a syntax error, the previous version stays on screen until the error is fixed.
 
-If you change the Slint API that the native code interacts with
-(for example renaming a property or callback used from Rust or C++),
-the application may terminate.
+If you change the Slint API that the native code interacts with, for example renaming a property or callback used from Rust or C++, the application may terminate.
 Recompile and restart to pick up those changes.
 
-This is intended for development only.
+This feature is intended for development only.
 Don't ship release builds with live preview enabled.
 
 ## Setup
