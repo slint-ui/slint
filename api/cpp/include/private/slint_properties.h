@@ -88,6 +88,13 @@ struct Property
         return value;
     }
 
+    /// Register this property as a dependency of the current tracking scope
+    /// without evaluating any binding.
+    void register_as_dependency() const
+    {
+        cbindgen_private::slint_property_register_as_dependency(&inner);
+    }
+
     template<typename F>
     void set_binding(F binding) const
     {
