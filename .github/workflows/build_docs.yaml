@@ -27,11 +27,6 @@ on:
         app-id:
           type: string
           required: true
-        docs_astro:
-          type: boolean
-          default: false
-          required: false
-          description: "True when path filter docs_astro matched (e.g. docs/astro or docs/common); use to gate deploy after astro-docs-tests."
 
 jobs:
     # Job 1: Build Rust and C++ documentation
@@ -96,6 +91,8 @@ jobs:
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
         runs-on: ubuntu-24.04
+        outputs:
+            version: ${{ steps.version.outputs.VERSION }}
         env:
             RUSTFLAGS: -D warnings -W deprecated
             RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
@@ -194,9 +191,9 @@ jobs:
                 name: docs-astro
                 path: artifact
 
-    docs-astro-preview:
-        needs: astro-docs-tests
-        if: inputs.docs_astro && github.event_name == 'pull_request'
+    docs-preview:
+        needs: [rust-cpp-docs, astro-docs-tests, node-python-docs]
+        if: github.event_name == 'pull_request'
         runs-on: ubuntu-24.04
         permissions:
             contents: read
@@ -210,30 +207,26 @@ jobs:
               with:
                 node-version: 24
                 package-manager-cache: false
-            - name: Download Astro docs artifact
+            - name: Download all docs artifacts
               uses: actions/download-artifact@v8
               with:
-                name: docs-astro
+                pattern: docs-*
                 path: restored-docs
-            - name: Lay out Astro dist under cf-assets for Worker URL paths
+                merge-multiple: true
+            - name: Lay out docs under cf-assets
               id: repack
               working-directory: docs/astro
-              env:
-                RELEASE_INPUT: ${{ inputs.release }}
               run: |
                 set -euo pipefail
-                root="${GITHUB_WORKSPACE}"
-                version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' "${root}/Cargo.toml")
-                if [ -z "${version}" ]; then echo "Version not found"; exit 1; fi
                 rm -rf cf-assets
-                if [ "${RELEASE_INPUT}" != "true" ]; then
-                  prefix="master/docs/slint"
+                if [ "${{ inputs.release }}" != "true" ]; then
+                  prefix="master/docs"
                 else
-                  prefix="${version}/docs/slint"
+                  prefix="${{ needs.astro-docs-tests.outputs.version }}/docs"
                 fi
                 mkdir -p "cf-assets/${prefix}"
-                cp -R "${root}/restored-docs/docs/slint/." "cf-assets/${prefix}/"
-                echo "site_prefix=${prefix}" >> "${GITHUB_OUTPUT}"
+                cp -R "${GITHUB_WORKSPACE}/restored-docs/docs/." "cf-assets/${prefix}/"
+                echo "site_prefix=${prefix}/slint" >> "${GITHUB_OUTPUT}"
             - name: Deploy preview to slint-docs-staging (Workers)
               id: preview
               working-directory: docs/astro
@@ -246,7 +239,7 @@ jobs:
                 CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
                 CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
             - name: Create GitHub deployment for PR
-              if: steps.preview.outputs.url != '' && github.event_name == 'pull_request'
+              if: steps.preview.outputs.url != ''
               uses: actions/github-script@v8
               env:
                 PREVIEW_URL: ${{ steps.preview.outputs.url }}
