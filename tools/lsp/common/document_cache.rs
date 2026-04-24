@@ -268,6 +268,14 @@ impl DocumentCache {
         self.type_loader.all_files().filter_map(|p| file_to_uri(p))
     }
 
+    pub fn all_urls_to_watch(&self) -> HashSet<Url> {
+        self.type_loader
+            .all_files_to_watch()
+            .into_iter()
+            .filter_map(|path| file_to_uri(&path))
+            .collect()
+    }
+
     pub fn global_type_registry(&self) -> std::cell::Ref<'_, TypeRegister> {
         self.type_loader.global_type_registry.borrow()
     }

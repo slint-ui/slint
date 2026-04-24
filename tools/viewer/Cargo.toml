@@ -58,7 +58,7 @@ slint-interpreter = { workspace = true, features = ["display-diagnostics", "comp
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }
-notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
+notify = { workspace = true }
 shlex = "1"
 spin_on = { workspace = true }
 env_logger = "0.11.0"

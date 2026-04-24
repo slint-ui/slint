@@ -1742,6 +1742,38 @@ impl TypeLoader {
         self.all_documents.docs.keys()
     }
 
+    /// Returns all file paths whose on-disk changes can affect the current document graph.
+    ///
+    /// This includes loaded documents and unresolved import targets that are kept in the
+    /// dependency graph so newly created files can invalidate their dependents.
+    pub fn all_files_to_watch(&self) -> HashSet<PathBuf> {
+        // TODO: This only works if the full set of passes have run!
+        //
+        // E.g. the LSP will only run the import passes, which do not yet
+        // detect embedded file resources, so we won't know about them until we
+        // run the full pass pipeline (e.g. in the editor binary).
+        fn resource_paths(document: &LoadedDocument) -> Vec<PathBuf> {
+            match document {
+                LoadedDocument::Document(document) => document
+                    .embedded_file_resources
+                    .borrow()
+                    .iter()
+                    .flat_map(|resource| resource.path.as_ref().map(|path| PathBuf::from(&**path)))
+                    .collect(),
+                LoadedDocument::Invalidated(_document) => vec![],
+            }
+        }
+
+        self.all_documents
+            .docs
+            .iter()
+            .flat_map(|(path, (document, _diagnostics))| {
+                std::iter::once(path.clone()).chain(resource_paths(document))
+            })
+            .chain(self.all_documents.dependencies.keys().cloned())
+            .collect()
+    }
+
     /// Returns an iterator over all the loaded documents
     pub fn all_documents(&self) -> impl Iterator<Item = &object_tree::Document> + '_ {
         self.all_documents.docs.values().filter_map(|(d, _)| match d {
@@ -2034,6 +2066,38 @@ component Foo { XX {} }
         diags,
         &["HELLO:3: Cannot find requested import \"error.slint\" in the include search path"]
     );
+}
+
+#[test]
+fn test_all_files_to_watch_keeps_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let main_path = Path::new("/tmp/main.slint");
+
+    spin_on::spin_on(
+        loader.load_file(
+            main_path,
+            main_path,
+            r#"
+/* ... */
+import { XX } from "missing/dependency.slint";
+component Foo { XX {} }
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&PathBuf::from("/tmp/main.slint")));
+    assert!(watch_files.contains(&PathBuf::from("/tmp/missing/dependency.slint")));
 }
 
 #[test]
