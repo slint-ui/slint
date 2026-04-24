@@ -6,11 +6,13 @@ import {
     HorizontalBox,
     Button,
     LineEdit,
+    Palette,
 } from "std-widgets.slint";
 
 import { Webview } from "../src/webview/webview.slint";
 
 export { WebviewLogic } from "../src/webview/webview.slint";
+export { Palette } from "std-widgets.slint";
 
 export component MyApp inherits Window {
     preferred-width: 1224px;
@@ -20,8 +22,7 @@ export component MyApp inherits Window {
     property <length> toolbar-padding: 8px;
     property <length> toolbar-spacing: 8px;
 
-    // On mobile (e.g. iOS/Android) safe-area-insets.top is non-zero.
-    property <bool> is-mobile: root.safe-area-insets.top > 0px;
+    property <bool> is-mobile: Platform.os == OperatingSystemType.ios || Platform.os == OperatingSystemType.android;
 
     contextMenuArea := ContextMenuArea {
         Menu {
