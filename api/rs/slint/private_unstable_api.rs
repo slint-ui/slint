@@ -183,8 +183,8 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, register_item_tree,
-        unregister_item_tree,
+        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        ensure_item_tree_instantiated, register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,

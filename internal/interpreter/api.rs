@@ -1106,6 +1106,9 @@ impl ComponentDefinition {
         let instance = self.create_with_options(Default::default())?;
         // Make sure the window adapter is created so call to `window()` do not panic later.
         instance.inner.window_adapter_ref()?;
+        // Eagerly instantiate repeaters and conditionals so that layout
+        // bindings can see all instances without calling ensure_updated.
+        i_slint_core::window::WindowInner::from_pub(instance.window()).ensure_tree_instantiated();
         Ok(instance)
     }
 

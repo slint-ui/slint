@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test the ensure_instantiated / change-handler loop.
+//
+// Scenario 1 — cascading init + changed across nested conditionals:
+//   cond1 (true at startup)
+//     init sets val=1 → changed val fires → cond2 becomes true
+//       init sets val=2 → changed val fires → cond3 becomes true
+//         init sets val=3
+//   A repeater inside the innermost conditional also gets instantiated.
+//
+// Scenario 2 — circular changed handlers converge:
+//   ping / pong bounce until the guard stops them.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    in-out property <int> val;
+    out property <string> log;
+
+    // changed callback drives the cascading instantiation
+    changed val => {
+        log += "c" + val + ",";
+        if val == 1 { cond2 = true; }
+        if val == 2 { cond3 = true; }
+    }
+
+    out property <bool> cond2;
+    out property <bool> cond3;
+
+    if true: Rectangle {
+        init => { val = 1; log += "i1,"; }
+
+        if cond2: Rectangle {
+            init => { val = 2; log += "i2,"; }
+
+            if cond3: Rectangle {
+                init => { val = 3; log += "i3,"; }
+                for i in [10, 20]: Rectangle {
+                    init => { log += "r" + i + ","; }
+                }
+            }
+        }
+    }
+
+    // Circular changed handlers — must converge, not loop forever.
+    in-out property <int> ping;
+    in-out property <int> pong;
+    changed ping => { if ping < 5 { pong = ping + 1; } }
+    changed pong => { if pong < 5 { ping = pong + 1; } }
+
+    out property <bool> test: true;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(100);
+
+// Cascading init + changed callbacks fully resolved.
+assert!(instance.get_cond2());
+assert!(instance.get_cond3());
+assert_eq!(instance.get_val(), 3);
+assert_eq!(instance.get_log(), "i1,c1,i2,c2,i3,r10,r20,c3,");
+
+// Circular changed handlers converge.
+// ping: 1→3→5, pong: 2→4  (< 5 guard stops at ping=5)
+instance.set_ping(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_ping(), 5);
+assert_eq!(instance.get_pong(), 4);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(100);
+
+assert(instance.get_cond2());
+assert(instance.get_cond3());
+assert_eq(instance.get_val(), 3);
+assert_eq(instance.get_log(), "i1,c1,i2,c2,i3,r10,r20,c3,");
+
+instance.set_ping(1);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_ping(), 5);
+assert_eq(instance.get_pong(), 4);
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(100);
+
+assert(instance.cond2);
+assert(instance.cond3);
+assert.equal(instance.val, 3);
+assert.equal(instance.log, "i1,c1,i2,c2,i3,r10,r20,c3,");
+
+instance.ping = 1;
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.ping, 5);
+assert.equal(instance.pong, 4);
+```
+
+*/

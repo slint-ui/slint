@@ -219,29 +219,37 @@ impl ChangeTracker {
         }
     }
 
-    /// Run all the change handler that were queued.
+    /// Run all the change handlers that were queued, looping until no more
+    /// handlers are pending (up to an internal limit).
     pub fn run_change_handlers() {
+        for _ in 0..10 {
+            if !Self::run_change_handlers_once() {
+                return;
+            }
+        }
+        crate::debug_log!("Slint: long changed callback chain detected");
+    }
+
+    /// Run one round of pending change handlers.
+    /// Returns `true` if any handler was executed.
+    pub fn run_change_handlers_once() -> bool {
         CHANGED_NODES.with(|list| {
+            if list.is_empty() {
+                return false;
+            }
             let old_list = DependencyListHead::default();
             let old_list = core::pin::pin!(old_list);
-            let mut count = 0;
-            while !list.is_empty() {
-                count += 1;
-                if count > 9 {
-                    crate::debug_log!("Slint: long changed callback chain detected");
-                    return;
-                }
-                DependencyListHead::swap(list.as_ref(), old_list.as_ref());
-                while let Some(node) = old_list.take_head() {
-                    unsafe {
-                        ((*addr_of!((*node).vtable)).evaluate)(
-                            node as *mut BindingHolder,
-                            core::ptr::null_mut(),
-                        );
-                    }
+            DependencyListHead::swap(list.as_ref(), old_list.as_ref());
+            while let Some(node) = old_list.take_head() {
+                unsafe {
+                    ((*addr_of!((*node).vtable)).evaluate)(
+                        node as *mut BindingHolder,
+                        core::ptr::null_mut(),
+                    );
                 }
             }
-        });
+            true
+        })
     }
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {

@@ -753,8 +753,10 @@ fn nowrap_text_change_doesnt_change_height() {
 
 #[test]
 fn create_item_tree_during_rendering() {
-    // This test has a `init` callback which will cause item tree to be changed during rendeiring,
-    // between the compute dirty region and the actual rendering.
+    // This test has `init` callbacks that cascade: cond1's init sets cond2=true,
+    // cond2-red's init sets cond3=true. The ensure_tree_instantiated loop
+    // materializes all three levels before rendering, so every rectangle
+    // lands in the first draw's dirty region.
     slint::slint! {
         export component Ui inherits Window {
             in property <bool> cond1: false;
@@ -808,16 +810,17 @@ fn create_item_tree_during_rendering() {
     ui.set_cond1(true);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 15, 22, 25);
+        // All three cascaded conditionals are instantiated before rendering:
+        // cond3's rect is at y=5 (foo), so the region starts at y=5.
+        do_test_render_region(renderer, 10, 5, 22, 25);
     }));
-    // FIXME: in this case, there is nothing done to trigger any redraw. Ideally this call shouldn't be necessary.
-    assert!(!window.draw_if_needed(|_| ()));
-    // So therefore force a redraw
+
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 
     ui.set_foo(4.0);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 4, 22, 25);
+        do_test_render_region(renderer, 12, 4, 22, 25);
     }));
 
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
@@ -825,6 +828,55 @@ fn create_item_tree_during_rendering() {
     ui.set_foo(3.0);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 12, 3, 22, 24);
+    }));
+}
+
+#[test]
+fn init_property_read_does_not_trigger_redraw() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 100px;
+            height: 100px;
+
+            in property <bool> cond: false;
+            in property <length> unrelated: 10px;
+            property <length> stash;
+
+            if cond: Rectangle {
+                x: 5px;
+                y: 5px;
+                width: 20px;
+                height: 20px;
+                background: red;
+                // The init callback reads `unrelated`.  That read must NOT
+                // register as a dependency of the redraw tracker.
+                init => { stash = unrelated; }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(100, 100));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 100, 100);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Activate the conditional — the rectangle appears and init runs.
+    ui.set_cond(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 5, 5, 25, 25);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Change the property that the init callback read.
+    // This must NOT trigger a redraw because init reads should be untracked.
+    ui.set_unrelated(42.0);
+    assert!(!window.draw_if_needed(|_| {
+        unreachable!("changing a property only read by init must not trigger a redraw")
     }));
 }
 

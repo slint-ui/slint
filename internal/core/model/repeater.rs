@@ -428,6 +428,12 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     #[pin]
     /// Set to true when the model becomes dirty.
     is_dirty: Property<bool>,
+    #[pin]
+    /// Marked dirty by `ensure_updated` when instances are added or
+    /// removed.  Layout and visit code register this as a dependency so
+    /// they re-evaluate only after the update pass materializes the
+    /// change, not when the model first becomes dirty.
+    instance_generation: Property<()>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
     #[pin]
     listview_geometry_tracker: crate::properties::PropertyTracker,
@@ -526,6 +532,10 @@ impl<C: RepeatedItemTree> Default for RepeaterTracker<C> {
             inner: Default::default(),
             model: Property::new_named(ModelRc::default(), "i_slint_core::Repeater::model"),
             is_dirty: Property::new_named(false, "i_slint_core::Repeater::is_dirty"),
+            instance_generation: Property::new_named(
+                (),
+                "i_slint_core::Repeater::instance_generation",
+            ),
             listview_geometry_tracker: Default::default(),
         }
     }
@@ -543,6 +553,28 @@ impl<C: RepeatedItemTree> Default for Repeater<C> {
 impl<C: RepeatedItemTree + 'static> Repeater<C> {
     fn data(self: Pin<&Self>) -> Pin<&RepeaterTracker<C>> {
         self.project_ref().0.get()
+    }
+
+    /// Returns `true` if the repeater's model or data has changed since the
+    /// last `ensure_updated` call.
+    pub fn is_dirty(self: Pin<&Self>) -> bool {
+        self.data().project_ref().model.is_dirty() || self.data().project_ref().is_dirty.get()
+    }
+
+    /// Register the model and dirty flag as dependencies of the current
+    /// tracking scope (e.g. the redraw tracker) so it is notified when the
+    /// model or its data changes.
+    pub fn track_model_changes(self: Pin<&Self>) {
+        self.data().project_ref().model.register_as_dependency();
+        self.data().project_ref().is_dirty.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. This is for layout and visit code that should
+    /// re-evaluate only after `ensure_updated` has materialized instance
+    /// changes, not when the model first becomes dirty.
+    pub fn track_instance_changes(self: Pin<&Self>) {
+        self.data().project_ref().instance_generation.register_as_dependency();
     }
 
     fn model(self: Pin<&Self>) -> ModelRc<C::Data> {
@@ -564,22 +596,43 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     }
 
     /// Call this function to make sure that the model is updated.
-    /// The init function is the function to create a ItemTree
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) {
+    /// The init function is the function to create a ItemTree.
+    /// Returns `true` if instances were actually created or removed.
+    /// Also recurses into child instances to ensure they are instantiated.
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
         let model = self.model();
-        if !self.data().project_ref().is_dirty.get() {
-            return;
-        }
-        let count = model.row_count();
-        let mut inner = self.0.inner.borrow_mut();
-        let offset = inner.layout_state.offset;
-        let mut ops =
-            RustRepeaterOps { instances: &mut inner.instances, init: &init, model: &model };
-        self.data().is_dirty.set(false);
-        let indices_to_init = update_all_instances(&mut ops, offset, count);
+        let changed = if self.data().project_ref().is_dirty.get() {
+            let count = model.row_count();
+            let mut inner = self.0.inner.borrow_mut();
+            let offset = inner.layout_state.offset;
+            let mut ops =
+                RustRepeaterOps { instances: &mut inner.instances, init: &init, model: &model };
+            self.data().is_dirty.set(false);
+            let indices_to_init = update_all_instances(&mut ops, offset, count);
 
-        drop(inner);
-        self.init_instances(indices_to_init);
+            drop(inner);
+            // Run init callbacks without tracking so that property reads from
+            // init code do not attach to the current evaluation context (e.g.
+            // the redraw tracker or a layout binding).
+            crate::properties::evaluate_no_tracking(|| self.init_instances(indices_to_init));
+            self.data().instance_generation.mark_dirty();
+            true
+        } else {
+            false
+        };
+        self.ensure_children_instantiated() || changed
+    }
+
+    /// Recurse into child instances to ensure they are instantiated.
+    /// Called from the generated `ensure_instantiated` method, separately
+    /// from `ensure_updated`, to avoid property recursion.
+    fn ensure_children_instantiated(&self) -> bool {
+        let mut changed = false;
+        for instance in self.instances_vec() {
+            changed |=
+                crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
+        }
+        changed
     }
 
     fn init_instances(&self, indices: Vec<usize>) {
@@ -591,7 +644,26 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         }
     }
 
-    /// Same as `Self::ensure_updated` but for a ListView
+    /// Register the ListView viewport properties as dependencies so that
+    /// scrolling triggers a redraw.  Model dependencies are registered by
+    /// [`Self::visit`], so this only covers the viewport geometry.
+    pub fn track_changes_listview(
+        self: Pin<&Self>,
+        viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_y: Pin<&Property<LogicalLength>>,
+        listview_width: LogicalLength,
+        listview_height: Pin<&Property<LogicalLength>>,
+    ) {
+        viewport_width.register_as_dependency();
+        viewport_height.register_as_dependency();
+        viewport_y.register_as_dependency();
+        let _ = listview_width;
+        listview_height.register_as_dependency();
+    }
+
+    /// Same as `Self::ensure_updated` but for a ListView.
+    /// Returns `true` if any instances were created or any child changed.
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
@@ -600,9 +672,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
-    ) {
-        // Query is_dirty to track model changes
-        let _ = self.data().project_ref().is_dirty.get();
+    ) -> bool {
         self.data().project_ref().is_dirty.set(false);
 
         let model = self.model();
@@ -624,8 +694,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             listview_height.get(),
         );
 
+        let changed = !indices_to_init.is_empty();
         drop(inner);
-        self.init_instances(indices_to_init);
+        crate::properties::evaluate_no_tracking(|| self.init_instances(indices_to_init));
+        if changed {
+            self.data().instance_generation.mark_dirty();
+        }
+        self.ensure_children_instantiated() || changed
     }
 
     /// Sets the data directly in the model
@@ -645,12 +720,15 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self.0.model.set_binding(binding);
     }
 
-    /// Call the visitor for the root of each instance
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the model changes.
     pub fn visit(
-        &self,
+        self: Pin<&Self>,
         order: TraversalOrder,
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
+        self.track_model_changes();
         // We can't keep self.inner borrowed because the event might modify the model
         let count = self.0.inner.borrow().instances.len() as u32;
         for i in 0..count {
@@ -707,6 +785,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 pub struct Conditional<C: RepeatedItemTree> {
     #[pin]
     model: Property<bool>,
+    #[pin]
+    instance_generation: Property<()>,
     instance: RefCell<Option<ItemTreeRc<C>>>,
 }
 
@@ -714,23 +794,54 @@ impl<C: RepeatedItemTree> Default for Conditional<C> {
     fn default() -> Self {
         Self {
             model: Property::new_named(false, "i_slint_core::Conditional::model"),
+            instance_generation: Property::new_named(
+                (),
+                "i_slint_core::Conditional::instance_generation",
+            ),
             instance: RefCell::new(None),
         }
     }
 }
 
 impl<C: RepeatedItemTree + 'static> Conditional<C> {
+    /// Register the condition as a dependency of the current tracking scope
+    /// (e.g. the redraw tracker) so it is notified when the condition changes.
+    pub fn track_model_changes(self: Pin<&Self>) {
+        self.project_ref().model.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// `ensure_updated` materializes instance changes.
+    pub fn track_instance_changes(self: Pin<&Self>) {
+        self.project_ref().instance_generation.register_as_dependency();
+    }
+
     /// Call this function to make sure that the model is updated.
-    /// The init function is the function to create a ItemTree
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) {
+    /// The init function is the function to create a ItemTree.
+    /// Returns `true` if the instance was created or removed, or any child changed.
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
         let model = self.project_ref().model.get();
 
-        if !model {
-            drop(self.instance.replace(None));
+        let changed = if !model {
+            self.instance.take().is_some()
         } else if self.instance.borrow().is_none() {
             let i = init();
             self.instance.replace(Some(i.clone()));
             i.init();
+            true
+        } else {
+            false
+        };
+        if changed {
+            self.instance_generation.mark_dirty();
+        }
+        if let Some(instance) = self.instance.borrow().as_ref() {
+            crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(
+                instance.clone(),
+            )) || changed
+        } else {
+            changed
         }
     }
 
@@ -739,12 +850,15 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
         self.model.set_binding(binding);
     }
 
-    /// Call the visitor for the root of each instance
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the condition changes.
     pub fn visit(
-        &self,
+        self: Pin<&Self>,
         order: TraversalOrder,
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
+        self.track_model_changes();
         // We can't keep self.inner borrowed because the event might modify the model
         let instance = self.instance.borrow().clone();
         if let Some(c) = instance
@@ -872,7 +986,7 @@ mod ffi {
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
-    ) {
+    ) -> bool {
         let indices_to_init = update_visible_instances(
             ops,
             state,
@@ -883,6 +997,8 @@ mod ffi {
             listview_width,
             listview_height,
         );
+        let changed = !indices_to_init.is_empty();
         ops.init_instances(indices_to_init);
+        changed
     }
 }

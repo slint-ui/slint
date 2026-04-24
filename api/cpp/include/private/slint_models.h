@@ -1043,6 +1043,10 @@ class Repeater
 
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
+    /// Toggled by ensure_updated when instances are added or removed.
+    /// Layout code tracks this instead of is_dirty so it re-evaluates
+    /// only after the update pass materializes the change.
+    mutable private_api::Property<bool> instance_generation { false };
 
     vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
     {
@@ -1072,11 +1076,14 @@ public:
         }
     }
 
+    /// Instantiate or remove items to match the model, and recurse into children.
+    /// Returns true if any instance was created, removed, or changed.
     template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    bool ensure_updated(const Parent *parent) const
     {
         refresh_model();
 
+        bool changed = false;
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
             if (auto m = model.get()) {
@@ -1086,15 +1093,16 @@ public:
             } else {
                 inner->data.clear();
             }
-        } else {
-            // just do a get() on the model to register dependencies so that, for example, the
-            // layout property tracker becomes dirty.
-            model.get();
+            instance_generation.mark_dirty();
+            changed = true;
         }
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Same as ensure_updated but for a ListView.
+    /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    void ensure_updated_listview(const Parent *parent,
+    bool ensure_updated_listview(const Parent *parent,
                                  const private_api::Property<float> *viewport_width,
                                  const private_api::Property<float> *viewport_height,
                                  const private_api::Property<float> *viewport_y,
@@ -1103,25 +1111,68 @@ public:
         refresh_model();
 
         if (!inner)
-            return;
+            return false;
 
-        // Query is_dirty to track model changes
-        inner->is_dirty.get();
         inner->is_dirty.set(false);
 
         const auto m = model.get();
         if (!m)
-            return;
+            return false;
 
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
-        cbindgen_private::slint_repeater_ensure_updated_listview(
+        bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
                 &ops, &inner->layout_state, m->row_count(), viewport_width, viewport_height,
                 viewport_y, listview_width, listview_height);
+        if (changed)
+            instance_generation.mark_dirty();
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Returns true if the repeater's model or data has changed since the
+    /// last ensure_updated call.
+    bool is_dirty() const { return model.is_dirty() || (inner && inner->is_dirty.get()); }
+
+    /// Register the model and dirty flag as dependencies of the current
+    /// tracking scope (e.g. the redraw tracker) so it is notified when the
+    /// model or its data changes.
+    void track_model_changes() const
+    {
+        model.register_as_dependency();
+        if (inner)
+            inner->is_dirty.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// ensure_updated materializes instance changes.
+    void track_instance_changes() const
+    {
+        if (inner)
+            instance_generation.register_as_dependency();
+    }
+
+    /// Register the ListView viewport properties as dependencies so that
+    /// scrolling triggers a redraw.  Model dependencies are registered by
+    /// visit(), so this only covers the viewport geometry.
+    void track_changes_listview(const private_api::Property<float> *viewport_width,
+                                const private_api::Property<float> *viewport_height,
+                                const private_api::Property<float> *viewport_y,
+                                [[maybe_unused]] float listview_width,
+                                const private_api::Property<float> *listview_height) const
+    {
+        viewport_width->register_as_dependency();
+        viewport_height->register_as_dependency();
+        viewport_y->register_as_dependency();
+        listview_height->register_as_dependency();
+    }
+
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the model changes.
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
+        track_model_changes();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             auto ref = item_at(index);
@@ -1185,12 +1236,28 @@ public:
             }
         }
     }
+
+    bool recurse_ensure_instantiated() const
+    {
+        if (!inner)
+            return false;
+        bool changed = false;
+        for (auto &x : inner->data) {
+            if (x.ptr) {
+                vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                                const_cast<C *>(&(**x.ptr)) };
+                changed |= ref.vtable->ensure_instantiated(ref);
+            }
+        }
+        return changed;
+    }
 };
 
 template<typename C>
 class Conditional
 {
     private_api::Property<bool> model;
+    mutable private_api::Property<bool> instance_generation { false };
     mutable std::optional<ComponentHandle<C>> instance;
 
 public:
@@ -1200,19 +1267,42 @@ public:
         model.set_binding(std::forward<F>(binding));
     }
 
+    /// Create or destroy the conditional instance, and recurse into children.
+    /// Returns true if the instance was created, removed, or any child changed.
     template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    bool ensure_updated(const Parent *parent) const
     {
+        bool changed;
         if (!model.get()) {
+            changed = instance.has_value();
             instance = std::nullopt;
         } else if (!instance) {
             instance = C::create(parent);
             (*instance)->init();
+            changed = true;
+        } else {
+            changed = false;
         }
+        if (changed)
+            instance_generation.mark_dirty();
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Register the condition as a dependency of the current tracking scope
+    /// (e.g. the redraw tracker) so it is notified when the condition changes.
+    void track_model_changes() const { model.register_as_dependency(); }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// ensure_updated materializes instance changes.
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
+
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the condition changes.
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
+        track_model_changes();
         if (instance) {
             vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
                                                             const_cast<C *>(&(**instance)) };
@@ -1241,6 +1331,16 @@ public:
         if (instance) {
             f(*instance);
         }
+    }
+
+    bool recurse_ensure_instantiated() const
+    {
+        if (instance) {
+            vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                            const_cast<C *>(&(**instance)) };
+            return ref.vtable->ensure_instantiated(ref);
+        }
+        return false;
     }
 };
 

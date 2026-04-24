@@ -262,6 +262,10 @@ impl ItemTree for ErasedItemTreeBox {
         self.borrow().as_ref().layout_info(orientation)
     }
 
+    fn ensure_instantiated(self: Pin<&Self>) -> bool {
+        self.borrow().as_ref().ensure_instantiated()
+    }
+
     fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
         get_item_tree(self.get_ref().borrow())
     }
@@ -820,63 +824,13 @@ extern "C" fn visit_children_item(
                 // Do nothing: We are ComponentContainer and Our parent already did all the work!
                 VisitChildrenResult::CONTINUE
             } else {
-                // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
-                // Safety: we do not mix the component with other component id in this function
-                let rep_in_comp =
-                    unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
-                ensure_repeater_updated(instance_ref, rep_in_comp);
+                generativity::make_guard!(guard);
+                let rep_in_comp = instance_ref.description.repeater[index as usize].unerase(guard);
                 let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
                 repeater.visit(order, visitor)
             }
         },
     )
-}
-
-/// Make sure that the repeater is updated
-fn ensure_repeater_updated<'id>(
-    instance_ref: InstanceRef<'_, 'id>,
-    rep_in_comp: &RepeaterWithinItemTree<'id, '_>,
-) {
-    let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
-    let init = || {
-        let extra_data = instance_ref.description.extra_data_offset.apply(instance_ref.as_ref());
-        instantiate(
-            rep_in_comp.item_tree_to_repeat.clone(),
-            instance_ref.self_weak().get().cloned(),
-            None,
-            None,
-            extra_data.globals.get().unwrap().clone(),
-        )
-    };
-    if let Some(lv) = &rep_in_comp
-        .item_tree_to_repeat
-        .original
-        .parent_element
-        .borrow()
-        .upgrade()
-        .unwrap()
-        .borrow()
-        .repeated
-        .as_ref()
-        .unwrap()
-        .is_listview
-    {
-        let assume_property_logical_length =
-            |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
-        let get_prop = |nr: &NamedReference| -> LogicalLength {
-            eval::load_property(instance_ref, &nr.element(), nr.name()).unwrap().try_into().unwrap()
-        };
-        repeater.ensure_updated_listview(
-            init,
-            assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
-            assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
-            assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
-            get_prop(&lv.listview_width),
-            assume_property_logical_length(get_property_ptr(&lv.listview_height, instance_ref)),
-        );
-    } else {
-        repeater.ensure_updated(init);
-    }
 }
 
 /// Information attached to a builtin item
@@ -1427,6 +1381,7 @@ pub(crate) fn generate_item_tree<'id>(
     let t = ItemTreeVTable {
         visit_children_item,
         layout_info,
+        ensure_instantiated,
         get_item_ref,
         get_item_tree,
         get_subtree_range,
@@ -2183,6 +2138,78 @@ pub fn get_repeater_by_name<'a, 'id>(
 }
 
 #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+extern "C" fn ensure_instantiated(component: ItemTreeRefPin) -> bool {
+    generativity::make_guard!(guard);
+    // Safety: called through the vtable of our own ItemTreeDescription.
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+
+    let mut changed = false;
+    for (tree_index, node) in instance_ref.description.item_tree.iter().enumerate() {
+        if !matches!(node, ItemTreeNode::Item { .. }) {
+            continue;
+        }
+        let item_ref = component.as_ref().get_item_ref(tree_index as u32);
+        if let Some(container) = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::ComponentContainer,
+        >(item_ref)
+        {
+            container.ensure_updated();
+        }
+    }
+
+    for rep_in_comp in &instance_ref.description.repeater {
+        // Safety: we do not mix the repeater with a different component id.
+        let rep_in_comp = unsafe { rep_in_comp.get_untagged() };
+        let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+        let init = || {
+            let extra_data =
+                instance_ref.description.extra_data_offset.apply(instance_ref.as_ref());
+            instantiate(
+                rep_in_comp.item_tree_to_repeat.clone(),
+                instance_ref.self_weak().get().cloned(),
+                None,
+                None,
+                extra_data.globals.get().unwrap().clone(),
+            )
+        };
+        if let Some(lv) = &rep_in_comp
+            .item_tree_to_repeat
+            .original
+            .parent_element
+            .borrow()
+            .upgrade()
+            .unwrap()
+            .borrow()
+            .repeated
+            .as_ref()
+            .unwrap()
+            .is_listview
+        {
+            let assume_property_logical_length =
+                |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
+            changed |= repeater.ensure_updated_listview(
+                init,
+                assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
+                assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
+                assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
+                eval::load_property(
+                    instance_ref,
+                    &lv.listview_width.element(),
+                    lv.listview_width.name(),
+                )
+                .unwrap()
+                .try_into()
+                .unwrap(),
+                assume_property_logical_length(get_property_ptr(&lv.listview_height, instance_ref)),
+            );
+        } else {
+            changed |= repeater.ensure_updated(init);
+        }
+    }
+    changed
+}
+
+#[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
 extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -> LayoutInfo {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ItemTreeDescription
@@ -2247,14 +2274,13 @@ extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexR
             i_slint_core::items::ComponentContainer,
         >(container)
         .unwrap();
-        container.ensure_updated();
         container.subtree_range()
     } else {
-        let rep_in_comp =
-            unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
-        ensure_repeater_updated(instance_ref, rep_in_comp);
+        generativity::make_guard!(guard);
+        let rep_in_comp = instance_ref.description.repeater[index as usize].unerase(guard);
 
-        let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
+        let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+        repeater.track_instance_changes();
         repeater.range().into()
     }
 }
@@ -2282,14 +2308,12 @@ extern "C" fn get_subtree(
             i_slint_core::items::ComponentContainer,
         >(container)
         .unwrap();
-        container.ensure_updated();
         if subtree_index == 0 {
             *result = container.subtree_component();
         }
     } else {
-        let rep_in_comp =
-            unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
-        ensure_repeater_updated(instance_ref, rep_in_comp);
+        generativity::make_guard!(guard);
+        let rep_in_comp = instance_ref.description.repeater[index as usize].unerase(guard);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
         if let Some(instance_at) = repeater.instance_at(subtree_index) {

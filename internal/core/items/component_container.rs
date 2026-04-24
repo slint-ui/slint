@@ -118,6 +118,10 @@ impl ComponentContainer {
         self.has_component.set(product.is_some());
 
         self.item_tree.replace(product);
+
+        if let Some(inner) = self.subtree_component().upgrade() {
+            crate::item_tree::ensure_item_tree_instantiated(&inner);
+        }
     }
 
     pub fn subtree_range(self: Pin<&Self>) -> IndexRange {
