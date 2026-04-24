@@ -1069,6 +1069,88 @@ impl Item for Layer {
     }
 }
 
+/// Renderer-backend hooks for [`Layer::render`], which owns the caching and
+/// bounds computation; implementors only describe how to allocate, render
+/// into, and unwrap a layer target.
+///
+/// The `'cache` lifetime lets `layer_cache` hand out a reference that doesn't
+/// borrow `self`, so the orchestrator can call the other `&mut self` methods.
+pub trait LayerRenderer<'cache>: crate::item_rendering::ItemRenderer {
+    type LayerTarget;
+    /// Cache entry type. Some backends share the layer cache with unrelated
+    /// entries (e.g. femtovg) so this is not always the same as [`Output`].
+    ///
+    /// [`Output`]: Self::Output
+    type CacheEntry: Clone;
+    type Output;
+
+    fn layer_cache(&self) -> &'cache crate::item_rendering::ItemCache<Option<Self::CacheEntry>>;
+
+    /// Allocate a target of the given physical size; `None` aborts rendering.
+    fn create_layer_target(
+        &mut self,
+        item_rc: &ItemRc,
+        physical_size: euclid::Size2D<f32, crate::lengths::PhysicalPx>,
+    ) -> Option<Self::LayerTarget>;
+
+    /// Redirect rendering into `target`, translate by `-physical_origin`,
+    /// call `render_item_children`, then restore. The dance is backend-specific
+    /// (sub-renderer vs. render-target swap), hence the hook.
+    fn render_into_layer(
+        &mut self,
+        target: Self::LayerTarget,
+        item_rc: &ItemRc,
+        bounding_rect: LogicalRect,
+        physical_origin: euclid::Point2D<f32, crate::lengths::PhysicalPx>,
+    ) -> Self::CacheEntry;
+
+    /// Returns `None` for entries in a shared cache that aren't layers.
+    fn extract(entry: Self::CacheEntry) -> Option<Self::Output>;
+}
+
+impl Layer {
+    /// Pass `Some` to override the layer's extent (e.g. clamping to the
+    /// clipping item's geometry); `None` uses the children's bounding rect
+    /// clipped to the current clip ∪ the layer's own geometry.
+    pub fn render<'cache, R>(
+        renderer: &mut R,
+        item_rc: &ItemRc,
+        layer_bounding_rect_fn: Option<&dyn Fn() -> LogicalRect>,
+    ) -> Option<R::Output>
+    where
+        R: LayerRenderer<'cache> + ?Sized + 'cache,
+    {
+        let cache = renderer.layer_cache();
+        let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
+
+        let cache_entry = cache.get_or_update_cache_entry(item_rc, || {
+            let bounding_rect = match layer_bounding_rect_fn {
+                Some(f) => f(),
+                // Default: use the children's bounding rect intersected with
+                // the renderer's current clip ∪ the layer's geometry. The
+                // children's own property dependencies will be tracked when we
+                // actually render them below, so compute the bounds untracked
+                // here to avoid double-tracking.
+                None => crate::properties::evaluate_no_tracking(|| {
+                    crate::item_rendering::item_children_bounding_rect(
+                        item_rc,
+                        &renderer.window().window_adapter(),
+                    )
+                    .intersection(&renderer.get_current_clip().union(&item_rc.geometry()))
+                    .unwrap_or_default()
+                }),
+            };
+            let physical_origin = bounding_rect.origin * scale_factor;
+            let layer_size = bounding_rect.size * scale_factor;
+
+            let target = renderer.create_layer_target(item_rc, layer_size)?;
+            Some(renderer.render_into_layer(target, item_rc, bounding_rect, physical_origin))
+        });
+
+        cache_entry.and_then(R::extract)
+    }
+}
+
 impl ItemConsts for Layer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Layer,
