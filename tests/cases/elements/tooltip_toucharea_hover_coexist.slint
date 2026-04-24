@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    width: 200px;
+    height: 120px;
+
+    in-out property <bool> tooltip-created;
+    out property <bool> touch-hover <=> ta.has-hover;
+
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+
+        ToolTip {
+            text: "hover";
+            placement: top;
+            init => { root.tooltip-created = true; }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_touch_hover());
+assert!(!instance.get_tooltip_created());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(20.0, 20.0),
+});
+assert!(instance.get_touch_hover());
+
+slint_testing::mock_elapsed_time(600);
+assert!(instance.get_tooltip_created());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(250.0, 250.0),
+});
+assert!(!instance.get_touch_hover());
+```
+
+*/
