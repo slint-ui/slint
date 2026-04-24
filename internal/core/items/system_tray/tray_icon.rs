@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! macOS and Windows system tray backend using the `tray-icon` crate (muda-based).
+//! Windows system tray backend using the `tray-icon` crate (muda-based).
 
 use super::{Error, Params};
 use crate::SharedVector;
