@@ -171,7 +171,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref,
-              environment: 'preview',
+              environment: 'material-staging',
               auto_merge: false,
               required_contexts: []
             });
