@@ -21,4 +21,7 @@ fn styled_text_can_be_created_from_rust_markdown() {
     let plain = slint::StyledText::from_plain_text("plain text");
     component.set_text(plain.clone());
     assert_eq!(component.get_text(), plain);
+
+    let error = slint::StyledText::from_markdown("# heading").unwrap_err();
+    assert!(error.to_string().starts_with("Unimplemented tag: Heading"));
 }

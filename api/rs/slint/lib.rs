@@ -213,8 +213,6 @@ compile_error!(
 pub use slint_macros::slint;
 
 pub use i_slint_backend_selector::api::*;
-#[cfg(feature = "std")]
-pub use i_slint_common::styled_text::StyledTextError;
 pub use i_slint_core::api::*;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
@@ -227,6 +225,8 @@ pub use i_slint_core::model::{
     ReverseModel, SortModel, VecModel,
 };
 pub use i_slint_core::styled_text::StyledText;
+#[cfg(feature = "std")]
+pub use i_slint_core::styled_text::StyledTextFromMarkdownError;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 
