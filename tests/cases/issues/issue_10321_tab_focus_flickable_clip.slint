@@ -3,37 +3,57 @@
 
 // cSpell: ignore backtab
 
+// Same as issue_10321_tab_focus_flickable but with the Flickable
+// inside a clip:true container. Also tests that a visible:false
+// Flickable's items are skipped during tab navigation.
+
 export component TestCase inherits Window {
     width: 120px;
     height: 110px;
 
     out property <int> focused-index: -1;
 
-    flick := Flickable {
+    Rectangle {
+        clip: true;
         width: 100%;
         height: 100%;
-        viewport-height: 420px;
 
-        VerticalLayout {
-            width: parent.width;
-            spacing: 10px;
+        flick := Flickable {
+            width: 100%;
+            height: 100%;
+            viewport-height: 420px;
 
-            for _[index] in [0, 1, 2, 3, 4, 5] : FocusScope {
-                width: 100%;
-                height: 60px;
-                focus-gained(_) => { root.focused-index = index; }
+            VerticalLayout {
+                width: parent.width;
+                spacing: 10px;
 
-                Rectangle {
+                for _[index] in [0, 1, 2, 3, 4, 5] : FocusScope {
                     width: 100%;
-                    height: 100%;
-                    background: index == 0 ? red
-                        : index == 1 ? orange
-                        : index == 2 ? yellow
-                        : index == 3 ? green
-                        : index == 4 ? blue
-                        : purple;
+                    height: 60px;
+                    focus-gained(_) => { root.focused-index = index; }
+
+                    Rectangle {
+                        width: 100%;
+                        height: 100%;
+                        background: index == 0 ? red
+                            : index == 1 ? orange
+                            : index == 2 ? yellow
+                            : index == 3 ? green
+                            : index == 4 ? blue
+                            : purple;
+                    }
                 }
             }
+        }
+    }
+
+    // Items inside a visible:false Flickable must not receive tab focus.
+    Flickable {
+        visible: false;
+        viewport-height: 200px;
+        FocusScope {
+            height: 60px;
+            focus-gained(_) => { root.focused-index = 100; }
         }
     }
 }
