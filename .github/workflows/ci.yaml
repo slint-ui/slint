@@ -37,6 +37,7 @@ jobs:
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
         safety_docs : ${{ steps.filter.outputs.safety_docs }}
+        docs_astro : ${{ steps.filter.outputs.docs_astro }}
         internal : ${{ steps.filter.outputs.internal }}
         api_cpp : ${{ steps.filter.outputs.api_cpp }}
         api_python : ${{ steps.filter.outputs.api_python }}
@@ -687,6 +688,17 @@ jobs:
       needs: files-changed
       if: needs.files-changed.outputs.safety_docs == 'true'
       uses: ./.github/workflows/safety_docs.yaml
+
+    docs-staging-preview:
+      needs: files-changed
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.files-changed.outputs.docs_astro == 'true'
+      permissions:
+        contents: read
+        deployments: write
+      uses: ./.github/workflows/docs_staging_preview.yaml
+      secrets:
+        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     servo_example:
         needs: files-changed

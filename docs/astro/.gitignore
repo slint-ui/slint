@@ -1,5 +1,6 @@
 # build output
 dist/
+cf-assets/
 # generated types
 .astro/
 
