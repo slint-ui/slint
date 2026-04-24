@@ -6,7 +6,7 @@ name: Docs staging preview
 on:
   workflow_call:
     secrets:
-      CLOUDFLARE_ACCOUNT_ID:
+      CLOUDFLARE_ACCOUNT_ID_2:
         required: true
       CLOUDFLARE_API_TOKEN_2:
         required: true
