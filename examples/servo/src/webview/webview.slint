@@ -50,8 +50,6 @@ export component Webview {
     changed scheme => WebviewLogic.theme(scheme);
 
     focus_scope := FocusScope {
-        width: 100%;
-        height: 100%;
 
         key-pressed(event) => {
             WebviewLogic.key_event(event, true);
@@ -62,7 +60,7 @@ export component Webview {
             accept
         }
 
-        touch_area := TouchArea {
+        TouchArea {
 
             image := Image {
                 source: WebviewLogic.web_content;
