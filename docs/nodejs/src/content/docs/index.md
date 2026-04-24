@@ -20,6 +20,15 @@ Slint-node is still in the early stages of development: APIs will change and imp
 The [Slint Language Documentation](http://slint.dev/docs/slint) covers the Slint UI description language
 in detail.
 
+## API reference
+
+The **API** group in the sidebar lists types and functions generated from the TypeScript sources in this repository.
+Before you run `pnpm -C docs/nodejs run dev` or `pnpm -C docs/nodejs run build`, compile the native module and declarations from the repo root:
+
+```sh
+pnpm -C api/node run build
+```
+
 ## Prerequisites
 
 To use Slint with Node.js, ensure the following programs are installed:

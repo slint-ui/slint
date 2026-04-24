@@ -1,3 +1,6 @@
+# starlight-typedoc output (requires `pnpm -C api/node run build` first)
+src/content/docs/api/
+
 # build output
 dist/
 # generated types

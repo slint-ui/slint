@@ -4,6 +4,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
+import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 import rehypeExternalLinks from "rehype-external-links";
 
 // https://astro.build/config
@@ -41,6 +42,16 @@ export default defineConfig({
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
+                starlightTypeDoc({
+                    entryPoints: ["../../api/node/typescript/index.ts"],
+                    tsconfig: "../../api/node/tsconfig.json",
+                    sidebar: { label: "API" },
+                    typeDoc: {
+                        hideGenerator: true,
+                        // Avoid embedding the checkout’s HEAD in “Defined in:” URLs (breaks across machines/CI).
+                        gitRevision: "master",
+                    },
+                }),
                 starlightLinksValidator({
                     errorOnLocalLinks: false,
                 }),
@@ -52,7 +63,10 @@ export default defineConfig({
                     href: "https://github.com/slint-ui/slint",
                 },
             ],
-            sidebar: [{ label: "Overview", slug: "index" }],
+            sidebar: [
+                { label: "Overview", slug: "index" },
+                typeDocSidebarGroup,
+            ],
         }),
     ],
 });
