@@ -1123,27 +1123,38 @@ impl Layer {
         let cache = renderer.layer_cache();
         let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
 
-        let cache_entry = cache.get_or_update_cache_entry(item_rc, || {
-            let bounding_rect = match layer_bounding_rect_fn {
+        let compute_bounds = |r: &R| -> LogicalRect {
+            match layer_bounding_rect_fn {
                 Some(f) => f(),
-                // Default: use the children's bounding rect intersected with
-                // the renderer's current clip ∪ the layer's geometry. The
-                // children's own property dependencies will be tracked when we
-                // actually render them below, so compute the bounds untracked
-                // here to avoid double-tracking.
-                None => crate::properties::evaluate_no_tracking(|| {
-                    crate::item_rendering::item_children_bounding_rect(
-                        item_rc,
-                        &renderer.window().window_adapter(),
-                    )
-                    .intersection(&renderer.get_current_clip().union(&item_rc.geometry()))
-                    .unwrap_or_default()
-                }),
+                None => crate::item_rendering::item_children_bounding_rect(
+                    item_rc,
+                    &r.window().window_adapter(),
+                )
+                .intersection(&r.get_current_clip().union(&item_rc.geometry()))
+                .unwrap_or_default(),
+            }
+        };
+
+        let cache_entry = cache.get_or_update_cache_entry(item_rc, || {
+            // For the default bounds, don't track dependencies yet — the
+            // actual rendering below will track them as it walks the children.
+            let bounding_rect = if layer_bounding_rect_fn.is_some() {
+                compute_bounds(renderer)
+            } else {
+                crate::properties::evaluate_no_tracking(|| compute_bounds(renderer))
             };
             let physical_origin = bounding_rect.origin * scale_factor;
             let layer_size = bounding_rect.size * scale_factor;
 
-            let target = renderer.create_layer_target(item_rc, layer_size)?;
+            let Some(target) = renderer.create_layer_target(item_rc, layer_size) else {
+                // Target allocation failed (typically a zero-sized layer).
+                // The children never ran, so their dependencies weren't
+                // tracked. Re-invoke the bounds closure with tracking enabled
+                // so the layer re-renders when the size becomes non-zero.
+                let _ = compute_bounds(renderer);
+                return None;
+            };
+
             Some(renderer.render_into_layer(target, item_rc, bounding_rect, physical_origin))
         });
 
