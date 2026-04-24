@@ -1,0 +1,90 @@
+---
+title: Live Preview for Rust and C++
+description: Reload .slint files at run time while your application is running
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import Link from '@slint/common-files/src/components/Link.astro';
+import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+
+When building a Slint application in Rust or C++,
+`.slint` files are normally compiled ahead of time into native code.
+This means every UI change requires recompiling and restarting the application.
+
+The **live preview** feature lets your running application watch `.slint` files on disk
+and reload them automatically when they change.
+Your business logic stays connected, so you can iterate on the UI without restarting.
+
+:::note
+This is different from the live preview in <Link type="VSCode" label="VS Code" />
+or the <Link type="SlintLSP" label="Slint LSP" />,
+which run standalone without your application's business logic.
+The native live preview described here runs inside your actual application with your real data and callbacks.
+:::
+
+## How It Works
+
+When live preview is enabled,
+Slint replaces the ahead-of-time compiled UI with an interpreter-based component
+that reloads `.slint` files from disk whenever they change.
+The application keeps running during reloads —
+properties, callbacks, and models are preserved.
+If a `.slint` file has a syntax error, the previous version stays on screen until the error is fixed.
+
+If you change the Slint API that the native code interacts with
+(for example renaming a property or callback used from Rust or C++),
+the application may terminate.
+Recompile and restart to pick up those changes.
+
+This is intended for development only.
+Don't ship release builds with live preview enabled.
+
+## Setup
+
+<Tabs>
+<TabItem label="Rust">
+
+Live preview requires the `live-preview` Cargo feature and the `SLINT_LIVE_PREVIEW` environment variable.
+
+Build your application with both:
+
+```bash
+SLINT_LIVE_PREVIEW=1 cargo run --features slint/live-preview
+```
+
+Don't add `live-preview` to the `[features]` section of your `Cargo.toml`.
+Use the `--features` flag on the command line instead,
+so it stays out of your regular builds.
+
+See the <LangRefLink lang="rust-slint" relpath="docs/cargo_features/">`live-preview` feature documentation</LangRefLink> for more details.
+
+</TabItem>
+<TabItem label="C++">
+
+Live preview for C++ requires building Slint from source with the interpreter enabled.
+
+<Steps>
+
+1. **Build Slint from source** with the `SLINT_FEATURE_LIVE_PREVIEW` CMake option enabled:
+
+   ```bash
+   mkdir build && cd build
+   cmake -GNinja -DSLINT_FEATURE_LIVE_PREVIEW=ON path/to/slint
+   cmake --build .
+   ```
+
+2. **Compile your application** with the `SLINT_LIVE_PREVIEW` environment variable set:
+
+   ```bash
+   SLINT_LIVE_PREVIEW=1 cmake --build path/to/your/build
+   ```
+
+3. **Run your application.**
+   Slint loads `.slint` files from disk and reloads them whenever you save changes.
+
+</Steps>
+
+See the <LangRefLink lang="cpp" relpath="live_preview">C++ live preview documentation</LangRefLink> for more details.
+
+</TabItem>
+</Tabs>
