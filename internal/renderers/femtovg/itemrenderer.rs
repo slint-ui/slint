@@ -1120,10 +1120,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let origin = bounding_rect.origin * self.scale_factor;
-            let size = (bounding_rect.size * self.scale_factor)
-                .ceil()
-                .try_cast()
-                .unwrap_or(euclid::Size2D::splat(0));
+            let size =
+                (bounding_rect.size * self.scale_factor).ceil().try_cast().unwrap_or_default();
 
             let layer_image = existing_layer_texture
                 .and_then(|layer_texture| {
@@ -1150,7 +1148,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 // dependencies between the layer size and the descendents' bounding boxes can be
                 // tracked. If the size is 0, the above `new_empty_on_gpu` call will fail, so we
                 // use a dummy texture here.
-                .unwrap_or_else(|| &self.dummy_texture)
+                .unwrap_or(&self.dummy_texture)
                 .as_render_target();
 
             self.save_state();
