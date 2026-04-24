@@ -1931,7 +1931,7 @@ fn update_preview_area(
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
     format: common::ByteFormat,
 ) -> Result<(), PlatformError> {
-    PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    let app_window = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
         let app_window = preview_state.app_window.as_ref().unwrap();
@@ -1965,18 +1965,20 @@ fn update_preview_area(
             );
         }
 
-        app_window.show().and_then(|_| {
-            if matches!(behavior, LoadBehavior::BringWindowToFront) {
-                let window_inner = i_slint_core::window::WindowInner::from_pub(app_window.window());
-                if let Some(window_adapter_internal) =
-                    window_inner.window_adapter().internal(i_slint_core::InternalToken)
-                {
-                    window_adapter_internal.bring_to_front()?;
-                }
-            }
+        app_window.clone_strong()
+    });
 
-            Ok(())
-        })
+    app_window.show().and_then(|_| {
+        if matches!(behavior, LoadBehavior::BringWindowToFront) {
+            let window_inner = i_slint_core::window::WindowInner::from_pub(app_window.window());
+            if let Some(window_adapter_internal) =
+                window_inner.window_adapter().internal(i_slint_core::InternalToken)
+            {
+                window_adapter_internal.bring_to_front()?;
+            }
+        }
+
+        Ok(())
     })?;
 
     element_selection::reselect_element();
