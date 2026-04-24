@@ -5052,7 +5052,7 @@ dependencies = [
  "i-slint-renderer-software",
  "imgref",
  "lyon_path",
- "muda 0.18.0",
+ "muda",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
@@ -5184,7 +5184,6 @@ dependencies = [
  "tiny-skia 0.12.0",
  "tokio",
  "tr",
- "tray-icon",
  "ttf-parser 0.25.1",
  "unicode-linebreak",
  "unicode-script",
@@ -5195,6 +5194,7 @@ dependencies = [
  "web-time",
  "wgpu 27.0.1",
  "wgpu 28.0.0",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -6677,25 +6677,6 @@ checksum = "bb85c154ba489f01b25c0d36ae69a87e4a1c73a72631fc6c0eb6dde34a73e44b"
 dependencies = [
  "num-traits",
  "pxfm",
-]
-
-[[package]]
-name = "muda"
-version = "0.17.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c9fec5a4e89860383d778d10563a605838f8f0b2f9303868937e5ff32e86177"
-dependencies = [
- "crossbeam-channel",
- "dpi",
- "keyboard-types",
- "objc2 0.6.4",
- "objc2-app-kit 0.3.2",
- "objc2-core-foundation",
- "objc2-foundation 0.3.2",
- "once_cell",
- "png 0.17.16",
- "thiserror 2.0.18",
- "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -11604,25 +11585,6 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
-]
-
-[[package]]
-name = "tray-icon"
-version = "0.22.0"
-source = "git+https://github.com/expenses/tray-icon?branch=optional-gtk#223835e3306226cbf33c3065a3da22690877317a"
-dependencies = [
- "crossbeam-channel",
- "dirs",
- "muda 0.17.2",
- "objc2 0.6.4",
- "objc2-app-kit 0.3.2",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-foundation 0.3.2",
- "once_cell",
- "png 0.18.1",
- "thiserror 2.0.18",
- "windows-sys 0.60.2",
 ]
 
 [[package]]
