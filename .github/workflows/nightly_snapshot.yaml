@@ -48,7 +48,6 @@ jobs:
         with:
           release: ${{ github.event.inputs.release }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
-          docs_astro: false
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
