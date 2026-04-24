@@ -156,6 +156,40 @@ fn build_tooltip_delay_timer(
     .make_rc()
 }
 
+fn build_tooltip_area(
+    popup_id: &SmolStr,
+    enclosing_component: &std::rc::Weak<Component>,
+    tooltip_area_type: &ElementType,
+) -> ElementRc {
+    Element {
+        id: format_smolstr!("{}-area", popup_id),
+        base_type: tooltip_area_type.clone(),
+        enclosing_component: enclosing_component.clone(),
+        bindings: [
+            (
+                SmolStr::new_static("x"),
+                RefCell::new(Expression::NumberLiteral(0., Unit::Percent).into()),
+            ),
+            (
+                SmolStr::new_static("y"),
+                RefCell::new(Expression::NumberLiteral(0., Unit::Percent).into()),
+            ),
+            (
+                SmolStr::new_static(WIDTH),
+                RefCell::new(Expression::NumberLiteral(100., Unit::Percent).into()),
+            ),
+            (
+                SmolStr::new_static(HEIGHT),
+                RefCell::new(Expression::NumberLiteral(100., Unit::Percent).into()),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    }
+    .make_rc()
+}
+
 fn wire_tooltip_placement(
     popup_window_rc: &ElementRc,
     parent_width: NamedReference,
@@ -410,33 +444,8 @@ pub fn lower_tooltips(
 
         let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
         let tooltip_placement = NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
-        let tooltip_area = Element {
-            id: format_smolstr!("{}-area", popup_id_for_text),
-            base_type: tooltip_area_type.clone(),
-            enclosing_component: enclosing_component.clone(),
-            bindings: [
-                (
-                    SmolStr::new_static("x"),
-                    RefCell::new(Expression::NumberLiteral(0., Unit::Percent).into()),
-                ),
-                (
-                    SmolStr::new_static("y"),
-                    RefCell::new(Expression::NumberLiteral(0., Unit::Percent).into()),
-                ),
-                (
-                    SmolStr::new_static(WIDTH),
-                    RefCell::new(Expression::NumberLiteral(100., Unit::Percent).into()),
-                ),
-                (
-                    SmolStr::new_static(HEIGHT),
-                    RefCell::new(Expression::NumberLiteral(100., Unit::Percent).into()),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-            ..Default::default()
-        }
-        .make_rc();
+        let tooltip_area =
+            build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
         let background_rect_rc = build_tooltip_background(
             &popup_id_for_text,
             tooltip_text,

@@ -1904,6 +1904,8 @@ impl Item for TooltipArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
+        // Track hover in the filter stage so the compiler-generated tooltip callbacks
+        // observe enter/leave transitions reliably, independent of later input handling.
         if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
             return InputEventFilterResult::ForwardAndIgnore;
@@ -1920,6 +1922,8 @@ impl Item for TooltipArea {
         _: &mut MouseCursor,
     ) -> InputEventResult {
         match event {
+            // Accept move/exit so this passive tracker stays in the routing lifecycle and
+            // continues receiving leave transitions, but ignore other interaction semantics.
             MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
