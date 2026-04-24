@@ -37,6 +37,7 @@ jobs:
         figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
         material_components : ${{ steps.filter.outputs.material_components }}
         safety_docs : ${{ steps.filter.outputs.safety_docs }}
+        docs_astro : ${{ steps.filter.outputs.docs_astro }}
         internal : ${{ steps.filter.outputs.internal }}
         api_cpp : ${{ steps.filter.outputs.api_cpp }}
         api_python : ${{ steps.filter.outputs.api_python }}
@@ -431,9 +432,12 @@ jobs:
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         with:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
+          docs_astro: ${{ needs.files-changed.outputs.docs_astro == 'true' }}
 
     slintpad:
         needs: files-changed
