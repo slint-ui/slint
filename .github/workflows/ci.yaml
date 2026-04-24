@@ -698,7 +698,7 @@ jobs:
       uses: ./.github/workflows/docs_staging_preview.yaml
       secrets:
         CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     servo_example:
         needs: files-changed

@@ -4,8 +4,6 @@
 name: Docs staging preview
 
 on:
-  pull_request:
-    branches: [master, "feature/*", "pre-release/*"]
   workflow_call:
     secrets:
       CLOUDFLARE_ACCOUNT_ID:
