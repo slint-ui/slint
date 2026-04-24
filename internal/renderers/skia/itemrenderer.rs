@@ -334,7 +334,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {
         if let Some((layer_offset, layer_image)) =
-            i_slint_core::item_rendering::render_layer(self, item_rc, None)
+            i_slint_core::item_rendering::render_layer(self, item_rc)
         {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
             let _saved_canvas = self.pixel_align_origin_auto_restore();
