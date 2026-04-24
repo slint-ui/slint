@@ -690,6 +690,9 @@ jobs:
       needs: files-changed
       if: needs.files-changed.outputs.safety_docs == 'true'
       uses: ./.github/workflows/safety_docs.yaml
+      secrets:
+        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     servo_example:
         needs: files-changed
