@@ -19,17 +19,21 @@ export component MyApp inherits Window {
     preferred-width: 1224px;
     preferred-height: 768px;
 
+    property <length> toolbar-height: 50px;
+    property <length> toolbar-padding: 8px;
+    property <length> toolbar-spacing: 8px;
+
     // On mobile (e.g. iOS/Android) safe-area-insets.top is non-zero.
     property <bool> is-mobile: root.safe-area-insets.top > 0px;
 
     menu := PopupWindow {
-        x: root.width - 100px - root.safe-area-insets.right - 8px;
-        y: root.safe-area-insets.top + 50px;
-        width: 100px;
-        height: 160px;
+        x: root.width - self.width - root.safe-area-insets.right - root.toolbar-padding;
+        y: root.safe-area-insets.top + root.toolbar-height;
+        width: menu_content.width;
+        height: menu_content.height;
         close-policy: close-on-click;
 
-        MobileMenuContent {
+        menu_content := MobileMenuContent {
             back => {
                 webview.back();
             }
@@ -52,9 +56,9 @@ export component MyApp inherits Window {
         padding-bottom: root.safe-area-insets.bottom;
 
         HorizontalBox {
-            height: 50px;
-            padding: 8px;
-            spacing: 8px;
+            height: root.toolbar-height;
+            padding: root.toolbar-padding;
+            spacing: root.toolbar-spacing;
 
             if !root.is-mobile: Button {
                 text: "Back";
