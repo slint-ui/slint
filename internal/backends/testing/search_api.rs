@@ -906,6 +906,7 @@ impl ElementHandle {
     /// Compared to [Self::single_click()], this function uses mock time instead
     /// of an actual timer, so that it can be used in our internal tests that do not have an event
     /// loop.
+    #[cfg(any(not(feature = "mcp"), feature = "internal", test))]
     pub fn mock_single_click(&self, button: PointerEventButton) {
         self.pointer_pressed(button);
 
@@ -993,6 +994,7 @@ impl ElementHandle {
     ///
     /// Compared to [Self::drag()], this function uses mock time instead
     /// of an actual timer, so that it can be used in internal tests without an event loop.
+    #[cfg(any(not(feature = "mcp"), feature = "internal", test))]
     pub fn mock_drag(&self, target: LogicalPosition, button: PointerEventButton) {
         let Some(window_adapter) = self.window_adapter() else {
             return;
