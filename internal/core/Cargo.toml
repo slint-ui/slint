@@ -151,7 +151,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = ["s
 image = { workspace = true, default-features = false, features = ["png"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-tray-icon = { git = "https://github.com/expenses/tray-icon", branch = "optional-gtk", default-features = false }
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))'.dependencies]
 ksni = { version = "0.3.3", default-features = false, features = ["async-io", "blocking"] }

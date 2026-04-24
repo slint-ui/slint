@@ -24,7 +24,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSData, NSObject, NSObjectProtocol, NSSize, NSString};
 
-// Mirror the tray-icon backend's depth cap to protect against accidental infinite menu trees.
+// Mirror the other backends' depth cap to protect against accidental infinite menu trees.
 const MAX_DEPTH: usize = 15;
 
 // ---------------------------------------------------------------------------

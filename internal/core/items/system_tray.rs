@@ -5,7 +5,7 @@
 //!
 //! This module hosts the `SystemTray` native item (the element exposed to `.slint`) and
 //! wraps the platform-specific tray icon backends: `ksni` on Linux/BSD, AppKit
-//! (`NSStatusBar` / `NSStatusItem`) on macOS, and `tray-icon` (muda-based) on Windows.
+//! (`NSStatusBar` / `NSStatusItem`) on macOS, and `Shell_NotifyIconW` on Windows.
 
 #![allow(unsafe_code)]
 
@@ -28,19 +28,19 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-mod ksni;
 #[cfg(target_os = "macos")]
 mod appkit;
-#[cfg(target_os = "windows")]
-mod tray_icon;
-
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use self::ksni::PlatformTray;
+mod ksni;
+#[cfg(target_os = "windows")]
+mod windows;
+
 #[cfg(target_os = "macos")]
 use self::appkit::PlatformTray;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+use self::ksni::PlatformTray;
 #[cfg(target_os = "windows")]
-use self::tray_icon::PlatformTray;
+use self::windows::PlatformTray;
 
 /// Parameters passed to the platform-specific tray backend when building a tray icon.
 pub struct Params<'a> {
@@ -54,12 +54,6 @@ pub struct Params<'a> {
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
-    #[cfg(target_os = "windows")]
-    #[display("Bad icon: {}", 0)]
-    BadIcon(::tray_icon::BadIcon),
-    #[cfg(target_os = "windows")]
-    #[display("Build error: {}", 0)]
-    BuildError(::tray_icon::Error),
     #[display("{}", 0)]
     PlatformError(crate::platform::PlatformError),
     #[display("{}", 0)]
