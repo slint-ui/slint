@@ -34,18 +34,10 @@ export component MyApp inherits Window {
         close-policy: close-on-click;
 
         menu_content := MobileMenuContent {
-            back => {
-                webview.back();
-            }
-            forward => {
-                webview.forward();
-            }
-            reload => {
-                webview.reload();
-            }
-            go => {
-                webview.loadUrl(lineEdit.text);
-            }
+            back => webview.back();
+            forward => webview.forward();
+            reload => webview.reload();
+            go => webview.loadUrl(lineEdit.text);
         }
     }
 
@@ -62,45 +54,33 @@ export component MyApp inherits Window {
 
             if !root.is-mobile: Button {
                 text: "Back";
-                clicked => {
-                    webview.back();
-                }
+                clicked => webview.back();
             }
 
             if !root.is-mobile: Button {
                 text: "Forward";
-                clicked => {
-                    webview.forward();
-                }
+                clicked => webview.forward();
             }
 
             if !root.is-mobile: Button {
                 text: "Reload";
-                clicked => {
-                    webview.reload();
-                }
+                clicked => webview.reload();
             }
 
             lineEdit := LineEdit {
                 text: webview.current_url;
                 horizontal-stretch: 1;
-                accepted(url) => {
-                    webview.loadUrl(lineEdit.text);
-                }
+                accepted(url) => webview.loadUrl(lineEdit.text);
             }
 
             if !root.is-mobile: Button {
                 text: "Go";
-                clicked => {
-                    webview.loadUrl(lineEdit.text);
-                }
+                clicked => webview.loadUrl(lineEdit.text);
             }
 
             if root.is-mobile: Button {
                 text: "...";
-                clicked => {
-                    menu.show();
-                }
+                clicked => menu.show();
             }
         }
 
