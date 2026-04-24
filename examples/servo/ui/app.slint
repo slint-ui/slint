@@ -18,10 +18,6 @@ export component MyApp inherits Window {
     preferred-width: 1224px;
     preferred-height: 768px;
 
-    property <length> toolbar-height: 50px;
-    property <length> toolbar-padding: 8px;
-    property <length> toolbar-spacing: 8px;
-
     property <bool> is-mobile: Platform.os == OperatingSystemType.ios || Platform.os == OperatingSystemType.android;
 
     contextMenuArea := ContextMenuArea {
@@ -55,9 +51,9 @@ export component MyApp inherits Window {
         padding-bottom: root.safe-area-insets.bottom;
 
         HorizontalBox {
-            height: root.toolbar-height;
-            padding: root.toolbar-padding;
-            spacing: root.toolbar-spacing;
+            height: 50px;
+            padding: 8px;
+            spacing: 8px;
 
             if !root.is-mobile: Button {
                 text: "Back";
