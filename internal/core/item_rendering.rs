@@ -603,6 +603,100 @@ pub trait ItemRenderer {
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any>;
 }
 
+/// Renderer-backend hooks for [`Layer::render`], which owns the caching and
+/// bounds computation; implementors only describe how to allocate, render
+/// into, and unwrap a layer target.
+///
+/// The `'cache` lifetime lets `layer_cache` hand out a reference that doesn't
+/// borrow `self`, so the orchestrator can call the other `&mut self` methods.
+pub trait LayerRenderer<'cache>: ItemRenderer {
+    /// Per-layer render target (for example a skia `Surface` or a reused GPU texture).
+    type LayerTarget;
+    /// Cache entry type. Some backends share the layer cache with unrelated
+    /// entries (e.g. femtovg) so this is not always the same as [`Output`].
+    ///
+    /// [`Output`]: Self::Output
+    type CacheEntry: Clone;
+    /// Caller-visible result of [`Layer::render`], typically origin + texture handle.
+    type Output;
+
+    /// Access the renderer's layer cache.
+    fn layer_cache(&self) -> &'cache ItemCache<Option<Self::CacheEntry>>;
+
+    /// Allocate a target of the given physical size; `None` aborts rendering.
+    fn create_layer_target(
+        &mut self,
+        item_rc: &ItemRc,
+        physical_size: euclid::Size2D<f32, crate::lengths::PhysicalPx>,
+    ) -> Option<Self::LayerTarget>;
+
+    /// Redirect rendering into `target`, translate by `-physical_origin`,
+    /// call `render_item_children`, then restore. The dance is backend-specific
+    /// (sub-renderer vs. render-target swap), hence the hook.
+    fn render_into_layer(
+        &mut self,
+        target: Self::LayerTarget,
+        item_rc: &ItemRc,
+        bounding_rect: LogicalRect,
+        physical_origin: euclid::Point2D<f32, crate::lengths::PhysicalPx>,
+    ) -> Self::CacheEntry;
+
+    /// Unwrap a cache entry to the caller-visible output. Returns `None` for
+    /// entries in a shared cache that aren't layers.
+    fn extract(entry: Self::CacheEntry) -> Option<Self::Output>;
+}
+
+/// Render the children of a [`Layer`] item through the given [`LayerRenderer`] backend.
+///
+/// Pass `Some` to override the layer's extent (e.g. clamping to the clipping
+/// item's geometry); `None` uses the children's bounding rect clipped to the
+/// current clip ∪ the layer's own geometry.
+pub fn render_layer<'cache, R>(
+    renderer: &mut R,
+    item_rc: &ItemRc,
+    layer_bounding_rect_fn: Option<&dyn Fn() -> LogicalRect>,
+) -> Option<R::Output>
+where
+    R: LayerRenderer<'cache> + ?Sized + 'cache,
+{
+    let cache = renderer.layer_cache();
+    let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
+
+    let compute_bounds = |r: &R| -> LogicalRect {
+        match layer_bounding_rect_fn {
+            Some(f) => f(),
+            None => item_children_bounding_rect(item_rc, &r.window().window_adapter())
+                .intersection(&r.get_current_clip().union(&item_rc.geometry()))
+                .unwrap_or_default(),
+        }
+    };
+
+    let cache_entry = cache.get_or_update_cache_entry(item_rc, || {
+        // For the default bounds, don't track dependencies yet — the actual
+        // rendering below will track them as it walks the children.
+        let bounding_rect = if layer_bounding_rect_fn.is_some() {
+            compute_bounds(renderer)
+        } else {
+            crate::properties::evaluate_no_tracking(|| compute_bounds(renderer))
+        };
+        let physical_origin = bounding_rect.origin * scale_factor;
+        let layer_size = bounding_rect.size * scale_factor;
+
+        let Some(target) = renderer.create_layer_target(item_rc, layer_size) else {
+            // Target allocation failed (typically a zero-sized layer). The
+            // children never ran, so their dependencies weren't tracked.
+            // Re-invoke the bounds closure with tracking enabled so the
+            // layer re-renders when the size becomes non-zero.
+            let _ = compute_bounds(renderer);
+            return None;
+        };
+
+        Some(renderer.render_into_layer(target, item_rc, bounding_rect, physical_origin))
+    });
+
+    cache_entry.and_then(R::extract)
+}
+
 /// Helper trait to express the features of an item renderer.
 pub trait ItemRendererFeatures {
     /// The renderer supports applying 2D transformations to items.

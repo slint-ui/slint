@@ -13,12 +13,11 @@ use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
-    RenderRectangle, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer, RenderBorderRectangle,
+    RenderImage, RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, LayerRenderer, Opacity,
-    RenderingResult,
+    self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -683,9 +682,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         let border_width = clip_item.border_width();
 
         if !radius.is_zero() {
-            if let Some((layer_origin, layer_image)) =
-                Layer::render(self, item_rc, Some(&|| item_rc.geometry()))
-            {
+            if let Some((layer_origin, layer_image)) = i_slint_core::item_rendering::render_layer(
+                self,
+                item_rc,
+                Some(&|| item_rc.geometry()),
+            ) {
                 let layer_image_paint = layer_image.as_paint();
 
                 let layer_path = clip_path_for_rect_alike_item(
@@ -1187,7 +1188,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
-        if let Some((layer_origin, layer_image)) = Layer::render(self, item_rc, None)
+        if let Some((layer_origin, layer_image)) =
+            i_slint_core::item_rendering::render_layer(self, item_rc, None)
             && let Some(layer_size) = layer_image.size()
         {
             let mut layer_path = femtovg::Path::new();
