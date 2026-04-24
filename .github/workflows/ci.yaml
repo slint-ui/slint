@@ -432,9 +432,12 @@ jobs:
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
+          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         with:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
+          docs_astro: ${{ needs.files-changed.outputs.docs_astro == 'true' }}
 
     slintpad:
         needs: files-changed
@@ -688,17 +691,6 @@ jobs:
       needs: files-changed
       if: needs.files-changed.outputs.safety_docs == 'true'
       uses: ./.github/workflows/safety_docs.yaml
-
-    docs-staging-preview:
-      needs: files-changed
-      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.files-changed.outputs.docs_astro == 'true'
-      permissions:
-        contents: read
-        deployments: write
-      uses: ./.github/workflows/docs_staging_preview.yaml
-      secrets:
-        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     servo_example:
         needs: files-changed
