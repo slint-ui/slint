@@ -225,11 +225,10 @@ impl super::GPURenderingContext {
             )
         };
 
-        let _ =
-            device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
-                let _ = device.destroy_surface(&mut context, &mut surface);
-                err
-            });
+        device.bind_surface_to_context(&mut context, surface).map_err(|(err, mut surface)| {
+            let _ = device.destroy_surface(&mut context, &mut surface);
+            VulkanTextureError::Surfman(err)
+        })?;
 
         Ok(texture)
     }
