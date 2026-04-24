@@ -7,14 +7,43 @@ import {
     Button,
     LineEdit,
 } from "std-widgets.slint";
+
 import { Webview } from "../src/webview/webview.slint";
+import { MobileMenuContent } from "mobile_menu.slint";
 
 export { WebviewLogic } from "../src/webview/webview.slint";
 export { Palette } from "std-widgets.slint";
 
+
 export component MyApp inherits Window {
     preferred-width: 1224px;
     preferred-height: 768px;
+
+    // On mobile (e.g. iOS/Android) safe-area-insets.top is non-zero.
+    property <bool> is-mobile: root.safe-area-insets.top > 0px;
+
+    menu := PopupWindow {
+        x: root.width - 100px - root.safe-area-insets.right - 8px;
+        y: root.safe-area-insets.top + 50px;
+        width: 100px;
+        height: 160px;
+        close-policy: close-on-click;
+
+        MobileMenuContent {
+            back => {
+                webview.back();
+            }
+            forward => {
+                webview.forward();
+            }
+            reload => {
+                webview.reload();
+            }
+            go => {
+                webview.loadUrl(lineEdit.text);
+            }
+        }
+    }
 
     VerticalBox {
         padding-left: root.safe-area-insets.left;
@@ -27,21 +56,21 @@ export component MyApp inherits Window {
             padding: 8px;
             spacing: 8px;
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Back";
                 clicked => {
                     webview.back();
                 }
             }
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Forward";
                 clicked => {
                     webview.forward();
                 }
             }
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Reload";
                 clicked => {
                     webview.reload();
@@ -56,10 +85,17 @@ export component MyApp inherits Window {
                 }
             }
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Go";
                 clicked => {
                     webview.loadUrl(lineEdit.text);
+                }
+            }
+
+            if root.is-mobile: Button {
+                text: "...";
+                clicked => {
+                    menu.show();
                 }
             }
         }

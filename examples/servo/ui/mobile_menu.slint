@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+export component MenuItem inherits Rectangle {
+    in property <string> label;
+    callback clicked;
+
+    height: 36px;
+    border-radius: 8px;
+    animate background { duration: 80ms; }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    background: touch.pressed ? Palette.accent-background.transparentize(0.5) : touch.has-hover ? Palette.control-background : transparent;
+
+    Text {
+        text: root.label;
+        x: 12px;
+        font-size: 15px;
+        vertical-alignment: center;
+        color: Palette.foreground;
+    }
+}
+
+export component MobileMenuContent inherits Rectangle {
+    callback back();
+    callback forward();
+    callback reload();
+    callback go();
+
+    width: 100px;
+    height: 160px;
+    border-radius: 12px;
+    background: Palette.background;
+    border-color: Palette.border;
+    drop-shadow-blur: 16px;
+    drop-shadow-color: Palette.foreground.transparentize(0.8);
+    drop-shadow-offset-y: 4px;
+
+    VerticalLayout {
+        padding: 6px;
+        spacing: 2px;
+
+        MenuItem {
+            label: "Back";
+            clicked => { root.back(); }
+        }
+        MenuItem {
+            label: "Forward";
+            clicked => { root.forward(); }
+        }
+        MenuItem {
+            label: "Reload";
+            clicked => { root.reload(); }
+        }
+        MenuItem {
+            label: "Go";
+            clicked => { root.go(); }
+        }
+    }
+}
