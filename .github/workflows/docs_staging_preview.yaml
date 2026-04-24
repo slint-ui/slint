@@ -36,8 +36,8 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: stable
-      - name: Install Node dependencies
-        run: pnpm i --frozen-lockfile
+      - name: Create screenshots
+        run: cargo run -p slint-docsnapper -- docs/astro/src/content --overwrite
       - name: Generate Slint language docs and build Astro
         run: cargo xtask slintdocs --experimental
       - name: Repackage static assets for Workers (/docs/ base path)
