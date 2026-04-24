@@ -100,6 +100,15 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 ## ```
 live-preview = ["dep:slint-interpreter"]
 
+## Enable the embedded MCP (Model Context Protocol) server.
+##
+## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set
+## at runtime, the application starts an HTTP server implementing the MCP Streamable HTTP
+## transport. This allows MCP clients to inspect and interact with the running UI.
+##
+## This is a developer/debug feature. It is not recommended to enable it in production builds.
+mcp = ["std", "i-slint-backend-selector/mcp", "dep:i-slint-backend-testing", "i-slint-backend-testing/mcp"]
+
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
@@ -280,6 +289,7 @@ i-slint-core-macros = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
+i-slint-backend-testing = { workspace = true, optional = true }
 
 const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }

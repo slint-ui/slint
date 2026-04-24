@@ -823,6 +823,10 @@ async fn run_server(state: Rc<IntrospectionState>, port: u16) {
 // Initialization
 // ============================================================================
 
+thread_local! {
+    static INIT_INSTALLED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 pub fn init() -> Result<(), EventLoopError> {
     let Ok(port_str) = std::env::var("SLINT_MCP_PORT") else {
         return Ok(());
@@ -835,39 +839,60 @@ pub fn init() -> Result<(), EventLoopError> {
         }
     };
 
+    if INIT_INSTALLED.with(|installed| installed.get()) {
+        return Ok(());
+    }
+
     introspection::ensure_window_tracking()?;
     let state = introspection::shared_state();
 
+    // The JoinHandle is kept alive inside the OnceCell so the server task is not dropped.
     let server_started =
         Rc::new(std::cell::OnceCell::<i_slint_core::future::JoinHandle<()>>::new());
     let server_started_clone = server_started.clone();
     let state_clone = state.clone();
 
+    // Mark as installed before registering the hook so re-entrant calls to init() are rejected.
+    INIT_INSTALLED.with(|installed| installed.set(true));
+
     let previous_hook = i_slint_core::context::set_window_shown_hook(None)
         .map_err(|_| EventLoopError::NoEventLoopProvider)?;
     let previous_hook = std::cell::RefCell::new(previous_hook);
 
-    i_slint_core::context::set_window_shown_hook(Some(Box::new(move |adapter| {
+    if i_slint_core::context::set_window_shown_hook(Some(Box::new(move |adapter| {
         if let Some(prev) = previous_hook.borrow_mut().as_mut() {
             prev(adapter);
         }
 
+        // OnceCell ensures we only spawn once even if the hook fires multiple times.
+        if server_started_clone.get().is_some() {
+            return;
+        }
+
         let state = state_clone.clone();
-        server_started_clone.get_or_init(|| {
-            i_slint_core::with_global_context(
-                || panic!("uninitialized platform"),
-                |context| {
-                    context
-                        .spawn_local(async move {
-                            run_server(state, port).await;
-                        })
-                        .unwrap()
-                },
-            )
-            .unwrap()
-        });
+        let spawn_result = i_slint_core::with_global_context(
+            || panic!("uninitialized platform"),
+            |context| context.spawn_local(async move { run_server(state, port).await }),
+        );
+        match spawn_result {
+            Ok(Ok(join_handle)) => {
+                let _ = server_started_clone.set(join_handle);
+            }
+            // spawn_local fails when no event-loop proxy is available yet. The hook
+            // will fire again on the next window-show, so this is non-fatal.
+            Ok(Err(e)) => {
+                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
+            }
+            Err(e) => {
+                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
+            }
+        }
     })))
-    .map_err(|_| EventLoopError::NoEventLoopProvider)?;
+    .is_err()
+    {
+        INIT_INSTALLED.with(|installed| installed.set(false));
+        return Err(EventLoopError::NoEventLoopProvider);
+    }
 
     Ok(())
 }

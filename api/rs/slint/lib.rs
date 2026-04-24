@@ -405,6 +405,27 @@ macro_rules! init_translations {
 pub mod platform {
     pub use i_slint_core::platform::*;
 
+    /// Set the Slint platform abstraction.
+    ///
+    /// If the platform abstraction was already set this will return `Err`.
+    ///
+    /// When the `mcp` feature is enabled, this function also initializes the embedded MCP server
+    /// (a no-op unless the `SLINT_MCP_PORT` environment variable is set at runtime).
+    ///
+    /// This shadows `i_slint_core::platform::set_platform` to add the MCP init step.
+    pub fn set_platform(
+        platform: alloc::boxed::Box<dyn Platform + 'static>,
+    ) -> Result<(), SetPlatformError> {
+        i_slint_core::platform::set_platform(platform)?;
+
+        #[cfg(feature = "mcp")]
+        if let Err(e) = i_slint_backend_testing::mcp_server::init() {
+            i_slint_core::debug_log!("MCP server init failed: {e:?}");
+        }
+
+        Ok(())
+    }
+
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
