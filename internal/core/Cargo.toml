@@ -144,7 +144,13 @@ taffy = { version = "0.9", default-features = false, features = ["flexbox", "taf
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
 
-[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSStatusBar", "NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSImage", "NSMenu", "NSMenuItem", "NSApplication", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData", "NSString", "NSGeometry", "NSObjCRuntime"] }
+image = { workspace = true, default-features = false, features = ["png"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
 tray-icon = { git = "https://github.com/expenses/tray-icon", branch = "optional-gtk", default-features = false }
 
 [target.'cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))'.dependencies]
