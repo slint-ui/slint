@@ -40,7 +40,7 @@ pub struct SkiaItemRenderer<'a> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-    layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
+    layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -52,7 +52,7 @@ impl<'a> SkiaItemRenderer<'a> {
         window: &'a i_slint_core::api::Window,
         surface: Option<&'a dyn crate::Surface>,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-        layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
+        layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -909,10 +909,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
 impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
     type LayerTarget = skia_safe::Surface;
-    type CacheEntry = (Vector2D<f32, PhysicalPx>, skia_safe::Image);
-    type Output = (Vector2D<f32, PhysicalPx>, skia_safe::Image);
+    type Image = skia_safe::Image;
 
-    fn layer_cache(&self) -> &'a ItemCache<Option<Self::CacheEntry>> {
+    fn layer_cache(&self) -> &'a ItemCache<Option<(PhysicalPoint, Self::Image)>> {
         self.layer_cache
     }
 
@@ -935,8 +934,8 @@ impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
         mut surface: Self::LayerTarget,
         item_rc: &ItemRc,
         bounding_rect: LogicalRect,
-        physical_origin: euclid::Point2D<f32, PhysicalPx>,
-    ) -> Self::CacheEntry {
+        _physical_origin: euclid::Point2D<f32, PhysicalPx>,
+    ) -> Self::Image {
         let canvas = surface.canvas();
         canvas.clear(skia_safe::Color::TRANSPARENT);
 
@@ -959,11 +958,7 @@ impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
             &WindowInner::from_pub(self.window).window_adapter(),
         );
 
-        (physical_origin.to_vector(), surface.image_snapshot())
-    }
-
-    fn extract(entry: Self::CacheEntry) -> Option<Self::Output> {
-        Some(entry)
+        surface.image_snapshot()
     }
 }
 

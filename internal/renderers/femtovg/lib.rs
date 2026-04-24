@@ -84,6 +84,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     canvas: RefCell<Option<CanvasRc<B::Renderer>>>,
     graphics_cache: itemrenderer::ItemGraphicsCache<B::Renderer>,
+    layer_cache: itemrenderer::LayerCache<B::Renderer>,
     texture_cache: RefCell<images::TextureCache<B::Renderer>>,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
@@ -100,6 +101,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             rendering_notifier: Default::default(),
             canvas: RefCell::new(None),
             graphics_cache: Default::default(),
+            layer_cache: Default::default(),
             texture_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
@@ -210,11 +212,13 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 }
 
                 self.graphics_cache.clear_cache_if_scale_factor_changed(window);
+                self.layer_cache.clear_cache_if_scale_factor_changed(window);
                 self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
                 let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                     &canvas,
                     &self.graphics_cache,
+                    &self.layer_cache,
                     &self.texture_cache,
                     &self.text_layout_cache,
                     window,
@@ -405,9 +409,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.text_layout_cache.component_destroyed(component);
-        if !self.graphics_cache.is_empty() {
+        if !self.graphics_cache.is_empty() || !self.layer_cache.is_empty() {
             self.graphics_backend.with_graphics_api(|_| {
                 self.graphics_cache.component_destroyed(component);
+                self.layer_cache.component_destroyed(component);
             })?;
         }
         Ok(())
@@ -419,6 +424,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         self.graphics_backend
             .with_graphics_api(|_| {
                 self.graphics_cache.clear_all();
+                self.layer_cache.clear_all();
                 self.texture_cache.borrow_mut().clear();
             })
             .ok();
@@ -506,6 +512,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             rendering_notifier: Default::default(),
             canvas: RefCell::new(None),
             graphics_cache: Default::default(),
+            layer_cache: Default::default(),
             texture_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
@@ -529,6 +536,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             }
 
             self.graphics_cache.clear_all();
+            self.layer_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
         })?;
 

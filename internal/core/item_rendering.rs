@@ -613,16 +613,13 @@ pub trait ItemRenderer {
 pub trait LayerRenderer<'cache>: ItemRenderer {
     /// Per-layer render target (for example a skia `Surface` or a reused GPU texture).
     type LayerTarget;
-    /// Cache entry type. Some backends share the layer cache with unrelated
-    /// entries (e.g. femtovg) so this is not always the same as [`Output`].
-    ///
-    /// [`Output`]: Self::Output
-    type CacheEntry: Clone;
-    /// Caller-visible result of [`Layer::render`], typically origin + texture handle.
-    type Output;
+    /// Cached image type produced from rendering into a [`Self::LayerTarget`].
+    type Image: Clone;
 
     /// Access the renderer's layer cache.
-    fn layer_cache(&self) -> &'cache ItemCache<Option<Self::CacheEntry>>;
+    fn layer_cache(
+        &self,
+    ) -> &'cache ItemCache<Option<(euclid::Point2D<f32, crate::lengths::PhysicalPx>, Self::Image)>>;
 
     /// Allocate a target of the given physical size; `None` aborts rendering.
     fn create_layer_target(
@@ -640,16 +637,15 @@ pub trait LayerRenderer<'cache>: ItemRenderer {
         item_rc: &ItemRc,
         bounding_rect: LogicalRect,
         physical_origin: euclid::Point2D<f32, crate::lengths::PhysicalPx>,
-    ) -> Self::CacheEntry;
-
-    /// Unwrap a cache entry to the caller-visible output. Returns `None` for
-    /// entries in a shared cache that aren't layers.
-    fn extract(entry: Self::CacheEntry) -> Option<Self::Output>;
+    ) -> Self::Image;
 }
 
 /// Render the children of a [`Layer`] item through the given [`LayerRenderer`] backend.
 #[cfg(feature = "std")]
-pub fn render_layer<'cache, R>(renderer: &mut R, item_rc: &ItemRc) -> Option<R::Output>
+pub fn render_layer<'cache, R>(
+    renderer: &mut R,
+    item_rc: &ItemRc,
+) -> Option<(euclid::Point2D<f32, crate::lengths::PhysicalPx>, R::Image)>
 where
     R: LayerRenderer<'cache> + ?Sized + 'cache,
 {
@@ -662,7 +658,7 @@ where
             .unwrap_or_default()
     };
 
-    let cache_entry = cache.get_or_update_cache_entry(item_rc, || {
+    cache.get_or_update_cache_entry(item_rc, || {
         // Don't track dependencies of the bounding rect here: the actual
         // rendering below will track them as it walks the children.
         let bounding_rect = crate::properties::evaluate_no_tracking(|| compute_bounds(renderer));
@@ -678,10 +674,9 @@ where
             return None;
         };
 
-        Some(renderer.render_into_layer(target, item_rc, bounding_rect, physical_origin))
-    });
-
-    cache_entry.and_then(R::extract)
+        let image = renderer.render_into_layer(target, item_rc, bounding_rect, physical_origin);
+        Some((physical_origin, image))
+    })
 }
 
 /// Helper trait to express the features of an item renderer.
