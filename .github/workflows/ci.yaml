@@ -439,6 +439,9 @@ jobs:
         needs: files-changed
         if: needs.files-changed.outputs.slintpad == 'true'
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+        secrets:
+          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     wasm_demo:
         needs: files-changed
