@@ -95,8 +95,7 @@ impl ServoRenderingAdapter for ServoSoftwareRenderingContext {
         let viewport_rect = DeviceIntRect::from_origin_and_size(Point2D::origin(), size);
 
         let image_buffer = self.rendering_context.read_to_image(viewport_rect).expect(
-            "
-        Failed to get image buffer from frame buffer",
+            "Failed to get image buffer from frame buffer",
         );
 
         let (width, height) = image_buffer.dimensions();
