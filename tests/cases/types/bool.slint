@@ -31,4 +31,11 @@ instance = TestCase()
 assert instance.truevar
 assert not instance.falsevar
 ```
+
+```swift
+let trueVal = instance.getProperty("truevar")!
+let falseVal = instance.getProperty("falsevar")!
+assertTrue(trueVal.asBool!)
+assertFalse(falseVal.asBool!)
+```
 */

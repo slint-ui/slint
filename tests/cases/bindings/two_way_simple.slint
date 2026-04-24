@@ -95,4 +95,12 @@ assert.equal(instance.sub_foo1, 15);
 assert.equal(instance.sub_foo2, 15);
 ```
 
+```swift
+assertEqual(instance.getProperty("sub-foo1")!.asDouble!, 44.0)
+assertEqual(instance.getProperty("sub-foo2")!.asDouble!, 44.0)
+assertTrue(instance.setProperty("sub-foo1", value: SlintValue(15.0)))
+assertEqual(instance.getProperty("sub-foo1")!.asDouble!, 15.0)
+assertEqual(instance.getProperty("sub-foo2")!.asDouble!, 15.0)
+```
+
 */

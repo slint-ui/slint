@@ -10283,6 +10283,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-swift"
+version = "1.16.0"
+dependencies = [
+ "i-slint-backend-selector",
+ "i-slint-backend-testing",
+ "i-slint-core",
+ "slint-interpreter",
+ "spin_on",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "slint-tr-extractor"
 version = "1.17.0"
 dependencies = [
@@ -11059,6 +11071,15 @@ dependencies = [
  "spin_on",
  "test_driver_lib",
  "walkdir",
+]
+
+[[package]]
+name = "test-driver-swift"
+version = "1.16.0"
+dependencies = [
+ "tempfile",
+ "test_driver_lib",
+ "which",
 ]
 
 [[package]]
