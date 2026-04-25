@@ -51,8 +51,7 @@
         "src/content/code/main_tiles_from_js.js"
       ],
       "ignoreUnresolved": ["^/src/content/"],
-      "ignoreBinaries": ["biome"],
-      "ignoreDependencies": ["@expressive-code/core"]
+      "ignoreBinaries": ["biome"]
     },
     "docs/safety": {
       "ignoreDependencies": ["@slint/common-files"]
