@@ -13,22 +13,6 @@ pub use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::platform::WindowEvent;
 pub use i_slint_core::window::WindowInner;
 
-/// Simulate a mouse click at `(x, y)` and release after a while at the same position
-pub fn send_mouse_click<
-    X: vtable::HasStaticVTable<ItemTreeVTable> + 'static,
-    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
->(
-    component: &Component,
-    x: f32,
-    y: f32,
-) {
-    crate::testing_backend::send_mouse_click(
-        x,
-        y,
-        &WindowInner::from_pub(component.window()).window_adapter(),
-    );
-}
-
 /// Simulate entering a keyboard shortcut or other "nested" character sequence
 pub fn send_key_combo<
     X: vtable::HasStaticVTable<ItemTreeVTable>,
@@ -89,20 +73,6 @@ pub fn send_keyboard_char<
     pressed: bool,
 ) {
     send_keyboard_key_text(component, &SharedString::from(ch), pressed)
-}
-
-/// Simulate entering a sequence of ascii characters key by key.
-pub fn send_keyboard_string_sequence<
-    X: vtable::HasStaticVTable<ItemTreeVTable>,
-    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
->(
-    component: &Component,
-    sequence: &str,
-) {
-    crate::testing_backend::send_keyboard_string_sequence(
-        &SharedString::from(sequence),
-        &WindowInner::from_pub(component.window()).window_adapter(),
-    )
 }
 
 /// Applies the specified scale factor to the window that's associated with the given component.

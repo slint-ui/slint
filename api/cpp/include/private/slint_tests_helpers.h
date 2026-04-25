@@ -86,4 +86,4 @@ void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str
     }
 }
 
-} // namespace slint
+} // namespace slint::private_api::testing
