@@ -116,10 +116,7 @@ pub mod ffi {
     }
 }
 
-pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
-    _format_string: &str,
-    _args: &[S],
-) -> StyledText {
+pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText {
     #[cfg(feature = "std")]
     {
         let (paragraphs, errors) =
