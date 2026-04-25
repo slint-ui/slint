@@ -5,7 +5,16 @@ name: CI
 
 on:
     workflow_dispatch:
+        inputs:
+            full:
+                type: boolean
+                default: true
+                description: "Run full CI including extended tests (false = PR mode with path filtering)"
     workflow_call:
+      inputs:
+        full:
+            type: boolean
+            default: false
       secrets:
         CLOUDFLARE_API_TOKEN:
           required: true
@@ -28,6 +37,7 @@ env:
 
 jobs:
     files-changed:
+      if: ${{ !inputs.full }}
       runs-on: ubuntu-latest
       timeout-minutes: 1
       permissions:
@@ -61,37 +71,34 @@ jobs:
 
     build_and_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true') }}
         strategy:
             matrix:
                 include:
                     - os: ubuntu-22.04
                       name: "Ubuntu 22.04 beta"
                       rust_version: "beta"
-                      save_if: ${{ github.ref == 'refs/heads/master' }}
-                      extra_args: "--exclude plotter"
+                      extra_args: "--exclude plotter --exclude material-gallery"
                     - os: windows-2022
                       name: "Windows 2022 1.92"
                       rust_version: "1.92"
-                      save_if: ${{ github.ref == 'refs/heads/master' }}
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
                     - os: macos-14
                       name: "MacOS 14 stable"
                       rust_version: "stable"
-                      save_if: ${{ github.ref == 'refs/heads/master' }}
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
-            name: build_and_test ${{ matrix.name }}
+            name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
-            extra_args: ${{ matrix.extra_args }} --exclude material-gallery
-            save_if: ${{ matrix.save_if }}
+            extra_args: ${{ matrix.extra_args }}
+            save_if: ${{ github.ref == 'refs/heads/master' }}
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"
@@ -99,7 +106,7 @@ jobs:
 
     node_test_macos:
         needs: files-changed
-        if: needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
@@ -107,7 +114,7 @@ jobs:
 
     node_test_windows:
         needs: files-changed
-        if: needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Windows"
@@ -116,21 +123,21 @@ jobs:
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true') }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Linux"
           os: "ubuntu-22.04"
     python_test_macos:
         needs: files-changed
-        if: needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true') }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
         needs: files-changed
-        if: needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true') }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
@@ -138,7 +145,7 @@ jobs:
 
     cpp_test_driver:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true') }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -184,7 +191,7 @@ jobs:
 
     cpp_test_driver_32bit:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true') }}
         runs-on: ubuntu-24.04
         env:
             SLINT_NO_QT: 1
@@ -210,7 +217,7 @@ jobs:
 
     cpp_cmake:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true') }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -307,7 +314,7 @@ jobs:
 
     vsce_build_test:
         needs: files-changed
-        if: needs.files-changed.outputs.vsce == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.vsce == 'true') }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -347,7 +354,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true') }}
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -376,7 +383,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std) using embassy
     mcu-embassy:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true') }}
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -412,7 +419,7 @@ jobs:
 
     ffi_32bit_build:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true') }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -427,7 +434,7 @@ jobs:
 
     docs:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: ${{ !inputs.full && needs.files-changed.outputs.slint == 'true' }}
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -439,7 +446,7 @@ jobs:
 
     slintpad:
         needs: files-changed
-        if: needs.files-changed.outputs.slintpad == 'true'
+        if: ${{ !inputs.full && needs.files-changed.outputs.slintpad == 'true' }}
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
         secrets:
           CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
@@ -447,14 +454,14 @@ jobs:
 
     wasm_demo:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true') }}
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
 
     tree-sitter:
         needs: files-changed
-        if: needs.files-changed.outputs.slint == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.slint == 'true') }}
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
@@ -464,7 +471,7 @@ jobs:
     # and check that it worked with the interpreter test.
     updater_test:
         needs: files-changed
-        if: needs.files-changed.outputs.updater_test == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.updater_test == 'true') }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -540,7 +547,7 @@ jobs:
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
-        if: needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true') }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -573,7 +580,7 @@ jobs:
 
     esp-idf-quick:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true') }}
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
@@ -602,7 +609,7 @@ jobs:
 
     android:
         needs: files-changed
-        if: needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true') }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
@@ -640,7 +647,7 @@ jobs:
 
     test-figma-inspector:
         needs: files-changed
-        if: needs.files-changed.outputs.figma_inspector == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.figma_inspector == 'true') }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
@@ -675,7 +682,7 @@ jobs:
 
     material-components:
       needs: files-changed
-      if: needs.files-changed.outputs.material_components == 'true'
+      if: ${{ !inputs.full && needs.files-changed.outputs.material_components == 'true' }}
       permissions:
         contents: read
         deployments: write
@@ -690,7 +697,7 @@ jobs:
 
     safety-docs:
       needs: files-changed
-      if: needs.files-changed.outputs.safety_docs == 'true'
+      if: ${{ !inputs.full && needs.files-changed.outputs.safety_docs == 'true' }}
       uses: ./.github/workflows/safety_docs.yaml
       secrets:
         CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
@@ -698,17 +705,17 @@ jobs:
 
     servo_example:
         needs: files-changed
-        if: needs.files-changed.outputs.servo_example == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.servo_example == 'true') }}
         uses: ./.github/workflows/servo_example.yaml
 
     bevy_examples:
         needs: files-changed
-        if: needs.files-changed.outputs.bevy_examples == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.bevy_examples == 'true') }}
         uses: ./.github/workflows/bevy_examples.yaml
 
     clippy:
         needs: files-changed
-        if: needs.files-changed.outputs.rust_files == 'true'
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.rust_files == 'true') }}
         env:
             RUSTFLAGS: -D warnings
             CARGO_INCREMENTAL: false
@@ -724,3 +731,356 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - name: Run Clippy
               run: ./scripts/run_clippy.sh
+
+    # === Extended tests (only in full CI mode) ===
+
+    full_build_and_test:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-22.04
+                      name: "Ubuntu 22.04 1.92 (cargo update)"
+                      rust_version: "1.92"
+                      extra_args: "--exclude plotter"
+                    - os: windows-2022
+                      name: "Windows 2022 nightly (cargo update)"
+                      rust_version: "nightly"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                    - os: macos-14
+                      name: "MacOS 14 nightly (cargo update)"
+                      rust_version: "nightly"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
+        uses: ./.github/workflows/build_and_test_reusable.yaml
+        with:
+            os: ${{ matrix.os }}
+            name: ${{ matrix.name }}
+            rust_version: ${{ matrix.rust_version }}
+            extra_args: ${{ matrix.extra_args }}
+            update: true
+            save_if: false
+
+    qa-esp-idf:
+        if: ${{ inputs.full }}
+        strategy:
+          matrix:
+            esp-idf-target:
+              - release-v5.5
+        runs-on: ubuntu-22.04
+        container: espressif/idf:${{ matrix.esp-idf-target }}
+        steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
+            - uses: actions/checkout@v6
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+                  # Pin due to https://github.com/esp-rs/rust/issues/276
+                  version: "1.94.0.0"
+            - uses: Swatinem/rust-cache@v2
+            - name: Build and Test Printer demo
+              shell: bash
+              working-directory: demos/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+            - name: Build and Test Carousel example s3 box
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-box
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
+
+    qa-tree-sitter-latest:
+        if: ${{ inputs.full }}
+        uses: ./.github/workflows/tree_sitter.yaml
+        with:
+          latest: true
+
+    qa-yocto-build:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                include:
+                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa57-poky-linux
+                      target: aarch64-unknown-linux-gnu
+                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+                      target: armv7-unknown-linux-gnueabihf
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - name: Downgrade cc and ring crate to work around https://github.com/slint-ui/slint/issues/6875
+              run: |
+                  cargo update -p ring --precise 0.17.9
+            - name: Fetch Yocto SDK
+              run: |
+                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+                  wget -O sdk.sh ${{ matrix.sdk_url }}
+                  chmod +x sdk.sh
+                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+                  rm -f sdk.sh
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: stable
+                  target: ${{ matrix.target }}
+            - name: C++ Build
+              run: |
+                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  mkdir ${{ runner.workspace }}/cppbuild
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake --build ${{ runner.workspace }}/cppbuild
+
+    mcu_zephyr:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                include:
+                    - board: native_sim/native/64
+                      toolchain: nightly
+                      target: x86_64-unknown-linux-gnu
+                      extra-cmake-args: ''
+                    - board: mimxrt1170_evk@B/mimxrt1176/cm7
+                      toolchain: stable
+                      target: thumbv7em-none-eabihf
+                      extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
+            fail-fast: false
+        runs-on: ubuntu-22.04
+        steps:
+          - uses: actions/checkout@v6
+            with:
+                path: slint
+          - name: Install linux dependencies, including Zephyr dependencies
+            uses: ./slint/.github/actions/install-linux-dependencies
+            with:
+                extra-packages: |
+                    git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          - uses: ./slint/.github/actions/setup-rust
+            with:
+                toolchain: ${{matrix.toolchain}}
+                components: rust-src
+                target: ${{matrix.target}}
+          - name: Setup Zephyr project
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.13
+            with:
+                app-path: slint
+                manifest-file-name: demos/zephyr-common/west.yaml
+                sdk-version: 0.16.8
+          - name: Export the Zephyr CMake package
+            run: west zephyr-export
+          - name: Build for ${{matrix.board}}
+            run: |
+                west build -b ${{matrix.board}} -p always slint/demos/printerdemo/zephyr -- -DCMAKE_BUILD_TYPE=Release ${{matrix.extra-cmake-args}}
+
+    uefi-demo:
+        if: ${{ inputs.full }}
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: x86_64-unknown-uefi
+            - name: Check
+              run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
+
+    ios:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+              demo:
+                - demos/home-automation/rust
+                - demos/energy-monitor
+              include:
+                - demo: demos/home-automation/rust
+                  scheme: "Home Automation"
+                  bundle_id: dev.slint.demos.HomeAutomation
+                  device: iPad Pro 13-inch (M5)
+                - demo: demos/energy-monitor
+                  scheme: "Energy Monitor"
+                  bundle_id: dev.slint.demos.EnergyMonitor
+                  device: iPhone 17
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios-sim
+            - run: brew install xcodegen
+            - run: xcodegen -s ios-project.yml
+              working-directory: ${{ matrix.demo }}
+            - name: "Find Simulator UDID from iOS 26.4 runtime"
+              run: |
+                echo "=== Finding device from iOS 26.4 runtime (default Xcode) ==="
+                DEVICE_LINE=$(xcrun simctl list devices available | grep -A 50 "iOS 26.4" | grep "${{ matrix.device }}" | head -n 1)
+
+                if [ -z "$DEVICE_LINE" ]; then
+                  echo "ERROR: Could not find ${{ matrix.device }} in iOS 26.4 runtime"
+                  echo "Available iOS 26.4 devices:"
+                  xcrun simctl list devices available | grep -A 30 "iOS 26.4"
+                  exit 1
+                fi
+
+                DEVICE_UDID=$(echo "$DEVICE_LINE" | sed -n 's/.*(\([A-F0-9-]\{36\}\)).*/\1/p')
+
+                if [ -z "$DEVICE_UDID" ]; then
+                  echo "ERROR: Could not extract UDID from line: $DEVICE_LINE"
+                  exit 1
+                fi
+
+                echo "Device: ${{ matrix.device }}"
+                echo "UDID: $DEVICE_UDID"
+                echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
+            - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
+              working-directory: ${{ matrix.demo }}
+# This isn't working reliably. Sometimes the simulator doesn't boot, somethings launching fails, and sometimes screenshotting fails.
+#            - name: "Boot Simulator"
+#              timeout-minutes: 5
+#              run: |
+#                echo "=== Booting simulator by UDID ==="
+#                echo "Device: ${{ matrix.device }}"
+#                echo "UDID: ${{ env.SIMULATOR_UDID }}"
+#                echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+#
+#                set -x  # Enable command echoing
+#                xcrun simctl boot "${{ env.SIMULATOR_UDID }}"
+#                BOOT_RESULT=$?
+#                set +x  # Disable command echoing
+#
+#                echo "Boot command completed with exit code: $BOOT_RESULT"
+#                echo ""
+#
+#                echo "=== Simulator state after boot command ==="
+#                SIMULATOR_STATUS=$(xcrun simctl list devices | grep "${{ env.SIMULATOR_UDID }}")
+#                echo "$SIMULATOR_STATUS"
+#
+#                if echo "$SIMULATOR_STATUS" | grep -q "(Booted)"; then
+#                  echo "Simulator is booted successfully at: $(date '+%Y-%m-%d %H:%M:%S')"
+#                else
+#                  echo "ERROR: Simulator failed to boot properly"
+#                  echo "Current status: $SIMULATOR_STATUS"
+#                  exit 1
+#                fi
+#            - name: "Install"
+#              run: |
+#                APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "${{ matrix.scheme }}.app" | head -n 1)
+#                echo "Found app bundle at $APP_PATH"
+#                xcrun simctl install booted "$APP_PATH"
+#                echo "Verifying installation..."
+#                xcrun simctl listapps booted | grep -q "${{ matrix.bundle_id }}" && echo "App installed successfully" || echo "WARNING: App may not be installed"
+#            - name: "Launch"
+#              timeout-minutes: 5
+#              run: |
+#                echo "Attempting to launch ${{ matrix.bundle_id }}..."
+#                # Retry loop to wait for FrontBoard to register the app
+#                MAX_ATTEMPTS=10
+#                ATTEMPT=1
+#                while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+#                  echo "Launch attempt $ATTEMPT of $MAX_ATTEMPTS..."
+#                  if xcrun simctl launch booted "${{ matrix.bundle_id }}" 2>&1 | tee launch_output.txt; then
+#                    echo "App launched successfully on attempt $ATTEMPT"
+#                    sleep 5
+#                    exit 0
+#                  fi
+#
+#                  if grep -q "unknown to FrontBoard" launch_output.txt; then
+#                    echo "FrontBoard hasn't registered app yet, waiting 2 seconds..."
+#                    sleep 2
+#                    ATTEMPT=$((ATTEMPT + 1))
+#                  else
+#                    echo "Launch failed with a different error:"
+#                    cat launch_output.txt
+#                    echo "Checking simulator logs..."
+#                    xcrun simctl spawn booted log show --last 30s --predicate 'processImagePath contains "${{ matrix.scheme }}"' || true
+#                    exit 1
+#                  fi
+#                done
+#
+#                echo "Failed to launch after $MAX_ATTEMPTS attempts"
+#                exit 1
+#            - name: "Screenshot"
+#              run: xcrun simctl io booted screenshot "${{ matrix.scheme }}.png"
+#            - name: Upload Screenshot Artifact
+#              uses: actions/upload-artifact@v7
+#              with:
+#                name: ${{matrix.scheme}}-screenshot
+#                path: ${{ matrix.scheme }}.png
+#            - name: "Cleanup - Shutdown Simulator"
+#              if: always()
+#              run: |
+#                echo "Shutting down simulator to avoid orphan processes..."
+#                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
+
+    full_bevy_examples:
+        if: ${{ inputs.full }}
+        uses: ./.github/workflows/bevy_examples.yaml
+        with:
+            # Run cargo update to test if any downstream dependency broke our build.
+            # Do not update the cache though, as that would trash the cache for the next
+            # runner, which uses the non-updated lockfile.
+            update: true
+            save_if: false
+
+    android_wgpu:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - uses: dtolnay/rust-toolchain@stable
+            - name: Install cargo-apk
+              run: cargo install cargo-apk
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/install-skia-dependencies
+            - name: Build wgpu_texture demo
+              run: cargo apk build -p wgpu_texture --target aarch64-linux-android --lib
+
+    full_python:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        uses: ./.github/workflows/python_test_reusable.yaml
+        with:
+            name: "Python ${{ matrix.os }}"
+            os: ${{ matrix.os }}
+
+    full_node:
+        if: ${{ inputs.full }}
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-14, windows-2022]
+        uses: ./.github/workflows/node_test_reusable.yaml
+        with:
+            name: "Node.js ${{ matrix.os }}"
+            os: ${{ matrix.os }}
+
+    miri:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: nightly
+                  key: miri
+                  components: miri
+            - name: Run Miri
+              run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
