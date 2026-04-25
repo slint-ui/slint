@@ -347,16 +347,6 @@ impl ItemRc {
         ItemWeak { item_tree: VRc::downgrade(&self.item_tree), index: self.index }
     }
 
-    /// Returns the root item of the parent tree
-    ///
-    /// If there is no parent tree, return None
-    pub fn parent_item_tree(&self) -> Option<ItemRc> {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
-        let mut r = ItemWeak::default();
-        comp_ref_pin.as_ref().parent_node(&mut r);
-        r.upgrade()
-    }
-
     /// Return the parent Item in the item tree.
     ///
     /// If the item is the root on its Window or PopupWindow, then the parent is None.
