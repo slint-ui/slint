@@ -13,7 +13,9 @@ pub use internal_tests::*;
 pub mod testing_backend;
 pub use testing_backend::get_mocked_time;
 #[cfg(feature = "internal")]
-pub use testing_backend::{TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time};
+pub use testing_backend::{
+    TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time,
+};
 #[cfg(all(feature = "ffi", not(test)))]
 mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
