@@ -145,7 +145,7 @@ jobs:
 
     cpp_test_driver:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true') }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
