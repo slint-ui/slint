@@ -273,10 +273,6 @@ jobs:
     # Job 3: Build Node and Python documentation
     node-python-docs:
         runs-on: ubuntu-24.04
-        permissions:
-            contents: read
-            deployments: write
-            actions: write
         env:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
