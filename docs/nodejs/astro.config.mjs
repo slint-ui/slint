@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-// @ts-check
+
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 import rehypeExternalLinks from "rehype-external-links";
 import { nodeDocsPublicAsset } from "./src/node-site-config.mjs";
+import sitemap from '@astrojs/sitemap';
 
 // https://astro.build/config
 // Production `site` / `base` are wired in PR4 (CI); local dev uses root URLs.
@@ -30,6 +31,7 @@ export default defineConfig({
         ],
     },
     integrations: [
+        sitemap(),
         starlight({
             title: "Slint Node.js API",
             logo: {

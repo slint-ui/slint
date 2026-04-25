@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 import { definePlugin } from "@expressive-code/core";
 import { h } from "@expressive-code/core/hast";
-import { readFileSync } from "node:fs";
 import { pluginLineNumbers } from "@expressive-code/plugin-line-numbers";
+import slintGrammar from "./slint.tmLanguage.json" with { type: "json" };
 
 function sideBorder() {
     return definePlugin({
@@ -167,10 +167,6 @@ function workersPlaygroundButton() {
         },
     });
 }
-
-const slintGrammar = JSON.parse(
-    readFileSync(new URL("./slint.tmLanguage.json", import.meta.url), "utf-8"),
-);
 
 /** @returns {import("@expressive-code/core").ExpressiveCodeConfig} */
 export default function starlightExpressiveCode() {
