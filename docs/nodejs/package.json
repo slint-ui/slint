@@ -19,6 +19,7 @@
     },
     "dependencies": {
         "@astrojs/check": "catalog:",
+        "@astrojs/sitemap": "catalog:",
         "@astrojs/starlight": "catalog:",
         "@slint/common-files": "workspace:*",
         "@types/node": "catalog:",

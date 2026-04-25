@@ -9,6 +9,9 @@ catalogs:
     '@astrojs/check':
       specifier: 0.9.8
       version: 0.9.8
+    '@astrojs/sitemap':
+      specifier: 3.7.2
+      version: 3.7.2
     '@astrojs/starlight':
       specifier: 0.38.4
       version: 0.38.4
@@ -197,6 +200,9 @@ importers:
       '@astrojs/check':
         specifier: 'catalog:'
         version: 0.9.8(prettier@3.8.3)(typescript@6.0.3)
+      '@astrojs/sitemap':
+        specifier: 'catalog:'
+        version: 3.7.2
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))

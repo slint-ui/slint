@@ -38,6 +38,9 @@
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
+    "docs/nodejs": {
+      "ignoreFiles": ["src/styles/custom.css", "src/styles/theme.css"]
+    },
     "docs/astro": {
       "entry": [],
       "ignoreFiles": [
