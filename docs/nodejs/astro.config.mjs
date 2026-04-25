@@ -11,7 +11,7 @@ import {
     NODE_DOCS_BASE_URL,
     nodeDocsPublicAsset,
 } from "./src/node-site-config.mjs";
-import sitemap from '@astrojs/sitemap';
+import sitemap from "@astrojs/sitemap";
 
 /**
  * Starlight plugin: starlight-typedoc defaults nested API groups to collapsed; force every
@@ -40,7 +40,10 @@ function starlightExpandAllSidebarGroups() {
                         typeof out.autogenerate === "object" &&
                         !Array.isArray(out.autogenerate)
                     ) {
-                        out.autogenerate = { ...out.autogenerate, collapsed: false };
+                        out.autogenerate = {
+                            ...out.autogenerate,
+                            collapsed: false,
+                        };
                     }
                     if (Array.isArray(out.items)) {
                         out.items = expandEntries(out.items);
@@ -59,10 +62,10 @@ const _nodeAtRoot = NODE_DOCS_BASE_PATH === "/";
 /** Canonical URL and optional `base` (same pattern as `docs/astro/astro.config.mjs`). */
 const _nodeSite = _nodeAtRoot
     ? _nodeOrigin
-    : `${_nodeOrigin}${
-          NODE_DOCS_BASE_PATH.replace(/\/*$/, "/")
-      }`;
-const _nodeBase = _nodeAtRoot ? undefined : NODE_DOCS_BASE_PATH.replace(/\/*$/, "/");
+    : `${_nodeOrigin}${NODE_DOCS_BASE_PATH.replace(/\/*$/, "/")}`;
+const _nodeBase = _nodeAtRoot
+    ? undefined
+    : NODE_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
 export default defineConfig({
     site: _nodeSite,
@@ -113,7 +116,9 @@ export default defineConfig({
                     errorOnLocalLinks: false,
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
-                        return p.startsWith("/#") || p.startsWith("/thirdparty/");
+                        return (
+                            p.startsWith("/#") || p.startsWith("/thirdparty/")
+                        );
                     },
                 }),
                 starlightExpandAllSidebarGroups(),

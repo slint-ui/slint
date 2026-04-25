@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: MIT
 import { Icon } from "@astrojs/starlight/components";
 
-const useNodeReleaseDocs =
-	Astro.props.docsUrlKind === "node";
+const useNodeReleaseDocs = Astro.props.docsUrlKind === "node";
 ---
 
 <script define:vars={{ useNodeReleaseDocs }}>

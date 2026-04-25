@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-
 export const NODE_DOCS_BASE_URL = "https://localhost";
 
 export const NODE_DOCS_BASE_PATH = "/";
