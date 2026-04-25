@@ -6,6 +6,8 @@ src/content/docs/api/
 
 # build output
 dist/
+# CI preview repack layout for Workers (see build_docs workflow)
+cf-assets/
 # generated types
 .astro/
 
