@@ -18,7 +18,7 @@ extern crate napi_derive;
 #[napi]
 pub fn mock_elapsed_time(_ms: f64) {
     #[cfg(feature = "testing")]
-    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(_ms as u64));
+    i_slint_backend_testing::mock_elapsed_time(_ms as u64);
 }
 
 #[napi]

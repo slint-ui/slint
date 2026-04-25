@@ -63,7 +63,7 @@ pub extern "C" fn slint_send_keyboard_char(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn send_keyboard_string_sequence(
+pub extern "C" fn slint_send_keyboard_string_sequence(
     sequence: &SharedString,
     window_adapter: &WindowAdapterRc,
 ) {

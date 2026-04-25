@@ -37,6 +37,7 @@ pub fn get_mocked_time() -> u64 {
         .as_millis()
 }
 
+#[cfg(any(feature = "internal", feature = "ffi"))]
 /// Simulate a click at (`x`, `y`) and release after 50 ms of mock time.
 pub fn send_mouse_click(x: f32, y: f32, window_adapter: &i_slint_core::window::WindowAdapterRc) {
     use i_slint_core::api::LogicalPosition;
@@ -52,6 +53,7 @@ pub fn send_mouse_click(x: f32, y: f32, window_adapter: &i_slint_core::window::W
     window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
 }
 
+#[cfg(any(feature = "internal", feature = "ffi"))]
 /// Dispatch a single key press or release event.
 pub fn send_keyboard_key_text(
     text: &i_slint_core::SharedString,
@@ -66,6 +68,7 @@ pub fn send_keyboard_key_text(
     })
 }
 
+#[cfg(feature = "ffi")]
 /// Dispatch each character in the string as a separate key event.
 pub fn send_keyboard_char(
     string: &i_slint_core::SharedString,
@@ -77,6 +80,7 @@ pub fn send_keyboard_char(
     }
 }
 
+#[cfg(any(feature = "internal", feature = "ffi"))]
 /// Simulate typing a string, with automatic Shift handling for uppercase letters.
 pub fn send_keyboard_string_sequence(
     sequence: &i_slint_core::SharedString,

@@ -1076,7 +1076,7 @@ inline void send_keyboard_string_sequence(const slint::interpreter::ComponentIns
     const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
     cbindgen_private::slint_interpreter_component_instance_window(
             reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(component), &win_ptr);
-    cbindgen_private::send_keyboard_string_sequence(
+    cbindgen_private::slint_send_keyboard_string_sequence(
             &str, reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr));
 }
 }
