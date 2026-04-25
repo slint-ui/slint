@@ -6,7 +6,7 @@ Content lives in `src/content/docs/`. The production build also writes third-par
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v22+)
+- [Node.js](https://nodejs.org/) (v24+)
 - [pnpm](https://pnpm.io/)
 - For `pnpm build` (and `pnpm thirdparty`): a Rust toolchain and [cargo-about](https://github.com/EmbarkStudios/cargo-about) (`cargo install cargo-about`)
 
