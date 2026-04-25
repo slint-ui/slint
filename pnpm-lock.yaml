@@ -135,9 +135,6 @@ importers:
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(typescript@6.0.3)(yaml@2.8.3))
-      '@expressive-code/plugin-line-numbers':
-        specifier: 'catalog:'
-        version: 0.41.7
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -524,9 +521,6 @@ importers:
       '@astrolib/seo':
         specifier: 1.0.0-beta.8
         version: 1.0.0-beta.8(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(typescript@6.0.3)(yaml@2.8.3))
-      '@expressive-code/plugin-line-numbers':
-        specifier: 'catalog:'
-        version: 0.41.7
       '@fontsource-variable/inter':
         specifier: 5.2.8
         version: 5.2.8
@@ -570,9 +564,6 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.13
-      '@expressive-code/core':
-        specifier: 0.41.7
-        version: 0.41.7
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.59.1
