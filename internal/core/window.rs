@@ -634,14 +634,10 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
-        let parent_adapter = if let Some(parent) = window_adapter
+        let parent_adapter = window_adapter
             .internal(crate::InternalToken)
             .and_then(|internal| internal.get_parent().upgrade())
-        {
-            parent
-        } else {
-            window_adapter.clone()
-        };
+            .unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {
