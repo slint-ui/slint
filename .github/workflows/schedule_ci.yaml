@@ -20,10 +20,6 @@ jobs:
   discover-and-trigger:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
       - name: Trigger CI on branches with recent changes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,9 +30,12 @@ jobs:
             exit 0
           fi
 
-          BRANCHES=$(git branch -r --list 'origin/master' 'origin/feature/*' 'origin/pre-release/*' | sed 's|origin/||' | xargs)
+          BRANCHES=$(gh api repos/${{ github.repository }}/branches --paginate -q '.[].name | select(test("^(master|feature/|pre-release/)"))' )
           for branch in $BRANCHES; do
-            if git log "origin/$branch" --since="9 hours ago" --oneline | grep -q .; then
+            # Check for commits in the last 9 hours
+            since=$(date -u -d '9 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
+            count=$(gh api "repos/${{ github.repository }}/commits?sha=$branch&since=$since&per_page=1" -q 'length')
+            if [ "$count" -gt 0 ]; then
               echo "Triggering full CI for $branch"
               gh workflow run "CI" --ref "$branch" -f full=true
             else
