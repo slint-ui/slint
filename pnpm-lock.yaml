@@ -186,6 +186,13 @@ importers:
         version: 10.0.0
 
   docs/common:
+    dependencies:
+      '@expressive-code/core':
+        specifier: 0.41.7
+        version: 0.41.7
+      '@expressive-code/plugin-line-numbers':
+        specifier: 'catalog:'
+        version: 0.41.7
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
