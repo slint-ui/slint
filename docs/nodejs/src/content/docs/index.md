@@ -55,7 +55,7 @@ without pre-built binaries, you need to additional software:
 2. Install Slint for your project using [`npm install slint-ui`](https://docs.npmjs.com/cli/v10/commands/npm-install).
 3. Create a new file called `main.slint` with the following contents:
 
-```slint
+```slint playground
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
@@ -102,7 +102,7 @@ For a complete example, see [/examples/todo/node](https://github.com/slint-ui/sl
 
 1. Create a new file called `main.slint` with the following contents:
 
-```slint
+```slint playground
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
@@ -161,7 +161,7 @@ This is your main JavaScript entry point:
 2. Install Slint for your project using [`bun install slint-ui`](https://bun.sh/docs/cli/install).
 3. Create a new file called `main.slint` with the following contents:
 
-```slint
+```slint playground
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
