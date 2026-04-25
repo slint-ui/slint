@@ -589,11 +589,28 @@ jobs:
                   cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
                   git diff --exit-code
 
-    esp-idf-quick:
+    esp-idf-matrix:
         needs: files-changed
         if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true') }}
+        runs-on: ubuntu-latest
+        outputs:
+          matrix: ${{ steps.set.outputs.matrix }}
+        steps:
+          - id: set
+            run: |
+              # v5.2 always runs; v5.5 only in full mode
+              entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""}]'
+              if [ "${{ inputs.full }}" = "true" ]; then
+                entries='[{"esp-idf-version":"release-v5.2","idf-extra-args":""},{"esp-idf-version":"release-v5.5","idf-extra-args":"-D SLINT_ESP_LOCAL_EXAMPLE=OFF"}]'
+              fi
+              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
+
+    esp-idf:
+        needs: esp-idf-matrix
+        strategy:
+          matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
         runs-on: ubuntu-22.04
-        container: espressif/idf:release-v5.2
+        container: espressif/idf:${{ matrix.esp-idf-version }}
         steps:
             - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
               run: |
@@ -616,7 +633,14 @@ jobs:
               working-directory: demos/printerdemo_mcu/esp-idf
               run: |
                   . ${IDF_PATH}/export.sh
-                  idf.py build
+                  idf.py ${{ matrix.idf-extra-args }} build
+            - name: Build and Test Carousel example s3 box
+              if: ${{ inputs.full }}
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-box
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
 
     android:
         needs: files-changed
@@ -770,43 +794,6 @@ jobs:
             extra_args: ${{ matrix.extra_args }}
             update: true
             save_if: false
-
-    qa-esp-idf:
-        if: ${{ inputs.full }}
-        strategy:
-          matrix:
-            esp-idf-target:
-              - release-v5.5
-        runs-on: ubuntu-22.04
-        container: espressif/idf:${{ matrix.esp-idf-target }}
-        steps:
-            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  cd $IDF_PYTHON_ENV_PATH
-                  bin/pip install pydantic==2.11.10
-            - uses: actions/checkout@v6
-            - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.7
-              with:
-                  default: true
-                  buildtargets: esp32
-                  ldproxy: false
-                  # Pin due to https://github.com/esp-rs/rust/issues/276
-                  version: "1.94.0.0"
-            - uses: Swatinem/rust-cache@v2
-            - name: Build and Test Printer demo
-              shell: bash
-              working-directory: demos/printerdemo_mcu/esp-idf
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
-            - name: Build and Test Carousel example s3 box
-              shell: bash
-              working-directory: examples/carousel/esp-idf/s3-box
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py -D SLINT_ESP_LOCAL_EXAMPLE=OFF build
 
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}
