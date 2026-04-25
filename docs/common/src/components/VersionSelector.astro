@@ -32,8 +32,33 @@ function versionOptionValue(v) {
   }
   return releaseUrlToNodeHandbookRoot(v.url);
 }
+
+/** If the script runs before the select exists, retry `fetchVersions` once after DOM is ready. */
+let fetchVersionsDeferOnceUsed = false;
+function scheduleFetchVersionsOnceIfSelectMissing() {
+  if (fetchVersionsDeferOnceUsed) return;
+  fetchVersionsDeferOnceUsed = true;
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        fetchVersions();
+      },
+      { once: true },
+    );
+  } else {
+    requestAnimationFrame(() => {
+      fetchVersions();
+    });
+  }
+}
+
 function populateVersions(versions) {
   const select = document.getElementById("version-selector");
+  if (!select) {
+    scheduleFetchVersionsOnceIfSelectMissing();
+    return;
+  }
   const currentUrl = window.location.href;
   for (const version of versions) {
     const option = document.createElement("option");
