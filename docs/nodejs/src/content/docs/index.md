@@ -55,7 +55,7 @@ without pre-built binaries, you need to additional software:
 2. Install Slint for your project using [`npm install slint-ui`](https://docs.npmjs.com/cli/v10/commands/npm-install).
 3. Create a new file called `main.slint` with the following contents:
 
-```
+```slint
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
@@ -102,7 +102,7 @@ For a complete example, see [/examples/todo/node](https://github.com/slint-ui/sl
 
 1. Create a new file called `main.slint` with the following contents:
 
-```
+```slint
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
@@ -161,7 +161,7 @@ This is your main JavaScript entry point:
 2. Install Slint for your project using [`bun install slint-ui`](https://bun.sh/docs/cli/install).
 3. Create a new file called `main.slint` with the following contents:
 
-```
+```slint
 import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo inherits Window {
     in-out property <string> greeting <=> label.text;
@@ -214,7 +214,7 @@ The following example shows how to instantiating a Slint component from JavaScri
 
 **`ui/main.slint`**
 
-```
+```slint
 export component MainWindow inherits Window {
     callback clicked <=> i-touch-area.clicked;
 
@@ -249,7 +249,7 @@ let component = new ui.MainWindow({
 
 **`main.slint`**
 
-```
+```slint
 export component MainWindow {
     in-out property <string> name;
     in-out property <int> age: 42;
@@ -270,7 +270,7 @@ as function to invoke the callback, and assign JavaScript functions to set the c
 
 **`ui/my-component.slint`**
 
-```
+```slint
 export component MyComponent inherits Window {
     callback clicked <=> i-touch-area.clicked;
 
@@ -340,7 +340,7 @@ An exported struct can be created either by defing of an object literal or by us
 
 **`my-component.slint`**
 
-```
+```slint
 export struct Person {
     name: string,
     age: int
@@ -376,7 +376,7 @@ A value of an exported enum can be set as string or by using the value from the 
 
 **`my-component.slint`**
 
-```
+```slint
 export enum Position {
     top,
     bottom
@@ -412,7 +412,7 @@ similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
-```
+```slint
 export global Logic {
     callback to_uppercase(string) -> string;
 }
