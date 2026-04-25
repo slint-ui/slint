@@ -9,6 +9,47 @@ import rehypeExternalLinks from "rehype-external-links";
 import { nodeDocsPublicAsset } from "./src/node-site-config.mjs";
 import sitemap from '@astrojs/sitemap';
 
+/**
+ * Starlight plugin: starlight-typedoc defaults nested API groups to collapsed; force every
+ * sidebar group (and autogenerate subgroup) to start expanded.
+ */
+function starlightExpandAllSidebarGroups() {
+    return {
+        name: "starlight-expand-all-sidebar-groups",
+        hooks: {
+            "config:setup"({ config, updateConfig }) {
+                const { sidebar } = config;
+                if (!Array.isArray(sidebar)) return;
+
+                function expandEntries(entries) {
+                    return entries.map((entry) => expandEntry(entry));
+                }
+
+                function expandEntry(entry) {
+                    if (typeof entry === "string") return entry;
+                    if (!entry || typeof entry !== "object") return entry;
+
+                    const out = { ...entry };
+                    if ("collapsed" in out) out.collapsed = false;
+                    if (
+                        out.autogenerate &&
+                        typeof out.autogenerate === "object" &&
+                        !Array.isArray(out.autogenerate)
+                    ) {
+                        out.autogenerate = { ...out.autogenerate, collapsed: false };
+                    }
+                    if (Array.isArray(out.items)) {
+                        out.items = expandEntries(out.items);
+                    }
+                    return out;
+                }
+
+                updateConfig({ sidebar: expandEntries(sidebar) });
+            },
+        },
+    };
+}
+
 // https://astro.build/config
 // Production `site` / `base` are wired in PR4 (CI); local dev uses root URLs.
 export default defineConfig({
@@ -51,13 +92,15 @@ export default defineConfig({
                     sidebar: { label: "API" },
                     typeDoc: {
                         hideGenerator: true,
-                        // Avoid embedding the checkout’s HEAD in “Defined in:” URLs (breaks across machines/CI).
                         gitRevision: "master",
                     },
                 }),
                 starlightLinksValidator({
                     errorOnLocalLinks: false,
+                    // Generated HTML in `public/thirdparty/`, not a Starlight docs route.
+                    exclude: ["/thirdparty/**"],
                 }),
+                starlightExpandAllSidebarGroups(),
             ],
             social: [
                 {
@@ -120,10 +163,6 @@ export default defineConfig({
             ],
             sidebar: [
                 { label: "Overview", slug: "index" },
-                {
-                    label: "Third-party licenses",
-                    link: "/thirdparty/",
-                },
                 typeDocSidebarGroup,
             ],
         }),

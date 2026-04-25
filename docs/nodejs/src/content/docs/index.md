@@ -435,6 +435,6 @@ component.Logic.to_upper_case = (str) => {
 **Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated globals singletons.
 
-## Third-party licenses
+## Third-Party Licenses
 
-A dedicated third-party licenses page is produced in the full documentation build. When browsing the published Node.js API docs on [slint.dev](https://slint.dev), use the sidebar link when available.
+For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](/thirdparty/).
