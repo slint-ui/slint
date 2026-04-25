@@ -12,7 +12,9 @@ Content lives in `src/content/docs/`. The production build also writes third-par
 
 Run `pnpm install` from the repository root first.
 
-Before `pnpm dev` or `pnpm build`, run `pnpm -C api/node run build` when you need the sidebar API reference to match the compiled native module and generated declarations.
+To build the native module and this site in one step from the repository root, run `pnpm -C api/node run docs`. That is the same pipeline CI uses before publishing under `…/docs/node/`.
+
+When iterating only in `docs/nodejs`, run `pnpm -C api/node run build` first whenever the sidebar API reference must match the compiled native module and generated declarations.
 
 ## Commands
 

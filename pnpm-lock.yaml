@@ -102,9 +102,6 @@ importers:
       image-js:
         specifier: 1.5.0
         version: 1.5.0
-      typedoc:
-        specifier: 0.28.19
-        version: 0.28.19(typescript@6.0.3)
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
