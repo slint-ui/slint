@@ -11,8 +11,6 @@ pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
 pub use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::platform::WindowEvent;
-pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
-pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 pub use i_slint_core::window::WindowInner;
 
 /// Simulate a mouse click at `(x, y)` and release after a while at the same position
@@ -24,7 +22,7 @@ pub fn send_mouse_click<
     x: f32,
     y: f32,
 ) {
-    i_slint_core::tests::slint_send_mouse_click(
+    crate::testing_backend::send_mouse_click(
         x,
         y,
         &WindowInner::from_pub(component.window()).window_adapter(),
@@ -74,7 +72,7 @@ pub fn send_keyboard_key_text<
     text: &SharedString,
     pressed: bool,
 ) {
-    i_slint_core::tests::slint_send_keyboard_key_text(
+    crate::testing_backend::send_keyboard_key_text(
         text,
         pressed,
         &WindowInner::from_pub(component.window()).window_adapter(),
@@ -101,7 +99,7 @@ pub fn send_keyboard_string_sequence<
     component: &Component,
     sequence: &str,
 ) {
-    i_slint_core::tests::send_keyboard_string_sequence(
+    crate::testing_backend::send_keyboard_string_sequence(
         &SharedString::from(sequence),
         &WindowInner::from_pub(component.window()).window_adapter(),
     )
@@ -189,6 +187,6 @@ pub fn block_on<R>(future: impl Future<Output = R>) -> R {
         }
         let duration = i_slint_core::platform::duration_until_next_timer_update()
             .unwrap_or(core::time::Duration::from_secs(1));
-        mock_elapsed_time(duration.as_millis() as u64);
+        crate::testing_backend::mock_elapsed_time(duration.as_millis() as u64);
     }
 }

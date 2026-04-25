@@ -16,13 +16,17 @@ use napi::bindgen_prelude::*;
 extern crate napi_derive;
 
 #[napi]
-pub fn mock_elapsed_time(ms: f64) {
-    i_slint_core::tests::slint_mock_elapsed_time(ms as _);
+pub fn mock_elapsed_time(_ms: f64) {
+    #[cfg(feature = "testing")]
+    i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(_ms as u64));
 }
 
 #[napi]
 pub fn get_mocked_time() -> f64 {
-    i_slint_core::tests::slint_get_mocked_time() as f64
+    #[cfg(feature = "testing")]
+    return i_slint_backend_testing::get_mocked_time() as f64;
+    #[cfg(not(feature = "testing"))]
+    return 0.0;
 }
 
 #[napi]

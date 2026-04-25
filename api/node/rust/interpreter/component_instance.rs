@@ -351,18 +351,48 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn send_mouse_click(&self, x: f64, y: f64) {
-        slint_interpreter::testing::send_mouse_click(&self.inner, x as f32, y as f32);
+        let window = self.inner.window();
+        let position = i_slint_core::api::LogicalPosition::new(x as f32, y as f32);
+        let button = i_slint_core::items::PointerEventButton::Left;
+        use i_slint_core::platform::WindowEvent;
+        window.dispatch_event(WindowEvent::PointerMoved { position });
+        window.dispatch_event(WindowEvent::PointerPressed { position, button });
+        #[cfg(feature = "testing")]
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+        window.dispatch_event(WindowEvent::PointerReleased { position, button });
     }
 
     #[napi]
     pub fn send_keyboard_string_sequence(&self, sequence: String) {
-        slint_interpreter::testing::send_keyboard_string_sequence(&self.inner, sequence.into());
+        use i_slint_core::platform::WindowEvent;
+        let window = self.inner.window();
+        for ch in sequence.chars() {
+            if ch.is_ascii_uppercase() {
+                window.dispatch_event(WindowEvent::KeyPressed {
+                    text: i_slint_core::input::key_codes::Key::Shift.into(),
+                });
+            }
+            let text = i_slint_core::SharedString::from(ch);
+            window.dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            window.dispatch_event(WindowEvent::KeyReleased { text });
+            if ch.is_ascii_uppercase() {
+                window.dispatch_event(WindowEvent::KeyReleased {
+                    text: i_slint_core::input::key_codes::Key::Shift.into(),
+                });
+            }
+        }
     }
 
     #[napi]
     pub fn send_key_combo(&self, keys: Vec<String>) {
-        let keys: Vec<_> = keys.into_iter().map(Into::into).collect();
-        slint_interpreter::testing::send_key_combo(&self.inner, &keys);
+        use i_slint_core::platform::WindowEvent;
+        let window = self.inner.window();
+        for key in &keys {
+            window.dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+        }
+        for key in keys.iter().rev() {
+            window.dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        }
     }
 
     #[napi]

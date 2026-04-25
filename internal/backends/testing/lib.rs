@@ -11,8 +11,11 @@ mod internal_tests;
 #[cfg(feature = "internal")]
 pub use internal_tests::*;
 mod testing_backend;
+pub use testing_backend::get_mocked_time;
 #[cfg(feature = "internal")]
-pub use testing_backend::*;
+pub use testing_backend::{
+    TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time,
+};
 #[cfg(all(feature = "ffi", not(test)))]
 mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
@@ -68,7 +71,7 @@ pub fn init_integration_test_with_system_time() {
 /// [`init_integration_test_with_mock_time()`] or [`init_no_event_loop()`].
 #[cfg(not(feature = "internal"))]
 pub fn mock_elapsed_time(duration: std::time::Duration) {
-    i_slint_core::tests::slint_mock_elapsed_time(duration.as_millis() as _);
+    testing_backend::mock_elapsed_time(duration.as_millis() as _);
 }
 
 /// Replace the font collection with embedded NotoSans fonts for deterministic test results.

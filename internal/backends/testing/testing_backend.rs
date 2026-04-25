@@ -17,6 +17,93 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
 
+/// Advance the mocked time by the given number of milliseconds, updating
+/// animations, firing timers, and running change handlers.
+pub fn mock_elapsed_time(time_in_ms: u64) {
+    let tick = i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+        let mut tick = driver.current_tick();
+        tick += core::time::Duration::from_millis(time_in_ms);
+        driver.update_animations(tick);
+        tick
+    });
+    i_slint_core::timers::TimerList::maybe_activate_timers(tick);
+    i_slint_core::properties::ChangeTracker::run_change_handlers();
+}
+
+/// Return the current mocked time in milliseconds.
+pub fn get_mocked_time() -> u64 {
+    i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+        .with(|driver| driver.current_tick())
+        .as_millis()
+}
+
+/// Simulate a click at (`x`, `y`) and release after 50 ms of mock time.
+pub fn send_mouse_click(x: f32, y: f32, window_adapter: &i_slint_core::window::WindowAdapterRc) {
+    use i_slint_core::api::LogicalPosition;
+    use i_slint_core::items::PointerEventButton;
+    use i_slint_core::platform::WindowEvent;
+
+    let position = LogicalPosition::new(x, y);
+    let button = PointerEventButton::Left;
+
+    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position });
+    window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    mock_elapsed_time(50);
+    window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+/// Dispatch a single key press or release event.
+pub fn send_keyboard_key_text(
+    text: &i_slint_core::SharedString,
+    pressed: bool,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    use i_slint_core::platform::WindowEvent;
+    window_adapter.window().dispatch_event(if pressed {
+        WindowEvent::KeyPressed { text: text.clone() }
+    } else {
+        WindowEvent::KeyReleased { text: text.clone() }
+    })
+}
+
+/// Dispatch each character in the string as a separate key event.
+pub fn send_keyboard_char(
+    string: &i_slint_core::SharedString,
+    pressed: bool,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    for ch in string.chars() {
+        send_keyboard_key_text(&ch.into(), pressed, window_adapter);
+    }
+}
+
+/// Simulate typing a string, with automatic Shift handling for uppercase letters.
+pub fn send_keyboard_string_sequence(
+    sequence: &i_slint_core::SharedString,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    use i_slint_core::input::key_codes::Key;
+    use i_slint_core::platform::WindowEvent;
+
+    for ch in sequence.chars() {
+        if ch.is_ascii_uppercase() {
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
+        }
+
+        let text: i_slint_core::SharedString = ch.into();
+        window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
+
+        if ch.is_ascii_uppercase() {
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
+        }
+    }
+}
+
 const FIXED_TEST_FONT: &str = "FixedTestFont";
 
 fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
