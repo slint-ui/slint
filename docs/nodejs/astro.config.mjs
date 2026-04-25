@@ -82,7 +82,7 @@ export default defineConfig({
             favicon: "favicon.svg",
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
-                Header: "@slint/common-files/src/components/Header.astro",
+                Header: "./src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
