@@ -423,25 +423,51 @@ impl ItemRc {
         false
     }
 
+    /// Returns the accumulated transform from this item's local coordinate space to window
+    /// coordinates, walking up the ancestor chain until `stop_condition` returns true.
+    ///
+    /// At each ancestor the ancestor's `children_transform` (scale/rotate) is composed first,
+    /// then its translation. This matches the traversal order used by
+    /// [`map_to_item_tree_impl`](Self::map_to_item_tree_impl) and the partial renderer's
+    /// `current_transform()`.
+    fn local_to_window_transform(&self, stop_condition: impl Fn(&Self) -> bool) -> ItemTransform {
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
+        let mut transform = ItemTransform::identity();
+        let mut current = self.clone();
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            if stop_condition(&parent) {
+                break;
+            }
+            if supports_transformations {
+                if let Some(children_transform) = parent.children_transform() {
+                    transform = transform.then(&children_transform);
+                }
+            }
+            transform = transform.then_translate(parent.geometry().origin.to_vector().cast());
+            current = parent;
+        }
+        transform
+    }
+
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the
     /// item's (unclipped) geometry (also in window coordinates).
     fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {
-        let (mut clip, parent_geometry) =
-            self.parent_item(ParentItemTraversalMode::StopAtPopups).map_or_else(
-                || {
-                    (
-                        LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into()),
-                        Default::default(),
-                    )
-                },
-                |parent| parent.absolute_clip_rect_and_geometry(),
-            );
+        let geometry = self
+            .local_to_window_transform(|_| false)
+            .outer_transformed_rect(&self.geometry().cast())
+            .cast();
 
-        let geometry = self.geometry().translate(parent_geometry.origin.to_vector());
-
-        let item = self.borrow();
-        if item.as_ref().clips_children() {
-            clip = geometry.intersection(&clip).unwrap_or_default();
+        // Intersect the clip rects contributed by all clipping ancestors.
+        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
+        let mut cur = self.parent_item(ParentItemTraversalMode::StopAtPopups);
+        while let Some(ref ancestor) = cur {
+            if ancestor.borrow().as_ref().clips_children() {
+                let (_, ancestor_geom) = ancestor.absolute_clip_rect_and_geometry();
+                clip = ancestor_geom.intersection(&clip).unwrap_or_default();
+            }
+            cur = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
 
         (clip, geometry)
@@ -615,26 +641,10 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
-        let mut current = self.clone();
-        let mut result = p;
-        if stop_condition(&current) {
-            return result;
+        if stop_condition(self) {
+            return p;
         }
-        let supports_transformations = self
-            .window_adapter()
-            .is_none_or(|adapter| adapter.renderer().supports_transformations());
-        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            if stop_condition(&parent) {
-                break;
-            }
-            let geometry = parent.geometry();
-            if supports_transformations && let Some(transform) = parent.children_transform() {
-                result = transform.transform_point(result.cast()).cast();
-            }
-            result += geometry.origin.to_vector();
-            current = parent;
-        }
-        result
+        self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
     }
 
     fn map_from_item_tree_impl(
@@ -642,41 +652,25 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
-        let mut current = self.clone();
-        let mut result = p;
-        if stop_condition(&current) {
-            return result;
+        if stop_condition(self) {
+            return p;
         }
-        let supports_transformations = self
-            .window_adapter()
-            .is_none_or(|adapter| adapter.renderer().supports_transformations());
 
-        let mut full_transform = supports_transformations.then(ItemTransform::identity);
+        if let Some(transform) = self.local_to_window_transform(&stop_condition).inverse() {
+            return transform.transform_point(p.cast()).cast();
+        }
+
+        let mut current = self.clone();
         let mut offset = euclid::Vector2D::zero();
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if stop_condition(&parent) {
                 break;
             }
-            let geometry = parent.geometry();
-            if let (Some(transform), Some(children_transform)) =
-                (full_transform, parent.children_transform())
-            {
-                full_transform = Some(
-                    transform
-                        .then_translate(geometry.origin.to_vector().cast())
-                        .then(&children_transform),
-                );
-            }
-            offset += geometry.origin.to_vector();
+            offset += parent.geometry().origin.to_vector();
             current = parent;
         }
-        full_transform = full_transform.and_then(|ft| ft.inverse());
-        if let Some(transform) = full_transform {
-            result = transform.transform_point(result.cast()).cast();
-        } else {
-            result -= offset;
-        }
-        result
+
+        p - offset
     }
 
     /// Return the index of the item within the ItemTree
