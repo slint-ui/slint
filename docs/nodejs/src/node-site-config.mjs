@@ -1,11 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-/**
- * Deploy path prefix for this site. Must stay in sync with Astro `base` when
- * PR4 wires production URLs (CI sed-patches this file like `docs/common`).
- * Use `"/"` for local dev (no `base` in `astro.config.mjs`).
- */
+
+export const NODE_DOCS_BASE_URL = "https://localhost";
+
 export const NODE_DOCS_BASE_PATH = "/";
 
 /**

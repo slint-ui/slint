@@ -298,9 +298,33 @@ jobs:
               uses: astral-sh/setup-uv@v7
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
-            - name: "Node docs"
-              run: pnpm run docs
+            - name: Extract version from Cargo.toml
+              id: version
+              run: |
+                  version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
+                  if [[ -z "$version" ]]; then
+                    echo "Version not found"
+                    exit 1
+                  fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
+            - name: "Update site and base for Node.js Starlight (sitemap and assets)"
+              run: |
+                  version="${{ steps.version.outputs.VERSION }}"
+                  if [ "$RELEASE_INPUT" != "true" ]; then
+                      base_url="https://snapshots.slint.dev"
+                      base_path="/master/docs/node/"
+                  else
+                      base_url="https://releases.slint.dev"
+                      base_path="/$version/docs/node/"
+                  fi
+                  sed -i "s|export const NODE_DOCS_BASE_URL = \".*\"|export const NODE_DOCS_BASE_URL = \"$base_url\"|" docs/nodejs/src/node-site-config.mjs
+                  sed -i "s|export const NODE_DOCS_BASE_PATH = \".*\"|export const NODE_DOCS_BASE_PATH = \"$base_path\"|" docs/nodejs/src/node-site-config.mjs
+            - name: "Build NAPI and TypeScript (api/node)"
+              run: pnpm run build
               working-directory: api/node
+            - name: "Node.js API Starlight site"
+              run: pnpm run build
+              working-directory: docs/nodejs
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
             - name: "Python docs"
@@ -309,7 +333,7 @@ jobs:
             - name: "Prepare docs for website structure"
               run: |
                   mkdir -p artifact/docs
-                  mv api/node/docs artifact/docs/node
+                  mv docs/nodejs/dist artifact/docs/node
                   mv api/python/slint/docs artifact/docs/python
             - name: "Upload Python/Node Docs Artifacts"
               uses: actions/upload-artifact@v7

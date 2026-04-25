@@ -6,7 +6,11 @@ import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 import rehypeExternalLinks from "rehype-external-links";
-import { nodeDocsPublicAsset } from "./src/node-site-config.mjs";
+import {
+    NODE_DOCS_BASE_PATH,
+    NODE_DOCS_BASE_URL,
+    nodeDocsPublicAsset,
+} from "./src/node-site-config.mjs";
 import sitemap from '@astrojs/sitemap';
 
 /**
@@ -50,9 +54,19 @@ function starlightExpandAllSidebarGroups() {
     };
 }
 
-// https://astro.build/config
-// Production `site` / `base` are wired in PR4 (CI); local dev uses root URLs.
+const _nodeOrigin = String(NODE_DOCS_BASE_URL).replace(/\/+$/, "");
+const _nodeAtRoot = NODE_DOCS_BASE_PATH === "/";
+/** Canonical URL and optional `base` (same pattern as `docs/astro/astro.config.mjs`). */
+const _nodeSite = _nodeAtRoot
+    ? _nodeOrigin
+    : `${_nodeOrigin}${
+          NODE_DOCS_BASE_PATH.replace(/\/*$/, "/")
+      }`;
+const _nodeBase = _nodeAtRoot ? undefined : NODE_DOCS_BASE_PATH.replace(/\/*$/, "/");
+
 export default defineConfig({
+    site: _nodeSite,
+    ...(_nodeBase ? { base: _nodeBase } : {}),
     trailingSlash: "always",
     markdown: {
         rehypePlugins: [
@@ -97,8 +111,10 @@ export default defineConfig({
                 }),
                 starlightLinksValidator({
                     errorOnLocalLinks: false,
-                    // Generated HTML in `public/thirdparty/`, not a Starlight docs route.
-                    exclude: ["/thirdparty/**"],
+                    exclude: ({ link }) => {
+                        const p = (link.split("?")[0] ?? "").trim();
+                        return p.startsWith("/#") || p.startsWith("/thirdparty/");
+                    },
                 }),
                 starlightExpandAllSidebarGroups(),
             ],
