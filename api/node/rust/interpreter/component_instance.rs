@@ -350,37 +350,22 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn send_mouse_click(&self, x: f64, y: f64) {
-        let window = self.inner.window();
-        let position = i_slint_core::api::LogicalPosition::new(x as f32, y as f32);
-        let button = i_slint_core::items::PointerEventButton::Left;
-        use i_slint_core::platform::WindowEvent;
-        window.dispatch_event(WindowEvent::PointerMoved { position });
-        window.dispatch_event(WindowEvent::PointerPressed { position, button });
+    pub fn send_mouse_click(&self, _x: f64, _y: f64) {
         #[cfg(feature = "testing")]
-        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
-        window.dispatch_event(WindowEvent::PointerReleased { position, button });
+        i_slint_backend_testing::send_mouse_click(
+            _x as f32,
+            _y as f32,
+            &WindowInner::from_pub(self.inner.window()).window_adapter(),
+        );
     }
 
     #[napi]
-    pub fn send_keyboard_string_sequence(&self, sequence: String) {
-        use i_slint_core::platform::WindowEvent;
-        let window = self.inner.window();
-        for ch in sequence.chars() {
-            if ch.is_ascii_uppercase() {
-                window.dispatch_event(WindowEvent::KeyPressed {
-                    text: i_slint_core::input::key_codes::Key::Shift.into(),
-                });
-            }
-            let text = i_slint_core::SharedString::from(ch);
-            window.dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
-            window.dispatch_event(WindowEvent::KeyReleased { text });
-            if ch.is_ascii_uppercase() {
-                window.dispatch_event(WindowEvent::KeyReleased {
-                    text: i_slint_core::input::key_codes::Key::Shift.into(),
-                });
-            }
-        }
+    pub fn send_keyboard_string_sequence(&self, _sequence: String) {
+        #[cfg(feature = "testing")]
+        i_slint_backend_testing::send_keyboard_string_sequence(
+            &_sequence.into(),
+            &WindowInner::from_pub(self.inner.window()).window_adapter(),
+        );
     }
 
     #[napi]

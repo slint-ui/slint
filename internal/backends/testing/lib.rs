@@ -15,6 +15,7 @@ pub use testing_backend::get_mocked_time;
 #[cfg(feature = "internal")]
 pub use testing_backend::{
     TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time,
+    send_keyboard_string_sequence, send_mouse_click,
 };
 #[cfg(all(feature = "ffi", not(test)))]
 mod ffi;
