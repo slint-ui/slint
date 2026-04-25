@@ -46,7 +46,7 @@ pub enum CustomEvent {
     #[cfg(target_arch = "wasm32")]
     WakeEventLoopWorkaround,
     /// Slint internal: Invoke the
-    UserEvent(Box<dyn FnOnce() + Send>),
+    UserEvent(Box<dyn FnOnce(&ActiveEventLoop) + Send>),
     /// Emitted from quit_event_loop with the current event loop generation
     Exit(usize),
     #[cfg(enable_accesskit)]
@@ -518,7 +518,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintEvent) {
         match event.0 {
-            CustomEvent::UserEvent(user_callback) => user_callback(),
+            CustomEvent::UserEvent(user_callback) => user_callback(event_loop),
             CustomEvent::Exit(generation) => {
                 if self
                     .shared_backend_data

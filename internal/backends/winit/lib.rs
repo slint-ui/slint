@@ -658,6 +658,20 @@ impl Backend {
             custom_application_handler: None,
         }
     }
+
+    /// Returns a function that can be used to invoke a callback on the active winit event loop
+    pub fn get_invoke_with_active_event_loop_func(
+        &self,
+    ) -> Box<dyn Fn(Box<dyn FnOnce(&ActiveEventLoop) + Send>) -> Result<(), EventLoopError> + 'static>
+    {
+        let proxy = self.shared_data.event_loop_proxy.clone();
+        let callback = move |event: Box<dyn FnOnce(&ActiveEventLoop) + Send>| {
+            proxy
+                .send_event(SlintEvent(CustomEvent::UserEvent(event)))
+                .map_err(|_| EventLoopError::EventLoopTerminated)
+        };
+        Box::new(callback) as Box<_>
+    }
 }
 
 impl i_slint_core::platform::Platform for Backend {
@@ -764,6 +778,8 @@ impl i_slint_core::platform::Platform for Backend {
                     .send_event(SlintEvent(CustomEvent::WakeEventLoopWorkaround))
                     .map_err(|_| EventLoopError::EventLoopTerminated)?;
 
+                let event: Box<dyn for<'a> FnOnce(&'a ActiveEventLoop) + Send + 'static> =
+                    Box::new(move |_el: &ActiveEventLoop| (event)());
                 self.0
                     .send_event(SlintEvent(CustomEvent::UserEvent(event)))
                     .map_err(|_| EventLoopError::EventLoopTerminated)
