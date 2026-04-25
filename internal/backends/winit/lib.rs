@@ -662,9 +662,8 @@ impl Backend {
     /// Returns a function that can be used to invoke a callback on the active winit event loop
     pub fn get_invoke_with_active_event_loop_func(
         &self,
-    ) -> Box<
-        dyn Fn(Box<dyn FnOnce(&ActiveEventLoop) + Send>) -> Result<(), EventLoopError> + 'static,
-    > {
+    ) -> Box<dyn Fn(Box<dyn FnOnce(&ActiveEventLoop) + Send>) -> Result<(), EventLoopError> + 'static>
+    {
         let proxy = self.shared_data.event_loop_proxy.clone();
         let callback = move |event: Box<dyn FnOnce(&ActiveEventLoop) + Send>| {
             proxy
