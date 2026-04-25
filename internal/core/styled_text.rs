@@ -107,13 +107,14 @@ pub mod ffi {
     }
 }
 
-pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
-    _format_string: &str,
-    _args: &[S],
-) -> StyledText {
+pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText {
     #[cfg(feature = "std")]
     {
-        parse_interpolated_styled_text(_format_string, _args).unwrap_or_default()
+        let paragraph_slices = _args
+            .iter()
+            .map(|styled_text| styled_text.paragraphs.as_slice())
+            .collect::<alloc::vec::Vec<_>>();
+        parse_interpolated_styled_text(_format_string, &paragraph_slices).unwrap_or_default()
     }
     #[cfg(not(feature = "std"))]
     Default::default()
@@ -165,10 +166,13 @@ mod tests {
 
     #[test]
     fn parse_markdown_returns_default_on_runtime_parse_error() {
-        let multi_paragraph_argument = [
-            i_slint_common::styled_text::paragraph_from_plain_text("first".into()),
-            i_slint_common::styled_text::paragraph_from_plain_text("second".into()),
-        ];
+        let multi_paragraph_argument = StyledText {
+            paragraphs: [
+                i_slint_common::styled_text::paragraph_from_plain_text("first".into()),
+                i_slint_common::styled_text::paragraph_from_plain_text("second".into()),
+            ]
+            .into(),
+        };
 
         assert_eq!(
             parse_markdown(
