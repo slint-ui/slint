@@ -10,13 +10,10 @@ pub use search_api::*;
 mod internal_tests;
 #[cfg(feature = "internal")]
 pub use internal_tests::*;
-mod testing_backend;
+pub mod testing_backend;
 pub use testing_backend::get_mocked_time;
 #[cfg(feature = "internal")]
-pub use testing_backend::{
-    TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time,
-    send_keyboard_string_sequence, send_mouse_click,
-};
+pub use testing_backend::{TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time};
 #[cfg(all(feature = "ffi", not(test)))]
 mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]

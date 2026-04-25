@@ -352,20 +352,26 @@ impl JsComponentInstance {
     #[napi]
     pub fn send_mouse_click(&self, _x: f64, _y: f64) {
         #[cfg(feature = "testing")]
-        i_slint_backend_testing::send_mouse_click(
-            _x as f32,
-            _y as f32,
-            &WindowInner::from_pub(self.inner.window()).window_adapter(),
-        );
+        {
+            let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
+            i_slint_backend_testing::testing_backend::send_mouse_click(
+                _x as f32,
+                _y as f32,
+                &window_adapter,
+            );
+        }
     }
 
     #[napi]
     pub fn send_keyboard_string_sequence(&self, _sequence: String) {
         #[cfg(feature = "testing")]
-        i_slint_backend_testing::send_keyboard_string_sequence(
-            &_sequence.into(),
-            &WindowInner::from_pub(self.inner.window()).window_adapter(),
-        );
+        {
+            let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
+            i_slint_backend_testing::testing_backend::send_keyboard_string_sequence(
+                &_sequence.into(),
+                &window_adapter,
+            );
+        }
     }
 
     #[napi]
