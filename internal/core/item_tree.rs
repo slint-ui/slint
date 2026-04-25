@@ -1470,7 +1470,7 @@ mod tests {
     use crate::Property;
     use crate::api::LogicalPosition;
     use crate::api::Window;
-    use crate::items::WindowItem;
+    use crate::items::{Clip, Transform, WindowItem};
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
@@ -1482,7 +1482,9 @@ mod tests {
     const GEOMETRY_HEIGHT: f32 = 42.;
 
     #[derive(Default)]
-    struct Renderer {}
+    struct Renderer {
+        supports_transformations: bool,
+    }
 
     struct WindowAdapter {
         renderer: Renderer,
@@ -1491,9 +1493,13 @@ mod tests {
 
     impl WindowAdapter {
         fn new() -> Rc<Self> {
+            Self::new_with_transformations(false)
+        }
+
+        fn new_with_transformations(supports_transformations: bool) -> Rc<Self> {
             Rc::<Self>::new_cyclic(|w| Self {
                 window: Window::new(w.clone()),
-                renderer: Default::default(),
+                renderer: Renderer { supports_transformations },
             })
         }
     }
@@ -2505,6 +2511,188 @@ mod tests {
         )
     }
 
+    struct TransformTestItemTree {
+        item_tree: Vec<ItemTreeNode>,
+        geometries: Vec<LogicalRect>,
+        window_adapter: WindowAdapterRc,
+        root: WindowItem,
+        transform: Transform,
+        clip: Clip,
+        leaf: WindowItem,
+    }
+
+    impl ItemTree for TransformTestItemTree {
+        fn visit_children_item(
+            self: Pin<&Self>,
+            _index: isize,
+            _order: TraversalOrder,
+            _visitor: vtable::VRefMut<ItemVisitorVTable>,
+        ) -> VisitChildrenResult {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<VRef<'_, ItemVTable>> {
+            let this = self.get_ref();
+            match index {
+                0 => Pin::new(VRef::new(&this.root)),
+                1 => Pin::new(VRef::new(&this.transform)),
+                2 => Pin::new(VRef::new(&this.clip)),
+                3 => Pin::new(VRef::new(&this.leaf)),
+                _ => unimplemented!("Not needed for this test"),
+            }
+        }
+
+        fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
+            Slice::from_slice(&self.get_ref().item_tree)
+        }
+
+        fn parent_node(self: Pin<&Self>, _result: &mut ItemWeak) {}
+
+        fn embed_component(
+            self: Pin<&Self>,
+            _parent_component: &ItemTreeWeak,
+            _item_tree_index: u32,
+        ) -> bool {
+            false
+        }
+
+        fn layout_info(self: Pin<&Self>, _orientation: Orientation) -> LayoutInfo {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn subtree_index(self: Pin<&Self>) -> usize {
+            usize::MAX
+        }
+
+        fn get_subtree_range(self: Pin<&Self>, _subtree_index: u32) -> IndexRange {
+            (0..0).into()
+        }
+
+        fn get_subtree(
+            self: Pin<&Self>,
+            _subtree_index: u32,
+            _component_index: usize,
+            _result: &mut ItemTreeWeak,
+        ) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_role(self: Pin<&Self>, _index: u32) -> AccessibleRole {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _index: u32,
+            _what: AccessibleStringProperty,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _index: u32, _result: &mut SharedString) -> bool {
+            false
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            result: &mut Option<WindowAdapterRc>,
+        ) {
+            *result = Some(self.window_adapter.clone())
+        }
+
+        fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect {
+            self.geometries[index as usize]
+        }
+
+        fn accessibility_action(self: Pin<&Self>, _index: u32, _action: &AccessibilityAction) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(
+            self: Pin<&Self>,
+            _index: u32,
+        ) -> SupportedAccessibilityAction {
+            unimplemented!("Not needed for this test")
+        }
+    }
+
+    crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);
+
+    fn create_transform_test_items() -> VRc<ItemTreeVTable> {
+        let window_adapter = WindowAdapter::new_with_transformations(true);
+
+        let mut transform = Transform::default();
+        transform.transform_scale_x = Property::new(2.);
+        transform.transform_scale_y = Property::new(3.);
+        transform.transform_rotation = Property::new(0.);
+        transform.transform_origin = Property::new(LogicalPosition::new(0., 0.));
+
+        let mut clip = Clip::default();
+        clip.clip = Property::new(true);
+
+        VRc::into_dyn(VRc::new(TransformTestItemTree {
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 2,
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 3,
+                    parent_index: 1,
+                    item_array_index: 2,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 2,
+                    item_array_index: 3,
+                },
+            ],
+            geometries: vec![
+                LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
+                LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
+                LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
+                LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
+            ],
+            window_adapter,
+            root: WindowItem::default(),
+            transform,
+            clip,
+            leaf: WindowItem::default(),
+        }))
+    }
+
+    fn assert_point_approx_eq(actual: LogicalPoint, expected: LogicalPoint) {
+        const EPSILON: f32 = 0.0001;
+        assert!(
+            (actual.x - expected.x).abs() < EPSILON,
+            "actual x {}, expected x {}",
+            actual.x,
+            expected.x
+        );
+        assert!(
+            (actual.y - expected.y).abs() < EPSILON,
+            "actual y {}, expected y {}",
+            actual.y,
+            expected.y
+        );
+    }
+
     #[test]
     fn test_map_to_anchestor() {
         let item_tree = create_subsubtree_items().1;
@@ -2545,6 +2733,36 @@ mod tests {
         // Position of position of first_child  + first_child_of_first_child
         assert_eq!(point.x, GEOMETRY_POSITION_X + GEOMETRY_POSITION_X - 5.);
         assert_eq!(point.y, GEOMETRY_POSITION_Y + GEOMETRY_POSITION_Y + 7.);
+    }
+
+    #[test]
+    fn test_map_to_window_through_transform_roundtrip() {
+        let item_tree = create_transform_test_items();
+        let root = ItemRc::new_root(item_tree);
+        let transform = root.first_child().unwrap();
+        let clip = transform.first_child().unwrap();
+        let leaf = clip.first_child().unwrap();
+
+        let local_point = Point2D::new(4., 5.);
+        let window_point = leaf.map_to_window(local_point);
+        assert_point_approx_eq(window_point, Point2D::new(28., 53.));
+        assert_point_approx_eq(leaf.map_from_window(window_point), local_point);
+    }
+
+    #[test]
+    fn test_visibility_with_clip_under_transform() {
+        let item_tree = create_transform_test_items();
+        let root = ItemRc::new_root(item_tree);
+        let transform = root.first_child().unwrap();
+        let clip = transform.first_child().unwrap();
+        let leaf = clip.first_child().unwrap();
+
+        assert!(leaf.is_visible());
+
+        let hidden_point = leaf.map_to_window(Point2D::new(25., 25.));
+        let (clip_rect, leaf_geometry) = leaf.absolute_clip_rect_and_geometry();
+        assert!(clip_rect.intersection(&leaf_geometry).is_some());
+        assert!(!clip_rect.contains(hidden_point));
     }
 
     #[test]
@@ -2802,7 +3020,7 @@ mod tests {
         }
 
         fn supports_transformations(&self) -> bool {
-            false
+            self.supports_transformations
         }
 
         fn take_snapshot(
