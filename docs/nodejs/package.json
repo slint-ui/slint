@@ -2,11 +2,14 @@
     "name": "slint-nodejs-docs",
     "type": "module",
     "version": "1.17.0",
+    "engines": {
+        "node": ">=24"
+    },
     "scripts": {
-        "thirdparty": "node ./scripts/generate-thirdparty.mjs",
+        "thirdparty": "node --experimental-strip-types ./scripts/generate-thirdparty.ts",
         "dev": "astro dev",
         "start": "astro dev",
-        "build": "node ./scripts/generate-thirdparty.mjs && astro check && astro build",
+        "build": "node --experimental-strip-types ./scripts/generate-thirdparty.ts && astro check && astro build",
         "preview": "astro preview",
         "astro": "astro",
         "format": "biome format",
