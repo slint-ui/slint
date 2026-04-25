@@ -22,7 +22,7 @@ impl StyledTextFromMarkdownError {
         Self {
             message: errors
                 .iter()
-                .map(core::string::ToString::to_string)
+                .map(alloc::string::ToString::to_string)
                 .collect::<alloc::vec::Vec<_>>()
                 .join("\n"),
         }
@@ -119,8 +119,13 @@ pub mod ffi {
 pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText {
     #[cfg(feature = "std")]
     {
+        let paragraph_slices = _args
+            .iter()
+            .map(|styled_text| styled_text.paragraphs.as_slice())
+            .collect::<alloc::vec::Vec<_>>();
+
         let (paragraphs, errors) =
-            i_slint_common::styled_text::parse_interpolated(_format_string, _args);
+            i_slint_common::styled_text::parse_interpolated(_format_string, &paragraph_slices);
 
         for e in &errors {
             crate::debug_log!("@markdown: {e}");
