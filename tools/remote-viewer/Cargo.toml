@@ -29,13 +29,8 @@ tokio-tungstenite = { version = "0.28.0", features = ["rustls"] }
 tokio = { version = "1.48.0", features = ["rt", "rt-multi-thread", "net", "sync", "macros"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
 anyhow = "1.0.100"
-postcard = { version = "1.1.3", features = [ "alloc" ] }
-
-[target.'cfg(not(any(target_arch = "wasm32", target_vendor = "apple")))'.dependencies]
+postcard = { version = "1.1.3", features = ["alloc"] }
 mdns-sd = { version = "0.17.0", default-features = false, features = ["async"] }
-
-[target.'cfg(target_vendor = "apple")'.dependencies]
-zeroconf-tokio = { version = "0.3.0" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getifs = "0.4.0"

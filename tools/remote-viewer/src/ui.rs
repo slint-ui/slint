@@ -11,8 +11,6 @@ use mdns_sd::ServiceDaemon;
 use slint::{ComponentHandle as _, SharedString};
 use slint_interpreter::ComponentInstance;
 use tokio::sync;
-#[cfg(target_vendor = "apple")]
-use zeroconf_tokio::txt_record::TTxtRecord as _;
 
 use crate::{
     compilation,
@@ -253,9 +251,13 @@ impl<'p> ResourcePreloader for FileCachePreloader<'p> {
         }
 
         futures_util::future::join_all(paths.map(|path| {
-            tracing::debug!("Preloading file {path}");
             let push = push.clone();
             async move {
+                if path.starts_with("builtin:/") {
+                    tracing::debug!("Skipping builtin resource {path}");
+                    return;
+                }
+                tracing::debug!("Preloading file {path}");
                 match self.connection.request_file(path.to_owned()).await {
                     Ok(file) => {
                         tracing::debug!("Got file {path} with {} bytes", file.contents.len());
