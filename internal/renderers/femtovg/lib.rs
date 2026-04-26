@@ -74,6 +74,18 @@ pub trait GraphicsBackend {
         width: NonZeroU32,
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Optionally override screenshot capture. If `Some` is returned, it takes precedence
+    /// over the default `canvas.screenshot()` path. The `render` closure triggers a full
+    /// render pass, which the implementation may redirect to an offscreen texture.
+    fn take_snapshot_pixels(
+        &self,
+        _width: u32,
+        _height: u32,
+        _render: &dyn Fn() -> Result<(), PlatformError>,
+    ) -> Option<Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError>> {
+        None
+    }
 }
 
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
@@ -440,6 +452,18 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
 
     /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
+        let size = self
+            .maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .map(|a| a.size())
+            .unwrap_or_default();
+        if let Some(result) =
+            self.graphics_backend.take_snapshot_pixels(size.width, size.height, &|| self.render())
+        {
+            return result;
+        }
         self.graphics_backend.with_graphics_api(|_| {
             let Some(canvas) = self.canvas.borrow().as_ref().cloned() else {
                 return Err("FemtoVG renderer cannot take screenshot without a window".into());
