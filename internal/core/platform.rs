@@ -273,6 +273,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             .unwrap();
         let ctx = instance.get().unwrap();
         ctx.platform().bind_context(ctx.downgrade(), crate::InternalToken);
+        crate::context::fire_platform_init_hooks();
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())
