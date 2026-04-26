@@ -25,9 +25,9 @@
 //! - In `about_to_wait`, call `receiver.drain()` to run pending Slint work.
 
 use slint::platform::{
-    software_renderer::{MinimalSoftwareWindow, RepaintBufferType, SoftwareRenderer},
     ChannelEventLoopProxy, ChannelEventLoopReceiver, EventLoopProxy, Platform, WindowAdapter,
     WindowEvent,
+    software_renderer::{MinimalSoftwareWindow, RepaintBufferType, SoftwareRenderer},
 };
 use slint::{LogicalPosition, PhysicalSize, WindowSize};
 use softbuffer::Surface;
@@ -126,7 +126,8 @@ impl ApplicationHandler<()> for App {
         let size = window.inner_size();
         let scale_factor = window.scale_factor() as f32;
         self.dispatch(WindowEvent::ScaleFactorChanged { scale_factor });
-        self.slint_window.set_size(WindowSize::Physical(PhysicalSize::new(size.width, size.height)));
+        self.slint_window
+            .set_size(WindowSize::Physical(PhysicalSize::new(size.width, size.height)));
         self.dispatch(WindowEvent::WindowActiveChanged(true));
 
         self.surface = Some(surface);
@@ -150,10 +151,8 @@ impl ApplicationHandler<()> for App {
 
         // duration_until_next_timer_update() does not account for active animations;
         // check has_active_animations() separately and keep the loop ticking if needed.
-        let has_animations = self
-            .slint_app
-            .as_ref()
-            .is_some_and(|app| app.window().has_active_animations());
+        let has_animations =
+            self.slint_app.as_ref().is_some_and(|app| app.window().has_active_animations());
         let next_timer = slint::platform::duration_until_next_timer_update();
         event_loop.set_control_flow(match (has_animations, next_timer) {
             (_, Some(d)) => winit::event_loop::ControlFlow::WaitUntil(
@@ -189,12 +188,9 @@ impl ApplicationHandler<()> for App {
                 self.render();
             }
             WinitWindowEvent::CursorMoved { position, .. } => {
-                let scale =
-                    self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0) as f32;
-                let pos = LogicalPosition::new(
-                    position.x as f32 / scale,
-                    position.y as f32 / scale,
-                );
+                let scale = self.window.as_ref().map(|w| w.scale_factor()).unwrap_or(1.0) as f32;
+                let pos =
+                    LogicalPosition::new(position.x as f32 / scale, position.y as f32 / scale);
                 self.cursor_pos = Some(pos);
                 self.dispatch(WindowEvent::PointerMoved { position: pos });
             }
