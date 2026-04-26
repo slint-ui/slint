@@ -3584,6 +3584,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
     use llr::Expression;
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
+        Expression::IncludeString(path) => {
+            let content = std::fs::read_to_string(path.as_str())
+                .unwrap_or_else(|e| panic!("Cannot read file '{}': {}", path, e));
+            shared_string_literal(&content)
+        }
         Expression::NumberLiteral(num) => {
             if !num.is_finite() {
                 // just print something

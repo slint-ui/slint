@@ -76,6 +76,7 @@ pub fn lower_expression(
         }
         tree_Expression::Uncompiled(_) => panic!(),
         tree_Expression::StringLiteral(s) => llr_Expression::StringLiteral(s.clone()),
+        tree_Expression::IncludeString(p) => llr_Expression::IncludeString(p.clone()),
         tree_Expression::NumberLiteral(n, unit) => {
             llr_Expression::NumberLiteral(unit.normalize(*n))
         }
