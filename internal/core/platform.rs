@@ -201,6 +201,11 @@ impl std::convert::From<crate::animations::Instant> for time::Instant {
     }
 }
 
+#[cfg(feature = "std")]
+pub use crate::event_loop_proxy_channel::{
+    ChannelEventLoopProxy, ChannelEventLoopReceiver, channel_event_loop_proxy,
+};
+
 #[cfg(not(target_os = "android"))]
 static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
 

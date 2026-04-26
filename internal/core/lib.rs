@@ -37,6 +37,8 @@ pub mod component_factory;
 pub mod context;
 pub mod date_time;
 pub mod debug_log;
+#[cfg(feature = "std")]
+pub mod event_loop_proxy_channel;
 pub mod future;
 pub mod graphics;
 pub mod input;
