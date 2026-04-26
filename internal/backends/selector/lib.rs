@@ -157,30 +157,49 @@ pub fn with_platform<R>(
 /// Run the callback with the [`SlintContext`].
 /// Create the backend if it does not exist yet
 pub fn with_global_context<R>(f: impl FnOnce(&SlintContext) -> R) -> Result<R, PlatformError> {
-    let mut platform_created = false;
-    let result = i_slint_core::with_global_context(
+    i_slint_core::with_global_context(
         || {
-            let backend = create_backend();
-            platform_created = backend.is_ok();
-            backend
+            let backend = create_backend()?;
+
+            // Register once-only platform-init hooks now that we know the backend
+            // succeeded. Guarded by thread-local flags so repeated calls to
+            // with_global_context don't enqueue duplicates on the same thread.
+            #[cfg(feature = "system-testing")]
+            {
+                i_slint_core::thread_local! {
+                    static SYSTEM_TESTING_HOOK_REGISTERED: core::cell::Cell<bool> =
+                        const { core::cell::Cell::new(false) };
+                }
+                SYSTEM_TESTING_HOOK_REGISTERED.with(|registered| {
+                    if !registered.replace(true) {
+                        i_slint_core::context::add_platform_init_hook(Box::new(|| {
+                            i_slint_backend_testing::systest::init();
+                        }));
+                    }
+                });
+            }
+
+            #[cfg(feature = "mcp")]
+            {
+                i_slint_core::thread_local! {
+                    static MCP_HOOK_REGISTERED: core::cell::Cell<bool> =
+                        const { core::cell::Cell::new(false) };
+                }
+                MCP_HOOK_REGISTERED.with(|registered| {
+                    if !registered.replace(true) {
+                        i_slint_core::context::add_platform_init_hook(Box::new(|| {
+                            if let Err(e) = i_slint_backend_testing::mcp_server::init() {
+                                i_slint_core::debug_log!("MCP server init failed: {e:?}");
+                            }
+                        }));
+                    }
+                });
+            }
+
+            Ok(backend)
         },
         f,
-    );
-
-    #[cfg(feature = "system-testing")]
-    if result.is_ok() && platform_created {
-        i_slint_backend_testing::systest::init();
-    }
-
-    #[cfg(feature = "mcp")]
-    if result.is_ok()
-        && platform_created
-        && let Err(e) = i_slint_backend_testing::mcp_server::init()
-    {
-        i_slint_core::debug_log!("MCP server init failed: {e:?}");
-    }
-
-    result
+    )
 }
 
 pub mod api;

@@ -405,27 +405,6 @@ macro_rules! init_translations {
 pub mod platform {
     pub use i_slint_core::platform::*;
 
-    /// Set the Slint platform abstraction.
-    ///
-    /// If the platform abstraction was already set this will return `Err`.
-    ///
-    /// When the `mcp` feature is enabled, this function also initializes the embedded MCP server
-    /// (a no-op unless the `SLINT_MCP_PORT` environment variable is set at runtime).
-    ///
-    /// This shadows `i_slint_core::platform::set_platform` to add the MCP init step.
-    pub fn set_platform(
-        platform: alloc::boxed::Box<dyn Platform + 'static>,
-    ) -> Result<(), SetPlatformError> {
-        i_slint_core::platform::set_platform(platform)?;
-
-        #[cfg(feature = "mcp")]
-        if let Err(e) = i_slint_backend_testing::mcp_server::init() {
-            i_slint_core::debug_log!("MCP server init failed: {e:?}");
-        }
-
-        Ok(())
-    }
-
     /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
@@ -464,6 +443,34 @@ pub mod platform {
     /// It is only enabled when the `renderer-software` Slint feature is enabled.
     pub mod software_renderer {
         pub use i_slint_renderer_software::*;
+    }
+}
+
+/// Support for the embedded MCP (Model Context Protocol) server.
+#[cfg(feature = "mcp")]
+pub mod mcp {
+    /// Register the MCP server to auto-start after [`platform::set_platform()`] is called.
+    ///
+    /// Selector-backed applications (the default) do not need to call this — the selector
+    /// registers the hook automatically. This is only needed when using a custom platform
+    /// via [`platform::set_platform()`] directly.
+    ///
+    /// Must be called **before** `set_platform`. Calling it afterwards has no effect.
+    /// Calling it more than once before platform initialization is safe.
+    pub fn register() {
+        thread_local! {
+            static REGISTERED: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
+        }
+        REGISTERED.with(|registered| {
+            if registered.replace(true) {
+                return;
+            }
+            i_slint_core::context::add_platform_init_hook(Box::new(|| {
+                if let Err(e) = i_slint_backend_testing::mcp_server::init() {
+                    i_slint_core::debug_log!("MCP server init failed: {e:?}");
+                }
+            }));
+        });
     }
 }
 
