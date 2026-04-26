@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppUi inherits Window {
+    title: "Custom Event Loop — ChannelEventLoopProxy";
+    preferred-width: 640px;
+    preferred-height: 480px;
+
+    in-out property <int> count: 0;
+
+    // Continuously animating property driven by animation-tick().
+    // Requires update_timers_and_animations() to be called each frame.
+    property <float> hue: mod(animation-tick() / 3000ms, 1.0);
+
+    VerticalBox {
+        alignment: center;
+        spacing: 16px;
+        padding: 32px;
+
+        Text {
+            text: "ChannelEventLoopProxy Demo";
+            font-size: 22px;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "The colour below animates via timer wakeups delivered\nthrough the proxy to the custom winit event loop.";
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            width: 120px;
+            height: 120px;
+            border-radius: 12px;
+            background: Colors.blue.mix(Colors.red, hue);
+        }
+
+        Text {
+            text: "Button clicks: " + count;
+            font-size: 16px;
+            horizontal-alignment: center;
+        }
+
+        Button {
+            text: "Click me";
+            clicked => { count += 1; }
+        }
+    }
+}

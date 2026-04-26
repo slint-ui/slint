@@ -1,0 +1,19 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "custom_event_loop"
+version = "1.17.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+build = "build.rs"
+license = "MIT"
+publish = false
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["renderer-software", "std", "compat-1-2"] }
+softbuffer = { workspace = true, features = ["x11", "x11-dlopen", "wayland", "wayland-dlopen"] }
+winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

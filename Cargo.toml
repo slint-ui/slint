@@ -20,6 +20,7 @@ members = [
   'examples/opengl_underlay',
   'examples/opengl_texture',
   'examples/wgpu_texture',
+  'examples/custom_event_loop',
   'examples/ffmpeg',
   'examples/gstreamer-player',
   'examples/plotter',
