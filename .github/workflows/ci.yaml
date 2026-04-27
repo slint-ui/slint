@@ -422,8 +422,6 @@ jobs:
 #                  default: true
 #                  buildtargets: esp32
 #                  ldproxy: false
-#                  # version pinned until new version of esp-hal with https://github.com/esp-rs/esp-hal/pull/2615/
-#                  version: 1.82.0
 #            - uses: Swatinem/rust-cache@v2
 #            - name: S3Box
 #              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
@@ -625,8 +623,6 @@ jobs:
                   default: true
                   buildtargets: esp32
                   ldproxy: false
-                  # Pin due to https://github.com/esp-rs/rust/issues/276
-                  version: "1.94.0.0"
             - uses: Swatinem/rust-cache@v2
             - name: Build and Test Printer demo
               shell: bash
