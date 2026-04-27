@@ -330,6 +330,11 @@ pub(super) fn solve_flexbox_layout(
     let fld = flexbox_layout_data(layout, ctx, CellsVConstraint::ContainerWidth);
     let width = layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
     let height = layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
+    // Set the cross-axis constraint thread-local to the container width so
+    // that height-for-width items (Text, Image) inside components use it
+    // instead of reading their width property (which would recurse).
+    let width_for_constraint =
+        layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
     let data = make_struct(
         BuiltinPrivateStruct::FlexboxLayoutData,
         [
@@ -373,7 +378,7 @@ pub(super) fn solve_flexbox_layout(
             ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
         ],
     );
-    match fld.compute_cells {
+    let inner = match fld.compute_cells {
         Some((cells_h_var, cells_v_var, elements)) => llr_Expression::WithFlexboxLayoutItemInfo {
             cells_h_variable: cells_h_var,
             cells_v_variable: cells_v_var,
@@ -396,7 +401,36 @@ pub(super) fn solve_flexbox_layout(
             arguments: vec![data, empty_int32_slice()],
             return_ty: Type::LayoutCache,
         },
-    }
+    };
+    llr_Expression::CodeBlock(
+        [
+            llr_Expression::StoreLocalVariable {
+                name: "old_constraint".into(),
+                value: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                    function: "set_cross_axis_constraint".into(),
+                    arguments: vec![width_for_constraint],
+                    return_ty: Type::Float32,
+                }),
+            },
+            llr_Expression::StoreLocalVariable {
+                name: "solve_result".into(),
+                value: Box::new(inner),
+            },
+            llr_Expression::ExtraBuiltinFunctionCall {
+                function: "set_cross_axis_constraint".into(),
+                arguments: vec![llr_Expression::ReadLocalVariable {
+                    name: "old_constraint".into(),
+                    ty: Type::Float32,
+                }],
+                return_ty: Type::Float32,
+            },
+            llr_Expression::ReadLocalVariable {
+                name: "solve_result".into(),
+                ty: Type::LayoutCache,
+            },
+        ]
+        .into(),
+    )
 }
 
 pub(super) fn compute_flexbox_layout_info(

@@ -380,8 +380,17 @@ pub(crate) fn compute_flexbox_layout_info(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
 
+    // Read the cross-axis constraint from the thread-local if computing vertical info.
+    // This was set by the parent via get_layout_info_with_constraint at the component boundary.
+    let constraint_width = if orientation == Orientation::Vertical {
+        let c = core_layout::get_cross_axis_constraint();
+        if c >= 0. { Some(c) } else { None }
+    } else {
+        None
+    };
+
     let (cells_h, cells_v, _repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, None);
+        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, constraint_width);
 
     // Get the direction from the property binding
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
@@ -1064,10 +1073,20 @@ fn get_layout_info_with_constraint(
     orientation: Orientation,
     cross_axis_constraint: f32,
 ) -> core_layout::LayoutInfo {
-    let elem = elem.borrow();
-    if let Some(nr) = elem.layout_info_prop(orientation) {
-        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+    let elem_borrowed = elem.borrow();
+    if let Some(nr) = elem_borrowed.layout_info_prop(orientation) {
+        let nr = nr.clone();
+        drop(elem_borrowed);
+        // Save/restore the thread-local constraint at the component boundary.
+        // This makes the constraint available to compute_box_layout_info when
+        // it evaluates this component's internal layout.
+        let old = core_layout::set_cross_axis_constraint(cross_axis_constraint);
+        let result =
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap();
+        core_layout::set_cross_axis_constraint(old);
+        result
     } else {
+        let elem = elem_borrowed;
         let item = &component
             .description
             .items

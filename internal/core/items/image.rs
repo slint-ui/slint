@@ -63,7 +63,8 @@ impl Item for ImageItem {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         cross_axis_constraint
                     } else {
-                        self.width().get()
+                        let tl = crate::layout::get_cross_axis_constraint();
+                        if tl >= 0 as Coord { tl } else { self.width().get() }
                     };
                     natural_size.height as Coord * w / natural_size.width as Coord
                 }
@@ -231,7 +232,8 @@ impl Item for ClippedImage {
                         let w = if cross_axis_constraint >= 0 as Coord {
                             cross_axis_constraint
                         } else {
-                            self.width().get()
+                            let tl = crate::layout::get_cross_axis_constraint();
+                            if tl >= 0 as Coord { tl } else { self.width().get() }
                         };
                         self.source_clip_height() as Coord * w / source_clip_width as Coord
                     }
