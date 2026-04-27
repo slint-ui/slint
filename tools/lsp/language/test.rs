@@ -372,4 +372,15 @@ mod missing_imports {
             "main.slint should be scheduled for recompilation when dep.slint is created outside the editor"
         );
     }
+
+    #[test]
+    fn watch_set_tracks_missing_imports() {
+        let (ctx, dir, main_url) = load_document_with_missing_import();
+
+        let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
+        let watch_urls = ctx.document_cache.all_urls_to_watch();
+
+        assert!(watch_urls.contains(&main_url), "main.slint should stay in the watch set");
+        assert!(watch_urls.contains(&dep_url), "missing imports should stay in the watch set");
+    }
 }

@@ -116,8 +116,10 @@ tikv-jemallocator = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
-crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
+crossbeam-channel = "0.5"   # must match the version used by lsp-server
 lsp-server = "0.7"
+# TODO: This is only needed for the editor - remove it from the LSP once that has been extracted into a separate crate.
+notify = { workspace = true }
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
 

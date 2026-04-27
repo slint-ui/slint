@@ -16,6 +16,7 @@ use lsp_types::{MessageType, Url, notification::Notification};
 
 use crate::{
     common::{self, LspToPreview, Result, document_cache::OpenImportCallback},
+    file_watcher::{FileWatcher, WatchEvent},
     language, preview,
     preview::connector::EmbeddedLspToPreview,
 };
@@ -220,6 +221,7 @@ async fn lsp_main(
     use crate::common::document_cache::CompilerConfiguration;
 
     let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
+    let (mut file_watcher, mut file_watcher_rx) = FileWatcher::start()?;
 
     // Wrap to_preview in Rc for sharing with the import callback and Context
     let to_preview: Rc<dyn LspToPreview> = Rc::new(to_preview);
@@ -271,8 +273,10 @@ async fn lsp_main(
     // callback for all transitive dependencies, sending their contents to the preview.
     let full_path = std::fs::canonicalize(&cli.file)
         .map_err(|err| format!("Failed to determine full path for {}: {err}", cli.file))?;
+    let root_path = full_path.clone();
     let url = Url::from_file_path(full_path)
         .map_err(|_| format!("Failed to convert {} to URL!", cli.file))?;
+    file_watcher.update_watched_paths(std::iter::once(root_path.clone()))?;
     language::show_preview(
         i_slint_preview_protocol::PreviewComponent { url: url.clone(), component: cli.component },
         &mut ctx,
@@ -283,12 +287,21 @@ async fn lsp_main(
     language::reload_document(&mut ctx, url)
         .await
         .map_err(|err| format!("Failed to load file: {}: {err}", cli.file))?;
+    sync_file_watcher(&mut file_watcher, &ctx, &root_path)?;
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
     loop {
         let recompile_idle_timeout =
             if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
         tokio::select! {
+            watcher_event = file_watcher_rx.recv() => {
+                match watcher_event {
+                    Some(WatchEvent { url, typ }) => {
+                        language::trigger_file_watcher(&mut ctx, url, typ).await?;
+                    }
+                    None => break Err("File watcher channel closed".into()),
+                }
+            }
             msg = from_preview_rx.recv() => {
                 match msg {
                     Some(msg) => handle_preview_message(msg, &ctx),
@@ -307,9 +320,27 @@ async fn lsp_main(
                         tracing::error!("Failed document reload: {err}");
                     }
                 }
+                sync_file_watcher(&mut file_watcher, &ctx, &root_path)?;
             }
         }
     }
+}
+
+fn sync_file_watcher(
+    watcher: &mut FileWatcher,
+    ctx: &language::Context,
+    root_path: &std::path::Path,
+) -> Result<()> {
+    watcher.update_watched_paths(
+        std::iter::once(root_path.to_path_buf()).chain(
+            ctx.document_cache
+                .all_urls_to_watch()
+                .into_iter()
+                // filter out builtins
+                .filter(|url| url.scheme() == "file")
+                .filter_map(|url| common::uri_to_file(&url)),
+        ),
+    )
 }
 
 fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
