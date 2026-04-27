@@ -29,8 +29,6 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
     pub(crate) gettext_bindtextdomain_domain: core::cell::RefCell<Option<crate::SharedString>>,
-    #[cfg(feature = "std")]
-    pub(crate) formatter: core::cell::RefCell<Option<icu_decimal::DecimalFormatter>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
@@ -63,8 +61,6 @@ impl SlintContext {
             translations_bundle_decimal_separators: Default::default(),
             #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
             gettext_bindtextdomain_domain: Default::default(),
-            #[cfg(feature = "std")]
-            formatter: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: Box::pin(Property::new_named(
                 None,

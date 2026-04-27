@@ -545,11 +545,6 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
-            #[cfg(feature = "std")]
-            if let Some(locale) = locale_from_string(language) {
-                *ctx.0.formatter.borrow_mut() =
-                    DecimalFormatter::try_new(locale.into(), Default::default()).ok();
-            }
             update_locale_decimal_separator();
             Ok(())
         } else if language.is_empty() || language == "en" {

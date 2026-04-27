@@ -329,67 +329,35 @@ where
 }
 
 /// Convert a f64 to a SharedString
-pub fn shared_string_from_number(mut n: f64) -> SharedString {
+pub fn shared_string_from_number(n: f64) -> SharedString {
     // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let slint_context = ctx.get().unwrap();
-        #[cfg(feature = "std")]
+        let result =
+            if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
+
+        if let Some(c) = ctx.get().unwrap().0.locale_decimal_separator.as_ref().get()
+            && c != '.'
         {
-            if n.is_infinite() {
-                if n.is_sign_positive() {
-                    return "inf".to_shared_string();
-                } else {
-                    return "-inf".to_shared_string();
-                }
-            } else if n.is_nan() {
-                return "NaN".to_shared_string();
-            } else if n == 0. {
-                // TODO: write test for it
-                return "0".to_shared_string();
-            }
-            if let Some(formatter) = &*slint_context.0.formatter.borrow() {
-                use icu_decimal::input::Decimal;
-
-                // to_string() formats by default by 8 digits
-                // 3.14159345345345345 -> 3.1415935 // rounded
-                // 39034845.14159 -> 39034844 -> TODO: this is not correct!
-                // 39034846745.1415927556456456 -> 39034847000
-
-                // TEST: small integers must have no decimals
-                // TEST: 0.00000000000000000001
-
-                const NUMBER_DIGITS: i32 = 8;
-                let rounded = n.round();
-                let remaining_decimals =
-                    if rounded == n { 0 } else { NUMBER_DIGITS - n.log10().ceil() as i32 };
-                if remaining_decimals > 0 {
-                    n = n * 10.0_f64.powi(remaining_decimals)
-                }
-
-                let rounded_abs = rounded.abs();
-                let mut decimal = if rounded_abs < i32::MAX as f64 {
-                    Decimal::from(rounded as i32)
-                } else if rounded_abs < i64::MAX as f64 {
-                    Decimal::from(rounded as i64)
-                } else if rounded_abs < i128::MAX as f64 {
-                    Decimal::from(rounded as i128)
-                } else {
-                    Decimal::from(0) // TODO
-                };
-                decimal.multiply_pow10(-remaining_decimals as i16);
-
-                return formatter.format(&decimal).to_shared_string();
-            }
+            result.replacen(".", &c.to_string(), 1).to_shared_string()
+        } else {
+            result
         }
-
-        // Fallback
-        if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) }
     })
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
 pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
-    crate::format!("{number:.digits$}", number = n, digits = digits)
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let result = crate::format!("{number:.digits$}", number = n, digits = digits);
+
+        if let Some(c) = ctx.get().unwrap().0.locale_decimal_separator.as_ref().get()
+            && c != '.'
+        {
+            result.replacen(".", &c.to_string(), 1).to_shared_string()
+        } else {
+            result
+        }
+    })
 }
 
 /// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision()
