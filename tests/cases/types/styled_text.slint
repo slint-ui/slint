@@ -97,6 +97,11 @@ assert_eq!(instance.get_w5(), 65.0);
 assert!(instance.get_test());
 
 assert_eq!(instance.get_default_struct().text, StyledText::default());
+
+// s11 uses an invalid interpolated color — check that it logged a debug_log error
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+let has_color_error = logs.iter().any(|l| l.contains("Invalid color value") && l.contains("not-a-color"));
+assert!(has_color_error, "Expected debug_log about invalid color, got: {logs:?}");
 ```
 ```cpp
 auto handle = TestCase::create();
