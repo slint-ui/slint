@@ -1,0 +1,28 @@
+# cargo-about output (requires `cargo install cargo-about` in CI)
+public/thirdparty/
+
+# starlight-typedoc output (requires `pnpm -C api/node run build` first)
+src/content/docs/api/
+
+# build output
+dist/
+# CI preview repack layout for Workers (see build_docs workflow)
+cf-assets/
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
