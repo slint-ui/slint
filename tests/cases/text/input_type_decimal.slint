@@ -9,7 +9,7 @@ export component TestCase inherits Window {
     }
     ti-loc := TextInput {
         y: 50phx;
-        input-type: decimal-localized;
+        input-type: decimal;
     }
 
     out property <bool> input_focused: ti.has_focus;
@@ -87,7 +87,7 @@ for (seq, expected) in [("1", "1"), (".", "1."), ("5", "1.5")] {
 ```
 
 ```rust
-// Test decimal-localized with German locale
+// Test decimal with German locale
 let instance = TestCase::new().unwrap();
 slint_testing::set_locale(&instance, "de-DE");
 slint_testing::send_mouse_click(&instance, 5., 55.);
