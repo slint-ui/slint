@@ -74,6 +74,20 @@ pub trait GraphicsBackend {
         width: NonZeroU32,
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Implement screenshot capture for this backend. The `canvas` is the FemtoVG canvas
+    /// (available for GL backends to call `canvas.screenshot()`). The `render` closure triggers
+    /// a full render pass, which WGPU-style implementations may redirect to an offscreen texture.
+    /// Return `None` if this backend does not support `take_snapshot`.
+    fn take_snapshot_pixels(
+        &self,
+        _canvas: Option<CanvasRc<Self::Renderer>>,
+        _width: u32,
+        _height: u32,
+        _render: &dyn Fn() -> Result<(), PlatformError>,
+    ) -> Option<Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError>> {
+        None
+    }
 }
 
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
@@ -438,24 +452,19 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         Ok(())
     }
 
-    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
+    /// Returns an image buffer of what was rendered last.
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
-        self.graphics_backend.with_graphics_api(|_| {
-            let Some(canvas) = self.canvas.borrow().as_ref().cloned() else {
-                return Err("FemtoVG renderer cannot take screenshot without a window".into());
-            };
-            let screenshot = canvas
-                .borrow_mut()
-                .screenshot()
-                .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
-
-            use rgb::ComponentBytes;
-            Ok(SharedPixelBuffer::clone_from_slice(
-                screenshot.buf().as_bytes(),
-                screenshot.width() as u32,
-                screenshot.height() as u32,
-            ))
-        })?
+        let size = self
+            .maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .map(|a| a.size())
+            .unwrap_or_default();
+        let canvas = self.canvas.borrow().as_ref().cloned();
+        self.graphics_backend
+            .take_snapshot_pixels(canvas, size.width, size.height, &|| self.render())
+            .unwrap_or_else(|| Err("take_snapshot is not supported by this FemtoVG backend".into()))
     }
 
     fn supports_transformations(&self) -> bool {
