@@ -1093,7 +1093,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.key_event.text.as_str(), window_adapter) {
+                if !self.accept_text_input(event.key_event.text.as_str()) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1143,7 +1143,7 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.key_event.text, window_adapter) {
+                if !self.accept_text_input(&event.key_event.text) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -2240,11 +2240,7 @@ impl TextInput {
         window_adapter.renderer().font_metrics(font_request)
     }
 
-    fn accept_text_input(
-        self: Pin<&Self>,
-        text_to_insert: &str,
-        window_adapter: &Rc<dyn WindowAdapter>,
-    ) -> bool {
+    fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
         let input_type = self.input_type();
         if input_type == InputType::Number {
             return text_to_insert.chars().all(|ch| ch.is_ascii_digit());
