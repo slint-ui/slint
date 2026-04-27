@@ -243,16 +243,15 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
-            match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+            match eval_expression(from, local_context).try_cast(to.clone()) {
+                Ok(value) => value,
+                Err(value) => {
+                    let actual_ty = value.value_type();
+                    eprintln!(
+                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
+                    );
+                    value
                 }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {

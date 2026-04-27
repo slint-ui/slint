@@ -154,6 +154,22 @@ impl Value {
             _ => ValueType::Other,
         }
     }
+
+    /// Try to convert the type to `to`, or return self unmodified as an error.
+    pub fn try_cast(self, to: LangType) -> Result<Self, Self> {
+        Ok(match (self, to) {
+            (Value::Number(n), LangType::Int32) => Value::Number(n.trunc()),
+            (Value::Number(n), LangType::String) => {
+                Value::String(i_slint_core::string::shared_string_from_number(n))
+            }
+            (Value::Number(n), LangType::Color) => Color::from_argb_encoded(n as u32).into(),
+            (Value::Brush(brush), LangType::Color) => brush.color().into(),
+            (Value::EnumerationValue(_, val), LangType::String) => Value::String(val.into()),
+            (Value::String(s), LangType::ClipboardData) => Value::ClipboardData(s.into()),
+            (Value::Image(i), LangType::ClipboardData) => Value::ClipboardData(i.into()),
+            (v, _) => return Err(v),
+        })
+    }
 }
 
 impl PartialEq for Value {
