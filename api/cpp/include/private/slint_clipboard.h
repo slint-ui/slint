@@ -4,10 +4,12 @@
 #pragma once
 
 namespace slint {
-  class ClipboardData {
-    public:
-      ClipboardData(const slint::SharedString &string) {
+class ClipboardData
+{
+public:
+    ClipboardData(const slint::SharedString &string)
+    {
         // TODO
-      }
-  };
+    }
+};
 }
