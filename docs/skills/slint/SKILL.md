@@ -83,6 +83,22 @@ import slint
 # Load .slint files dynamically
 ```
 
+Note: the `slint` wheel's `requires-python` tracks recent CPython
+releases and advances with new Slint versions. If `uv add` / `pip
+install` picks an older Slint than expected, check the latest wheel's
+`requires-python` on PyPI and bump your project's `requires-python`
+(and `.python-version` for uv) to match before pinning a Slint version.
+
+## Language Server
+
+`slint-lsp` is the Slint Language Server. It provides diagnostics,
+hover, go-to-definition, and formatting for `.slint` files over LSP,
+and any editor or AI coding assistant with LSP support can use it for
+real-time code intelligence. The binary is not bundled with this skill
+and must be installed separately — see `lsp-install.md` in this skill
+directory for `cargo install slint-lsp`, prebuilt downloads per
+platform, and Linux runtime dependencies.
+
 ## Debugging Slint Applications
 
 ### Common Issues
