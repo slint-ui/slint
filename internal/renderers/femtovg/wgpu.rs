@@ -593,7 +593,10 @@ impl RendererSealed for FemtoVGWGPURenderer {
 
     fn take_snapshot(
         &self,
-    ) -> Result<i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    ) -> Result<
+        i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+        PlatformError,
+    > {
         self.0.take_snapshot()
     }
 

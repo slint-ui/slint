@@ -244,7 +244,12 @@ impl GraphicsBackend for OpenGLBackend {
         _width: u32,
         _height: u32,
         _render: &dyn Fn() -> Result<(), PlatformError>,
-    ) -> Option<Result<i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError>> {
+    ) -> Option<
+        Result<
+            i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+            PlatformError,
+        >,
+    > {
         let canvas = canvas?;
         Some((|| {
             self.opengl_context
