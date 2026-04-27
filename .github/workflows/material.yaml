@@ -148,7 +148,8 @@ jobs:
 
       - name: Deploy preview to material-staging (Workers)
         id: preview
-        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref != 'refs/heads/master'
+        # Forks don't have access to repository secrets; only run for PRs from the same repo.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
           OUTPUT=$(pnpm dlx wrangler@3 versions upload 2>&1)
           echo "$OUTPUT"

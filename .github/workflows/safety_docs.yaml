@@ -32,6 +32,8 @@ jobs:
               run: pnpm build
             - name: Deploy preview to safety-docs-staging (Workers)
               id: preview
+              # Forks don't have access to repository secrets; only run for PRs from the same repo.
+              if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
               working-directory: docs/safety
               run: |
                 OUTPUT=$(pnpm dlx wrangler@3 versions upload 2>&1)
