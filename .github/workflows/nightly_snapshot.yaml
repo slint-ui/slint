@@ -237,7 +237,7 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - name: Install GNU Sed
@@ -325,7 +325,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - name: Run pnpm install

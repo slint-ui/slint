@@ -38,7 +38,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: ./.github/actions/setup-rust

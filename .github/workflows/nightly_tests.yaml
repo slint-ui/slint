@@ -24,7 +24,7 @@ jobs:
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v6
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.6
+            - uses: esp-rs/xtensa-toolchain@v1.7
               with:
                   default: true
                   buildtargets: esp32
