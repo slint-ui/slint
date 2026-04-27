@@ -102,7 +102,7 @@ jobs:
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -200,7 +200,7 @@ jobs:
             deployments: write
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -240,7 +240,7 @@ jobs:
                 CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
             - name: Create GitHub deployment for PR
               if: steps.preview.outputs.url != ''
-              uses: actions/github-script@v8
+              uses: actions/github-script@v9
               env:
                 PREVIEW_URL: ${{ steps.preview.outputs.url }}
                 PREVIEW_SITE_PREFIX: ${{ steps.repack.outputs.site_prefix }}
@@ -277,7 +277,7 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6

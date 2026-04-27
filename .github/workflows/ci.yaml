@@ -311,7 +311,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -399,7 +399,7 @@ jobs:
 #        steps:
 #            - uses: actions/checkout@v6
 #            - uses: dtolnay/rust-toolchain@stable
-#            - uses: esp-rs/xtensa-toolchain@v1.6
+#            - uses: esp-rs/xtensa-toolchain@v1.7
 #              with:
 #                  default: true
 #                  buildtargets: esp32
@@ -585,7 +585,7 @@ jobs:
             - uses: actions/checkout@v6
             - run: apt-get update && apt-get install -y libfontconfig1-dev
             - uses: dtolnay/rust-toolchain@stable
-            - uses: esp-rs/xtensa-toolchain@v1.6
+            - uses: esp-rs/xtensa-toolchain@v1.7
               with:
                   default: true
                   buildtargets: esp32
@@ -649,7 +649,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - name: Run pnpm install
