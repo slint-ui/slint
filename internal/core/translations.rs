@@ -371,6 +371,7 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
+#[cfg(feature = "std")]
 fn locale_from_string(locale: &str) -> Option<icu_locale_core::Locale> {
     // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'
     let normalized = locale.replace('_', "-");
