@@ -618,6 +618,22 @@ impl Window {
         })
     }
 
+    /// Shows the software keyboard / input method, if available.
+    pub fn show_ime(&self) {
+        if let Some(internal) = self.0.window_adapter().internal(crate::InternalToken) {
+            internal.input_method_request(crate::window::InputMethodRequest::Enable(
+                crate::window::InputMethodProperties::default(),
+            ));
+        }
+    }
+
+    /// Hides the software keyboard / input method, if available.
+    pub fn hide_ime(&self) {
+        if let Some(internal) = self.0.window_adapter().internal(crate::InternalToken) {
+            internal.input_method_request(crate::window::InputMethodRequest::Disable);
+        }
+    }
+
     /// Dispatch a window event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.
