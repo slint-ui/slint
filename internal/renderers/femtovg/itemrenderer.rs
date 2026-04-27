@@ -1069,20 +1069,20 @@ impl<'a, R: femtovg::Renderer + TextureImporter> LayerRenderer<'a> for GLItemRen
         let previous_render_target = self.current_render_target();
         let physical_origin = bounding_rect.origin.cast() * self.scale_factor;
 
-        {
-            let mut canvas = self.canvas.borrow_mut();
-            canvas.save();
-            canvas.set_render_target(render_target);
-            canvas.reset();
-            canvas.clear_rect(0, 0, size.width, size.height, femtovg::Color::rgba(0, 0, 0, 0));
-            canvas.translate(-physical_origin.x, -physical_origin.y);
-        }
-
+        self.save_state();
         *self.state.last_mut().unwrap() = State {
             scissor: bounding_rect,
             global_alpha: 1.,
             current_render_target: render_target,
         };
+
+        {
+            let mut canvas = self.canvas.borrow_mut();
+            canvas.set_render_target(render_target);
+            canvas.reset();
+            canvas.clear_rect(0, 0, size.width, size.height, femtovg::Color::rgba(0, 0, 0, 0));
+            canvas.translate(-physical_origin.x, -physical_origin.y);
+        }
 
         let window_adapter = self.window().window_adapter();
         i_slint_core::item_rendering::render_item_children(
@@ -1092,11 +1092,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> LayerRenderer<'a> for GLItemRen
             &window_adapter,
         );
 
-        {
-            let mut canvas = self.canvas.borrow_mut();
-            canvas.restore();
-            canvas.set_render_target(previous_render_target);
-        }
+        self.canvas.borrow_mut().set_render_target(previous_render_target);
+        self.restore_state();
 
         layer_image
     }
