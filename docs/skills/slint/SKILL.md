@@ -111,17 +111,14 @@ Once enabled, an AI coding assistant can connect to the MCP endpoint to inspect 
 
 ### Enabling the MCP Server
 
-**Important**: The MCP server is exposed through the **internal** crate `i-slint-backend-selector`, not the public `slint` crate. This internal crate does not follow semver and **must be pinned to the exact Slint version** using `=`. If the project uses `slint = "1.16.0"`, then the backend selector must use `version = "=1.16.0"`. A version mismatch will cause build failures.
-
-**Step 1**: Add the `i-slint-backend-selector` crate with the `mcp` feature to the project's `Cargo.toml`, pinned to the exact same version as the `slint` crate:
+**Step 1**: Enable the `mcp` feature on the `slint` crate in `Cargo.toml`:
 
 ```toml
 [dependencies]
-slint = "1.16.0"
-i-slint-backend-selector = { version = "=1.16.0", features = ["mcp"] }
+slint = { version = "1.17.0", features = ["mcp"] }
 ```
 
-If the project is part of a workspace that depends on Slint from a path (e.g. working within the Slint repo itself), use the workspace reference instead and enable the feature via `--features i-slint-backend-selector/mcp` on the cargo command line.
+If the project is part of a workspace that depends on Slint from a path (e.g. working within the Slint repo itself), enable the feature via `--features slint/mcp` on the cargo command line.
 
 **Step 2**: Build with `SLINT_EMIT_DEBUG_INFO=1` so that element IDs and source locations are preserved in the compiled output. Without this, elements will lack the debug metadata needed for meaningful introspection. Set `SLINT_MCP_PORT` to an available port when running:
 
@@ -133,14 +130,10 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app
 
 ### Version Requirements
 
-The MCP server uses internal Slint APIs (`i-slint-backend-selector`), so the available features depend on the Slint version:
-
 | Slint Version | MCP Support |
 |---------------|-------------|
-| < 1.16.0 | Not available |
-| >= 1.16.0 | Full MCP server with `i-slint-backend-selector` `mcp` feature |
-
-The `i-slint-backend-selector` crate does not follow semver. It must be pinned to the exact Slint version with `=`. MCP features and tools may change between Slint releases without notice.
+| < 1.17.0 | Not available |
+| >= 1.17.0 | Enable via `features = ["mcp"]` on the `slint` crate |
 
 ### When to Suggest MCP
 
