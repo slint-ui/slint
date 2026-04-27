@@ -267,6 +267,7 @@ impl Type {
             | (_, Type::Void)
             | (Type::Float32, Type::Int32)
             | (Type::Float32, Type::String)
+            | (Type::Float32, Type::Percent)
             | (Type::Int32, Type::Float32)
             | (Type::Int32, Type::String)
             | (Type::Float32, Type::Model)
