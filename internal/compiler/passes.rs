@@ -112,6 +112,7 @@ pub async fn run_passes(
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
@@ -132,13 +133,6 @@ pub async fn run_passes(
             diag,
         );
         repeater_component::process_repeater_components(component);
-        lower_tooltips::lower_tooltips(
-            component,
-            &doc.local_registry,
-            &palette,
-            &style_metrics,
-            diag,
-        );
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);

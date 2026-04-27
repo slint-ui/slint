@@ -19,7 +19,7 @@ use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Uni
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
-use crate::typeregister::{TypeRegister, BUILTIN};
+use crate::typeregister::{BUILTIN, TypeRegister};
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -36,19 +36,15 @@ const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
 const PLACEMENT: &str = "placement";
 
-fn build_tooltip_background(
+fn build_tooltip_visual(
     popup_id: &SmolStr,
     tooltip_text: NamedReference,
     enclosing_component: &std::rc::Weak<Component>,
-    text_type: &ElementType,
-    vertical_layout_type: &ElementType,
-    rectangle_type: &ElementType,
-    palette: &Rc<Component>,
-    style_metrics: &Rc<Component>,
+    tooltip_impl_type: &ElementType,
 ) -> ElementRc {
-    let text_element = Element {
-        id: format_smolstr!("{}-text", popup_id),
-        base_type: text_type.clone(),
+    Element {
+        id: format_smolstr!("{}-visual", popup_id),
+        base_type: tooltip_impl_type.clone(),
         enclosing_component: enclosing_component.clone(),
         bindings: [(
             SmolStr::new_static("text"),
@@ -57,84 +53,8 @@ fn build_tooltip_background(
         .into_iter()
         .collect(),
         ..Default::default()
-    };
-    let text_element_rc = text_element.make_rc();
-
-    let padded_text = Element {
-        id: format_smolstr!("{}-padded", popup_id),
-        base_type: vertical_layout_type.clone(),
-        enclosing_component: enclosing_component.clone(),
-        children: vec![text_element_rc],
-        bindings: [(
-            SmolStr::new_static("padding"),
-            RefCell::new(
-                Expression::PropertyReference(NamedReference::new(
-                    &style_metrics.root_element,
-                    SmolStr::new_static("layout-padding"),
-                ))
-                .into(),
-            ),
-        )]
-        .into_iter()
-        .collect(),
-        ..Default::default()
-    };
-    let padded_text_rc = padded_text.make_rc();
-
-    let background_rect = Element {
-        id: format_smolstr!("{}-bg", popup_id),
-        base_type: rectangle_type.clone(),
-        enclosing_component: enclosing_component.clone(),
-        children: vec![padded_text_rc],
-        bindings: [
-            (
-                SmolStr::new_static("background"),
-                RefCell::new(
-                    Expression::Cast {
-                        from: Expression::PropertyReference(NamedReference::new(
-                            &palette.root_element,
-                            SmolStr::new_static("alternate-background"),
-                        ))
-                        .into(),
-                        to: Type::Brush,
-                    }
-                    .into(),
-                ),
-            ),
-            (
-                SmolStr::new_static("border-radius"),
-                RefCell::new(
-                    Expression::PropertyReference(NamedReference::new(
-                        &style_metrics.root_element,
-                        SmolStr::new_static("layout-padding"),
-                    ))
-                    .into(),
-                ),
-            ),
-            (
-                SmolStr::new_static("border-width"),
-                RefCell::new(Expression::NumberLiteral(1., Unit::Px).into()),
-            ),
-            (
-                SmolStr::new_static("border-color"),
-                RefCell::new(
-                    Expression::Cast {
-                        from: Expression::PropertyReference(NamedReference::new(
-                            &palette.root_element,
-                            SmolStr::new_static("border"),
-                        ))
-                        .into(),
-                        to: Type::Brush,
-                    }
-                    .into(),
-                ),
-            ),
-        ]
-        .into_iter()
-        .collect(),
-        ..Default::default()
-    };
-    background_rect.make_rc()
+    }
+    .make_rc()
 }
 
 fn build_tooltip_delay_timer(
@@ -142,7 +62,8 @@ fn build_tooltip_delay_timer(
     enclosing_component: &std::rc::Weak<Component>,
     timer_type: &ElementType,
 ) -> ElementRc {
-    let mut timer_interval: BindingExpression = Expression::NumberLiteral(TOOLTIP_DELAY_MS, Unit::Ms).into();
+    let mut timer_interval: BindingExpression =
+        Expression::NumberLiteral(TOOLTIP_DELAY_MS, Unit::Ms).into();
     timer_interval.priority = 1;
     Element {
         id: format_smolstr!("{}-delay", popup_id),
@@ -288,10 +209,7 @@ fn wire_tooltip_placement(
     }
     .into();
     x_binding.priority = 1;
-    popup_window_rc
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("x"), RefCell::new(x_binding));
+    popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("x"), RefCell::new(x_binding));
 
     let mut y_binding: BindingExpression = Expression::Condition {
         condition: Box::new(is_top),
@@ -304,10 +222,7 @@ fn wire_tooltip_placement(
     }
     .into();
     y_binding.priority = 1;
-    popup_window_rc
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("y"), RefCell::new(y_binding));
+    popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("y"), RefCell::new(y_binding));
 }
 
 fn wire_tooltip_visibility_behavior(
@@ -380,28 +295,20 @@ fn wire_tooltip_visibility_behavior(
         .insert(SmolStr::new_static("triggered"), RefCell::new(timer_triggered_binding));
 }
 
-pub fn lower_tooltips(
+fn lower_tooltips_in_component(
     component: &Rc<Component>,
     type_register: &TypeRegister,
-    palette: &Rc<Component>,
-    style_metrics: &Rc<Component>,
+    tooltip_impl_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
     let tooltip_type = type_register.lookup_builtin_element(TOOLTIP_ELEMENT).unwrap();
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
     let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
-    let text_type = type_register.lookup_builtin_element("Text").unwrap();
-    let rectangle_type = type_register.lookup_builtin_element("Rectangle").unwrap();
-    let vertical_layout_type = type_register.lookup_builtin_element("VerticalLayout").unwrap();
 
     let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
     let popup_close_policy_no_auto_close = EnumerationValue {
-        value: popup_close_policy_enum
-            .values
-            .iter()
-            .position(|v| v == "no-auto-close")
-            .unwrap(),
+        value: popup_close_policy_enum.values.iter().position(|v| v == "no-auto-close").unwrap(),
         enumeration: popup_close_policy_enum,
     };
 
@@ -418,9 +325,11 @@ pub fn lower_tooltips(
             return;
         }
 
-        let tooltip_child_index = elem.borrow().children.iter().position(|child| {
-            matches!(&child.borrow().base_type, t if *t == tooltip_type)
-        });
+        let tooltip_child_index = elem
+            .borrow()
+            .children
+            .iter()
+            .position(|child| matches!(&child.borrow().base_type, t if *t == tooltip_type));
         let Some(tooltip_child_index) = tooltip_child_index else {
             return;
         };
@@ -429,11 +338,8 @@ pub fn lower_tooltips(
             let mut elem_borrow = elem.borrow_mut();
             let tooltip_config = elem_borrow.children.remove(tooltip_child_index);
             let enclosing_component = elem_borrow.enclosing_component.clone();
-            let popup_id = format_smolstr!(
-                "{}{}",
-                TOOLTIP_POPUP_ID_PREFIX,
-                tooltip_popup_id_counter
-            );
+            let popup_id =
+                format_smolstr!("{}{}", TOOLTIP_POPUP_ID_PREFIX, tooltip_popup_id_counter);
             tooltip_popup_id_counter += 1;
             let popup_id_for_text = popup_id.clone();
             (tooltip_config, enclosing_component, popup_id, popup_id_for_text)
@@ -443,24 +349,25 @@ pub fn lower_tooltips(
         let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
 
         let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
-        let tooltip_placement = NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
+        let tooltip_placement =
+            NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
-        let background_rect_rc = build_tooltip_background(
+        let tooltip_visual = build_tooltip_visual(
             &popup_id_for_text,
             tooltip_text,
             &enclosing_component,
-            &text_type,
-            &vertical_layout_type,
-            &rectangle_type,
-            palette,
-            style_metrics,
+            tooltip_impl_type,
         );
 
-        let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type {
+        let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type
+        {
             Type::Enumeration(en) => en,
             _ => {
-                diag.push_error("ToolTip.placement must be an enum value".into(), &*tooltip_config.borrow());
+                diag.push_error(
+                    "ToolTip.placement must be an enum value".into(),
+                    &*tooltip_config.borrow(),
+                );
                 return;
             }
         };
@@ -470,15 +377,13 @@ pub fn lower_tooltips(
             base_type: popup_window_type.clone(),
             enclosing_component: enclosing_component.clone(),
             popup_window_kind: Some(PopupWindowKind::Tooltip),
-            children: vec![tooltip_config, background_rect_rc],
-            bindings: [
-                (
-                    SmolStr::new_static("close-policy"),
-                    RefCell::new(
-                        Expression::EnumerationValue(popup_close_policy_no_auto_close.clone()).into(),
-                    ),
+            children: vec![tooltip_config, tooltip_visual],
+            bindings: [(
+                SmolStr::new_static("close-policy"),
+                RefCell::new(
+                    Expression::EnumerationValue(popup_close_policy_no_auto_close.clone()).into(),
                 ),
-            ]
+            )]
             .into_iter()
             .collect(),
             ..Default::default()
@@ -501,5 +406,37 @@ pub fn lower_tooltips(
             popup_window_rc,
             timer_element_rc,
         );
+    });
+}
+
+pub async fn lower_tooltips(
+    doc: &Document,
+    type_loader: &mut crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
+    // First check if any ToolTip is used - avoid loading std-widgets.slint if not needed.
+    let mut has_tooltip = false;
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == TOOLTIP_ELEMENT) {
+                has_tooltip = true;
+            }
+        })
+    });
+
+    if !has_tooltip {
+        return;
+    }
+
+    // Ignore import errors.
+    let mut build_diags_to_ignore = BuildDiagnostics::default();
+    let tooltip_component = type_loader
+        .import_component("std-widgets.slint", TOOLTIP_ELEMENT, &mut build_diags_to_ignore)
+        .await
+        .expect("can't load ToolTip from std-widgets.slint");
+    let tooltip_style_type = ElementType::Component(tooltip_component);
+
+    doc.visit_all_used_components(|component| {
+        lower_tooltips_in_component(component, &doc.local_registry, &tooltip_style_type, diag);
     });
 }
