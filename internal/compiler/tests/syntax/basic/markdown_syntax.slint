@@ -5,7 +5,8 @@ export component X {
     property <styled-text> t1: @markdown("Foo\invalid");
 //                                       >           <error{Cannot parse string literal}
     property <styled-text> t2: @markdown("Foo\u{e541}Bar");  // Using the MARKDOWN_INTERPOLATION_PLACEHOLDER cause strange errors
-//                             >                         <error{Argument index 0 out of range: 0 arguments provided}
+//                                        >       <error{Argument index 0 out of range: 0 arguments provided}
+//                             >                         <^error{Format string contains 1 placeholders, but 0 arguments were provided}
     property <styled-text> t3: @markdown("XXX"  "TTT \{12px} ZZZ");
 //                                                     >  <error{Cannot convert length to string. Divide by 1px to convert to a plain number}
     property <styled-text> t9: @markdown("{");
@@ -13,27 +14,103 @@ export component X {
     property <styled-text> t11: @markdown("{abc}");
     property <styled-text> t12: @markdown("{0");
     property <styled-text> t13: @markdown("> quote");
-//                              >                  <error{Unimplemented tag: BlockQuote(None)}
+//                                         >     <error{Markdown block quotes are not supported}
     property <styled-text> t14: @markdown("![alt](image.png)");
-//                              >                            <error{Unimplemented tag: Image}
+//                                         >               <error{Markdown images are not supported}
     property <styled-text> t15: @markdown("---");
-//                              >              <error{Unimplemented event: Rule}
+//                                         > <error{Markdown horizontal rules are not supported}
     property <styled-text> t16: @markdown("<span>text</span>");
-//                              >                            <error{Unimplemented html tag: span}
+//                                         >   <error{HTML tag <span> is not supported}
     property <styled-text> t17: @markdown("<div>text</div>");
-//                              >                          <error{Unimplemented tag: HtmlBlock}
+//                                         >             <error{Markdown HTML blocks are not supported}
+//                                         >             <^error{Markdown HTML blocks (<div>text</div>) are not supported}
     property <styled-text> t18: @markdown("<u>unclosed");
 //                              >                      <error{Spans are unbalanced: stack contained items at end of function}
     property <styled-text> t19: @markdown("<font color='red'>unclosed");
 //                              >                                     <error{Spans are unbalanced: stack contained items at end of function}
     property <styled-text> t20: @markdown("<u>text</font>");
-//                              >                         <error{Closing html tag doesn't match the opening tag. Expected </u>, got </font>}
+//                                                >     <error{Closing html tag doesn't match the opening tag. Expected </u>, got </font>}
     property <styled-text> t21: @markdown("<font>text</font>");
-//                              >                            <error{Missing color attribute in html <font>}
+//                                         >    <error{Missing color attribute in html <font>}
     property <styled-text> t22: @markdown("<font size='12'>text</font>");
-//                              >                                      <error{Unexpected size attribute in html <font size='12'>}
+//                                               >       <error{Unexpected size attribute in html <font size='12'>}
+//                                         >              <^error{Missing color attribute in html <font size='12'>}
     property <styled-text> t23: @markdown("<u class='test'>text</u>");
-//                              >                                   <error{Unexpected class attribute in html <u class='test'>}
+//                                            >          <error{Unexpected class attribute in html <u class='test'>}
     property <styled-text> t24: @markdown("<font color='#q'>text</font>");
-//                              >                                       <error{Invalid color value '#q'}
+//                                               >        <error{Invalid color value '#q'}
+
+    // --- Comprehensive error location tests ---
+
+    property <string> some-prop: "hello";
+
+    // Multiple unrelated errors in one expression: each should point to its own tag
+    property <styled-text> m1: @markdown("<xyz>text</xyz> *ok* <abc>text</abc>");
+//                                        >  <error{HTML tag <xyz> is not supported}
+//                                                             >  <^error{HTML tag <abc> is not supported}
+
+    // Error in second string literal: should point to that literal
+    property <styled-text> m2: @markdown("*hello* " "<xyz>world</xyz>");
+//                                                   >  <error{HTML tag <xyz> is not supported}
+
+    // Error with interpolation before it
+    property <styled-text> m3: @markdown("hello \{some-prop} " "<xyz>oops</xyz>");
+//                                                              >  <error{HTML tag <xyz> is not supported}
+
+    // Multiple string literals, error in middle one
+    property <styled-text> m4: @markdown("aaa" "<xyz>ccc</xyz>" " ddd");
+//                                              >  <error{HTML tag <xyz> is not supported}
+
+    // Valid markdown mixed with errors in different literals
+    property <styled-text> m5: @markdown("**bold** " "<xyz>bad</xyz>" " *italic*");
+//                                                    >  <error{HTML tag <xyz> is not supported}
+
+    // Block quote error in a multi-line expression
+    property <styled-text> m6: @markdown("text"
+                                         "\n> block quote");
+//                                         >           <error{Markdown block quotes are not supported}
+
+    // Multiple errors on different lines
+    property <styled-text> m7: @markdown("--- "
+                                         "<span>text</span>");
+//                                        >   <error{HTML tag <span> is not supported}
+
+    // Error after interpolation in multi-line
+    property <styled-text> m8: @markdown("hello \{some-prop}"
+                                         " <xyz>bad</xyz>");
+//                                         >  <error{HTML tag <xyz> is not supported}
+
+    // Invalid color in second literal
+    property <styled-text> m9: @markdown("hello "
+                                         "<font color='invalid'>colored</font>");
+//                                              >             <error{Invalid color value 'invalid'}
+
+    // Two errors in two different literals
+    property <styled-text> m10: @markdown("<xyz>aa</xyz>"
+//                                         >  <error{HTML tag <xyz> is not supported}
+                                          " <abc>bb</abc>");
+//                                          >  <error{HTML tag <abc> is not supported}
+
+    // Longer markdown with error in the middle
+    property <styled-text> m11: @markdown("*bold* normal **strong** <xyz>bad</xyz> _italic_");
+//                                                                  >  <error{HTML tag <xyz> is not supported}
+
+    // Literal invalid color alongside an interpolation (should still report the error)
+    property <styled-text> m12: @markdown("<font color='badcolor'>\{some-prop}</font>");
+//                                               >              <error{Invalid color value 'badcolor'}
+
+    // Valid interpolated color (should not report error)
+    property <styled-text> m13: @markdown("<font color='\{some-prop}'>text</font>");
+
+    // Multiple attributes and tags in longer content
+    property <styled-text> m14: @markdown("hello *world* "
+                                          "<font color='invalid'>colored</font>"
+//                                               >             <error{Invalid color value 'invalid'}
+                                          " **more** text");
+
+    // Error in tag after valid content and interpolation
+    property <styled-text> m15: @markdown("prefix \{some-prop} middle "
+                                          "<abc>bad</abc>"
+//                                         >  <error{HTML tag <abc> is not supported}
+                                          " suffix");
 }
