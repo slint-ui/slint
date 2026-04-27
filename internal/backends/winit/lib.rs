@@ -57,6 +57,8 @@ pub enum EventResult {
     Propagate,
     /// The winit event shouldn't be processed further.
     PreventDefault,
+    /// The winit event should be retargeted to another window.
+    Retarget(winit::window::WindowId),
 }
 
 mod renderer {
