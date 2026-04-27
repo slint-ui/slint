@@ -2249,12 +2249,12 @@ impl TextInput {
             return text_to_insert.chars().all(|ch| ch.is_ascii_digit());
         }
 
-        if input_type == InputType::Decimal || input_type == InputType::DecimalLocalized {
+        if input_type == InputType::Decimal {
             let (a, c) = self.selection_anchor_and_cursor();
             let current = self.text();
             let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
 
-            let to_parse = if input_type == InputType::DecimalLocalized {
+            let to_parse = {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 let sep = window_inner.context().locale_decimal_separator();
                 // Only allow the locale's decimal separator, not '.'
@@ -2263,8 +2263,6 @@ impl TextInput {
                 }
                 // Normalize locale separator to '.' because f64::parse only accepts '.'
                 if sep != '.' { candidate.replace(sep, ".") } else { candidate }
-            } else {
-                candidate
             };
 
             return matches!(to_parse.as_str(), "." | "-" | "-.")

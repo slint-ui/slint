@@ -333,9 +333,6 @@ macro_rules! for_each_enums {
                 Number,
                 /// This will accept and render characters if it's valid part of a decimal
                 Decimal,
-                /// This will accept and render characters if it's valid part of a decimal,
-                /// using the locale's decimal separator
-                DecimalLocalized,
             }
 
             /// Enum representing the `alignment` property of a
