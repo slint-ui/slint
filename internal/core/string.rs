@@ -7,7 +7,7 @@
 #![warn(missing_docs)]
 
 use crate::SharedVector;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
 #[cfg(not(feature = "std"))]
@@ -357,8 +357,25 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
 
 /// Convert a string to a float
 #[inline]
-pub fn string_to_float(string: &str) -> Result<f32, core::num::ParseFloatError> {
-    string.parse::<f32>()
+pub fn string_to_float(string: &str) -> Result<f32, ()> {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let slint_context = ctx.get().unwrap();
+        let to_parse = {
+            let sep = slint_context.locale_decimal_separator();
+            // Only allow the locale's decimal separator, not '.'
+            if sep != '.' && string.contains('.') {
+                return Err(());
+            }
+            // Normalize locale separator to '.' because f64::parse only accepts '.'
+            if sep != '.' { string.replace(sep, ".") } else { string.to_string() }
+        };
+
+        if matches!(to_parse.as_str(), "." | "-" | "-.") {
+            return Ok(Default::default());
+        }
+
+        return to_parse.parse::<f32>().map_err(|_| ()); // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
+    })
 }
 
 #[test]

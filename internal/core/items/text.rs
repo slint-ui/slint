@@ -26,6 +26,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::string::string_to_float;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -2253,20 +2254,7 @@ impl TextInput {
             let (a, c) = self.selection_anchor_and_cursor();
             let current = self.text();
             let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
-
-            let to_parse = {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-                let sep = window_inner.context().locale_decimal_separator();
-                // Only allow the locale's decimal separator, not '.'
-                if sep != '.' && candidate.contains('.') {
-                    return false;
-                }
-                // Normalize locale separator to '.' because f64::parse only accepts '.'
-                if sep != '.' { candidate.replace(sep, ".") } else { candidate }
-            };
-
-            return matches!(to_parse.as_str(), "." | "-" | "-.")
-                || to_parse.parse::<f64>().is_ok(); // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
+            return string_to_float(&candidate).is_ok();
         }
 
         true
