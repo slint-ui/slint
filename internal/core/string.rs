@@ -356,6 +356,7 @@ pub fn shared_string_from_number(mut n: f64) -> SharedString {
                 // 39034846745.1415927556456456 -> 39034847000
 
                 // TEST: small integers must have no decimals
+                // TEST: 0.00000000000000000001
 
                 const NUMBER_DIGITS: i32 = 8;
                 let rounded = n.round();
