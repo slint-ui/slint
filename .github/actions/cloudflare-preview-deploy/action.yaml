@@ -40,8 +40,16 @@ runs:
           working-directory: ${{ inputs.working-directory }}
           shell: bash
           run: |
-            OUTPUT=$(pnpm dlx wrangler@3 versions upload 2>&1)
+            set +e
+            OUTPUT=$(pnpm dlx wrangler@4 versions upload 2>&1)
+            STATUS=$?
+            set -e
+
             echo "$OUTPUT"
+            if [ "$STATUS" -ne 0 ]; then
+              echo "Wrangler upload failed with exit code $STATUS" >&2
+              exit "$STATUS"
+            fi
             PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
             echo "url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
             if [ -n "$PREVIEW_URL" ]; then
