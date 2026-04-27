@@ -5,7 +5,6 @@ use crate::api::EventLoopError;
 use crate::platform::EventLoopProxy;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
-use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender};
 
@@ -22,12 +21,10 @@ enum Message {
 pub struct ChannelEventLoopProxy {
     sender: Sender<Message>,
     wakeup: Option<Arc<dyn Fn() + Send + Sync>>,
-    quit_requested: Arc<AtomicBool>,
 }
 
 impl EventLoopProxy for ChannelEventLoopProxy {
     fn quit_event_loop(&self) -> Result<(), EventLoopError> {
-        self.quit_requested.store(true, Ordering::SeqCst);
         self.sender.send(Message::Quit).map_err(|_| EventLoopError::EventLoopTerminated)?;
         if let Some(wakeup) = &self.wakeup {
             wakeup();
@@ -51,10 +48,10 @@ impl EventLoopProxy for ChannelEventLoopProxy {
 
 /// The receiver side of the channel created by [`channel_event_loop_proxy`].
 ///
-/// This should be owned by the host event loop and drained regularly.
+/// This should be owned by the host event loop and drained on the event loop thread.
+/// Queued callbacks run synchronously on the thread that calls [`Self::drain`].
 pub struct ChannelEventLoopReceiver {
     receiver: Mutex<Receiver<Message>>,
-    quit_requested: Arc<AtomicBool>,
 }
 
 impl ChannelEventLoopReceiver {
@@ -79,35 +76,26 @@ impl ChannelEventLoopReceiver {
             }
         }
         if quit_seen {
-            self.quit_requested.store(false, Ordering::SeqCst);
             core::ops::ControlFlow::Break(())
         } else {
             core::ops::ControlFlow::Continue(())
         }
-    }
-
-    /// Returns `true` if `quit_event_loop()` was requested through a proxy.
-    pub fn quit_requested(&self) -> bool {
-        self.quit_requested.load(Ordering::SeqCst)
     }
 }
 
 /// Creates a pair of [`ChannelEventLoopProxy`] and [`ChannelEventLoopReceiver`].
 ///
 /// The `wakeup` closure is called every time a message is sent to the proxy. It can be used
-/// to wake up the host event loop if it's sleeping.
+/// to wake up the host event loop if it's sleeping. It may be called from any thread and should
+/// only signal the host event loop to wake up; queued callbacks are executed later by
+/// [`ChannelEventLoopReceiver::drain`].
 pub fn channel_event_loop_proxy(
     wakeup: Option<Box<dyn Fn() + Send + Sync>>,
 ) -> (ChannelEventLoopProxy, ChannelEventLoopReceiver) {
     let (sender, receiver) = std::sync::mpsc::channel();
-    let quit_requested = Arc::new(AtomicBool::new(false));
     (
-        ChannelEventLoopProxy {
-            sender,
-            wakeup: wakeup.map(Arc::from),
-            quit_requested: quit_requested.clone(),
-        },
-        ChannelEventLoopReceiver { receiver: Mutex::new(receiver), quit_requested },
+        ChannelEventLoopProxy { sender, wakeup: wakeup.map(Arc::from) },
+        ChannelEventLoopReceiver { receiver: Mutex::new(receiver) },
     )
 }
 
@@ -137,14 +125,11 @@ mod tests {
 
         assert_eq!(receiver.drain(), core::ops::ControlFlow::Continue(()));
         assert!(invoked.load(Ordering::SeqCst));
-        assert!(!receiver.quit_requested());
 
         wakeup_called.store(false, Ordering::SeqCst);
         proxy.quit_event_loop().unwrap();
         assert!(wakeup_called.load(Ordering::SeqCst));
-        assert!(receiver.quit_requested());
         assert_eq!(receiver.drain(), core::ops::ControlFlow::Break(()));
-        assert!(!receiver.quit_requested());
 
         let invoked_again = Arc::new(AtomicBool::new(false));
         let invoked_again_clone = invoked_again.clone();
@@ -192,8 +177,6 @@ mod tests {
         assert!(invoked.load(Ordering::SeqCst));
 
         proxy.quit_event_loop().unwrap();
-        assert!(receiver.quit_requested());
         assert_eq!(receiver.drain(), core::ops::ControlFlow::Break(()));
-        assert!(!receiver.quit_requested());
     }
 }

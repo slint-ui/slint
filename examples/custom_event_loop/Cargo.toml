@@ -13,7 +13,7 @@ publish = false
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["renderer-software", "std", "compat-1-2"] }
 softbuffer = { workspace = true, features = ["x11", "x11-dlopen", "wayland", "wayland-dlopen"] }
-winit = { version = "0.30.2", default-features = false, features = ["rwh_06"] }
+winit = { version = "0.30.2", default-features = false, features = ["rwh_06", "x11", "wayland"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

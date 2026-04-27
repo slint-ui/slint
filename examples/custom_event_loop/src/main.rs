@@ -9,8 +9,9 @@
 //! ## The problem
 //!
 //! When you drive the event loop yourself (instead of calling `slint::run_event_loop()`),
-//! Slint has no way to wake your loop when timers or animations fire. Without a wakeup
-//! mechanism, animations freeze and callbacks are delayed until the next user input.
+//! Slint needs a way to wake your loop when work is queued through
+//! [`slint::invoke_from_event_loop()`] or [`slint::quit_event_loop()`]. Without a wakeup
+//! mechanism, callbacks from worker threads are delayed until the next user input.
 //!
 //! ## The solution: ChannelEventLoopProxy
 //!
@@ -21,7 +22,7 @@
 //! - Pass the **proxy** to your custom platform's `new_event_loop_proxy()`.
 //!   Slint uses it to post events that need to be processed.
 //! - The **wakeup_fn** is called whenever Slint wants to unblock your loop
-//!   (e.g. when a timer fires). Here we send a winit user event.
+//!   after queueing work. Here we send a winit user event.
 //! - In `about_to_wait`, call `receiver.drain()` to run pending Slint work.
 
 use slint::platform::{
@@ -29,9 +30,9 @@ use slint::platform::{
     WindowEvent,
     software_renderer::{MinimalSoftwareWindow, RepaintBufferType, SoftwareRenderer},
 };
-use slint::{LogicalPosition, PhysicalSize, WindowSize};
+use slint::{ComponentHandle, LogicalPosition, PhysicalSize, SharedString, WindowSize};
 use softbuffer::Surface;
-use std::{ops::ControlFlow, rc::Rc, sync::Arc};
+use std::{ops::ControlFlow, rc::Rc, sync::Arc, time::Duration};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, MouseButton, WindowEvent as WinitWindowEvent},
@@ -85,6 +86,7 @@ impl App {
         .expect("platform already set");
 
         let slint_app = AppUi::new().expect("failed to create UI");
+        configure_callbacks(&slint_app);
         slint_app.window().show().expect("failed to show window");
 
         Self {
@@ -109,6 +111,51 @@ impl App {
             blit(renderer, surface, window);
         });
     }
+}
+
+fn configure_callbacks(app: &AppUi) {
+    app.on_start_worker({
+        let app_weak = app.as_weak();
+        move || {
+            let Some(app) = app_weak.upgrade() else { return };
+            app.set_worker_running(true);
+            app.set_worker_progress(0);
+            app.set_worker_status(SharedString::from("Worker started"));
+
+            std::thread::spawn({
+                let app_weak = app_weak.clone();
+                move || {
+                    for step in 1..=5 {
+                        std::thread::sleep(Duration::from_millis(300));
+                        let progress = step * 20;
+                        let app_weak = app_weak.clone();
+                        slint::invoke_from_event_loop(move || {
+                            if let Some(app) = app_weak.upgrade() {
+                                app.set_worker_progress(progress);
+                                app.set_worker_status(SharedString::from(format!(
+                                    "Worker progress: {progress}%"
+                                )));
+                                if progress == 100 {
+                                    app.set_worker_running(false);
+                                    app.set_worker_status(SharedString::from(
+                                        "Worker finished on the UI thread",
+                                    ));
+                                }
+                            }
+                        })
+                        .ok();
+                    }
+                }
+            });
+        }
+    });
+
+    app.on_quit_from_worker(move || {
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            slint::quit_event_loop().ok();
+        });
+    });
 }
 
 // --- winit ApplicationHandler ------------------------------------------------
@@ -146,23 +193,8 @@ impl ApplicationHandler<()> for App {
             event_loop.exit();
             return;
         }
-        slint::platform::update_timers_and_animations();
         self.render();
-
-        // duration_until_next_timer_update() does not account for active animations;
-        // check has_active_animations() separately and keep the loop ticking if needed.
-        let has_animations =
-            self.slint_app.as_ref().is_some_and(|app| app.window().has_active_animations());
-        let next_timer = slint::platform::duration_until_next_timer_update();
-        event_loop.set_control_flow(match (has_animations, next_timer) {
-            (_, Some(d)) => winit::event_loop::ControlFlow::WaitUntil(
-                std::time::Instant::now() + d.min(std::time::Duration::from_millis(16)),
-            ),
-            (true, None) => winit::event_loop::ControlFlow::WaitUntil(
-                std::time::Instant::now() + std::time::Duration::from_millis(16),
-            ),
-            (false, None) => winit::event_loop::ControlFlow::Wait,
-        });
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WinitWindowEvent) {
@@ -184,7 +216,6 @@ impl ApplicationHandler<()> for App {
                 });
             }
             WinitWindowEvent::RedrawRequested => {
-                slint::platform::update_timers_and_animations();
                 self.render();
             }
             WinitWindowEvent::CursorMoved { position, .. } => {

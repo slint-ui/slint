@@ -8,11 +8,11 @@ export component AppUi inherits Window {
     preferred-width: 640px;
     preferred-height: 480px;
 
-    in-out property <int> count: 0;
-
-    // Continuously animating property driven by animation-tick().
-    // Requires update_timers_and_animations() to be called each frame.
-    property <float> hue: mod(animation-tick() / 3000ms, 1.0);
+    in-out property <int> worker-progress: 0;
+    in-out property <string> worker-status: "Worker idle";
+    in-out property <bool> worker-running: false;
+    callback start-worker();
+    callback quit-from-worker();
 
     VerticalBox {
         alignment: center;
@@ -27,27 +27,40 @@ export component AppUi inherits Window {
         }
 
         Text {
-            text: "The colour below animates via timer wakeups delivered\nthrough the proxy to the custom winit event loop.";
+            text: "Worker thread updates are queued with invoke_from_event_loop()\nand delivered through the custom winit event loop.";
             horizontal-alignment: center;
             wrap: word-wrap;
         }
 
-        Rectangle {
-            width: 120px;
-            height: 120px;
-            border-radius: 12px;
-            background: Colors.blue.mix(Colors.red, hue);
-        }
-
         Text {
-            text: "Button clicks: " + count;
+            text: worker-status;
             font-size: 16px;
             horizontal-alignment: center;
         }
 
+        Rectangle {
+            width: 220px;
+            height: 12px;
+            border-radius: 6px;
+            background: #d0d0d0;
+
+            Rectangle {
+                width: parent.width * worker-progress / 100;
+                height: parent.height;
+                border-radius: parent.border-radius;
+                background: #2f8f5b;
+            }
+        }
+
         Button {
-            text: "Click me";
-            clicked => { count += 1; }
+            text: worker-running ? "Worker running" : "Start worker thread";
+            enabled: !worker-running;
+            clicked => { start-worker(); }
+        }
+
+        Button {
+            text: "Quit from worker thread";
+            clicked => { quit-from-worker(); }
         }
     }
 }
