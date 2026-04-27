@@ -237,6 +237,7 @@ impl GraphicsBackend for WGPUBackend {
 
     fn take_snapshot_pixels(
         &self,
+        _canvas: Option<crate::itemrenderer::CanvasRc<Self::Renderer>>,
         width: u32,
         height: u32,
         render: &dyn Fn() -> Result<(), i_slint_core::platform::PlatformError>,
@@ -411,6 +412,7 @@ impl GraphicsBackend for WgpuTextureBackend {
 
     fn take_snapshot_pixels(
         &self,
+        _canvas: Option<crate::itemrenderer::CanvasRc<Self::Renderer>>,
         width: u32,
         height: u32,
         render: &dyn Fn() -> Result<(), i_slint_core::platform::PlatformError>,

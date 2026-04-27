@@ -5,7 +5,7 @@ use std::{cell::RefCell, num::NonZeroU32, rc::Rc};
 
 use i_slint_core::api::PlatformError;
 
-use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
+use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface, itemrenderer::CanvasRc};
 
 /// This trait describes the interface GPU accelerated renderers in Slint require to render with OpenGL.
 ///
@@ -236,6 +236,32 @@ impl GraphicsBackend for OpenGLBackend {
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.opengl_context.borrow().resize(width, height)
+    }
+
+    fn take_snapshot_pixels(
+        &self,
+        canvas: Option<CanvasRc<Self::Renderer>>,
+        _width: u32,
+        _height: u32,
+        _render: &dyn Fn() -> Result<(), PlatformError>,
+    ) -> Option<Result<i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError>> {
+        let canvas = canvas?;
+        Some((|| {
+            self.opengl_context
+                .borrow()
+                .ensure_current()
+                .map_err(|e| PlatformError::Other(e.to_string()))?;
+            let screenshot = canvas
+                .borrow_mut()
+                .screenshot()
+                .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
+            use rgb::ComponentBytes;
+            Ok(i_slint_core::graphics::SharedPixelBuffer::clone_from_slice(
+                screenshot.buf().as_bytes(),
+                screenshot.width() as u32,
+                screenshot.height() as u32,
+            ))
+        })())
     }
 }
 
