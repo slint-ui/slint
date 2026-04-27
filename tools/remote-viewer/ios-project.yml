@@ -15,6 +15,16 @@ targets:
       properties:
         UILaunchScreen:
           - ImageRespectSafeAreaInsets: false
+        NSLocalNetworkUsageDescription: "We need to talk to editors on the local network."
+        NSBonjourServices:
+          - "_slint-preview._tcp"
+        UISupportedInterfaceOrientations:
+          [
+            UIInterfaceOrientationPortrait,
+            UIInterfaceOrientationPortraitUpsideDown,
+            UIInterfaceOrientationPortraitLandscapeLeft,
+            UIInterfaceOrientationLandscapeRight,
+          ]
     sources: []
     postCompileScripts:
       - script: |

@@ -12,7 +12,6 @@ use i_slint_preview_protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, SourceFileVersion,
 };
 use lsp_types::Url;
-use mdns_sd::ServiceInfo;
 use serde::Serialize;
 use tokio::{
     net::TcpStream,
@@ -20,6 +19,9 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
+
+#[cfg(not(target_vendor = "apple"))]
+use mdns_sd::ServiceInfo;
 
 #[derive(Clone, Debug)]
 pub struct VersionedFileContent {
@@ -301,6 +303,7 @@ impl Connection {
         self.local_addr.port()
     }
 
+    #[cfg(not(target_vendor = "apple"))]
     pub fn service(&self) -> anyhow::Result<ServiceInfo> {
         let local_ips = self.local_ips();
         let local_port = self.local_port();
