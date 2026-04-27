@@ -16,7 +16,8 @@ pub trait PlatformClipboard {
     }
 }
 
-/// Private version of [`ClipboardData`] so we can implement the traits that we expect
+/// Wrapper around [`dyn ClipboardDataProvider`](crate::clipboard::ClipboardDataProvider) so we can implement the traits that we
+/// need for usage in Slint (such as `PartialEq` and `Debug`), limit the interface, and expose to non-Rust runtimes.
 #[derive(Clone)]
 pub struct ClipboardData {
     provider: Rc<dyn ClipboardDataProvider>,
