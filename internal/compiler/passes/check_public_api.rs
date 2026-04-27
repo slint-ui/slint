@@ -122,3 +122,207 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
         }
     });
 }
+
+/// After inlining, interface API inherited from base components may have been added to exported roots with
+/// `is_from_interface` set but `expose_in_public_api` still false. This function marks them for the public API.
+pub fn expose_inherited_interface_properties(doc: &Document) {
+    for c in doc.exported_roots() {
+        let mut root_elem = c.root_element.borrow_mut();
+        let root_elem = &mut *root_elem;
+        let mut pa = root_elem.property_analysis.borrow_mut();
+        for (n, d) in root_elem.property_declarations.iter_mut() {
+            if d.is_from_interface
+                && !d.expose_in_public_api
+                && d.property_type.ok_for_public_api()
+                && d.visibility != PropertyVisibility::Private
+            {
+                d.expose_in_public_api = true;
+                if d.visibility != PropertyVisibility::Output {
+                    pa.entry(n.clone()).or_default().is_set = true;
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    /// Verify that when a  component implements an interface, the exported component exposes only
+    /// the interface API (properties, callbacks, functions) and not other non-interface properties
+    /// from the base.
+    fn component_exposes_only_interface_api_impl(slint: &str) {
+        let mut compiler_config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.enable_experimental = true;
+        compiler_config.style = Some("fluent".into());
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+        test_diags.enable_experimental = true;
+        let doc_node =
+            crate::parser::parse(slint.into(), Some(std::path::Path::new("TEST")), &mut test_diags);
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        assert!(!diag.has_errors(), "compile errors: {:#?}", diag.to_string_vec());
+
+        let cu = crate::llr::lower_to_item_tree::lower_to_item_tree(
+            &doc,
+            &crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+        );
+        assert_eq!(cu.public_components.len(), 1);
+        let props: Vec<&str> =
+            cu.public_components[0].public_properties.iter().map(|p| p.name.as_str()).collect();
+
+        // Interface properties/callbacks/functions must be exposed
+        assert!(
+            props.contains(&"text"),
+            "interface property 'text' should be in public API, got: {props:?}"
+        );
+        assert!(
+            props.contains(&"enabled"),
+            "interface property 'enabled' should be in public API, got: {props:?}"
+        );
+        assert!(
+            props.contains(&"checked"),
+            "interface callback 'checked' should be in public API, got: {props:?}"
+        );
+        assert!(
+            props.contains(&"length"),
+            "interface function 'length' should be in public API, got: {props:?}"
+        );
+
+        // TestCase's own public property must be exposed
+        assert!(props.contains(&"test"), "'test' should be in public API, got: {props:?}");
+        assert!(
+            props.contains(&"test-case-callback"),
+            "'test-case-callback' should be in public API, got: {props:?}"
+        );
+        assert!(
+            props.contains(&"test-case-function"),
+            "'test-case-function' should be in public API, got: {props:?}"
+        );
+
+        // Non-interface properties from Base must NOT be exposed
+        assert!(
+            !props.contains(&"base-unrelated-property"),
+            "'base-unrelated-property' should NOT be in public API, got: {props:?}"
+        );
+        assert!(
+            !props.contains(&"base-unrelated-callback"),
+            "'base-unrelated-callback' should NOT be in public API, got: {props:?}"
+        );
+        assert!(
+            !props.contains(&"base-unrelated-function"),
+            "'base-unrelated-function' should NOT be in public API, got: {props:?}"
+        );
+    }
+
+    #[test]
+    fn derived_component_exposes_only_interface_api() {
+        let slint = r#"
+interface MyInterface {
+    in-out property <string> text: "Hello";
+    out property <bool> enabled: true;
+    public pure function length(text: string) -> int;
+    callback checked();
+}
+
+component Base implements MyInterface {
+    public pure function length(text: string) -> int {
+        text.character-count
+    }
+    out property <int> base-unrelated-property: 42;
+    callback base-unrelated-callback();
+    public pure function base-unrelated-function() -> int {
+        42
+    }
+}
+
+export component TestCase inherits Base {
+    out property <bool> test: true;
+    callback test-case-callback();
+    public pure function test-case-function() -> int {
+        42
+    }
+}
+"#;
+
+        component_exposes_only_interface_api_impl(slint);
+    }
+
+    #[test]
+    fn derived_component_with_implementation_exposes_only_interface_api() {
+        let slint = r#"
+interface MyInterface {
+    in-out property <string> text: "Hello";
+    out property <bool> enabled: true;
+    public pure function length(text: string) -> int;
+    callback checked();
+}
+
+component Impl {
+    in-out property <string> text: "Hello";
+    out property <bool> enabled: true;
+    public pure function length(text: string) -> int {
+        text.character-count
+    }
+    callback checked();
+
+    out property <int> base-unrelated-property: 42;
+    callback base-unrelated-callback();
+    public pure function base-unrelated-function() -> int {
+        42
+    }
+
+    @children
+}
+
+component Base implements MyInterface inherits Impl {
+}
+
+export component TestCase inherits Base {
+    out property <bool> test: true;
+    callback test-case-callback();
+    public pure function test-case-function() -> int {
+        42
+    }
+}
+"#;
+
+        component_exposes_only_interface_api_impl(slint);
+    }
+
+    #[test]
+    fn component_exposes_only_interface_api_via_uses() {
+        let slint = r#"
+interface MyInterface {
+    in-out property <string> text: "Hello";
+    out property <bool> enabled: true;
+    public pure function length(text: string) -> int;
+    callback checked();
+}
+
+component Base implements MyInterface {
+    public pure function length(text: string) -> int {
+        text.character-count
+    }
+    out property <int> base-unrelated-property: 42;
+    callback base-unrelated-callback();
+    public pure function base-unrelated-function() -> int {
+        42
+    }
+}
+
+export component TestCase uses { MyInterface from base } {
+    out property <bool> test: true;
+    callback test-case-callback();
+    public pure function test-case-function() -> int {
+        42
+    }
+
+    base := Base { }
+}
+"#;
+
+        component_exposes_only_interface_api_impl(slint);
+    }
+}

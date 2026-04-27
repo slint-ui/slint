@@ -137,6 +137,7 @@ pub async fn run_passes(
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
+    check_public_api::expose_inherited_interface_properties(doc);
     collect_subcomponents::collect_subcomponents(doc);
 
     for root_component in doc.exported_roots() {
@@ -194,6 +195,7 @@ pub async fn run_passes(
 
     if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
+        check_public_api::expose_inherited_interface_properties(doc);
         doc.used_types.borrow_mut().sub_components.clear();
     }
 

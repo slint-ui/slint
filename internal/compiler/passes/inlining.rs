@@ -97,13 +97,17 @@ fn inline_element(
     let mut elem_mut = elem.borrow_mut();
     let priority_delta = 1 + elem_mut.inline_depth;
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
-    elem_mut.property_declarations.extend(
-        inlined_component.root_element.borrow().property_declarations.iter().map(|(name, decl)| {
-            let mut decl = decl.clone();
+    for (name, decl) in inlined_component.root_element.borrow().property_declarations.iter() {
+        if elem_mut.property_declarations.get(name).is_some_and(|d| d.is_from_interface) {
+            continue;
+        }
+
+        let mut decl = decl.clone();
+        if !decl.is_from_interface {
             decl.expose_in_public_api = false;
-            (name.clone(), decl)
-        }),
-    );
+        }
+        elem_mut.property_declarations.insert(name.clone(), decl);
+    }
 
     for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {
         elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge_with_base(a);

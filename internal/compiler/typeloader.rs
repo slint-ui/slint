@@ -541,6 +541,7 @@ impl Snapshotter {
                     is_alias: v.is_alias.as_ref().map(|a| a.snapshot(self)),
                     visibility: v.visibility,
                     pure: v.pure,
+                    is_from_interface: v.is_from_interface,
                 };
                 (k.clone(), decl)
             })
