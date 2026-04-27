@@ -4,9 +4,6 @@
 use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
-
-use icu_decimal::DecimalFormatter;
-use icu_locale_core::{Locale, locale};
 #[cfg(feature = "tr")]
 pub use tr::Translator;
 
