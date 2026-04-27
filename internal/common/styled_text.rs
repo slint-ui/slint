@@ -138,58 +138,88 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
     let mut current_paragraph = None;
 
-    std::iter::from_fn(move || {
-        let mut substitute = |paragraph: &mut StyledTextParagraph,
-                              string: &str|
-         -> Result<(), StyledTextError<'static>> {
-            let mut pos = 0;
-            while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
-                p += pos;
-                paragraph.text.push_str(&string[pos..p]);
+    fn substitute<S: AsRef<[StyledTextParagraph]>>(
+        paragraph: &mut StyledTextParagraph,
+        string: &str,
+        args: &[S],
+        arg_index: &mut usize,
+    ) -> Result<(), StyledTextError<'static>> {
+        let mut pos = 0;
+        while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
+            p += pos;
+            paragraph.text.push_str(&string[pos..p]);
 
-                if let Some(arg) = args.get(arg_index) {
-                    let arg_paragraphs = arg.as_ref();
+            if let Some(arg) = args.get(*arg_index) {
+                let arg_paragraphs = arg.as_ref();
 
-                    match arg_paragraphs {
-                        [arg_paragraph] => {
-                            let offset = paragraph.text.len();
-                            paragraph.text.push_str(&arg_paragraph.text);
-                            paragraph.formatting.extend(
-                                arg_paragraph.formatting.iter().cloned().map(|mut f| {
-                                    f.range.start += offset;
-                                    f.range.end += offset;
-                                    f
-                                }),
-                            );
-                            paragraph.links.extend(arg_paragraph.links.iter().cloned().map(
-                                |(mut range, link)| {
-                                    range.start += offset;
-                                    range.end += offset;
-                                    (range, link)
-                                },
-                            ));
-                        }
-                        [] => {
-                            // No paragraphs in the argument, so nothing to add
-                        }
-                        _ => {
-                            return Err(StyledTextError::MultiParagraphInterpolation);
-                        }
+                match arg_paragraphs {
+                    [arg_paragraph] => {
+                        let offset = paragraph.text.len();
+                        paragraph.text.push_str(&arg_paragraph.text);
+                        paragraph.formatting.extend(
+                            arg_paragraph.formatting.iter().cloned().map(|mut f| {
+                                f.range.start += offset;
+                                f.range.end += offset;
+                                f
+                            }),
+                        );
+                        paragraph.links.extend(arg_paragraph.links.iter().cloned().map(
+                            |(mut range, link)| {
+                                range.start += offset;
+                                range.end += offset;
+                                (range, link)
+                            },
+                        ));
                     }
-                } else {
-                    return Err(StyledTextError::ArgumentOutOfRange(arg_index, args.len()));
+                    [] => {
+                        // No paragraphs in the argument, so nothing to add
+                    }
+                    _ => {
+                        return Err(StyledTextError::MultiParagraphInterpolation);
+                    }
                 }
-
-                arg_index += 1;
-
-                p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
-                pos = p;
+            } else {
+                return Err(StyledTextError::ArgumentOutOfRange(*arg_index, args.len()));
             }
-            paragraph.text.push_str(&string[pos..]);
 
-            Ok(())
-        };
+            *arg_index += 1;
 
+            p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
+            pos = p;
+        }
+        paragraph.text.push_str(&string[pos..]);
+
+        Ok(())
+    }
+
+    fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
+        string: &str,
+        args: &[S],
+        arg_index: &mut usize,
+    ) -> Result<alloc::string::String, StyledTextError<'static>> {
+        let mut result = alloc::string::String::with_capacity(string.len());
+        let mut pos = 0;
+        while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
+            p += pos;
+            result.push_str(&string[pos..p]);
+            if let Some(arg) = args.get(*arg_index) {
+                match arg.as_ref() {
+                    [arg_paragraph] => result.push_str(&arg_paragraph.text),
+                    [] => {}
+                    _ => return Err(StyledTextError::MultiParagraphInterpolation),
+                }
+            } else {
+                return Err(StyledTextError::ArgumentOutOfRange(*arg_index, args.len()));
+            }
+            *arg_index += 1;
+            p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
+            pos = p;
+        }
+        result.push_str(&string[pos..]);
+        Ok(result)
+    }
+
+    std::iter::from_fn(move || {
         for event in &mut parser {
             let indentation = list_state_stack.len().saturating_sub(1) as _;
 
@@ -280,7 +310,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                         None => return Some(Err(StyledTextError::ParagraphNotStarted)),
                     };
 
-                    if let Err(err) = substitute(paragraph, &text) {
+                    if let Err(err) = substitute(paragraph, &text, &args, &mut arg_index) {
                         return Some(Err(err));
                     };
                 }
@@ -298,7 +328,15 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     let end = paragraph.text.len();
 
                     if let Some(url) = current_url.take() {
-                        paragraph.links.push((start..end, url.into()));
+                        let url = if url.contains(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
+                            match substitute_in_string(&url, &args, &mut arg_index) {
+                                Ok(url) => url,
+                                Err(err) => return Some(Err(err)),
+                            }
+                        } else {
+                            url.into()
+                        };
+                        paragraph.links.push((start..end, url));
                     }
 
                     paragraph.formatting.push(FormattedSpan { range: start..end, style });
@@ -310,7 +348,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     };
                     let start = paragraph.text.len();
 
-                    if let Err(err) = substitute(paragraph, &text) {
+                    if let Err(err) = substitute(paragraph, &text, &args, &mut arg_index) {
                         return Some(Err(err));
                     }
                     paragraph.formatting.push(FormattedSpan {
@@ -748,5 +786,35 @@ fn markdown_parsing_interpolated() {
             .collect::<Result<Vec<_>, _>>()
             .unwrap(),
         [StyledTextParagraph { text: "".into(), formatting: alloc::vec![], links: alloc::vec![] }]
-    )
+    );
+    // Interpolation in link URL
+    assert_eq!(
+        parse_interpolated(
+            &format!("[Click here]({MARKDOWN_INTERPOLATION_PLACEHOLDER})"),
+            &[&[paragraph_from_plain_text("https://example.com".into())]]
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
+        [StyledTextParagraph {
+            text: "Click here".into(),
+            formatting: alloc::vec![FormattedSpan { range: 0..10, style: Style::Link }],
+            links: alloc::vec![(0..10, "https://example.com".into())]
+        }]
+    );
+    // Interpolation in link URL with surrounding text
+    assert_eq!(
+        parse_interpolated(
+            &format!(
+                "[link](https://{MARKDOWN_INTERPOLATION_PLACEHOLDER}/path) after"
+            ),
+            &[&[paragraph_from_plain_text("example.com".into())]]
+        )
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap(),
+        [StyledTextParagraph {
+            text: "link after".into(),
+            formatting: alloc::vec![FormattedSpan { range: 0..4, style: Style::Link }],
+            links: alloc::vec![(0..4, "https://example.com/path".into())]
+        }]
+    );
 }

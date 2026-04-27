@@ -36,7 +36,13 @@ export component TestCase inherits Window {
             text: @markdown("Hello \{world}");
             default-font-size: 24px;
         }
+        // Regression test for #11527 - interpolation in link URL
+        s8 := StyledText {
+            text: @markdown("[Click](\{my-url})");
+        }
     }
+
+    property <string> my-url: "https://slint.dev";
 
     out property<styled-text> t1: s1.text;
     out property<styled-text> t2: s2.text;
@@ -54,8 +60,9 @@ export component TestCase inherits Window {
     out property<length> w5: s5.preferred-width;
     out property<length> w6: s6.preferred-width;
     out property<length> w7: s7.preferred-width;
+    out property<length> w8: s8.preferred-width;
 
-    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1;
+    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1 && w8 > 0px;
 }
 
 /*

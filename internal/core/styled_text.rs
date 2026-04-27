@@ -86,10 +86,10 @@ pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph
     _args: &[S],
 ) -> StyledText {
     #[cfg(feature = "std")]
-    {
-        StyledText::parse_interpolated(_format_string, _args).unwrap()
+    match StyledText::parse_interpolated(_format_string, _args) {
+        Ok(styled_text) => return styled_text,
+        Err(e) => crate::debug_log!("@markdown parse error: {e}"),
     }
-    #[cfg(not(feature = "std"))]
     Default::default()
 }
 
