@@ -152,9 +152,11 @@ export component MenuBarImpl {
     callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
 
     property <[MenuEntry]> entries;
+    property <bool> menubar-visible: true;
 
     preferred-width: 100%;
-    height: base.min-height;
+    height: menubar-visible ? base.min-height : 0px;
+    visible: menubar-visible;
 
     private property <int> last-open-entry-index : -1;
 

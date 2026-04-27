@@ -19,6 +19,13 @@ This means that for example, on macOS, the menu bar will be at the top of the sc
 The `width` and `height` property of the <Link type="Window" /> define the client area, excluding the menu bar.
 The `x` and `y` properties of `Window` children are also relative to the client area.
 
+## Properties
+
+### visible
+<SlintProperty propName="visible" typeName="bool" defaultValue="true">
+Whether this menu bar should be visible.  If the menu bar is not visible, the shortcuts still function.
+</SlintProperty>
+
 ### Example
 
 ```slint

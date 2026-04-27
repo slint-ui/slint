@@ -214,7 +214,9 @@ impl MudaAdapter {
         if let Some(menu_tree) = menu_tree {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
-                vtable::VRc::borrow(menu_tree).sub_menu(None, &mut menu_entries);
+                if vtable::VRc::borrow(&menu_tree).visible() {
+                    vtable::VRc::borrow(&menu_tree).sub_menu(None, &mut menu_entries);
+                }
 
                 if menu_entries.is_empty() && muda_type == MudaType::Menubar {
                     self.menu = None;

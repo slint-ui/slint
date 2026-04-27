@@ -469,6 +469,14 @@ fn process_window(
         }
     }
 
+    // Transfer the visible binding from MenuBar to MenuBarImpl
+    if let Some(visible_binding) = menu_bar.borrow_mut().bindings.remove("visible") {
+        menubar_impl
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static("menubar-visible"), visible_binding);
+    }
+
     // Transform the MenuBar in a layout
     menu_bar.borrow_mut().base_type = components.vertical_layout.clone();
     menu_bar.borrow_mut().children = vec![menubar_impl, child];
