@@ -1,0 +1,97 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+---
+name: Cloudflare Workers preview deploy
+description: >
+    Upload a preview with `wrangler versions upload` and, on pull requests,
+    register a GitHub deployment that links to the preview URL.
+
+inputs:
+    working-directory:
+        description: "Directory containing the wrangler.toml to deploy"
+        required: true
+    environment:
+        description: "GitHub deployment environment name (e.g. docs-staging)"
+        required: true
+    path-suffix:
+        description: "Optional path appended to the preview URL in the deployment status"
+        required: false
+        default: ""
+    cloudflare-api-token:
+        description: "Cloudflare API token"
+        required: true
+    cloudflare-account-id:
+        description: "Cloudflare account ID"
+        required: true
+
+outputs:
+    url:
+        description: "Preview URL produced by wrangler"
+        value: ${{ steps.preview.outputs.url }}
+
+runs:
+    using: composite
+    steps:
+        - name: Deploy preview to ${{ inputs.environment }} (Workers)
+          id: preview
+          # Forks don't have access to repository secrets; only run for PRs from the same repo.
+          if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+          working-directory: ${{ inputs.working-directory }}
+          shell: bash
+          run: |
+            OUTPUT=$(pnpm dlx wrangler@3 versions upload 2>&1)
+            echo "$OUTPUT"
+            PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
+            echo "url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+            if [ -n "$PREVIEW_URL" ]; then
+              BASE="${PREVIEW_URL%/}"
+              SUFFIX="${PREVIEW_PATH_SUFFIX#/}"
+              SUFFIX="${SUFFIX%/}"
+              if [ -n "$SUFFIX" ]; then
+                FULL="${BASE}/${SUFFIX}/"
+              else
+                FULL="${BASE}/"
+              fi
+              {
+                echo "### Preview"
+                echo ""
+                echo "[$FULL]($FULL)"
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          env:
+            CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+            PREVIEW_PATH_SUFFIX: ${{ inputs.path-suffix }}
+        - name: Create GitHub deployment for PR
+          if: steps.preview.outputs.url != '' && github.event_name == 'pull_request'
+          uses: actions/github-script@v9
+          env:
+            PREVIEW_URL: ${{ steps.preview.outputs.url }}
+            PREVIEW_PATH_SUFFIX: ${{ inputs.path-suffix }}
+            DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          with:
+            script: |
+              const raw = (process.env.PREVIEW_URL || '').trim();
+              const noTrailingSlash = raw.replace(/\/+$/, '');
+              const suffix = (process.env.PREVIEW_PATH_SUFFIX || '').replace(/^\/+|\/+$/g, '');
+              const deploymentUrl = suffix ? `${noTrailingSlash}/${suffix}/` : `${noTrailingSlash}/`;
+              const ref = context.payload.pull_request.head.sha;
+              const deployment = await github.rest.repos.createDeployment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref,
+                environment: process.env.DEPLOY_ENVIRONMENT,
+                auto_merge: false,
+                required_contexts: []
+              });
+              if (deployment.data.id) {
+                await github.rest.repos.createDeploymentStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: deployment.data.id,
+                  state: 'success',
+                  environment_url: deploymentUrl,
+                  log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+                });
+              }
