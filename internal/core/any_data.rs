@@ -3,26 +3,47 @@
 
 //! Dynamically-typed data, for runtime-generic code such as [`ClipboardData`](crate::clipboard::ClipboardData).
 
-use crate::SharedString;
+use crate::{SharedString, api::Image};
+
+#[derive(Clone)]
+enum AnyDataInner {
+    String(SharedString),
+    Image(Image),
+}
 
 /// A piece of data of unspecified type. Use the accessor methods to downcast this to a specific type.
 #[derive(Clone)]
 pub struct AnyData {
-    // Eventually this will be something like `Rc<dyn Any>`, but since we only support `SharedString`
-    // for now, this simplifies the implementation.
-    inner: SharedString,
+    inner: AnyDataInner,
 }
 
 impl AnyData {
-    /// Returns a reference to the inner value if it is of type `T`, or `None` if it isn’t.
+    /// Returns a reference to the inner value if it is a `SharedString`, or `None` if it isn’t.
     pub fn as_string(&self) -> Option<SharedString> {
-        Some(self.inner.clone())
+        match &self.inner {
+            AnyDataInner::String(string) => Some(string.clone()),
+            _ => None,
+        }
+    }
+
+    /// Returns a reference to the inner value if it is an `Image`, or `None` if it isn’t.
+    pub fn as_image(&self) -> Option<Image> {
+        match &self.inner {
+            AnyDataInner::Image(image) => Some(image.clone()),
+            _ => None,
+        }
     }
 }
 
 impl From<SharedString> for AnyData {
     fn from(value: SharedString) -> Self {
-        Self { inner: value }
+        Self { inner: AnyDataInner::String(value) }
+    }
+}
+
+impl From<Image> for AnyData {
+    fn from(value: Image) -> Self {
+        Self { inner: AnyDataInner::Image(value) }
     }
 }
 
@@ -42,5 +63,13 @@ impl TryFrom<AnyData> for SharedString {
 
     fn try_from(value: AnyData) -> Result<Self, Self::Error> {
         value.as_string().ok_or(AnyDataCastError)
+    }
+}
+
+impl TryFrom<AnyData> for Image {
+    type Error = AnyDataCastError;
+
+    fn try_from(value: AnyData) -> Result<Self, Self::Error> {
+        value.as_image().ok_or(AnyDataCastError)
     }
 }

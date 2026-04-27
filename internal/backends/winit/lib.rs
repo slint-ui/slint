@@ -798,22 +798,10 @@ struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
 #[cfg(target_arch = "wasm32")]
 impl PlatformClipboard for WinitPlatformClipboard {
     fn set(&self, clipboard: i_slint_core::platform::Clipboard, data: ClipboardData) {
-        use i_slint_core::clipboard::mime;
-
-        let data_for_mime_types = data.clone();
-        let Some(mime_type) = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        let Some(string) =
+            data.clone().read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok()
         else {
-            return;
-        };
-
-        let Some(string) = data.read::<SharedString>(mime_type).ok() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data_for_mime_types.mime_types()
-            );
+            eprintln!("Testing clipboard provided non-string data: {:?}", data.mime_types());
             return;
         };
 
@@ -835,28 +823,16 @@ impl PlatformClipboard for WinitPlatformClipboard {
 #[cfg(not(target_arch = "wasm32"))]
 impl PlatformClipboard for WinitPlatformClipboard {
     fn set(&self, clipboard: i_slint_core::platform::Clipboard, data: ClipboardData) {
-        use i_slint_core::clipboard::mime;
-
         let mut pair = self.0.borrow_mut();
         let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
             eprintln!("Unknown clipboard: {clipboard:?}");
             return;
         };
 
-        let data_for_mime_types = data.clone();
-        let Some(mime_type) = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        let Some(string) =
+            data.clone().read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok()
         else {
-            return;
-        };
-
-        let Some(string) = data.read::<SharedString>(mime_type).ok() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data_for_mime_types.mime_types()
-            );
+            eprintln!("Testing clipboard provided non-string data: {:?}", data.mime_types());
             return;
         };
 

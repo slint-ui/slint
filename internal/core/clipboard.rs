@@ -3,7 +3,10 @@
 
 use alloc::{boxed::Box, rc::Rc};
 
-use crate::{AnyData, SharedString, api::PlatformError};
+use crate::{
+    AnyData, SharedString,
+    api::{Image, PlatformError},
+};
 
 pub mod mime;
 
@@ -59,26 +62,62 @@ impl PartialEq for ClipboardData {
 }
 
 impl ClipboardData {
+    pub const PLAINTEXT_MIME_TYPES: &[&str] = mime::PLAINTEXT;
+    pub const IMAGE_MIME_TYPES: &[&str] = mime::IMAGE;
+
+    #[inline]
     pub fn mime_types(&self) -> &[&str] {
         self.provider.mime_types()
     }
 
-    pub fn has_type(&self, type_: &str) -> bool {
-        self.mime_types().contains(&type_)
+    #[inline]
+    pub fn has_any_type(&self, types: &[&str]) -> bool {
+        self.mime_types().iter().any(|type_| types.contains(type_))
     }
 
-    pub fn read<T>(&self, type_: &str) -> Result<T, PlatformError>
+    #[inline]
+    pub fn has_plaintext(&self) -> bool {
+        self.has_any_type(Self::PLAINTEXT_MIME_TYPES)
+    }
+
+    #[inline]
+    pub fn has_image(&self) -> bool {
+        self.has_any_type(Self::IMAGE_MIME_TYPES)
+    }
+
+    /// Read the inner type as one of the supplied MIME types, in order. For each type in `types`, if
+    /// [`self.mime_types()`](ClipboardData::mime_types) contains the type, then [`ClipboardDataProvider::read`]
+    /// will be called. If this either fails or casting it to `T` fails, then the next type will be tried
+    /// until one succeeds or the list is exhausted.
+    #[inline]
+    pub fn read<T>(&self, types: &[&str]) -> Result<T, PlatformError>
     where
         T: TryFrom<AnyData>,
         T::Error: core::error::Error + Send + Sync + 'static,
     {
-        self.provider.clone().read(type_).and_then(|any| {
-            any.try_into().map_err(|err| {
-                PlatformError::OtherError(
-                    Box::new(err) as Box<dyn core::error::Error + Send + Sync + 'static>
-                )
-            })
-        })
+        let mut last_err = None;
+        for type_ in types {
+            // Theoretically somewhat inefficient to loop over MIME types for every element of `types`,
+            // but in practice both `self.mime_types()` and the `types` argument will be very small.
+            if !self.has_any_type(&[type_]) {
+                continue;
+            }
+
+            match self.provider.clone().read(type_).and_then(|any| {
+                any.try_into().map_err(|err| {
+                    PlatformError::OtherError(
+                        Box::new(err) as Box<dyn core::error::Error + Send + Sync + 'static>
+                    )
+                })
+            }) {
+                Ok(value) => return Ok(value),
+                Err(err) => last_err = Some(err),
+            }
+        }
+
+        Err(last_err.unwrap_or_else(|| {
+            PlatformError::ClipboardTypeNotFound((*types.first().unwrap_or(&"{unknown}")).into())
+        }))
     }
 }
 
@@ -113,6 +152,20 @@ pub trait ClipboardDataProvider {
 impl ClipboardDataProvider for SharedString {
     fn mime_types(&self) -> &[&str] {
         self::mime::PLAINTEXT
+    }
+
+    fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {
+        if self.mime_types().contains(&type_) {
+            Ok((*self).clone().into())
+        } else {
+            Err(PlatformError::ClipboardTypeNotFound(type_.into()))
+        }
+    }
+}
+
+impl ClipboardDataProvider for Image {
+    fn mime_types(&self) -> &[&str] {
+        self::mime::IMAGE
     }
 
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {

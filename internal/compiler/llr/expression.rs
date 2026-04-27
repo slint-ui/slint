@@ -276,8 +276,7 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
-            | Type::ArrayOfU16
-            | Type::ClipboardData => return None,
+            | Type::ArrayOfU16 => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32
@@ -320,6 +319,11 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::Keys => Expression::KeysLiteral(Keys::default()),
+            // Default for `ClipboardData` is the target language's equivalent of `().into()`
+            Type::ClipboardData => Expression::Cast {
+                from: Box::new(Expression::CodeBlock(Default::default())),
+                to: ty.clone(),
+            },
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => return None,
         })

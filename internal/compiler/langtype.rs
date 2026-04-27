@@ -286,6 +286,7 @@ impl Type {
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush)
+            | (Type::Image, Type::ClipboardData)
             | (Type::String, Type::ClipboardData)
             | (Type::Void, Type::ClipboardData) => true,
             (Type::Array(a), Type::Model) if a.is_property_type() => true,

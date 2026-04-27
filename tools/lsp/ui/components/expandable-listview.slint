@@ -78,8 +78,9 @@ component ItemTemplate {
 
 
     DragArea {
-        mime-type: "application/x-slint-component";
-        data: data.index;
+        // TODO: Initial implementation of `clipboard-data` doesn't allow explicit MIME typing,
+        // so we need to use `text/plain`. We should implement that later.
+        data: "\{data.index}";
 
         touch-area := TouchArea {
             changed has-hover => {

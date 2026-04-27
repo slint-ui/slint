@@ -123,8 +123,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::StringIsEmpty => 50,
         BuiltinFunction::StringCharacterCount => 50,
-        BuiltinFunction::StringToLowercase => ALLOC_COST,
-        BuiltinFunction::StringToUppercase => ALLOC_COST,
+        BuiltinFunction::StringToLowercase
+        | BuiltinFunction::StringToUppercase
+        | BuiltinFunction::StringToClipboardData => ALLOC_COST,
         BuiltinFunction::KeysToString => ALLOC_COST,
         BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorHsvaStruct => 50,
@@ -135,10 +136,15 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorMix => 50,
         BuiltinFunction::ColorWithAlpha => 50,
         // `ClipboardData` should fetch the MIME types on construction
-        BuiltinFunction::ClipboardDataHasType => PROPERTY_ACCESS_COST,
+        BuiltinFunction::ClipboardDataHasPlaintext | BuiltinFunction::ClipboardDataHasImage => {
+            PROPERTY_ACCESS_COST
+        }
         // May do IO, and on X11 may even access the network
-        BuiltinFunction::ClipboardDataReadString => isize::MAX,
+        BuiltinFunction::ClipboardDataReadPlaintext | BuiltinFunction::ClipboardDataReadImage => {
+            isize::MAX
+        }
         BuiltinFunction::ImageSize => 50,
+        BuiltinFunction::ImageToClipboardData => ALLOC_COST,
         BuiltinFunction::ArrayLength => 50,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,

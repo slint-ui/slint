@@ -4390,7 +4390,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorWithAlpha => {
             format!("{}.with_alpha({})", a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::ClipboardDataHasType | BuiltinFunction::ClipboardDataReadString => {
+        BuiltinFunction::ClipboardDataHasPlaintext
+        | BuiltinFunction::ClipboardDataReadPlaintext
+        | BuiltinFunction::ClipboardDataHasImage
+        | BuiltinFunction::ClipboardDataReadImage
+        | BuiltinFunction::StringToClipboardData
+        | BuiltinFunction::ImageToClipboardData => {
             todo!("Implement ClipboardData in C++")
         }
         BuiltinFunction::ImageSize => {

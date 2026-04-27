@@ -3749,15 +3749,25 @@ fn compile_builtin_function_call(
             let alpha = a.next().unwrap();
             quote!(#x.with_alpha(#alpha as f32))
         }
-        BuiltinFunction::ClipboardDataHasType => {
+        BuiltinFunction::StringToClipboardData | BuiltinFunction::ImageToClipboardData => {
             let x = a.next().unwrap();
-            let type_ = a.next().unwrap();
-            quote!(#x.has_type(&*#type_))
+            quote!(sp::ClipboardData::from(#x))
         }
-        BuiltinFunction::ClipboardDataReadString => {
+        BuiltinFunction::ClipboardDataHasPlaintext => {
             let x = a.next().unwrap();
-            let type_ = a.next().unwrap();
-            quote!(#x.read::<sp::SharedString>(&*#type_).unwrap_or_default())
+            quote!(#x.has_any_type(sp::ClipboardData::PLAINTEXT_MIME_TYPES))
+        }
+        BuiltinFunction::ClipboardDataReadPlaintext => {
+            let x = a.next().unwrap();
+            quote!(#x.read::<sp::SharedString>(sp::ClipboardData::PLAINTEXT_MIME_TYPES).unwrap_or_default())
+        }
+        BuiltinFunction::ClipboardDataHasImage => {
+            let x = a.next().unwrap();
+            quote!(#x.has_any_type(sp::ClipboardData::IMAGE_MIME_TYPES))
+        }
+        BuiltinFunction::ClipboardDataReadImage => {
+            let x = a.next().unwrap();
+            quote!(#x.read::<sp::Image>(sp::ClipboardData::IMAGE_MIME_TYPES).unwrap_or_default())
         }
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
         BuiltinFunction::ArrayLength => {

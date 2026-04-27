@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::api::PhysicalSize;
-use i_slint_core::clipboard::{ClipboardData, PlatformClipboard, mime};
+use i_slint_core::clipboard::{ClipboardData, PlatformClipboard};
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
@@ -133,20 +133,10 @@ impl PlatformClipboard for TestingPlatformClipboard {
             return;
         }
 
-        let data_for_mime_types = data.clone();
-        let Some(mime_type) = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        let Some(string) =
+            data.clone().read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok()
         else {
-            return;
-        };
-
-        let Some(string) = data.read::<SharedString>(mime_type).ok() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data_for_mime_types.mime_types()
-            );
+            eprintln!("Testing clipboard provided non-string data: {:?}", data.mime_types());
             return;
         };
 

@@ -347,22 +347,12 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
     ) {
         use cpp::cpp;
 
-        use i_slint_core::clipboard::mime;
-
-        let data_for_mime_types = data.clone();
-        let Some(mime_type) = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| mime::PLAINTEXT.contains(mime_type))
+        let Some(string) = data
+            .clone()
+            .read::<SharedString>(i_slint_core::clipboard::ClipboardData::PLAINTEXT_MIME_TYPES)
+            .ok()
         else {
-            return;
-        };
-
-        let Some(string) = data.read::<SharedString>(mime_type).ok() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data_for_mime_types.mime_types()
-            );
+            eprintln!("Testing clipboard provided non-string data: {:?}", data.mime_types());
             return;
         };
 

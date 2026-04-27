@@ -1033,6 +1033,9 @@ impl LookupObject for StringExpression<'_> {
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("is-float", member_function(BuiltinFunction::StringIsFloat)))
             .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
+            .or_else(|| {
+                f("to-clipboard-data", member_function(BuiltinFunction::StringToClipboardData))
+            })
             .or_else(|| f("is-empty", function_call(BuiltinFunction::StringIsEmpty)))
             .or_else(|| f("character-count", function_call(BuiltinFunction::StringCharacterCount)))
             .or_else(|| f("to-lowercase", member_function(BuiltinFunction::StringToLowercase)))
@@ -1054,10 +1057,23 @@ impl LookupObject for ClipboardDataExpression<'_> {
                 member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
             })
         };
+        let function_call = |f: BuiltinFunction| {
+            LookupResult::from(Expression::FunctionCall {
+                function: Callable::Builtin(f),
+                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                arguments: vec![self.0.clone()],
+            })
+        };
 
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
-        None.or_else(|| f("has-type", member_function(BuiltinFunction::ClipboardDataHasType)))
-            .or_else(|| f("read-string", member_function(BuiltinFunction::ClipboardDataReadString)))
+        None.or_else(|| {
+            f("has-plaintext", function_call(BuiltinFunction::ClipboardDataHasPlaintext))
+        })
+        .or_else(|| f("has-image", function_call(BuiltinFunction::ClipboardDataHasImage)))
+        .or_else(|| {
+            f("read-plaintext", member_function(BuiltinFunction::ClipboardDataReadPlaintext))
+        })
+        .or_else(|| f("read-image", member_function(BuiltinFunction::ClipboardDataReadImage)))
     }
 }
 
@@ -1121,6 +1137,13 @@ impl LookupObject for ImageExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
+            })
+        };
         let field_access = |f: &str| {
             LookupResult::from(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
@@ -1134,6 +1157,9 @@ impl LookupObject for ImageExpression<'_> {
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
         None.or_else(|| f("width", field_access("width")))
             .or_else(|| f("height", field_access("height")))
+            .or_else(|| {
+                f("to-clipboard-data", member_function(BuiltinFunction::ImageToClipboardData))
+            })
     }
 }
 

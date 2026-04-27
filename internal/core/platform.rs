@@ -7,13 +7,13 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
+use crate::{ClipboardData, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -146,13 +146,8 @@ pub trait Platform {
     )]
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
         let data = self.clipboard().get(clipboard).ok()?;
-        let data_for_mime_types = data.clone();
-        let mime_type = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
 
-        data.read::<SharedString>(mime_type).ok().map(|s| s.into())
+        data.read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok().map(|s| s.into())
     }
 
     /// This function is called when debug() is used in .slint files. The implementation
