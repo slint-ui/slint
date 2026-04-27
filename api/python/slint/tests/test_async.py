@@ -233,3 +233,68 @@ def test_exception_thrown() -> None:
 
     with pytest.raises(RuntimeError, match="Boo"):
         slint.run_event_loop(throws())
+
+
+# Guarded with `sys.platform != "win32"` (in addition to the pytest skipif) so
+# that `ty` narrows the branch away on Windows, where `signal.SIGUSR1` is not
+# defined in the stdlib stubs.
+if sys.platform != "win32":
+
+    def test_add_signal_handler() -> None:
+        import os
+        import signal
+
+        handler_called = [False]
+
+        async def setup_and_signal() -> None:
+            loop = asyncio.get_running_loop()
+
+            def handler() -> None:
+                handler_called[0] = True
+                slint.quit_event_loop()
+
+            loop.add_signal_handler(signal.SIGUSR1, handler)
+            os.kill(os.getpid(), signal.SIGUSR1)
+
+            await asyncio.sleep(5)
+            slint.quit_event_loop()
+
+        slint.run_event_loop(setup_and_signal())
+        assert handler_called[0]
+
+    def test_signal_wakes_idle_loop() -> None:
+        # Signal delivered from a background thread while the loop has no pending
+        # Python work — it must be parked in the native wait and woken by the
+        # signal wakeup byte.
+        import os
+        import signal
+        import threading
+        import time
+
+        handler_called = [False]
+
+        def deliver_signal_later() -> None:
+            time.sleep(0.2)
+            os.kill(os.getpid(), signal.SIGUSR1)
+
+        def watchdog() -> None:
+            time.sleep(5)
+            if not handler_called[0]:
+                native.invoke_from_event_loop(slint.quit_event_loop)
+
+        async def run() -> None:
+            loop = asyncio.get_running_loop()
+
+            def handler() -> None:
+                handler_called[0] = True
+                slint.quit_event_loop()
+
+            loop.add_signal_handler(signal.SIGUSR1, handler)
+
+            threading.Thread(target=deliver_signal_later, daemon=True).start()
+            threading.Thread(target=watchdog, daemon=True).start()
+
+            await asyncio.Event().wait()
+
+        slint.run_event_loop(run())
+        assert handler_called[0]

@@ -4,7 +4,7 @@
 use crate::common::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::{Expression, Unit};
+use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
@@ -330,9 +330,17 @@ fn insert_property_definitions(
                 return e;
             }
             for twb in &binding.borrow().two_way_bindings {
-                let mut e = binding_value(&twb.property.element(), twb.property.name(), count);
+                let (mut e, field_access) = match twb {
+                    TwoWayBinding::Property { property, field_access } => {
+                        (binding_value(&property.element(), property.name(), count), field_access)
+                    }
+                    TwoWayBinding::ModelData { repeated_element, field_access } => (
+                        Expression::RepeaterModelReference { element: repeated_element.clone() },
+                        field_access,
+                    ),
+                };
                 if !matches!(e, Expression::Invalid) {
-                    for f in &twb.field_access {
+                    for f in field_access {
                         e = Expression::StructFieldAccess { base: e.into(), name: f.clone() }
                     }
                     return e;

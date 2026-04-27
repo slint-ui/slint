@@ -280,6 +280,53 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     }
 }
 
+struct TwoWayBindingModel<T, ItemTree, Getter, Setter> {
+    phantom: PhantomData<fn(T) -> T>,
+    item_tree: ItemTree,
+    getter: Getter,
+    setter: Setter,
+}
+
+// Safety: IS_TWO_WAY_BINDING is false
+unsafe impl<T, ItemTree, Getter, Setter> BindingCallable<T>
+    for TwoWayBindingModel<T, ItemTree, Getter, Setter>
+where
+    Getter: Fn(&ItemTree) -> Option<T>,
+    Setter: Fn(&ItemTree, &T),
+{
+    fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
+        if let Some(v) = (self.getter)(&self.item_tree) {
+            *value = v;
+        }
+        BindingResult::KeepBinding
+    }
+
+    unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
+        panic!("Cannot assign a binding to a property bound two-way to a model");
+    }
+
+    fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
+        (self.setter)(&self.item_tree, value);
+        true
+    }
+}
+
+impl<T: 'static> Property<T> {
+    /// Bind this property two-way to a value stored in a model row.
+    /// `getter` reads the current row value (and registers a dependency on
+    /// it); `setter` writes a new value back into the row.
+    pub fn link_two_way_to_model_data<ItemTree: 'static>(
+        self: Pin<&Self>,
+        item_tree: ItemTree,
+        getter: impl Fn(&ItemTree) -> Option<T> + 'static,
+        setter: impl Fn(&ItemTree, &T) + 'static,
+    ) {
+        let binding = TwoWayBindingModel { phantom: PhantomData, item_tree, getter, setter };
+        // Safety: TwoWayBindingModel implements BindingCallable<T> for the same T as `Self`.
+        unsafe { self.handle.set_binding(binding) };
+    }
+}
+
 #[test]
 fn property_two_ways_test() {
     let p1 = Rc::pin(Property::new(42));

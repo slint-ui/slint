@@ -518,6 +518,19 @@ fn generate_shared_globals(
                 _self
             }
 
+            // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
+            #[allow(dead_code)]
+            #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
+                sp::Rc::new(Self {
+                    #(#global_names : self.#global_names.clone(),)*
+                    #(#from_library_global_names : self.#from_library_global_names.clone(),)*
+                    window_adapter: window_adapter.into(),
+                    // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
+                    root_item_tree_weak: ::core::default::Default::default(),
+                    #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
+                })
+            }
+
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
@@ -614,6 +627,84 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
             #(#enum_values,)*
         }
     }
+}
+
+/// Walk `field_access` on `root_ty`, producing the Rust access suffix
+/// (e.g. `.foo.bar`) and the type of the leaf field.
+fn lower_field_access_chain(root_ty: &Type, field_access: &[SmolStr]) -> (TokenStream, Type) {
+    let mut access = quote!();
+    let mut ty = root_ty;
+    for f in field_access {
+        let Type::Struct(s) = ty else { panic!("Field of two way binding on a non-struct type") };
+        let a = struct_field_access(s, f);
+        access.extend(quote!(.#a));
+        ty = s.fields.get(f).unwrap();
+    }
+    (access, ty.clone())
+}
+
+/// Emit a `link_two_way_to_model_data` call wiring `p1` to a row of the
+/// model described by `info`, optionally through a struct `field_access`.
+fn generate_model_two_way_binding(
+    ctx: &EvaluationContext,
+    info: &llr::ResolvedModelTwoWayBinding,
+    p1: &TokenStream,
+    field_access: &[SmolStr],
+) -> TokenStream {
+    let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
+    let parent_sc = &ctx.compilation_unit.sub_components[info.parent_sub_component];
+    let body_id = self::inner_component_id(body_sc);
+    let data_f =
+        access_component_field_offset(&body_id, &ident(&body_sc.properties[info.data_prop].name));
+    let index_f =
+        access_component_field_offset(&body_id, &ident(&body_sc.properties[info.index_prop].name));
+    let repeater = access_component_field_offset(
+        &self::inner_component_id(parent_sc),
+        &format_ident!("repeater{}", usize::from(info.repeater_index)),
+    );
+
+    let item_tree_weak = if info.parent_level == 0 {
+        quote!(sp::VRcMapped::downgrade(&self_rc))
+    } else {
+        let mut e = quote!(_self.parent.clone());
+        for _ in 1..info.parent_level {
+            e = quote!(#e.upgrade().unwrap().parent.clone());
+        }
+        e
+    };
+
+    // The leaf field type may differ from the property type (e.g. struct
+    // field `f32` vs property `LogicalLength`); apply the usual conversions.
+    let (access_model, getter_value) = if field_access.is_empty() {
+        (quote!(let data = value.clone();), quote!(#data_f.apply_pin(x.as_pin_ref()).get()))
+    } else {
+        let (access, ty) = lower_field_access_chain(info.data_prop_ty, field_access);
+        let to_struct_value = primitive_value_from_property_value(&ty, quote!(value.clone()));
+        let to_property_value = set_primitive_property_value(
+            &ty,
+            quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
+        );
+        (
+            quote! {
+                let mut data = #data_f.apply_pin(x.as_pin_ref()).get();
+                data #access = #to_struct_value;
+            },
+            to_property_value,
+        )
+    };
+
+    quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak,
+        |item_tree_weak| item_tree_weak.upgrade().map(|x| #getter_value),
+        |item_tree_weak, value| {
+            if let Some(x) = item_tree_weak.upgrade() {
+                if let Some(parent) = x.parent.upgrade() {
+                    let index = #index_f.apply_pin(x.as_pin_ref()).get();
+                    #access_model
+                    #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
+                }
+            }
+        }
+    )}
 }
 
 fn handle_property_init(
@@ -843,7 +934,7 @@ fn generate_sub_component(
                 root,
                 Some(&ParentScope::new(&ctx, None)),
                 None,
-                false,
+                true,
             )
         })
         .chain(component.menu_item_trees.iter().map(|tree| {
@@ -1169,36 +1260,26 @@ fn generate_sub_component(
     let popup_id_names =
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
-    for (prop1, prop2, fields) in &component.two_way_bindings {
-        let p1 = access_member(prop1, &ctx).unwrap();
-        let p2 = access_member(prop2, &ctx);
-        let r = p2.then(|p2| {
-            if fields.is_empty() {
-                quote!(sp::Property::link_two_way(#p1, #p2))
-            } else {
-                let mut access = quote!();
-                let mut ty = ctx.property_ty(prop2);
-                for f in fields {
-                    let Type::Struct(s) = &ty else {
-                        panic!("Field of two way binding on a non-struct type")
-                    };
-                    let a = struct_field_access(s, f);
-                    access.extend(quote!(.#a));
-                    ty = s.fields.get(f).unwrap();
+    for twb in &component.two_way_bindings {
+        let p1 = access_local_member(&twb.prop1, &ctx);
+        let r = if let Some(info) = twb.resolve_model(&ctx) {
+            generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access)
+        } else {
+            let p2 = access_member(&twb.prop2, &ctx);
+            p2.then(|p2| {
+                if twb.field_access.is_empty() {
+                    quote!(sp::Property::link_two_way(#p1, #p2))
+                } else {
+                    let (access, ty) =
+                        lower_field_access_chain(ctx.property_ty(&twb.prop2), &twb.field_access);
+                    let to_property_value =
+                        set_primitive_property_value(&ty, quote!(s #access .clone()));
+                    let to_struct_value =
+                        primitive_value_from_property_value(&ty, quote!((*v).clone()));
+                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| #to_property_value, |s, v| s #access = #to_struct_value))
                 }
-                let to_property_value =
-                    set_primitive_property_value(ty, quote!(s #access .clone()));
-                let to_struct_value = primitive_value_from_property_value(ty, quote!((*v).clone()));
-                quote!(
-                    sp::Property::link_two_way_with_map(
-                        #p2,
-                        #p1,
-                        |s| #to_property_value,
-                        |s, v| s #access = #to_struct_value,
-                    )
-                )
-            }
-        });
+            })
+        };
         init.push(quote!(#r;))
     }
 
@@ -1718,7 +1799,7 @@ fn generate_item_tree(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
-    is_popup_menu: bool,
+    is_popup: bool,
 ) -> TokenStream {
     let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
@@ -1731,14 +1812,14 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
-    let globals = if is_popup_menu {
+    let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
     };
-    let globals_arg = is_popup_menu.then(|| quote!(globals: sp::Rc<SharedGlobals>));
+    let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
@@ -3290,7 +3371,15 @@ fn compile_builtin_function_call(
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
-                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
+                    // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
+                    let shared_global = #component_access_tokens.globals.get().unwrap();
+                    let globals = if let Some(popup_window_adapter) = sp::WindowInner::from_pub(#window_adapter_tokens.window()).create_popup_window_adapter() {
+                        shared_global.clone_with_window_adapter(popup_window_adapter)
+                    } else {
+                        shared_global.clone()
+                    };
+
+                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {

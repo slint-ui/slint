@@ -58,6 +58,13 @@ pub trait ErasedPropertyInfo {
         property2: Pin<Rc<corelib::Property<Value>>>,
         map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
     );
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<ItemRef>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    );
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyInfo
@@ -105,6 +112,15 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
         map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
     ) {
         (*self).link_two_way_with_map(ItemRef::downcast_pin(item).unwrap(), property2, map)
+    }
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<ItemRef>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    ) {
+        (*self).link_two_way_to_model_data(ItemRef::downcast_pin(item).unwrap(), getter, setter)
     }
 }
 

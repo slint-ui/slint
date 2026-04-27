@@ -61,6 +61,10 @@ pub mod opengl_surface;
 pub mod wgpu_27_surface;
 #[cfg(feature = "wgpu-28")]
 pub mod wgpu_28_surface;
+#[cfg(feature = "wgpu-28")]
+mod wgpu_renderer;
+#[cfg(feature = "wgpu-28")]
+pub use wgpu_renderer::SkiaWGPURenderer;
 
 use i_slint_core::items::{ItemRc, TextWrap};
 use itemrenderer::to_skia_rect;
@@ -560,15 +564,10 @@ impl SkiaRenderer {
         self.internal_render_with_post_callback(0., (0., 0.), size, None)
     }
 
-    fn internal_render_with_post_callback(
+    fn invoke_rendering_notifier_setup(
         &self,
-        rotation_angle_degrees: f32,
-        translation: (f32, f32),
-        surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        surface: &dyn Surface,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let surface = self.surface.borrow();
-        let Some(surface) = surface.as_ref() else { return Ok(()) };
         if self.rendering_first_time.take() {
             *self.rendering_metrics_collector.borrow_mut() =
                 RenderingMetricsCollector::new(&format!(
@@ -583,6 +582,19 @@ impl SkiaRenderer {
                 })
             }
         }
+        Ok(())
+    }
+
+    fn internal_render_with_post_callback(
+        &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surface_size: PhysicalWindowSize,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        let surface = self.surface.borrow();
+        let Some(surface) = surface.as_ref() else { return Ok(()) };
+        self.invoke_rendering_notifier_setup(surface.as_ref())?;
 
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
