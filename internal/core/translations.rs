@@ -415,6 +415,10 @@ fn update_locale_decimal_separator() {
             // Check bundled
             let language_index = ctx.0.translations_dirty.as_ref().get();
             if let Some(_l) = l.get(language_index) {
+                #[cfg(feature = "std")]
+                ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(_l));
+
+                #[cfg(not(feature = "std"))]
                 if let Some(c) = ctx
                     .0
                     .translations_bundle_decimal_separators
@@ -423,10 +427,6 @@ fn update_locale_decimal_separator() {
                     .and_then(|v| v.get(language_index).and_then(|v| *v))
                 {
                     ctx.0.locale_decimal_separator.as_ref().set(Some(c))
-                } else {
-                    // Fallback: We use icu to determine the decimal separator from the provided language
-                    // #[cfg(feature = "std")]
-                    // ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(_l));
                 }
             }
         } else {
@@ -434,20 +434,30 @@ fn update_locale_decimal_separator() {
 
             #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
             {
-                let translated = if let Some(domain) =
-                    ctx.0.gettext_bindtextdomain_domain.borrow().as_ref()
-                {
-                    translate(".", "SlintDecimalSeparator", domain, &[] as &[SharedString], 1, "")
+                if let Some(locale) = sys_locale::get_locale() {
+                    ctx.0
+                        .locale_decimal_separator
+                        .as_ref()
+                        .set(decimal_separator_for_locale(&locale))
                 } else {
-                    "".into()
-                };
-                if !translated.is_empty() {
-                    ctx.0.locale_decimal_separator.as_ref().set(translated.chars().next());
-                } else {
-                    // Fallback: We use the system locale and determining with icu the decimal separator
-                    // if let Some(locale) = sys_locale::get_locale() {
-                    //     ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(&locale))
-                    // }
+                    // As fallback, read from the translation files
+                    let translated = if let Some(domain) =
+                        ctx.0.gettext_bindtextdomain_domain.borrow().as_ref()
+                    {
+                        translate(
+                            ".",
+                            "SlintDecimalSeparator",
+                            domain,
+                            &[] as &[SharedString],
+                            1,
+                            "",
+                        )
+                    } else {
+                        "".into()
+                    };
+                    if !translated.is_empty() {
+                        ctx.0.locale_decimal_separator.as_ref().set(translated.chars().next());
+                    }
                 }
             }
         }
