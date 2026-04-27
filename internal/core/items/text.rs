@@ -2250,7 +2250,7 @@ impl TextInput {
             let (a, c) = self.selection_anchor_and_cursor();
             let current = self.text();
             let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
-            return string_to_float(&candidate).is_ok();
+            return string_to_float(&candidate).is_some();
         }
 
         true

@@ -3718,7 +3718,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToFloat => {
             quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
-        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_ok()),
+        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_some()),
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
