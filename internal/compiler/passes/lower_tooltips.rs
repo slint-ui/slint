@@ -13,6 +13,16 @@
 //!
 //! Runtime popup handling marks tooltip popups as input-transparent overlays.
 //! Tooltip show/hide delay currently uses a fixed delay constant.
+//!
+//! Tooltip content contract:
+//! - `ToolTip` supports exactly one content mode:
+//!   - text mode: `text` binding is present, no children
+//!   - custom mode: children are present, no `text` binding
+//! - placement uses effective popup size:
+//!   - explicit `width`/`height` if set (> 0)
+//!   - otherwise `preferred-width`/`preferred-height`
+//! - custom mode wraps children in a layout-aware container so preferred size
+//!   propagates predictably into placement calculations.
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
@@ -38,20 +48,43 @@ const PLACEMENT: &str = "placement";
 
 fn build_tooltip_visual(
     popup_id: &SmolStr,
-    tooltip_text: NamedReference,
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_impl_type: &ElementType,
+    tooltip_text: Option<NamedReference>,
+    children: Vec<ElementRc>,
 ) -> ElementRc {
+    let bindings = tooltip_text
+        .map(|tooltip_text| {
+            [(
+                SmolStr::new_static("text"),
+                RefCell::new(Expression::PropertyReference(tooltip_text).into()),
+            )]
+            .into_iter()
+            .collect()
+        })
+        .unwrap_or_default();
     Element {
         id: format_smolstr!("{}-visual", popup_id),
         base_type: tooltip_impl_type.clone(),
         enclosing_component: enclosing_component.clone(),
-        bindings: [(
-            SmolStr::new_static("text"),
-            RefCell::new(Expression::PropertyReference(tooltip_text).into()),
-        )]
-        .into_iter()
-        .collect(),
+        bindings,
+        children,
+        ..Default::default()
+    }
+    .make_rc()
+}
+
+fn build_custom_tooltip_content(
+    popup_id: &SmolStr,
+    enclosing_component: &std::rc::Weak<Component>,
+    vertical_layout_type: &ElementType,
+    children: Vec<ElementRc>,
+) -> ElementRc {
+    Element {
+        id: format_smolstr!("{}-custom", popup_id),
+        base_type: vertical_layout_type.clone(),
+        enclosing_component: enclosing_component.clone(),
+        children,
         ..Default::default()
     }
     .make_rc()
@@ -118,6 +151,8 @@ fn wire_tooltip_placement(
     tooltip_placement: NamedReference,
     placement_enum: Rc<Enumeration>,
 ) {
+    let popup_width = NamedReference::new(popup_window_rc, SmolStr::new_static("width"));
+    let popup_height = NamedReference::new(popup_window_rc, SmolStr::new_static("height"));
     let popup_preferred_width =
         NamedReference::new(popup_window_rc, SmolStr::new_static("preferred-width"));
     let popup_preferred_height =
@@ -153,10 +188,28 @@ fn wire_tooltip_placement(
         rhs: Box::new(Expression::EnumerationValue(placement_value("bottom"))),
         op: '=',
     };
+    let effective_popup_width = Expression::Condition {
+        condition: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(Expression::PropertyReference(popup_width.clone())),
+            rhs: Box::new(Expression::NumberLiteral(0., Unit::None)),
+            op: '>',
+        }),
+        true_expr: Box::new(Expression::PropertyReference(popup_width.clone())),
+        false_expr: Box::new(Expression::PropertyReference(popup_preferred_width.clone())),
+    };
+    let effective_popup_height = Expression::Condition {
+        condition: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(Expression::PropertyReference(popup_height.clone())),
+            rhs: Box::new(Expression::NumberLiteral(0., Unit::None)),
+            op: '>',
+        }),
+        true_expr: Box::new(Expression::PropertyReference(popup_height.clone())),
+        false_expr: Box::new(Expression::PropertyReference(popup_preferred_height.clone())),
+    };
     let centered_x = Expression::BinaryExpression {
         lhs: Box::new(Expression::BinaryExpression {
             lhs: Box::new(Expression::PropertyReference(parent_width.clone())),
-            rhs: Box::new(Expression::PropertyReference(popup_preferred_width.clone())),
+            rhs: Box::new(effective_popup_width.clone()),
             op: '-',
         }),
         rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
@@ -165,7 +218,7 @@ fn wire_tooltip_placement(
     let centered_y = Expression::BinaryExpression {
         lhs: Box::new(Expression::BinaryExpression {
             lhs: Box::new(Expression::PropertyReference(parent_height.clone())),
-            rhs: Box::new(Expression::PropertyReference(popup_preferred_height.clone())),
+            rhs: Box::new(effective_popup_height.clone()),
             op: '-',
         }),
         rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
@@ -173,7 +226,7 @@ fn wire_tooltip_placement(
     };
     let x_left = Expression::BinaryExpression {
         lhs: Box::new(Expression::UnaryOp {
-            sub: Box::new(Expression::PropertyReference(popup_preferred_width)),
+            sub: Box::new(effective_popup_width),
             op: '-',
         }),
         rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
@@ -186,7 +239,7 @@ fn wire_tooltip_placement(
     };
     let y_top = Expression::BinaryExpression {
         lhs: Box::new(Expression::UnaryOp {
-            sub: Box::new(Expression::PropertyReference(popup_preferred_height)),
+            sub: Box::new(effective_popup_height),
             op: '-',
         }),
         rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
@@ -305,6 +358,7 @@ fn lower_tooltips_in_component(
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
     let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
+    let vertical_layout_type = type_register.lookup_builtin_element("VerticalLayout").unwrap();
 
     let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
     let popup_close_policy_no_auto_close = EnumerationValue {
@@ -375,19 +429,24 @@ fn lower_tooltips_in_component(
             NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
-        let mut popup_children = vec![tooltip_config.clone()];
-        if has_custom_content {
-            popup_children.extend(custom_children);
+        let tooltip_visual = if has_custom_content {
+            build_custom_tooltip_content(
+                &popup_id_for_text,
+                &enclosing_component,
+                &vertical_layout_type,
+                custom_children,
+            )
         } else {
             let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
-            let tooltip_visual = build_tooltip_visual(
+            build_tooltip_visual(
                 &popup_id_for_text,
-                tooltip_text,
                 &enclosing_component,
                 tooltip_impl_type,
-            );
-            popup_children.push(tooltip_visual);
-        }
+                Some(tooltip_text),
+                Vec::new(),
+            )
+        };
+        let popup_children = vec![tooltip_config.clone(), tooltip_visual];
 
         let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type
         {
