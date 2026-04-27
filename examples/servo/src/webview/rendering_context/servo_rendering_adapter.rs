@@ -26,8 +26,12 @@ pub fn try_create_gpu_context(
     queue: wgpu::Queue,
     size: PhysicalSize<u32>,
 ) -> Option<Box<dyn ServoRenderingAdapter>> {
-    if std::env::var_os("SLINT_SERVO_FORCE_SOFTWARE").is_some() {
+    let force_software = std::env::var_os("SLINT_SERVO_FORCE_SOFTWARE").is_some()
+        || option_env!("SLINT_SERVO_FORCE_SOFTWARE").is_some(); // compile time check is needed for android build on emulator
+
+    if force_software {
         eprintln!("[GPU] Forced software rendering via env var");
+        eprintln!("[GPU] GPURenderingContext created successfully — using software path");
         return Some(create_software_context(size));
     }
 
