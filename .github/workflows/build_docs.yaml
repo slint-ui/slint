@@ -237,9 +237,21 @@ jobs:
                 echo "${OUTPUT}"
                 PREVIEW_URL=$(echo "${OUTPUT}" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
                 echo "url=${PREVIEW_URL}" >> "${GITHUB_OUTPUT}"
+                if [ -n "${PREVIEW_URL}" ]; then
+                  BASE="${PREVIEW_URL%/}"
+                  PREFIX="${PREVIEW_SITE_PREFIX#/}"
+                  PREFIX="${PREFIX%/}"
+                  FULL="${BASE}/${PREFIX}/"
+                  {
+                    echo "### Preview"
+                    echo ""
+                    echo "[$FULL]($FULL)"
+                  } >> "$GITHUB_STEP_SUMMARY"
+                fi
               env:
                 CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
                 CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+                PREVIEW_SITE_PREFIX: ${{ steps.repack.outputs.site_prefix }}
             - name: Create GitHub deployment for PR
               if: steps.preview.outputs.url != ''
               uses: actions/github-script@v9

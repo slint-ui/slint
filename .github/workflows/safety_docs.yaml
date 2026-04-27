@@ -40,6 +40,13 @@ jobs:
                 echo "$OUTPUT"
                 PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
                 echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+                if [ -n "$PREVIEW_URL" ]; then
+                  {
+                    echo "### Preview"
+                    echo ""
+                    echo "[$PREVIEW_URL]($PREVIEW_URL)"
+                  } >> "$GITHUB_STEP_SUMMARY"
+                fi
               env:
                 CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
                 CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
