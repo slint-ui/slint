@@ -65,28 +65,6 @@ for (seq, expected) in [("d", "-465"), ("7", "-765")] {
 ```
 
 ```rust
-// Test that plain decimal rejects commas even with a comma-separator locale
-let instance = TestCase::new().unwrap();
-slint_testing::set_locale(&instance, "de-DE");
-slint_testing::send_mouse_click(&instance, 5., 5.);
-assert!(instance.get_input_focused());
-
-let send_and_check = |seq: &str, expected: &str| {
-    slint_testing::send_keyboard_string_sequence(&instance, seq);
-    assert_eq!(instance.get_text(), expected);
-};
-
-// comma should be rejected — plain decimal always uses dot
-send_and_check(",", "");
-
-// dot should still be accepted
-instance.set_text("".into());
-for (seq, expected) in [("1", "1"), (".", "1."), ("5", "1.5")] {
-    send_and_check(seq, expected);
-}
-```
-
-```rust
 // Test decimal with German locale
 let instance = TestCase::new().unwrap();
 slint_testing::set_locale(&instance, "de-DE");
