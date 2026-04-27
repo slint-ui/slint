@@ -6,6 +6,7 @@
 
 #include <slint.h>
 #include <slint-interpreter.h>
+#include <private/slint_tests_helpers.h>
 
 SCENARIO("Value API")
 {

@@ -159,7 +159,7 @@ pub trait Platform {
     /// should direct the output to some developer visible terminal. The default implementation
     /// uses stderr if available, or `console.log` when targeting wasm.
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
-        crate::tests::default_debug_log(_arguments);
+        crate::debug_log::default_debug_log(_arguments);
     }
 
     /// Opens the given URL in an external browser.
@@ -456,9 +456,9 @@ impl Platform for DummyBackend {
     }
 }
 
-let start_time = i_slint_core::tests::slint_get_mocked_time();
+let start_time = i_slint_backend_testing::get_mocked_time();
 i_slint_core::platform::set_platform(Box::new(DummyBackend{}));
-let time_after_platform_init = i_slint_core::tests::slint_get_mocked_time();
+let time_after_platform_init = i_slint_backend_testing::get_mocked_time();
 assert_ne!(time_after_platform_init, start_time);
 assert_eq!(time_after_platform_init, 100);
 ```
