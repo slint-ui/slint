@@ -413,7 +413,22 @@ impl BackendSelector {
             }
         };
 
-        i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError)
+        let result = i_slint_core::platform::set_platform(backend)
+            .map_err(PlatformError::SetPlatformError);
+
+        #[cfg(feature = "system-testing")]
+        if result.is_ok() {
+            i_slint_backend_testing::systest::init();
+        }
+
+        #[cfg(feature = "mcp")]
+        if result.is_ok() {
+            if let Err(e) = i_slint_backend_testing::mcp_server::init() {
+                i_slint_core::debug_log!("MCP server init failed: {e:?}");
+            }
+        }
+
+        result
     }
 
     #[cfg(target_os = "android")]

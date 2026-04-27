@@ -211,12 +211,11 @@ MCP protocol — no additional configuration is needed beyond enabling the serve
 
 ### Enabling the MCP Server
 
-Add the `mcp` feature to the backend selector crate:
+Enable the `mcp` feature on the `slint` crate:
 
 ```toml
 [dependencies]
-slint = "x.y.z"
-i-slint-backend-selector = { version = "=x.y.z", features = ["mcp"] }
+slint = { version = "x.y.z", features = ["mcp"] }
 ```
 
 Then set the following environment variables when running your application:
@@ -253,4 +252,3 @@ You can also register the server in your MCP client's configuration if you prefe
 
 For architecture and internals, see
 [docs/development/mcp-server.md](../../../docs/development/mcp-server.md).
-
