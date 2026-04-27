@@ -334,31 +334,60 @@ fn lower_tooltips_in_component(
             return;
         };
 
-        let (tooltip_config, enclosing_component, popup_id, popup_id_for_text) = {
+        let tooltip_candidate = elem.borrow().children[tooltip_child_index].clone();
+        let has_custom_content = !tooltip_candidate.borrow().children.is_empty();
+        let has_text_binding = tooltip_candidate.borrow().bindings.contains_key("text");
+        if has_custom_content && has_text_binding {
+            diag.push_error(
+                "ToolTip cannot have both text and custom content".into(),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
+        if !has_custom_content && !has_text_binding {
+            diag.push_error(
+                "ToolTip must provide either text or custom content".into(),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
+
+        let (tooltip_config, enclosing_component, popup_id, popup_id_for_text, custom_children) = {
             let mut elem_borrow = elem.borrow_mut();
             let tooltip_config = elem_borrow.children.remove(tooltip_child_index);
+            let custom_children = if has_custom_content {
+                std::mem::take(&mut tooltip_config.borrow_mut().children)
+            } else {
+                Vec::new()
+            };
             let enclosing_component = elem_borrow.enclosing_component.clone();
             let popup_id =
                 format_smolstr!("{}{}", TOOLTIP_POPUP_ID_PREFIX, tooltip_popup_id_counter);
             tooltip_popup_id_counter += 1;
             let popup_id_for_text = popup_id.clone();
-            (tooltip_config, enclosing_component, popup_id, popup_id_for_text)
+            (tooltip_config, enclosing_component, popup_id, popup_id_for_text, custom_children)
         };
 
         let parent_width = NamedReference::new(elem, SmolStr::new_static(WIDTH));
         let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
 
-        let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
         let tooltip_placement =
             NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
-        let tooltip_visual = build_tooltip_visual(
-            &popup_id_for_text,
-            tooltip_text,
-            &enclosing_component,
-            tooltip_impl_type,
-        );
+        let mut popup_children = vec![tooltip_config.clone()];
+        if has_custom_content {
+            popup_children.extend(custom_children);
+        } else {
+            let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
+            let tooltip_visual = build_tooltip_visual(
+                &popup_id_for_text,
+                tooltip_text,
+                &enclosing_component,
+                tooltip_impl_type,
+            );
+            popup_children.push(tooltip_visual);
+        }
 
         let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type
         {
@@ -377,7 +406,7 @@ fn lower_tooltips_in_component(
             base_type: popup_window_type.clone(),
             enclosing_component: enclosing_component.clone(),
             popup_window_kind: Some(PopupWindowKind::Tooltip),
-            children: vec![tooltip_config, tooltip_visual],
+            children: popup_children,
             bindings: [(
                 SmolStr::new_static("close-policy"),
                 RefCell::new(
