@@ -413,8 +413,8 @@ impl BackendSelector {
             }
         };
 
-        let result = i_slint_core::platform::set_platform(backend)
-            .map_err(PlatformError::SetPlatformError);
+        let result =
+            i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError);
 
         #[cfg(feature = "system-testing")]
         if result.is_ok() {
