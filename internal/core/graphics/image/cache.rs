@@ -18,6 +18,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
                 SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
+                SharedImageBuffer::Gray8(pixels) => pixels.as_bytes().len(),
             },
             #[cfg(feature = "svg")]
             ImageInner::Svg(_) => 512, // Don't know how to measure the size of the parsed SVG tree...
