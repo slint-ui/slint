@@ -4,6 +4,7 @@
 use crate::{ElementHandle, ElementRoot, LayoutKind};
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
+use i_slint_core::window::WindowAdapterRc;
 use i_slint_core::{SharedString, SharedVector};
 use std::os::raw::c_void;
 
@@ -26,6 +27,47 @@ pub extern "C" fn slint_testing_init_backend() {
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_configure_test_fonts() {
     crate::configure_test_fonts();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
+    crate::testing_backend::mock_elapsed_time(time_in_ms);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_get_mocked_time() -> u64 {
+    crate::testing_backend::get_mocked_time()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_mouse_click(x: f32, y: f32, window_adapter: &WindowAdapterRc) {
+    crate::testing_backend::send_mouse_click(x, y, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_keyboard_key_text(
+    text: &SharedString,
+    pressed: bool,
+    window_adapter: &WindowAdapterRc,
+) {
+    crate::testing_backend::send_keyboard_key_text(text, pressed, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_keyboard_char(
+    string: &SharedString,
+    pressed: bool,
+    window_adapter: &WindowAdapterRc,
+) {
+    crate::testing_backend::send_keyboard_char(string, pressed, window_adapter);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_send_keyboard_string_sequence(
+    sequence: &SharedString,
+    window_adapter: &WindowAdapterRc,
+) {
+    crate::testing_backend::send_keyboard_string_sequence(sequence, window_adapter);
 }
 
 #[unsafe(no_mangle)]

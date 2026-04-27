@@ -13,6 +13,7 @@ rust-version.workspace = true
 version = "1.17.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
+default-run = "slint-lsp"
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
@@ -21,6 +22,10 @@ icon = ["../../logo/slint-logo.icns"]
 [[bin]]
 name = "slint-lsp"
 path = "main.rs"
+
+[[bin]]
+name = "slint-editor"
+path = "editor_main.rs"
 
 [lib]
 # lib is there only for the web

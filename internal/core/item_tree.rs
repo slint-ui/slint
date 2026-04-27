@@ -398,35 +398,26 @@ impl ItemRc {
             return true;
         }
 
-        let (_, geometry) = self.absolute_clip_rect_and_geometry();
-        let geometry = geometry.to_box2d();
-
-        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
-        let mut ancestors = Vec::new();
+        // The item is not visible. Walk toward the root and find the first
+        // clipping ancestor that actually hides the item: if it is a
+        // Flickable, scrolling can bring the item back into view.
+        let geometry = self.absolute_clip_rect_and_geometry().1.to_box2d();
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
-        while let Some(item_rc) = parent {
-            parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
-            ancestors.push(item_rc);
-        }
-
-        for ancestor in ancestors.into_iter().rev() {
-            let clips_children = ancestor.borrow().as_ref().clips_children();
-            if !clips_children {
-                continue;
+        while let Some(ancestor) = parent {
+            if ancestor.borrow().as_ref().clips_children() {
+                let (clip, ancestor_geo) = ancestor.absolute_clip_rect_and_geometry();
+                let clip = ancestor_geo.intersection(&clip).unwrap_or_default().to_box2d();
+                let item_in_clip = !clip.is_empty()
+                    && clip.max.x >= geometry.min.x
+                    && clip.max.y >= geometry.min.y
+                    && clip.min.x <= geometry.max.x
+                    && clip.min.y <= geometry.max.y;
+                if !item_in_clip {
+                    return ancestor.downcast::<crate::items::Flickable>().is_some()
+                        && ancestor.is_visible_or_clipped_by_flickable();
+                }
             }
-
-            let ancestor_geometry = ancestor.absolute_clip_rect_and_geometry().1;
-            clip = ancestor_geometry.intersection(&clip).unwrap_or_default();
-            let clip = clip.to_box2d();
-
-            let is_visible = !clip.is_empty()
-                && clip.max.x >= geometry.min.x
-                && clip.max.y >= geometry.min.y
-                && clip.min.x <= geometry.max.x
-                && clip.min.y <= geometry.max.y;
-            if !is_visible {
-                return ancestor.downcast::<crate::items::Flickable>().is_some();
-            }
+            parent = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
 
         false
@@ -1052,7 +1043,6 @@ impl ItemRc {
                         ),
                     ],
                 );
-                break;
             }
 
             parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);

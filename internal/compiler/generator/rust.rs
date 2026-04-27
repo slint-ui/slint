@@ -627,6 +627,84 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
     }
 }
 
+/// Walk `field_access` on `root_ty`, producing the Rust access suffix
+/// (e.g. `.foo.bar`) and the type of the leaf field.
+fn lower_field_access_chain(root_ty: &Type, field_access: &[SmolStr]) -> (TokenStream, Type) {
+    let mut access = quote!();
+    let mut ty = root_ty;
+    for f in field_access {
+        let Type::Struct(s) = ty else { panic!("Field of two way binding on a non-struct type") };
+        let a = struct_field_access(s, f);
+        access.extend(quote!(.#a));
+        ty = s.fields.get(f).unwrap();
+    }
+    (access, ty.clone())
+}
+
+/// Emit a `link_two_way_to_model_data` call wiring `p1` to a row of the
+/// model described by `info`, optionally through a struct `field_access`.
+fn generate_model_two_way_binding(
+    ctx: &EvaluationContext,
+    info: &llr::ResolvedModelTwoWayBinding,
+    p1: &TokenStream,
+    field_access: &[SmolStr],
+) -> TokenStream {
+    let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
+    let parent_sc = &ctx.compilation_unit.sub_components[info.parent_sub_component];
+    let body_id = self::inner_component_id(body_sc);
+    let data_f =
+        access_component_field_offset(&body_id, &ident(&body_sc.properties[info.data_prop].name));
+    let index_f =
+        access_component_field_offset(&body_id, &ident(&body_sc.properties[info.index_prop].name));
+    let repeater = access_component_field_offset(
+        &self::inner_component_id(parent_sc),
+        &format_ident!("repeater{}", usize::from(info.repeater_index)),
+    );
+
+    let item_tree_weak = if info.parent_level == 0 {
+        quote!(sp::VRcMapped::downgrade(&self_rc))
+    } else {
+        let mut e = quote!(_self.parent.clone());
+        for _ in 1..info.parent_level {
+            e = quote!(#e.upgrade().unwrap().parent.clone());
+        }
+        e
+    };
+
+    // The leaf field type may differ from the property type (e.g. struct
+    // field `f32` vs property `LogicalLength`); apply the usual conversions.
+    let (access_model, getter_value) = if field_access.is_empty() {
+        (quote!(let data = value.clone();), quote!(#data_f.apply_pin(x.as_pin_ref()).get()))
+    } else {
+        let (access, ty) = lower_field_access_chain(info.data_prop_ty, field_access);
+        let to_struct_value = primitive_value_from_property_value(&ty, quote!(value.clone()));
+        let to_property_value = set_primitive_property_value(
+            &ty,
+            quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
+        );
+        (
+            quote! {
+                let mut data = #data_f.apply_pin(x.as_pin_ref()).get();
+                data #access = #to_struct_value;
+            },
+            to_property_value,
+        )
+    };
+
+    quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak,
+        |item_tree_weak| item_tree_weak.upgrade().map(|x| #getter_value),
+        |item_tree_weak, value| {
+            if let Some(x) = item_tree_weak.upgrade() {
+                if let Some(parent) = x.parent.upgrade() {
+                    let index = #index_f.apply_pin(x.as_pin_ref()).get();
+                    #access_model
+                    #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
+                }
+            }
+        }
+    )}
+}
+
 fn handle_property_init(
     prop: &llr::MemberReference,
     binding_expression: &llr::BindingExpression,
@@ -1180,36 +1258,26 @@ fn generate_sub_component(
     let popup_id_names =
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
-    for (prop1, prop2, fields) in &component.two_way_bindings {
-        let p1 = access_member(prop1, &ctx).unwrap();
-        let p2 = access_member(prop2, &ctx);
-        let r = p2.then(|p2| {
-            if fields.is_empty() {
-                quote!(sp::Property::link_two_way(#p1, #p2))
-            } else {
-                let mut access = quote!();
-                let mut ty = ctx.property_ty(prop2);
-                for f in fields {
-                    let Type::Struct(s) = &ty else {
-                        panic!("Field of two way binding on a non-struct type")
-                    };
-                    let a = struct_field_access(s, f);
-                    access.extend(quote!(.#a));
-                    ty = s.fields.get(f).unwrap();
+    for twb in &component.two_way_bindings {
+        let p1 = access_local_member(&twb.prop1, &ctx);
+        let r = if let Some(info) = twb.resolve_model(&ctx) {
+            generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access)
+        } else {
+            let p2 = access_member(&twb.prop2, &ctx);
+            p2.then(|p2| {
+                if twb.field_access.is_empty() {
+                    quote!(sp::Property::link_two_way(#p1, #p2))
+                } else {
+                    let (access, ty) =
+                        lower_field_access_chain(ctx.property_ty(&twb.prop2), &twb.field_access);
+                    let to_property_value =
+                        set_primitive_property_value(&ty, quote!(s #access .clone()));
+                    let to_struct_value =
+                        primitive_value_from_property_value(&ty, quote!((*v).clone()));
+                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| #to_property_value, |s, v| s #access = #to_struct_value))
                 }
-                let to_property_value =
-                    set_primitive_property_value(ty, quote!(s #access .clone()));
-                let to_struct_value = primitive_value_from_property_value(ty, quote!((*v).clone()));
-                quote!(
-                    sp::Property::link_two_way_with_map(
-                        #p2,
-                        #p1,
-                        |s| #to_property_value,
-                        |s, v| s #access = #to_struct_value,
-                    )
-                )
-            }
-        });
+            })
+        };
         init.push(quote!(#r;))
     }
 

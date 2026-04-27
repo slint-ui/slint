@@ -26,6 +26,7 @@
         "path-browserify",
         "vscode-uri",
         "@lsp/slint_lsp_wasm.js",
+        "@lsp/slint_lsp_wasm_bg.wasm",
         "@interpreter/slint_wasm_interpreter.js"
       ]
     },
@@ -70,7 +71,7 @@
     },
     "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
     "demos/home-automation/node": { "ignoreBinaries": ["compile"] },
-    "examples/imagefilter/node": { "entry": ["main.ts"], "ignoreBinaries": ["compile"] },
+    "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },

@@ -34,8 +34,8 @@
         "unpic": "4.2.2"
     },
     "devDependencies": {
-        "@astrojs/markdown-remark": "7.1.0",
-        "@astrojs/mdx": "5.0.3",
+        "@astrojs/markdown-remark": "7.1.1",
+        "@astrojs/mdx": "5.0.4",
         "@astrojs/partytown": "2.1.7",
         "@astrojs/tailwind": "6.0.2",
         "@biomejs/biome": "catalog:",

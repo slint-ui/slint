@@ -2,7 +2,7 @@
     "extends": "../tsconfig.default.json",
     "compilerOptions": {
         "lib": ["dom", "es2021"],
-        "types": ["vscode"]
+        "types": ["vscode", "vite/client"]
     },
     "include": ["./*.ts", "../package.json", "./welcome/*.ts"],
     "references": [

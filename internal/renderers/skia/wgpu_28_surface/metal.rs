@@ -2,36 +2,55 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use foreign_types::ForeignType;
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 
 use skia_safe::gpu::mtl;
 
 use wgpu_28 as wgpu;
 
-pub unsafe fn make_metal_surface(
-    size: PhysicalWindowSize,
+/// # Safety
+/// `metal_handle` must be a valid Metal texture handle for the lifetime of the returned Surface.
+unsafe fn wrap_metal_texture(
+    width: i32,
+    height: i32,
     gr_context: &mut skia_safe::gpu::DirectContext,
-    frame: &wgpu::SurfaceTexture,
+    metal_handle: mtl::Handle,
+    color_type: skia_safe::ColorType,
 ) -> Option<skia_safe::Surface> {
     unsafe {
-        let metal_texture = frame.texture.as_hal::<wgpu::wgc::api::Metal>();
-
-        let texture_info =
-            mtl::TextureInfo::new(metal_texture.unwrap().raw_handle().as_ptr() as mtl::Handle);
-
-        let backend_render_target = skia_safe::gpu::backend_render_targets::make_mtl(
-            (size.width as i32, size.height as i32),
-            &texture_info,
-        );
-
+        let texture_info = mtl::TextureInfo::new(metal_handle);
+        let backend_render_target =
+            skia_safe::gpu::backend_render_targets::make_mtl((width, height), &texture_info);
         skia_safe::gpu::surfaces::wrap_backend_render_target(
             gr_context,
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
-            skia_safe::ColorType::BGRA8888,
+            color_type,
             None,
             None,
         )
+    }
+}
+
+/// # Safety
+/// The caller must ensure `texture` was created by a Metal-backed wgpu device and remains
+/// valid for the lifetime of the returned `skia_safe::Surface`.
+pub unsafe fn make_metal_surface(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    texture: &wgpu::Texture,
+) -> Option<skia_safe::Surface> {
+    // SAFETY: texture is borrowed for the duration of this call; the Metal handle is copied
+    // into Skia's internal BackendRenderTarget via wrap_metal_texture.
+    unsafe {
+        let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>()?;
+        let handle = metal_texture.raw_handle().as_ptr() as mtl::Handle;
+        let size = texture.size();
+        let color_type = match texture.format() {
+            wgpu::TextureFormat::Bgra8Unorm => skia_safe::ColorType::BGRA8888,
+            wgpu::TextureFormat::Rgba8Unorm => skia_safe::ColorType::RGBA8888,
+            wgpu::TextureFormat::Rgba8UnormSrgb => skia_safe::ColorType::SRGBA8888,
+            _ => return None,
+        };
+        wrap_metal_texture(size.width as i32, size.height as i32, gr_context, handle, color_type)
     }
 }
 

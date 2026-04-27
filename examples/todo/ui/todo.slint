@@ -139,12 +139,8 @@ export component MainWindow inherits Window {
         list-view := ListView {
             for todo in root.todo-model: HorizontalLayout {
                 CheckBox {
-                    toggled => {
-                        todo.checked = self.checked;
-                    }
-
                     text: todo.title;
-                    checked: todo.checked;
+                    checked <=> todo.checked;
                 }
             }
         }

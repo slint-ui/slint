@@ -7,6 +7,7 @@ import {
     Button,
     LineEdit,
 } from "std-widgets.slint";
+
 import { Webview } from "../src/webview/webview.slint";
 
 export { WebviewLogic } from "../src/webview/webview.slint";
@@ -15,6 +16,32 @@ export { Palette } from "std-widgets.slint";
 export component MyApp inherits Window {
     preferred-width: 1224px;
     preferred-height: 768px;
+
+    property <bool> is-mobile: Platform.os == OperatingSystemType.ios || Platform.os == OperatingSystemType.android;
+
+    contextMenuArea := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Back";
+                activated => webview.back();
+            }
+
+            MenuItem {
+                title: "Forward";
+                activated => webview.forward();
+            }
+
+            MenuItem {
+                title: "Reload";
+                activated => webview.reload();
+            }
+
+            MenuItem {
+                title: "Go";
+                activated => webview.loadUrl(lineEdit.text);
+            }
+        }
+    }
 
     VerticalBox {
         padding-left: root.safe-area-insets.left;
@@ -27,40 +54,35 @@ export component MyApp inherits Window {
             padding: 8px;
             spacing: 8px;
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Back";
-                clicked => {
-                    webview.back();
-                }
+                clicked => webview.back();
             }
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Forward";
-                clicked => {
-                    webview.forward();
-                }
+                clicked => webview.forward();
             }
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Reload";
-                clicked => {
-                    webview.reload();
-                }
+                clicked => webview.reload();
             }
 
             lineEdit := LineEdit {
                 text: webview.current_url;
                 horizontal-stretch: 1;
-                accepted(url) => {
-                    webview.loadUrl(lineEdit.text);
-                }
+                accepted(url) => webview.loadUrl(lineEdit.text);
             }
 
-            Button {
+            if !root.is-mobile: Button {
                 text: "Go";
-                clicked => {
-                    webview.loadUrl(lineEdit.text);
-                }
+                clicked => webview.loadUrl(lineEdit.text);
+            }
+
+            if root.is-mobile: Button {
+                text: "...";
+                clicked => contextMenuArea.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height });
             }
         }
 
