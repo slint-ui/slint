@@ -402,13 +402,7 @@ pub(crate) fn decimal_separator_for_locale(locale: &str) -> Option<char> {
         .and_then(|r| r.payload.get().decimal_separator().chars().next())
 }
 
-/// Determine the decimal separator
-/// 1) Bundled case
-///     - If the translated strings contain the SlintDecimalSeparator context use that decimal separator
-///     - Otherwise use the default .
-/// 2) Not bundled case
-///     - If the gettext finds a translation of `.` in the SlintDecimalSeparator context use that decimal separator
-///     - Otherwise use the default .
+/// Determine the decimal separator from the language or the bundled decimal separator
 fn update_locale_decimal_separator() {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
@@ -420,9 +414,11 @@ fn update_locale_decimal_separator() {
             // Check bundled
             let language_index = ctx.0.translations_dirty.as_ref().get();
             if let Some(_l) = l.get(language_index) {
+                // Determine the decimal separator from the locale using icu
                 #[cfg(feature = "std")]
                 ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(_l));
 
+                // Check if decimal separator is bundled for non std
                 #[cfg(not(feature = "std"))]
                 if let Some(c) = ctx
                     .0
