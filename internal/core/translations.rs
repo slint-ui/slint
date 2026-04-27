@@ -5,6 +5,8 @@ use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
 
+use icu_decimal::DecimalFormatter;
+use icu_locale_core::{Locale, locale};
 #[cfg(feature = "tr")]
 pub use tr::Translator;
 
@@ -372,6 +374,15 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
+fn locale_from_string(locale: &str) -> Option<icu_locale_core::Locale> {
+    // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'
+    let normalized = locale.replace('_', "-");
+    // Strip encoding suffix like ".UTF-8"
+    let bcp47 = normalized.split('.').next().unwrap_or(&normalized);
+    let locale: Option<icu_locale_core::Locale> = bcp47.parse().ok();
+    locale
+}
+
 /// Returns the decimal separator character for the given locale string,
 /// or `None` if the locale cannot be parsed or has no ICU data.
 #[cfg(feature = "std")]
@@ -379,11 +390,7 @@ pub(crate) fn decimal_separator_for_locale(locale: &str) -> Option<char> {
     use icu_decimal::provider::{Baked, DecimalSymbolsV1};
     use icu_provider::prelude::*;
 
-    // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'
-    let normalized = locale.replace('_', "-");
-    // Strip encoding suffix like ".UTF-8"
-    let bcp47 = normalized.split('.').next().unwrap_or(&normalized);
-    let locale: icu_locale_core::Locale = bcp47.parse().ok()?;
+    let locale = locale_from_string(locale)?;
     let data_locale = DataLocale::from(&locale);
     let request = DataRequest {
         id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
@@ -538,6 +545,11 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
+            #[cfg(feature = "std")]
+            if let Some(locale) = locale_from_string(language) {
+                *ctx.0.formatter.borrow_mut() =
+                    DecimalFormatter::try_new(locale.into(), Default::default()).ok();
+            }
             update_locale_decimal_separator();
             Ok(())
         } else if language.is_empty() || language == "en" {
