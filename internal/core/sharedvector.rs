@@ -163,7 +163,7 @@ impl<T> SharedVector<T> {
 impl<T: Clone + PartialEq> SharedVector<T> {
     /// Replaces `from` by `to` in `self` `count` times
     /// `count` - number of times to do the replacements
-    pub fn replace_range(&mut self, from: &[T], to: &[T], count: usize) {
+    pub fn replace_range(&mut self, from: &[T], to: &[T], mut count: usize) {
         if from.is_empty() || count == 0 || from.len() != to.len() {
             return;
         }
@@ -172,18 +172,16 @@ impl<T: Clone + PartialEq> SharedVector<T> {
             return;
         }
 
-        let mut replaced = 0;
         let mut index = 0;
         let from_len = from.len();
         let max_start = s.len() - from_len;
 
-        while index <= max_start && replaced < count {
+        while index <= max_start && count > 0 {
             if s[index..index + from_len] == *from {
                 for (dst, src) in s[index..index + from_len].iter_mut().zip(to.iter()) {
                     *dst = src.clone();
                 }
-                replaced += 1;
-                // Keep replacements non-overlapping, matching string replace semantics.
+                count -= 1;
                 index += from_len;
             } else {
                 index += 1;

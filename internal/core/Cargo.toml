@@ -167,6 +167,7 @@ tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "ne
 async-compat = { version = "0.2.4" }
 tempfile = { version = "3.12.0" }
 fontique = { workspace = true }
+criterion = "0.8"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)"] }
@@ -178,3 +179,7 @@ unnecessary_cast = { level = "allow" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[[bench]]
+name = "string"
+harness = false

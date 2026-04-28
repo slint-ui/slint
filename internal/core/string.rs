@@ -75,8 +75,15 @@ impl SharedString {
         }
     }
 
-    pub fn replace_range(&mut self, from: &[u8], to: &[u8], count: usize) {
-        self.inner.replace_range(from, to, count);
+    /// Replace in this string characters equal to `from` with the character `to` `count` times
+    pub fn replace_characters(&mut self, from: char, to: char, count: usize) {
+        let mut from_buffer = [0u8; 4];
+        let mut to_buffer = [0u8; 4];
+        self.inner.replace_range(
+            from.encode_utf8(&mut from_buffer).as_bytes(),
+            to.encode_utf8(&mut to_buffer).as_bytes(),
+            count,
+        );
     }
 
     /// Append a string to this string
@@ -342,8 +349,7 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
         if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
             && c != '.'
         {
-            let mut buffer = [0u8; 4];
-            result.replace_range(".".as_bytes(), c.encode_utf8(&mut buffer).as_bytes(), 1);
+            result.replace_characters('.', c, 1);
             result
         } else {
             result
@@ -359,8 +365,7 @@ pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
         if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
             && c != '.'
         {
-            let mut buffer = [0u8; 4];
-            result.replace_range(".".as_bytes(), c.encode_utf8(&mut buffer).as_bytes(), 1);
+            result.replace_characters('.', c, 1);
             result
         } else {
             result
@@ -470,6 +475,12 @@ fn to_shared_string() {
     let five = SharedString::from("5.1");
 
     assert_eq!(five, i.to_shared_string());
+}
+
+#[test]
+fn test_replace_characters() {
+    let mut value = SharedString::from("5.1");
+    value.replace_characters('.', ',', 1);
 }
 
 #[cfg(feature = "ffi")]
