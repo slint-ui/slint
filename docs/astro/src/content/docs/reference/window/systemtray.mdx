@@ -5,12 +5,12 @@ description: SystemTray element api.
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 
-Use the `SystemTray` element to add an icon and menu to the desktop's system tray
-,also known as the notification area, status area, or menu bar extras, depending on the platform.
+Use the `SystemTray` element to add an icon and menu to the desktop's system tray,
+also known as the notification area, status area, or menu bar extras, depending on the platform.
 
 `SystemTray` is a top-level component: derive your own component
-from it with `inherits SystemTray` instead of placing it inside a <Link type="Window" />. A
-`SystemTray` component has no window of its own — the icon lives in the tray, and the only UI
+from it with `inherits SystemTray` instead of placing it inside a <Link type="Window" />.
+A `SystemTray` component has no window of its own — the icon lives in the tray, and the only UI
 it presents is the menu.
 
 ```slint
@@ -29,14 +29,14 @@ export component MyTray inherits SystemTray {
 }
 ```
 
-Create the component from your language binding as you would any other Slint component; the
-tray icon appears as soon as the instance is created and an event loop is running, and
-disappears when the instance is dropped.
+Create the component from your language binding as you would any other Slint component;
+the tray icon appears as soon as the instance is created and an event loop is running,
+and disappears when the instance is dropped.
 
 :::note{Note}
 A `SystemTray` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
 be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
-of course use `if` / `for` to build its entries dynamically.
+use `if` / `for` to build its entries dynamically.
 :::
 
 ## Properties
@@ -76,7 +76,7 @@ reflects the new state on its next open.
 Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTray` are ignored — tray menus are
 not attached to a focused window, so there is nothing for the shortcut to fire against.
 
-## Platform support
+## Platform Support
 
 | Platform      | Mechanism                                             |
 | ------------- | ----------------------------------------------------- |
