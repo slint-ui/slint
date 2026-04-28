@@ -223,9 +223,20 @@ where
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
         if let Some(self_) =
             (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>()
-            && let Some(p) = Property::check_common_property(self_.apply_pin(item))
         {
-            return p;
+            let p = self_.apply_pin(item);
+            if let Some(cp) = Property::check_common_property(p) {
+                return cp;
+            }
+            // link_two_way sets a TwoWayBinding on p, which
+            // check_common_property can find on subsequent calls.
+            // Only safe when p has no binding yet (a pre-existing
+            // binding's intercept_set_binding may not accept this).
+            if !p.has_binding() {
+                let anchor = Rc::pin(Property::<Value>::default());
+                Property::link_two_way(anchor.as_ref(), p);
+                return Property::check_common_property(p).unwrap();
+            }
         }
 
         let p1 = self.apply_pin(item);

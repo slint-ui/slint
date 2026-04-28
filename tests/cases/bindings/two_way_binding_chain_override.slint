@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When a two-way struct-field binding (str <=> pair.a) is overridden at
+// the instance level (str <=> source.val.name), the RHS value wins.
+
+export struct Pair {
+    a: string,
+    b: string,
+}
+
+export struct Data {
+    name: string,
+    value: int,
+}
+
+component Link {
+    in-out property <Pair> pair: { a: "link-default", b: "bb" };
+    in-out property <string> str <=> pair.a;
+}
+
+component Source {
+    in-out property <Data> val: { name: "from-source", value: 42 };
+}
+
+export component TestCase inherits Window {
+    source := Source {}
+    link := Link {
+        str <=> source.val.name;
+    }
+
+    out property <string> source_name: source.val.name;
+    out property <string> link_str: link.str;
+
+    out property <bool> test:
+        source.val.name == "from-source"
+        && link.str == "from-source";
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_source_name(), "from-source");
+assert_eq!(instance.get_link_str(), "from-source");
+assert!(instance.get_test());
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_source_name(), "from-source");
+assert_eq(instance.get_link_str(), "from-source");
+assert(instance.get_test());
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.source_name, "from-source");
+assert.equal(instance.link_str, "from-source");
+assert(instance.test);
+```
+
+*/

@@ -258,25 +258,31 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             prop2.debug_name.borrow()
         );
 
-        // Detach the old binding (if any) from prop2, transferring its
-        // dependency list back to the handle so that set_binding() will
-        // properly move it into the new TwoWayBindingWithMap binding.
-        // Without this, the old binding's dependency list would be orphaned
-        // when it is later freed via BindingMapper::drop, leaving
-        // DependencyNodes with dangling prev pointers.
         let old_binding = prop2.handle.detach_binding();
 
         unsafe {
-            prop2.handle.set_binding(
-                TwoWayBindingWithMap { common_property, map_to, map_from, marker: PhantomData },
-                #[cfg(slint_debug_property)]
-                debug_name.as_str(),
-            );
-
-            if let Some(binding) = old_binding {
-                prop2.handle.set_binding_impl(binding);
+            if let Some(old) = old_binding {
+                let new_binding = alloc_binding_holder(TwoWayBindingWithMap {
+                    common_property,
+                    map_to,
+                    map_from,
+                    marker: PhantomData,
+                });
+                if ((*old).vtable.intercept_set_binding)(old, new_binding) {
+                    prop2.handle.set_binding_impl(old);
+                } else {
+                    // Regular closure — wrap it as a BindingMapper.
+                    prop2.handle.set_binding_impl(new_binding);
+                    prop2.handle.set_binding_impl(old);
+                }
+            } else {
+                prop2.handle.set_binding(
+                    TwoWayBindingWithMap { common_property, map_to, map_from, marker: PhantomData },
+                    #[cfg(slint_debug_property)]
+                    debug_name.as_str(),
+                );
             }
-        };
+        }
     }
 }
 
@@ -302,7 +308,7 @@ where
     }
 
     unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
-        panic!("Cannot assign a binding to a property bound two-way to a model");
+        false
     }
 
     fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
