@@ -10,7 +10,7 @@ slint::slint! {
         // rebuilds to reflect the new state on every toggle.
         in-out property <bool> more-enabled: true;
 
-        clicked => {
+        activated => {
             more-enabled = !more-enabled;
         }
 
