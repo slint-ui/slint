@@ -6,8 +6,6 @@ type StarlightSocial = NonNullable<StarlightUserConfig["social"]>;
 
 const SLINT_GITHUB_HREF = "https://github.com/slint-ui/slint";
 
-export type SlintStarlightSocialLink = StarlightSocial[number];
-
 /**
  * Canonical Starlight `social` links for all Slint doc sites (Material lives in the same repo).
  */

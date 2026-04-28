@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 /** Default Safari pinned-tab mask color for Slint favicon SVG. */
-export const SLINT_STARLIGHT_FAVICON_MASK_COLOR = "#8D46E7";
+const SLINT_STARLIGHT_FAVICON_MASK_COLOR = "#8D46E7";
 
 /**
  * Starlight `head` link entries for the standard Slint documentation favicon set.
