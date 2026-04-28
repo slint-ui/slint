@@ -288,7 +288,8 @@ jobs:
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
     cpp_package_test:
-        needs: [cpp_cmake]
+        needs: [cpp_cmake, cpp_cmake_matrix]
+        if: ${{ contains(needs.cpp_cmake_matrix.outputs.matrix, '"os":"ubuntu-22.04"') }}
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
