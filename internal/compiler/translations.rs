@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
+use i_slint_common::decimal_separator_for_locale;
 use rspolib::TranslatedEntry;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
@@ -64,14 +65,13 @@ impl TranslationsBuilder {
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;
-                languages.push(l.file_name().to_string_lossy().into());
-                decimal_separators.push(
-                    catalog
-                        .find_by_msgid_msgctxt(".", "Slint: decimal separator")
-                        .filter(|entry| entry.translated())
-                        .and_then(|entry| entry.msgstr)
-                        .map(|m| m.into()),
-                );
+                let language_name = l.file_name().to_string_lossy().to_smolstr();
+                languages.push(language_name.clone());
+                decimal_separators.push(Some(
+                    decimal_separator_for_locale(language_name.as_str())
+                        .map(|separator| separator.to_smolstr())
+                        .unwrap_or_else(|| SmolStr::new(DEFAULT_DECIMAL_SEPARATOR)),
+                ));
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
                     let plural_expr = header.split(';').find_map(|sub_entry| {

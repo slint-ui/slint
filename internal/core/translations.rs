@@ -371,37 +371,6 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
-#[cfg(feature = "std")]
-fn locale_from_string(locale: &str) -> Option<icu_locale_core::Locale> {
-    // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'
-    let normalized = locale.replace('_', "-");
-    // Strip encoding suffix like ".UTF-8"
-    let bcp47 = normalized.split('.').next().unwrap_or(&normalized);
-    let locale: Option<icu_locale_core::Locale> = bcp47.parse().ok();
-    locale
-}
-
-/// Returns the decimal separator character for the given locale string,
-/// or `None` if the locale cannot be parsed or has no ICU data.
-#[cfg(feature = "std")]
-pub(crate) fn decimal_separator_for_locale(locale: &str) -> Option<char> {
-    use icu_decimal::provider::{Baked, DecimalSymbolsV1};
-    use icu_provider::prelude::*;
-
-    let locale = locale_from_string(locale)?;
-    let data_locale = DataLocale::from(&locale);
-    let request = DataRequest {
-        id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
-            DataMarkerAttributes::empty(),
-            &data_locale,
-        ),
-        ..Default::default()
-    };
-    DataProvider::<DecimalSymbolsV1>::load(&Baked, request)
-        .ok()
-        .and_then(|r| r.payload.get().decimal_separator().chars().next())
-}
-
 /// Determine the decimal separator from the language or the bundled decimal separator
 fn update_locale_decimal_separator() {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
@@ -416,7 +385,10 @@ fn update_locale_decimal_separator() {
             if let Some(_l) = l.get(language_index) {
                 // Determine the decimal separator from the locale using icu
                 #[cfg(feature = "std")]
-                ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(_l));
+                ctx.0
+                    .locale_decimal_separator
+                    .as_ref()
+                    .set(i_slint_common::decimal_separator_for_locale(_l));
 
                 // Check if decimal separator is bundled for non std
                 #[cfg(not(feature = "std"))]
@@ -435,7 +407,10 @@ fn update_locale_decimal_separator() {
 
             #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
             if let Some(locale) = sys_locale::get_locale() {
-                ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(&locale))
+                ctx.0
+                    .locale_decimal_separator
+                    .as_ref()
+                    .set(i_slint_common::decimal_separator_for_locale(&locale))
             }
         }
     });
@@ -693,42 +668,5 @@ mod ffi {
     pub extern "C" fn slint_translate_select_bundled_translation(language: Slice<u8>) -> bool {
         let language = core::str::from_utf8(&language).unwrap();
         select_bundled_translation(language).is_ok()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::decimal_separator_for_locale;
-
-    #[test]
-    fn test_decimal_separator_for_locale() {
-        // Comma locales
-        assert_eq!(decimal_separator_for_locale("de"), Some(','));
-        assert_eq!(decimal_separator_for_locale("de-DE"), Some(','));
-        assert_eq!(decimal_separator_for_locale("de_DE"), Some(','));
-        assert_eq!(decimal_separator_for_locale("de_DE.UTF-8"), Some(','));
-        assert_eq!(decimal_separator_for_locale("fr"), Some(','));
-        assert_eq!(decimal_separator_for_locale("fr-FR"), Some(','));
-        assert_eq!(decimal_separator_for_locale("it"), Some(','));
-        assert_eq!(decimal_separator_for_locale("es"), Some(','));
-        assert_eq!(decimal_separator_for_locale("pt"), Some(','));
-        assert_eq!(decimal_separator_for_locale("nl"), Some(','));
-        assert_eq!(decimal_separator_for_locale("sv"), Some(','));
-        assert_eq!(decimal_separator_for_locale("ru"), Some(','));
-        assert_eq!(decimal_separator_for_locale("pl"), Some(','));
-        assert_eq!(decimal_separator_for_locale("cs"), Some(','));
-        assert_eq!(decimal_separator_for_locale("tr"), Some(','));
-        assert_eq!(decimal_separator_for_locale("vi"), Some(','));
-
-        // Dot locales
-        assert_eq!(decimal_separator_for_locale("en"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("en-US"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("en_GB"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("ja"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("zh"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("ko"), Some('.'));
-
-        // Empty / unknown
-        assert_eq!(decimal_separator_for_locale(""), None);
     }
 }

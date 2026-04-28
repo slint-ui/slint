@@ -42,7 +42,7 @@ experimental-library-module = []
 default = []
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
+i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown", "locale-decimal-separator"] }
 
 num_enum = "0.7"
 icu_normalizer = { workspace = true }

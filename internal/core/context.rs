@@ -150,7 +150,7 @@ impl SlintContext {
         self.0
             .locale_decimal_separator
             .as_ref()
-            .set(crate::translations::decimal_separator_for_locale(locale));
+            .set(i_slint_common::decimal_separator_for_locale(locale));
     }
 
     #[cfg(feature = "tr")]
