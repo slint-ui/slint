@@ -468,7 +468,7 @@ impl ComponentInstance {
     fn get_property(&self, name: &str) -> Result<SlintToPyValue, PyGetPropertyError> {
         let value = self.instance.get_property(name)?;
         let property_type = lookup_property_type(&self.instance.definition(), name);
-        Ok(self.type_collection.to_py_value_typed(value, property_type))
+        Ok(self.type_collection.to_py_value(value, property_type))
     }
 
     fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
@@ -489,7 +489,7 @@ impl ComponentInstance {
         let value = self.instance.get_global_property(global_name, prop_name)?;
         let property_type =
             lookup_global_property_type(&self.instance.definition(), global_name, prop_name);
-        Ok(self.type_collection.to_py_value_typed(value, property_type))
+        Ok(self.type_collection.to_py_value(value, property_type))
     }
 
     fn set_global_property(
@@ -527,7 +527,7 @@ impl ComponentInstance {
         let return_value =
             self.instance.invoke(callback_name, &rust_args).map_err(|e| PyInvokeError(e))?;
         let return_type = signature.as_ref().map(|sig| sig.return_type.clone());
-        Ok(self.type_collection.to_py_value_typed(return_value, return_type))
+        Ok(self.type_collection.to_py_value(return_value, return_type))
     }
 
     #[pyo3(signature = (global_name, callback_name, *args))]
@@ -554,7 +554,7 @@ impl ComponentInstance {
             .invoke_global(global_name, callback_name, &rust_args)
             .map_err(|e| PyInvokeError(e))?;
         let return_type = signature.as_ref().map(|sig| sig.return_type.clone());
-        Ok(self.type_collection.to_py_value_typed(return_value, return_type))
+        Ok(self.type_collection.to_py_value(return_value, return_type))
     }
 
     fn set_callback(&self, name: &str, callable: Py<PyAny>) -> Result<(), PySetCallbackError> {
@@ -668,7 +668,7 @@ impl GcVisibleCallbacks {
                     py,
                     args.iter().enumerate().map(|(i, v)| {
                         let arg_type = signature.as_ref().and_then(|sig| sig.args.get(i).cloned());
-                        type_collection.to_py_value_typed(v.clone(), arg_type)
+                        type_collection.to_py_value(v.clone(), arg_type)
                     }),
                 )
                 .unwrap();

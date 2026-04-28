@@ -199,7 +199,7 @@ impl i_slint_core::model::Model for PyModelShared {
             if let Err(err) = obj.call_method1(
                 py,
                 "set_row_data",
-                (row, type_collection.to_py_value_typed(data, element_type)),
+                (row, type_collection.to_py_value(data, element_type)),
             ) {
                 crate::handle_unraisable(
                     py,
@@ -248,7 +248,7 @@ impl ReadOnlyRustModel {
     fn row_data(&self, row: usize) -> Option<SlintToPyValue> {
         self.model
             .row_data(row)
-            .map(|value| self.type_collection.to_py_value_typed(value, self.element_type.clone()))
+            .map(|value| self.type_collection.to_py_value(value, self.element_type.clone()))
     }
 
     fn __len__(&self) -> usize {
@@ -291,6 +291,6 @@ impl ReadOnlyRustModelIterator {
         self.row += 1;
         self.model
             .row_data(row)
-            .map(|value| self.type_collection.to_py_value_typed(value, self.element_type.clone()))
+            .map(|value| self.type_collection.to_py_value(value, self.element_type.clone()))
     }
 }
