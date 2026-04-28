@@ -516,7 +516,9 @@ export default defineConfig({
             ],
             social: slintStarlightSocial,
             favicon: "favicon.svg",
-            head: slintStarlightFaviconHead((filename) => `${BASE_PATH}/${filename}`),
+            head: slintStarlightFaviconHead(
+                (filename) => `${BASE_PATH}/${filename}`,
+            ),
         }),
     ],
 });
