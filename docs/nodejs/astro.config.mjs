@@ -95,7 +95,10 @@ export default defineConfig({
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },
-            customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
+            customCss: [
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+            ],
             favicon: "favicon.svg",
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",

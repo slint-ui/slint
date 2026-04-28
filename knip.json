@@ -38,14 +38,9 @@
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
-    "docs/nodejs": {
-      "ignoreFiles": ["src/styles/custom.css", "src/styles/theme.css"]
-    },
     "docs/astro": {
       "entry": [],
       "ignoreFiles": [
-        "src/styles/custom.css",
-        "src/styles/theme.css",
         "src/components/editor/codemirror.js",
         "src/components/editor/language-facets.js",
         "src/components/editor/rollup.config.js",
@@ -61,10 +56,6 @@
     },
     "ui-libraries/material/docs": {
       "entry": [],
-      "ignoreFiles": [
-        "src/assets/styles/custom.css",
-        "src/assets/styles/theme.css"
-      ],
       "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
       "ignoreDependencies": [
         "@types/mdx",
@@ -79,6 +70,8 @@
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
+        "src/styles/starlight-slint-custom.css",
+        "src/styles/starlight-slint-theme.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
