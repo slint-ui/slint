@@ -24,8 +24,8 @@
 //! - placement uses effective popup size:
 //!   - explicit `width`/`height` if set (> 0)
 //!   - otherwise `preferred-width`/`preferred-height`
-//! - custom mode wraps children in a layout-aware container so preferred size
-//!   propagates predictably into placement calculations.
+//! - custom mode wraps children in a plain container and shrink-wraps it to the
+//!   content's preferred size for predictable placement calculations.
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
@@ -80,17 +80,32 @@ fn build_tooltip_visual(
 fn build_custom_tooltip_content(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
-    vertical_layout_type: &ElementType,
+    rectangle_type: &ElementType,
     children: Vec<ElementRc>,
 ) -> ElementRc {
-    Element {
+    let content = Element {
         id: format_smolstr!("{}-custom", popup_id),
-        base_type: vertical_layout_type.clone(),
+        base_type: rectangle_type.clone(),
         enclosing_component: enclosing_component.clone(),
         children,
         ..Default::default()
     }
-    .make_rc()
+    .make_rc();
+
+    let preferred_width = NamedReference::new(&content, SmolStr::new_static("preferred-width"));
+    let preferred_height = NamedReference::new(&content, SmolStr::new_static("preferred-height"));
+
+    let mut width_binding: BindingExpression =
+        Expression::PropertyReference(preferred_width).into();
+    width_binding.priority = 1;
+    content.borrow_mut().bindings.insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+
+    let mut height_binding: BindingExpression =
+        Expression::PropertyReference(preferred_height).into();
+    height_binding.priority = 1;
+    content.borrow_mut().bindings.insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+
+    content
 }
 
 fn build_tooltip_delay_timer(
@@ -235,10 +250,7 @@ fn wire_tooltip_placement(
         op: '/',
     };
     let x_left = Expression::BinaryExpression {
-        lhs: Box::new(Expression::UnaryOp {
-            sub: Box::new(effective_popup_width),
-            op: '-',
-        }),
+        lhs: Box::new(Expression::UnaryOp { sub: Box::new(effective_popup_width), op: '-' }),
         rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
         op: '-',
     };
@@ -248,10 +260,7 @@ fn wire_tooltip_placement(
         op: '+',
     };
     let y_top = Expression::BinaryExpression {
-        lhs: Box::new(Expression::UnaryOp {
-            sub: Box::new(effective_popup_height),
-            op: '-',
-        }),
+        lhs: Box::new(Expression::UnaryOp { sub: Box::new(effective_popup_height), op: '-' }),
         rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
         op: '-',
     };
@@ -382,7 +391,7 @@ fn lower_tooltips_in_component(
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
     let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
-    let vertical_layout_type = type_register.lookup_builtin_element("VerticalLayout").unwrap();
+    let rectangle_type = type_register.lookup_builtin_element("Rectangle").unwrap();
 
     let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
     let popup_close_policy_no_auto_close = EnumerationValue {
@@ -459,7 +468,7 @@ fn lower_tooltips_in_component(
             build_custom_tooltip_content(
                 &popup_id_for_text,
                 &enclosing_component,
-                &vertical_layout_type,
+                &rectangle_type,
                 custom_children,
             )
         } else {
