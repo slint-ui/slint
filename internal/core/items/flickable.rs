@@ -463,7 +463,7 @@ impl FlickableDataInner {
             && let Some(pos) = self.final_pos
         {
             // If the animation is not finished, we use final value of the animation, otherwise we slow the scrolling down
-            old_pos = pos.into();
+            old_pos = pos;
         }
 
         let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
