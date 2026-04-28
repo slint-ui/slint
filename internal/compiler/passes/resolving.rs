@@ -1330,6 +1330,7 @@ impl Expression {
         let expected_ty = match op {
             '=' => ty,
             '+' if ty == Type::String || ty.as_unit_product().is_some() => ty,
+            '+' if matches!(ty, Type::Array(_)) => ty,
             '-' if ty.as_unit_product().is_some() => ty,
             '/' | '*' if ty.as_unit_product().is_some() => Type::Float32,
             _ => {

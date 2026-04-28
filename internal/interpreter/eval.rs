@@ -327,6 +327,18 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         panic!("unsupported {a:?} {op} {b:?}");
                     }
                 }
+                ('+', Value::Model(a), Value::Model(b)) => {
+                    if let Some(vec_model) = a.as_any().downcast_ref::<VecModel<Value>>() {
+                        for item in b.iter() {
+                            vec_model.push(item);
+                        }
+                        Value::Model(a)
+                    } else {
+                        let mut combined: Vec<Value> = a.iter().collect();
+                        combined.extend(b.iter());
+                        Value::Model(ModelRc::new(VecModel::from(combined)))
+                    }
+                }
                 ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
                 ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),
                 ('*', Value::Number(a), Value::Number(b)) => Value::Number(a * b),

@@ -2945,6 +2945,21 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
                 quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
+            } else if let Type::Array(element_ty) = &lhs_ty && *op == '+' {
+                let rust_element_ty = rust_primitive_type(element_ty).unwrap();
+                quote!({
+                    let lhs = #lhs;
+                    let rhs = #rhs;
+                    if let Some(model) = lhs.as_any().downcast_ref::<sp::VecModel<#rust_element_ty>>() {
+                        for item in rhs.iter() { model.push(item); }
+                        lhs
+                    } else {
+                        let mut combined = sp::SharedVector::<#rust_element_ty>::default();
+                        for item in lhs.iter() { combined.push(item); }
+                        for item in rhs.iter() { combined.push(item); }
+                        sp::ModelRc::new(sp::SharedVectorModel::from(combined))
+                    }
+                })
             } else {
                 let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
                     OperatorClass::ArithmeticOp => match lhs_ty {
