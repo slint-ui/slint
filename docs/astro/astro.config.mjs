@@ -17,6 +17,13 @@ import {
 
 const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
 
+// Starlight prepends the base path to every sidebar link that is not a full
+// URL (http/https). Strip BASE_PATH so the re-added prefix produces the
+// intended absolute path (e.g. "/docs/../cpp/" -> "../cpp/" -> Starlight
+// adds base -> "/docs/../cpp/" which the browser resolves to "/cpp/").
+const sidebarHref = (/** @type {string} */ url) =>
+    url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
+
 // https://astro.build/config
 export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
@@ -482,12 +489,12 @@ export default defineConfig({
                         items: [
                             {
                                 label: "C++ ↗",
-                                link: `${CPP_BASE_URL}`,
+                                link: sidebarHref(CPP_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
                                 label: "Rust ↗",
-                                link: `${RUST_SLINT_CRATE_URL}`,
+                                link: sidebarHref(RUST_SLINT_CRATE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -496,7 +503,7 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: `${NODEJS_BASE_URL}`,
+                                link: sidebarHref(NODEJS_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -505,7 +512,7 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: `${PYTHON_BASE_URL}`,
+                                link: sidebarHref(PYTHON_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                         ],
