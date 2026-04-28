@@ -227,6 +227,12 @@
     "QtBackend": {
         "href": "guide/backends-and-renderers/backend_qt/"
     },
+    "Platform": {
+        "href": "reference/global-namespaces/platform/"
+    },
+    "Platform.decimal-separator": {
+        "href": "reference/global-namespaces/platform/#decimal-separator"
+    },
     "Window": {
         "href": "reference/window/window/"
     },
