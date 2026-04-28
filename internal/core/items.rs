@@ -1879,6 +1879,8 @@ i_slint_common::for_each_enums!(declare_enums);
 #[pin]
 pub struct TooltipArea {
     pub has_hover: Property<bool>,
+    pub mouse_x: Property<LogicalLength>,
+    pub mouse_y: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1909,6 +1911,10 @@ impl Item for TooltipArea {
         if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
             return InputEventFilterResult::ForwardAndIgnore;
+        }
+        if let Some(pos) = event.position() {
+            Self::FIELD_OFFSETS.mouse_x().apply_pin(self).set(pos.x_length());
+            Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
         }
         Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardAndInterceptGrab

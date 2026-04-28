@@ -576,6 +576,8 @@ macro_rules! for_each_enums {
             /// This enum describes where a `ToolTip` is placed relative to the hovered element.
             #[non_exhaustive]
             enum ToolTipPlacement {
+                /// Place the tooltip at the current mouse pointer position.
+                Pointer,
                 /// Place the tooltip centered above the hovered element.
                 Top,
                 /// Place the tooltip centered below the hovered element.

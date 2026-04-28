@@ -5,11 +5,14 @@
 //!
 //! For each `ToolTip` child, this pass synthesizes a `PopupWindow` anchored around
 //! the hovered parent element and contains the tooltip content.
-//! The `ToolTip.placement` enum controls whether it appears at top/bottom/left/right.
+//! The `ToolTip.placement` enum controls whether it appears at the mouse pointer position
+//! (`pointer`) or relative to the hovered element (`top`/`bottom`/`left`/`right`).
 //! Visibility is driven by an injected `TooltipArea` item's `has-hover` callback:
 //! - hover enters: start/restart a delay timer
 //! - timer fires: `ShowPopupWindow`
 //! - hover leaves: stop timer and `ClosePopupWindow`
+//! `TooltipArea` also tracks the last known pointer position (`mouse-x`/`mouse-y`) for
+//! the `pointer` placement mode.
 //!
 //! Runtime popup handling marks tooltip popups as input-transparent overlays.
 //! Tooltip show/hide delay currently uses a fixed delay constant.
@@ -148,6 +151,8 @@ fn wire_tooltip_placement(
     popup_window_rc: &ElementRc,
     parent_width: NamedReference,
     parent_height: NamedReference,
+    pointer_x: NamedReference,
+    pointer_y: NamedReference,
     tooltip_placement: NamedReference,
     placement_enum: Rc<Enumeration>,
 ) {
@@ -168,6 +173,11 @@ fn wire_tooltip_placement(
         }
     };
 
+    let is_pointer = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("pointer"))),
+        op: '=',
+    };
     let is_left = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
         rhs: Box::new(Expression::EnumerationValue(placement_value("left"))),
@@ -250,14 +260,24 @@ fn wire_tooltip_placement(
         rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
         op: '+',
     };
+    let x_pointer = Expression::PropertyReference(pointer_x);
+    let y_pointer = Expression::BinaryExpression {
+        lhs: Box::new(Expression::PropertyReference(pointer_y)),
+        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        op: '+',
+    };
 
     let mut x_binding: BindingExpression = Expression::Condition {
-        condition: Box::new(is_left),
-        true_expr: Box::new(x_left),
+        condition: Box::new(is_pointer.clone()),
+        true_expr: Box::new(x_pointer),
         false_expr: Box::new(Expression::Condition {
-            condition: Box::new(is_right),
-            true_expr: Box::new(x_right),
-            false_expr: Box::new(centered_x),
+            condition: Box::new(is_left),
+            true_expr: Box::new(x_left),
+            false_expr: Box::new(Expression::Condition {
+                condition: Box::new(is_right),
+                true_expr: Box::new(x_right),
+                false_expr: Box::new(centered_x),
+            }),
         }),
     }
     .into();
@@ -265,12 +285,16 @@ fn wire_tooltip_placement(
     popup_window_rc.borrow_mut().bindings.insert(SmolStr::new_static("x"), RefCell::new(x_binding));
 
     let mut y_binding: BindingExpression = Expression::Condition {
-        condition: Box::new(is_top),
-        true_expr: Box::new(y_top),
+        condition: Box::new(is_pointer.clone()),
+        true_expr: Box::new(y_pointer),
         false_expr: Box::new(Expression::Condition {
-            condition: Box::new(is_bottom),
-            true_expr: Box::new(y_bottom),
-            false_expr: Box::new(centered_y),
+            condition: Box::new(is_top),
+            true_expr: Box::new(y_top),
+            false_expr: Box::new(Expression::Condition {
+                condition: Box::new(is_bottom),
+                true_expr: Box::new(y_bottom),
+                false_expr: Box::new(centered_y),
+            }),
         }),
     }
     .into();
@@ -429,6 +453,8 @@ fn lower_tooltips_in_component(
             NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
+        let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-x"));
+        let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-y"));
         let tooltip_visual = if has_custom_content {
             build_custom_tooltip_content(
                 &popup_id_for_text,
@@ -481,6 +507,8 @@ fn lower_tooltips_in_component(
             &popup_window_rc,
             parent_width,
             parent_height,
+            pointer_x,
+            pointer_y,
             tooltip_placement,
             placement_enum,
         );
