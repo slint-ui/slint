@@ -17,6 +17,7 @@ crate::thread_local! {
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
+
     /// This property is read by all translations, and marked dirty when the language changes,
     /// so that every translated string gets re-translated. The property's value is the current selected
     /// language when bundling translations.
@@ -25,15 +26,16 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) translations_bundle_decimal_separators:
         core::cell::RefCell<Option<alloc::vec::Vec<Option<char>>>>,
-    pub(crate) window_shown_hook:
-        core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
     pub(crate) gettext_bindtextdomain_domain: core::cell::RefCell<Option<crate::SharedString>>,
-    #[cfg(all(unix, not(target_os = "macos")))]
-    xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<Option<char>>>>,
+
+    pub(crate) window_shown_hook:
+        core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    #[cfg(all(unix, not(target_os = "macos")))]
+    xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
     pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
     #[cfg(feature = "shared-swash")]
