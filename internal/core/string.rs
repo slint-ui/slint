@@ -377,7 +377,6 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
 }
 
 /// Convert a string to a float
-#[inline]
 pub fn string_to_float(string: &str) -> Option<f32> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let slint_context = ctx.get().unwrap();
