@@ -20,8 +20,6 @@ jobs:
   discover-and-trigger:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-
       - name: Trigger CI on branches with recent changes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
