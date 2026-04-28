@@ -211,29 +211,25 @@ MCP protocol — no additional configuration is needed beyond enabling the serve
 
 ### Enabling the MCP Server
 
-Enable the `mcp` feature on the `slint` crate:
-
-```toml
-[dependencies]
-slint = { version = "x.y.z", features = ["mcp"] }
-```
-
-Then set the following environment variables when running your application:
+Set the following environment variables when running your application, and pass
+`--features slint/mcp` to enable the server:
 
 ```sh
-SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app --features slint/mcp
 ```
 
 `SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
 metadata into the compiled UI). `SLINT_MCP_PORT` controls which port the MCP server listens on.
 If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
+Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features`
+flag on the command line instead.
 
 ### Usage with AI Agents
 
 The simplest approach is to tell the agent to run the application with both environment variables
 set and then interact with it. For example, in Claude Code:
 
-> "Run `SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-app` in the background. The
+> "Run `SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-app --features slint/mcp` in the background. The
 > app includes a built-in MCP server. Connect to it and toggle the dark mode switch."
 
 The agent will discover the MCP endpoint, connect, and use the tools to accomplish the task.

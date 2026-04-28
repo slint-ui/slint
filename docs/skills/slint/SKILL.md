@@ -111,29 +111,22 @@ Once enabled, an AI coding assistant can connect to the MCP endpoint to inspect 
 
 ### Enabling the MCP Server
 
-**Step 1**: Enable the `mcp` feature on the `slint` crate in `Cargo.toml`:
-
-```toml
-[dependencies]
-slint = { version = "1.17.0", features = ["mcp"] }
-```
-
-If the project is part of a workspace that depends on Slint from a path (e.g. working within the Slint repo itself), enable the feature via `--features slint/mcp` on the cargo command line.
-
-**Step 2**: Build with `SLINT_EMIT_DEBUG_INFO=1` so that element IDs and source locations are preserved in the compiled output. Without this, elements will lack the debug metadata needed for meaningful introspection. Set `SLINT_MCP_PORT` to an available port when running:
+**Step 1**: Build with `SLINT_EMIT_DEBUG_INFO=1` so that element IDs and source locations are preserved in the compiled output. Without this, elements will lack the debug metadata needed for meaningful introspection. Set `SLINT_MCP_PORT` to an available port when running, and pass `--features slint/mcp` to enable the server:
 
 ```sh
-SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app --features slint/mcp
 ```
 
-**Step 3**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
+Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features` flag on the command line instead.
+
+**Step 2**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
 
 ### Version Requirements
 
 | Slint Version | MCP Support |
 |---------------|-------------|
 | < 1.17.0 | Not available |
-| >= 1.17.0 | Enable via `features = ["mcp"]` on the `slint` crate |
+| >= 1.17.0 | Enable via `--features slint/mcp` on the cargo command line |
 
 ### When to Suggest MCP
 
