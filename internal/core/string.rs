@@ -7,7 +7,7 @@
 #![warn(missing_docs)]
 
 use crate::SharedVector;
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use core::fmt::{Debug, Display, Write};
 use core::ops::Deref;
 #[cfg(not(feature = "std"))]
