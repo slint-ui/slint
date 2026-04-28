@@ -11,6 +11,8 @@ on:
         required: true
       ANDROID_KEYSTORE_BASE64:
         required: true
+      ANDROID_KEYSTORE_ALIAS:
+        required: true
 
 jobs:
   material_gallery_android:
@@ -19,6 +21,7 @@ jobs:
       CARGO_INCREMENTAL: false
       CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
       CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -53,9 +56,9 @@ jobs:
         with:
           target: aarch64-linux-android
 
-      - name: Install Android API level 30
+      - name: Install Android API level 35
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
-        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35"
 
       # 3. Setup Environment (Run only if artifacts are missing)
       - name: Add NDK LLVM to PATH
@@ -97,6 +100,11 @@ jobs:
         if: steps.cache-aab.outputs.cache-hit != 'true'
         working-directory: ui-libraries/material/examples/gallery
         run: x build --platform android --arch arm64 --release --format 'aab'
+
+      - name: Sign aab
+        if: steps.cache-aab.outputs.cache-hit != 'true'
+        working-directory: /target/x/release/android
+        run: jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore $CARGO_APK_RELEASE_KEYSTORE material-gallery.aab $KEYSTORE_ALIAS
 
       - name: Verify aab
         if: steps.cache-aab.outputs.cache-hit != 'true'
