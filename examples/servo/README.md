@@ -1,3 +1,5 @@
+<img src="https://github.com/user-attachments/assets/bcc2b6d9-b4f3-49a4-9653-8676eba4c2f0" width="100" align="right" />
+
 # Slint Servo Example
 
 > Disclaimer: Servo is still experimental and not ready for production use.
