@@ -67,7 +67,7 @@ impl TranslationsBuilder {
                 languages.push(l.file_name().to_string_lossy().into());
                 decimal_separators.push(
                     catalog
-                        .find_by_msgid_msgctxt(".", "SlintDecimalSeparator")
+                        .find_by_msgid_msgctxt(".", "Slint: decimal separator")
                         .filter(|entry| entry.translated())
                         .and_then(|entry| entry.msgstr)
                         .map(|m| m.into()),

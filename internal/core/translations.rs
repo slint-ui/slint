@@ -462,7 +462,7 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
 
 /// This function is called by generated code to assign bundled decimal separators.
 /// Each entry corresponds to one language and originates from msgctxt
-/// "SlintDecimalSeparator" / msgid "." in PO files.
+/// "Slint: decimal separator" / msgid "." in PO files.
 pub fn set_bundled_decimal_separators(separators: &[Option<&str>]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
