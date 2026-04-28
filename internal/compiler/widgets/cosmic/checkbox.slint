@@ -4,13 +4,11 @@
 import { CosmicFontSettings, CosmicPalette, Icons } from "styling.slint";
 import { StateLayer } from "components.slint";
 
-export component CheckBox {
-    in property <string> text;
-    in property <bool> enabled <=> state-layer.enabled;
-    out property <bool> has-focus: state-layer.has-focus;
-    in-out property <bool> checked;
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+export component CheckBox implements CheckBoxInterface {
+    enabled <=> state-layer.enabled;
+    has-focus: state-layer.has-focus;
 
     private property <color> text-color: CosmicPalette.foreground;
 

@@ -4,10 +4,9 @@
 import { CosmicPalette } from "styling.slint";
 import { SpinnerBase } from "../common/spinner-base.slint";
 
-export component Spinner {
-    in property <float> progress <=> base.progress;
-    in property <bool> indeterminate <=> base.indeterminate;
+import { SpinnerInterface } from "../common/std-widget-interfaces.slint";
 
+export component Spinner uses { SpinnerInterface from base} {
     min-width: 30px;
     min-height: 30px;
     horizontal-stretch: 0;

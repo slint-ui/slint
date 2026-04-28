@@ -4,13 +4,11 @@
 import { CupertinoFontSettings, CupertinoPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component CheckBox {
-    in property <string> text;
-    in property <bool> enabled <=> i-touch-area.enabled;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+export component CheckBox implements CheckBoxInterface {
+    enabled <=> i-touch-area.enabled;
+    has-focus: i-focus-scope.has-focus;
 
     private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
     private property <brush> icon-color: CupertinoPalette.accent-foreground;

@@ -2,37 +2,33 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ScrollView } from "std-widgets-impl.slint";
+import { TextEditInterface } from "./std-widget-interfaces.slint";
 
-export component TextEditBase inherits Rectangle {
+export component TextEditBase implements TextEditInterface inherits Rectangle {
     in property <length> scroll-view-padding;
 
-    in property <TextWrap> wrap <=> text-input.wrap;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
-    in property <bool> read-only <=> text-input.read-only;
-    in property <length> font-size <=> text-input.font-size;
-    in property <string> font-family <=> text-input.font-family;
-    in property <bool> font-italic <=> text-input.font-italic;
-    in property <bool> enabled <=> text-input.enabled;
-    out property <bool> has-focus: text-input.has-focus;
-    out property <length> visible-width <=> scroll-view.visible-width;
-    out property <length> visible-height <=> scroll-view.visible-height;
-    in-out property <string> text <=> text-input.text;
-    in-out property <length> viewport-x <=> scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> scroll-view.viewport-y;
-    in-out property <length> viewport-width <=> scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    wrap <=> text-input.wrap;
+    horizontal-alignment <=> text-input.horizontal-alignment;
+    read-only <=> text-input.read-only;
+    font-size <=> text-input.font-size;
+    font-family <=> text-input.font-family;
+    font-italic <=> text-input.font-italic;
+    enabled <=> text-input.enabled;
+    has-focus: text-input.has-focus;
+    visible-width <=> scroll-view.visible-width;
+    visible-height <=> scroll-view.visible-height;
+    text <=> text-input.text;
+    viewport-x <=> scroll-view.viewport-x;
+    viewport-y <=> scroll-view.viewport-y;
+    viewport-width <=> scroll-view.viewport-width;
+    viewport-height <=> scroll-view.viewport-height;
 
     in property <brush> foreground <=> text-input.color;
     in property <int> font-weight <=> text-input.font-weight;
     in property <brush> selection-background-color;
     in property <brush> selection-foreground-color;
 
-    in property <string> placeholder-text;
     in property <brush> placeholder-color;
-
-    callback edited(text: string);
-    callback key-pressed(event: KeyEvent) -> EventResult;
-    callback key-released(event: KeyEvent) -> EventResult;
 
     public function set-selection-offsets(start: int, end: int) {
         text-input.set-selection-offsets(start, end);
