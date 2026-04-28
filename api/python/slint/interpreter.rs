@@ -285,6 +285,30 @@ fn lookup_global_signature(
     })
 }
 
+/// Look up the declared `Type` of a public property `name`. Returns `None`
+/// for callbacks/functions or when the name doesn't match.
+fn lookup_property_type(
+    definition: &slint_interpreter::ComponentDefinition,
+    name: &str,
+) -> Option<Type> {
+    let normalized = normalize_identifier(name);
+    definition.properties_and_callbacks().find_map(|(prop_name, (ty, _))| {
+        (normalize_identifier(&prop_name) == normalized && ty.is_property_type()).then_some(ty)
+    })
+}
+
+/// Same as [`lookup_property_type`], but for properties on a global named `global_name`.
+fn lookup_global_property_type(
+    definition: &slint_interpreter::ComponentDefinition,
+    global_name: &str,
+    name: &str,
+) -> Option<Type> {
+    let normalized = normalize_identifier(name);
+    definition.global_properties_and_callbacks(global_name)?.find_map(|(prop_name, (ty, _))| {
+        (normalize_identifier(&prop_name) == normalized && ty.is_property_type()).then_some(ty)
+    })
+}
+
 #[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct ComponentDefinition {
@@ -442,14 +466,17 @@ impl ComponentInstance {
     }
 
     fn get_property(&self, name: &str) -> Result<SlintToPyValue, PyGetPropertyError> {
-        Ok(self.type_collection.to_py_value(self.instance.get_property(name)?))
+        let value = self.instance.get_property(name)?;
+        let property_type = lookup_property_type(&self.instance.definition(), name);
+        Ok(self.type_collection.to_py_value_typed(value, property_type))
     }
 
     fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
+        let property_type = lookup_property_type(&self.instance.definition(), name);
         let pv = TypeCollection::slint_value_from_py_value_bound(
             &value,
             Some(&self.type_collection),
-            None,
+            property_type.as_ref(),
         )?;
         Ok(self.instance.set_property(name, pv).map_err(|e| PySetPropertyError(e))?)
     }
@@ -459,9 +486,10 @@ impl ComponentInstance {
         global_name: &str,
         prop_name: &str,
     ) -> Result<SlintToPyValue, PyGetPropertyError> {
-        Ok(self
-            .type_collection
-            .to_py_value(self.instance.get_global_property(global_name, prop_name)?))
+        let value = self.instance.get_global_property(global_name, prop_name)?;
+        let property_type =
+            lookup_global_property_type(&self.instance.definition(), global_name, prop_name);
+        Ok(self.type_collection.to_py_value_typed(value, property_type))
     }
 
     fn set_global_property(
@@ -470,10 +498,12 @@ impl ComponentInstance {
         prop_name: &str,
         value: Bound<'_, PyAny>,
     ) -> PyResult<()> {
+        let property_type =
+            lookup_global_property_type(&self.instance.definition(), global_name, prop_name);
         let pv = TypeCollection::slint_value_from_py_value_bound(
             &value,
             Some(&self.type_collection),
-            None,
+            property_type.as_ref(),
         )?;
         Ok(self
             .instance
