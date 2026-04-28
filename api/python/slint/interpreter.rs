@@ -188,15 +188,17 @@ impl CompilationResult {
         for struct_or_enum in self.result.structs_and_enums(i_slint_core::InternalToken {}) {
             match struct_or_enum {
                 Type::Struct(s) if s.node().is_some() => {
-                    let struct_instance =
-                        self.type_collection.struct_to_py(slint_interpreter::Struct::from_iter(
-                            s.fields.iter().map(|(name, field_type)| {
+                    let struct_instance = self.type_collection.struct_to_py(
+                        slint_interpreter::Struct::from_iter(s.fields.iter().map(
+                            |(name, field_type)| {
                                 (
                                     ident(&name).into(),
                                     slint_interpreter::default_value_for_type(field_type),
                                 )
-                            }),
-                        ));
+                            },
+                        )),
+                        None,
+                    );
 
                     structs.insert(
                         ident(&s.name.slint_name().unwrap()).into(),
