@@ -434,32 +434,8 @@ fn update_locale_decimal_separator() {
             // No bundled languages
 
             #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
-            {
-                if let Some(locale) = sys_locale::get_locale() {
-                    ctx.0
-                        .locale_decimal_separator
-                        .as_ref()
-                        .set(decimal_separator_for_locale(&locale))
-                } else {
-                    // As fallback, read from the translation files
-                    let translated = if let Some(domain) =
-                        ctx.0.gettext_bindtextdomain_domain.borrow().as_ref()
-                    {
-                        translate(
-                            ".",
-                            "SlintDecimalSeparator",
-                            domain,
-                            &[] as &[SharedString],
-                            1,
-                            "",
-                        )
-                    } else {
-                        "".into()
-                    };
-                    if !translated.is_empty() {
-                        ctx.0.locale_decimal_separator.as_ref().set(translated.chars().next());
-                    }
-                }
+            if let Some(locale) = sys_locale::get_locale() {
+                ctx.0.locale_decimal_separator.as_ref().set(decimal_separator_for_locale(&locale))
             }
         }
     });
