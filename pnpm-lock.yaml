@@ -233,9 +233,6 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
-      starlight-links-validator:
-        specifier: 'catalog:'
-        version: 0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))
       starlight-typedoc:
         specifier: 0.21.5
         version: 0.21.5(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(typedoc-plugin-markdown@4.11.0(typedoc@0.28.19(typescript@6.0.3)))(typedoc@0.28.19(typescript@6.0.3))
@@ -14555,23 +14552,6 @@ snapshots:
       '@astrojs/starlight': 0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))
       '@types/picomatch': 4.0.3
       astro: 6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
-      github-slugger: 2.0.0
-      hast-util-from-html: 2.0.3
-      is-absolute-url: 5.0.0
-      mdast-util-mdx-jsx: 3.2.0
-      mdast-util-to-hast: 13.2.1
-      picomatch: 4.0.4
-      terminal-link: 5.0.0
-      unist-util-visit: 5.1.0
-      yaml: 2.8.3
-    transitivePeerDependencies:
-      - supports-color
-
-  starlight-links-validator@0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)):
-    dependencies:
-      '@astrojs/starlight': 0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))
-      '@types/picomatch': 4.0.3
-      astro: 6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)
       github-slugger: 2.0.0
       hast-util-from-html: 2.0.3
       is-absolute-url: 5.0.0
