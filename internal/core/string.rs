@@ -481,6 +481,8 @@ fn to_shared_string() {
 fn test_replace_characters() {
     let mut value = SharedString::from("5.1");
     value.replace_characters('.', ',', 1);
+
+    assert_eq!(value, "5,1".to_shared_string());
 }
 
 #[cfg(feature = "ffi")]
