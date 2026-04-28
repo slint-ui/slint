@@ -412,8 +412,11 @@ impl ComponentInstance {
     }
 
     fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
-        let pv =
-            TypeCollection::slint_value_from_py_value_bound(&value, Some(&self.type_collection))?;
+        let pv = TypeCollection::slint_value_from_py_value_bound(
+            &value,
+            Some(&self.type_collection),
+            None,
+        )?;
         Ok(self.instance.set_property(name, pv).map_err(|e| PySetPropertyError(e))?)
     }
 
@@ -433,8 +436,11 @@ impl ComponentInstance {
         prop_name: &str,
         value: Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let pv =
-            TypeCollection::slint_value_from_py_value_bound(&value, Some(&self.type_collection))?;
+        let pv = TypeCollection::slint_value_from_py_value_bound(
+            &value,
+            Some(&self.type_collection),
+            None,
+        )?;
         Ok(self
             .instance
             .set_global_property(global_name, prop_name, pv)
@@ -445,8 +451,11 @@ impl ComponentInstance {
     fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
         let mut rust_args = Vec::new();
         for arg in args.iter() {
-            let pv =
-                TypeCollection::slint_value_from_py_value_bound(&arg, Some(&self.type_collection))?;
+            let pv = TypeCollection::slint_value_from_py_value_bound(
+                &arg,
+                Some(&self.type_collection),
+                None,
+            )?;
             rust_args.push(pv)
         }
         Ok(self.type_collection.to_py_value(
@@ -463,8 +472,11 @@ impl ComponentInstance {
     ) -> PyResult<SlintToPyValue> {
         let mut rust_args = Vec::new();
         for arg in args.iter() {
-            let pv =
-                TypeCollection::slint_value_from_py_value_bound(&arg, Some(&self.type_collection))?;
+            let pv = TypeCollection::slint_value_from_py_value_bound(
+                &arg,
+                Some(&self.type_collection),
+                None,
+            )?;
             rust_args.push(pv)
         }
         Ok(self.type_collection.to_py_value(
@@ -594,6 +606,7 @@ impl GcVisibleCallbacks {
                     py,
                     &result,
                     Some(&type_collection),
+                    None,
                 ) {
                     Ok(value) => value,
                     Err(err) => {
