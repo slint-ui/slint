@@ -37,33 +37,34 @@ env:
 
 jobs:
     files-changed:
-      if: ${{ !inputs.full }}
       runs-on: ubuntu-latest
       timeout-minutes: 1
       permissions:
         pull-requests: read
       outputs:
-        slint: ${{ steps.filter.outputs.slint }}
-        figma_inspector : ${{ steps.filter.outputs.figma_inspector }}
-        material_components : ${{ steps.filter.outputs.material_components }}
-        safety_docs : ${{ steps.filter.outputs.safety_docs }}
-        internal : ${{ steps.filter.outputs.internal }}
-        api_cpp : ${{ steps.filter.outputs.api_cpp }}
-        api_python : ${{ steps.filter.outputs.api_python }}
-        api_node : ${{ steps.filter.outputs.api_node }}
-        api_rs : ${{ steps.filter.outputs.api_rs }}
-        tests : ${{ steps.filter.outputs.tests }}
-        examples : ${{ steps.filter.outputs.examples }}
-        examples_mcu : ${{ steps.filter.outputs.examples_mcu }}
-        vsce : ${{ steps.filter.outputs.vsce }}
-        slintpad : ${{ steps.filter.outputs.slintpad }}
-        updater_test : ${{ steps.filter.outputs.updater_test }}
-        servo_example : ${{ steps.filter.outputs.servo_example }}
-        bevy_examples : ${{ steps.filter.outputs.bevy_examples }}
-        rust_files : ${{ steps.filter.outputs.rust_files }}
+        slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
+        figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
+        material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
+        safety_docs: ${{ inputs.full || steps.filter.outputs.safety_docs == 'true' }}
+        internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
+        api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
+        api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
+        api_node: ${{ inputs.full || steps.filter.outputs.api_node == 'true' }}
+        api_rs: ${{ inputs.full || steps.filter.outputs.api_rs == 'true' }}
+        tests: ${{ inputs.full || steps.filter.outputs.tests == 'true' }}
+        examples: ${{ inputs.full || steps.filter.outputs.examples == 'true' }}
+        examples_mcu: ${{ inputs.full || steps.filter.outputs.examples_mcu == 'true' }}
+        vsce: ${{ inputs.full || steps.filter.outputs.vsce == 'true' }}
+        slintpad: ${{ inputs.full || steps.filter.outputs.slintpad == 'true' }}
+        updater_test: ${{ inputs.full || steps.filter.outputs.updater_test == 'true' }}
+        servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
+        bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
+        rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
       steps:
         - uses: actions/checkout@v6
+          if: ${{ !inputs.full }}
         - uses: dorny/paths-filter@v4
+          if: ${{ !inputs.full }}
           id: filter
           with:
             token: ${{ github.token }}
@@ -71,7 +72,7 @@ jobs:
 
     build_and_test:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true') }}
+        if: ${{ needs.files-changed.outputs.slint == 'true' || needs.files-changed.outputs.examples == 'true' }}
         strategy:
             matrix:
                 include:
@@ -98,7 +99,7 @@ jobs:
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
     node_test_linux:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"
@@ -106,7 +107,7 @@ jobs:
 
     node_test_macos:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
@@ -114,7 +115,7 @@ jobs:
 
     node_test_windows:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Windows"
@@ -123,21 +124,21 @@ jobs:
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Linux"
           os: "ubuntu-22.04"
     python_test_macos:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
@@ -145,7 +146,7 @@ jobs:
 
     cpp_test_driver:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true' }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -191,7 +192,7 @@ jobs:
 
     cpp_test_driver_32bit:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.tests == 'true' }}
         runs-on: ubuntu-24.04
         env:
             SLINT_NO_QT: 1
@@ -217,7 +218,7 @@ jobs:
 
     cpp_cmake_matrix:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' }}
         runs-on: ubuntu-latest
         outputs:
           matrix: ${{ steps.set.outputs.matrix }}
@@ -326,7 +327,7 @@ jobs:
 
     vsce_build_test:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.vsce == 'true') }}
+        if: ${{ needs.files-changed.outputs.vsce == 'true' }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -366,7 +367,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std)
     mcu:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -395,7 +396,7 @@ jobs:
     # test to compile the mcu backend for the arm target (no_std) using embassy
     mcu-embassy:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             RUSTFLAGS: --cfg slint_int_coord -D warnings
@@ -429,7 +430,7 @@ jobs:
 
     ffi_32bit_build:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -464,14 +465,14 @@ jobs:
 
     wasm_demo:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
         uses: ./.github/workflows/wasm_demos.yaml
         with:
           build_artifacts: false
 
     tree-sitter:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.slint == 'true') }}
+        if: ${{ needs.files-changed.outputs.slint == 'true' }}
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
@@ -481,7 +482,7 @@ jobs:
     # and check that it worked with the interpreter test.
     updater_test:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.updater_test == 'true') }}
+        if: ${{ needs.files-changed.outputs.updater_test == 'true' }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -557,7 +558,7 @@ jobs:
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true') }}
+        if: ${{ needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true' }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -590,7 +591,7 @@ jobs:
 
     esp-idf-matrix:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' }}
         runs-on: ubuntu-latest
         outputs:
           matrix: ${{ steps.set.outputs.matrix }}
@@ -641,7 +642,7 @@ jobs:
 
     android:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true') }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
@@ -679,7 +680,7 @@ jobs:
 
     test-figma-inspector:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.figma_inspector == 'true') }}
+        if: ${{ needs.files-changed.outputs.figma_inspector == 'true' }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
@@ -714,7 +715,7 @@ jobs:
 
     material-components:
       needs: files-changed
-      if: ${{ !inputs.full && needs.files-changed.outputs.material_components == 'true' }}
+      if: ${{ needs.files-changed.outputs.material_components == 'true' }}
       permissions:
         contents: read
         deployments: write
@@ -729,7 +730,7 @@ jobs:
 
     safety-docs:
       needs: files-changed
-      if: ${{ !inputs.full && needs.files-changed.outputs.safety_docs == 'true' }}
+      if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
       uses: ./.github/workflows/safety_docs.yaml
       secrets:
         CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
@@ -737,17 +738,22 @@ jobs:
 
     servo_example:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.servo_example == 'true') }}
+        if: ${{ needs.files-changed.outputs.servo_example == 'true' }}
         uses: ./.github/workflows/servo_example.yaml
 
     bevy_examples:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.bevy_examples == 'true') }}
+        if: ${{ needs.files-changed.outputs.bevy_examples == 'true' }}
         uses: ./.github/workflows/bevy_examples.yaml
+        with:
+            # In full mode, run cargo update to test upstream dependency stability,
+            # but don't save the cache (would trash it for the next PR run).
+            update: ${{ inputs.full == true }}
+            save_if: ${{ inputs.full != true }}
 
     clippy:
         needs: files-changed
-        if: ${{ always() && !cancelled() && (inputs.full || needs.files-changed.outputs.rust_files == 'true') }}
+        if: ${{ needs.files-changed.outputs.rust_files == 'true' }}
         env:
             RUSTFLAGS: -D warnings
             CARGO_INCREMENTAL: false
@@ -1018,16 +1024,6 @@ jobs:
 #              run: |
 #                echo "Shutting down simulator to avoid orphan processes..."
 #                xcrun simctl shutdown "${{ env.SIMULATOR_UDID }}" || echo "Simulator already shutdown"
-
-    full_bevy_examples:
-        if: ${{ inputs.full }}
-        uses: ./.github/workflows/bevy_examples.yaml
-        with:
-            # Run cargo update to test if any downstream dependency broke our build.
-            # Do not update the cache though, as that would trash the cache for the next
-            # runner, which uses the non-updated lockfile.
-            update: true
-            save_if: false
 
     android_wgpu:
         if: ${{ inputs.full }}
