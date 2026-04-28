@@ -11,7 +11,7 @@ use pyo3::IntoPyObjectExt;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use slint_interpreter::{ComponentHandle, Value};
 
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{Function as SlintFunction, Type};
 use i_slint_compiler::parser::normalize_identifier;
 
 use indexmap::IndexMap;
@@ -251,6 +251,40 @@ impl CompilationResult {
     }
 }
 
+/// Look up the `Function` signature of a callback or function on `definition`.
+/// Returns `None` if the name doesn't match a callback or function.
+fn lookup_signature(
+    definition: &slint_interpreter::ComponentDefinition,
+    name: &str,
+) -> Option<Rc<SlintFunction>> {
+    let normalized = normalize_identifier(name);
+    definition.properties_and_callbacks().find_map(|(prop_name, (ty, _))| {
+        (normalize_identifier(&prop_name) == normalized)
+            .then(|| match ty {
+                Type::Callback(sig) | Type::Function(sig) => Some(sig),
+                _ => None,
+            })
+            .flatten()
+    })
+}
+
+/// Same as [`lookup_signature`], but for callbacks/functions on a global named `global_name`.
+fn lookup_global_signature(
+    definition: &slint_interpreter::ComponentDefinition,
+    global_name: &str,
+    name: &str,
+) -> Option<Rc<SlintFunction>> {
+    let normalized = normalize_identifier(name);
+    definition.global_properties_and_callbacks(global_name)?.find_map(|(prop_name, (ty, _))| {
+        (normalize_identifier(&prop_name) == normalized)
+            .then(|| match ty {
+                Type::Callback(sig) | Type::Function(sig) => Some(sig),
+                _ => None,
+            })
+            .flatten()
+    })
+}
+
 #[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct ComponentDefinition {
@@ -449,18 +483,21 @@ impl ComponentInstance {
 
     #[pyo3(signature = (callback_name, *args))]
     fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<SlintToPyValue> {
+        let signature = lookup_signature(&self.instance.definition(), callback_name);
         let mut rust_args = Vec::new();
-        for arg in args.iter() {
+        for (i, arg) in args.iter().enumerate() {
+            let arg_type = signature.as_ref().and_then(|sig| sig.args.get(i));
             let pv = TypeCollection::slint_value_from_py_value_bound(
                 &arg,
                 Some(&self.type_collection),
-                None,
+                arg_type,
             )?;
             rust_args.push(pv)
         }
-        Ok(self.type_collection.to_py_value(
-            self.instance.invoke(callback_name, &rust_args).map_err(|e| PyInvokeError(e))?,
-        ))
+        let return_value =
+            self.instance.invoke(callback_name, &rust_args).map_err(|e| PyInvokeError(e))?;
+        let return_type = signature.as_ref().map(|sig| sig.return_type.clone());
+        Ok(self.type_collection.to_py_value_typed(return_value, return_type))
     }
 
     #[pyo3(signature = (global_name, callback_name, *args))]
@@ -470,24 +507,29 @@ impl ComponentInstance {
         callback_name: &str,
         args: Bound<'_, PyTuple>,
     ) -> PyResult<SlintToPyValue> {
+        let signature =
+            lookup_global_signature(&self.instance.definition(), global_name, callback_name);
         let mut rust_args = Vec::new();
-        for arg in args.iter() {
+        for (i, arg) in args.iter().enumerate() {
+            let arg_type = signature.as_ref().and_then(|sig| sig.args.get(i));
             let pv = TypeCollection::slint_value_from_py_value_bound(
                 &arg,
                 Some(&self.type_collection),
-                None,
+                arg_type,
             )?;
             rust_args.push(pv)
         }
-        Ok(self.type_collection.to_py_value(
-            self.instance
-                .invoke_global(global_name, callback_name, &rust_args)
-                .map_err(|e| PyInvokeError(e))?,
-        ))
+        let return_value = self
+            .instance
+            .invoke_global(global_name, callback_name, &rust_args)
+            .map_err(|e| PyInvokeError(e))?;
+        let return_type = signature.as_ref().map(|sig| sig.return_type.clone());
+        Ok(self.type_collection.to_py_value_typed(return_value, return_type))
     }
 
     fn set_callback(&self, name: &str, callable: Py<PyAny>) -> Result<(), PySetCallbackError> {
-        let rust_cb = self.callbacks.register(name.to_string(), callable);
+        let signature = lookup_signature(&self.instance.definition(), name);
+        let rust_cb = self.callbacks.register(name.to_string(), callable, signature);
         Ok(self.instance.set_callback(name, rust_cb)?.into())
     }
 
@@ -497,6 +539,8 @@ impl ComponentInstance {
         callback_name: &str,
         callable: Py<PyAny>,
     ) -> Result<(), PySetCallbackError> {
+        let signature =
+            lookup_global_signature(&self.instance.definition(), global_name, callback_name);
         let rust_cb = self
             .global_callbacks
             .entry(global_name.to_string())
@@ -504,7 +548,7 @@ impl ComponentInstance {
                 callables: Default::default(),
                 type_collection: self.type_collection.clone(),
             })
-            .register(callback_name.to_string(), callable);
+            .register(callback_name.to_string(), callable, signature);
         Ok(self.instance.set_global_callback(global_name, callback_name, rust_cb)?.into())
     }
 
@@ -575,7 +619,12 @@ struct GcVisibleCallbacks {
 }
 
 impl GcVisibleCallbacks {
-    fn register(&self, name: String, callable: Py<PyAny>) -> impl Fn(&[Value]) -> Value + 'static {
+    fn register(
+        &self,
+        name: String,
+        callable: Py<PyAny>,
+        signature: Option<Rc<SlintFunction>>,
+    ) -> impl Fn(&[Value]) -> Value + 'static {
         self.callables.borrow_mut().insert(name.clone(), callable);
 
         let callables = self.callables.clone();
@@ -585,9 +634,14 @@ impl GcVisibleCallbacks {
             let callables = callables.borrow();
             let callable = callables.get(&name).unwrap();
             Python::attach(|py| {
-                let py_args =
-                    PyTuple::new(py, args.iter().map(|v| type_collection.to_py_value(v.clone())))
-                        .unwrap();
+                let py_args = PyTuple::new(
+                    py,
+                    args.iter().enumerate().map(|(i, v)| {
+                        let arg_type = signature.as_ref().and_then(|sig| sig.args.get(i).cloned());
+                        type_collection.to_py_value_typed(v.clone(), arg_type)
+                    }),
+                )
+                .unwrap();
                 let result = match callable.call(py, py_args, None) {
                     Ok(result) => result,
                     Err(err) => {
@@ -602,11 +656,12 @@ impl GcVisibleCallbacks {
                     }
                 };
 
+                let return_type = signature.as_ref().map(|sig| &sig.return_type);
                 let pv = match TypeCollection::slint_value_from_py_value(
                     py,
                     &result,
                     Some(&type_collection),
-                    None,
+                    return_type,
                 ) {
                     Ok(value) => value,
                     Err(err) => {
