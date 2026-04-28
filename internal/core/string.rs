@@ -335,7 +335,7 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
         let result =
             if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
 
-        if let Some(c) = ctx.get().unwrap().0.locale_decimal_separator.as_ref().get()
+        if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
             && c != '.'
         {
             result.replacen(".", &c.to_string(), 1).to_shared_string()
@@ -350,7 +350,7 @@ pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let result = crate::format!("{number:.digits$}", number = n, digits = digits);
 
-        if let Some(c) = ctx.get().unwrap().0.locale_decimal_separator.as_ref().get()
+        if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
             && c != '.'
         {
             result.replacen(".", &c.to_string(), 1).to_shared_string()
