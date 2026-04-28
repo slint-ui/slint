@@ -1,0 +1,94 @@
+import { Button } from "std-widgets.slint";
+
+export component Example inherits Window {
+    width: 320px;
+    height: 180px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Button {
+            height: 40px;
+            text: "Pointer";
+            ToolTip {
+                delay: 700ms;
+                text: "tooltip at the mouse pointer";
+            }
+        }
+
+        Button {
+            height: 40px;
+            text: "Bottom";
+
+            ToolTip {
+                placement: bottom;
+                Rectangle {
+                    border-radius: 6px;
+                    background: #222;
+
+                    layout := VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+
+                        Text {
+                            text: "Quick Actions";
+                            font-weight: 700;
+                            color: #fff;
+                        }
+
+                        Text {
+                            text: "Open command palette and search settings.";
+                            color: #d1d5db;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Rectangle {
+                                border-radius: 4px;
+                                background: #374151;
+                                HorizontalLayout {
+                                    padding: 4px;
+                                    Text {
+                                        text: "Ctrl";
+                                        color: #fff;
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                border-radius: 4px;
+                                background: #374151;
+                                HorizontalLayout {
+                                    padding: 4px;
+                                    Text {
+                                        text: "K";
+                                        color: #fff;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: 40px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: #e5e7eb;
+            Text {
+                text: "Left";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            ToolTip {
+                placement: left;
+                text: "Tooltip on the left";
+            }
+        }
+    }
+}
