@@ -115,3 +115,93 @@ def test_global_callback_int_arg_is_int() -> None:
     assert len(received) == 1
     assert type(received[0]) is int
     assert received[0] == 11
+
+
+def test_int_property_get_returns_int() -> None:
+    instance = _build(
+        """
+        export component Test {
+            in-out property <int> intprop: 42;
+            in-out property <float> floatprop: 1.5;
+        }
+        """
+    )
+    intval = instance.get_property("intprop")
+    floatval = instance.get_property("floatprop")
+    assert type(intval) is int, f"expected int, got {type(intval).__name__}"
+    assert intval == 42
+    assert type(floatval) is float, f"expected float, got {type(floatval).__name__}"
+    assert floatval == 1.5
+
+
+def test_int_property_set_then_get_returns_int() -> None:
+    instance = _build(
+        """
+        export component Test {
+            in-out property <int> intprop;
+        }
+        """
+    )
+    instance.set_property("intprop", 7)
+    val = instance.get_property("intprop")
+    assert type(val) is int
+    assert val == 7
+
+
+def test_struct_int_field_preserves_type() -> None:
+    instance = _build(
+        """
+        export struct Item { count: int, ratio: float }
+        export component Test {
+            in-out property <Item> item: { count: 7, ratio: 0.25 };
+        }
+        """
+    )
+    item = instance.get_property("item")
+    assert type(item.count) is int, f"expected int, got {type(item.count).__name__}"
+    assert item.count == 7
+    assert type(item.ratio) is float
+    assert item.ratio == 0.25
+
+
+def test_int_model_iteration_yields_ints() -> None:
+    instance = _build(
+        """
+        export component Test {
+            in-out property <[int]> data: [1, 2, 3];
+        }
+        """
+    )
+    rows = list(instance.get_property("data"))
+    assert all(type(r) is int for r in rows), [type(r).__name__ for r in rows]
+    assert rows == [1, 2, 3]
+
+
+def test_struct_model_int_field_in_iteration() -> None:
+    instance = _build(
+        """
+        export struct Item { count: int }
+        export component Test {
+            in-out property <[Item]> items: [{count: 1}, {count: 2}];
+        }
+        """
+    )
+    rows = list(instance.get_property("items"))
+    assert len(rows) == 2
+    for i, row in enumerate(rows, start=1):
+        assert type(row.count) is int
+        assert row.count == i
+
+
+def test_global_int_property() -> None:
+    instance = _build(
+        """
+        export global G {
+            in-out property <int> n: 5;
+        }
+        export component Test { }
+        """
+    )
+    val = instance.get_global_property("G", "n")
+    assert type(val) is int
+    assert val == 5
