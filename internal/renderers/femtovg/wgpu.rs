@@ -17,15 +17,136 @@ pub struct WGPUBackend {
     queue: RefCell<Option<wgpu::Queue>>,
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: RefCell<Option<wgpu::Surface<'static>>>,
+    snapshot_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
 }
 
-pub struct WGPUWindowSurface {
-    surface_texture: wgpu::SurfaceTexture,
+pub enum WGPUWindowSurface {
+    Surface(wgpu::SurfaceTexture),
+    Snapshot(femtovg::renderer::WGPURenderOutput),
+}
+
+enum WGPURenderSource<'a> {
+    Texture(&'a wgpu::Texture),
+    Output(femtovg::renderer::WGPURenderOutput),
+}
+
+impl<'a> From<WGPURenderSource<'a>> for femtovg::renderer::WGPURenderOutput {
+    fn from(src: WGPURenderSource<'a>) -> Self {
+        match src {
+            WGPURenderSource::Texture(t) => t.into(),
+            WGPURenderSource::Output(o) => o,
+        }
+    }
 }
 
 impl WindowSurface<femtovg::renderer::WGPURenderer> for WGPUWindowSurface {
     fn render_output(&self) -> impl Into<femtovg::renderer::WGPURenderOutput> {
-        &self.surface_texture.texture
+        match self {
+            WGPUWindowSurface::Surface(st) => WGPURenderSource::Texture(&st.texture),
+            WGPUWindowSurface::Snapshot(ro) => WGPURenderSource::Output(ro.clone()),
+        }
+    }
+}
+
+fn wgpu_take_snapshot_pixels(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    snapshot_slot: &RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
+    width: u32,
+    height: u32,
+    render: &dyn Fn() -> Result<(), i_slint_core::platform::PlatformError>,
+) -> Result<
+    i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+    i_slint_core::platform::PlatformError,
+> {
+    use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
+
+    if width == 0 || height == 0 {
+        return Err("take_snapshot: window size is zero".into());
+    }
+
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("slint_take_snapshot_wgpu"),
+        size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+
+    *snapshot_slot.borrow_mut() = Some(femtovg::renderer::WGPURenderOutput {
+        view: texture.create_view(&wgpu::TextureViewDescriptor::default()),
+        width,
+        height,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+    });
+
+    let render_result = render();
+    snapshot_slot.borrow_mut().take();
+    render_result?;
+
+    let unpadded_bytes_per_row = width * 4;
+    let bytes_per_row = (unpadded_bytes_per_row + wgpu::COPY_BYTES_PER_ROW_ALIGNMENT - 1)
+        & !(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT - 1);
+    let readback_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("slint_take_snapshot_wgpu_readback"),
+        size: (bytes_per_row * height) as u64,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+    encoder.copy_texture_to_buffer(
+        wgpu::TexelCopyTextureInfo {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyBufferInfo {
+            buffer: &readback_buffer,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(bytes_per_row),
+                rows_per_image: None,
+            },
+        },
+        wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+    );
+    queue.submit(std::iter::once(encoder.finish()));
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        Err("take_snapshot is not supported by FemtoVG WGPU on wasm/WebGPU".into())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let slice = readback_buffer.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
+        device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|e| format!("take_snapshot: device poll failed: {e}"))?;
+        rx.recv()
+            .map_err(|e| format!("take_snapshot: map_async callback was not delivered: {e}"))?
+            .map_err(|e| format!("take_snapshot: map_async failed: {e}"))?;
+
+        let mapped = slice.get_mapped_range();
+        let mut pixels = SharedPixelBuffer::<Rgba8Pixel>::new(width, height);
+        let dst = pixels.make_mut_bytes();
+        for (row_idx, src_row) in mapped.chunks(bytes_per_row as usize).enumerate() {
+            let row_bytes = unpadded_bytes_per_row as usize;
+            let dst_start = row_idx * row_bytes;
+            dst[dst_start..dst_start + row_bytes].copy_from_slice(&src_row[..row_bytes]);
+        }
+        drop(mapped);
+        readback_buffer.unmap();
+
+        Ok(pixels)
     }
 }
 
@@ -41,6 +162,7 @@ impl GraphicsBackend for WGPUBackend {
             queue: Default::default(),
             surface_config: Default::default(),
             surface: Default::default(),
+            snapshot_output: Default::default(),
         }
     }
 
@@ -54,6 +176,9 @@ impl GraphicsBackend for WGPUBackend {
     fn begin_surface_rendering(
         &self,
     ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
+        if let Some(snapshot_output) = self.snapshot_output.borrow().clone() {
+            return Ok(WGPUWindowSurface::Snapshot(snapshot_output));
+        }
         let surface = self.surface.borrow();
         let surface = surface.as_ref().unwrap();
         let frame = match surface.get_current_texture() {
@@ -68,7 +193,7 @@ impl GraphicsBackend for WGPUBackend {
                 surface.get_current_texture()?
             }
         };
-        Ok(WGPUWindowSurface { surface_texture: frame })
+        Ok(WGPUWindowSurface::Surface(frame))
     }
 
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {
@@ -79,7 +204,9 @@ impl GraphicsBackend for WGPUBackend {
         &self,
         surface: Self::WindowSurface,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        surface.surface_texture.present();
+        if let WGPUWindowSurface::Surface(st) = surface {
+            st.present();
+        }
         Ok(())
     }
 
@@ -106,6 +233,30 @@ impl GraphicsBackend for WGPUBackend {
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
         Ok(callback(None))
+    }
+
+    fn take_snapshot_pixels(
+        &self,
+        _canvas: Option<crate::itemrenderer::CanvasRc<Self::Renderer>>,
+        width: u32,
+        height: u32,
+        render: &dyn Fn() -> Result<(), i_slint_core::platform::PlatformError>,
+    ) -> Option<
+        Result<
+            i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+            i_slint_core::platform::PlatformError,
+        >,
+    > {
+        let device = self.device.borrow().clone()?;
+        let queue = self.queue.borrow().clone()?;
+        Some(wgpu_take_snapshot_pixels(
+            &device,
+            &queue,
+            &self.snapshot_output,
+            width,
+            height,
+            render,
+        ))
     }
 
     fn resize(
@@ -257,6 +408,28 @@ impl GraphicsBackend for WgpuTextureBackend {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // No resize needed - texture size is determined by the texture passed to render_to_texture
         Ok(())
+    }
+
+    fn take_snapshot_pixels(
+        &self,
+        _canvas: Option<crate::itemrenderer::CanvasRc<Self::Renderer>>,
+        width: u32,
+        height: u32,
+        render: &dyn Fn() -> Result<(), i_slint_core::platform::PlatformError>,
+    ) -> Option<
+        Result<
+            i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+            i_slint_core::platform::PlatformError,
+        >,
+    > {
+        Some(wgpu_take_snapshot_pixels(
+            &self.device,
+            &self.queue,
+            &self.render_output,
+            width,
+            height,
+            render,
+        ))
     }
 }
 

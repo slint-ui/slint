@@ -38,6 +38,9 @@
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
+    "docs/nodejs": {
+      "ignoreFiles": ["src/styles/custom.css", "src/styles/theme.css"]
+    },
     "docs/astro": {
       "entry": [],
       "ignoreFiles": [
@@ -51,8 +54,7 @@
         "src/content/code/main_tiles_from_js.js"
       ],
       "ignoreUnresolved": ["^/src/content/"],
-      "ignoreBinaries": ["biome"],
-      "ignoreDependencies": ["@expressive-code/core"]
+      "ignoreBinaries": ["biome"]
     },
     "docs/safety": {
       "ignoreDependencies": ["@slint/common-files"]
