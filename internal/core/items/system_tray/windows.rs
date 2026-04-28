@@ -33,7 +33,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     HWND_MESSAGE, ICONINFO, MF_DISABLED, MF_GRAYED, MF_POPUP, MF_SEPARATOR, MF_STRING,
     PostMessageW, RegisterClassW, RegisterWindowMessageW, SetForegroundWindow, SetWindowLongPtrW,
     TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_CONTEXTMENU, WM_NULL, WM_RBUTTONUP, WNDCLASSW,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_CONTEXTMENU, WM_LBUTTONUP, WM_NULL, WM_RBUTTONUP,
+    WNDCLASSW,
 };
 use windows::core::{HSTRING, PCWSTR, w};
 
@@ -72,6 +73,12 @@ impl Inner {
         if let Some(entry) = state.entries.get(entry_index) {
             vtable::VRc::borrow(&state.menu_vrc).activate(entry);
         }
+    }
+
+    fn activated(&self) {
+        let Some(item_rc) = self.self_weak.upgrade() else { return };
+        let Some(tray) = item_rc.downcast::<super::SystemTray>() else { return };
+        tray.as_pin_ref().activated.call(&());
     }
 }
 
@@ -227,6 +234,11 @@ unsafe extern "system" fn wnd_proc(
             let inner_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const Inner;
             if !inner_ptr.is_null() {
                 show_popup_menu(hwnd, unsafe { &*inner_ptr });
+            }
+        } else if event == WM_LBUTTONUP {
+            let inner_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const Inner;
+            if !inner_ptr.is_null() {
+                unsafe { &*inner_ptr }.activated();
             }
         }
         return LRESULT(0);
