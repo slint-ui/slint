@@ -159,7 +159,7 @@ async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::ite
                 }
             }
             Event::Activate(_x, _y) => {
-                tray.clicked.call(&());
+                tray.activated.call(&());
             }
         }
     }

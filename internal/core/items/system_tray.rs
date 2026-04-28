@@ -143,7 +143,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
 pub struct SystemTray {
     pub icon: Property<Image>,
     pub title: Property<SharedString>,
-    pub clicked: Callback<VoidArg>,
+    pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayDataBox,
 }

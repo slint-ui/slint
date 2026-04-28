@@ -56,10 +56,15 @@ the accessible label of the icon. Typically the application name.
 
 ## Callbacks
 
-### clicked()
+### activated()
 
-Invoked when the user activates the tray icon itself (as opposed to picking an entry from its
-menu) — typically a left-click on the icon.
+Invoked when the user activates the tray icon itself, as opposed to picking an entry from its menu.
+What counts as activation, and whether it's invoked at all, depends on the platform:
+
+| Platform      | Activation behavior                                                                   |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Linux, \*BSD  | Invoked on a left-click of the icon. The exact gesture is decided by the desktop environment or shell extension hosting the tray. |
+| macOS         | Not invoked. Clicking the icon always opens the menu; AppKit's status item has no separate activation gesture. |
 
 ## Menu
 
