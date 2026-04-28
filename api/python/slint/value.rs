@@ -154,7 +154,7 @@ impl PyStruct {
                     "Python: No such field {key} on PyStruct"
                 )))
             },
-            |value| Ok(self.type_collection.to_py_value_typed(value.clone(), self.field_type(key))),
+            |value| Ok(self.type_collection.to_py_value(value.clone(), self.field_type(key))),
         )
     }
     fn __setattr__(&mut self, py: Python<'_>, key: String, value: Py<PyAny>) -> PyResult<()> {
@@ -218,7 +218,7 @@ impl PyStructFieldIterator {
                 Type::Struct(s) => s.fields.get(name.as_str()).cloned(),
                 _ => None,
             });
-            let py_value = slf.type_collection.to_py_value_typed(val, field_type);
+            let py_value = slf.type_collection.to_py_value(val, field_type);
             (name, py_value)
         })
     }
@@ -279,11 +279,7 @@ impl TypeCollection {
         Self { enum_classes }
     }
 
-    pub fn to_py_value(&self, value: slint_interpreter::Value) -> SlintToPyValue {
-        self.to_py_value_typed(value, None)
-    }
-
-    pub fn to_py_value_typed(
+    pub fn to_py_value(
         &self,
         value: slint_interpreter::Value,
         expected_type: Option<Type>,
