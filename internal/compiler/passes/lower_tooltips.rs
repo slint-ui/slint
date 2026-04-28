@@ -15,7 +15,7 @@
 //! the `pointer` placement mode.
 //!
 //! Runtime popup handling marks tooltip popups as input-transparent overlays.
-//! Tooltip show/hide delay currently uses a fixed delay constant.
+//! Tooltip show/hide delay uses `ToolTip.delay`.
 //!
 //! Tooltip content contract:
 //! - `ToolTip` supports exactly one content mode:
@@ -41,7 +41,6 @@ const TOOLTIP_ELEMENT: &str = "ToolTip";
 const TOOLTIP_AREA_ELEMENT: &str = "TooltipArea";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
-const TOOLTIP_DELAY_MS: f64 = 500.;
 const TOOLTIP_GAP_PX: f64 = 8.;
 
 const HAS_HOVER: &str = "has-hover";
@@ -112,9 +111,9 @@ fn build_tooltip_delay_timer(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
     timer_type: &ElementType,
+    tooltip_delay: NamedReference,
 ) -> ElementRc {
-    let mut timer_interval: BindingExpression =
-        Expression::NumberLiteral(TOOLTIP_DELAY_MS, Unit::Ms).into();
+    let mut timer_interval: BindingExpression = Expression::PropertyReference(tooltip_delay).into();
     timer_interval.priority = 1;
     Element {
         id: format_smolstr!("{}-delay", popup_id),
@@ -460,6 +459,7 @@ fn lower_tooltips_in_component(
 
         let tooltip_placement =
             NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
+        let tooltip_delay = NamedReference::new(&tooltip_config, SmolStr::new_static("delay"));
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-x"));
@@ -522,8 +522,12 @@ fn lower_tooltips_in_component(
             placement_enum,
         );
 
-        let timer_element_rc =
-            build_tooltip_delay_timer(&popup_id_for_text, &enclosing_component, &timer_type);
+        let timer_element_rc = build_tooltip_delay_timer(
+            &popup_id_for_text,
+            &enclosing_component,
+            &timer_type,
+            tooltip_delay,
+        );
         wire_tooltip_visibility_behavior(
             elem,
             tooltip_child_index,

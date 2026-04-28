@@ -2007,6 +2007,7 @@ declare_item_vtable! {
 pub struct ToolTip {
     pub text: Property<SharedString>,
     pub placement: Property<ToolTipPlacement>,
+    pub delay: Property<i64>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

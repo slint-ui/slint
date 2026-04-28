@@ -163,6 +163,7 @@ export component TooltipArea inherits Empty {
 export component ToolTip inherits Empty {
     in property <string> text;
     in property <ToolTipPlacement> placement: pointer;
+    in property <duration> delay: 500ms;
     //-can_be_declared_without_children_slot
 }
 
