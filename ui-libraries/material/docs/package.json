@@ -27,9 +27,7 @@
         "astro": "catalog:",
         "limax": "4.2.3",
         "lodash.merge": "4.6.2",
-        "rehype-external-links": "catalog:",
         "sharp": "catalog:",
-        "starlight-links-validator": "catalog:",
         "unpic": "4.2.2"
     },
     "devDependencies": {
@@ -39,6 +37,7 @@
         "@astrojs/tailwind": "6.0.2",
         "@biomejs/biome": "catalog:",
         "@playwright/test": "catalog:",
+        "playwright-ctrf-json-reporter": "catalog:",
         "@slint/common-files": "workspace:*",
         "@tailwindcss/typography": "0.5.19",
         "@types/js-yaml": "4.0.9",

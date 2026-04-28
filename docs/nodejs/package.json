@@ -15,7 +15,8 @@
         "format": "biome format",
         "format:fix": "biome format --write",
         "lint": "biome lint",
-        "lint:fix": "biome lint --fix"
+        "lint:fix": "biome lint --fix",
+        "type-check": "astro check"
     },
     "dependencies": {
         "@astrojs/check": "catalog:",
@@ -24,9 +25,7 @@
         "@slint/common-files": "workspace:*",
         "@types/node": "catalog:",
         "astro": "catalog:",
-        "rehype-external-links": "catalog:",
         "sharp": "catalog:",
-        "starlight-links-validator": "catalog:",
         "starlight-typedoc": "0.21.5",
         "typedoc": "0.28.19",
         "typedoc-plugin-markdown": "4.11.0",

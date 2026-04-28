@@ -74,7 +74,7 @@ export default ({
                         `Astrowind \`${_themeConfig}\` has been loaded.`,
                     );
                 } else {
-                    buildLogger.info(`Astrowind config has been loaded.`);
+                    buildLogger.info("Astrowind config has been loaded.");
                 }
             },
             "astro:config:done": ({ config }) => {

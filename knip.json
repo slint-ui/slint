@@ -38,14 +38,9 @@
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
-    "docs/nodejs": {
-      "ignoreFiles": ["src/styles/custom.css", "src/styles/theme.css"]
-    },
     "docs/astro": {
       "entry": [],
       "ignoreFiles": [
-        "src/styles/custom.css",
-        "src/styles/theme.css",
         "src/components/editor/codemirror.js",
         "src/components/editor/language-facets.js",
         "src/components/editor/rollup.config.js",
@@ -56,16 +51,11 @@
       "ignoreUnresolved": ["^/src/content/"],
       "ignoreBinaries": ["biome"]
     },
-    "docs/safety": {
-      "ignoreDependencies": ["@slint/common-files"]
-    },
     "ui-libraries/material/docs": {
       "entry": [],
       "ignoreFiles": [
-        "src/assets/styles/custom.css",
-        "src/assets/styles/theme.css"
+        "src/assets/styles/starlight-material-supplement.css"
       ],
-      "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
       "ignoreDependencies": [
         "@types/mdx",
         "astrowind"
@@ -79,13 +69,20 @@
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
+        "src/styles/starlight-slint-custom.css",
+        "src/styles/starlight-slint-theme.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
+        "src/components/HeaderNodeDocs.astro",
+        "src/components/HeaderSlintDocs.astro",
+        "src/components/HeaderVersioned.astro",
+        "src/components/ThemeSelect.astro",
+        "src/components/VersionSelector.astro",
         "src/components/ThreeCardGrid.astro",
         "src/components/VersionBanner.astro"
       ],
-      "ignoreDependencies": ["@astrojs/starlight", "astro"]
+      "ignoreDependencies": ["playwright-ctrf-json-reporter"]
     }
   },
   "ignoreIssues": {
@@ -96,7 +93,6 @@
     "tools/figma-inspector/figma.config.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
-    "ui-libraries/material/docs/src/utils/site-config.ts": ["exports"],
     "ui-libraries/material/docs/src/components/common/Metadata.astro": ["types"],
     "ui-libraries/material/docs/src/components/common/ToggleMenu.astro": ["types"],
     "ui-libraries/material/docs/src/components/common/ToggleTheme.astro": ["types"],
