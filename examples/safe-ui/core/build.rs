@@ -11,7 +11,10 @@ fn main() {
 
     let bindings = bindgen::Builder::default()
         .header("src/slint-safeui-platform-interface.h")
+        .header("src/slint-safeui-event.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .rustified_enum("FfiEventTag")
+        .rustified_enum("FfiPointerButton")
         .use_core()
         .generate()
         .expect("Unable to generate bindings");
