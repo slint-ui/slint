@@ -51,12 +51,11 @@
       "ignoreUnresolved": ["^/src/content/"],
       "ignoreBinaries": ["biome"]
     },
-    "docs/safety": {
-      "ignoreDependencies": ["@slint/common-files"]
-    },
     "ui-libraries/material/docs": {
       "entry": [],
-      "ignoreUnresolved": ["playwright-ctrf-json-reporter"],
+      "ignoreFiles": [
+        "src/assets/styles/starlight-material-supplement.css"
+      ],
       "ignoreDependencies": [
         "@types/mdx",
         "astrowind"
@@ -75,10 +74,15 @@
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
+        "src/components/HeaderNodeDocs.astro",
+        "src/components/HeaderSlintDocs.astro",
+        "src/components/HeaderVersioned.astro",
+        "src/components/ThemeSelect.astro",
+        "src/components/VersionSelector.astro",
         "src/components/ThreeCardGrid.astro",
         "src/components/VersionBanner.astro"
       ],
-      "ignoreDependencies": ["@astrojs/starlight", "astro"]
+      "ignoreDependencies": ["playwright-ctrf-json-reporter"]
     }
   },
   "ignoreIssues": {
@@ -89,7 +93,6 @@
     "tools/figma-inspector/figma.config.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/images.ts": ["exports"],
     "ui-libraries/material/docs/src/utils/permalinks.ts": ["exports"],
-    "ui-libraries/material/docs/src/utils/site-config.ts": ["exports"],
     "ui-libraries/material/docs/src/components/common/Metadata.astro": ["types"],
     "ui-libraries/material/docs/src/components/common/ToggleMenu.astro": ["types"],
     "ui-libraries/material/docs/src/components/common/ToggleTheme.astro": ["types"],

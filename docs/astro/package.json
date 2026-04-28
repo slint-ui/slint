@@ -24,7 +24,7 @@
     "astro": "catalog:",
     "astro-embed": "catalog:",
     "playwright-ctrf-json-reporter": "catalog:",
-    "playwright-ctrf-json-reporter": "catalog:",
+    "remark-parse": "catalog:",
     "sharp": "catalog:",
     "starlight-links-validator": "catalog:",
     "starlight-sidebar-topics": "0.7.1",

@@ -42,6 +42,9 @@ catalogs:
     rehype-external-links:
       specifier: 3.0.0
       version: 3.0.0
+    remark-parse:
+      specifier: 11.0.0
+      version: 11.0.0
     sharp:
       specifier: 0.34.5
       version: 0.34.5
@@ -147,6 +150,9 @@ importers:
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
         version: 0.0.29
+      remark-parse:
+        specifier: 'catalog:'
+        version: 11.0.0
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
