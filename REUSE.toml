@@ -21,6 +21,7 @@ path = [
   "logo/slint-logo.icns",
   "logo/README.md",
   "**/public/favicon.svg",
+  "logo/documentation-site-favicons/**",
   "**/public/slint-logo-small-light.svg",
   "**/public/slint-logo.woff",
   "**/public/apple-touch-icon.png",
