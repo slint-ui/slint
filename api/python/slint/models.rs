@@ -4,6 +4,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
 
 use pyo3::PyTraverseError;
@@ -153,6 +154,7 @@ impl i_slint_core::model::Model for PyModelShared {
                 py,
                 &result,
                 self.type_collection.borrow().as_ref(),
+                None,
             ) {
                 Ok(pv) => Some(pv),
                 Err(err) => {
@@ -218,6 +220,9 @@ impl PyModelShared {
 pub struct ReadOnlyRustModel {
     pub model: ModelRc<slint_interpreter::Value>,
     pub type_collection: TypeCollection,
+    /// The declared element type (e.g. the `T` of `[T]`), when known. Used so
+    /// row access maps each value to the correct Python type.
+    pub element_type: Option<Type>,
 }
 
 #[pymethods]
@@ -227,7 +232,9 @@ impl ReadOnlyRustModel {
     }
 
     fn row_data(&self, row: usize) -> Option<SlintToPyValue> {
-        self.model.row_data(row).map(|value| self.type_collection.to_py_value(value))
+        self.model
+            .row_data(row)
+            .map(|value| self.type_collection.to_py_value_typed(value, self.element_type.clone()))
     }
 
     fn __len__(&self) -> usize {
@@ -239,6 +246,7 @@ impl ReadOnlyRustModel {
             model: slf.model.clone(),
             row: 0,
             type_collection: slf.type_collection.clone(),
+            element_type: slf.element_type.clone(),
         }
     }
 
@@ -252,6 +260,7 @@ struct ReadOnlyRustModelIterator {
     model: ModelRc<slint_interpreter::Value>,
     row: usize,
     type_collection: TypeCollection,
+    element_type: Option<Type>,
 }
 
 #[pymethods]
@@ -266,6 +275,8 @@ impl ReadOnlyRustModelIterator {
         }
         let row = self.row;
         self.row += 1;
-        self.model.row_data(row).map(|value| self.type_collection.to_py_value(value))
+        self.model
+            .row_data(row)
+            .map(|value| self.type_collection.to_py_value_typed(value, self.element_type.clone()))
     }
 }
