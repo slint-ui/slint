@@ -79,6 +79,7 @@ export default defineConfig({
                                             "guide/tooling/zed",
                                         ],
                                     },
+                                    "guide/tooling/live-preview",
                                     "guide/tooling/figma-inspector",
                                 ],
                             },

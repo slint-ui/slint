@@ -165,7 +165,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
-i-slint-backend-testing = { path = "../backends/testing" }
+i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }
 serde_json = { workspace = true }

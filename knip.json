@@ -26,6 +26,7 @@
         "path-browserify",
         "vscode-uri",
         "@lsp/slint_lsp_wasm.js",
+        "@lsp/slint_lsp_wasm_bg.wasm",
         "@interpreter/slint_wasm_interpreter.js"
       ]
     },
@@ -36,6 +37,9 @@
       "ignoreBinaries": ["biome", "cspell"],
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
+    },
+    "docs/nodejs": {
+      "ignoreFiles": ["src/styles/custom.css", "src/styles/theme.css"]
     },
     "docs/astro": {
       "entry": [],
@@ -50,8 +54,7 @@
         "src/content/code/main_tiles_from_js.js"
       ],
       "ignoreUnresolved": ["^/src/content/"],
-      "ignoreBinaries": ["biome"],
-      "ignoreDependencies": ["@expressive-code/core"]
+      "ignoreBinaries": ["biome"]
     },
     "docs/safety": {
       "ignoreDependencies": ["@slint/common-files"]

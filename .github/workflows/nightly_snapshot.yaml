@@ -48,7 +48,6 @@ jobs:
         with:
           release: ${{ github.event.inputs.release }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
-          docs_astro: false
 
     wasm_demo:
         uses: ./.github/workflows/wasm_demos.yaml
@@ -238,7 +237,7 @@ jobs:
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - name: Install GNU Sed
@@ -326,7 +325,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -696,42 +695,6 @@ jobs:
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
-
-    nightly-tests:
-        if: github.event.inputs.release != 'true'
-        needs: [prepare_release]
-        uses: ./.github/workflows/nightly_tests.yaml
-
-    nightly-build-and-test:
-        if: github.event.inputs.release != 'true'
-        strategy:
-            matrix:
-                include:
-                    - os: ubuntu-22.04
-                      name: "Ubuntu 22.04 1.92"
-                      rust_version: "1.92"
-                      # plotter is excluded because with --all-features, its dependency cause build error because of fontconfig's dlopen feature
-                      extra_args: "--exclude plotter"
-                    - os: windows-2022
-                      name: "Windows 2022 nightly"
-                      rust_version: "nightly"
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: macos-14
-                      name: "MacOS 14 nightly"
-                      rust_version: "nightly"
-                      # plotter is excluded because its dependency doesn't build with Nightly rust: https://github.com/servo/pathfinder/issues/584
-                      extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
-        uses: ./.github/workflows/build_and_test_reusable.yaml
-        with:
-            os: ${{ matrix.os }}
-            name: ${{ matrix.name }}
-            rust_version: ${{ matrix.rust_version }}
-            extra_args: ${{ matrix.extra_args }}
-            # In the nightly CI run, run cargo update to test if any downstream dependency broke our build
-            # Do not update the cache though, as that would trash the cache for the next runner, which uses the non-updated
-            # lockfile.
-            update: true
-            save_if: false
 
     android:
         env:
