@@ -6,6 +6,7 @@ import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightSidebarTopics from "starlight-sidebar-topics";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
     BASE_URL,
@@ -511,24 +512,7 @@ export default defineConfig({
                     errorOnLocalLinks: false,
                 }),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/slint",
-                },
-                { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
-                {
-                    icon: "linkedin",
-                    label: "Linkedin",
-                    href: "https://www.linkedin.com/company/slint-ui",
-                },
-                {
-                    icon: "mastodon",
-                    label: "Mastodon",
-                    href: "https://fosstodon.org/@slint",
-                },
-            ],
+            social: slintStarlightSocial,
             favicon: "favicon.svg",
             head: [
                 {

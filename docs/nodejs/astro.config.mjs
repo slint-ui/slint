@@ -6,6 +6,7 @@ import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     NODE_DOCS_BASE_PATH,
     NODE_DOCS_BASE_URL,
@@ -112,13 +113,7 @@ export default defineConfig({
                 }),
                 starlightExpandAllSidebarGroups(),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/slint",
-                },
-            ],
+            social: slintStarlightSocial,
             head: [
                 {
                     tag: "link",

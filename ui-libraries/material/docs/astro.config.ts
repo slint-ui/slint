@@ -5,6 +5,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -74,34 +75,7 @@ export default defineConfig({
                     exclude: ["/zip/**"],
                 }),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/material-components",
-                },
-                { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
-                {
-                    icon: "blueSky",
-                    label: "Bluesky",
-                    href: "https://bsky.app/profile/slint.dev",
-                },
-                {
-                    icon: "linkedin",
-                    label: "Linkedin",
-                    href: "https://www.linkedin.com/company/slint-ui/",
-                },
-                {
-                    icon: "mastodon",
-                    label: "Mastodon",
-                    href: "https://fosstodon.org/@slint",
-                },
-                {
-                    icon: "youtube",
-                    label: "YouTube",
-                    href: "https://www.youtube.com/@slint-ui",
-                },
-            ],
+            social: slintStarlightSocial,
             favicon: "favicon.svg",
             head: [
                 {

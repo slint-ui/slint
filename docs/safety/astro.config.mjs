@@ -6,6 +6,7 @@ import starlight from "@astrojs/starlight";
 import mermaid from "astro-mermaid";
 import starlightLinksValidator from "starlight-links-validator";
 import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 
 // https://astro.build/config
 export default defineConfig({
@@ -27,6 +28,7 @@ export default defineConfig({
                     errorOnLocalLinks: false,
                 }),
             ],
+            social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
                 { label: "Safety Policy", slug: "safety-policy" },
