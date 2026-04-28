@@ -323,7 +323,13 @@ impl<T: 'static> Property<T> {
     ) {
         let binding = TwoWayBindingModel { phantom: PhantomData, item_tree, getter, setter };
         // Safety: TwoWayBindingModel implements BindingCallable<T> for the same T as `Self`.
-        unsafe { self.handle.set_binding(binding) };
+        unsafe {
+            self.handle.set_binding(
+                binding,
+                #[cfg(slint_debug_property)]
+                "",
+            )
+        };
     }
 }
 
