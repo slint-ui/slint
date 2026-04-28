@@ -75,6 +75,10 @@ impl SharedString {
         }
     }
 
+    pub fn replace_range(&mut self, from: &[u8], to: &[u8], count: usize) {
+        self.inner.replace_range(from, to, count);
+    }
+
     /// Append a string to this string
     ///
     /// ```
@@ -332,13 +336,15 @@ where
 pub fn shared_string_from_number(n: f64) -> SharedString {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
-        let result =
+        let mut result =
             if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
 
         if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
             && c != '.'
         {
-            result.replacen(".", &c.to_string(), 1).to_shared_string()
+            let mut buffer = [0u8; 4];
+            result.replace_range(".".as_bytes(), c.encode_utf8(&mut buffer).as_bytes(), 1);
+            result
         } else {
             result
         }
@@ -348,12 +354,14 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
 pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let result = crate::format!("{number:.digits$}", number = n, digits = digits);
+        let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
 
         if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
             && c != '.'
         {
-            result.replacen(".", &c.to_string(), 1).to_shared_string()
+            let mut buffer = [0u8; 4];
+            result.replace_range(".".as_bytes(), c.encode_utf8(&mut buffer).as_bytes(), 1);
+            result
         } else {
             result
         }
