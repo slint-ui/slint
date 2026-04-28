@@ -261,6 +261,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             .set(crate::SlintContext::new(platform))
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
+        crate::context::fire_platform_init_hooks();
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())

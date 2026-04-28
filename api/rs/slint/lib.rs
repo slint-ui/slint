@@ -446,6 +446,34 @@ pub mod platform {
     }
 }
 
+/// Support for the embedded MCP (Model Context Protocol) server.
+#[cfg(feature = "mcp")]
+pub mod mcp {
+    /// Register the MCP server to auto-start after [`platform::set_platform()`] is called.
+    ///
+    /// Selector-backed applications (the default) do not need to call this — the selector
+    /// registers the hook automatically. This is only needed when using a custom platform
+    /// via [`platform::set_platform()`] directly.
+    ///
+    /// Must be called **before** `set_platform`. Calling it afterwards has no effect.
+    /// Calling it more than once before platform initialization is safe.
+    pub fn register() {
+        thread_local! {
+            static REGISTERED: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
+        }
+        REGISTERED.with(|registered| {
+            if registered.replace(true) {
+                return;
+            }
+            i_slint_core::context::add_platform_init_hook(Box::new(|| {
+                if let Err(e) = i_slint_backend_testing::mcp_server::init() {
+                    i_slint_core::debug_log!("MCP server init failed: {e:?}");
+                }
+            }));
+        });
+    }
+}
+
 #[i_slint_core_macros::slint_doc]
 /// This module contains some of the enums and structs from the Slint language.
 ///

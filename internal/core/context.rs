@@ -161,6 +161,32 @@ pub fn with_global_context<R>(
     })
 }
 
+crate::thread_local! {
+    static PLATFORM_INIT_HOOKS:
+        core::cell::RefCell<alloc::vec::Vec<Box<dyn FnOnce()>>>
+        = const { core::cell::RefCell::new(alloc::vec::Vec::new()) }
+}
+
+/// Register a one-shot callback to be invoked once, immediately after
+/// [`set_platform`](crate::platform::set_platform) succeeds on this thread.
+///
+/// This is a pre-init-only API: if `set_platform` has already been called,
+/// the hook is queued but will never fire.
+/// Multiple hooks are called in registration order.
+/// Analogous to [`set_window_shown_hook`] but fires at platform-init time.
+pub fn add_platform_init_hook(hook: Box<dyn FnOnce()>) {
+    PLATFORM_INIT_HOOKS.with(|hooks| hooks.borrow_mut().push(hook));
+}
+
+pub(crate) fn fire_platform_init_hooks() {
+    PLATFORM_INIT_HOOKS.with(|hooks| {
+        let pending: alloc::vec::Vec<_> = hooks.borrow_mut().drain(..).collect();
+        for hook in pending {
+            hook();
+        }
+    });
+}
+
 /// Internal function to set a hook that's invoked whenever a slint::Window is shown. This
 /// is used by the system testing module. Returns a previously set hook, if any.
 pub fn set_window_shown_hook(
