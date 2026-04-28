@@ -247,6 +247,7 @@ where
             p1,
             |v| v.clone().try_into().unwrap_or_default(),
             |v, v2| *v = v2.clone().try_into().unwrap_or_default(),
+            true,
         );
         shared_property
     }
@@ -267,6 +268,7 @@ where
                     prop1.as_ref(),
                     move |value| m1.map_to(value),
                     move |value, value2| m2.map_from(value, value2),
+                    true,
                 );
             }
             None => {
@@ -275,6 +277,7 @@ where
                     prop1.as_ref(),
                     |value| value.clone(),
                     |value, value2| *value = value2.clone(),
+                    true,
                 );
             }
         }
