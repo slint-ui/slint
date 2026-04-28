@@ -385,6 +385,7 @@ impl TypeCollection {
                 ob.extract::<PyRef<'_, crate::models::PyModelBase>>().map(|pymodel| {
                     slint_interpreter::Value::Model(Self::apply(
                         type_collection,
+                        expected_type,
                         pymodel.as_model(),
                     ))
                 })
@@ -393,6 +394,7 @@ impl TypeCollection {
                 ob.extract::<PyRef<'_, crate::models::ReadOnlyRustModel>>().map(|rustmodel| {
                     slint_interpreter::Value::Model(Self::apply(
                         type_collection,
+                        expected_type,
                         rustmodel.model.clone(),
                     ))
                 })
@@ -464,13 +466,18 @@ impl TypeCollection {
 
     fn apply(
         type_collection: Option<&Self>,
+        expected_type: Option<&Type>,
         model: ModelRc<slint_interpreter::Value>,
     ) -> ModelRc<slint_interpreter::Value> {
         let Some(type_collection) = type_collection else {
             return model;
         };
         if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>() {
-            rust_model.apply_type_collection(type_collection);
+            let element_type = match expected_type {
+                Some(Type::Array(element)) => Some((**element).clone()),
+                _ => None,
+            };
+            rust_model.apply_type_collection(type_collection, element_type);
         }
         model
     }

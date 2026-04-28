@@ -12,6 +12,7 @@ must consult the declared `Type` (Int32 vs Float32) and convert accordingly.
 import typing
 from pathlib import Path
 from slint import slint as native
+from slint import models
 
 
 def _build(source: str, name: str = "Test") -> native.ComponentInstance:
@@ -191,6 +192,31 @@ def test_struct_model_int_field_in_iteration() -> None:
     for i, row in enumerate(rows, start=1):
         assert type(row.count) is int
         assert row.count == i
+
+
+def test_set_row_data_from_slint_preserves_int() -> None:
+    """Writing an int row from Slint into a Python Model must reach the
+    Python `set_row_data` as `int`, not `float`."""
+    received: list[object] = []
+
+    class Capturing(models.ListModel[int]):
+        def set_row_data(self, row: int, value: int) -> None:
+            received.append(value)
+            super().set_row_data(row, value)
+
+    instance = _build(
+        """
+        export component Test {
+            in-out property <[int]> m;
+            public function write(row: int, val: int) { m[row] = val; }
+        }
+        """
+    )
+    instance.set_property("m", Capturing([0, 0, 0]))
+    instance.invoke("write", 1, 7)
+    assert len(received) == 1
+    assert type(received[0]) is int, f"expected int, got {type(received[0]).__name__}"
+    assert received[0] == 7
 
 
 def test_global_int_property() -> None:
