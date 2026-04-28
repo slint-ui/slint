@@ -191,9 +191,15 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.13
+      '@playwright/test':
+        specifier: 'catalog:'
+        version: 1.59.1
       astro:
         specifier: 'catalog:'
         version: 6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
+      playwright-ctrf-json-reporter:
+        specifier: 'catalog:'
+        version: 0.0.29
 
   docs/nodejs:
     dependencies:
@@ -588,6 +594,9 @@ importers:
       mdast-util-to-string:
         specifier: 4.0.0
         version: 4.0.0
+      playwright-ctrf-json-reporter:
+        specifier: 'catalog:'
+        version: 0.0.29
       reading-time:
         specifier: 1.5.0
         version: 1.5.0

@@ -38,6 +38,7 @@
         "@astrojs/tailwind": "6.0.2",
         "@biomejs/biome": "catalog:",
         "@playwright/test": "catalog:",
+        "playwright-ctrf-json-reporter": "catalog:",
         "@slint/common-files": "workspace:*",
         "@tailwindcss/typography": "0.5.19",
         "@types/js-yaml": "4.0.9",

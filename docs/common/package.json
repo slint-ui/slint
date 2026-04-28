@@ -16,6 +16,8 @@
   "devDependencies": {
     "@astrojs/starlight": "catalog:",
     "@biomejs/biome": "catalog:",
-    "astro": "catalog:"
+    "@playwright/test": "catalog:",
+    "astro": "catalog:",
+    "playwright-ctrf-json-reporter": "catalog:"
   }
 }
