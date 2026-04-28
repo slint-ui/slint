@@ -379,23 +379,25 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
 /// Convert a string to a float
 pub fn string_to_float(string: &str) -> Option<f32> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let to_parse = if let Some(slint_context) = ctx.get() {
+        fn parse(s: &str) -> Option<f32> {
+            if matches!(s, "." | "-" | "-.") {
+                return Some(Default::default());
+            }
+
+            s.parse::<f32>().ok() // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
+        }
+
+        if let Some(slint_context) = ctx.get() {
             let sep = slint_context.locale_decimal_separator();
             // Only allow the locale's decimal separator, not '.'
             if sep != '.' && string.contains('.') {
                 return None;
             }
             // Normalize locale separator to '.' because f64::parse only accepts '.'
-            if sep != '.' { string.replace(sep, ".") } else { string.to_string() }
+            if sep != '.' { parse(&string.replace(sep, ".")) } else { parse(string) }
         } else {
-            string.to_string()
-        };
-
-        if matches!(to_parse.as_str(), "." | "-" | "-.") {
-            return Some(Default::default());
+            parse(string)
         }
-
-        to_parse.parse::<f32>().ok() // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
     })
 }
 
