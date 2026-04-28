@@ -1,0 +1,112 @@
+---
+title: SystemTray
+description: SystemTray element api.
+---
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+
+Use the `SystemTray` element to add an icon and menu to the desktop's system tray,
+also known as the notification area, status area, or menu bar extras, depending on the platform.
+
+`SystemTray` is a top-level component: derive your own component
+from it with `inherits SystemTray` instead of placing it inside a <Link type="Window" />.
+A `SystemTray` component has no window of its own — the icon lives in the tray, and the only UI
+it presents is the menu.
+
+```slint
+export component MyTray inherits SystemTray {
+    icon: @image-url("tray-icon.png");
+    title: "My App";
+
+    Menu {
+        MenuItem {
+            title: "Quit";
+            activated => { quit(); }
+        }
+    }
+
+    callback quit();
+}
+```
+
+Create the component from your language binding as you would any other Slint component;
+the tray icon appears as soon as the instance is created and an event loop is running,
+and disappears when the instance is dropped.
+
+:::note{Note}
+A `SystemTray` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
+be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
+use `if` / `for` to build its entries dynamically.
+:::
+
+## Properties
+
+### icon
+<SlintProperty propName="icon" typeName="image">
+The icon shown in the system tray. The image is scaled by the platform to the size expected
+for tray icons. Use `@image-url(...)` to embed an icon asset, or bind to an `image` property
+fed from your code. The tray icon is only created once a non-empty image has been assigned.
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string" defaultValue='""'>
+A short description of the tray entry, used as a tooltip on platforms that support it and as
+the accessible label of the icon. Typically the application name.
+</SlintProperty>
+
+## Callbacks
+
+### clicked()
+
+Invoked when the user activates the tray icon itself (as opposed to picking an entry from its
+menu) — typically a left-click on the icon.
+
+## Menu
+
+The child `Menu` defines the menu that is shown when the user clicks or right-clicks the tray
+icon. Its structure is the same as for <Link type="MenuBar" /> and `ContextMenuArea`: use
+`MenuItem` for entries, nested `Menu` elements for sub-menus, and `MenuSeparator` for
+separators. See <Link type="Menu" /> for the properties and callbacks available on those
+elements.
+
+The menu tree is reactive: when any property the menu reads changes (for example the `title`,
+`enabled`, or `checked` binding of a `MenuItem`), Slint rebuilds the platform menu so the tray
+reflects the new state on its next open.
+
+Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTray` are ignored — tray menus are
+not attached to a focused window, so there is nothing for the shortcut to fire against.
+
+## Platform Support
+
+| Platform      | Mechanism                                             |
+| ------------- | ----------------------------------------------------- |
+| Linux, \*BSD  | `StatusNotifierItem` / `AppIndicator` on D-Bus        |
+| macOS         | `NSStatusItem` in the menu bar                        |
+| Windows       | Shell notification area icon (`Shell_NotifyIcon`)     |
+
+On Linux, a desktop environment or shell extension that implements the `StatusNotifierItem`
+specification is required; plain X11 system trays are not supported. GNOME, for example,
+needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
+
+## Example
+
+```slint
+export component ExampleTray inherits SystemTray {
+    icon: @image-url("favicon.png");
+    title: "Example";
+
+    callback open();
+    callback quit();
+
+    Menu {
+        MenuItem {
+            title: "Open";
+            activated => { open(); }
+        }
+        MenuItem {
+            title: "Quit";
+            activated => { quit(); }
+        }
+    }
+}
+```
