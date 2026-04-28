@@ -330,8 +330,8 @@ where
 
 /// Convert a f64 to a SharedString
 pub fn shared_string_from_number(n: f64) -> SharedString {
-    // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
         let result =
             if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
 
