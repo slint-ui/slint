@@ -844,6 +844,14 @@ impl Compiler {
         Self::default()
     }
 
+    #[cfg(feature = "internal-live-preview")]
+    pub(crate) fn set_embed_resources(
+        &mut self,
+        embed_resources: i_slint_compiler::EmbedResourcesKind,
+    ) {
+        self.config.embed_resources = embed_resources;
+    }
+
     /// Allow access to the underlying `CompilerConfiguration`
     ///
     /// This is an internal function without and ABI or API stability guarantees.
@@ -959,6 +967,7 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
+                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                     #[cfg(feature = "internal")]
@@ -997,6 +1006,8 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
+    #[cfg_attr(not(feature = "internal-live-preview"), allow(unused))]
+    pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
@@ -1051,6 +1062,11 @@ impl CompilationResult {
     /// If the component does not exist, then `None` is returned.
     pub fn component(&self, name: &str) -> Option<ComponentDefinition> {
         self.components.get(name).cloned()
+    }
+
+    #[cfg(feature = "internal-live-preview")]
+    pub(crate) fn watch_paths(&self) -> &[PathBuf] {
+        &self.watch_paths
     }
 
     /// This is an internal function without API stability guarantees.

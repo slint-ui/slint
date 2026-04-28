@@ -958,10 +958,12 @@ pub async fn load(
     #[cfg(not(feature = "internal-highlight"))]
     let (path, mut diag, loader) =
         i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
+    let watch_paths = loader.all_files_to_watch().into_iter().collect();
     if diag.has_errors() {
         return CompilationResult {
             components: HashMap::new(),
             diagnostics: diag.into_iter().collect(),
+            watch_paths,
             #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
             #[cfg(feature = "internal")]
@@ -1047,6 +1049,7 @@ pub async fn load(
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
+        watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums,
         #[cfg(feature = "internal")]

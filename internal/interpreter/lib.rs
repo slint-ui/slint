@@ -83,6 +83,8 @@ mod dynamic_item_tree;
 mod dynamic_type;
 mod eval;
 mod eval_layout;
+#[cfg(feature = "internal-live-preview")]
+mod file_watcher;
 mod global_component;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
