@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@expressive-code/core": "0.41.7",
-    "@expressive-code/plugin-line-numbers": "catalog:"
+    "@expressive-code/plugin-line-numbers": "catalog:",
+    "rehype-external-links": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:"

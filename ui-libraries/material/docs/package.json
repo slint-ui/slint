@@ -27,7 +27,6 @@
         "astro": "catalog:",
         "limax": "4.2.3",
         "lodash.merge": "4.6.2",
-        "rehype-external-links": "catalog:",
         "sharp": "catalog:",
         "starlight-links-validator": "catalog:",
         "unpic": "4.2.2"

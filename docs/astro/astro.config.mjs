@@ -4,8 +4,8 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import {
     BASE_PATH,
     BASE_URL,
@@ -30,21 +30,7 @@ export default defineConfig({
     base: BASE_PATH,
     trailingSlash: "always",
     markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
+        rehypePlugins: [rehypeExternalLinksSlint],
     },
     integrations: [
         starlight({

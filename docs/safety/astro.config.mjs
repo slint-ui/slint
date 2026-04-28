@@ -5,27 +5,13 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import mermaid from "astro-mermaid";
 import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 
 // https://astro.build/config
 export default defineConfig({
     trailingSlash: "always",
     markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
+        rehypePlugins: [rehypeExternalLinksSlint],
     },
     integrations: [
         mermaid(),

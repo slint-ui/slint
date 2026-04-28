@@ -42,9 +42,6 @@ catalogs:
     rehype-external-links:
       specifier: 3.0.0
       version: 3.0.0
-    remark-parse:
-      specifier: 11.0.0
-      version: 11.0.0
     sharp:
       specifier: 0.34.5
       version: 0.34.5
@@ -150,12 +147,6 @@ importers:
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
         version: 0.0.29
-      rehype-external-links:
-        specifier: 'catalog:'
-        version: 3.0.0
-      remark-parse:
-        specifier: 'catalog:'
-        version: 11.0.0
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
@@ -190,6 +181,9 @@ importers:
       '@expressive-code/plugin-line-numbers':
         specifier: 'catalog:'
         version: 0.41.7
+      rehype-external-links:
+        specifier: 'catalog:'
+        version: 3.0.0
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -215,9 +209,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)
-      rehype-external-links:
-        specifier: 'catalog:'
-        version: 3.0.0
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
@@ -260,9 +251,6 @@ importers:
       mermaid:
         specifier: 11.14.0
         version: 11.14.0
-      rehype-external-links:
-        specifier: 'catalog:'
-        version: 3.0.0
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
@@ -539,9 +527,6 @@ importers:
       lodash.merge:
         specifier: 4.6.2
         version: 4.6.2
-      rehype-external-links:
-        specifier: 'catalog:'
-        version: 3.0.0
       sharp:
         specifier: 'catalog:'
         version: 0.34.5

@@ -24,7 +24,6 @@
         "@slint/common-files": "workspace:*",
         "@types/node": "catalog:",
         "astro": "catalog:",
-        "rehype-external-links": "catalog:",
         "sharp": "catalog:",
         "starlight-links-validator": "catalog:",
         "starlight-typedoc": "0.21.5",

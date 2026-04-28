@@ -5,7 +5,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
-import rehypeExternalLinks from "rehype-external-links";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import {
     NODE_DOCS_BASE_PATH,
     NODE_DOCS_BASE_URL,
@@ -72,21 +72,7 @@ export default defineConfig({
     ...(_nodeBase ? { base: _nodeBase } : {}),
     trailingSlash: "always",
     markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
+        rehypePlugins: [rehypeExternalLinksSlint],
     },
     integrations: [
         sitemap(),

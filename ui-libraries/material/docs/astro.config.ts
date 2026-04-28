@@ -4,8 +4,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
-
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -44,19 +43,7 @@ export default defineConfig({
         rehypePlugins: [
             responsiveTablesRehypePlugin,
             lazyImagesRehypePlugin,
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
+            rehypeExternalLinksSlint,
         ],
     },
     integrations: [
