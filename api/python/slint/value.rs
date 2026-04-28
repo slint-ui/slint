@@ -51,17 +51,13 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                     _ => None,
                 });
                 crate::models::PyModelShared::rust_into_py_model(&model, py).map_or_else(
-                    || {
-                        type_collection
-                            .model_to_py_typed(&model, element_type)
-                            .into_bound_py_any(py)
-                    },
+                    || type_collection.model_to_py(&model, element_type).into_bound_py_any(py),
                     |m| Ok(m),
                 )
             }
             Value::Struct(structval) => {
                 let struct_type = expected_type.filter(|t| matches!(t, Type::Struct(_)));
-                type_collection.struct_to_py_typed(structval, struct_type).into_bound_py_any(py)
+                type_collection.struct_to_py(structval, struct_type).into_bound_py_any(py)
             }
             Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
             Value::EnumerationValue(enum_name, enum_value) => {
@@ -287,11 +283,7 @@ impl TypeCollection {
         SlintToPyValue { slint_value: value, type_collection: self.clone(), expected_type }
     }
 
-    pub fn struct_to_py(&self, s: slint_interpreter::Struct) -> PyStruct {
-        self.struct_to_py_typed(s, None)
-    }
-
-    pub fn struct_to_py_typed(
+    pub fn struct_to_py(
         &self,
         s: slint_interpreter::Struct,
         expected_type: Option<Type>,
@@ -314,13 +306,6 @@ impl TypeCollection {
     }
 
     pub fn model_to_py(
-        &self,
-        model: &ModelRc<slint_interpreter::Value>,
-    ) -> crate::models::ReadOnlyRustModel {
-        self.model_to_py_typed(model, None)
-    }
-
-    pub fn model_to_py_typed(
         &self,
         model: &ModelRc<slint_interpreter::Value>,
         element_type: Option<Type>,
