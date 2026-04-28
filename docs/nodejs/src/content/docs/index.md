@@ -43,7 +43,7 @@ To use Slint with Deno, ensure the following programs are installed:
 ### Building from Source
 
 Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd like to use Slint-node on a system
-without pre-built binaries, you need to additional software:
+without pre-built binaries, you need to install additional software:
 
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**
   * Depending on your operating system, you may need additional components. For a list of required system libraries,
@@ -210,7 +210,7 @@ Use the `loadFile` function to load a `.slint` file. Instantiate the [exported c
 with the new operator. Access exported callbacks and properties as JavaScript properties on the instantiated component. In addition,
 the returned object implements the `ComponentHandle` interface, to show/hide the instance or access the window.
 
-The following example shows how to instantiating a Slint component from JavaScript.
+The following example shows how to instantiate a Slint component from JavaScript.
 
 **`ui/main.slint`**
 
@@ -243,7 +243,7 @@ let component = new ui.MainWindow({
 });
 ```
 
-### Accessing a Properties
+### Accessing Properties
 
 [Properties](http://slint.dev/docs/slint/guide/language/coding/properties/) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
 
@@ -297,7 +297,7 @@ component.clicked();
 
 ### Type Mappings
 
-The types used for properties in .slint design markup each translate to specific types in JavaScript. The follow table summarizes the entire mapping:
+The types used for properties in .slint design markup each translate to specific types in JavaScript. The following table summarizes the entire mapping:
 
 | `.slint` Type | JavaScript Type | Notes |
 | --- | --- | --- |
@@ -336,7 +336,7 @@ Another option is to set an object that implements the `Model` interface.
 
 ### structs
 
-An exported struct can be created either by defing of an object literal or by using the new keyword.
+An exported struct can be created either by defining an object literal or by using the new keyword.
 
 **`my-component.slint`**
 
@@ -407,7 +407,7 @@ component.position = ui.Position.bottom;
 
 You can declare [globally available singletons](http://slint.dev/docs/slint/guide/language/coding/globals) in your
 `.slint` files. If exported, these singletons are accessible as properties on your main
-componen instance. Each global singleton is represented by an object with properties and callbacks,
+component instance. Each global singleton is represented by an object with properties and callbacks,
 similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
@@ -433,7 +433,7 @@ component.Logic.to_upper_case = (str) => {
 ```
 
 **Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
-each instance will have their own instance of associated globals singletons.
+each instance will have their own instance of associated global singletons.
 
 ## Third-Party Licenses
 
