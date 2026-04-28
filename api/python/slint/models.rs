@@ -22,12 +22,22 @@ pub struct PyModelShared {
     /// we need to know how to map it to the correct Python enum. This field is lazily set, whenever
     /// time the Python model is exposed to Slint.
     type_collection: RefCell<Option<TypeCollection>>,
+    /// Element type of the model, used in `set_row_data` to preserve `int` vs `float`
+    /// when slint code writes a row back into the Python model.
+    element_type: RefCell<Option<Type>>,
 }
 
 impl PyModelShared {
-    pub fn apply_type_collection(&self, type_collection: &TypeCollection) {
+    pub fn apply_type_collection(
+        &self,
+        type_collection: &TypeCollection,
+        element_type: Option<Type>,
+    ) {
         if let Ok(mut type_collection_ref) = self.type_collection.try_borrow_mut() {
             *type_collection_ref = Some(type_collection.clone());
+        }
+        if let Ok(mut element_type_ref) = self.element_type.try_borrow_mut() {
+            *element_type_ref = element_type;
         }
     }
 
@@ -64,6 +74,7 @@ impl PyModelBase {
                 notify: Default::default(),
                 self_ref: RefCell::new(None),
                 type_collection: RefCell::new(None),
+                element_type: RefCell::new(None),
             }),
         }
     }
@@ -184,9 +195,12 @@ impl i_slint_core::model::Model for PyModelShared {
                 return;
             };
 
-            if let Err(err) =
-                obj.call_method1(py, "set_row_data", (row, type_collection.to_py_value(data)))
-            {
+            let element_type = self.element_type.borrow().clone();
+            if let Err(err) = obj.call_method1(
+                py,
+                "set_row_data",
+                (row, type_collection.to_py_value_typed(data, element_type)),
+            ) {
                 crate::handle_unraisable(
                     py,
                     "Python: Model implementation of set_row_data() threw an exception".into(),
