@@ -440,7 +440,9 @@ impl ItemRc {
             if stop_condition(&parent) {
                 break;
             }
-            if supports_transformations && let Some(children_transform) = parent.children_transform() {
+            if supports_transformations
+                && let Some(children_transform) = parent.children_transform()
+            {
                 transform = transform.then(&children_transform);
             }
             transform = transform.then_translate(parent.geometry().origin.to_vector().cast());
