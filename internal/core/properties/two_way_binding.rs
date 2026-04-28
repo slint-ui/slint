@@ -327,7 +327,7 @@ impl<T: 'static> Property<T> {
             self.handle.set_binding(
                 binding,
                 #[cfg(slint_debug_property)]
-                "",
+                &alloc::format!("{}<=>[model]", self.debug_name.borrow()),
             )
         };
     }
