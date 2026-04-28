@@ -379,11 +379,7 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
 /// Convert a string to a float
 pub fn string_to_float(string: &str) -> Option<f32> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let slint_context = ctx.get().unwrap();
-
-        // `icu_decimal::input::Decimal::try_from_str(string)` is not localized, so we cannot use it
-
-        let to_parse = {
+        let to_parse = if let Some(slint_context) = ctx.get() {
             let sep = slint_context.locale_decimal_separator();
             // Only allow the locale's decimal separator, not '.'
             if sep != '.' && string.contains('.') {
@@ -391,7 +387,10 @@ pub fn string_to_float(string: &str) -> Option<f32> {
             }
             // Normalize locale separator to '.' because f64::parse only accepts '.'
             if sep != '.' { string.replace(sep, ".") } else { string.to_string() }
+        } else {
+            string.to_string()
         };
+
         if matches!(to_parse.as_str(), "." | "-" | "-.") {
             return Some(Default::default());
         }
