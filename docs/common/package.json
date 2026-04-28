@@ -18,6 +18,7 @@
     "@biomejs/biome": "catalog:",
     "@playwright/test": "catalog:",
     "astro": "catalog:",
-    "playwright-ctrf-json-reporter": "catalog:"
+    "playwright-ctrf-json-reporter": "catalog:",
+    "starlight-links-validator": "catalog:"
   }
 }

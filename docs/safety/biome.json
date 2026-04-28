@@ -1,6 +1,6 @@
 {
     "root": true,
-    "extends": ["../../biome.json"],
+    "extends": ["../../biome.json", "../common/biome-starlight-shared.json"],
     "files": {
         "includes": ["**", "!**/.astro/**"]
     }

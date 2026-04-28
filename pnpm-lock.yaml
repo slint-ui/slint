@@ -132,6 +132,9 @@ importers:
       '@astrojs/check':
         specifier: 'catalog:'
         version: 0.9.8(prettier@3.8.3)(typescript@6.0.3)
+      '@astrojs/sitemap':
+        specifier: 'catalog:'
+        version: 3.7.2
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))
@@ -156,9 +159,6 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
-      starlight-links-validator:
-        specifier: 'catalog:'
-        version: 0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))
       starlight-sidebar-topics:
         specifier: 0.7.1
         version: 0.7.1(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))
@@ -206,6 +206,9 @@ importers:
       playwright-ctrf-json-reporter:
         specifier: 'catalog:'
         version: 0.0.29
+      starlight-links-validator:
+        specifier: 'catalog:'
+        version: 0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))
 
   docs/nodejs:
     dependencies:
@@ -272,9 +275,6 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
-      starlight-links-validator:
-        specifier: 'catalog:'
-        version: 0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -548,9 +548,6 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
-      starlight-links-validator:
-        specifier: 'catalog:'
-        version: 0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3))
       unpic:
         specifier: 4.2.2
         version: 4.2.2
@@ -14552,6 +14549,23 @@ snapshots:
   ssim.js@3.5.0: {}
 
   stackback@0.0.2: {}
+
+  starlight-links-validator@0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)):
+    dependencies:
+      '@astrojs/starlight': 0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3))
+      '@types/picomatch': 4.0.3
+      astro: 6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.3)
+      github-slugger: 2.0.0
+      hast-util-from-html: 2.0.3
+      is-absolute-url: 5.0.0
+      mdast-util-mdx-jsx: 3.2.0
+      mdast-util-to-hast: 13.2.1
+      picomatch: 4.0.4
+      terminal-link: 5.0.0
+      unist-util-visit: 5.1.0
+      yaml: 2.8.3
+    transitivePeerDependencies:
+      - supports-color
 
   starlight-links-validator@0.23.0(@astrojs/starlight@0.38.4(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)))(astro@6.1.9(@types/node@24.12.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)(terser@5.46.1)(tsx@4.20.5)(typescript@6.0.3)(yaml@2.8.3)):
     dependencies:

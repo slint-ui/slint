@@ -28,7 +28,6 @@
         "limax": "4.2.3",
         "lodash.merge": "4.6.2",
         "sharp": "catalog:",
-        "starlight-links-validator": "catalog:",
         "unpic": "4.2.2"
     },
     "devDependencies": {

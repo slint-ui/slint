@@ -4,16 +4,17 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import mermaid from "astro-mermaid";
-import starlightLinksValidator from "starlight-links-validator";
-import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 
 // https://astro.build/config
 export default defineConfig({
-    trailingSlash: "always",
-    markdown: {
-        rehypePlugins: [rehypeExternalLinksSlint],
-    },
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
     integrations: [
         mermaid(),
         starlight({
@@ -23,11 +24,7 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
-                }),
-            ],
+            plugins: [slintStarlightLinksValidatorPlugin()],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },

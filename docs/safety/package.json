@@ -23,7 +23,6 @@
     "astro-mermaid": "2.0.1",
     "mermaid": "11.14.0",
     "sharp": "catalog:",
-    "starlight-links-validator": "catalog:",
     "typescript": "catalog:"
   }
 }
