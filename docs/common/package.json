@@ -14,6 +14,8 @@
     "rehype-external-links": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:"
+    "@astrojs/starlight": "catalog:",
+    "@biomejs/biome": "catalog:",
+    "astro": "catalog:"
   }
 }
