@@ -3885,7 +3885,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 format!(
                     "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
                 )
-            } else if let Type::Array(element_ty) = &lhs_ty && *op == '+' {
+            } else if let Type::Array(element_ty) = &lhs_ty
+                && *op == '+'
+            {
                 let cpp_element_ty = element_ty.cpp_type().unwrap();
                 format!(
                     "[&](){{ \
