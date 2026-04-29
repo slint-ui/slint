@@ -554,6 +554,7 @@ impl CppType for Type {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
             Type::Image => Some("slint::Image".into()),
+            Type::ClipboardData => Some("slint::ClipboardData".into()),
             Type::Enumeration(enumeration) => {
                 if enumeration.node.is_some() {
                     Some(ident(&enumeration.name))
@@ -4390,12 +4391,18 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorWithAlpha => {
             format!("{}.with_alpha({})", a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::ClipboardDataHasPlaintext
-        | BuiltinFunction::ClipboardDataReadPlaintext
-        | BuiltinFunction::ClipboardDataHasImage
-        | BuiltinFunction::ClipboardDataReadImage
-        | BuiltinFunction::StringToClipboardData
+        BuiltinFunction::ClipboardDataHasPlaintext => {
+            format!("{}.hasPlaintext()", a.next().unwrap())
+        }
+        BuiltinFunction::ClipboardDataHasImage => {
+            format!("{}.hasImage()", a.next().unwrap())
+        }
+        BuiltinFunction::StringToClipboardData
         | BuiltinFunction::ImageToClipboardData => {
+            format!("slint::ClipboardData({})", a.next().unwrap())
+        }
+        BuiltinFunction::ClipboardDataReadImage
+        | BuiltinFunction::ClipboardDataReadPlaintext => {
             todo!("Implement ClipboardData in C++")
         }
         BuiltinFunction::ImageSize => {
