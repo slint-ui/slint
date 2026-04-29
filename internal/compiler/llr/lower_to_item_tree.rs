@@ -46,7 +46,7 @@ pub fn lower_to_item_tree(
     let public_components = document
         .exported_roots()
         .map(|component| {
-            let top_level_type = if inherits_system_tray(&component) {
+            let top_level_type = if component.inherits_system_tray() {
                 TopLevelComponentType::SystemTray
             } else {
                 TopLevelComponentType::Window
@@ -250,18 +250,6 @@ impl LoweringState {
     fn push_sub_component(&mut self, sc: LoweredSubComponent) -> SubComponentIdx {
         self.sub_components.push_and_get_key(sc)
     }
-}
-
-/// True if the component's root element resolves to the `SystemTray` native
-/// class. We check `native_class()` rather than `builtin_type()` because by
-/// the time the LLR is built the root has been resolved from
-/// `Builtin(SystemTray)` to `Native(SystemTray)`.
-fn inherits_system_tray(component: &Rc<Component>) -> bool {
-    component
-        .root_element
-        .borrow()
-        .native_class()
-        .is_some_and(|n| n.class_name.as_str() == "SystemTray")
 }
 
 fn component_id(component: &Rc<Component>) -> SmolStr {

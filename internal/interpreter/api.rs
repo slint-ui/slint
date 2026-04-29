@@ -1300,6 +1300,16 @@ impl ComponentDefinition {
         self.inner.unerase(guard).id()
     }
 
+    /// True if instances of this component expose a `slint::Window`-shaped API
+    /// (i.e. calling [`ComponentInstance::window`] is meaningful). False for
+    /// non-windowed roots such as `SystemTray`, where `window()` would panic.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn is_window(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        !self.inner.unerase(guard).original.inherits_system_tray()
+    }
+
     /// This gives access to the tree of Elements.
     #[cfg(feature = "internal")]
     #[doc(hidden)]
