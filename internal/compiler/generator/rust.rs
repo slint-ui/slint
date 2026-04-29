@@ -351,6 +351,95 @@ fn generate_public_component(
 
     let experimental = compiler_config.enable_experimental;
 
+    // Window-rooted components get the full `ComponentHandle` impl. SystemTray
+    // gets an inherent impl with no `window()` accessor: a tray icon is not a
+    // `slint::Window` and the previous accessor's body would panic at runtime.
+    let handle_impl = {
+        let common = |vis: TokenStream| {
+            quote!(
+                #vis fn as_weak(&self) -> slint::Weak<Self> {
+                    slint::Weak::new(sp::VRc::downgrade(&self.0))
+                }
+
+                #vis fn clone_strong(&self) -> Self {
+                    Self(self.0.clone())
+                }
+
+                #vis fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
+                    T::get(&self)
+                }
+            )
+        };
+        match llr.top_level_type {
+            llr::TopLevelComponentType::Window => {
+                let common = common(quote!());
+                quote!(
+                    impl slint::ComponentHandle for #public_component_id {
+                        #common
+
+                        fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.show()?;
+                            sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
+                            self.hide()?;
+                            ::core::result::Result::Ok(())
+                        }
+
+                        fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
+                        }
+
+                        fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
+                        }
+
+                        fn window(&self) -> &slint::Window {
+                            self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
+                        }
+                    }
+                )
+            }
+            llr::TopLevelComponentType::SystemTray => {
+                // Look up the SystemTray native item — it sits as item 0 of the
+                // root sub-component when the public component inherits SystemTray.
+                let root_sub = &unit.sub_components[llr.item_tree.root];
+                let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
+                debug_assert_eq!(
+                    tray_item.ty.class_name.as_str(),
+                    "SystemTray",
+                    "TopLevelComponentType::SystemTray expects the root item to be a SystemTray"
+                );
+                let tray_field = ident(&tray_item.name);
+                let common = common(quote!(pub));
+                // No `run()`: a tray icon doesn't drive the event loop. `show`/`hide`
+                // toggle the `visible` property; the platform side of the change
+                // tracker turns that into a real show/hide of the OS tray icon.
+                quote!(
+                    impl #public_component_id {
+                        #common
+
+                        pub fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            let _self = sp::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#tray_field()
+                                .apply_pin(_self)
+                                .visible
+                                .set(true);
+                            ::core::result::Result::Ok(())
+                        }
+
+                        pub fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            let _self = sp::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#tray_field()
+                                .apply_pin(_self)
+                                .visible
+                                .set(false);
+                            ::core::result::Result::Ok(())
+                        }
+                    }
+                )
+            }
+        }
+    };
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
@@ -394,38 +483,7 @@ fn generate_public_component(
             }
         }
 
-        impl slint::ComponentHandle for #public_component_id {
-            fn as_weak(&self) -> slint::Weak<Self> {
-                slint::Weak::new(sp::VRc::downgrade(&self.0))
-            }
-
-            fn clone_strong(&self) -> Self {
-                Self(self.0.clone())
-            }
-
-            fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.show()?;
-                sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
-                self.hide()?;
-                ::core::result::Result::Ok(())
-            }
-
-            fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
-            }
-
-            fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
-            }
-
-            fn window(&self) -> &slint::Window {
-                self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
-            }
-
-            fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
-                T::get(&self)
-            }
-        }
+        #handle_impl
     )
 }
 
