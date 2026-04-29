@@ -326,9 +326,12 @@ impl Flickable {
         if let Some(keyboard_rect) = self_rc.window_adapter().and_then(|window_adapter| {
             window_adapter.window().virtual_keyboard(crate::InternalToken)
         }) {
-            let keyboard_top_left = self_rc.map_from_window(keyboard_rect.0.to_euclid());
-            if keyboard_top_left.y > geometry.origin.y {
-                geometry.size.height = keyboard_top_left.y - geometry.origin.y;
+            let keyboard_pos = keyboard_rect.0;
+
+            let self_in_window_coordinates = self_rc.map_to_native_window(geometry.origin);
+            if keyboard_pos.y < (self_in_window_coordinates.y + geometry.height()) {
+                // Keyboard is below the flickable and overlapping
+                geometry.size.height = keyboard_pos.y - self_in_window_coordinates.y;
             }
         }
         geometry
@@ -432,8 +435,9 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
     ) -> bool {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-        !(delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
-            && !(delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
+
+        (delta.y != 0 as Coord && flick.viewport_height() > geo.height_length())
+            || (delta.x != 0 as Coord && flick.viewport_width() > geo.width_length())
     }
 
     fn process_wheel_event(
