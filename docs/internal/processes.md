@@ -111,7 +111,7 @@ A trusted-with-git member performs the merge:
 git switch feature/<name>
 git pull origin feature/<name>
 git merge origin/master
-# resolve any conflicts
+# resolve any conflicts and commit
 git push origin feature/<name>
 ```
 
