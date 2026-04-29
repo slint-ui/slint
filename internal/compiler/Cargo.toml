@@ -34,7 +34,7 @@ software-renderer = ["image", "dep:resvg", "dep:swash", "dep:skrifa", "i-slint-c
 sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
 # Translation bundler
-bundle-translations = ["dep:rspolib"]
+bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
 
 # Enable expermental library module support
 experimental-library-module = []
@@ -42,7 +42,7 @@ experimental-library-module = []
 default = []
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown", "locale-decimal-separator"] }
+i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
 
 num_enum = "0.7"
 icu_normalizer = { workspace = true }
