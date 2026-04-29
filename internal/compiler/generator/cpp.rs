@@ -656,6 +656,14 @@ fn generate_model_two_way_binding(
     let index_prop_name = ident(&body_sc.properties[info.index_prop].name);
     let repeater_index = usize::from(info.repeater_index);
 
+    // Determine the C++ class name of `self` so we can cast back from
+    // the type-erased VRc obtained by locking the weak pointer.
+    let self_type = ident(
+        &ctx.current_sub_component()
+            .expect("model two-way bindings only exist on sub-components")
+            .name,
+    );
+
     // Walk the parent chain in a single expression so the intermediate
     // `lock().value()` temporaries live until we assign to `body_rc`.
     let (body_setup, body) = if info.parent_level == 0 {
@@ -674,10 +682,21 @@ fn generate_model_two_way_binding(
         lower_field_access_chain("data".into(), info.data_prop_ty, field_access);
     let cpp_ty = ty.cpp_type().unwrap();
 
+    // Capture a weak pointer instead of a raw `self` so the getter and
+    // setter stay safe when the repeater instance is destroyed while a
+    // forwarded binding on a shared common property still references it.
     format!(
         "slint::private_api::Property<{cpp_ty}>::link_two_way_to_model_data(&{p1}, \
-         [self]() -> {cpp_ty} {{ {body_setup}return {getter_expr}; }}, \
-         [self](const {cpp_ty} &value) {{ \
+         [weak = self->self_weak]() -> std::optional<{cpp_ty}> {{ \
+            auto rc = weak.lock(); \
+            if (!rc) return std::nullopt; \
+            auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
+            {body_setup}return {getter_expr}; \
+         }}, \
+         [weak = self->self_weak](const {cpp_ty} &value) {{ \
+            auto rc = weak.lock(); \
+            if (!rc) return; \
+            auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
             {body_setup}\
             if (auto parent_opt = {body}->parent.lock()) {{ \
                 auto data = {body}->{data_prop_name}.get(); \
