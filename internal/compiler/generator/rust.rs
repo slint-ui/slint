@@ -81,6 +81,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
+        Type::ClipboardData => Some(quote!(sp::ClipboardData)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
@@ -2740,6 +2741,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
+                (Type::String | Type::Image, Type::ClipboardData) => {
+                    quote!(sp::ClipboardData::from(#f))
+                }
                 (Type::Struct(lhs), Type::Struct(rhs)) => {
                     debug_assert_eq!(
                         lhs.fields, rhs.fields,
@@ -3744,6 +3748,41 @@ fn compile_builtin_function_call(
             let x = a.next().unwrap();
             let alpha = a.next().unwrap();
             quote!(#x.with_alpha(#alpha as f32))
+        }
+        BuiltinFunction::StringToClipboardData | BuiltinFunction::ImageToClipboardData => {
+            let x = a.next().unwrap();
+            quote!(sp::ClipboardData::from(#x))
+        }
+        BuiltinFunction::StringWithMimeType => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+            quote!(sp::ClipboardData::from(sp::OverrideMimeType::new(#x, #mime_type)))
+        }
+        BuiltinFunction::ClipboardDataHasType => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+            quote!(#x.has_any_type(&[&#mime_type]))
+        }
+        BuiltinFunction::ClipboardDataHasPlaintext => {
+            let x = a.next().unwrap();
+            quote!(#x.has_any_type(sp::ClipboardData::PLAINTEXT_MIME_TYPES))
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+            quote!(#x.read::<sp::SharedString>(&[&#mime_type]).unwrap_or_default())
+        }
+        BuiltinFunction::ClipboardDataReadPlaintext => {
+            let x = a.next().unwrap();
+            quote!(#x.read::<sp::SharedString>(sp::ClipboardData::PLAINTEXT_MIME_TYPES).unwrap_or_default())
+        }
+        BuiltinFunction::ClipboardDataHasImage => {
+            let x = a.next().unwrap();
+            quote!(#x.has_any_type(sp::ClipboardData::IMAGE_MIME_TYPES))
+        }
+        BuiltinFunction::ClipboardDataReadImage => {
+            let x = a.next().unwrap();
+            quote!(#x.read::<sp::Image>(sp::ClipboardData::IMAGE_MIME_TYPES).unwrap_or_default())
         }
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
         BuiltinFunction::ArrayLength => {

@@ -121,6 +121,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_point.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_clipboard.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
@@ -379,6 +380,7 @@ fn gen_corelib(
         "PathData",
         "PathElement",
         "Brush",
+        "ClipboardData",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -770,6 +772,7 @@ fn gen_corelib(
         .with_include("private/slint_callbacks.h")
         .with_include("private/slint_color.h")
         .with_include("private/slint_image.h")
+        .with_include("private/slint_clipboard.h")
         .with_include("private/slint_pathdata.h")
         .with_include("private/slint_brush.h")
         .with_include("private/slint_generated_public.h")

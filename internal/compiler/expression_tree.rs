@@ -73,6 +73,10 @@ pub enum BuiltinFunction {
     StringCharacterCount,
     StringToLowercase,
     StringToUppercase,
+    /// Explicitly cast a string to `clipboard-data`
+    StringToClipboardData,
+    /// Explicitly cast a string to `clipboard-data`, specifying a custom MIME type
+    StringWithMimeType,
     KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
@@ -82,7 +86,14 @@ pub enum BuiltinFunction {
     ColorTransparentize,
     ColorMix,
     ColorWithAlpha,
+    ClipboardDataHasType,
+    ClipboardDataHasPlaintext,
+    ClipboardDataHasImage,
+    ClipboardDataReadString,
+    ClipboardDataReadPlaintext,
+    ClipboardDataReadImage,
     ImageSize,
+    ImageToClipboardData,
     ArrayLength,
     Rgb,
     Hsv,
@@ -215,6 +226,7 @@ declare_builtin_function_types!(
     StringCharacterCount: (Type::String) -> Type::Int32,
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
+    StringToClipboardData: (Type::String) -> Type::ClipboardData,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
@@ -252,6 +264,13 @@ declare_builtin_function_types!(
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
+    ClipboardDataHasType: (Type::ClipboardData, Type::String) -> Type::Bool,
+    ClipboardDataHasPlaintext: (Type::ClipboardData) -> Type::Bool,
+    ClipboardDataHasImage: (Type::ClipboardData) -> Type::Bool,
+    ClipboardDataReadString: (Type::ClipboardData, Type::String) -> Type::String,
+    ClipboardDataReadPlaintext: (Type::ClipboardData) -> Type::String,
+    ClipboardDataReadImage: (Type::ClipboardData) -> Type::Image,
+    StringWithMimeType: (Type::String, Type::String) -> Type::ClipboardData,
     ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("width"), Type::Int32),
@@ -260,6 +279,7 @@ declare_builtin_function_types!(
         .collect(),
         name: crate::langtype::BuiltinPrivateStruct::Size.into(),
     })),
+    ImageToClipboardData: (Type::Image) -> Type::ClipboardData,
     ArrayLength: (Type::Model) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -375,6 +395,15 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
+            BuiltinFunction::StringToClipboardData
+            | BuiltinFunction::ImageToClipboardData
+            | BuiltinFunction::StringWithMimeType
+            | BuiltinFunction::ClipboardDataHasType
+            | BuiltinFunction::ClipboardDataReadString
+            | BuiltinFunction::ClipboardDataHasPlaintext
+            | BuiltinFunction::ClipboardDataReadPlaintext
+            | BuiltinFunction::ClipboardDataHasImage
+            | BuiltinFunction::ClipboardDataReadImage => false,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
             // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
@@ -457,6 +486,8 @@ impl BuiltinFunction {
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
             | BuiltinFunction::StringToUppercase
+            | BuiltinFunction::StringToClipboardData
+            | BuiltinFunction::StringWithMimeType
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -466,7 +497,13 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
-            BuiltinFunction::ImageSize => true,
+            BuiltinFunction::ClipboardDataHasType
+            | BuiltinFunction::ClipboardDataHasPlaintext
+            | BuiltinFunction::ClipboardDataHasImage => true,
+            BuiltinFunction::ClipboardDataReadString
+            | BuiltinFunction::ClipboardDataReadPlaintext
+            | BuiltinFunction::ClipboardDataReadImage => false,
+            BuiltinFunction::ImageSize | BuiltinFunction::ImageToClipboardData => true,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
@@ -1520,7 +1557,7 @@ impl Expression {
             | Type::ElementReference
             | Type::LayoutCache
             | Type::ArrayOfU16 => Expression::Invalid,
-            Type::Void => Expression::CodeBlock(Vec::new()),
+            Type::Void | Type::ClipboardData => Expression::CodeBlock(Vec::new()),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {

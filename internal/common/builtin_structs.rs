@@ -110,10 +110,9 @@ macro_rules! for_each_builtin_structs {
             struct DropEvent {
                 @name = BuiltinPrivateStruct::DropEvent,
                 export {
-                    /// The mime type of the data being dragged
-                    mime_type: SharedString,
-                    /// The data being dragged
-                    data: SharedString,
+                    /// The data to be accessed.
+                    data: ClipboardData,
+
                     /// The current mouse position in coordinates of the `DropArea` element
                     position: LogicalPosition,
                 }

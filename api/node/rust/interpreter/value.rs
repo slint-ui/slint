@@ -8,7 +8,7 @@ use crate::{
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{ModelRc, SharedVectorModel};
-use i_slint_core::{Brush, Color, SharedVector};
+use i_slint_core::{Brush, ClipboardData, Color, SharedVector};
 use napi::bindgen_prelude::*;
 use napi::{Env, JsValue, Result, ValueType};
 use napi_derive::napi;
@@ -203,6 +203,29 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
             Err(napi::Error::from_reason(
                             "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
                     ))
+        }
+        Type::ClipboardData => {
+            if let Some(clipboard_data) = unknown
+                .coerce_to_object()?
+                .get::<ExternalRef<ClipboardData>>("clipboard_data")
+                .ok()
+                .flatten()
+            {
+                Ok(Value::ClipboardData((*clipboard_data).clone()))
+            } else {
+                for try_typ in [Type::Image, Type::String] {
+                    let Ok(from_value) = to_value(env, unknown, &try_typ) else {
+                        continue;
+                    };
+
+                    return Ok(from_value.try_cast(Type::ClipboardData)
+                        .expect("internal error: return type of casting this value to `clipboard-data` should be valid"));
+                }
+
+                Err(napi::Error::from_reason(
+                    "Cannot convert value to `clipboard-data`".to_string(),
+                ))
+            }
         }
         Type::Image => {
             let object = unknown.coerce_to_object()?;

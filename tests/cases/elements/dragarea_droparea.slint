@@ -5,14 +5,19 @@ export component TestCase inherits Window {
     width: 100px;
     height: 200px;
     in-out property <string> result;
+    in-out property <image> result-image;
+    in property <bool> use-image: false;
     out property <bool> contains-drag <=> da.contains-drag;
+    // TODO: Expose the image version
     out property <bool> inner_touch_area_has_hover <=> inner_touch_area.has-hover;
+
     VerticalLayout {
         Rectangle {
             background: inner_touch_area.has-hover ? yellow : red;
             DragArea {
-                mime-type: "text/plain";
-                data: "Hello World";
+                data: use-image
+                ? @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC").to-clipboard-data()
+                : "Hello World".to-clipboard-data();
 
                 inner_touch_area := TouchArea {
                     x: 50px;
@@ -27,10 +32,14 @@ export component TestCase inherits Window {
             da := DropArea {
                 can-drop(event) => {
                     debug("can-drop", event);
-                    true
+                    use-image ? event.data.has-image : event.data.has-plaintext
                 }
                 dropped(event) => {
-                    result += "D[" + event.data + "];";
+                    if (use-image) {
+                        result-image = event.data.read-image()
+                    } else {
+                        result += "D[" + event.data.read-plaintext() + "];";
+                    }
                     debug("dropped", event);
                 }
 

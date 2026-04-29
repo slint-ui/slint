@@ -396,14 +396,29 @@ export component PreviewView inherits Rectangle {
                     }
 
                     DropArea {
+                        private property<float> dropped-data: 0.;
+
                         can-drop(event) => {
-                            if event.mime-type != "application/x-slint-component" {
+                            if event.data.has-type("application/x-slint-component-move") {
+                                dropped-data = event.data.read-string("application/x-slint-component-move").to-float();
+                            } else if event.data.has-type("application/x-slint-component") {
+                                dropped-data = event.data.read-string("application/x-slint-component").to-float();
+                            } else {
                                 return false;
                             }
-                            return Api.can-drop(event.data.to-float(), event.position.x, event.position.y, true);
+
+                            return Api.can-drop(dropped-data, event.position.x, event.position.y, true);
                         }
                         dropped(event) => {
-                            Api.drop(event.data.to-float(), event.position.x, event.position.y);
+                            if event.data.has-type("application/x-slint-component-move") {
+                                dropped-data = event.data.read-string("application/x-slint-component-move").to-float();
+                            } else if event.data.has-type("application/x-slint-component") {
+                                dropped-data = event.data.read-string("application/x-slint-component").to-float();
+                            } else {
+                                return;
+                            }
+
+                            Api.drop(dropped-data, event.position.x, event.position.y);
                         }
                     }
 

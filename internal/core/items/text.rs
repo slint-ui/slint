@@ -27,7 +27,7 @@ use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
-use crate::{Callback, Coord, Property, SharedString, SharedVector};
+use crate::{Callback, ClipboardData, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -1965,7 +1965,7 @@ impl TextInput {
             .context()
             .platform()
             .clipboard()
-            .set(clipboard, alloc::rc::Rc::new(text));
+            .set(clipboard, text.into());
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1984,16 +1984,7 @@ impl TextInput {
             .clipboard()
             .get(clipboard)
             .ok()
-            .and_then(|data| {
-                let data_for_mime_types = data.clone();
-                let mime_type = data_for_mime_types
-                    .mime_types()
-                    .iter()
-                    .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
-
-                data.read(mime_type).ok()
-            })
-            .and_then(|any_data| any_data.as_string())
+            .and_then(|data| data.read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok())
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

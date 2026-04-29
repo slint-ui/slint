@@ -1296,9 +1296,9 @@ pub enum PlatformError {
 
     /// Another platform-specific error occurred
     Other(String),
+
     /// Another platform-specific error occurred.
-    #[cfg(feature = "std")]
-    OtherError(Box<dyn std::error::Error + Send + Sync>),
+    OtherError(Box<dyn core::error::Error + Send + Sync>),
 
     /// [`ClipboardData::read`](crate::clipboard::ClipboardData::read) was called, but no value of that type was provided.
     ClipboardTypeNotFound(String),
@@ -1333,9 +1333,7 @@ impl core::fmt::Display for PlatformError {
                 f.write_str("The operation is not supported by the current platform")
             }
             PlatformError::Other(str) => f.write_str(str),
-            #[cfg(feature = "std")]
             PlatformError::OtherError(error) => error.fmt(f),
-
             PlatformError::ClipboardTypeNotFound(type_) => {
                 write!(f, "Type not found on clipboard: {type_}")
             }

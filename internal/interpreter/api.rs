@@ -135,6 +135,8 @@ pub enum Value {
     ArrayOfU16(SharedVector<u16>) = 14,
     /// Correspond to the `keys` type in .slint
     Keys(Keys) = 15,
+    /// Correspond to the `clipboard-data` type in .slint
+    ClipboardData(ClipboardData) = 16,
 }
 
 impl Value {
@@ -151,6 +153,22 @@ impl Value {
             Value::Image(_) => ValueType::Image,
             _ => ValueType::Other,
         }
+    }
+
+    /// Try to convert the type to `to`, or return self unmodified as an error.
+    pub fn try_cast(self, to: LangType) -> Result<Self, Self> {
+        Ok(match (self, to) {
+            (Value::Number(n), LangType::Int32) => Value::Number(n.trunc()),
+            (Value::Number(n), LangType::String) => {
+                Value::String(i_slint_core::string::shared_string_from_number(n))
+            }
+            (Value::Number(n), LangType::Color) => Color::from_argb_encoded(n as u32).into(),
+            (Value::Brush(brush), LangType::Color) => brush.color().into(),
+            (Value::EnumerationValue(_, val), LangType::String) => Value::String(val.into()),
+            (Value::String(s), LangType::ClipboardData) => Value::ClipboardData(s.into()),
+            (Value::Image(i), LangType::ClipboardData) => Value::ClipboardData(i.into()),
+            (v, _) => return Err(v),
+        })
     }
 }
 
@@ -187,6 +205,9 @@ impl PartialEq for Value {
             Value::Keys(lhs) => {
                 matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
+            Value::ClipboardData(lhs) => {
+                matches!(other, Value::ClipboardData(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -216,6 +237,7 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+            Value::ClipboardData(cd) => write!(f, "Value::ClipboardData({cd:?})"),
         }
     }
 }
@@ -261,6 +283,7 @@ declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
+declare_value_conversion!(ClipboardData => [ClipboardData]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {

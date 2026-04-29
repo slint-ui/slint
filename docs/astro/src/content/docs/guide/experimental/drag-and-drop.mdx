@@ -25,8 +25,15 @@ export component Example inherits Window {
         Rectangle {
             background: #f0c000;
             DragArea {
-                mime-type: "text/plain";
                 data: "Hello World";
+            }
+            Text { text: "Drag me"; }
+        }
+
+        Rectangle {
+            background: #f0c000;
+            DragArea {
+                data: @image-url("slint-logo.png");
             }
             Text { text: "Drag me"; }
         }
@@ -35,7 +42,7 @@ export component Example inherits Window {
             background: drop.contains-drag ? #80e080 : #a0a0a0;
             drop := DropArea {
                 can-drop(event) => {
-                    event.mime-type == "text/plain"
+                    event.data.has-plaintext
                 }
                 dropped(event) => {
                     debug("Got:", event.data);

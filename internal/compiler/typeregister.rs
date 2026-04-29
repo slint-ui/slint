@@ -464,6 +464,7 @@ impl TypeRegister {
         register.insert_type(Type::Rem);
         register.insert_type(Type::StyledText);
         register.insert_type(Type::Keys);
+        register.insert_type(Type::ClipboardData);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 
@@ -795,6 +796,7 @@ pub mod builtin_structs {
         ($pub_type:ident, Image) => { Type::Image };
         ($pub_type:ident, Coord) => { Type::LogicalLength };
         ($pub_type:ident, Keys) => { Type::Keys };
+        ($pub_type:ident, ClipboardData) => { Type::ClipboardData };
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
         // builtin structs

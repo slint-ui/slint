@@ -7,13 +7,13 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
+use crate::{ClipboardData, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -134,7 +134,7 @@ pub trait Platform {
         note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
     )]
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
-        self.clipboard().set(clipboard, alloc::rc::Rc::new(SharedString::from(text)));
+        self.clipboard().set(clipboard, SharedString::from(text).into());
     }
 
     /// Returns a copy of text stored in the system clipboard, if any.
@@ -146,13 +146,8 @@ pub trait Platform {
     )]
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
         let data = self.clipboard().get(clipboard).ok()?;
-        let data_for_mime_types = data.clone();
-        let mime_type = data_for_mime_types
-            .mime_types()
-            .iter()
-            .find(|mime_type| crate::clipboard::mime::PLAINTEXT.contains(mime_type))?;
 
-        data.read(mime_type).ok()?.as_string().map(|string| string.into())
+        data.read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok().map(|s| s.into())
     }
 
     /// This function is called when debug() is used in .slint files. The implementation
@@ -258,8 +253,7 @@ impl core::fmt::Display for SetPlatformError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for SetPlatformError {}
+impl core::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///

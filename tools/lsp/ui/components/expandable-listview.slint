@@ -76,10 +76,8 @@ component ItemTemplate {
     min-width: content-layer.min-width;
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
 
-
     DragArea {
-        mime-type: "application/x-slint-component";
-        data: data.index;
+        data: "\{data.index}".with-mime-type("application/x-slint-component");
 
         touch-area := TouchArea {
             changed has-hover => {

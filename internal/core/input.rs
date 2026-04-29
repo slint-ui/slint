@@ -1092,11 +1092,9 @@ pub(crate) fn handle_mouse_grab(
         InputEventResult::StartDrag => {
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
-            mouse_input_state.drag_data = Some(DropEvent {
-                mime_type: drag_area_item.as_pin_ref().mime_type(),
-                data: drag_area_item.as_pin_ref().data(),
-                position: Default::default(),
-            });
+            let data = drag_area_item.as_pin_ref().data().clone();
+
+            mouse_input_state.drag_data = Some(DropEvent { data, position: Default::default() });
             None
         }
         _ => {
@@ -1355,11 +1353,9 @@ fn send_mouse_event_to_item(
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
-            result.drag_data = Some(DropEvent {
-                mime_type: drag_area_item.as_pin_ref().mime_type(),
-                data: drag_area_item.as_pin_ref().data(),
-                position: Default::default(),
-            });
+            let data = drag_area_item.as_pin_ref().data().clone();
+
+            result.drag_data = Some(DropEvent { data, position: Default::default() });
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }

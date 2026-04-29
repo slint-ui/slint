@@ -21,8 +21,9 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core as corelib;
-use i_slint_core::api::ToSharedString;
+use i_slint_core::api::{Image, ToSharedString};
+use i_slint_core::clipboard::OverrideMimeType;
+use i_slint_core::{self as corelib, ClipboardData};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -243,16 +244,15 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
-            match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+            match eval_expression(from, local_context).try_cast(to.clone()) {
+                Ok(value) => value,
+                Err(value) => {
+                    let actual_ty = value.value_type();
+                    eprintln!(
+                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
+                    );
+                    value
                 }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -1219,6 +1219,28 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringToClipboardData => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to StringToClipboardData")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                Value::ClipboardData(s.into())
+            } else {
+                panic!("Argument not a string");
+            }
+        }
+        BuiltinFunction::StringWithMimeType => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringToClipboardData")
+            }
+            if let Value::String(value) = eval_expression(&arguments[0], local_context)
+                && let Value::String(mime_type) = eval_expression(&arguments[1], local_context)
+            {
+                Value::ClipboardData(OverrideMimeType::new(value, mime_type).into())
+            } else {
+                panic!("Argument not a string");
+            }
+        }
         BuiltinFunction::KeysToString => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to KeysToString")
@@ -1368,6 +1390,82 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ClipboardDataHasType => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ClipboardDataReadPlaintext")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            let Value::String(mime_type) = eval_expression(&arguments[1], local_context) else {
+                panic!("Second argument not a string");
+            };
+
+            data.has_any_type(&[&mime_type]).into()
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ClipboardDataReadPlaintext")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            let Value::String(mime_type) = eval_expression(&arguments[1], local_context) else {
+                panic!("Second argument not a string");
+            };
+
+            data.read::<SharedString>(&[&mime_type]).unwrap_or_default().into()
+        }
+        BuiltinFunction::ClipboardDataHasPlaintext => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ClipboardDataHasPlaintext")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            data.has_any_type(ClipboardData::PLAINTEXT_MIME_TYPES).into()
+        }
+        BuiltinFunction::ClipboardDataReadPlaintext => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ClipboardDataReadPlaintext")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            data.read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES)
+                .unwrap_or_default()
+                .into()
+        }
+        BuiltinFunction::ClipboardDataHasImage => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ClipboardDataHasImage")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            data.has_any_type(ClipboardData::IMAGE_MIME_TYPES).into()
+        }
+        BuiltinFunction::ClipboardDataReadImage => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ClipboardDataReadImage")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            data.read::<Image>(ClipboardData::IMAGE_MIME_TYPES).unwrap_or_default().into()
+        }
         BuiltinFunction::ImageSize => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ImageSize")
@@ -1382,6 +1480,16 @@ fn call_builtin_function(
                 Value::Struct(values)
             } else {
                 panic!("First argument not an image");
+            }
+        }
+        BuiltinFunction::ImageToClipboardData => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ImageToClipboardData")
+            }
+            if let Value::Image(s) = eval_expression(&arguments[0], local_context) {
+                Value::ClipboardData(s.into())
+            } else {
+                panic!("Argument not an image");
             }
         }
         BuiltinFunction::ArrayLength => {
@@ -2040,6 +2148,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::ClipboardData => matches!(value, Value::ClipboardData(_)),
     }
 }
 
@@ -2331,6 +2440,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Keys => Value::Keys(Default::default()),
+        Type::ClipboardData => Value::ClipboardData(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

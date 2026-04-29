@@ -554,6 +554,7 @@ impl CppType for Type {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
             Type::Image => Some("slint::Image".into()),
+            Type::ClipboardData => Some("slint::ClipboardData".into()),
             Type::Enumeration(enumeration) => {
                 if enumeration.node.is_some() {
                     Some(ident(&enumeration.name))
@@ -4389,6 +4390,37 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ColorWithAlpha => {
             format!("{}.with_alpha({})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::ClipboardDataHasType => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+
+            format!("{x}.hasType({mime_type})")
+        }
+        BuiltinFunction::ClipboardDataHasPlaintext => {
+            format!("{}.hasPlaintext()", a.next().unwrap())
+        }
+        BuiltinFunction::ClipboardDataHasImage => {
+            format!("{}.hasImage()", a.next().unwrap())
+        }
+        BuiltinFunction::StringToClipboardData
+        | BuiltinFunction::ImageToClipboardData => {
+            format!("slint::ClipboardData({})", a.next().unwrap())
+        }
+        BuiltinFunction::StringWithMimeType => {
+            todo!("Implement overriding MIME types for single values")
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+
+            format!("{x}.readString({mime_type})")
+        }
+        BuiltinFunction::ClipboardDataReadPlaintext => {
+            format!("{}.readPlaintext()", a.next().unwrap())
+        }
+        BuiltinFunction::ClipboardDataReadImage => {
+            format!("{}.readImage()", a.next().unwrap())
         }
         BuiltinFunction::ImageSize => {
             format!("{}.size()", a.next().unwrap())

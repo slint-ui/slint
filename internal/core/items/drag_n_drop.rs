@@ -10,12 +10,13 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::items::ClipboardData;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::{Callback, Property, SharedString};
+use crate::{Callback, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -30,8 +31,7 @@ pub type DropEventArg = (DropEvent,);
 /// The implementation of the `DragArea` element
 pub struct DragArea {
     pub enabled: Property<bool>,
-    pub mime_type: Property<SharedString>,
-    pub data: Property<SharedString>,
+    pub data: Property<ClipboardData>,
     pressed: Cell<bool>,
     pressed_position: Cell<LogicalPoint>,
     pub cached_rendering_data: CachedRenderingData,

@@ -55,6 +55,9 @@ pub enum Type {
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
     Keys,
+    /// `clipboard-data` - a special type that handles reading a value from the system with
+    /// some set of available MIME types.
+    ClipboardData,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -112,6 +115,7 @@ impl core::cmp::PartialEq for Type {
             Type::LayoutCache => matches!(other, Type::LayoutCache),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
+            Type::ClipboardData => matches!(other, Type::ClipboardData),
         }
     }
 }
@@ -169,6 +173,7 @@ impl Display for Type {
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
+            Type::ClipboardData => write!(f, "clipboard-data"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -220,6 +225,7 @@ impl Type {
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::Keys
+                | Self::ClipboardData
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -279,7 +285,10 @@ impl Type {
             | (Type::PhysicalLength, Type::Rem)
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
-            | (Type::Color, Type::Brush) => true,
+            | (Type::Color, Type::Brush)
+            | (Type::Image, Type::ClipboardData)
+            | (Type::String, Type::ClipboardData)
+            | (Type::Void, Type::ClipboardData) => true,
             (Type::Array(a), Type::Model) if a.is_property_type() => true,
             (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
             (Type::UnitProduct(u), o) => match o.as_unit_product() {
@@ -325,6 +334,7 @@ impl Type {
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
             Type::Keys => None,
+            Type::ClipboardData => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
