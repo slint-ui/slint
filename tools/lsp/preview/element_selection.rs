@@ -183,6 +183,10 @@ fn select_element_node(
 // Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
+    real_root_element(root_element)
+}
+
+fn real_root_element(root_element: ElementRc) -> ElementRc {
     if root_element.borrow().debug.is_empty() {
         // The root element has no debug set if it is a window inserted by the compiler.
         // That window will have one child -- the "real root", but it might
@@ -271,14 +275,21 @@ pub fn collect_all_element_nodes_covering(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
-    let root_element = root_element(component_instance);
     let mut elements = Vec::new();
-    collect_all_element_nodes_covering_impl(
-        position,
-        component_instance,
-        &root_element,
-        &mut elements,
-    );
+    let root_component = component_instance.definition().root_component();
+
+    // Check popups first
+    for popup in root_component.popup_windows.borrow().iter().rev() {
+        collect_all_element_nodes_covering_impl(
+            position,
+            component_instance,
+            &real_root_element(popup.component.root_element.clone()),
+            &mut elements,
+        );
+    }
+
+    let root_element = root_element(component_instance);
+    collect_all_element_nodes_covering_impl(position, component_instance, &root_element, &mut elements);
 
     assign_is_in_root_component(&mut elements);
 
@@ -870,6 +881,118 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
                 true
             )
             .is_none()
+        );
+    }
+
+    #[test]
+    fn test_popup_window_element_positions() {
+        let source = r#"
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 30px;
+        width: 100px;
+        height: 80px;
+
+        popup_rect := Rectangle {
+            x: 10px;
+            y: 5px;
+            width: 40px;
+            height: 20px;
+        }
+    }
+
+    init => {
+        popup.show();
+    }
+}
+"#;
+
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+
+        let test_file = test::main_test_file_name();
+        let rect_offset =
+            source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+
+        let popup_rect_element = component_instance
+            .element_node_at_source_code_position(&test_file, rect_offset as u32)
+            .into_iter()
+            .next()
+            .map(|(e, _)| e)
+            .expect("popup_rect element not found");
+
+        let rect = component_instance
+            .element_positions(&popup_rect_element)
+            .first()
+            .copied()
+            .expect("popup_rect element has no geometry");
+
+        const EPS: f32 = 0.01;
+        assert!((rect.rect.origin.x - 30.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.rect.origin.y - 35.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.rect.size.width - 40.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.rect.size.height - 20.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.angle - 0.0).abs() <= EPS, "{rect:?}");
+    }
+
+    #[test]
+    fn test_popup_window_hit_testing() {
+        let source = r#"
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 30px;
+        width: 100px;
+        height: 80px;
+
+        popup_rect := Rectangle {
+            x: 10px;
+            y: 5px;
+            width: 40px;
+            height: 20px;
+        }
+    }
+
+    init => {
+        popup.show();
+    }
+}
+"#;
+
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+
+        let test_file = test::main_test_file_name();
+        let rect_offset =
+            source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+
+        let (popup_rect_element, popup_rect_debug_index) = component_instance
+            .element_node_at_source_code_position(&test_file, rect_offset as u32)
+            .into_iter()
+            .next()
+            .expect("popup_rect element not found");
+
+        let popup_rect_node =
+            crate::common::ElementRcNode::new(popup_rect_element, popup_rect_debug_index)
+                .expect("popup_rect debug node not found");
+
+        let rect = component_instance
+            .element_positions(&popup_rect_node.element)
+            .first()
+            .copied()
+            .expect("popup_rect element has no geometry");
+
+        let center = rect.rect.center();
+        let candidates = super::collect_all_element_nodes_covering(center, &component_instance);
+
+        assert!(
+            candidates.iter().any(|sc| sc.as_element_node().as_ref() == Some(&popup_rect_node)),
+            "popup_rect not found at {center:?}: {candidates:?}",
         );
     }
 }
