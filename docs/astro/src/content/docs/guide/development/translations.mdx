@@ -308,10 +308,4 @@ Use the `--translation-domain` and `--translation-dir` command line options to l
 ## Selecting the decimal separator
 
 The current used decimal separator can be read with <Link type="Platform.decimal-separator" label="decimal-separator" />. As default the dot `.` is used as decimal separator.
-To set a custom decimal separator for every language add the following to your `.po` files
-
-```
-msgctxt "Slint: decimal separator"
-msgid "."  # keep the default here
-msgstr "," # <---------- Change to the desired decimal separator
-```
+When bundling the languages, the decimal separator will be determined during compile time and bundled into the software, otherwise it will be determined from the system locale
