@@ -143,7 +143,7 @@ assert_eq!(instance.get_outer_y(), 50.);
 
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 0.0, delta_y: 10.0 });
 assert_eq!(instance.get_inner_x(), 30.);
-assert_eq!(instance.get_outer_y(), 40.); // Scrolling vertical on the outer because the 
+assert_eq!(instance.get_outer_y(), 40.); // Scrolling vertical on the outer because the
 ```
 
 */
