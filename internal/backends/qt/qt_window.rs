@@ -2229,7 +2229,7 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 
 impl WindowAdapterInternal for QtWindow {
     fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
-        Some(self.parent.clone().upgrade().unwrap())
+        self.parent.clone().upgrade().map(|rc| rc as _)
     }
 
     fn register_item_tree(&self, _: ItemTreeRefPin) {
