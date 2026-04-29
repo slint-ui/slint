@@ -934,7 +934,6 @@ impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
         mut surface: Self::LayerTarget,
         item_rc: &ItemRc,
         bounding_rect: LogicalRect,
-        _physical_origin: euclid::Point2D<f32, PhysicalPx>,
     ) -> Self::Image {
         let canvas = surface.canvas();
         canvas.clear(skia_safe::Color::TRANSPARENT);

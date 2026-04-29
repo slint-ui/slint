@@ -628,15 +628,15 @@ pub trait LayerRenderer<'cache>: ItemRenderer {
         physical_size: euclid::Size2D<f32, crate::lengths::PhysicalPx>,
     ) -> Option<Self::LayerTarget>;
 
-    /// Redirect rendering into `target`, translate by `-physical_origin`,
-    /// call `render_item_children`, then restore. The dance is backend-specific
-    /// (sub-renderer vs. render-target swap), hence the hook.
+    /// Redirect rendering into `target`, translate so children are positioned
+    /// relative to `bounding_rect.origin`, call `render_item_children`, then
+    /// restore. The dance is backend-specific (sub-renderer vs. render-target
+    /// swap), hence the hook.
     fn render_into_layer(
         &mut self,
         target: Self::LayerTarget,
         item_rc: &ItemRc,
         bounding_rect: LogicalRect,
-        physical_origin: euclid::Point2D<f32, crate::lengths::PhysicalPx>,
     ) -> Self::Image;
 }
 
@@ -674,7 +674,7 @@ where
             return None;
         };
 
-        let image = renderer.render_into_layer(target, item_rc, bounding_rect, physical_origin);
+        let image = renderer.render_into_layer(target, item_rc, bounding_rect);
         Some((physical_origin, image))
     })
 }

@@ -1063,11 +1063,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> LayerRenderer<'a> for GLItemRen
         layer_image: Self::LayerTarget,
         item_rc: &ItemRc,
         bounding_rect: LogicalRect,
-        physical_origin: euclid::Point2D<f32, i_slint_core::lengths::PhysicalPx>,
     ) -> Self::Image {
         let render_target = layer_image.as_render_target();
         let size = layer_image.size().unwrap_or_default();
         let previous_render_target = self.current_render_target();
+        let physical_origin = bounding_rect.origin.cast() * self.scale_factor;
 
         {
             let mut canvas = self.canvas.borrow_mut();
