@@ -12,11 +12,11 @@ use i_slint_preview_protocol::{
     LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_server::{Message, RequestId};
-use lsp_types::{MessageType, Url, notification::Notification};
+use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
+use slint_interpreter::{FileChangeKind, FileWatcher, WatchEvent};
 
 use crate::{
     common::{self, LspToPreview, Result, document_cache::OpenImportCallback},
-    file_watcher::{FileWatcher, WatchEvent},
     language, preview,
     preview::connector::EmbeddedLspToPreview,
 };
@@ -221,7 +221,15 @@ async fn lsp_main(
     use crate::common::document_cache::CompilerConfiguration;
 
     let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
-    let (mut file_watcher, mut file_watcher_rx) = FileWatcher::start()?;
+    let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut file_watcher = FileWatcher::start(
+        move |event| {
+            if file_watcher_tx.send(event).is_err() {
+                tracing::debug!("Ignoring file watcher event after editor shutdown");
+            }
+        },
+        move |err| tracing::warn!("File watcher error: {err}"),
+    )?;
 
     // Wrap to_preview in Rc for sharing with the import callback and Context
     let to_preview: Rc<dyn LspToPreview> = Rc::new(to_preview);
@@ -296,9 +304,7 @@ async fn lsp_main(
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
-                    Some(WatchEvent { url, typ }) => {
-                        language::trigger_file_watcher(&mut ctx, url, typ).await?;
-                    }
+                    Some(event) => trigger_editor_file_watcher(&mut ctx, event).await?,
                     None => break Err("File watcher channel closed".into()),
                 }
             }
@@ -326,6 +332,26 @@ async fn lsp_main(
     }
 }
 
+async fn trigger_editor_file_watcher(
+    ctx: &mut language::Context,
+    WatchEvent { path, kind }: WatchEvent,
+) -> Result<()> {
+    let Ok(url) = Url::from_file_path(&path) else {
+        tracing::debug!("Ignoring file watcher event for non-file path: {}", path.display());
+        return Ok(());
+    };
+
+    language::trigger_file_watcher(ctx, url, lsp_file_change_type(kind)).await
+}
+
+fn lsp_file_change_type(kind: FileChangeKind) -> FileChangeType {
+    match kind {
+        FileChangeKind::Created => FileChangeType::CREATED,
+        FileChangeKind::Changed => FileChangeType::CHANGED,
+        FileChangeKind::Deleted => FileChangeType::DELETED,
+    }
+}
+
 fn sync_file_watcher(
     watcher: &mut FileWatcher,
     ctx: &language::Context,
@@ -340,7 +366,8 @@ fn sync_file_watcher(
                 .filter(|url| url.scheme() == "file")
                 .filter_map(|url| common::uri_to_file(&url)),
         ),
-    )
+    )?;
+    Ok(())
 }
 
 fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {

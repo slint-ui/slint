@@ -8,7 +8,6 @@
 mod common;
 #[cfg(feature = "preview")]
 mod editor;
-mod file_watcher;
 mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]

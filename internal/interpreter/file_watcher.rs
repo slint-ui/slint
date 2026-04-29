@@ -7,19 +7,27 @@ use std::sync::{Arc, Mutex};
 
 use notify::Watcher as _;
 
+/// A normalized file-system change emitted by [`FileWatcher`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FileChangeKind {
+    /// A watched file appeared on disk.
     Created,
+    /// A watched file changed on disk.
     Changed,
+    /// A watched file disappeared from disk.
     Deleted,
 }
 
+/// A file-system event for one watched path.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WatchEvent {
+    /// The affected watched path.
     pub path: PathBuf,
+    /// The normalized change kind for this path.
     pub kind: FileChangeKind,
 }
 
+/// A native file watcher for a set of source or resource paths.
 pub struct FileWatcher {
     watcher: notify::RecommendedWatcher,
     watched_files: Arc<Mutex<HashSet<PathBuf>>>,
@@ -27,17 +35,25 @@ pub struct FileWatcher {
 }
 
 impl FileWatcher {
-    pub fn start(mut on_event: impl FnMut(WatchEvent) + Send + 'static) -> notify::Result<Self> {
+    /// Creates a watcher and invokes `on_event` for matching watched-path changes.
+    ///
+    /// Runtime watcher errors are forwarded to `on_error`.
+    pub fn start(
+        mut on_event: impl FnMut(WatchEvent) + Send + 'static,
+        mut on_error: impl FnMut(notify::Error) + Send + 'static,
+    ) -> notify::Result<Self> {
         let watched_files = Arc::new(Mutex::new(HashSet::new()));
         let callback_files = watched_files.clone();
-        let watcher = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-            let Ok(event) = event else { return };
-            forward_event(event, &callback_files, &mut on_event);
-        })?;
+        let watcher =
+            notify::recommended_watcher(move |event: notify::Result<notify::Event>| match event {
+                Ok(event) => forward_event(event, &callback_files, &mut on_event),
+                Err(err) => on_error(err),
+            })?;
 
         Ok(Self { watcher, watched_files, watched_dirs: HashSet::new() })
     }
 
+    /// Replaces the watched path set with `paths`.
     pub fn update_watched_paths<I>(&mut self, paths: I) -> notify::Result<()>
     where
         I: IntoIterator<Item = PathBuf>,

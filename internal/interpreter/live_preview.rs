@@ -264,16 +264,19 @@ impl Watcher {
         }
 
         let watcher_weak = Arc::downgrade(&arc);
-        arc.lock().unwrap().watcher = FileWatcher::start(move |_event| {
-            let Some(watcher) = watcher_weak.upgrade() else { return };
-            if let WatcherState::Waiting(waker) =
-                std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
-            {
-                // Wait a bit to let the time to write multiple files
-                std::thread::sleep(std::time::Duration::from_millis(15));
-                waker.wake();
-            }
-        })
+        arc.lock().unwrap().watcher = FileWatcher::start(
+            move |_event| {
+                let Some(watcher) = watcher_weak.upgrade() else { return };
+                if let WatcherState::Waiting(waker) =
+                    std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
+                {
+                    // Wait a bit to let the time to write multiple files
+                    std::thread::sleep(std::time::Duration::from_millis(15));
+                    waker.wake();
+                }
+            },
+            move |err| eprintln!("Warning: file watcher error: {err}"),
+        )
         .ok();
         arc
     }

@@ -107,7 +107,7 @@ lsp-types = { workspace = true }
 i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
-slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-file-watcher", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 nucleo-matcher = "0.3.1"
 futures-util = "0.3.32"
 
@@ -118,8 +118,6 @@ tikv-jemallocator = { workspace = true }
 clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
 lsp-server = "0.7"
-# TODO: This is only needed for the editor - remove it from the LSP once that has been extracted into a separate crate.
-notify = { workspace = true }
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
 

@@ -10202,7 +10202,6 @@ dependencies = [
  "js-sys",
  "lsp-server",
  "lsp-types",
- "notify",
  "nucleo-matcher",
  "send_wrapper",
  "serde",
