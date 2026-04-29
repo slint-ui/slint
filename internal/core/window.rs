@@ -177,7 +177,10 @@ pub trait WindowAdapterInternal: core::any::Any {
     ) {
     }
 
-    fn get_parent(&self) -> Weak<dyn WindowAdapter>;
+    /// Get the parent window adapter of this window adapter
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        None
+    }
 
     /// Create a window for a popup.
     /// This function will create only the window adapter but does not show the popup it self
