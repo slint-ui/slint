@@ -5,9 +5,9 @@ description: TouchArea element api.
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import EventResult from '/src/content/collections/enums/EventResult.md';
 import PointerEvent from '/src/content/collections/structs/PointerEvent.md';
 import PointerScrollEvent from '/src/content/collections/structs/PointerScrollEvent.md';
-import EventResult from '/src/content/collections/enums/EventResult.md';
 
 Use `TouchArea` to control what happens when the region it covers is touched or interacted with
 using the mouse.
@@ -46,7 +46,7 @@ export component Example inherits Window {
 When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
 passed through to elements underneath.
 
-<CodeSnippetMD imagePath="/src/assets/generated/basic-syntax.png" scale="2"  imageWidth="200" imageHeight="100" imageAlt='Basic syntax'>
+<CodeSnippetMD imagePath="/src/assets/generated/touch-area-1.png" imageAlt="Basic syntax" imageWidth="200" imageHeight="100" scale="2">
 ```slint playground
 import { Button, CheckBox } from "std-widgets.slint";
 
