@@ -15,7 +15,8 @@ public:
 
     friend bool operator==(const ClipboardData &a, const ClipboardData &b) = default;
 
-    bool hasType(const slint::SharedString &mimeType) const {
+    bool hasType(const slint::SharedString &mimeType) const
+    {
         (void)mimeType;
         return false;
     }
