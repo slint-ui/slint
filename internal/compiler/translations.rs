@@ -66,10 +66,10 @@ impl TranslationsBuilder {
                 })?;
                 let language_name = l.file_name().to_string_lossy().to_smolstr();
                 languages.push(language_name.clone());
-                decimal_separators.push(Some(
+                decimal_separators.push(
                     decimal_separator_for_locale(language_name.as_str())
                         .map(|separator| separator.to_smolstr()),
-                ));
+                );
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
                     let plural_expr = header.split(';').find_map(|sub_entry| {

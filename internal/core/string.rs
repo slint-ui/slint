@@ -400,7 +400,7 @@ pub fn string_to_float(string: &str) -> Option<f32> {
             s.parse::<f32>().ok() // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
         }
 
-        let sep = ctx.get().map(|ctx| ctx.locale_decimal_seperator).unwrap_or('.');
+        let sep = ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
 
         if sep == '.' {
             parse(string)
@@ -410,7 +410,7 @@ pub fn string_to_float(string: &str) -> Option<f32> {
             }
             // Normalize locale separator to '.' because f64::parse only accepts '.'
             parse(&string.replace(sep, "."))
-         }
+        }
     })
 }
 
