@@ -4,24 +4,31 @@
 #pragma once
 
 namespace slint {
-struct Image;
-
 class ClipboardData
 {
 public:
+    ClipboardData() = default;
+
     explicit ClipboardData(const slint::SharedString &string) { (void)string; }
 
     explicit ClipboardData(const slint::Image &image) { (void)image; }
 
     friend bool operator==(const ClipboardData &a, const ClipboardData &b) = default;
 
-    inline bool hasPlaintext() { return false; }
+    bool hasPlaintext() const { return false; }
 
-    inline bool hasImage() { return false; }
+    bool hasImage() const { return false; }
 
-    inline slint::SharedString readPlaintext()
+    slint::SharedString readPlaintext()
     {
-        slint::SharedString out {};
+        slint::SharedString out = slint::SharedString();
+
+        return out;
+    }
+
+    slint::Image readImage()
+    {
+        slint::Image out = slint::Image();
 
         return out;
     }

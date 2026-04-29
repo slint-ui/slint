@@ -4401,9 +4401,11 @@ fn compile_builtin_function_call(
         | BuiltinFunction::ImageToClipboardData => {
             format!("slint::ClipboardData({})", a.next().unwrap())
         }
-        BuiltinFunction::ClipboardDataReadImage
-        | BuiltinFunction::ClipboardDataReadPlaintext => {
-            todo!("Implement ClipboardData in C++")
+        BuiltinFunction::ClipboardDataReadPlaintext => {
+            format!("{}.readPlaintext()", a.next().unwrap())
+        }
+        BuiltinFunction::ClipboardDataReadImage => {
+            format!("{}.readImage()", a.next().unwrap())
         }
         BuiltinFunction::ImageSize => {
             format!("{}.size()", a.next().unwrap())
