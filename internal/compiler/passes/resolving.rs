@@ -851,7 +851,7 @@ impl Expression {
         for e in &parse_errors {
             // Skip InvalidColor when the color value came from interpolation
             // (dummy values resolve to empty strings during compile-time validation)
-            if e.is_invalid_color()
+            if i_slint_common::styled_text::is_invalid_color(e)
                 && e.range().is_some_and(|r| {
                     r.end <= markdown.len()
                         && markdown[r.start..r.end].contains(
@@ -865,12 +865,14 @@ impl Expression {
             // Compute sub-literal precision: adjust the source span to point
             // at the specific position within the string literal.
             let loc = e.range().and_then(|r| {
+                // partition_point returns the first index where range.start > r.start,
+                // so idx - 1 is the last entry whose range could contain r.start.
                 let idx = source_map.partition_point(|(range, _)| range.start <= r.start);
                 if idx > 0 {
                     let (fmt_range, loc) = &source_map[idx - 1];
                     if fmt_range.contains(&r.start) {
                         let delta = r.start - fmt_range.start;
-                        let err_len = (r.end - r.start).min(loc.span.length.saturating_sub(delta));
+                        let err_len = r.len().min(loc.span.length.saturating_sub(delta));
                         // +1 to skip the opening quote of the string literal
                         return Some(crate::diagnostics::SourceLocation {
                             source_file: loc.source_file.clone(),
