@@ -66,7 +66,7 @@ export component X {
     // Block quote error in a multi-line expression
     property <styled-text> m6: @markdown("text"
                                          "\n> block quote");
-//                                         >           <error{Markdown block quotes are not supported}
+//                                          >           <error{Markdown block quotes are not supported}
 
     // Multiple errors on different lines
     property <styled-text> m7: @markdown("--- "
@@ -115,6 +115,6 @@ export component X {
     // Combined errors from different markdown features in a single string with escape sequences
     property <styled-text> t25: @markdown("---\n\n> quote\n\n<span>text</span>");
 //                                         >  <error{Markdown horizontal rules are not supported}
-//                                              >      <^error{Markdown block quotes are not supported}
-//                                                       >   <^^error{HTML tag <span> is not supported}
+//                                                >      <^error{Markdown block quotes are not supported}
+//                                                           >   <^^error{HTML tag <span> is not supported}
 }

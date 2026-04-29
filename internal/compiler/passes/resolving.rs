@@ -768,50 +768,22 @@ impl Expression {
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
         let mut markdown = String::new();
         let mut values = Vec::new();
-        // Maps byte ranges in the markdown format string to source locations,
-        // sorted by range start. Used to report parse errors at the correct
-        // position in the .slint source.
-        let mut source_map: Vec<(std::ops::Range<usize>, crate::diagnostics::SourceLocation)> =
-            Vec::new();
-
-        fn record_string_literal(
-            markdown: &mut String,
-            source_map: &mut Vec<(std::ops::Range<usize>, crate::diagnostics::SourceLocation)>,
-            s: &str,
-            loc: crate::diagnostics::SourceLocation,
-        ) {
-            let start = markdown.len();
-            markdown.push_str(s);
-            let end = markdown.len();
-            if end > start {
-                source_map.push((start..end, loc));
-            }
-        }
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
-                    record_string_literal(
-                        &mut markdown,
-                        &mut source_map,
-                        &s,
-                        n.to_source_location(),
-                    );
+                let raw = n.as_token().unwrap().text();
+                if let Some(s) = crate::literals::unescape_string(raw) {
+                    source_map.push_literal(&mut markdown, &n, raw, &s);
                 } else {
                     ctx.diag.push_error("Cannot parse string literal".into(), &n);
                 }
             } else if n.kind() == SyntaxKind::StringTemplate {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
-                        if let Some(s) =
-                            crate::literals::unescape_string(n.as_token().unwrap().text())
-                        {
-                            record_string_literal(
-                                &mut markdown,
-                                &mut source_map,
-                                &s,
-                                n.to_source_location(),
-                            );
+                        let raw = n.as_token().unwrap().text();
+                        if let Some(s) = crate::literals::unescape_string(raw) {
+                            source_map.push_literal(&mut markdown, &n, raw, &s);
                         } else {
                             ctx.diag.push_error("Cannot parse string literal".into(), &n);
                         }
@@ -832,10 +804,11 @@ impl Expression {
                             }
                         };
                         values.push(expr);
-                        let start = markdown.len();
-                        markdown
-                            .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
-                        source_map.push((start..markdown.len(), node.to_source_location()));
+                        source_map.push_raw_char(
+                            &mut markdown,
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                            node.to_source_location(),
+                        );
                     }
                 }
             }
@@ -861,32 +834,8 @@ impl Expression {
             {
                 continue;
             }
-            // Look up the source location from the error's byte range.
-            // Compute sub-literal precision: adjust the source span to point
-            // at the specific position within the string literal.
-            let loc = e.range().and_then(|r| {
-                // partition_point returns the first index where range.start > r.start,
-                // so idx - 1 is the last entry whose range could contain r.start.
-                let idx = source_map.partition_point(|(range, _)| range.start <= r.start);
-                if idx > 0 {
-                    let (fmt_range, loc) = &source_map[idx - 1];
-                    if fmt_range.contains(&r.start) {
-                        let delta = r.start - fmt_range.start;
-                        let err_len = r.len().min(loc.span.length.saturating_sub(delta));
-                        // +1 to skip the opening quote of the string literal
-                        return Some(crate::diagnostics::SourceLocation {
-                            source_file: loc.source_file.clone(),
-                            span: crate::diagnostics::Span::new(
-                                loc.span.offset + 1 + delta,
-                                err_len,
-                            ),
-                        });
-                    }
-                }
-                None
-            });
-            if let Some(loc) = loc {
-                ctx.diag.push_error_with_span(e.to_string(), loc);
+            if let Some(r) = e.range() {
+                source_map.report(ctx.diag, e.to_string(), r, &node);
             } else {
                 ctx.diag.push_error(e.to_string(), &node);
             }
@@ -903,13 +852,17 @@ impl Expression {
     }
 
     fn from_at_tr(node: syntax_nodes::AtTr, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|s| crate::literals::unescape_string(&s))
-        else {
+        let Some(string_token) = node.child_token(SyntaxKind::StringLiteral) else {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
+        let raw_text = string_token.text().to_string();
+        let Some(string) = crate::literals::unescape_string(&raw_text) else {
+            ctx.diag.push_error("Cannot parse string literal".into(), &node);
+            return Expression::Invalid;
+        };
+        let source_map =
+            crate::literals::StringLiteralSourceMap::from_token(&string_token, &raw_text, &string);
         let context = node.TrContext().map(|n| {
             n.child_text(SyntaxKind::StringLiteral)
                 .and_then(|s| crate::literals::unescape_string(&s))
@@ -957,8 +910,11 @@ impl Expression {
             let mut has_n = false;
             while let Some(mut p) = string[pos..].find(['{', '}']) {
                 if string.len() - pos < p + 1 {
-                    ctx.diag.push_error(
+                    p += pos;
+                    source_map.report(
+                        ctx.diag,
                         "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
+                        p..p + 1,
                         &node,
                     );
                     break;
@@ -971,8 +927,10 @@ impl Expression {
                         pos = p + 2;
                         continue;
                     } else {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "Unescaped '}' in format string. Escape '}' with '}}'".into(),
+                            p..p + 1,
                             &node,
                         );
                         break;
@@ -989,9 +947,11 @@ impl Expression {
                 let end = if let Some(end) = string[p..].find('}') {
                     end + p
                 } else {
-                    ctx.diag.push_error(
+                    source_map.report(
+                        ctx.diag,
                         "Unterminated placeholder in format string. '{' must be escaped with '{{'"
                             .into(),
+                        p..string.len(),
                         &node,
                     );
                     break;
@@ -1004,14 +964,20 @@ impl Expression {
                 } else if argument == "n" {
                     has_n = true;
                     if plural.is_none() {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "`{n}` placeholder can only be found in plural form".into(),
+                            p..end + 1,
                             &node,
                         );
                     }
                 } else {
-                    ctx.diag
-                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                    source_map.report(
+                        ctx.diag,
+                        "Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(),
+                        p..end + 1,
+                        &node,
+                    );
                     break;
                 };
                 pos = end + 1;

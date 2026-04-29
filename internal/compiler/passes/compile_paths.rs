@@ -18,6 +18,18 @@ use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+fn lyon_error_column(e: &lyon_extra::parser::ParseError) -> usize {
+    use lyon_extra::parser::ParseError;
+    let col = match e {
+        ParseError::Number { column, .. }
+        | ParseError::Flag { column, .. }
+        | ParseError::Command { column, .. }
+        | ParseError::MissingMoveTo { column, .. } => *column,
+        _ => return 0,
+    };
+    col.max(0) as usize
+}
+
 pub fn compile_paths(
     component: &Rc<Component>,
     tr: &crate::typeregister::TypeRegister,
@@ -55,8 +67,21 @@ pub fn compile_paths(
                     match compile_path_from_string_literal(commands) {
                         Ok(binding) => binding,
                         Err(e) => {
-                            diag.push_error(
+                            let col = lyon_error_column(&e);
+                            let byte_offset = commands
+                                .char_indices()
+                                .nth(col)
+                                .map(|(i, _)| i)
+                                .unwrap_or(commands.len());
+                            let source_map =
+                                crate::literals::StringLiteralSourceMap::from_expression(
+                                    commands,
+                                    &commands_expr,
+                                );
+                            source_map.report(
+                                diag,
                                 format!("Error parsing SVG commands ({e})"),
+                                byte_offset..commands.len(),
                                 &commands_expr,
                             );
                             return;
