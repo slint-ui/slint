@@ -1452,12 +1452,37 @@ fn generate_public_component(
         &ctx,
     );
 
+    // Window-rooted components route `show`/`hide` through the underlying
+    // window adapter, expose `window()`, and have a `run()` that drives the
+    // event loop. SystemTray-rooted components instead toggle the `visible`
+    // property on the tray native item, expose no `window()`, and skip
+    // `run()` entirely (a tray icon doesn't drive the event loop).
+    let (show_body, hide_body) = match component.top_level_type {
+        llr::TopLevelComponentType::Window => {
+            ("m_globals.window().show();".to_string(), "m_globals.window().hide();".to_string())
+        }
+        llr::TopLevelComponentType::SystemTray => {
+            let root_sub = &unit.sub_components[component.item_tree.root];
+            let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
+            debug_assert_eq!(
+                tray_item.ty.class_name.as_str(),
+                "SystemTray",
+                "TopLevelComponentType::SystemTray expects the root item to be a SystemTray"
+            );
+            let tray_field = ident(&tray_item.name);
+            (
+                format!("{tray_field}.visible.set(true);"),
+                format!("{tray_field}.visible.set(false);"),
+            )
+        }
+    };
+
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "show".into(),
             signature: "() -> void".into(),
-            statements: Some(vec!["window().show();".into()]),
+            statements: Some(vec![show_body]),
             ..Default::default()
         }),
     ));
@@ -1467,34 +1492,38 @@ fn generate_public_component(
         Declaration::Function(Function {
             name: "hide".into(),
             signature: "() -> void".into(),
-            statements: Some(vec!["window().hide();".into()]),
+            statements: Some(vec![hide_body]),
             ..Default::default()
         }),
     ));
 
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "window".into(),
-            signature: "() const -> slint::Window&".into(),
-            statements: Some(vec!["return m_globals.window();".into()]),
-            ..Default::default()
-        }),
-    ));
-
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "run".into(),
-            signature: "() -> void".into(),
-            statements: Some(vec![
-                "show();".into(),
-                "slint::run_event_loop();".into(),
-                "hide();".into(),
-            ]),
-            ..Default::default()
-        }),
-    ));
+    match component.top_level_type {
+        llr::TopLevelComponentType::Window => {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "window".into(),
+                    signature: "() const -> slint::Window&".into(),
+                    statements: Some(vec!["return m_globals.window();".into()]),
+                    ..Default::default()
+                }),
+            ));
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "run".into(),
+                    signature: "() -> void".into(),
+                    statements: Some(vec![
+                        "show();".into(),
+                        "slint::run_event_loop();".into(),
+                        "hide();".into(),
+                    ]),
+                    ..Default::default()
+                }),
+            ));
+        }
+        llr::TopLevelComponentType::SystemTray => {}
+    }
 
     component_struct.friends.push("slint::private_api::WindowAdapterRc".into());
 
@@ -1994,8 +2023,10 @@ fn generate_item_tree(
     // And in PopupWindow this is also called by the runtime
     if parent_ctx.is_none() && !is_popup {
         create_code.push("self->user_init();".to_string());
-        // initialize the Window in this point to be consistent with Rust
-        create_code.push("self->window();".to_string())
+        // initialize the Window in this point to be consistent with Rust.
+        // Go through `m_globals` rather than the `window()` member function:
+        // non-windowed components (e.g. SystemTray) don't expose `window()`.
+        create_code.push("self->m_globals.window();".to_string())
     }
 
     create_code
