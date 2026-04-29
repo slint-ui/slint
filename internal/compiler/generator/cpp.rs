@@ -1433,12 +1433,14 @@ fn generate_public_component(
         &ctx,
     );
 
+    // Reach the underlying adapter through `m_globals` so `show`/`hide` work
+    // even when `window()` isn't emitted (non-windowed components).
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "show".into(),
             signature: "() -> void".into(),
-            statements: Some(vec!["window().show();".into()]),
+            statements: Some(vec!["m_globals.window().show();".into()]),
             ..Default::default()
         }),
     ));
@@ -1448,20 +1450,25 @@ fn generate_public_component(
         Declaration::Function(Function {
             name: "hide".into(),
             signature: "() -> void".into(),
-            statements: Some(vec!["window().hide();".into()]),
+            statements: Some(vec!["m_globals.window().hide();".into()]),
             ..Default::default()
         }),
     ));
 
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "window".into(),
-            signature: "() const -> slint::Window&".into(),
-            statements: Some(vec!["return m_globals.window();".into()]),
-            ..Default::default()
-        }),
-    ));
+    match component.top_level_type {
+        llr::TopLevelComponentType::Window => {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "window".into(),
+                    signature: "() const -> slint::Window&".into(),
+                    statements: Some(vec!["return m_globals.window();".into()]),
+                    ..Default::default()
+                }),
+            ));
+        }
+        llr::TopLevelComponentType::SystemTray => {}
+    }
 
     component_struct.members.push((
         Access::Public,
@@ -1975,8 +1982,10 @@ fn generate_item_tree(
     // And in PopupWindow this is also called by the runtime
     if parent_ctx.is_none() && !is_popup {
         create_code.push("self->user_init();".to_string());
-        // initialize the Window in this point to be consistent with Rust
-        create_code.push("self->window();".to_string())
+        // initialize the Window in this point to be consistent with Rust.
+        // Go through `m_globals` rather than the `window()` member function:
+        // non-windowed components (e.g. SystemTray) don't expose `window()`.
+        create_code.push("self->m_globals.window();".to_string())
     }
 
     create_code
