@@ -289,7 +289,12 @@ pub fn collect_all_element_nodes_covering(
     }
 
     let root_element = root_element(component_instance);
-    collect_all_element_nodes_covering_impl(position, component_instance, &root_element, &mut elements);
+    collect_all_element_nodes_covering_impl(
+        position,
+        component_instance,
+        &root_element,
+        &mut elements,
+    );
 
     assign_is_in_root_component(&mut elements);
 
@@ -914,8 +919,7 @@ export component Main inherits Window {
         let component_instance = crate::preview::test::interpret_test("fluent", source);
 
         let test_file = test::main_test_file_name();
-        let rect_offset =
-            source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+        let rect_offset = source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
 
         let popup_rect_element = component_instance
             .element_node_at_source_code_position(&test_file, rect_offset as u32)
@@ -968,8 +972,7 @@ export component Main inherits Window {
         let component_instance = crate::preview::test::interpret_test("fluent", source);
 
         let test_file = test::main_test_file_name();
-        let rect_offset =
-            source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+        let rect_offset = source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
 
         let (popup_rect_element, popup_rect_debug_index) = component_instance
             .element_node_at_source_code_position(&test_file, rect_offset as u32)

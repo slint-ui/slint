@@ -68,7 +68,10 @@ fn active_popup_instances(root_component_instance: &ItemTreeBox) -> Vec<DynamicC
         return Vec::new();
     };
     let active_popups = WindowInner::from_pub(window_adapter.window()).active_popups();
-    active_popups.iter().filter_map(|popup| try_cast_item_tree_to_dynamic_component(&popup.component)).collect()
+    active_popups
+        .iter()
+        .filter_map(|popup| try_cast_item_tree_to_dynamic_component(&popup.component))
+        .collect()
 }
 
 fn collect_highlight_data(
@@ -243,9 +246,9 @@ fn fill_highlight_data(
             }
             let origin =
                 item_rc.map_to_native_window(geometry.origin) - root_origin_in_native.to_vector();
-            let top_right = item_rc.map_to_native_window(
-                geometry.origin + euclid::vec2(geometry.size.width, 0.),
-            ) - root_origin_in_native.to_vector();
+            let top_right = item_rc
+                .map_to_native_window(geometry.origin + euclid::vec2(geometry.size.width, 0.))
+                - root_origin_in_native.to_vector();
             let delta = top_right - origin;
             let width = delta.length();
             let height = geometry.size.height * width / geometry.size.width;
