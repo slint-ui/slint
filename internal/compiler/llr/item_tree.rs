@@ -561,12 +561,22 @@ pub struct ItemTree {
     pub tree: TreeNode,
 }
 
+/// What top-level role an exported component plays. Drives whether the
+/// generated public API is `slint::Window`-shaped (a `ComponentHandle` impl
+/// with `show`/`hide`/`run`/`window`) or something else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TopLevelComponentType {
+    Window,
+    SystemTray,
+}
+
 #[derive(Debug)]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
     pub name: SmolStr,
+    pub top_level_type: TopLevelComponentType,
 }
 
 #[derive(Debug)]
