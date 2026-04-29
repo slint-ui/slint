@@ -3,59 +3,21 @@
 
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import starlightLinksValidator from "starlight-links-validator";
+import sitemap from "@astrojs/sitemap";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
-import rehypeExternalLinks from "rehype-external-links";
+import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
+import { starlightExpandAllSidebarGroups } from "@slint/common-files/src/utils/starlight-expand-all-sidebar-groups";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     NODE_DOCS_BASE_PATH,
     NODE_DOCS_BASE_URL,
     nodeDocsPublicAsset,
 } from "./src/node-site-config.mjs";
-import sitemap from "@astrojs/sitemap";
-
-/**
- * Starlight plugin: starlight-typedoc defaults nested API groups to collapsed; force every
- * sidebar group (and autogenerate subgroup) to start expanded.
- */
-function starlightExpandAllSidebarGroups() {
-    return {
-        name: "starlight-expand-all-sidebar-groups",
-        hooks: {
-            "config:setup"({ config, updateConfig }) {
-                const { sidebar } = config;
-                if (!Array.isArray(sidebar)) return;
-
-                function expandEntries(entries) {
-                    return entries.map((entry) => expandEntry(entry));
-                }
-
-                function expandEntry(entry) {
-                    if (typeof entry === "string") return entry;
-                    if (!entry || typeof entry !== "object") return entry;
-
-                    const out = { ...entry };
-                    if ("collapsed" in out) out.collapsed = false;
-                    if (
-                        out.autogenerate &&
-                        typeof out.autogenerate === "object" &&
-                        !Array.isArray(out.autogenerate)
-                    ) {
-                        out.autogenerate = {
-                            ...out.autogenerate,
-                            collapsed: false,
-                        };
-                    }
-                    if (Array.isArray(out.items)) {
-                        out.items = expandEntries(out.items);
-                    }
-                    return out;
-                }
-
-                updateConfig({ sidebar: expandEntries(sidebar) });
-            },
-        },
-    };
-}
 
 const _nodeOrigin = String(NODE_DOCS_BASE_URL).replace(/\/+$/, "");
 const _nodeAtRoot = NODE_DOCS_BASE_PATH === "/";
@@ -70,24 +32,8 @@ const _nodeBase = _nodeAtRoot
 export default defineConfig({
     site: _nodeSite,
     ...(_nodeBase ? { base: _nodeBase } : {}),
-    trailingSlash: "always",
-    markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
-    },
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
     integrations: [
         sitemap(),
         starlight({
@@ -95,11 +41,14 @@ export default defineConfig({
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },
-            customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
+            customCss: [
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+            ],
             favicon: "favicon.svg",
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
-                Header: "./src/components/Header.astro",
+                Header: "@slint/common-files/src/components/HeaderNodeDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
@@ -112,8 +61,7 @@ export default defineConfig({
                         gitRevision: "master",
                     },
                 }),
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
+                slintStarlightLinksValidatorPlugin({
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
                         return (
@@ -123,65 +71,8 @@ export default defineConfig({
                 }),
                 starlightExpandAllSidebarGroups(),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/slint",
-                },
-            ],
-            head: [
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/svg+xml",
-                        href: nodeDocsPublicAsset("favicon.svg"),
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "32x32",
-                        href: nodeDocsPublicAsset("favicon-32x32.png"),
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "16x16",
-                        href: nodeDocsPublicAsset("favicon-16x16.png"),
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/x-icon",
-                        href: nodeDocsPublicAsset("favicon.ico"),
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "mask-icon",
-                        href: nodeDocsPublicAsset("favicon.svg"),
-                        color: "#8D46E7",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "apple-touch-icon",
-                        sizes: "180x180",
-                        href: nodeDocsPublicAsset("apple-touch-icon.png"),
-                    },
-                },
-            ],
+            social: slintStarlightSocial,
+            head: slintStarlightFaviconHead(nodeDocsPublicAsset),
             sidebar: [
                 { label: "Overview", slug: "index" },
                 typeDocSidebarGroup,

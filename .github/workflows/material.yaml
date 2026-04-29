@@ -126,7 +126,7 @@ jobs:
             rm -rf material-${MATERIAL_ZIP_VERSION}
       - name: Deploy to materialui (Pages)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_production == 'true'
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -137,7 +137,7 @@ jobs:
 
       - name: Deploy to material-staging (Workers production)
         if: (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_production != 'true') && github.ref == 'refs/heads/master'
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
