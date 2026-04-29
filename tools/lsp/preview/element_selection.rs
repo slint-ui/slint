@@ -183,6 +183,10 @@ fn select_element_node(
 // Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
+    real_root_element(root_element)
+}
+
+fn real_root_element(root_element: ElementRc) -> ElementRc {
     if root_element.borrow().debug.is_empty() {
         // The root element has no debug set if it is a window inserted by the compiler.
         // That window will have one child -- the "real root", but it might
@@ -272,14 +276,21 @@ pub fn collect_all_element_nodes_covering(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
-    let root_element = root_element(component_instance);
     let mut elements = Vec::new();
-    collect_all_element_nodes_covering_impl(
-        position,
-        component_instance,
-        &root_element,
-        &mut elements,
-    );
+    let root_component = component_instance.definition().root_component();
+
+    // Check popups first
+    for popup in root_component.popup_windows.borrow().iter().rev() {
+        collect_all_element_nodes_covering_impl(
+            position,
+            component_instance,
+            &real_root_element(popup.component.root_element.clone()),
+            &mut elements,
+        );
+    }
+
+    let root_element = root_element(component_instance);
+    collect_all_element_nodes_covering_impl(position, component_instance, &root_element, &mut elements);
 
     assign_is_in_root_component(&mut elements);
 
@@ -875,6 +886,248 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
     }
 
     #[test]
+    fn test_popup_window_element_positions() {
+        let source = r#"
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 30px;
+        width: 100px;
+        height: 80px;
+
+        popup_rect := Rectangle {
+            x: 10px;
+            y: 5px;
+            width: 40px;
+            height: 20px;
+        }
+    }
+
+    init => {
+        popup.show();
+    }
+}
+"#;
+
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+
+        let test_file = test::main_test_file_name();
+        let rect_offset =
+            source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+
+        let popup_rect_element = component_instance
+            .element_node_at_source_code_position(&test_file, rect_offset as u32)
+            .into_iter()
+            .next()
+            .map(|(e, _)| e)
+            .expect("popup_rect element not found");
+
+        let rect = component_instance
+            .element_positions(&popup_rect_element)
+            .first()
+            .copied()
+            .expect("popup_rect element has no geometry");
+
+        const EPS: f32 = 0.01;
+        assert!((rect.rect.origin.x - 30.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.rect.origin.y - 35.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.rect.size.width - 40.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.rect.size.height - 20.0).abs() <= EPS, "{rect:?}");
+        assert!((rect.angle - 0.0).abs() <= EPS, "{rect:?}");
+    }
+
+    #[test]
+    fn test_popup_window_hit_testing() {
+        let source = r#"
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 30px;
+        width: 100px;
+        height: 80px;
+
+        popup_rect := Rectangle {
+            x: 10px;
+            y: 5px;
+            width: 40px;
+            height: 20px;
+        }
+    }
+
+    init => {
+        popup.show();
+    }
+}
+"#;
+
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+
+        let test_file = test::main_test_file_name();
+        let rect_offset =
+            source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+
+        let (popup_rect_element, popup_rect_debug_index) = component_instance
+            .element_node_at_source_code_position(&test_file, rect_offset as u32)
+            .into_iter()
+            .next()
+            .expect("popup_rect element not found");
+
+        let popup_rect_node =
+            crate::common::ElementRcNode::new(popup_rect_element, popup_rect_debug_index)
+                .expect("popup_rect debug node not found");
+
+        let rect = component_instance
+            .element_positions(&popup_rect_node.element)
+            .first()
+            .copied()
+            .expect("popup_rect element has no geometry");
+
+        let center = rect.rect.center();
+        let candidates = super::collect_all_element_nodes_covering(center, &component_instance);
+
+        assert!(
+            candidates.iter().any(|sc| sc.as_element_node().as_ref() == Some(&popup_rect_node)),
+            "popup_rect not found at {center:?}: {candidates:?}",
+        );
+    }
+
+    #[test]
+    fn test_popup_window_select_at() {
+        let source = r#"
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    popup := PopupWindow {
+        x: 20px;
+        y: 30px;
+        width: 100px;
+        height: 80px;
+
+        popup_rect := Rectangle {
+            x: 10px;
+            y: 5px;
+            width: 40px;
+            height: 20px;
+        }
+    }
+
+    init => {
+        popup.show();
+    }
+}
+"#;
+
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+
+        let test_file = test::main_test_file_name();
+        let rect_offset = source.find("popup_rect := Rectangle").unwrap() + "popup_rect := ".len();
+
+        let (popup_rect_element, popup_rect_debug_index) = component_instance
+            .element_node_at_source_code_position(&test_file, rect_offset as u32)
+            .into_iter()
+            .next()
+            .expect("popup_rect element not found");
+
+        let popup_rect_node =
+            crate::common::ElementRcNode::new(popup_rect_element, popup_rect_debug_index)
+                .expect("popup_rect debug node not found");
+
+        let rect = component_instance
+            .element_positions(&popup_rect_node.element)
+            .first()
+            .copied()
+            .expect("popup_rect element has no geometry");
+
+        let selected =
+            super::select_element_at_impl(&component_instance, rect.rect.center(), false)
+                .expect("no selection at popup center");
+
+        assert_eq!(selected, popup_rect_node);
+    }
+
+    #[test]
+    fn test_combobox_popup_select_at() {
+        use i_slint_core::api::LogicalPosition;
+        use i_slint_core::items::PointerEventButton;
+        use i_slint_core::platform::WindowEvent;
+        use i_slint_core::window::WindowInner;
+
+        let source = r#"
+import { ComboBox } from "std-widgets.slint";
+
+export component Main inherits Window {
+    width: 400px;
+    height: 300px;
+
+    background := Rectangle {
+        width: parent.width;
+        height: parent.height;
+    }
+
+    VerticalLayout {
+        alignment: center;
+
+        box := ComboBox {
+            model: ["First", "Second", "Third", "Fourth"];
+        }
+    }
+}
+"#;
+
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+        let window = WindowInner::from_pub(component_instance.window());
+        window.set_enable_native_popups(false);
+        window.set_allow_interaction_outside_non_menu_popups(true);
+        let click_pos = LogicalPosition::new(200.0, 150.0);
+        component_instance
+            .window()
+            .dispatch_event(WindowEvent::PointerMoved { position: click_pos });
+        component_instance.window().dispatch_event(WindowEvent::PointerPressed {
+            position: click_pos,
+            button: PointerEventButton::Left,
+        });
+        component_instance.window().dispatch_event(WindowEvent::PointerReleased {
+            position: click_pos,
+            button: PointerEventButton::Left,
+        });
+
+        let popup_roots = slint_interpreter::highlight::active_popup_roots(
+            &component_instance.clone_strong().into(),
+        );
+        assert!(!popup_roots.is_empty(), "combobox popup did not open");
+
+        let popup_click = LogicalPoint::new(200.0, 190.0);
+        let selected = super::select_element_at_impl(&component_instance, popup_click, false)
+            .expect("no selection in combobox popup");
+
+        let selected_path_and_offset = selected.path_and_offset();
+
+        assert_eq!(
+            selected_path_and_offset.0,
+            PathBuf::from("builtin:/fluent/combobox.slint"),
+            "background got selected instead: {selected:?}",
+        );
+
+        let item_positions = component_instance
+            .component_positions(&selected_path_and_offset.0, selected_path_and_offset.1.into());
+        assert!(
+            !item_positions.is_empty(),
+            "selected popup item has no geometry: {selected:?}",
+        );
+        assert!(
+            item_positions.iter().any(|position| position.contains(popup_click)),
+            "selected popup item does not cover the click: {item_positions:?}",
+        );
+    }
+
+    #[test]
     fn test_select_imported_component_at_use_site() {
         use crate::common::test::{main_test_file_name, test_file_name};
         use crate::preview::test::interpret_test_with_sources;
@@ -926,15 +1179,14 @@ export component MyInput {
         let selected = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
-            /* enter_component */ false,
+            false,
         )
         .expect("a click on MyInput should select something");
 
         let (path, _offset) = selected.path_and_offset();
         assert_eq!(
             path, main_path,
-            "selection without `enter_component` should land on the MyInput use site \
-             in the main file, not on a node inside the imported component"
+            "selection without `enter_component` should land on the MyInput use site in the main file, not on a node inside the imported component",
         );
     }
 }

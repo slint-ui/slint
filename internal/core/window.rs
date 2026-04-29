@@ -479,6 +479,7 @@ pub struct WindowInner {
 
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
+    enable_native_popups: Cell<bool>,
     next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -541,6 +542,7 @@ impl WindowInner {
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
+            enable_native_popups: Cell::new(true),
             next_popup_id: Cell::new(NonZeroU32::MIN),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
@@ -1346,9 +1348,19 @@ impl WindowInner {
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
     pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if !self.enable_native_popups.get() {
+            return None;
+        }
         self.window_adapter()
             .internal(crate::InternalToken)
             .and_then(|s| s.create_popup_window_adapter())
+    }
+
+    /// Enable or disable native popups for this window.
+    ///
+    /// Live preview turns this off so popups stay inside the window.
+    pub fn set_enable_native_popups(&self, enable: bool) {
+        self.enable_native_popups.set(enable);
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.

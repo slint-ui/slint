@@ -1525,8 +1525,12 @@ fn set_preview_factory(
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
 ) {
-    // Ensure that any popups are closed as they are related to the old factory
-    i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
+    let preview_window = i_slint_core::window::WindowInner::from_pub(app_window.window());
+
+    // Close popups from the old preview instance
+    preview_window.close_all_popups();
+    // Keep popups embedded so the inspector still works
+    preview_window.set_enable_native_popups(false);
 
     compiled.set_debug_handler(
         |location, text| {
