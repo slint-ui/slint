@@ -314,11 +314,6 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
             gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
         });
 
-        crate::context::GLOBAL_CONTEXT.with(|ctx| {
-            let Some(ctx) = ctx.get() else { return };
-            ctx.0.gettext_bindtextdomain_domain.replace(Some(_domain.into()));
-        });
-
         mark_all_translations_dirty();
     }
     Ok(())

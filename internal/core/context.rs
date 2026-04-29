@@ -26,8 +26,6 @@ pub(crate) struct SlintContextInner {
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) translations_bundle_decimal_separators:
         core::cell::RefCell<Option<alloc::vec::Vec<Option<char>>>>,
-    #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
-    pub(crate) gettext_bindtextdomain_domain: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<Option<char>>>>,
@@ -61,8 +59,6 @@ impl SlintContext {
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
             translations_bundle_decimal_separators: Default::default(),
-            #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
-            gettext_bindtextdomain_domain: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: Box::pin(Property::new_named(
                 None,
