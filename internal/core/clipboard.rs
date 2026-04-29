@@ -181,7 +181,7 @@ impl ClipboardDataProvider for OverrideMimeType {
 }
 impl ClipboardDataProvider for SharedString {
     fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_> {
-        Box::new(self::mime::PLAINTEXT.into_iter().copied())
+        Box::new(self::mime::PLAINTEXT.iter().copied())
     }
 
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {
@@ -195,7 +195,7 @@ impl ClipboardDataProvider for SharedString {
 
 impl ClipboardDataProvider for Image {
     fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_> {
-        Box::new(self::mime::IMAGE.into_iter().copied())
+        Box::new(self::mime::IMAGE.iter().copied())
     }
 
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {
