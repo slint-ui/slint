@@ -62,9 +62,9 @@ export component TestCase inherits Window {
 ```rust
 use slint::private_unstable_api::re_exports::StyledText;
 let instance = TestCase::new().unwrap();
-assert_eq!(instance.get_t1(), StyledText::parse_interpolated::<StyledText>("Hello World", &[]).unwrap());
-assert_eq!(instance.get_t2(), StyledText::parse_interpolated::<StyledText>("Hello \\*World\\*", &[]).unwrap());
-assert_eq!(instance.get_t3(), StyledText::parse_interpolated::<StyledText>("Hello *World*", &[]).unwrap());
+assert_eq!(instance.get_t1(), StyledText::from_markdown("Hello World").unwrap());
+assert_eq!(instance.get_t2(), StyledText::from_markdown("Hello \\*World\\*").unwrap());
+assert_eq!(instance.get_t3(), StyledText::from_markdown("Hello *World*").unwrap());
 assert_eq!(instance.get_w1(), 66.0);
 assert_eq!(instance.get_w2(), 80.0);
 assert_eq!(instance.get_w3(), 64.0);

@@ -9,22 +9,48 @@ pub struct StyledText {
     pub(crate) paragraphs: crate::SharedVector<i_slint_common::styled_text::StyledTextParagraph>,
 }
 
+/// Error returned when [`StyledText::from_markdown`] cannot parse the provided markdown input.
 #[cfg(feature = "std")]
-impl StyledText {
-    pub fn parse_interpolated<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
-        format_string: &str,
-        args: &[S],
-    ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
-        Ok(Self {
-            paragraphs: i_slint_common::styled_text::parse_interpolated(format_string, args)
-                .collect::<Result<crate::SharedVector<_>, _>>()?,
-        })
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StyledTextFromMarkdownError {
+    message: alloc::string::String,
+}
+
+#[cfg(feature = "std")]
+impl StyledTextFromMarkdownError {
+    fn new(error: i_slint_common::styled_text::StyledTextError<'static>) -> Self {
+        Self { message: alloc::format!("{error}") }
     }
 }
 
-impl AsRef<[i_slint_common::styled_text::StyledTextParagraph]> for StyledText {
-    fn as_ref(&self) -> &[i_slint_common::styled_text::StyledTextParagraph] {
-        &self.paragraphs
+#[cfg(feature = "std")]
+impl core::fmt::Display for StyledTextFromMarkdownError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for StyledTextFromMarkdownError {}
+
+#[cfg(feature = "std")]
+impl StyledText {
+    /// Creates styled text from plain text without applying markdown parsing.
+    pub fn from_plain_text(text: &str) -> Self {
+        Self {
+            paragraphs: [i_slint_common::styled_text::paragraph_from_plain_text(text.into())]
+                .into(),
+        }
+    }
+
+    /// Parses markdown into styled text.
+    pub fn from_markdown(markdown: &str) -> Result<Self, StyledTextFromMarkdownError> {
+        parse_interpolated_paragraphs::<[i_slint_common::styled_text::StyledTextParagraph; 0]>(
+            markdown,
+            &[],
+        )
+        .map(|paragraphs| Self { paragraphs })
+        .map_err(StyledTextFromMarkdownError::new)
     }
 }
 
@@ -81,13 +107,14 @@ pub mod ffi {
     }
 }
 
-pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
-    _format_string: &str,
-    _args: &[S],
-) -> StyledText {
+pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse_interpolated(_format_string, _args).unwrap()
+        let paragraph_slices = _args
+            .iter()
+            .map(|styled_text| styled_text.paragraphs.as_slice())
+            .collect::<alloc::vec::Vec<_>>();
+        parse_interpolated_styled_text(_format_string, &paragraph_slices).unwrap_or_default()
     }
     #[cfg(not(feature = "std"))]
     Default::default()
@@ -99,20 +126,63 @@ pub fn string_to_styled_text(_string: alloc::string::String) -> StyledText {
         if _string.is_empty() {
             return Default::default();
         }
-        StyledText {
-            paragraphs: [i_slint_common::styled_text::paragraph_from_plain_text(_string)].into(),
-        }
+        StyledText::from_plain_text(&_string)
     }
     #[cfg(not(feature = "std"))]
     Default::default()
 }
 
-#[cfg(test)]
+#[cfg(feature = "std")]
+fn parse_interpolated_styled_text<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
+    format_string: &str,
+    args: &[S],
+) -> Result<StyledText, StyledTextFromMarkdownError> {
+    parse_interpolated_paragraphs(format_string, args)
+        .map(|paragraphs| StyledText { paragraphs })
+        .map_err(StyledTextFromMarkdownError::new)
+}
+
+#[cfg(feature = "std")]
+fn parse_interpolated_paragraphs<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
+    format_string: &str,
+    args: &[S],
+) -> Result<
+    crate::SharedVector<i_slint_common::styled_text::StyledTextParagraph>,
+    i_slint_common::styled_text::StyledTextError<'static>,
+> {
+    i_slint_common::styled_text::parse_interpolated(format_string, args)
+        .collect::<Result<crate::SharedVector<_>, _>>()
+}
+
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
+    use alloc::format;
 
     #[test]
-    fn string_to_styled_text() {
+    fn string_to_styled_text_returns_default_for_empty_string() {
         assert_eq!(super::string_to_styled_text(Default::default()), StyledText::default());
+    }
+
+    #[test]
+    fn parse_markdown_returns_default_on_runtime_parse_error() {
+        let multi_paragraph_argument = StyledText {
+            paragraphs: [
+                i_slint_common::styled_text::paragraph_from_plain_text("first".into()),
+                i_slint_common::styled_text::paragraph_from_plain_text("second".into()),
+            ]
+            .into(),
+        };
+
+        assert_eq!(
+            parse_markdown(
+                &format!(
+                    "Text: {}",
+                    i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER
+                ),
+                &[multi_paragraph_argument],
+            ),
+            StyledText::default()
+        );
     }
 }

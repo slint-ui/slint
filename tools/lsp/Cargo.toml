@@ -139,5 +139,5 @@ spin_on = { workspace = true }
 [build-dependencies]
 slint-build = { workspace = true, features = ["default"], optional = true }
 
-# [package.metadata.wasm-pack.profile.release]
-# wasm-opt = false
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
