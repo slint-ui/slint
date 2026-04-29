@@ -49,9 +49,9 @@ const TestCase &instance = *handle;
 
 // condition is false
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq(instance.get_r(), "initR(0).initL(0).clickL(1).");
+assert_eq(instance.get_r(), "initL(0).initR(0).clickL(1).");
 slint_testing::send_mouse_click(&instance, 95., 5.);
-assert_eq(instance.get_r(), "initR(0).initL(0).clickL(1).clickR(1).");
+assert_eq(instance.get_r(), "initL(0).initR(0).clickL(1).clickR(1).");
 instance.set_r("");
 
 instance.set_value(-42);
@@ -83,9 +83,9 @@ assert_eq(instance.get_r(), "clickL(2).");
 let instance = TestCase::new().unwrap();
 
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq!(instance.get_r(), "initR(0).initL(0).clickL(1).");
+assert_eq!(instance.get_r(), "initL(0).initR(0).clickL(1).");
 slint_testing::send_mouse_click(&instance, 95., 5.);
-assert_eq!(instance.get_r(), "initR(0).initL(0).clickL(1).clickR(1).");
+assert_eq!(instance.get_r(), "initL(0).initR(0).clickL(1).clickR(1).");
 instance.set_r("".into());
 
 instance.set_value(-42);
@@ -115,9 +115,9 @@ assert_eq!(instance.get_r(), "clickL(2).");
 ```js
 var instance = new slint.TestCase();
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-assert.equal(instance.r, "initR(0).initL(0).clickL(1).");
+assert.equal(instance.r, "initL(0).initR(0).clickL(1).");
 slintlib.private_api.send_mouse_click(instance, 95., 5.);
-assert.equal(instance.r, "initR(0).initL(0).clickL(1).clickR(1).");
+assert.equal(instance.r, "initL(0).initR(0).clickL(1).clickR(1).");
 instance.r = "";
 
 instance.value = -42;

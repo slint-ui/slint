@@ -14,11 +14,31 @@ use i_slint_core::items::TextWrap;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::Mutex;
 
+std::thread_local! {
+    /// Live windows targeted by [`ensure_all_tracked_trees_instantiated`].
+    static ALL_TESTING_WINDOWS: RefCell<Vec<Weak<TestingWindow>>> =
+        const { RefCell::new(Vec::new()) }
+}
+
+/// Run the `ensure_instantiated` repeater instantiation pass on every live
+/// testing window.
+fn ensure_all_tracked_trees_instantiated() {
+    let live: Vec<Rc<TestingWindow>> = ALL_TESTING_WINDOWS.with(|list| {
+        let mut list = list.borrow_mut();
+        list.retain(|w| w.upgrade().is_some());
+        list.iter().filter_map(|w| w.upgrade()).collect()
+    });
+    for tw in live {
+        WindowInner::from_pub(&tw.window).ensure_tree_instantiated();
+    }
+}
+
 /// Advance the mocked time by the given number of milliseconds, updating
-/// animations, firing timers, and running change handlers.
+/// animations, firing timers, running change handlers, and instantiating
+/// pending repeaters and conditionals on every live testing window.
 pub fn mock_elapsed_time(time_in_ms: u64) {
     let tick = i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         let mut tick = driver.current_tick();
@@ -28,6 +48,7 @@ pub fn mock_elapsed_time(time_in_ms: u64) {
     });
     i_slint_core::timers::TimerList::maybe_activate_timers(tick);
     i_slint_core::properties::ChangeTracker::run_change_handlers();
+    ensure_all_tracked_trees_instantiated();
 }
 
 /// Return the current mocked time in milliseconds.
@@ -143,14 +164,16 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
-        Ok(Rc::new_cyclic(|self_weak| TestingWindow {
+        let window = Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
             ime_requests: Default::default(),
             mouse_cursor: Default::default(),
             all_item_trees: Default::default(),
             open_url: self.open_url.clone(),
-        }))
+        });
+        ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
+        Ok(window)
     }
 
     fn duration_since_start(&self) -> core::time::Duration {

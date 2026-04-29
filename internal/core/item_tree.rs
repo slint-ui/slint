@@ -102,6 +102,13 @@ pub struct ItemTreeVTable {
     pub layout_info:
         extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, Orientation) -> LayoutInfo,
 
+    /// Recursively materialize every Repeater, Conditional, and
+    /// ComponentContainer reachable from this ItemTree. Called at event-loop
+    /// boundaries so init code runs outside any in-flight property evaluation.
+    /// This is the "repeater instantiation pass".
+    /// Returns `true` if any instance was created or removed.
+    pub ensure_instantiated: extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>) -> bool,
+
     /// Returns the item's geometry (relative to its parent item)
     pub item_geometry:
         extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> LogicalRect,
@@ -166,6 +173,14 @@ pub type ItemTreeRefPin<'a> = core::pin::Pin<ItemTreeRef<'a>>;
 pub type ItemTreeRc = vtable::VRc<ItemTreeVTable, Dyn>;
 /// Type alias to the commonly used VWeak<ItemTreeVTable, Dyn>>
 pub type ItemTreeWeak = vtable::VWeak<ItemTreeVTable, Dyn>;
+
+/// Ensure all repeaters and conditionals within the given item tree are
+/// instantiated. Call this before non-rendering tree walks that use
+/// `first_child` / `next_sibling`.
+/// Returns `true` if any instance was created or removed.
+pub fn ensure_item_tree_instantiated(item_tree: &vtable::VRc<ItemTreeVTable>) -> bool {
+    vtable::VRc::borrow_pin(item_tree).as_ref().ensure_instantiated()
+}
 
 /// Call init() on the ItemVTable for each item of the ItemTree.
 pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<WindowAdapterRc>) {
@@ -983,12 +998,20 @@ impl ItemRc {
         result
     }
 
-    /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
-    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    /// Visit the children of this element and call the visitor to each of them,
+    /// until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value.
+    /// If it doesn't break, the function returns None.
+    ///
+    /// Runs [`ensure_item_tree_instantiated`] once before the walk so all
+    /// repeaters, conditionals, and component containers are materialized.
+    /// The recursive descent uses the private `visit_descendants_impl`,
+    /// which doesn't call it again.
     pub fn visit_descendants<R>(
         &self,
         mut visitor: impl FnMut(&ItemRc) -> ControlFlow<R>,
     ) -> Option<R> {
+        ensure_item_tree_instantiated(self.item_tree());
         self.visit_descendants_impl(&mut visitor)
     }
 
@@ -1568,6 +1591,10 @@ mod tests {
             _parent_component: &ItemTreeWeak,
             _item_tree_index: u32,
         ) -> bool {
+            false
+        }
+
+        fn ensure_instantiated(self: core::pin::Pin<&Self>) -> bool {
             false
         }
 

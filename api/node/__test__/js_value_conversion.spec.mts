@@ -815,12 +815,15 @@ test("Model notify", () => {
     const model = new ArrayModel([100, 0]);
 
     instance.setProperty("fixed-height-model", model);
+    instance.sendKeyCombo([""]);
     expect(instance.getProperty("layout-height") as number).toBe(100);
     model.setRowData(1, 50);
     expect(instance.getProperty("layout-height") as number).toBe(150);
     model.push(75);
+    instance.sendKeyCombo([""]);
     expect(instance.getProperty("layout-height") as number).toBe(225);
     model.remove(1, 2);
+    instance.sendKeyCombo([""]);
     expect(instance.getProperty("layout-height") as number).toBe(100);
 });
 

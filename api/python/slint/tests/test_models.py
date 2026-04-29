@@ -42,13 +42,16 @@ def test_model_notify() -> None:
     model = models.ListModel([100, 0])
 
     instance.set_property("fixed-height-model", model)
+    instance._process_pending_events()
 
     assert instance.get_property("layout-height") == 100
     model.set_row_data(1, 50)
     assert instance.get_property("layout-height") == 150
     model.append(75)
+    instance._process_pending_events()
     assert instance.get_property("layout-height") == 225
     del model[1:]
+    instance._process_pending_events()
     assert instance.get_property("layout-height") == 100
 
     assert isinstance(instance.get_property("fixed-height-model"), models.ListModel)

@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Extended regression test for #7402: several sibling Conditionals and a
+// `for` whose children all read geometry from `init`.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    in-out property <int> observed: 0;
+    out property <bool> test: observed == 4;
+    VerticalLayout {
+        if true: Rectangle {
+            min-height: 20px;
+            init => {
+                debug(self.y);
+                debug(self.width);
+                observed += 1;
+            }
+        }
+        for i in 3: Rectangle {
+            min-height: 20px;
+            init => {
+                debug(self.absolute-position.x);
+                observed += 1;
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_observed(), 4);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_observed() == 4);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.observed, 4);
+assert(instance.test);
+```
+*/

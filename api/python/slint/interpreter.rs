@@ -584,6 +584,12 @@ impl ComponentInstance {
         Ok(self.instance.set_global_callback(global_name, callback_name, rust_cb)?.into())
     }
 
+    fn _process_pending_events(&self) {
+        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        i_slint_core::window::WindowInner::from_pub(self.instance.window())
+            .ensure_tree_instantiated();
+    }
+
     fn show(&self) -> Result<(), PyPlatformError> {
         Ok(self.instance.show()?)
     }
