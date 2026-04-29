@@ -103,6 +103,7 @@ pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     window: &'a i_slint_core::api::Window,
     scale_factor: ScaleFactor,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
+    dummy_texture: Rc<super::images::Texture<R>>,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
     metrics: RenderingMetrics,
@@ -1044,6 +1045,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         height: u32,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
+        // femtovg doesn't have a concept of a null renderer, so we need to create _something_ to
+        // render to. Textures can't be zero-sized, so we need to give it a size of 1px. When we use
+        // this texture in `render_layer`, we discard the result, so we can safely reuse it many
+        // times.
+        let dummy_texture =
+            Texture::new_empty_on_gpu(canvas, 1, 1).expect("Could not create dummy texture");
         Self {
             graphics_cache,
             texture_cache,
@@ -1053,6 +1060,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             window,
             scale_factor,
             text_layout_cache,
+            dummy_texture,
             state: vec![State {
                 scissor: LogicalRect::new(
                     LogicalPoint::default(),
@@ -1112,7 +1120,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             let bounding_rect = layer_bounding_rect_fn();
             let origin = bounding_rect.origin * self.scale_factor;
-            let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
+            let size =
+                (bounding_rect.size * self.scale_factor).ceil().try_cast().unwrap_or_default();
 
             let layer_image = existing_layer_texture
                 .and_then(|layer_texture| {
@@ -1130,15 +1139,22 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 .or_else(|| {
                     *self.metrics.layers_created.as_mut().unwrap() += 1;
                     Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
-                })?;
+                });
 
             let previous_render_target = self.current_render_target();
+            let layer_render_target = layer_image
+                .as_ref()
+                // We need something to render to, so `render_item_children` can be called and any
+                // dependencies between the layer size and the descendents' bounding boxes can be
+                // tracked. If the size is 0, the above `new_empty_on_gpu` call will fail, so we
+                // use a dummy texture here.
+                .unwrap_or(&self.dummy_texture)
+                .as_render_target();
 
+            self.save_state();
             {
                 let mut canvas = self.canvas.borrow_mut();
-                canvas.save();
-
-                canvas.set_render_target(layer_image.as_render_target());
+                canvas.set_render_target(layer_render_target);
 
                 canvas.reset();
 
@@ -1150,7 +1166,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             *self.state.last_mut().unwrap() = State {
                 scissor: bounding_rect,
                 global_alpha: 1.,
-                current_render_target: layer_image.as_render_target(),
+                current_render_target: layer_render_target,
             };
 
             let window_adapter = self.window().window_adapter();
@@ -1162,14 +1178,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 &window_adapter,
             );
 
-            {
-                let mut canvas = self.canvas.borrow_mut();
-                canvas.restore();
+            self.restore_state();
+            self.canvas.borrow_mut().set_render_target(previous_render_target);
 
-                canvas.set_render_target(previous_render_target);
-            }
-
-            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image, origin })
+            // We do the `?` short-circuiting right at the end - we don't want to store the dummy texture in
+            // the layer cache, but we still want to call `render_item_children` in order to set up
+            // dependencies. This means that we still handle dependencies but ultimately return `None` if
+            // `layer_image` is `None`.
+            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image?, origin })
         });
 
         cache_entry.and_then(|item_cache_entry| match item_cache_entry {

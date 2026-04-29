@@ -36,6 +36,8 @@ pub struct SkiaItemRenderer<'a> {
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
     surface: Option<&'a dyn crate::Surface>,
+    // Shared canvas for when we want to call rendering functions without actually doing anything.
+    dummy_canvas: skia_safe::OwnedCanvas<'a>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
@@ -61,6 +63,7 @@ impl<'a> SkiaItemRenderer<'a> {
             scale_factor: ScaleFactor::new(window.scale_factor()),
             window,
             surface,
+            dummy_canvas: Default::default(),
             state_stack: Vec::new(),
             current_state: RenderState {
                 alpha: 1.0,
@@ -372,30 +375,40 @@ impl<'a> SkiaItemRenderer<'a> {
                 skia_safe::AlphaType::Premul,
                 None,
             );
-            let mut surface = self.canvas.new_surface(&image_info, None)?;
-            let canvas = surface.canvas();
-            canvas.clear(skia_safe::Color::TRANSPARENT);
+            let mut surface = self.canvas.new_surface(&image_info, None);
 
-            let mut sub_renderer = SkiaItemRenderer::new(
-                canvas,
-                self.window,
-                self.surface,
-                self.image_cache,
-                self.layer_cache,
-                self.path_cache,
-                self.text_layout_cache,
-                self.box_shadow_cache,
-            );
-            sub_renderer.translate(-bounding_rect.origin.to_vector());
+            {
+                let canvas = match &mut surface {
+                    Some(surface) => surface.canvas(),
+                    None => &self.dummy_canvas,
+                };
+                canvas.clear(skia_safe::Color::TRANSPARENT);
 
-            i_slint_core::item_rendering::render_item_children(
-                &mut sub_renderer,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &WindowInner::from_pub(self.window).window_adapter(),
-            );
+                let mut sub_renderer = SkiaItemRenderer::new(
+                    canvas,
+                    self.window,
+                    self.surface,
+                    self.image_cache,
+                    self.layer_cache,
+                    self.path_cache,
+                    self.text_layout_cache,
+                    self.box_shadow_cache,
+                );
+                sub_renderer.translate(-bounding_rect.origin.to_vector());
 
-            Some((physical_origin.to_vector(), surface.image_snapshot()))
+                i_slint_core::item_rendering::render_item_children(
+                    &mut sub_renderer,
+                    item_rc.item_tree(),
+                    item_rc.index() as isize,
+                    &WindowInner::from_pub(self.window).window_adapter(),
+                );
+            }
+
+            // We do the `?` short-circuiting right at the end - we don't want to store an empty surface in
+            // the layer cache, but we still want to call `render_item_children` in order to set up
+            // dependencies. This means that we still handle dependencies but ultimately return `None` if
+            // `layer_image` is `None`.
+            Some((physical_origin.to_vector(), surface?.image_snapshot()))
         })
     }
 
