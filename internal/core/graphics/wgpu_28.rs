@@ -175,26 +175,26 @@ pub fn any_wgpu28_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         Some(RequestedGraphicsAPI::WGPU28(api::WGPUConfiguration::Manual { instance, .. })) => {
             (instance, wgpu::Backends::all())
         }
-        #[cfg(feature = "unstable-wgpu-28")]
-        Some(RequestedGraphicsAPI::WGPU28(api::WGPUConfiguration::Automatic(wgpu28_settings))) => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-            (
-                wgpu::Instance::new(&wgpu::InstanceDescriptor {
-                    backends: wgpu28_settings.backends,
-                    flags: wgpu28_settings.instance_flags,
-                    backend_options: wgpu28_settings.backend_options,
-                    memory_budget_thresholds: wgpu28_settings.instance_memory_budget_thresholds,
-                }),
-                wgpu28_settings.backends,
-            )
+        #[cfg(all(feature = "unstable-wgpu-28", target_arch = "wasm32"))]
+        Some(RequestedGraphicsAPI::WGPU28(api::WGPUConfiguration::Automatic(_))) => {
+            return webgpu_api_available();
         }
+        #[cfg(all(feature = "unstable-wgpu-28", not(target_arch = "wasm32")))]
+        Some(RequestedGraphicsAPI::WGPU28(api::WGPUConfiguration::Automatic(wgpu28_settings))) => (
+            wgpu::Instance::new(&wgpu::InstanceDescriptor {
+                backends: wgpu28_settings.backends,
+                flags: wgpu28_settings.instance_flags,
+                backend_options: wgpu28_settings.backend_options,
+                memory_budget_thresholds: wgpu28_settings.instance_memory_budget_thresholds,
+            }),
+            wgpu28_settings.backends,
+        ),
+        #[cfg(target_arch = "wasm32")]
         None => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-
+            return webgpu_api_available();
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        None => {
             let backends = wgpu::Backends::from_env().unwrap_or_default();
             let dx12_shader_compiler = wgpu::Dx12Compiler::from_env().unwrap_or_default();
             let dx12_presentation_system =
@@ -230,6 +230,19 @@ pub fn any_wgpu28_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         .unwrap()
         .into_iter()
         .any(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn webgpu_api_available() -> bool {
+    let Ok(navigator) =
+        js_sys::Reflect::get(&js_sys::global(), &wasm_bindgen::JsValue::from_str("navigator"))
+    else {
+        return false;
+    };
+    let Ok(gpu) = js_sys::Reflect::get(&navigator, &wasm_bindgen::JsValue::from_str("gpu")) else {
+        return false;
+    };
+    !gpu.is_null() && !gpu.is_undefined()
 }
 
 /// Enum to represent different surface targets for WGPU initialization.

@@ -179,10 +179,11 @@ impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
         if !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
         ) {
+            #[cfg(target_arch = "wasm32")]
+            i_slint_core::debug_log!("Slint: WebGPU API not available");
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
         Ok(Box::new(Self {

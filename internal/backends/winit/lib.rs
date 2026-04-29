@@ -149,11 +149,7 @@ fn try_create_window_with_fallback_renderer(
         renderer::skia::WinitSkiaRenderer::new_suspended,
         #[cfg(feature = "renderer-femtovg-wgpu")]
         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended,
-        #[cfg(all(
-            feature = "renderer-femtovg",
-            supports_opengl,
-            not(feature = "renderer-femtovg-wgpu")
-        ))]
+        #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
