@@ -400,17 +400,17 @@ pub fn string_to_float(string: &str) -> Option<f32> {
             s.parse::<f32>().ok() // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
         }
 
-        if let Some(slint_context) = ctx.get() {
-            let sep = slint_context.locale_decimal_separator();
-            // Only allow the locale's decimal separator, not '.'
-            if sep != '.' && string.contains('.') {
+        let sep = ctx.get().map(|ctx| ctx.locale_decimal_seperator).unwrap_or('.');
+
+        if sep == '.' {
+            parse(string)
+        } else {
+            if string.contains('.') {
                 return None;
             }
             // Normalize locale separator to '.' because f64::parse only accepts '.'
-            if sep != '.' { parse(&string.replace(sep, ".")) } else { parse(string) }
-        } else {
-            parse(string)
-        }
+            parse(&string.replace(sep, "."))
+         }
     })
 }
 
