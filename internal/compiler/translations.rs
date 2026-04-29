@@ -50,10 +50,9 @@ pub struct TranslationsBuilder {
 
 impl TranslationsBuilder {
     pub fn load_translations(path: &Path, domain: &str) -> std::io::Result<Self> {
-        const DEFAULT_DECIMAL_SEPARATOR: &str = ".";
         let mut languages = vec!["".into()];
         let mut catalogs = Vec::new();
-        let mut decimal_separators = vec![Some(SmolStr::new(DEFAULT_DECIMAL_SEPARATOR))];
+        let mut decimal_separators = vec![None];
         let mut plural_rules =
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
         for l in std::fs::read_dir(path)
@@ -69,8 +68,7 @@ impl TranslationsBuilder {
                 languages.push(language_name.clone());
                 decimal_separators.push(Some(
                     decimal_separator_for_locale(language_name.as_str())
-                        .map(|separator| separator.to_smolstr())
-                        .unwrap_or_else(|| SmolStr::new(DEFAULT_DECIMAL_SEPARATOR)),
+                        .map(|separator| separator.to_smolstr()),
                 ));
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {

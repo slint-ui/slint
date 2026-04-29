@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::Property;
 use crate::api::PlatformError;
 use crate::input::InternalKeyboardModifierState;
 use crate::platform::{EventLoopProxy, Platform};
+use crate::{Property, translations};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
@@ -139,9 +139,9 @@ impl SlintContext {
         None
     }
 
-    /// Returns the locale's decimal separator, falling back to `'.'`.
+    /// Returns the locale's decimal separator, falling back to `translations::DEFAULT_SEPARATOR`.
     pub fn locale_decimal_separator(&self) -> char {
-        self.0.locale_decimal_separator.as_ref().get().unwrap_or('.')
+        self.0.locale_decimal_separator.as_ref().get().unwrap_or(translations::DEFAULT_SEPARATOR)
     }
 
     /// Override the locale used for decimal separator detection (testing only).

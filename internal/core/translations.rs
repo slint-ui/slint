@@ -7,6 +7,8 @@ pub use formatter::FormatArgs;
 #[cfg(feature = "tr")]
 pub use tr::Translator;
 
+pub(crate) const DEFAULT_SEPARATOR: char = '.';
+
 mod formatter {
     use core::fmt::{Display, Formatter, Result};
 
@@ -547,7 +549,6 @@ mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_decimal_separator(out: &mut SharedString) {
         crate::context::GLOBAL_CONTEXT.with(|ctx| {
-            const DEFAULT_SEPARATOR: char = '.';
             let separator = if let Some(ctx) = ctx.get() {
                 ctx.0.locale_decimal_separator.as_ref().get().unwrap_or(DEFAULT_SEPARATOR)
             } else {
