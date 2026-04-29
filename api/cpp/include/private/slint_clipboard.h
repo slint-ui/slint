@@ -9,27 +9,15 @@ struct Image;
 class ClipboardData
 {
 public:
-    explicit ClipboardData(const slint::SharedString &string)
-    {
-        (void)string;
-    }
+    explicit ClipboardData(const slint::SharedString &string) { (void)string; }
 
-    explicit ClipboardData(const slint::Image &image)
-    {
-        (void)image;
-    }
+    explicit ClipboardData(const slint::Image &image) { (void)image; }
 
     friend bool operator==(const ClipboardData &a, const ClipboardData &b) = default;
 
-    inline bool hasPlaintext()
-    {
-        return false;
-    }
+    inline bool hasPlaintext() { return false; }
 
-    inline bool hasImage()
-    {
-        return false;
-    }
+    inline bool hasImage() { return false; }
 
     inline slint::SharedString readPlaintext()
     {
