@@ -430,11 +430,76 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 /// It can be created with the `@keys` macro in Slint and defines which key event(s) activate a KeyBinding.
 ///
 /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
+///
+/// In `.slint` files, `Keys` values are typically created via the `@keys(...)` macro.
+/// From backend code, they can be created from a list of string parts with the similar
+/// syntax as the macro:
+///
+/// ```rust
+/// use i_slint_core::input::Keys;
+///
+/// let save = Keys::from_parts(["Control", "S"])?;
+/// let undo = Keys::from_parts(["Control", "Shift?", "Z"])?;
+/// let f5 = Keys::from_parts(["F5"])?;
+/// let zoom_in = Keys::from_parts(["Control", "Plus"])?;
+/// let euro = Keys::from_parts(["Control", "€"])?;
+/// let empty = Keys::from_parts([])?;  // same as Keys::default()
+/// # Ok::<(), i_slint_core::input::KeysParseError>(())
+/// ```
+/// ## Parts format
+///
+/// Each element is either a modifier or a key (case-sensitive, matching the `@keys` macro):
+/// - **Modifiers** (optional): `Control`, `Alt`, `Shift`, `Meta`
+/// - **Optional modifiers**: `Shift?`, `Alt?` (match regardless of that modifier's state)
+/// - **Named key** (required, exactly one): A named key (`Return`, `Tab`, `F1`, `Plus`, `Space`, `A`–`Z`, etc.)
+/// - **String literal fallback**: If no named key matches, the part is treated as a string
+///   literal — it must be a single lowercase grapheme cluster (e.g., `"€"`, `"é"`)
+///
+/// Keys with layout-dependent shifted variants (digits `Digit0`–`Digit9`, symbols like
+/// `Plus`, `Comma`, etc.) automatically get `Shift?` behavior, just like the `@keys` macro.
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(C)]
 pub struct Keys {
     inner: KeysInner,
 }
+
+/// Error type returned when constructing a [`Keys`] from string parts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum KeysParseError {
+    /// No key was found (only modifiers were specified).
+    NoKey,
+    /// More than one non-modifier key was found.
+    MultipleKeys,
+    /// A string literal contains more than one grapheme cluster.
+    MultipleGraphemeClusters(SharedString),
+    /// A string literal is not lowercase.
+    NotLowercase(SharedString),
+    /// Incompatible modifiers were specified (e.g. both `Shift` and `Shift?`).
+    IncompatibleModifiers(SharedString),
+}
+
+impl core::fmt::Display for KeysParseError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::NoKey => write!(f, "no key found (only modifiers)"),
+            Self::MultipleKeys => write!(f, "multiple non-modifier keys found"),
+            Self::MultipleGraphemeClusters(s) => {
+                write!(f, "key string must be a single grapheme cluster, got: {s}")
+            }
+            Self::NotLowercase(s) => {
+                let lower = s.to_lowercase();
+                write!(f, "key string must be lowercase, use \"{lower}\" instead")
+            }
+            Self::IncompatibleModifiers(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for KeysParseError {}
+
+use i_slint_common::key_codes::{ShiftBehavior, lookup_key_name};
 
 /// Re-exported in private_unstable_api to create a Keys struct.
 pub fn make_keys(
@@ -483,6 +548,135 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn slint_keys_to_string(shortcut: &Keys, out: &mut SharedString) {
         *out = shortcut.to_shared_string();
     }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_keys_from_parts(
+        parts: crate::slice::Slice<'_, SharedString>,
+        out: &mut Keys,
+    ) -> bool {
+        match keys_from_parts(parts.as_slice().iter().map(|s| s.as_str())) {
+            Ok(keys) => {
+                *out = keys;
+                true
+            }
+            Err(_) => false,
+        }
+    }
+}
+
+/// Normalize a key string: lowercase and NFC-normalize.
+fn normalize_key(key: &str) -> SharedString {
+    let lowered = key.to_lowercase();
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "shared-parley")] {
+            let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
+            let normalized = normalizer.normalize(&lowered);
+            SharedString::from(normalized.as_ref())
+        } else {
+            SharedString::from(lowered.as_str())
+        }
+    }
+}
+
+fn keys_from_parts<'a>(parts: impl Iterator<Item = &'a str>) -> Result<Keys, KeysParseError> {
+    use unicode_segmentation::UnicodeSegmentation;
+
+    let mut modifiers = KeyboardModifiers::default();
+    let mut ignore_shift = false;
+    let mut ignore_alt = false;
+    let mut key_part: Option<&str> = None;
+
+    for part in parts {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        match part {
+            "Control" => modifiers.control = true,
+            "Alt" => {
+                if ignore_alt {
+                    return Err(KeysParseError::IncompatibleModifiers(
+                        "Alt and Alt? cannot be combined".into(),
+                    ));
+                }
+                modifiers.alt = true;
+            }
+            "Shift" => {
+                if ignore_shift {
+                    return Err(KeysParseError::IncompatibleModifiers(
+                        "Shift and Shift? cannot be combined".into(),
+                    ));
+                }
+                modifiers.shift = true;
+            }
+            "Meta" => modifiers.meta = true,
+            "Shift?" => {
+                if modifiers.shift {
+                    return Err(KeysParseError::IncompatibleModifiers(
+                        "Shift and Shift? cannot be combined".into(),
+                    ));
+                }
+                ignore_shift = true;
+            }
+            "Alt?" => {
+                if modifiers.alt {
+                    return Err(KeysParseError::IncompatibleModifiers(
+                        "Alt and Alt? cannot be combined".into(),
+                    ));
+                }
+                ignore_alt = true;
+            }
+            _ => {
+                if key_part.is_some() {
+                    return Err(KeysParseError::MultipleKeys);
+                }
+                key_part = Some(part);
+            }
+        }
+    }
+
+    let key_name = match key_part {
+        Some(k) => k,
+        None if modifiers == KeyboardModifiers::default() && !ignore_shift && !ignore_alt => {
+            // Empty input (or only whitespace) → Keys::default(), same as @keys()
+            return Ok(Keys::default());
+        }
+        None => return Err(KeysParseError::NoKey),
+    };
+
+    // First: try named-key lookup (case-sensitive, like the @keys macro)
+    if let Some((key_char, shift_behavior)) = lookup_key_name(key_name) {
+        // Auto-set ignore_shift for keys with localized shifted variants
+        if matches!(shift_behavior, ShiftBehavior::LocalizedShiftable { .. }) {
+            if modifiers.shift {
+                return Err(KeysParseError::IncompatibleModifiers(
+                    alloc::format!(
+                        "Key bindings involving {key_name} ignore Shift to support different keyboard layouts; remove Shift"
+                    ).into(),
+                ));
+            }
+            ignore_shift = true;
+        }
+        // Key code literals in key_codes.rs are already NFC-normalized, just lowercase.
+        let key: SharedString = key_char.to_lowercase().collect::<alloc::string::String>().into();
+        return Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt } });
+    }
+
+    // Fallback: treat as a string literal (like @keys("€"))
+    // Must be a single grapheme cluster
+    let grapheme_count = key_name.graphemes(true).count();
+    if grapheme_count > 1 {
+        return Err(KeysParseError::MultipleGraphemeClusters(key_name.into()));
+    }
+
+    // Must be lowercase
+    let lowered = key_name.to_lowercase();
+    if lowered != key_name {
+        return Err(KeysParseError::NotLowercase(key_name.into()));
+    }
+
+    let key = normalize_key(key_name);
+    Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt } })
 }
 
 /// Internal representation of the `Keys` type.
@@ -510,6 +704,25 @@ impl KeysInner {
 }
 
 impl Keys {
+    #[i_slint_core_macros::slint_doc]
+    /// Create a `Keys` from an iterator of string parts (matching `@keys` macro syntax).
+    ///
+    /// Each element is either a modifier (`Control`, `Shift`, `Alt`, `Meta`, `Shift?`, `Alt?`)
+    /// or a key. Keys are first looked up by name (case-sensitive) in the Key namespace;
+    /// if not found, treated as a string literal (must be a single lowercase grapheme cluster).
+    /// Exactly one non-modifier key must be present.
+    ///
+    /// An empty iterator returns `Keys::default()` (same as `@keys()`).
+    ///
+    /// See also the Slint documentation on [Key Bindings](slint:KeyBindingOverview).
+    ///
+    /// Note: This currently only supports a **single shortcut** (one key + modifiers).
+    pub fn from_parts<'a>(
+        parts: impl IntoIterator<Item = &'a str>,
+    ) -> Result<Keys, KeysParseError> {
+        keys_from_parts(parts.into_iter())
+    }
+
     /// Check whether a `Keys` can be triggered by the given `KeyEvent`
     pub(crate) fn matches(&self, key_event: &KeyEvent) -> bool {
         let inner = &self.inner;
@@ -2431,5 +2644,235 @@ mod tests {
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             assert_eq!(result.as_str(), _expected_linux, "Failed for key: {:?}", key);
         }
+    }
+
+    #[test]
+    fn test_from_parts_valid() {
+        let f5_key = alloc::string::String::from(char::from(key_codes::Key::F5));
+        let ret_key = alloc::string::String::from(char::from(key_codes::Key::Return));
+
+        // (description, input parts, expected key, modifiers, ignore_shift, ignore_alt)
+        let cases: &[(&str, &[&str], &str, KeyboardModifiers, bool, bool)] = &[
+            (
+                "Control+A",
+                &["Control", "A"],
+                "a",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                false,
+            ),
+            (
+                "Control+Shift+A",
+                &["Control", "Shift", "A"],
+                "a",
+                KeyboardModifiers { control: true, shift: true, ..Default::default() },
+                false,
+                false,
+            ),
+            (
+                "Control+Shift?+Z (explicit ignore_shift)",
+                &["Control", "Shift?", "Z"],
+                "z",
+                KeyboardModifiers { control: true, ..Default::default() },
+                true,
+                false,
+            ),
+            (
+                "Control+Alt?+A (ignore_alt)",
+                &["Control", "Alt?", "A"],
+                "a",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                true,
+            ),
+            (
+                "F5 alone (special key)",
+                &["F5"],
+                &f5_key,
+                KeyboardModifiers::default(),
+                false,
+                false,
+            ),
+            ("Return key", &["Return"], &ret_key, KeyboardModifiers::default(), false, false),
+            (
+                "Control+Plus (LocalizedShiftable → auto ignore_shift)",
+                &["Control", "Plus"],
+                "+",
+                KeyboardModifiers { control: true, ..Default::default() },
+                true,
+                false,
+            ),
+            (
+                "Control+'+' (literal, no auto ignore_shift)",
+                &["Control", "+"],
+                "+",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                false,
+            ),
+            (
+                "Control+Shift+Alt+A (all modifiers)",
+                &["Control", "Shift", "Alt", "A"],
+                "a",
+                KeyboardModifiers { control: true, shift: true, alt: true, ..Default::default() },
+                false,
+                false,
+            ),
+            ("empty input → Keys::default()", &[], "", KeyboardModifiers::default(), false, false),
+            (
+                "Control+€ (unicode literal)",
+                &["Control", "€"],
+                "€",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                false,
+            ),
+            (
+                "Control+é (lowercase literal)",
+                &["Control", "é"],
+                "é",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+                false,
+            ),
+            ("A alone (named key)", &["A"], "a", KeyboardModifiers::default(), false, false),
+            (
+                "a alone (literal fallback, same result as named A)",
+                &["a"],
+                "a",
+                KeyboardModifiers::default(),
+                false,
+                false,
+            ),
+        ];
+
+        for (desc, parts, expected_key, mods, is, ia) in cases {
+            let result =
+                Keys::from_parts(parts.iter().copied()).unwrap_or_else(|e| panic!("{desc}: {e}"));
+            assert_eq!(result, make_keys((*expected_key).into(), *mods, *is, *ia), "{desc}");
+        }
+    }
+
+    #[test]
+    fn test_from_parts_invalid() {
+        let cases: &[(&str, &[&str], KeysParseError)] = &[
+            // Case-sensitive modifiers: unrecognized modifier parses as a second key
+            ("lowercase 'control'", &["control", "A"], KeysParseError::MultipleKeys),
+            ("uppercase 'CONTROL'", &["CONTROL", "A"], KeysParseError::MultipleKeys),
+            ("'Ctrl' alias", &["Ctrl", "A"], KeysParseError::MultipleKeys),
+            ("'ctrl' alias", &["ctrl", "A"], KeysParseError::MultipleKeys),
+            // Meta aliases not accepted
+            ("'Win' alias", &["Win", "A"], KeysParseError::MultipleKeys),
+            ("'Super' alias", &["Super", "A"], KeysParseError::MultipleKeys),
+            // No key
+            ("modifiers only", &["Control", "Shift"], KeysParseError::NoKey),
+            // Multiple keys
+            ("two keys", &["A", "B"], KeysParseError::MultipleKeys),
+            // Multi-grapheme cluster
+            (
+                "multi-char unknown",
+                &["Control", "Foobar"],
+                KeysParseError::MultipleGraphemeClusters("Foobar".into()),
+            ),
+            (
+                "two-char literal",
+                &["Control", "ab"],
+                KeysParseError::MultipleGraphemeClusters("ab".into()),
+            ),
+            (
+                "lowercase 'return' (not a named key)",
+                &["return"],
+                KeysParseError::MultipleGraphemeClusters("return".into()),
+            ),
+            // Not lowercase
+            (
+                "uppercase literal É",
+                &["Control", "É"],
+                KeysParseError::NotLowercase("É".into()),
+            ),
+            // Incompatible modifiers
+            (
+                "Shift + Shift?",
+                &["Shift", "Shift?", "A"],
+                KeysParseError::IncompatibleModifiers("Shift and Shift? cannot be combined".into()),
+            ),
+            (
+                "Alt + Alt?",
+                &["Alt", "Alt?", "A"],
+                KeysParseError::IncompatibleModifiers("Alt and Alt? cannot be combined".into()),
+            ),
+            (
+                "Shift + LocalizedShiftable key (Plus)",
+                &["Control", "Shift", "Plus"],
+                KeysParseError::IncompatibleModifiers(
+                    "Key bindings involving Plus ignore Shift to support different keyboard layouts; remove Shift".into(),
+                ),
+            ),
+        ];
+
+        for (desc, parts, expected_err) in cases {
+            let result = Keys::from_parts(parts.iter().copied());
+            assert!(result.is_err(), "{desc}: expected error, got {result:?}");
+            assert_eq!(&result.unwrap_err(), expected_err, "{desc}");
+        }
+    }
+
+    #[test]
+    fn test_from_parts_matching() {
+        // (description, input parts, event text, event modifiers, should_match)
+        let cases: &[(&str, &[&str], &str, KeyboardModifiers, bool)] = &[
+            (
+                "Control+A matches",
+                &["Control", "A"],
+                "a",
+                KeyboardModifiers { control: true, ..Default::default() },
+                true,
+            ),
+            (
+                "Control+A wrong key",
+                &["Control", "A"],
+                "b",
+                KeyboardModifiers { control: true, ..Default::default() },
+                false,
+            ),
+            (
+                "Control+A wrong modifier",
+                &["Control", "A"],
+                "a",
+                KeyboardModifiers { alt: true, ..Default::default() },
+                false,
+            ),
+            (
+                "Shift? matches with shift",
+                &["Control", "Shift?", "Z"],
+                "z",
+                KeyboardModifiers { control: true, shift: true, ..Default::default() },
+                true,
+            ),
+            (
+                "Shift? matches without shift",
+                &["Control", "Shift?", "Z"],
+                "z",
+                KeyboardModifiers { control: true, ..Default::default() },
+                true,
+            ),
+        ];
+
+        for (desc, parts, text, mods, expected) in cases {
+            let k =
+                Keys::from_parts(parts.iter().copied()).unwrap_or_else(|e| panic!("{desc}: {e}"));
+            let event = KeyEvent { text: (*text).into(), modifiers: *mods, ..Default::default() };
+            assert_eq!(k.matches(&event), *expected, "{desc}");
+        }
+
+        // Special key matching: Return
+        let return_char: char = key_codes::Key::Return.into();
+        let k = Keys::from_parts(["Return"]).unwrap();
+        let event = KeyEvent {
+            text: SharedString::from(alloc::string::String::from(return_char)),
+            modifiers: KeyboardModifiers::default(),
+            ..Default::default()
+        };
+        assert!(k.matches(&event), "Return key should match Return event");
     }
 }
