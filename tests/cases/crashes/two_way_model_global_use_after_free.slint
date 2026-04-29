@@ -146,8 +146,25 @@ let m = new slintlib.ArrayModel([
 ]);
 instance.the_model = m;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-// The interpreter lazily instantiates repeaters; the main purpose of
-// the JS block is to exercise the interpreter code path without crashing.
 assert(instance.layout_height >= 0);
+
+// Verify the global property reflects the last model row via
+// the two-way chain (glob-prop aliases Glob.prop1).
+assert.deepStrictEqual(instance.glob_prop, { field: "z" });
+
+m.setRowData(2, { value: "modified" });
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepStrictEqual(instance.glob_prop, { field: "modified" });
+
+// Writing to glob-prop (which aliases Glob.prop1) should propagate
+// through the two-way chain back into the model row.
+instance.glob_prop = { field: "from1" };
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepStrictEqual(m.rowData(2), { value: "from1" });
+
+// And the reverse: writing to the model should propagate to glob-prop.
+m.setRowData(2, { value: "from2" });
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepStrictEqual(instance.glob_prop, { field: "from2" });
 ```
 */
