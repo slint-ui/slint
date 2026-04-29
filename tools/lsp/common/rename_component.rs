@@ -95,7 +95,7 @@ fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<Path
 
     let import = specifier
         .child_token(SyntaxKind::StringLiteral)
-        .and_then(|t| i_slint_compiler::literals::unescape_string(t.text()))?;
+        .and_then(|t| i_slint_compiler::literals::unescape_string(t.text()).ok())?;
 
     if import == "std-widgets.slint" || import.starts_with("@") {
         return None; // No need to ever look at this!

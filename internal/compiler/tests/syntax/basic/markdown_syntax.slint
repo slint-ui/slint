@@ -3,7 +3,7 @@
 
 export component X {
     property <styled-text> t1: @markdown("Foo\invalid");
-//                                       >           <error{Cannot parse string literal}
+//                                           >       <error{Cannot parse string literal}
     property <styled-text> t2: @markdown("Foo\u{e541}Bar");  // Using the MARKDOWN_INTERPOLATION_PLACEHOLDER cause strange errors
 //                                        >       <error{Argument index 0 out of range: 0 arguments provided}
 //                             >                         <^error{Format string contains 1 placeholders, but 0 arguments were provided}
@@ -66,7 +66,7 @@ export component X {
     // Block quote error in a multi-line expression
     property <styled-text> m6: @markdown("text"
                                          "\n> block quote");
-//                                         >           <error{Markdown block quotes are not supported}
+//                                          >           <error{Markdown block quotes are not supported}
 
     // Multiple errors on different lines
     property <styled-text> m7: @markdown("--- "
@@ -128,6 +128,6 @@ export component X {
     // Combined errors from different markdown features in a single string with escape sequences
     property <styled-text> t25: @markdown("---\n\n> quote\n\n<span>text</span>");
 //                                         >  <error{Markdown horizontal rules are not supported}
-//                                              >      <^error{Markdown block quotes are not supported}
-//                                                       >   <^^error{HTML tag <span> is not supported}
+//                                                >      <^error{Markdown block quotes are not supported}
+//                                                           >   <^^error{HTML tag <span> is not supported}
 }

@@ -111,7 +111,7 @@ fn map_property_to_ui(
         fn extract_tr_data(tr_node: &syntax_nodes::AtTr, value: &mut ui::PropertyValue) {
             let Some(text) = tr_node
                 .child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+                .and_then(|s| i_slint_compiler::literals::unescape_string(&s).ok())
             else {
                 return;
             };
@@ -119,12 +119,12 @@ fn map_property_to_ui(
             let context = tr_node
                 .TrContext()
                 .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                .and_then(|s| literals::unescape_string(&s))
+                .and_then(|s| literals::unescape_string(&s).ok())
                 .unwrap_or_default();
             let plural = tr_node
                 .TrPlural()
                 .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                .and_then(|s| literals::unescape_string(&s))
+                .and_then(|s| literals::unescape_string(&s).ok())
                 .unwrap_or_default();
             let plural_expression = tr_node
                 .TrPlural()

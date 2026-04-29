@@ -116,18 +116,18 @@ fn visit_node(
         if n.kind() == SyntaxKind::AtTr
             && let Some(msgid) = n
                 .child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+                .and_then(|s| i_slint_compiler::literals::unescape_string(&s).ok())
         {
             let tr = syntax_nodes::AtTr::from(n.clone());
             let msgctxt = tr
                 .TrContext()
                 .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+                .and_then(|s| i_slint_compiler::literals::unescape_string(&s).ok())
                 .or_else(|| current_context.clone());
             let plural = tr
                 .TrPlural()
                 .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
+                .and_then(|s| i_slint_compiler::literals::unescape_string(&s).ok());
 
             let update = |msg: &mut rspolib::POEntry| {
                 let span = node.span();
