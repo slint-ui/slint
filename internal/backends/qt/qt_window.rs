@@ -1811,7 +1811,7 @@ pub struct QtWindow {
     // Last icon image set on the window
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 
-    parent: Weak<dyn WindowAdapter>,
+    parent: Weak<QtWindow>,
 }
 
 impl Drop for QtWindow {
@@ -1825,7 +1825,7 @@ impl Drop for QtWindow {
 }
 
 impl QtWindow {
-    pub fn new(parent: Weak<dyn WindowAdapter>) -> Rc<Self> {
+    pub fn new(parent: Weak<QtWindow>) -> Rc<Self> {
         let rc = Rc::new_cyclic(|self_weak| {
             let window_ptr = self_weak.clone().into_raw();
             let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget, QWidgetDeleteLater>" {

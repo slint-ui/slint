@@ -639,7 +639,7 @@ impl WindowInner {
 
         let parent_adapter = window_adapter
             .internal(crate::InternalToken)
-            .and_then(|internal| internal.get_parent().upgrade())
+            .and_then(|internal| internal.get_parent())
             .unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
