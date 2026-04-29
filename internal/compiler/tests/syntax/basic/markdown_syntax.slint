@@ -22,8 +22,7 @@ export component X {
     property <styled-text> t16: @markdown("<span>text</span>");
 //                                         >   <error{HTML tag <span> is not supported}
     property <styled-text> t17: @markdown("<div>text</div>");
-//                                         >             <error{Markdown HTML blocks are not supported}
-//                                         >             <^error{Markdown HTML blocks (<div>text</div>) are not supported}
+//                                         >             <error{Markdown HTML blocks (<div>text</div>) are not supported}
     property <styled-text> t18: @markdown("<u>unclosed");
 //                              >                      <error{Spans are unbalanced: stack contained items at end of function}
     property <styled-text> t19: @markdown("<font color='red'>unclosed");
@@ -34,7 +33,6 @@ export component X {
 //                                         >    <error{Missing color attribute in html <font>}
     property <styled-text> t22: @markdown("<font size='12'>text</font>");
 //                                               >       <error{Unexpected size attribute in html <font size='12'>}
-//                                         >              <^error{Missing color attribute in html <font size='12'>}
     property <styled-text> t23: @markdown("<u class='test'>text</u>");
 //                                            >          <error{Unexpected class attribute in html <u class='test'>}
     property <styled-text> t24: @markdown("<font color='#q'>text</font>");
@@ -113,4 +111,10 @@ export component X {
                                           "<abc>bad</abc>"
 //                                         >  <error{HTML tag <abc> is not supported}
                                           " suffix");
+
+    // Combined errors from different markdown features in a single string with escape sequences
+    property <styled-text> t25: @markdown("---\n\n> quote\n\n<span>text</span>");
+//                                         >  <error{Markdown horizontal rules are not supported}
+//                                              >      <^error{Markdown block quotes are not supported}
+//                                                       >   <^^error{HTML tag <span> is not supported}
 }

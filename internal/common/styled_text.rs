@@ -66,13 +66,6 @@ impl StyledTextParseError {
     fn without_range(kind: StyledTextParseErrorKind) -> Self {
         Self { kind, range: None }
     }
-
-    /// Returns true if this is an invalid color error.
-    /// Useful for the compiler to skip this during compile-time validation
-    /// when color values may come from dynamic interpolation.
-    pub fn is_invalid_color(&self) -> bool {
-        matches!(self.kind, StyledTextParseErrorKind::InvalidColor(_))
-    }
 }
 
 #[cfg(feature = "markdown")]
@@ -81,6 +74,14 @@ impl PartialEq for StyledTextParseError {
     fn eq(&self, other: &Self) -> bool {
         self.kind == other.kind
     }
+}
+
+/// Returns true if this is an invalid color error.
+/// Useful for the compiler to skip this during compile-time validation
+/// when color values may come from dynamic interpolation.
+#[cfg(feature = "markdown")]
+pub fn is_invalid_color(error: &StyledTextParseError) -> bool {
+    matches!(error.kind, StyledTextParseErrorKind::InvalidColor(_))
 }
 
 #[cfg(feature = "markdown")]
@@ -133,6 +134,179 @@ pub fn paragraph_from_plain_text(text: alloc::string::String) -> StyledTextParag
 pub const MARKDOWN_INTERPOLATION_PLACEHOLDER: char = '\u{e541}';
 
 #[cfg(feature = "markdown")]
+fn begin_paragraph(indentation: u32, list_item_type: Option<ListItemType>) -> StyledTextParagraph {
+    let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
+    for _ in 0..indentation {
+        text.push_str("    ");
+    }
+    match list_item_type {
+        Some(ListItemType::Unordered) => {
+            let remainder = indentation % 3;
+            if remainder == 0 {
+                text.push_str("• ")
+            } else if remainder == 1 {
+                text.push_str("◦ ")
+            } else {
+                text.push_str("▪ ")
+            }
+        }
+        Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
+        None => {}
+    };
+    StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
+}
+
+#[cfg(feature = "markdown")]
+fn append_paragraph(target: &mut StyledTextParagraph, source: &StyledTextParagraph) {
+    let offset = target.text.len();
+    target.text.push_str(&source.text);
+    target.formatting.extend(source.formatting.iter().cloned().map(|mut f| {
+        f.range.start += offset;
+        f.range.end += offset;
+        f
+    }));
+    target.links.extend(source.links.iter().cloned().map(|(mut range, link)| {
+        range.start += offset;
+        range.end += offset;
+        (range, link)
+    }));
+}
+
+#[cfg(feature = "markdown")]
+fn substitute<S: AsRef<[StyledTextParagraph]>>(
+    paragraph: &mut StyledTextParagraph,
+    string: &str,
+    args: &[S],
+    arg_index: &mut usize,
+    errors: &mut alloc::vec::Vec<StyledTextParseError>,
+    event_range: &core::ops::Range<usize>,
+) {
+    use StyledTextParseErrorKind as E;
+    let mut pos = 0;
+    while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
+        p += pos;
+        paragraph.text.push_str(&string[pos..p]);
+
+        if let Some(arg) = args.get(*arg_index) {
+            match arg.as_ref() {
+                [source] => append_paragraph(paragraph, source),
+                [] => {}
+                [first, ..] => {
+                    errors.push(StyledTextParseError::new(
+                        E::MultiParagraphInterpolation,
+                        event_range.clone(),
+                    ));
+                    append_paragraph(paragraph, first);
+                }
+            }
+        } else {
+            errors.push(StyledTextParseError::new(
+                E::ArgumentOutOfRange(*arg_index, args.len()),
+                event_range.clone(),
+            ));
+        }
+
+        *arg_index += 1;
+
+        p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
+        pos = p;
+    }
+    paragraph.text.push_str(&string[pos..]);
+}
+
+#[cfg(feature = "markdown")]
+fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
+    string: &str,
+    args: &[S],
+    arg_index: &mut usize,
+    errors: &mut alloc::vec::Vec<StyledTextParseError>,
+    event_range: &core::ops::Range<usize>,
+) -> alloc::string::String {
+    use StyledTextParseErrorKind as E;
+    let mut result = alloc::string::String::with_capacity(string.len());
+    let mut pos = 0;
+    while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
+        p += pos;
+        result.push_str(&string[pos..p]);
+        if let Some(arg) = args.get(*arg_index) {
+            match arg.as_ref() {
+                [arg_paragraph] => result.push_str(&arg_paragraph.text),
+                [] => {}
+                [first, ..] => {
+                    errors.push(StyledTextParseError::new(
+                        E::MultiParagraphInterpolation,
+                        event_range.clone(),
+                    ));
+                    result.push_str(&first.text);
+                }
+            }
+        } else {
+            errors.push(StyledTextParseError::new(
+                E::ArgumentOutOfRange(*arg_index, args.len()),
+                event_range.clone(),
+            ));
+        }
+        *arg_index += 1;
+        p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
+        pos = p;
+    }
+    result.push_str(&string[pos..]);
+    result
+}
+
+#[cfg(feature = "markdown")]
+fn get_or_create_paragraph<'a>(
+    current_paragraph: &'a mut Option<StyledTextParagraph>,
+    errors: &mut alloc::vec::Vec<StyledTextParseError>,
+    event_range: &core::ops::Range<usize>,
+) -> &'a mut StyledTextParagraph {
+    use StyledTextParseErrorKind as E;
+    if current_paragraph.is_none() {
+        errors.push(StyledTextParseError::new(E::ParagraphNotStarted, event_range.clone()));
+        *current_paragraph = Some(StyledTextParagraph {
+            text: Default::default(),
+            formatting: Default::default(),
+            links: Default::default(),
+        });
+    }
+    current_paragraph.as_mut().unwrap()
+}
+
+#[cfg(feature = "markdown")]
+fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String {
+    use pulldown_cmark::Tag::*;
+    match tag {
+        Heading { .. } => "headings",
+        Image { .. } => "images",
+        BlockQuote(_) => "block quotes",
+        CodeBlock(_) => "code blocks",
+        Table(_) => "tables",
+        HtmlBlock => "HTML blocks",
+        FootnoteDefinition(_) => "footnotes",
+        DefinitionList | DefinitionListTitle | DefinitionListDefinition => "definition lists",
+        TableHead | TableRow | TableCell => "tables",
+        MetadataBlock(_) => "metadata blocks",
+        Superscript => "superscript",
+        Subscript => "subscript",
+        other => return alloc::format!("{:?}", other.to_end()),
+    }
+    .into()
+}
+
+#[cfg(feature = "markdown")]
+fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::String {
+    use pulldown_cmark::Event::*;
+    match event {
+        Rule => "horizontal rules".into(),
+        TaskListMarker(_) => "task lists".into(),
+        FootnoteReference(_) => "footnote references".into(),
+        InlineMath(_) | DisplayMath(_) => "math".into(),
+        Html(text) => alloc::format!("HTML blocks ({})", text.trim()),
+        _ => alloc::format!("{event:?}"),
+    }
+}
+
+#[cfg(feature = "markdown")]
 pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     format_string: &str,
     args: &[S],
@@ -155,176 +329,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     // we silently consume it instead of reporting a cascading Pop error.
     let mut skip_end_count: usize = 0;
 
-    let begin_paragraph = |indentation: u32, list_item_type: Option<ListItemType>| {
-        let mut text = alloc::string::String::with_capacity(indentation as usize * 4);
-        for _ in 0..indentation {
-            text.push_str("    ");
-        }
-        match list_item_type {
-            Some(ListItemType::Unordered) => {
-                let remainder = indentation % 3;
-                if remainder == 0 {
-                    text.push_str("• ")
-                } else if remainder == 1 {
-                    text.push_str("◦ ")
-                } else {
-                    text.push_str("▪ ")
-                }
-            }
-            Some(ListItemType::Ordered(num)) => text.push_str(&alloc::format!("{}. ", num)),
-            None => {}
-        };
-        StyledTextParagraph { text, formatting: Default::default(), links: Default::default() }
-    };
-
     let mut current_paragraph: Option<StyledTextParagraph> = None;
-
-    fn append_paragraph(target: &mut StyledTextParagraph, source: &StyledTextParagraph) {
-        let offset = target.text.len();
-        target.text.push_str(&source.text);
-        target.formatting.extend(source.formatting.iter().cloned().map(|mut f| {
-            f.range.start += offset;
-            f.range.end += offset;
-            f
-        }));
-        target.links.extend(source.links.iter().cloned().map(|(mut range, link)| {
-            range.start += offset;
-            range.end += offset;
-            (range, link)
-        }));
-    }
-
-    fn substitute<S: AsRef<[StyledTextParagraph]>>(
-        paragraph: &mut StyledTextParagraph,
-        string: &str,
-        args: &[S],
-        arg_index: &mut usize,
-        errors: &mut alloc::vec::Vec<StyledTextParseError>,
-        event_range: &core::ops::Range<usize>,
-    ) {
-        let mut pos = 0;
-        while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
-            p += pos;
-            paragraph.text.push_str(&string[pos..p]);
-
-            if let Some(arg) = args.get(*arg_index) {
-                match arg.as_ref() {
-                    [source] => append_paragraph(paragraph, source),
-                    [] => {}
-                    [first, ..] => {
-                        errors.push(StyledTextParseError::new(
-                            E::MultiParagraphInterpolation,
-                            event_range.clone(),
-                        ));
-                        append_paragraph(paragraph, first);
-                    }
-                }
-            } else {
-                errors.push(StyledTextParseError::new(
-                    E::ArgumentOutOfRange(*arg_index, args.len()),
-                    event_range.clone(),
-                ));
-            }
-
-            *arg_index += 1;
-
-            p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
-            pos = p;
-        }
-        paragraph.text.push_str(&string[pos..]);
-    }
-
-    fn substitute_in_string<S: AsRef<[StyledTextParagraph]>>(
-        string: &str,
-        args: &[S],
-        arg_index: &mut usize,
-        errors: &mut alloc::vec::Vec<StyledTextParseError>,
-        event_range: &core::ops::Range<usize>,
-    ) -> alloc::string::String {
-        let mut result = alloc::string::String::with_capacity(string.len());
-        let mut pos = 0;
-        while let Some(mut p) = string[pos..].find(MARKDOWN_INTERPOLATION_PLACEHOLDER) {
-            p += pos;
-            result.push_str(&string[pos..p]);
-            if let Some(arg) = args.get(*arg_index) {
-                match arg.as_ref() {
-                    [arg_paragraph] => result.push_str(&arg_paragraph.text),
-                    [] => {}
-                    [first, ..] => {
-                        errors.push(StyledTextParseError::new(
-                            E::MultiParagraphInterpolation,
-                            event_range.clone(),
-                        ));
-                        result.push_str(&first.text);
-                    }
-                }
-            } else {
-                errors.push(StyledTextParseError::new(
-                    E::ArgumentOutOfRange(*arg_index, args.len()),
-                    event_range.clone(),
-                ));
-            }
-            *arg_index += 1;
-            p += MARKDOWN_INTERPOLATION_PLACEHOLDER.len_utf8();
-            pos = p;
-        }
-        result.push_str(&string[pos..]);
-        result
-    }
-
-    fn get_or_create_paragraph<'a>(
-        current_paragraph: &'a mut Option<StyledTextParagraph>,
-        errors: &mut alloc::vec::Vec<StyledTextParseError>,
-        event_range: &core::ops::Range<usize>,
-    ) -> &'a mut StyledTextParagraph {
-        if current_paragraph.is_none() {
-            errors.push(StyledTextParseError::new(E::ParagraphNotStarted, event_range.clone()));
-            *current_paragraph = Some(StyledTextParagraph {
-                text: Default::default(),
-                formatting: Default::default(),
-                links: Default::default(),
-            });
-        }
-        current_paragraph.as_mut().unwrap()
-    }
-
-    fn unsupported_tag_name(tag: &pulldown_cmark::Tag<'_>) -> alloc::string::String {
-        match tag {
-            pulldown_cmark::Tag::Heading { .. } => "headings",
-            pulldown_cmark::Tag::Image { .. } => "images",
-            pulldown_cmark::Tag::BlockQuote(_) => "block quotes",
-            pulldown_cmark::Tag::CodeBlock(_) => "code blocks",
-            pulldown_cmark::Tag::Table(_) => "tables",
-            pulldown_cmark::Tag::HtmlBlock => "HTML blocks",
-            pulldown_cmark::Tag::FootnoteDefinition(_) => "footnotes",
-            pulldown_cmark::Tag::DefinitionList
-            | pulldown_cmark::Tag::DefinitionListTitle
-            | pulldown_cmark::Tag::DefinitionListDefinition => "definition lists",
-            pulldown_cmark::Tag::TableHead
-            | pulldown_cmark::Tag::TableRow
-            | pulldown_cmark::Tag::TableCell => "tables",
-            pulldown_cmark::Tag::MetadataBlock(_) => "metadata blocks",
-            pulldown_cmark::Tag::Superscript => "superscript",
-            pulldown_cmark::Tag::Subscript => "subscript",
-            other => return alloc::format!("{:?}", other.to_end()),
-        }
-        .into()
-    }
-
-    fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::String {
-        match event {
-            pulldown_cmark::Event::Rule => "horizontal rules".into(),
-            pulldown_cmark::Event::TaskListMarker(_) => "task lists".into(),
-            pulldown_cmark::Event::FootnoteReference(_) => "footnote references".into(),
-            pulldown_cmark::Event::InlineMath(_) | pulldown_cmark::Event::DisplayMath(_) => {
-                "math".into()
-            }
-            pulldown_cmark::Event::Html(text) => {
-                alloc::format!("HTML blocks ({})", text.trim())
-            }
-            _ => alloc::format!("{event:?}"),
-        }
-    }
 
     for (event, event_range) in parser.into_offset_iter() {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
@@ -381,6 +386,25 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     pulldown_cmark::Tag::Link { dest_url, .. } => {
                         current_url = Some(dest_url);
                         Style::Link
+                    }
+
+                    pulldown_cmark::Tag::BlockQuote(_) => {
+                        let mut r = event_range.clone();
+                        if let Some(pos) = format_string[r.clone()].find('>') {
+                            r.start += pos;
+                        }
+                        errors.push(StyledTextParseError::new(
+                            E::UnsupportedMarkdown(unsupported_tag_name(&tag)),
+                            r,
+                        ));
+                        skip_end_count += 1;
+                        continue;
+                    }
+                    pulldown_cmark::Tag::HtmlBlock => {
+                        // Don't report an error here; the accompanying Html event
+                        // provides a more descriptive message with the actual content
+                        skip_end_count += 1;
+                        continue;
                     }
 
                     ref unsupported => {
@@ -487,6 +511,8 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     // htmlparser offsets are relative to `html`; add event_range.start
                     // to get absolute format-string offsets
                     let base = event_range.start;
+
+                    let errors_before = errors.len();
 
                     for token in htmlparser::Tokenizer::from(&*html) {
                         match token {
@@ -599,10 +625,14 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                     }
 
                     if expecting_color_attribute {
-                        errors.push(StyledTextParseError::new(
-                            E::MissingColor((&*html).into()),
-                            event_range.clone(),
-                        ));
+                        // Only report MissingColor when no other errors were
+                        // reported for this HTML fragment (avoids cascading diagnostics)
+                        if errors.len() == errors_before {
+                            errors.push(StyledTextParseError::new(
+                                E::MissingColor((&*html).into()),
+                                event_range.clone(),
+                            ));
+                        }
                         push_skip = true;
                     }
 
