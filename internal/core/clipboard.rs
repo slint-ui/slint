@@ -44,7 +44,7 @@ impl From<Rc<dyn ClipboardDataProvider>> for ClipboardData {
 impl core::fmt::Debug for ClipboardData {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ClipboardData")
-            .field("mime_types", &self.provider.mime_types())
+            .field("mime_types", &self.provider.mime_types().collect::<alloc::vec::Vec<_>>())
             .finish_non_exhaustive()
     }
 }
@@ -66,13 +66,13 @@ impl ClipboardData {
     pub const IMAGE_MIME_TYPES: &[&str] = mime::IMAGE;
 
     #[inline]
-    pub fn mime_types(&self) -> &[&str] {
+    pub fn mime_types(&self) -> impl Iterator<Item = &str> + '_ {
         self.provider.mime_types()
     }
 
     #[inline]
     pub fn has_any_type(&self, types: &[&str]) -> bool {
-        self.mime_types().iter().any(|type_| types.contains(type_))
+        self.mime_types().any(|type_| types.contains(&type_))
     }
 
     #[inline]
@@ -143,19 +143,49 @@ impl PlatformClipboard for DummyPlatformClipboard {
 /// - `text/*`: `SharedString` (this will require boxing the `SharedString` inside an `Rc`)
 pub trait ClipboardDataProvider {
     /// This should be called before `read`, and returns the set of available MIME types.
-    fn mime_types(&self) -> &[&str];
+    fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_>;
 
     /// If this type can be interpreted as the given MIME type, return that type wrapped in an `Rc`.
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError>;
 }
 
-impl ClipboardDataProvider for SharedString {
-    fn mime_types(&self) -> &[&str] {
-        self::mime::PLAINTEXT
+/// A single, eager value with a single specific MIME type.
+#[derive(Clone)]
+pub struct OverrideMimeType {
+    mime_type: SharedString,
+    value: AnyData,
+}
+
+impl OverrideMimeType {
+    /// Create a new instance of this type.
+    pub fn new<T>(value: T, mime_type: SharedString) -> Self
+    where
+        T: Into<AnyData>,
+    {
+        Self { mime_type, value: value.into() }
+    }
+}
+
+impl ClipboardDataProvider for OverrideMimeType {
+    fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+        Box::new(core::iter::once(&*self.mime_type))
     }
 
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {
-        if self.mime_types().contains(&type_) {
+        if self.mime_type == type_ {
+            Ok(self.value.clone())
+        } else {
+            Err(PlatformError::ClipboardTypeNotFound(type_.into()))
+        }
+    }
+}
+impl ClipboardDataProvider for SharedString {
+    fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+        Box::new(self::mime::PLAINTEXT.into_iter().copied())
+    }
+
+    fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {
+        if self::mime::PLAINTEXT.contains(&type_) {
             Ok((*self).clone().into())
         } else {
             Err(PlatformError::ClipboardTypeNotFound(type_.into()))
@@ -164,12 +194,12 @@ impl ClipboardDataProvider for SharedString {
 }
 
 impl ClipboardDataProvider for Image {
-    fn mime_types(&self) -> &[&str] {
-        self::mime::IMAGE
+    fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+        Box::new(self::mime::IMAGE.into_iter().copied())
     }
 
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {
-        if self.mime_types().contains(&type_) {
+        if self::mime::IMAGE.contains(&type_) {
             Ok((*self).clone().into())
         } else {
             Err(PlatformError::ClipboardTypeNotFound(type_.into()))
@@ -179,8 +209,8 @@ impl ClipboardDataProvider for Image {
 
 // Dummy implementation of `ClipboardData` that does nothing, used to clear the clipboard.
 impl ClipboardDataProvider for () {
-    fn mime_types(&self) -> &[&str] {
-        &[]
+    fn mime_types(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+        Box::new(core::iter::empty())
     }
 
     fn read(self: Rc<Self>, type_: &str) -> Result<AnyData, PlatformError> {

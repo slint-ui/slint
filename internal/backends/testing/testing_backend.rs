@@ -136,7 +136,10 @@ impl PlatformClipboard for TestingPlatformClipboard {
         let Some(string) =
             data.clone().read::<SharedString>(ClipboardData::PLAINTEXT_MIME_TYPES).ok()
         else {
-            eprintln!("Testing clipboard provided non-string data: {:?}", data.mime_types());
+            eprintln!(
+                "Testing clipboard provided non-string data: {:?}",
+                data.mime_types().collect::<Vec<_>>()
+            );
             return;
         };
 

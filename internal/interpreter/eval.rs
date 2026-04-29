@@ -22,6 +22,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::api::{Image, ToSharedString};
+use i_slint_core::clipboard::OverrideMimeType;
 use i_slint_core::{self as corelib, ClipboardData};
 use smol_str::SmolStr;
 use std::collections::HashMap;
@@ -1228,6 +1229,18 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringWithMimeType => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringToClipboardData")
+            }
+            if let Value::String(value) = eval_expression(&arguments[0], local_context)
+                && let Value::String(mime_type) = eval_expression(&arguments[1], local_context)
+            {
+                Value::ClipboardData(OverrideMimeType::new(value, mime_type).into())
+            } else {
+                panic!("Argument not a string");
+            }
+        }
         BuiltinFunction::KeysToString => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to KeysToString")
@@ -1376,6 +1389,36 @@ fn call_builtin_function(
             } else {
                 panic!("First argument not a color");
             }
+        }
+        BuiltinFunction::ClipboardDataHasType => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ClipboardDataReadPlaintext")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            let Value::String(mime_type) = eval_expression(&arguments[1], local_context) else {
+                panic!("Second argument not a string");
+            };
+
+            data.has_any_type(&[&mime_type]).into()
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ClipboardDataReadPlaintext")
+            }
+
+            let Value::ClipboardData(data) = eval_expression(&arguments[0], local_context) else {
+                panic!("First argument not a clipboard-data");
+            };
+
+            let Value::String(mime_type) = eval_expression(&arguments[1], local_context) else {
+                panic!("Second argument not a string");
+            };
+
+            data.read::<SharedString>(&[&mime_type]).unwrap_or_default().into()
         }
         BuiltinFunction::ClipboardDataHasPlaintext => {
             if arguments.len() != 1 {

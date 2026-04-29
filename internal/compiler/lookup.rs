@@ -1036,6 +1036,7 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| {
                 f("to-clipboard-data", member_function(BuiltinFunction::StringToClipboardData))
             })
+            .or_else(|| f("with-mime-type", member_function(BuiltinFunction::StringWithMimeType)))
             .or_else(|| f("is-empty", function_call(BuiltinFunction::StringIsEmpty)))
             .or_else(|| f("character-count", function_call(BuiltinFunction::StringCharacterCount)))
             .or_else(|| f("to-lowercase", member_function(BuiltinFunction::StringToLowercase)))
@@ -1066,14 +1067,16 @@ impl LookupObject for ClipboardDataExpression<'_> {
         };
 
         let mut f = |s, res| f(&SmolStr::new_static(s), res);
-        None.or_else(|| {
-            f("has-plaintext", function_call(BuiltinFunction::ClipboardDataHasPlaintext))
-        })
-        .or_else(|| f("has-image", function_call(BuiltinFunction::ClipboardDataHasImage)))
-        .or_else(|| {
-            f("read-plaintext", member_function(BuiltinFunction::ClipboardDataReadPlaintext))
-        })
-        .or_else(|| f("read-image", member_function(BuiltinFunction::ClipboardDataReadImage)))
+        None.or_else(|| f("has-type", member_function(BuiltinFunction::ClipboardDataHasType)))
+            .or_else(|| {
+                f("has-plaintext", function_call(BuiltinFunction::ClipboardDataHasPlaintext))
+            })
+            .or_else(|| f("has-image", function_call(BuiltinFunction::ClipboardDataHasImage)))
+            .or_else(|| f("read-string", member_function(BuiltinFunction::ClipboardDataReadString)))
+            .or_else(|| {
+                f("read-plaintext", member_function(BuiltinFunction::ClipboardDataReadPlaintext))
+            })
+            .or_else(|| f("read-image", member_function(BuiltinFunction::ClipboardDataReadImage)))
     }
 }
 

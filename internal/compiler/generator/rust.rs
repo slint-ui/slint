@@ -3753,9 +3753,24 @@ fn compile_builtin_function_call(
             let x = a.next().unwrap();
             quote!(sp::ClipboardData::from(#x))
         }
+        BuiltinFunction::StringWithMimeType => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+            quote!(sp::ClipboardData::from(sp::OverrideMimeType::new(#x, #mime_type)))
+        }
+        BuiltinFunction::ClipboardDataHasType => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+            quote!(#x.has_any_type(&[&#mime_type]))
+        }
         BuiltinFunction::ClipboardDataHasPlaintext => {
             let x = a.next().unwrap();
             quote!(#x.has_any_type(sp::ClipboardData::PLAINTEXT_MIME_TYPES))
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+            quote!(#x.read::<sp::SharedString>(&[&#mime_type]).unwrap_or_default())
         }
         BuiltinFunction::ClipboardDataReadPlaintext => {
             let x = a.next().unwrap();

@@ -4391,6 +4391,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorWithAlpha => {
             format!("{}.with_alpha({})", a.next().unwrap(), a.next().unwrap())
         }
+        BuiltinFunction::ClipboardDataHasType => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+
+            format!("{x}.hasType({mime_type})")
+        }
         BuiltinFunction::ClipboardDataHasPlaintext => {
             format!("{}.hasPlaintext()", a.next().unwrap())
         }
@@ -4400,6 +4406,15 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToClipboardData
         | BuiltinFunction::ImageToClipboardData => {
             format!("slint::ClipboardData({})", a.next().unwrap())
+        }
+        BuiltinFunction::StringWithMimeType => {
+            todo!("Implement overriding MIME types for single values")
+        }
+        BuiltinFunction::ClipboardDataReadString => {
+            let x = a.next().unwrap();
+            let mime_type = a.next().unwrap();
+
+            format!("{x}.readString({mime_type})")
         }
         BuiltinFunction::ClipboardDataReadPlaintext => {
             format!("{}.readPlaintext()", a.next().unwrap())

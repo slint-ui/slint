@@ -55,27 +55,31 @@ export component OutlineView inherits VerticalLayout {
     lv := ListView {
         for item[idx] in outline-data: DragArea {
             height: 38px;
-            // TODO: Initial implementation of `clipboard-data` doesn't allow explicit MIME typing,
-            // so we need to use `text/plain`. We should implement that later.
-            data: item.uri + ":" + item.offset;
+            data: (item.uri + ":" + item.offset).with-mime-type("application/x-slint-component-move");
 
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
+            private property<string> dropped-data: "";
 
             drop-as-child := DropArea {
                 can-drop(event) => {
-                    if !event.data.has-plaintext {
+                    if !event.data.has-type("application/x-slint-component") {
                         return false;
                     }
+
                     if !item.is-expanded && item.has-children {
                         if !open-timer.running {
                             open-timer.running = true;
                         }
                         return false;
                     }
-                    return Api.outline-can-drop(event.data.read-plaintext(), item.uri, item.offset, DropLocation.onto);
+                    return Api.outline-can-drop(event.data.read-string("application/x-slint-component").to-float(), item.uri, item.offset, DropLocation.onto);
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.data.read-plaintext(), item.uri, item.offset, DropLocation.onto);
+                    if !event.data.has-type("application/x-slint-component") {
+                        return;
+                    }
+
+                    Api.outline-drop(event.data.read-string("application/x-slint-component").to-float(), item.uri, item.offset, DropLocation.onto);
                 }
             }
 
@@ -111,15 +115,24 @@ export component OutlineView inherits VerticalLayout {
 
                 enabled: item.indent-level > 0;
 
+                private property<string> dropped-data: "";
+
                 can-drop(event) => {
-                    if !event.data.has-plaintext {
+                    if !event.data.has-type("application/x-slint-component-move") && !event.data.has-type("application/x-slint-component"){
                         return false;
                     }
                     //return Api.outline-can-drop(event.data, item.uri, item.offset, 1);
                     true;
                 }
                 dropped(event) => {
-                    Api.outline-drop(event.data.read-plaintext(), item.uri, item.offset, DropLocation.after);
+                    if event.data.has-type("application/x-slint-component-move") {
+                        dropped-data = event.data.read-string("application/x-slint-component-move");
+                    } else if event.data.has-type("application/x-slint-component") {
+                        dropped-data = event.data.read-string("application/x-slint-component");
+                    } else {
+                        return;
+                    }
+                    Api.outline-drop(dropped-data, item.uri, item.offset, DropLocation.after);
                 }
                 Rectangle {
                     height: 1px;

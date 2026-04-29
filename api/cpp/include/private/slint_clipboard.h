@@ -15,9 +15,22 @@ public:
 
     friend bool operator==(const ClipboardData &a, const ClipboardData &b) = default;
 
+    bool hasType(const slint::SharedString &mimeType) const {
+        (void)mimeType;
+        return false;
+    }
+
     bool hasPlaintext() const { return false; }
 
     bool hasImage() const { return false; }
+
+    slint::SharedString readString(const slint::SharedString &mimeType)
+    {
+        (void)mimeType;
+        slint::SharedString out = slint::SharedString();
+
+        return out;
+    }
 
     slint::SharedString readPlaintext()
     {

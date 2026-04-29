@@ -352,7 +352,10 @@ impl i_slint_core::clipboard::PlatformClipboard for QtPlatformClipboard {
             .read::<SharedString>(i_slint_core::clipboard::ClipboardData::PLAINTEXT_MIME_TYPES)
             .ok()
         else {
-            eprintln!("Testing clipboard provided non-string data: {:?}", data.mime_types());
+            eprintln!(
+                "Testing clipboard provided non-string data: {:?}",
+                data.mime_types().collect::<Vec<_>>()
+            );
             return;
         };
 

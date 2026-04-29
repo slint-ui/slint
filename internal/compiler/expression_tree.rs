@@ -75,6 +75,8 @@ pub enum BuiltinFunction {
     StringToUppercase,
     /// Explicitly cast a string to `clipboard-data`
     StringToClipboardData,
+    /// Explicitly cast a string to `clipboard-data`, specifying a custom MIME type
+    StringWithMimeType,
     KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
@@ -84,8 +86,10 @@ pub enum BuiltinFunction {
     ColorTransparentize,
     ColorMix,
     ColorWithAlpha,
+    ClipboardDataHasType,
     ClipboardDataHasPlaintext,
     ClipboardDataHasImage,
+    ClipboardDataReadString,
     ClipboardDataReadPlaintext,
     ClipboardDataReadImage,
     ImageSize,
@@ -260,10 +264,13 @@ declare_builtin_function_types!(
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
+    ClipboardDataHasType: (Type::ClipboardData, Type::String) -> Type::Bool,
     ClipboardDataHasPlaintext: (Type::ClipboardData) -> Type::Bool,
     ClipboardDataHasImage: (Type::ClipboardData) -> Type::Bool,
+    ClipboardDataReadString: (Type::ClipboardData, Type::String) -> Type::String,
     ClipboardDataReadPlaintext: (Type::ClipboardData) -> Type::String,
     ClipboardDataReadImage: (Type::ClipboardData) -> Type::Image,
+    StringWithMimeType: (Type::String, Type::String) -> Type::ClipboardData,
     ImageSize: (Type::Image) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("width"), Type::Int32),
@@ -390,6 +397,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::StringToClipboardData
             | BuiltinFunction::ImageToClipboardData
+            | BuiltinFunction::StringWithMimeType
+            | BuiltinFunction::ClipboardDataHasType
+            | BuiltinFunction::ClipboardDataReadString
             | BuiltinFunction::ClipboardDataHasPlaintext
             | BuiltinFunction::ClipboardDataReadPlaintext
             | BuiltinFunction::ClipboardDataHasImage
@@ -477,6 +487,7 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToLowercase
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringToClipboardData
+            | BuiltinFunction::StringWithMimeType
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -486,10 +497,11 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
-            BuiltinFunction::ClipboardDataHasPlaintext | BuiltinFunction::ClipboardDataHasImage => {
-                true
-            }
-            BuiltinFunction::ClipboardDataReadPlaintext
+            BuiltinFunction::ClipboardDataHasType
+            | BuiltinFunction::ClipboardDataHasPlaintext
+            | BuiltinFunction::ClipboardDataHasImage => true,
+            BuiltinFunction::ClipboardDataReadString
+            | BuiltinFunction::ClipboardDataReadPlaintext
             | BuiltinFunction::ClipboardDataReadImage => false,
             BuiltinFunction::ImageSize | BuiltinFunction::ImageToClipboardData => true,
             BuiltinFunction::ArrayLength => true,
