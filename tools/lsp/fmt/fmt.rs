@@ -795,7 +795,7 @@ fn format_return_statement(
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
     if node.child_node(SyntaxKind::Expression).is_some() {
-        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
     }
     whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     state.new_line();
