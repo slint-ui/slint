@@ -3885,6 +3885,31 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 format!(
                     "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
                 )
+            } else if let Type::Array(element_ty) = &lhs_ty
+                && *op == '+'
+            {
+                let cpp_element_ty = element_ty.cpp_type().unwrap();
+                format!(
+                    "[&](){{ \
+                        auto &lhs = {lhs_str}; \
+                        const auto &rhs = {rhs_str}; \
+                        if (auto model = std::dynamic_pointer_cast<slint::VectorModel<{cpp_element_ty}>>(lhs)) {{ \
+                            for (size_t i = 0; i < rhs->row_count(); ++i) {{ \
+                                model->push_back(*rhs->row_data(i)); \
+                            }} \
+                            return lhs; \
+                        }} else {{ \
+                            auto combined = std::make_shared<slint::VectorModel<{cpp_element_ty}>>(); \
+                            for (size_t i = 0; i < lhs->row_count(); ++i) {{ \
+                                combined->push_back(*lhs->row_data(i)); \
+                            }} \
+                            for (size_t i = 0; i < rhs->row_count(); ++i) {{ \
+                                combined->push_back(*rhs->row_data(i)); \
+                            }} \
+                            return std::static_pointer_cast<slint::Model<{cpp_element_ty}>>(combined); \
+                        }} \
+                    }}()"
+                )
             } else {
                 let mut buffer = [0; 3];
                 format!(
