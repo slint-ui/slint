@@ -233,6 +233,27 @@ set and then interact with it. For example, in Claude Code:
 > app includes a built-in MCP server. Connect to it and toggle the dark mode switch."
 
 The agent will discover the MCP endpoint, connect, and use the tools to accomplish the task.
+
+When scripting or testing from the command line, use `curl` to call tools directly — it is
+the most reliable way to send JSON-RPC requests to the server:
+
+```sh
+# Initialize (confirms the server is up and prints available tools)
+curl -s -X POST http://127.0.0.1:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+
+# List windows
+curl -s -X POST http://127.0.0.1:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_windows","arguments":{}}}'
+
+# Take a screenshot (response contains a base64-encoded PNG in the "data" field)
+curl -s -X POST http://127.0.0.1:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"take_screenshot","arguments":{"windowHandle":{"index":"1","generation":"1"}}}}'
+```
+
 You can also register the server in your MCP client's configuration if you prefer:
 
 ```json

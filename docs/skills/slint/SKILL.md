@@ -121,6 +121,25 @@ Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `-
 
 **Step 2**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
 
+When scripting or verifying the server from the command line, use `curl` — it is the most reliable approach for raw JSON-RPC. Prefer `curl` over built-in HTTP fetch tools, which agents sometimes reach for but which are less predictable for this use case:
+
+```sh
+# Initialize (confirms the server is up and prints available tools)
+curl -s -X POST http://127.0.0.1:9315/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+
+# List windows
+curl -s -X POST http://127.0.0.1:9315/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_windows","arguments":{}}}'
+
+# Take a screenshot (response contains a base64-encoded PNG in the "data" field)
+curl -s -X POST http://127.0.0.1:9315/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"take_screenshot","arguments":{"windowHandle":{"index":"1","generation":"1"}}}}'
+```
+
 ### Version Requirements
 
 | Slint Version | MCP Support |
