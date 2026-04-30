@@ -680,18 +680,16 @@ impl WindowInner {
             match popup.close_policy {
                 PopupClosePolicy::CloseOnClick => {
                     let mouse_inside_popup = mouse_inside_popup();
-                    let close_outside_click = !self
-                        .ignore_close_on_outside_click_for_non_menu_popups
-                        .get()
-                        || popup.is_menu;
+                    let close_outside_click =
+                        !self.ignore_close_on_outside_click_for_non_menu_popups.get()
+                            || popup.is_menu;
                     (mouse_inside_popup && released_event && self.had_popup_on_press.get())
                         || (close_outside_click && !mouse_inside_popup && pressed_event)
                 }
                 PopupClosePolicy::CloseOnClickOutside => {
-                    let close_outside_click = !self
-                        .ignore_close_on_outside_click_for_non_menu_popups
-                        .get()
-                        || popup.is_menu;
+                    let close_outside_click =
+                        !self.ignore_close_on_outside_click_for_non_menu_popups.get()
+                            || popup.is_menu;
                     close_outside_click && !mouse_inside_popup() && pressed_event
                 }
                 PopupClosePolicy::NoAutoClose => false,
