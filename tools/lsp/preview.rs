@@ -1531,6 +1531,8 @@ fn set_preview_factory(
     preview_window.close_all_popups();
     // Keep popups embedded so the inspector still works
     preview_window.set_enable_native_popups(false);
+    // Don't auto-close user popups when clicking the preview UI (inspector, side panels, etc).
+    preview_window.set_ignore_close_on_outside_click_for_non_menu_popups(true);
 
     compiled.set_debug_handler(
         |location, text| {

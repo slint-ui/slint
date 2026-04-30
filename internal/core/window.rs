@@ -480,6 +480,7 @@ pub struct WindowInner {
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
     enable_native_popups: Cell<bool>,
+    ignore_close_on_outside_click_for_non_menu_popups: Cell<bool>,
     next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -543,6 +544,7 @@ impl WindowInner {
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
             enable_native_popups: Cell::new(true),
+            ignore_close_on_outside_click_for_non_menu_popups: Cell::new(false),
             next_popup_id: Cell::new(NonZeroU32::MIN),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
@@ -678,10 +680,20 @@ impl WindowInner {
             match popup.close_policy {
                 PopupClosePolicy::CloseOnClick => {
                     let mouse_inside_popup = mouse_inside_popup();
+                    let close_outside_click = !self
+                        .ignore_close_on_outside_click_for_non_menu_popups
+                        .get()
+                        || popup.is_menu;
                     (mouse_inside_popup && released_event && self.had_popup_on_press.get())
-                        || (!mouse_inside_popup && pressed_event)
+                        || (close_outside_click && !mouse_inside_popup && pressed_event)
                 }
-                PopupClosePolicy::CloseOnClickOutside => !mouse_inside_popup() && pressed_event,
+                PopupClosePolicy::CloseOnClickOutside => {
+                    let close_outside_click = !self
+                        .ignore_close_on_outside_click_for_non_menu_popups
+                        .get()
+                        || popup.is_menu;
+                    close_outside_click && !mouse_inside_popup() && pressed_event
+                }
                 PopupClosePolicy::NoAutoClose => false,
             }
             .then_some(popup.popup_id)
@@ -1361,6 +1373,11 @@ impl WindowInner {
     /// Live preview turns this off so popups stay inside the window.
     pub fn set_enable_native_popups(&self, enable: bool) {
         self.enable_native_popups.set(enable);
+    }
+
+    /// Live preview helper.
+    pub fn set_ignore_close_on_outside_click_for_non_menu_popups(&self, enable: bool) {
+        self.ignore_close_on_outside_click_for_non_menu_popups.set(enable);
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
