@@ -2815,6 +2815,7 @@ export global NativePalette {
 export component SystemTray {
     in property <image> icon;
     in property <string> title;
+    in property <bool> visible: true;
     callback activated();
     Menu { }
     //-disallow_global_types_as_child_elements

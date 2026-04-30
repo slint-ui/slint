@@ -142,6 +142,12 @@ impl PlatformTray {
             tray.menu = new_menu;
         });
     }
+
+    pub fn set_visible(&self, _visible: bool) {
+        // TODO: toggle StatusNotifierItem visibility (no direct SNI hide;
+        // typically by dropping the registered item on hide and re-registering
+        // on show).
+    }
 }
 
 async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {

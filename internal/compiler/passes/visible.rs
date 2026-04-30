@@ -18,6 +18,13 @@ pub fn handle_visible(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
+    // SystemTray uses `visible` as a real reactive property (toggling the tray
+    // icon's presence) rather than the lower-to-Clip layout sugar. Skip the
+    // warning + lowering for tray-rooted components.
+    if component.inherits_system_tray() {
+        return;
+    }
+
     if let Some(b) = component.root_element.borrow().bindings.get("visible") {
         diag.push_warning(
             "The visible property cannot be used on the root element, it will not be applied"

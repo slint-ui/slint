@@ -79,6 +79,10 @@ impl SystemTrayHandle {
     ) {
         self.0.rebuild_menu(menu, entries_out);
     }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.0.set_visible(visible);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -113,6 +117,7 @@ impl core::ops::Deref for SystemTrayDataBox {
 pub struct SystemTrayData {
     inner: std::cell::OnceCell<SystemTrayHandle>,
     change_tracker: crate::properties::ChangeTracker,
+    visible_tracker: crate::properties::ChangeTracker,
     menu: core::cell::RefCell<Option<MenuState>>,
 }
 
@@ -143,6 +148,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
 pub struct SystemTray {
     pub icon: Property<Image>,
     pub title: Property<SharedString>,
+    pub visible: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayDataBox,
@@ -216,6 +222,26 @@ impl Item for SystemTray {
                 // If a menu was already installed before the icon was set, build it now
                 // that we have a platform handle.
                 tray.rebuild_menu();
+            },
+        );
+
+        self.data.visible_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(tray_rc) = self_weak.upgrade() else { return false };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return false };
+                tray.as_pin_ref().visible()
+            },
+            |self_weak, visible| {
+                let Some(tray_rc) = self_weak.upgrade() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                if let Some(handle) = tray.as_pin_ref().data.inner.get() {
+                    handle.set_visible(*visible);
+                }
+                // If the platform handle isn't up yet, the icon-driven init path
+                // will create it later; the next change-tracker fire (or the
+                // initial visibility burned in at creation, once that's wired
+                // up properly) takes care of the visible state.
             },
         );
     }
