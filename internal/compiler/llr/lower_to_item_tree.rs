@@ -848,7 +848,14 @@ fn lower_popup_component(
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into() }
+    PopupWindow {
+        item_tree,
+        position: position.into(),
+        popup_kind: match popup.popup_kind {
+            object_tree::PopupWindowKind::Regular => PopupWindowKind::Regular,
+            object_tree::PopupWindowKind::Tooltip => PopupWindowKind::Tooltip,
+        },
+    }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {

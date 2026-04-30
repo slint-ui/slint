@@ -528,6 +528,9 @@ impl ElementType {
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
+                            if Self::can_be_special_child_element(name, tr) {
+                                return tr.lookup_element(name);
+                            }
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
                         }
                         base_type
@@ -536,6 +539,9 @@ impl ElementType {
                 base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
+                if Self::can_be_special_child_element(name, tr) {
+                    return tr.lookup_element(name);
+                }
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
                         return Ok(child_type.clone().into());
@@ -591,6 +597,14 @@ impl ElementType {
                 }
             })
         }
+    }
+
+    fn can_be_special_child_element(name: &str, tr: &TypeRegister) -> bool {
+        let is_special_builtin = matches!(
+            tr.lookup_element(name),
+            Ok(ElementType::Builtin(b)) if b.can_be_declared_without_children_slot
+        );
+        is_special_builtin
     }
 
     /// Assume this is a builtin type, panic if it isn't
@@ -837,6 +851,9 @@ pub struct BuiltinElement {
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
+    /// When true this builtin can be declared as a child even if the parent element
+    /// does not expose an explicit @children insertion slot.
+    pub can_be_declared_without_children_slot: bool,
 }
 
 impl BuiltinElement {

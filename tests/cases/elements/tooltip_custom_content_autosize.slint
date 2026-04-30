@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    width: 220px;
+    height: 140px;
+
+    in-out property <bool> tooltip-created;
+    in-out property <length> tooltip-width;
+    in-out property <length> tooltip-height;
+
+    Rectangle {
+        x: 10px;
+        y: 10px;
+        width: 120px;
+        height: 40px;
+
+        ToolTip {
+            placement: bottom;
+
+            Rectangle {
+                background: #222;
+                border-radius: 6px;
+
+                layout := VerticalLayout {
+                    padding: 8px;
+                    Text {
+                        text: "Autosized";
+                        color: #fff;
+                    }
+                }
+
+                init => {
+                    root.tooltip-created = true;
+                    root.tooltip-width = self.width;
+                    root.tooltip-height = self.height;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_tooltip_created());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(20.0, 20.0),
+});
+slint_testing::mock_elapsed_time(600);
+assert!(instance.get_tooltip_created());
+
+let w = instance.get_tooltip_width();
+let h = instance.get_tooltip_height();
+assert!(w > 10.0 && w < 220.0, "unexpected tooltip width: {w}");
+assert!(h > 10.0 && h < 140.0, "unexpected tooltip height: {h}");
+```
+
+*/

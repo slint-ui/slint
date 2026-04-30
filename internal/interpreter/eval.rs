@@ -1069,7 +1069,7 @@ fn call_builtin_function(
                     position,
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
-                    true,
+                    corelib::window::PopupKind::Menu,
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });
@@ -1975,7 +1975,7 @@ pub fn store_property(
             };
             let item_info = &enclosing_component.description.items[element.borrow().id.as_str()];
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
-            let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
+            let p = item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
             p.set(item, value, maybe_animation.as_animation())
                 .map_err(|()| SetPropertyError::WrongType)?;
         }

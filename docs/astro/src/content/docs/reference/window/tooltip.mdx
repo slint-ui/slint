@@ -1,0 +1,165 @@
+---
+title: ToolTip
+description: ToolTip element api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+
+Use `ToolTip` to show a tooltip when the parent element is hovered.
+
+The tooltip appears while the mouse hovers the parent element.
+
+```slint playground
+import { Button } from "std-widgets.slint";
+
+export component Example inherits Window {
+    width: 320px;
+    height: 180px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        Button {
+            height: 40px;
+            text: "Pointer";
+            ToolTip {
+                delay: 700ms;
+                text: "tooltip at the mouse pointer";
+            }
+        }
+
+        Button {
+            height: 40px;
+            text: "Bottom";
+
+            ToolTip {
+                placement: bottom;
+                Rectangle {
+                    border-radius: 6px;
+                    background: #222;
+
+                    layout := VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+
+                        Text {
+                            text: "Quick Actions";
+                            font-weight: 700;
+                            color: #fff;
+                        }
+
+                        Text {
+                            text: "Open command palette and search settings.";
+                            color: #d1d5db;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Rectangle {
+                                border-radius: 4px;
+                                background: #374151;
+                                HorizontalLayout {
+                                    padding: 4px;
+                                    Text {
+                                        text: "Ctrl";
+                                        color: #fff;
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                border-radius: 4px;
+                                background: #374151;
+                                HorizontalLayout {
+                                    padding: 4px;
+                                    Text {
+                                        text: "K";
+                                        color: #fff;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: 40px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: #e5e7eb;
+            Text {
+                text: "Left";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            ToolTip {
+                placement: left;
+                text: "Tooltip on the left";
+            }
+        }
+    }
+}
+```
+
+## Properties
+
+### text
+<SlintProperty propName="text" typeName="string">
+The text shown in the tooltip.
+
+If you provide `text`, the `ToolTip` must not have any children.
+</SlintProperty>
+
+### placement
+<SlintProperty propName="placement" typeName="enum" enumName="ToolTipPlacement" defaultValue="pointer">
+Controls where the tooltip is placed:
+
+- `pointer`: at the current mouse pointer position (default)
+- `top`/`bottom`/`left`/`right`: relative to the hovered element
+</SlintProperty>
+
+### delay
+<SlintProperty propName="delay" typeName="duration" defaultValue="500ms">
+Delay before the tooltip is shown after hover starts.
+</SlintProperty>
+
+## Custom Content
+
+Instead of `text`, you can provide custom tooltip content by adding children to `ToolTip`.
+In that case, do not set `text`.
+
+When using custom content:
+
+- **Choose one mode**: Either set `text`, or provide children (but not both).
+- **Provide your own visuals**: Add padding/background/border-radius as needed (for example using a `Rectangle`).
+- **Bring your own layout**: If you add multiple children, wrap them in `VerticalLayout`/`HorizontalLayout` (or position them manually), depending on how you want them arranged.
+- **Size comes from the content**: Custom tooltip containers are shrink-wrapped to content size for placement.
+
+Example:
+
+```slint
+Rectangle {
+    width: 140px;
+    height: 44px;
+    border-radius: 8px;
+    background: #e9e9e9;
+    Text { text: "Hover me"; horizontal-alignment: center; vertical-alignment: center; }
+
+    ToolTip {
+        placement: pointer;
+        Rectangle {
+            border-radius: 8px;
+            background: #222;
+            VerticalLayout {
+                padding: 10px;
+                Text { color: #fff; text: "Keyboard shortcut: Ctrl+S"; }
+            }
+        }
+    }
+}
+```
+

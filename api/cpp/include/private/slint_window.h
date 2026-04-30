@@ -178,7 +178,8 @@ public:
         auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
         auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                              &parent_item, false);
+                                                              &parent_item,
+                                                              cbindgen_private::PopupKind::Regular);
         popup->user_init();
         return id;
     }
@@ -222,7 +223,7 @@ public:
         auto popup_dyn = popup.into_dyn();
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, true);
+                &context_menu_rc, cbindgen_private::PopupKind::Menu);
         popup->user_init();
         return id;
     }

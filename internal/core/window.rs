@@ -413,6 +413,18 @@ pub enum PopupWindowLocation {
     ChildWindow(LogicalPoint),
 }
 
+/// Describes popup behavior classes in the runtime.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PopupKind {
+    /// Standard popup window behavior.
+    Regular,
+    /// Input-transparent overlay popup used for tooltips.
+    Tooltip,
+    /// Popup menu behavior with menu-chain propagation/closing.
+    Menu,
+}
+
 /// This structure defines a graphical element that is designed to pop up from the surrounding
 /// UI content, for example to show a context menu.
 #[derive(Clone)]
@@ -429,9 +441,8 @@ pub struct PopupWindow {
     focus_item_in_parent: ItemWeak,
     /// The item from where the Popup was invoked from
     pub parent_item: ItemWeak,
-    /// Whether the popup is a popup menu.
-    /// Popup menu allow the mouse event to be propagated on their parent menu/menubar
-    is_menu: bool,
+    /// Runtime behavior category for this popup.
+    pub kind: PopupKind,
 }
 
 #[pin_project::pin_project]
@@ -692,6 +703,9 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
+                if popup.kind == PopupKind::Tooltip {
+                    continue;
+                }
                 item_tree = None;
                 menubar_item = None;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
@@ -709,7 +723,7 @@ impl WindowInner {
                     break;
                 }
 
-                if !popup.is_menu {
+                if popup.kind != PopupKind::Menu {
                     break;
                 } else if popup_to_close.is_some() {
                     // clicking outside of a popup menu should close all the menus
@@ -1353,14 +1367,13 @@ impl WindowInner {
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
-    /// `is_menu` specifies whether the popup is a popup menu.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-        is_menu: bool,
+        popup_kind: PopupKind,
     ) -> NonZeroU32 {
         let position = parent_item
             .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
@@ -1450,18 +1463,23 @@ impl WindowInner {
             .as_ref()
             .window_adapter(false, &mut popup_window_adapter);
         let popup_window_adapter =
-            popup_window_adapter.expect("It must be there because we set the global");
+            popup_window_adapter.expect("popup window adapter must be available");
 
-        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
-        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
+        // If the popup adapter matches the parent adapter, backend could not open
+        // a native child popup window and we fall back to in-window child popup placement.
         let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-            let clip = LogicalRect::new(
-                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-            );
+            // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
+            let clip_region = if popup_kind == PopupKind::Tooltip {
+                None
+            } else {
+                Some(LogicalRect::new(
+                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                ))
+            };
             let rect = popup::place_popup(
                 popup::Placement::Fixed(LogicalRect::new(position, size)),
-                &Some(clip),
+                &clip_region,
             );
             self.window_adapter().request_redraw();
             PopupWindowLocation::ChildWindow(rect.origin)
@@ -1470,15 +1488,19 @@ impl WindowInner {
             WindowInner::from_pub(popup_window).set_component(popup_componentrc);
             popup_window.set_position(LogicalPosition::from_euclid(position));
             popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
-
-            popup_window_adapter.set_visible(true).expect("Unable to show popup");
+            popup_window_adapter
+                .set_visible(true)
+                .expect("unable to show popup window");
             PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 
-        let focus_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
-            .map(|item| item.downgrade())
-            .unwrap_or_default();
+        let focus_item = if popup_kind == PopupKind::Tooltip {
+            Default::default()
+        } else {
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
+                .map(|item| item.downgrade())
+                .unwrap_or_default()
+        };
 
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,
@@ -1487,7 +1509,7 @@ impl WindowInner {
             close_policy,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
-            is_menu,
+            kind: popup_kind,
         });
 
         popup_id
@@ -1550,9 +1572,14 @@ impl WindowInner {
             let p = active_popups.remove(popup_index);
             drop(active_popups);
             self.close_popup_impl(&p);
-            if p.is_menu {
+            if p.kind == PopupKind::Menu {
                 // close all sub-menus
-                while self.active_popups.borrow().get(popup_index).is_some_and(|p| p.is_menu) {
+                while self
+                    .active_popups
+                    .borrow()
+                    .get(popup_index)
+                    .is_some_and(|p| p.kind == PopupKind::Menu)
+                {
                     let p = self.active_popups.borrow_mut().remove(popup_index);
                     self.close_popup_impl(&p);
                 }
@@ -1960,7 +1987,7 @@ pub mod ffi {
         position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-        is_menu: bool,
+        popup_kind: PopupKind,
     ) -> NonZeroU32 {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
@@ -1969,7 +1996,7 @@ pub mod ffi {
                 position,
                 close_policy,
                 parent_item,
-                is_menu,
+                popup_kind,
             )
         }
     }

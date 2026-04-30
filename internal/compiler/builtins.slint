@@ -153,6 +153,20 @@ export component TouchArea {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export component TooltipArea inherits Empty {
+    out property <bool> has-hover;
+    out property <length> mouse-x;
+    out property <length> mouse-y;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+export component ToolTip inherits Empty {
+    in property <string> text;
+    in property <ToolTipPlacement> placement: pointer;
+    in property <duration> delay: 500ms;
+    //-can_be_declared_without_children_slot
+}
+
 export component FocusScope {
     in property <bool> enabled: true;
     in property <bool> focus-on-click: true;
