@@ -1402,10 +1402,6 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
-    fn get_parent(&self) -> Weak<dyn WindowAdapter> {
-        Weak::<Self>::new()
-    }
-
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let winit_cursor = match cursor {
             MouseCursor::Default => winit::window::CursorIcon::Default,

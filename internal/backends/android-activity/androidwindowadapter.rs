@@ -85,10 +85,6 @@ impl WindowAdapter for AndroidWindowAdapter {
 }
 
 impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
-    fn get_parent(&self) -> Weak<dyn WindowAdapter> {
-        Weak::<Self>::new()
-    }
-
     #[cfg(feature = "native-activity")]
     fn input_method_request(&self, request: InputMethodRequest) {
         match request {
