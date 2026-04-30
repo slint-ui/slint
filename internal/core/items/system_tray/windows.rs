@@ -25,7 +25,8 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
-    NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW, Shell_NotifyIconW,
+    NIF_ICON, NIF_MESSAGE, NIF_STATE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY, NIS_HIDDEN,
+    NOTIFY_ICON_STATE, NOTIFYICONDATAW, Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreateIconIndirect, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyIcon,
@@ -187,9 +188,22 @@ impl PlatformTray {
         }
     }
 
-    pub fn set_visible(&self, _visible: bool) {
-        // TODO: toggle the notification-area icon (NIM_DELETE on hide,
-        // NIM_ADD on show, via Shell_NotifyIconW).
+    pub fn set_visible(&self, visible: bool) {
+        // Shell_NotifyIconW supports a real visibility toggle via
+        // NIF_STATE + NIS_HIDDEN, so the icon stays registered (HWND, HICON,
+        // tooltip, and wnd-proc routing all survive). Unlike the SNI backend
+        // there's no recreation and no flicker. dwStateMask scopes the change
+        // to the visibility bit so any future state bits are left alone.
+        let data = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: self.inner.hwnd,
+            uID: TRAY_UID,
+            uFlags: NIF_STATE,
+            dwState: if visible { NOTIFY_ICON_STATE(0) } else { NIS_HIDDEN },
+            dwStateMask: NIS_HIDDEN,
+            ..Default::default()
+        };
+        let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
     }
 
     pub fn set_icon(&self, _icon: &crate::graphics::Image) {
