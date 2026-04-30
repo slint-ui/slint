@@ -24,7 +24,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, SharedString, SharedVector};
+use crate::{Callback, Coord, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -1681,6 +1681,7 @@ impl WindowInner {
         }
     }
 
+    // Get geometry of the virtual keyboard if available
     pub(crate) fn window_item_virtual_keyboard(
         &self,
     ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
@@ -1688,7 +1689,12 @@ impl WindowInner {
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
-        Some((window_item.virtual_keyboard_position(), window_item.virtual_keyboard_size()))
+        let keyboard_size = window_item.virtual_keyboard_size();
+        if keyboard_size.width == 0. as Coord || keyboard_size.height == 0. as Coord {
+            None
+        } else {
+            Some((window_item.virtual_keyboard_position(), keyboard_size))
+        }
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
