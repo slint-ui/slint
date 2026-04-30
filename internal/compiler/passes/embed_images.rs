@@ -14,14 +14,13 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::Arc;
 use typed_index_collections::TiVec;
 
 pub trait ResourcePreloader {
     fn load<'a>(
         &self,
         paths: impl Iterator<Item = &'a str>,
-        push: Rc<impl Fn(/* path */ &'a str, /* extension */ String, /* data */ Arc<[u8]>)>,
+        push: Rc<impl Fn(/* path */ &'a str, /* extension */ String, /* data */ Vec<u8>)>,
     ) -> impl Future<Output = ()>;
 }
 
@@ -29,7 +28,7 @@ impl ResourcePreloader for () {
     fn load<'a>(
         &self,
         _paths: impl Iterator<Item = &'a str>,
-        _push: Rc<impl Fn(&'a str, String, Arc<[u8]>)>,
+        _push: Rc<impl Fn(&'a str, String, Vec<u8>)>,
     ) -> impl Future<Output = ()> {
         std::future::ready(())
     }
@@ -39,11 +38,11 @@ pub async fn preload_images(doc: &Document, resource_preloader: impl ResourcePre
     let mut all_components = Vec::new();
     doc.visit_all_used_components(|c| all_components.push(c.clone()));
 
-    let mut urls = HashSet::<SmolStr>::new();
+    let mut paths = HashSet::<SmolStr>::new();
     for component in &all_components {
         visit_all_expressions(component, |e, _| {
             foreach_image_url_from_expression(e, &mut |path| {
-                urls.insert(path.clone());
+                paths.insert(path.clone());
             })
         });
     }
@@ -51,13 +50,13 @@ pub async fn preload_images(doc: &Document, resource_preloader: impl ResourcePre
     let global_embedded_resources = &doc.embedded_file_resources;
     resource_preloader
         .load(
-            urls.iter().map(SmolStr::as_str),
-            Rc::new(|url: &str, extension, data: Arc<[u8]>| {
-                let mut resources = global_embedded_resources.borrow_mut();
-                resources.push(EmbeddedResources {
-                    path: Some(url.into()),
-                    kind: EmbeddedResourcesKind::DataUriPayload(data.to_vec(), extension),
-                });
+            paths.iter().map(SmolStr::as_str),
+            Rc::new(|path: &str, extension, data: Vec<u8>| {
+                // let mut resources = global_embedded_resources.borrow_mut();
+                // resources.push(EmbeddedResources {
+                //     path: Some(path.into()),
+                //     kind: EmbeddedResourcesKind::DataUriPayload(data, extension),
+                // });
             }),
         )
         .await;
@@ -146,7 +145,13 @@ fn embed_images_from_expression(
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
-        if path_to_id.contains_key(path) {
+        if let Some(id) = path_to_id.get(path) {
+            if let Some(resource) = global_embedded_resources.borrow().get(*id)
+                && let EmbeddedResourcesKind::DataUriPayload(_, extension) = &resource.kind
+            {
+                *resource_ref =
+                    ImageReference::EmbeddedData { resource_id: *id, extension: extension.clone() };
+            }
             return;
         }
 
@@ -575,7 +580,7 @@ fn embed_data_uri(
 
     let resource_id = resources.push_and_get_key(EmbeddedResources {
         path: None,
-        kind: EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()),
+        kind: EmbeddedResourcesKind::DataUriPayload(decoded_data.into(), extension.clone()),
     });
 
     ImageReference::EmbeddedData { resource_id, extension }
