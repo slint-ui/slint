@@ -28,9 +28,21 @@ External contributors may also be invited to become members of the Github organi
 ## Code Changes
 
 We aim for a clean, readable history on `master` so that `git blame` and `git bisect` remain useful.
-Every commit message should explain the *why* behind a change, not just the *what*.
 Commit messages should make sense on their own,
 even without access to the pull request that introduced them.
+
+The commit and PR title should be short and describe *what* changed.
+Start with the area of the code it affects,
+for example `compiler:`, `slintpad:`, `skia:`, `docs:`.
+Don't use the `feat:`/`fix:` convention.
+
+The commit body can be longer, expand on *what* was done, and explain *why* and *what it fixes*.
+Reference related issues in the body:
+use `Fixes: #123` or `Closes: #123` if the commit resolves the issue,
+or `Issue: #123` / `CC: #123` to reference it without closing it.
+
+Changes to user-visible behavior should include an update to the documentation.
+Ideally, every change should come with an automated test.
 
 ### Branches
 
@@ -54,15 +66,20 @@ Reviewers leave comments on the PR.
 Some are nitpicks, others must be addressed before merging.
 Reviewers should clearly indicate which is which.
 
-Once approved, the author merges the PR if they have the rights to do so.
-For external contributions, the reviewer merges it.
+Once approved, the author merges the PR.
+GitHub's auto-merge feature can be used to merge automatically once CI passes and approvals are in.
+For external contributions, the reviewer can also merge it.
+
+Use draft PRs for work that isn't ready for review yet.
+When you mark a PR as ready, let the reviewer know — GitHub doesn't notify them loudly.
 
 ### Commit Hygiene
 
 Many PRs accumulate "fixup" or "autofix" commits during review. These are noise in the final history.
 
 For small changes, **squash and merge** the PR.
-Edit the commit message to produce a clean, self-contained summary.
+Edit the commit message to produce a clean, self-contained summary that follows the guidelines above.
+Remove any leftover fixup or autofix commit titles from the message.
 
 For larger changes with several logically independent parts,
 maintain a clean history of a few self-contained commits within the PR.
@@ -87,13 +104,9 @@ git push origin origin/master:feature/<name>
 
 #### Working on a Feature Branch
 
-Development on a feature branch follows the same PR workflow as `master`:
-
- - Create PRs that target the feature branch instead of `master`.
- - PRs should be reviewed before merging, just like on `master`.
- - Apply the same squash-or-rebase policy as for `master`.
- - Temporary regressions are acceptable on a feature branch,
-   as long as they're tracked in the tracking PR (see below).
+Development on a feature branch follows the same PR and review workflow as `master`,
+but PRs target the feature branch instead.
+Temporary regressions are acceptable as long as they're tracked in the tracking PR (see below).
 
 Once a PR has been merged into the feature branch, don't rewrite that history.
 Don't force-push, squash, or rebase commits that were already reviewed and merged.
