@@ -153,8 +153,10 @@ impl PlatformTray {
         self.status_item.setMenu(Some(&ns_menu));
     }
 
-    pub fn set_visible(&self, _visible: bool) {
-        // TODO: toggle the NSStatusItem's visibility (e.g. via `setVisible:`).
+    pub fn set_visible(&self, visible: bool) {
+        // NSStatusItem has a real visibility toggle since macOS 10.12, so unlike
+        // the SNI/ksni backend we don't need to deregister and respawn.
+        self.status_item.setVisible(visible);
     }
 
     pub fn set_icon(&self, _icon: &crate::graphics::Image) {
