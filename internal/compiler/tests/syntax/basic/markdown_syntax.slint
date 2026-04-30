@@ -24,9 +24,9 @@ export component X {
     property <styled-text> t17: @markdown("<div>text</div>");
 //                                         >             <error{Markdown HTML blocks (<div>text</div>) are not supported}
     property <styled-text> t18: @markdown("<u>unclosed");
-//                              >                      <error{Spans are unbalanced: stack contained items at end of function}
+//                              >                      <error{Unterminated tag}
     property <styled-text> t19: @markdown("<font color='red'>unclosed");
-//                              >                                     <error{Spans are unbalanced: stack contained items at end of function}
+//                              >                                     <error{Unterminated tag}
     property <styled-text> t20: @markdown("<u>text</font>");
 //                                                >     <error{Closing html tag doesn't match the opening tag. Expected </u>, got </font>}
     property <styled-text> t21: @markdown("<font>text</font>");
@@ -111,6 +111,19 @@ export component X {
                                           "<abc>bad</abc>"
 //                                         >  <error{HTML tag <abc> is not supported}
                                           " suffix");
+
+    // Interleaved HTML and markdown styles (#11563)
+    property <styled-text> t26: @markdown("<u>*</u>*");
+//                                             >  <error{HTML tag </u> overlaps with markdown formatting}
+    property <styled-text> t27: @markdown("<u>*hello</u> world*");
+//                                                  >  <error{HTML tag </u> overlaps with markdown formatting}
+    // Interleaving plus a genuinely unclosed tag
+    property <styled-text> t29: @markdown("<u>*</u>*<font color=\"red\">text");
+//                                             >  <error{HTML tag </u> overlaps with markdown formatting}
+//                              >                                            <^error{Unterminated tag}
+    property <styled-text> t28: @markdown("<u><font color=\"red\"></u></font>");
+//                                                              >  <error{Closing html tag doesn't match the opening tag. Expected </font>, got </u>}
+//                                                                  >     <^error{Closing html tag doesn't match the opening tag. Expected </u>, got </font>}
 
     // Combined errors from different markdown features in a single string with escape sequences
     property <styled-text> t25: @markdown("---\n\n> quote\n\n<span>text</span>");

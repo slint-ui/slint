@@ -90,9 +90,9 @@ enum StyledTextParseErrorKind {
     /// Spans are unbalanced: stack already empty when popped
     #[display("Spans are unbalanced: stack already empty when popped")]
     Pop,
-    /// Spans are unbalanced: stack contained items at end of function
-    #[display("Spans are unbalanced: stack contained items at end of function")]
-    NotEmpty,
+    /// Unterminated tag
+    #[display("Unterminated tag")]
+    UnterminatedTag,
     /// Paragraph not started
     #[display("Paragraph not started")]
     ParagraphNotStarted,
@@ -119,6 +119,9 @@ enum StyledTextParseErrorKind {
     PlaceholderCountMismatch(usize, usize),
     #[display("Interpolating multiple styled text paragraphs is not currently implemented")]
     MultiParagraphInterpolation,
+    /// HTML closing tag overlaps with markdown formatting
+    #[display("HTML tag {_0} overlaps with markdown formatting")]
+    InterleavedStyles(alloc::string::String),
     /// Invalid color value
     #[display("Invalid color value '{_0}'")]
     InvalidColor(alloc::string::String),
@@ -328,6 +331,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     // When an End event fails to pop the style stack and this is > 0,
     // we silently consume it instead of reporting a cascading Pop error.
     let mut skip_end_count: usize = 0;
+    let mut interleaved_count: usize = 0;
 
     let mut current_paragraph: Option<StyledTextParagraph> = None;
 
@@ -480,11 +484,13 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                         Style::Color(_) => "</font>",
                         Style::Underline => "</u>",
                         _ => {
+                            // The top of the stack is a markdown style, not
+                            // the expected HTML style. Push it back and report
+                            // an error instead of consuming it (issue #11563).
+                            style_stack.push((style, start));
+                            interleaved_count += 1;
                             errors.push(StyledTextParseError::new(
-                                E::ClosingTagMismatch(
-                                    alloc::format!("{:?}", style),
-                                    (&*html).into(),
-                                ),
+                                E::InterleavedStyles((&*html).into()),
                                 event_range.clone(),
                             ));
                             continue;
@@ -662,8 +668,8 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
         )));
     }
 
-    if !style_stack.is_empty() {
-        errors.push(StyledTextParseError::without_range(E::NotEmpty));
+    if style_stack.len() > interleaved_count {
+        errors.push(StyledTextParseError::without_range(E::UnterminatedTag));
     }
 
     if let Some(paragraph) = current_paragraph.take() {
@@ -977,5 +983,25 @@ fn markdown_parsing_interpolated() {
             formatting: alloc::vec![FormattedSpan { range: 0..4, style: Style::Link }],
             links: alloc::vec![(0..4, "https://example.com/path".into())]
         }]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_interleaved_html_and_emphasis() {
+    // Issue #11563: interleaved HTML and markdown styles should not panic
+    // but should report an error.
+    let (_paragraphs, errors) = parse_interpolated::<&[_]>("<u>*</u>*", &[]);
+    assert!(errors.iter().any(|e| e.to_string().contains("overlaps with markdown")));
+
+    let (_paragraphs, errors) = parse_interpolated::<&[_]>("<u>*hello</u> world*", &[]);
+    assert!(errors.iter().any(|e| e.to_string().contains("overlaps with markdown")));
+
+    // Interleaved HTML-only styles
+    let (_paragraphs, errors) =
+        parse_interpolated::<&[_]>(r#"<u><font color="red"></u></font>"#, &[]);
+    assert!(
+        errors.iter().any(|e| e.to_string().contains("Closing html tag")),
+        "Expected ClosingTagMismatch, got: {errors:?}"
     );
 }
