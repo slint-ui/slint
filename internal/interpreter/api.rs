@@ -1380,6 +1380,11 @@ impl ComponentInstance {
         ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
     }
 
+    fn is_system_tray_rooted(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).description().original.inherits_system_tray()
+    }
+
     /// Return the value for a public property of this component.
     ///
     /// ## Examples
@@ -1699,10 +1704,25 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            // Mirror what the Rust/C++ generators emit for tray-rooted public
+            // components: toggle the `visible` property; the change-tracker on
+            // the SystemTray native item dispatches to the platform handle.
+            self.set_property("visible", Value::Bool(true)).expect(
+                "setting `visible` on a SystemTray-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            self.set_property("visible", Value::Bool(false)).expect(
+                "setting `visible` on a SystemTray-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().hide()
     }
 
