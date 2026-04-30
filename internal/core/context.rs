@@ -104,6 +104,17 @@ impl SlintContext {
         crate::future::spawn_local_with_ctx(self, fut)
     }
 
+    #[cfg(target_has_atomic = "ptr")]
+    /// Like [`Self::spawn_local`] but polls the future eagerly (inline) before returning.
+    /// On desktop, where wgpu futures resolve on first poll, this completes synchronously.
+    /// On WASM, the future starts executing and continues asynchronously.
+    pub fn spawn_local_eager<F: core::future::Future + 'static>(
+        &self,
+        fut: F,
+    ) -> Result<crate::future::SpawnLocalEagerResult<F::Output>, crate::api::EventLoopError> {
+        crate::future::spawn_local_eager_with_ctx(self, fut)
+    }
+
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
         self.0.platform.run_event_loop()
     }

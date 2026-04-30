@@ -47,6 +47,35 @@ impl<T> FutureRunner<T> {
     }
 }
 
+impl<T: 'static> FutureRunner<T> {
+    fn poll(self: alloc::sync::Arc<Self>) {
+        #[cfg(feature = "std")]
+        assert_eq!(
+            self.thread,
+            std::thread::current().id(),
+            "the future was moved to a thread despite we checked it was created in the event loop thread"
+        );
+        let waker = self.clone().into();
+        let mut inner = self.inner();
+        let mut cx = core::task::Context::from_waker(&waker);
+        if let FutureState::Running(fut) = &mut inner.fut {
+            if self.aborted.load(atomic::Ordering::Relaxed) {
+                inner.fut = FutureState::Finished(None);
+            } else {
+                match fut.as_mut().poll(&mut cx) {
+                    Poll::Ready(val) => {
+                        inner.fut = FutureState::Finished(Some(val));
+                        for w in core::mem::take(&mut inner.wakers) {
+                            w.wake();
+                        }
+                    }
+                    Poll::Pending => {}
+                }
+            }
+        }
+    }
+}
+
 // # Safety:
 // The Future might not be Send, but we only poll the future from the main thread.
 // (We even assert that)
@@ -59,29 +88,12 @@ unsafe impl<T> Sync for FutureRunner<T> {}
 
 impl<T: 'static> Wake for FutureRunner<T> {
     fn wake(self: alloc::sync::Arc<Self>) {
-        self.clone().proxy.invoke_from_event_loop(Box::new(move || {
-            #[cfg(feature = "std")]
-            assert_eq!(self.thread, std::thread::current().id(), "the future was moved to a thread despite we checked it was created in the event loop thread");
-            let waker = self.clone().into();
-            let mut inner = self.inner();
-            let mut cx = core::task::Context::from_waker(&waker);
-            if let FutureState::Running(fut) = &mut inner.fut {
-                if self.aborted.load(atomic::Ordering::Relaxed) {
-                    inner.fut = FutureState::Finished(None);
-                } else {
-                    match fut.as_mut().poll(&mut cx) {
-                        Poll::Ready(val) => {
-                            inner.fut = FutureState::Finished(Some(val));
-                            for w in core::mem::take(&mut inner.wakers) {
-                                w.wake();
-                            }
-                        }
-                        Poll::Pending => {}
-                    }
-                }
-            }
-        }))
-        .expect("No event loop despite we checked");
+        self.clone()
+            .proxy
+            .invoke_from_event_loop(Box::new(move || {
+                self.poll();
+            }))
+            .expect("No event loop despite we checked");
     }
 }
 
@@ -91,6 +103,14 @@ impl<T: 'static> Wake for FutureRunner<T> {
 ///
 /// This trait implements future. Polling it after it finished or aborted may result in a panic.
 pub struct JoinHandle<T>(alloc::sync::Arc<FutureRunner<T>>);
+
+/// The return value of [`crate::SlintContext::spawn_local_eager()`].
+pub enum SpawnLocalEagerResult<T> {
+    /// The future completed during the eager inline poll.
+    Finished(T),
+    /// The future is still pending and will continue through the event loop.
+    Pending(JoinHandle<T>),
+}
 
 impl<T> Future for JoinHandle<T> {
     type Output = T;
@@ -145,4 +165,33 @@ pub(crate) fn spawn_local_with_ctx<F: Future + 'static>(
     });
     arc.wake_by_ref();
     Ok(JoinHandle(arc))
+}
+
+/// Like [`spawn_local_with_ctx`] but polls the future immediately inline instead of
+/// deferring the first poll through the event loop proxy. On platforms where the future
+/// resolves on first poll (desktop), this completes the future synchronously. On WASM,
+/// the future starts executing and subsequent polls happen via the event loop.
+pub(crate) fn spawn_local_eager_with_ctx<F: Future + 'static>(
+    ctx: &SlintContext,
+    fut: F,
+) -> Result<SpawnLocalEagerResult<F::Output>, EventLoopError> {
+    let arc = alloc::sync::Arc::new(FutureRunner {
+        #[cfg(feature = "std")]
+        thread: std::thread::current().id(),
+        inner: FutureRunnerInner { fut: FutureState::Running(Box::pin(fut)), wakers: Vec::new() }
+            .into(),
+        aborted: Default::default(),
+        proxy: ctx.event_loop_proxy().ok_or(EventLoopError::NoEventLoopProvider)?,
+    });
+    arc.clone().poll();
+    {
+        let mut inner = arc.inner();
+        if let FutureState::Finished(value) = &mut inner.fut {
+            return Ok(SpawnLocalEagerResult::Finished(
+                value.take().expect("eager future completed without output"),
+            ));
+        }
+    }
+
+    Ok(SpawnLocalEagerResult::Pending(JoinHandle(arc)))
 }

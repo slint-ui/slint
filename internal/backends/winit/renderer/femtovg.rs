@@ -13,7 +13,7 @@ use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
 
 use winit::event_loop::ActiveEventLoop;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", supports_opengl))]
 use winit::platform::web::WindowExtWebSys;
 
 use super::WinitCompatibleRenderer;
@@ -55,6 +55,8 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        _context: &i_slint_core::context::SlintContext,
+        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
@@ -166,13 +168,13 @@ impl GlutinFemtoVGRenderer {
     }
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(feature = "renderer-femtovg-wgpu")]
 pub struct WGPUFemtoVGRenderer {
     renderer: FemtoVGRenderer<i_slint_renderer_femtovg::wgpu::WGPUBackend>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(feature = "renderer-femtovg-wgpu")]
 impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
@@ -180,6 +182,8 @@ impl WGPUFemtoVGRenderer {
         if !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
         ) {
+            #[cfg(target_arch = "wasm32")]
+            i_slint_core::debug_log!("Slint: WebGPU API not available");
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
         }
         Ok(Box::new(Self {
@@ -190,7 +194,7 @@ impl WGPUFemtoVGRenderer {
     }
 }
 
-#[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
+#[cfg(feature = "renderer-femtovg-wgpu")]
 impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         self.renderer.render()
@@ -208,6 +212,8 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         &self,
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        context: &i_slint_core::context::SlintContext,
+        window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
@@ -218,14 +224,74 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
             },
         )?);
 
-        let size = winit_window.inner_size();
+        let requested_graphics_api = self.requested_graphics_api.clone();
+        let window_handle = Box::new(winit_window.clone())
+            as Box<dyn i_slint_core::graphics::wgpu_28::wgpu::WindowHandle>;
+        let winit_window_for_size = winit_window.clone();
 
-        self.renderer.set_surface(
-            Box::new(winit_window.clone())
-                as Box<dyn i_slint_core::graphics::wgpu_28::wgpu::WindowHandle>,
-            crate::winitwindowadapter::physical_size_to_slint(&size),
-            self.requested_graphics_api.clone(),
-        )?;
+        let init_result = context
+            .spawn_local_eager(async move {
+                use i_slint_core::graphics::wgpu_28;
+
+                let (instance, adapter, device, queue, surface) =
+                    wgpu_28::async_init_instance_adapter_device_queue_surface(
+                        window_handle,
+                        requested_graphics_api,
+                        wgpu_28::wgpu::Backends::GL,
+                    )
+                    .await
+                    .map_err(|e| {
+                        PlatformError::from(format!("WGPU async initialization failed: {e}"))
+                    })?;
+
+                let Some(window_adapter) = window_adapter_weak.upgrade() else {
+                    return Ok::<(), PlatformError>(());
+                };
+
+                let this = (window_adapter.renderer() as &dyn std::any::Any)
+                    .downcast_ref::<WGPUFemtoVGRenderer>()
+                    .unwrap();
+
+                let slint_size = crate::winitwindowadapter::physical_size_to_slint(
+                    &winit_window_for_size.inner_size(),
+                );
+                this.renderer.configure_surface_from_init_result(
+                    instance, adapter, device, queue, surface, slint_size,
+                );
+                #[cfg(target_arch = "wasm32")]
+                i_slint_core::debug_log!("Slint: Using FemtoVG WGPU renderer");
+
+                use i_slint_core::platform::WindowAdapter;
+                window_adapter.request_redraw();
+                Ok::<(), PlatformError>(())
+            })
+            .map_err(|e| PlatformError::from(format!("Failed to spawn WGPU init future: {e}")))?;
+        match init_result {
+            i_slint_core::future::SpawnLocalEagerResult::Finished(result) => result?,
+            i_slint_core::future::SpawnLocalEagerResult::Pending(handle) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    context
+                        .spawn_local(async move {
+                            if let Err(e) = handle.await {
+                                i_slint_core::debug_log!("{e}");
+                            }
+                        })
+                        .map_err(|e| {
+                            PlatformError::from(format!(
+                                "Failed to spawn WGPU init result handler: {e}"
+                            ))
+                        })?;
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    handle.abort();
+                    return Err(PlatformError::from(
+                        "internal error: WGPU setup is not expected to be async",
+                    ));
+                }
+            }
+        }
 
         Ok(winit_window)
     }

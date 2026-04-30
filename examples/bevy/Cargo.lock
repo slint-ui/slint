@@ -5350,6 +5350,7 @@ dependencies = [
  "i-slint-core-macros",
  "icu_normalizer",
  "image",
+ "js-sys",
  "lyon_algorithms",
  "lyon_extra",
  "lyon_geom",

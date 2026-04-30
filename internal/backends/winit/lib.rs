@@ -60,6 +60,7 @@ pub enum EventResult {
 }
 
 mod renderer {
+    use std::rc::Weak;
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
@@ -79,6 +80,8 @@ mod renderer {
             &self,
             active_event_loop: &ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
+            context: &i_slint_core::context::SlintContext,
+            window_adapter_weak: Weak<crate::winitwindowadapter::WinitWindowAdapter>,
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
     }
 
@@ -146,11 +149,7 @@ fn try_create_window_with_fallback_renderer(
         renderer::skia::WinitSkiaRenderer::new_suspended,
         #[cfg(feature = "renderer-femtovg-wgpu")]
         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended,
-        #[cfg(all(
-            feature = "renderer-femtovg",
-            supports_opengl,
-            not(feature = "renderer-femtovg-wgpu")
-        ))]
+        #[cfg(all(feature = "renderer-femtovg", supports_opengl))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,

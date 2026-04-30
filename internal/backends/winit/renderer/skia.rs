@@ -168,6 +168,8 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         &self,
         active_event_loop: &winit::event_loop::ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
+        _context: &i_slint_core::context::SlintContext,
+        _window_adapter_weak: std::rc::Weak<crate::winitwindowadapter::WinitWindowAdapter>,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {

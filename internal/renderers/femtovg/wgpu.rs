@@ -180,7 +180,9 @@ impl GraphicsBackend for WGPUBackend {
             return Ok(WGPUWindowSurface::Snapshot(snapshot_output));
         }
         let surface = self.surface.borrow();
-        let surface = surface.as_ref().unwrap();
+        let Some(surface) = surface.as_ref() else {
+            return Err("WGPU surface not yet initialized".into());
+        };
         let frame = match surface.get_current_texture() {
             Ok(texture) => texture,
             Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture()?,
@@ -283,6 +285,8 @@ impl GraphicsBackend for WGPUBackend {
 }
 
 impl FemtoVGRenderer<WGPUBackend> {
+    /// Synchronously initialize the WGPU surface. This uses the blocking init path
+    /// and works on all platforms except WASM.
     pub fn set_surface(
         &self,
         surface_target: impl Into<i_slint_core::graphics::wgpu_28::SurfaceTarget>,
@@ -297,6 +301,21 @@ impl FemtoVGRenderer<WGPUBackend> {
                 wgpu::Backends::GL,
             )?;
 
+        self.configure_surface_from_init_result(instance, adapter, device, queue, surface, size);
+        Ok(())
+    }
+
+    /// Configure the renderer with pre-initialized WGPU objects. This is used by both the
+    /// synchronous `set_surface` path and the async WASM initialization path.
+    pub fn configure_surface_from_init_result(
+        &self,
+        instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        surface: wgpu::Surface<'static>,
+        size: PhysicalWindowSize,
+    ) {
         let mut surface_config =
             surface.get_default_config(&adapter, size.width, size.height).unwrap();
 
@@ -327,7 +346,6 @@ impl FemtoVGRenderer<WGPUBackend> {
 
         let canvas = Rc::new(RefCell::new(femtovg_canvas));
         self.reset_canvas(canvas);
-        Ok(())
     }
 }
 

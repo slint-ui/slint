@@ -315,6 +315,9 @@ i-slint-backend-winit = { workspace = true, optional = true }
 i-slint-renderer-femtovg = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+i-slint-backend-selector = { workspace = true, features = ["renderer-femtovg-wgpu"] }
+
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
 
