@@ -27,14 +27,27 @@ pub struct PreviewConfig {
     pub enable_experimental: bool,
 }
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
-    InvalidateContents { url: lsp_types::Url },
-    ForgetFile { url: lsp_types::Url },
-    SetContents { url: VersionedUrl, contents: Vec<u8> },
-    SetConfiguration { config: PreviewConfig },
+    InvalidateContents {
+        url: lsp_types::Url,
+    },
+    ForgetFile {
+        url: lsp_types::Url,
+    },
+    SetContents {
+        url: VersionedUrl,
+        #[debug("Vec<u8> {{ len: {} }}", contents.len())]
+        contents: Vec<u8>,
+    },
+    SetConfiguration {
+        config: PreviewConfig,
+    },
     ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
+    HighlightFromEditor {
+        url: Option<Url>,
+        offset: u32,
+    },
     Quit,
 }
 
