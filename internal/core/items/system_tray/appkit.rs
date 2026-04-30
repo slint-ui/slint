@@ -152,6 +152,10 @@ impl PlatformTray {
         let ns_menu = build_menu(menu, &self.action_target, self.mtm, entries_out);
         self.status_item.setMenu(Some(&ns_menu));
     }
+
+    pub fn set_visible(&self, _visible: bool) {
+        // TODO: toggle the NSStatusItem's visibility (e.g. via `setVisible:`).
+    }
 }
 
 impl Drop for PlatformTray {

@@ -46,6 +46,11 @@ pub fn lower_to_item_tree(
     let public_components = document
         .exported_roots()
         .map(|component| {
+            let top_level_type = if component.inherits_system_tray() {
+                TopLevelComponentType::SystemTray
+            } else {
+                TopLevelComponentType::Window
+            };
             let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
             let public_properties = public_properties(&component, &sc.mapping, &state);
             sc.sub_component.name = component.id.clone();
@@ -59,6 +64,7 @@ pub fn lower_to_item_tree(
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
                 name: component.id.clone(),
+                top_level_type,
             }
         })
         .collect();

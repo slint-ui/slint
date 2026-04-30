@@ -43,5 +43,15 @@ assert!(instance.get_test());
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+
+// Compile-time check: a SystemTray-rooted component must not expose a
+// `window()` member. If a future change adds one, this fires. Wrapping
+// in a template lets the requires-expression SFINAE cleanly instead of
+// erroring on the missing member.
+auto _has_window = []<typename T>(T*) {
+    return requires(T t) { t.window(); };
+};
+static_assert(!_has_window(static_cast<TestCase *>(nullptr)),
+              "SystemTray-rooted components must not expose window()");
 ```
 */
