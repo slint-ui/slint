@@ -473,8 +473,8 @@ pub(crate) fn handle_to_index(handle: proto::Handle) -> Result<ArenaIndex, Strin
 
 pub(crate) mod dispatch {
     use super::{
-        ArenaIndex, IntrospectionState, convert_pointer_event_button,
-        invoke_element_accessibility_action, index_to_handle, proto,
+        ArenaIndex, IntrospectionState, convert_pointer_event_button, index_to_handle,
+        invoke_element_accessibility_action, proto,
     };
 
     pub(crate) fn list_windows(state: &IntrospectionState) -> proto::WindowListResponse {

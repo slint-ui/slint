@@ -214,8 +214,12 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let response =
-                dispatch::query_element_descendants(state, element_index, p.query_stack, p.find_all)?;
+            let response = dispatch::query_element_descendants(
+                state,
+                element_index,
+                p.query_stack,
+                p.find_all,
+            )?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))

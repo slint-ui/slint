@@ -115,9 +115,10 @@ impl TestingClient {
                 window_handle,
                 image_mime_type,
             }) => {
-                let window_index = handle_to_index(window_handle.ok_or_else(|| {
-                    "grab window request missing window handle".to_string()
-                })?)?;
+                let window_index = handle_to_index(
+                    window_handle
+                        .ok_or_else(|| "grab window request missing window handle".to_string())?,
+                )?;
                 Resp::TakeSnapshotResponse(dispatch::take_snapshot(
                     &self.state,
                     window_index,
@@ -129,9 +130,10 @@ impl TestingClient {
                 action,
                 button,
             }) => {
-                let element_index = handle_to_index(element_handle.ok_or_else(|| {
-                    "element click request missing element handle".to_string()
-                })?)?;
+                let element_index =
+                    handle_to_index(element_handle.ok_or_else(|| {
+                        "element click request missing element handle".to_string()
+                    })?)?;
                 let button = proto::PointerEventButton::try_from(button)
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let action = proto::ClickAction::try_from(action)
@@ -144,9 +146,10 @@ impl TestingClient {
                 target,
                 button,
             }) => {
-                let element_index = handle_to_index(element_handle.ok_or_else(|| {
-                    "element drag request missing element handle".to_string()
-                })?)?;
+                let element_index =
+                    handle_to_index(element_handle.ok_or_else(|| {
+                        "element drag request missing element handle".to_string()
+                    })?)?;
                 let button = proto::PointerEventButton::try_from(button)
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let target =
