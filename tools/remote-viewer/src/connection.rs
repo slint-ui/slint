@@ -16,7 +16,6 @@ use serde::Serialize;
 use tokio::{
     net::TcpStream,
     sync::{self, mpsc::UnboundedSender, oneshot},
-    task::JoinHandle,
 };
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 
@@ -58,7 +57,7 @@ pub enum ConnectionMessage {
 
 pub struct Connection {
     local_addr: SocketAddr,
-    task_handle: JoinHandle<()>,
+    thread_handle: Option<(std::thread::JoinHandle<()>, sync::oneshot::Sender<()>)>,
     message_sender: sync::mpsc::UnboundedSender<Message>,
     file_cache: Arc<DashMap<String, CacheEntry>>,
 }
@@ -68,65 +67,91 @@ impl Connection {
         address: Option<SocketAddr>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
-        let listener = tokio::net::TcpListener::bind(
-            address.unwrap_or(SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))),
-        )
-        .await?;
-        let local_addr = listener.local_addr().map_err(Box::new)?;
-        tracing::info!("Listening on {}", local_addr);
         let file_cache = Arc::new(DashMap::<String, CacheEntry>::new());
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
         let inner_file_cache = file_cache.clone();
         let inner_message_sender = message_sender.clone();
-        let task_handle = tokio::spawn(async move {
-            let message_handler = Arc::new(message_handler);
-            let mut current_sink = None;
-            loop {
-                tokio::select! {
-                    accept = listener.accept() => {
-                        match accept {
-                            Err(err) => {
-                                tracing::error!("Failed listening for Websocket connections: {err}");
-                                return;
-                            }
-                            Ok((stream, addr)) => {
-                                tracing::info!("Connected to {addr:?}");
-                                match tokio_tungstenite::accept_async(stream).await {
-                                    Err(err) => {
-                                        tracing::error!("Failed to establish websocket connection: {err}")
-                                    }
-                                    Ok(stream) => {
-                                        tracing::info!("Websocket established with {addr:?}");
-                                        let (sink, receiver) = stream.split();
-                                        tokio::spawn(Self::handle_connection(
-                                            receiver,
-                                            message_handler.clone(),
-                                            inner_file_cache.clone(),
-                                            inner_message_sender.clone(),
-                                            addr,
-                                        ));
-                                        if let Some(_old_sink) = current_sink.replace(sink) {
-                                            tracing::error!(
-                                                "Second connection while we were already connected, dropping old connection"
-                                            );
+
+        let (local_addr_sender, local_addr_receiver) =
+            sync::oneshot::channel::<std::io::Result<SocketAddr>>();
+        let (quit_sender, mut quit_receiver) = tokio::sync::oneshot::channel::<()>();
+
+        let thread_handle = std::thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async move {
+                let listener = match tokio::net::TcpListener::bind(
+                    address.unwrap_or(SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))),
+                )
+                .await {
+                    Ok(listener) => listener,
+                    Err(err) => {
+                        tracing::error!("Failed to bind to address: {err}");
+                        local_addr_sender.send(Err(err)).ok();
+                        return;
+                    }
+                };
+                local_addr_sender.send(listener.local_addr()).ok();
+
+                let message_handler = Arc::new(message_handler);
+                let mut current_sink = None;
+                loop {
+                    tokio::select! {
+                        accept = listener.accept() => {
+                            match accept {
+                                Err(err) => {
+                                    tracing::error!("Failed listening for Websocket connections: {err}");
+                                    return;
+                                }
+                                Ok((stream, addr)) => {
+                                    tracing::info!("Connected to {addr:?}");
+                                    match tokio_tungstenite::accept_async(stream).await {
+                                        Err(err) => {
+                                            tracing::error!("Failed to establish websocket connection: {err}")
+                                        }
+                                        Ok(stream) => {
+                                            tracing::info!("Websocket established with {addr:?}");
+                                            let (sink, receiver) = stream.split();
+                                            tokio::spawn(Self::handle_connection(
+                                                receiver,
+                                                message_handler.clone(),
+                                                inner_file_cache.clone(),
+                                                inner_message_sender.clone(),
+                                                addr,
+                                            ));
+                                            if let Some(_old_sink) = current_sink.replace(sink) {
+                                                tracing::error!(
+                                                    "Second connection while we were already connected, dropping old connection"
+                                                );
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    message = message_receiver.recv() => {
-                        if let (Some(message), Some(current_sink)) = (message, &mut current_sink)
-                            && let Err(err) = current_sink.send(message).await {
-                            tracing::error!("Failed sending message to Websocket: {err}");
+                        _ = &mut quit_receiver => {
+                            tracing::info!("Quit signal received, shutting down connection thread.");
+                            break;
+                        }
+                        message = message_receiver.recv() => {
+                            if let (Some(message), Some(current_sink)) = (message, &mut current_sink)
+                                && let Err(err) = current_sink.send(message).await {
+                                tracing::error!("Failed sending message to Websocket: {err}");
+                            }
                         }
                     }
                 }
-            }
+            });
         });
 
-        Ok(Self { local_addr, task_handle, message_sender, file_cache })
+        let local_addr = local_addr_receiver.await??;
+        tracing::info!("Listening on {}", local_addr);
+
+        Ok(Self {
+            local_addr,
+            thread_handle: Some((thread_handle, quit_sender)),
+            message_sender,
+            file_cache,
+        })
     }
 
     async fn handle_connection(
@@ -326,6 +351,9 @@ impl Connection {
 
 impl Drop for Connection {
     fn drop(&mut self) {
-        self.task_handle.abort();
+        if let Some((thread_handle, quit_sender)) = self.thread_handle.take() {
+            quit_sender.send(()).ok();
+            thread_handle.join().ok();
+        }
     }
 }
