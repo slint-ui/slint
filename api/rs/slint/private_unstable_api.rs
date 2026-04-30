@@ -207,13 +207,15 @@ pub mod re_exports {
     pub use i_slint_core::string::shared_string_from_number_precision;
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::{
-        set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
+        set_bundled_decimal_separators, set_bundled_languages, translate_from_bundle,
+        translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
+        string::string_to_float,
     };
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;

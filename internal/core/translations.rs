@@ -4,9 +4,10 @@
 use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
-
 #[cfg(feature = "tr")]
 pub use tr::Translator;
+
+pub(crate) const DEFAULT_SEPARATOR: char = '.';
 
 mod formatter {
     use core::fmt::{Display, Formatter, Result};
@@ -294,6 +295,8 @@ pub fn mark_all_translations_dirty() {
         }
     }
 
+    update_locale_decimal_separator();
+
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         ctx.0.translations_dirty.mark_dirty();
@@ -310,11 +313,16 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
         START.call_once(|| {
             gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
         });
+
         mark_all_translations_dirty();
     }
     Ok(())
 }
 
+/// Translate the strings bundled into the applications. If the desired language is not available, use the default
+///
+/// `strs` - the string which should be translated. The slice contains the string in multiple languages
+/// `arguments` - arguments for the translation
 pub fn translate_from_bundle(
     strs: &[Option<&str>],
     arguments: &(impl FormatArgs + ?Sized),
@@ -330,6 +338,11 @@ pub fn translate_from_bundle(
     output
 }
 
+/// Translate the strings bundled into the applications with plurals. If the desired language is not available, use the default
+///
+/// `strs` - the string which should be translated
+/// `plural_rules` - the rules to create the plurals
+/// `arguments` - arguments for the translation
 pub fn translate_from_bundle_with_plural(
     strs: &[Option<&[&str]>],
     plural_rules: &[Option<fn(i32) -> usize>],
@@ -355,24 +368,88 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
+/// Determine the decimal separator from the language or the bundled decimal separator
+fn update_locale_decimal_separator() {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return };
+        ctx.0.locale_decimal_separator.as_ref().set(None);
+
+        if let Some(l) = ctx.0.translations_bundle_languages.borrow().as_ref()
+            && !l.is_empty()
+        {
+            // Check bundled
+            let language_index = ctx.0.translations_dirty.as_ref().get();
+            if let Some(_l) = l.get(language_index) {
+                // Determine the decimal separator from the locale using icu
+                #[cfg(feature = "std")]
+                ctx.0
+                    .locale_decimal_separator
+                    .as_ref()
+                    .set(i_slint_common::decimal_separator_for_locale(_l));
+
+                // Check if decimal separator is bundled for non std
+                #[cfg(not(feature = "std"))]
+                if let Some(c) = ctx
+                    .0
+                    .translations_bundle_decimal_separators
+                    .borrow()
+                    .as_ref()
+                    .and_then(|v| v.get(language_index).and_then(|v| *v))
+                {
+                    ctx.0.locale_decimal_separator.as_ref().set(Some(c))
+                }
+            }
+        } else {
+            // No bundled languages
+
+            #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+            if let Some(locale) = sys_locale::get_locale() {
+                ctx.0
+                    .locale_decimal_separator
+                    .as_ref()
+                    .set(i_slint_common::decimal_separator_for_locale(&locale))
+            }
+        }
+    });
+}
+
 /// This function is called by the generated code to assign the list of bundled languages.
 /// Do nothing if the list is already assigned.
+/// It selects also the language based on the system locale as default
 pub fn set_bundled_languages(languages: &[&'static str]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         if ctx.0.translations_bundle_languages.borrow().is_none() {
             ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
             #[cfg(feature = "std")]
-            if let Some(idx) = index_for_locale(languages) {
-                ctx.0.translations_dirty.as_ref().set(idx);
+            {
+                if let Some(idx) = language_index_from_sys_locale(languages) {
+                    ctx.0.translations_dirty.as_ref().set(idx);
+                }
+                update_locale_decimal_separator();
             }
         }
     });
 }
 
-/// attempt to select the right bundled translation based on the current locale
+/// This function is called by generated code to assign bundled decimal separators.
+/// Each entry corresponds to one language and originates from msgctxt
+/// "Slint: decimal separator" / msgid "." in PO files.
+pub fn set_bundled_decimal_separators(separators: &[Option<&str>]) {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return };
+        if ctx.0.translations_bundle_decimal_separators.borrow().is_none() {
+            ctx.0.translations_bundle_decimal_separators.replace(Some(
+                separators.iter().map(|s| s.and_then(|x| x.chars().next())).collect(),
+            ));
+            update_locale_decimal_separator();
+        }
+    });
+}
+
+/// attempt to select the right bundled translation based on the current system locale
 #[cfg(feature = "std")]
-fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
+fn language_index_from_sys_locale(languages: &[&'static str]) -> Option<usize> {
     let locale = sys_locale::get_locale()?;
     // first, try an exact match
     let idx = languages.iter().position(|x| *x == locale);
@@ -410,9 +487,12 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
+            update_locale_decimal_separator();
             Ok(())
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
+            #[cfg(feature = "std")]
+            ctx.0.locale_decimal_separator.as_ref().set(None);
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {
@@ -459,6 +539,19 @@ mod ffi {
     #![allow(unsafe_code)]
     use super::*;
     use crate::slice::Slice;
+
+    /// return the current decimal-separator for the `Platform.decimal-separator` property
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_decimal_separator(out: &mut SharedString) {
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let separator = if let Some(ctx) = ctx.get() {
+                ctx.0.locale_decimal_separator.as_ref().get().unwrap_or(DEFAULT_SEPARATOR)
+            } else {
+                DEFAULT_SEPARATOR
+            };
+            *out = crate::SharedString::from(separator)
+        })
+    }
 
     /// Perform the translation and formatting.
     #[unsafe(no_mangle)]
@@ -548,6 +641,23 @@ mod ffi {
             .map(|x| core::str::from_utf8(x.as_slice()).unwrap())
             .collect::<alloc::vec::Vec<_>>();
         set_bundled_languages(&languages);
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_translate_set_bundled_decimal_separators(
+        separators: Slice<*const core::ffi::c_char>,
+    ) {
+        let separators = separators
+            .iter()
+            .map(|p| {
+                if p.is_null() {
+                    None
+                } else {
+                    unsafe { core::ffi::CStr::from_ptr(*p) }.to_str().ok()
+                }
+            })
+            .collect::<alloc::vec::Vec<_>>();
+        set_bundled_decimal_separators(&separators);
     }
 
     #[unsafe(no_mangle)]

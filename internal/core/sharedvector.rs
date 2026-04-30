@@ -160,6 +160,36 @@ impl<T> SharedVector<T> {
     }
 }
 
+impl<T: Clone + PartialEq> SharedVector<T> {
+    /// Replaces `from` by `to` in `self` `count` times
+    /// `count` - number of times to do the replacements
+    pub fn replace_range(&mut self, from: &[T], to: &[T], mut count: usize) {
+        if from.is_empty() || count == 0 || from.len() != to.len() {
+            return;
+        }
+        let s = self.make_mut_slice();
+        if s.len() < from.len() {
+            return;
+        }
+
+        let mut index = 0;
+        let from_len = from.len();
+        let max_start = s.len() - from_len;
+
+        while index <= max_start && count > 0 {
+            if s[index..index + from_len] == *from {
+                for (dst, src) in s[index..index + from_len].iter_mut().zip(to.iter()) {
+                    *dst = src.clone();
+                }
+                count -= 1;
+                index += from_len;
+            } else {
+                index += 1;
+            }
+        }
+    }
+}
+
 impl<T: Clone> SharedVector<T> {
     /// Create a SharedVector from a slice
     pub fn from_slice(slice: &[T]) -> SharedVector<T> {
@@ -699,4 +729,32 @@ fn test_reserve() {
     v.reserve(8);
     assert_eq!(v.len(), 5);
     assert_eq!(v.capacity(), 13);
+}
+
+#[test]
+fn test_replace_range_all_matches() {
+    let mut v = SharedVector::from([1, 2, 3, 1, 2, 3, 1, 2, 3]);
+    v.replace_range(&[1, 2, 3], &[4, 5, 6], usize::MAX);
+    assert_eq!(v.as_slice(), &[4, 5, 6, 4, 5, 6, 4, 5, 6]);
+}
+
+#[test]
+fn test_replace_range_count_limit() {
+    let mut v = SharedVector::from([1, 2, 3, 1, 2, 3, 1, 2, 3]);
+    v.replace_range(&[1, 2, 3], &[4, 5, 6], 2);
+    assert_eq!(v.as_slice(), &[4, 5, 6, 4, 5, 6, 1, 2, 3]);
+}
+
+#[test]
+fn test_replace_range_non_overlapping() {
+    let mut v = SharedVector::from([1, 1, 1]);
+    v.replace_range(&[1, 1], &[2, 2], usize::MAX);
+    assert_eq!(v.as_slice(), &[2, 2, 1]);
+}
+
+#[test]
+fn test_replace_range() {
+    let mut v = SharedVector::from([1, 2, 3, 4]);
+    v.replace_range(&[2, 3, 4, 5], &[7, 8, 9, 9], 1);
+    assert_eq!(v.as_slice(), &[1, 2, 3, 4]);
 }

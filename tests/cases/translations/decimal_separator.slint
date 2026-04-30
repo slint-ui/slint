@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that the correct decimal separator is used when specifying a locale
+
+// Include this keyword to bundle the translations
+//bundle-translations
+
+export component TestCase {
+    in-out property <string> the-decimal-separator: Platform.decimal-separator;
+
+    // \{ cannot be in a slint macro, so we add it here, because we wanna execute the Test with
+    // compiled source (otherwise bundling tranlations is not possible)
+    out property <string> same_or_diff: "\{the-decimal-separator}";
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_the_decimal_separator(), "."); // We didn't set any decimal separator yet
+
+assert!(slint::select_bundled_translation("fr").is_ok());
+assert_eq!(instance.get_the_decimal_separator(), ",");
+
+assert!(slint::select_bundled_translation("en").is_ok());
+assert_eq!(instance.get_the_decimal_separator(), ".");
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_the_decimal_separator(), ".");
+
+assert(slint::select_bundled_translation("fr"));
+assert_eq(instance.get_the_decimal_separator(), ",");
+
+assert(slint::select_bundled_translation("en"));
+assert_eq(instance.get_the_decimal_separator(), ".");
+```
+*/

@@ -26,6 +26,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::string::string_to_float;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -2241,17 +2242,18 @@ impl TextInput {
 
     fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
         let input_type = self.input_type();
-        if input_type == InputType::Number && !text_to_insert.chars().all(|ch| ch.is_ascii_digit())
-        {
-            return false;
-        } else if input_type == InputType::Decimal {
-            let (a, c) = self.selection_anchor_and_cursor();
-            let text = self.text();
-            let text = [&text[..a], text_to_insert, &text[c..]].concat();
-            if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err() {
-                return false;
+
+        match input_type {
+            InputType::Number => return text_to_insert.chars().all(|ch| ch.is_ascii_digit()),
+            InputType::Decimal => {
+                let (a, c) = self.selection_anchor_and_cursor();
+                let current = self.text();
+                let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
+                return string_to_float(&candidate).is_some();
             }
+            InputType::Password | InputType::Text => (),
         }
+
         true
     }
 }

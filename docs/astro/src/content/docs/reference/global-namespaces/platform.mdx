@@ -34,6 +34,13 @@ style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `col
 determine the currently used scheme.
 </SlintProperty>
 
+### decimal-separator
+<SlintProperty propName="decimal-separator" typeName="string" defaultValue="known at runtime">
+The decimal separator currently used for localized float to string and vice versa conversions
+For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
+</SlintProperty>
+
+
 ## Functions
 
 ### open-url(url: string) -> bool
@@ -52,3 +59,4 @@ export component Example inherits Window {
     }
 }
 ```
+

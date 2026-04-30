@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::Property;
 use crate::api::PlatformError;
 use crate::input::InternalKeyboardModifierState;
 use crate::platform::{EventLoopProxy, Platform};
+use crate::{Property, translations};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
@@ -17,18 +17,23 @@ crate::thread_local! {
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
+
     /// This property is read by all translations, and marked dirty when the language changes,
     /// so that every translated string gets re-translated. The property's value is the current selected
     /// language when bundling translations.
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
     pub(crate) translations_bundle_languages:
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
+    pub(crate) translations_bundle_decimal_separators:
+        core::cell::RefCell<Option<alloc::vec::Vec<Option<char>>>>,
+    #[cfg(feature = "tr")]
+    external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
+    pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<Option<char>>>>,
+
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
-    #[cfg(feature = "tr")]
-    external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[cfg(feature = "shared-parley")]
     pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
     #[cfg(feature = "shared-swash")]
@@ -53,7 +58,12 @@ impl SlintContext {
             window_count: 0.into(),
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
             translations_bundle_languages: Default::default(),
+            translations_bundle_decimal_separators: Default::default(),
             window_shown_hook: Default::default(),
+            locale_decimal_separator: Box::pin(Property::new_named(
+                None,
+                "SlintContext::locale_decimal_separator",
+            )),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "tr")]
@@ -123,6 +133,20 @@ impl SlintContext {
     #[cfg(not(all(unix, not(target_os = "macos"))))]
     pub fn xdg_app_id(&self) -> Option<crate::SharedString> {
         None
+    }
+
+    /// Returns the locale's decimal separator, falling back to `translations::DEFAULT_SEPARATOR`.
+    pub fn locale_decimal_separator(&self) -> char {
+        self.0.locale_decimal_separator.as_ref().get().unwrap_or(translations::DEFAULT_SEPARATOR)
+    }
+
+    /// Override the locale used for decimal separator detection (testing only).
+    #[cfg(feature = "std")]
+    pub fn set_locale(&self, locale: &str) {
+        self.0
+            .locale_decimal_separator
+            .as_ref()
+            .set(i_slint_common::decimal_separator_for_locale(locale));
     }
 
     #[cfg(feature = "tr")]

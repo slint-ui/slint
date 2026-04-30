@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
+use i_slint_common::decimal_separator_for_locale;
 use rspolib::TranslatedEntry;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
@@ -31,6 +32,9 @@ pub struct Translations {
 
     /// The "names" of the languages
     pub languages: Vec<SmolStr>,
+
+    /// Decimal separator per language read from the po file
+    pub decimal_separators: Vec<Option<SmolStr>>,
 }
 
 #[derive(Clone)]
@@ -48,6 +52,7 @@ impl TranslationsBuilder {
     pub fn load_translations(path: &Path, domain: &str) -> std::io::Result<Self> {
         let mut languages = vec!["".into()];
         let mut catalogs = Vec::new();
+        let mut decimal_separators = vec![None];
         let mut plural_rules =
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
         for l in std::fs::read_dir(path)
@@ -59,7 +64,12 @@ impl TranslationsBuilder {
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;
-                languages.push(l.file_name().to_string_lossy().into());
+                let language_name = l.file_name().to_string_lossy().to_smolstr();
+                languages.push(language_name.clone());
+                decimal_separators.push(
+                    decimal_separator_for_locale(language_name.as_str())
+                        .map(|separator| separator.to_smolstr()),
+                );
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
                     let plural_expr = header.split(';').find_map(|sub_entry| {
@@ -93,12 +103,14 @@ impl TranslationsBuilder {
                 path.display()
             )));
         }
+        assert_eq!(languages.len(), decimal_separators.len());
         Ok(Self {
             result: Translations {
                 strings: Vec::new(),
                 plurals: Vec::new(),
                 plural_rules,
                 languages,
+                decimal_separators,
             },
             map: HashMap::new(),
             catalogs: Rc::new(catalogs),
@@ -170,6 +182,7 @@ impl TranslationsBuilder {
         self.result
     }
 
+    /// Add all characters in any po file to `characters_seen` if they are not yet there
     pub fn collect_characters_seen(&self, characters_seen: &mut impl Extend<char>) {
         characters_seen.extend(
             self.catalogs

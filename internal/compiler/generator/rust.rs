@@ -342,10 +342,12 @@ fn generate_public_component(
     );
 
     #[cfg(feature = "bundle-translations")]
-    let init_bundle_translations = unit
-        .translations
-        .as_ref()
-        .map(|_| quote!(sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES);));
+    let init_bundle_translations = unit.translations.as_ref().map(|_| {
+        quote!(
+            sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES);
+            sp::set_bundled_decimal_separators(_SLINT_TRANSLATED_DECIMAL_SEPARATORS);
+        )
+    });
     #[cfg(not(feature = "bundle-translations"))]
     let init_bundle_translations = quote!();
 
@@ -3669,6 +3671,14 @@ fn compile_builtin_function_call(
             quote!(sp::animation_tick())
         }
         BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
+        BuiltinFunction::DecimalSeparator => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::SharedString::from(
+                sp::WindowInner::from_pub(#window_adapter_tokens.window())
+                    .context()
+                    .locale_decimal_separator()
+            ))
+        }
         BuiltinFunction::Mod => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::Euclid::rem_euclid(&(#a1 as f64), &(#a2 as f64)))
@@ -3707,9 +3717,9 @@ fn compile_builtin_function_call(
             quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::StringToFloat => {
-            quote!(#(#a)*.as_str().parse::<f64>().unwrap_or_default())
+            quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
-        BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
+        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_some()),
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
@@ -4707,6 +4717,11 @@ fn generate_translations(
         quote!(#rule)
     });
     let lang = translations.languages.iter().map(SmolStr::as_str).map(|lang| quote!(#lang));
+    let decimal_separators =
+        translations.decimal_separators.iter().map(|s| match s.as_ref().map(SmolStr::as_str) {
+            Some(s) => quote!(Some(#s)),
+            None => quote!(None),
+        });
 
     quote!(
         const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
@@ -4714,5 +4729,6 @@ fn generate_translations(
         #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
         const _SLINT_BUNDLED_LANGUAGES: &[&str] = &[#(#lang),*];
+        const _SLINT_TRANSLATED_DECIMAL_SEPARATORS: &[sp::Option<&str>] = &[#(#decimal_separators),*];
     )
 }
