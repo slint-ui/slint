@@ -21,6 +21,10 @@ use crate::keys::PyKeys;
 pub struct SlintToPyValue {
     pub slint_value: slint_interpreter::Value,
     pub type_collection: TypeCollection,
+    /// The Slint type this value was declared with, when known. Used to
+    /// preserve distinctions the interpreter erases — most notably int vs
+    /// float, since both share `Value::Number(f64)`.
+    pub expected_type: Option<Type>,
 }
 
 impl<'py> IntoPyObject<'py> for SlintToPyValue {
@@ -30,20 +34,30 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         let type_collection = self.type_collection;
+        let expected_type = self.expected_type;
         use slint_interpreter::Value;
         match self.slint_value {
             Value::Void => ().into_bound_py_any(py),
-            Value::Number(num) => num.into_bound_py_any(py),
+            Value::Number(num) => match expected_type {
+                Some(Type::Int32) => (num as i64).into_bound_py_any(py),
+                _ => num.into_bound_py_any(py),
+            },
             Value::String(str) => str.into_bound_py_any(py),
             Value::Bool(b) => b.into_bound_py_any(py),
             Value::Image(image) => crate::image::PyImage::from(image).into_bound_py_any(py),
-            Value::Model(model) => crate::models::PyModelShared::rust_into_py_model(&model, py)
-                .map_or_else(
-                    || type_collection.model_to_py(&model).into_bound_py_any(py),
+            Value::Model(model) => {
+                let element_type = expected_type.as_ref().and_then(|t| match t {
+                    Type::Array(elem) => Some((**elem).clone()),
+                    _ => None,
+                });
+                crate::models::PyModelShared::rust_into_py_model(&model, py).map_or_else(
+                    || type_collection.model_to_py(&model, element_type).into_bound_py_any(py),
                     |m| Ok(m),
-                ),
+                )
+            }
             Value::Struct(structval) => {
-                type_collection.struct_to_py(structval).into_bound_py_any(py)
+                let struct_type = expected_type.filter(|t| matches!(t, Type::Struct(_)));
+                type_collection.struct_to_py(structval, struct_type).into_bound_py_any(py)
             }
             Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
             Value::EnumerationValue(enum_name, enum_value) => {
@@ -113,6 +127,18 @@ fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
 pub struct PyStruct {
     pub data: slint_interpreter::Struct,
     pub type_collection: TypeCollection,
+    /// The declared `Type::Struct` for `data`, when known. Used so field
+    /// access maps each field to the right Python type (e.g. int vs float).
+    pub expected_type: Option<Type>,
+}
+
+impl PyStruct {
+    fn field_type(&self, key: &str) -> Option<Type> {
+        self.expected_type.as_ref().and_then(|t| match t {
+            Type::Struct(s) => s.fields.get(key).cloned(),
+            _ => None,
+        })
+    }
 }
 
 #[pymethods]
@@ -124,12 +150,17 @@ impl PyStruct {
                     "Python: No such field {key} on PyStruct"
                 )))
             },
-            |value| Ok(self.type_collection.to_py_value(value.clone())),
+            |value| Ok(self.type_collection.to_py_value(value.clone(), self.field_type(key))),
         )
     }
     fn __setattr__(&mut self, py: Python<'_>, key: String, value: Py<PyAny>) -> PyResult<()> {
-        let pv =
-            TypeCollection::slint_value_from_py_value(py, &value, Some(&self.type_collection))?;
+        let field_type = self.field_type(&key);
+        let pv = TypeCollection::slint_value_from_py_value(
+            py,
+            &value,
+            Some(&self.type_collection),
+            field_type.as_ref(),
+        )?;
         self.data.set_field(key, pv);
         Ok(())
     }
@@ -143,6 +174,7 @@ impl PyStruct {
                 .collect::<HashMap<_, _>>()
                 .into_iter(),
             type_collection: slf.type_collection.clone(),
+            expected_type: slf.expected_type.clone(),
         }
     }
 
@@ -166,6 +198,7 @@ impl PyStruct {
 struct PyStructFieldIterator {
     inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,
     type_collection: TypeCollection,
+    expected_type: Option<Type>,
 }
 
 #[gen_stub_pymethods]
@@ -176,7 +209,14 @@ impl PyStructFieldIterator {
     }
 
     fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, SlintToPyValue)> {
-        slf.inner.next().map(|(name, val)| (name, slf.type_collection.to_py_value(val)))
+        slf.inner.next().map(|(name, val)| {
+            let field_type = slf.expected_type.as_ref().and_then(|t| match t {
+                Type::Struct(s) => s.fields.get(name.as_str()).cloned(),
+                _ => None,
+            });
+            let py_value = slf.type_collection.to_py_value(val, field_type);
+            (name, py_value)
+        })
     }
 }
 
@@ -235,12 +275,20 @@ impl TypeCollection {
         Self { enum_classes }
     }
 
-    pub fn to_py_value(&self, value: slint_interpreter::Value) -> SlintToPyValue {
-        SlintToPyValue { slint_value: value, type_collection: self.clone() }
+    pub fn to_py_value(
+        &self,
+        value: slint_interpreter::Value,
+        expected_type: Option<Type>,
+    ) -> SlintToPyValue {
+        SlintToPyValue { slint_value: value, type_collection: self.clone(), expected_type }
     }
 
-    pub fn struct_to_py(&self, s: slint_interpreter::Struct) -> PyStruct {
-        PyStruct { data: s, type_collection: self.clone() }
+    pub fn struct_to_py(
+        &self,
+        s: slint_interpreter::Struct,
+        expected_type: Option<Type>,
+    ) -> PyStruct {
+        PyStruct { data: s, type_collection: self.clone(), expected_type }
     }
 
     pub fn enum_to_py(
@@ -260,8 +308,13 @@ impl TypeCollection {
     pub fn model_to_py(
         &self,
         model: &ModelRc<slint_interpreter::Value>,
+        element_type: Option<Type>,
     ) -> crate::models::ReadOnlyRustModel {
-        crate::models::ReadOnlyRustModel { model: model.clone(), type_collection: self.clone() }
+        crate::models::ReadOnlyRustModel {
+            model: model.clone(),
+            type_collection: self.clone(),
+            element_type,
+        }
     }
 
     pub fn enums(&self) -> impl Iterator<Item = (&String, &Py<PyAny>)> {
@@ -272,13 +325,15 @@ impl TypeCollection {
         py: Python<'_>,
         ob: &Py<PyAny>,
         type_collection: Option<&Self>,
+        expected_type: Option<&Type>,
     ) -> PyResult<slint_interpreter::Value> {
-        Self::slint_value_from_py_value_bound(&ob.bind(py), type_collection)
+        Self::slint_value_from_py_value_bound(&ob.bind(py), type_collection, expected_type)
     }
 
     pub fn slint_value_from_py_value_bound(
         ob: &Bound<'_, PyAny>,
         type_collection: Option<&Self>,
+        expected_type: Option<&Type>,
     ) -> PyResult<slint_interpreter::Value> {
         if ob.is_none() {
             return Ok(slint_interpreter::Value::Void);
@@ -311,6 +366,7 @@ impl TypeCollection {
                 ob.extract::<PyRef<'_, crate::models::PyModelBase>>().map(|pymodel| {
                     slint_interpreter::Value::Model(Self::apply(
                         type_collection,
+                        expected_type,
                         pymodel.as_model(),
                     ))
                 })
@@ -319,6 +375,7 @@ impl TypeCollection {
                 ob.extract::<PyRef<'_, crate::models::ReadOnlyRustModel>>().map(|rustmodel| {
                     slint_interpreter::Value::Model(Self::apply(
                         type_collection,
+                        expected_type,
                         rustmodel.model.clone(),
                     ))
                 })
@@ -363,12 +420,20 @@ impl TypeCollection {
                         pyo3::exceptions::PyTypeError::new_err("Object is not a dict or NamedTuple")
                     })
                 }?;
+                let struct_fields = expected_type.and_then(|t| match t {
+                    Type::Struct(s) => Some(&s.fields),
+                    _ => None,
+                });
                 let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                     .iter()
                     .map(|(name, pyval)| {
                         let name = name.extract::<&str>()?.to_string();
-                        let slintval =
-                            Self::slint_value_from_py_value_bound(&pyval, type_collection)?;
+                        let field_type = struct_fields.and_then(|fields| fields.get(name.as_str()));
+                        let slintval = Self::slint_value_from_py_value_bound(
+                            &pyval,
+                            type_collection,
+                            field_type,
+                        )?;
                         Ok((name, slintval))
                     })
                     .collect::<Result<Vec<(_, _)>, PyErr>>();
@@ -382,13 +447,18 @@ impl TypeCollection {
 
     fn apply(
         type_collection: Option<&Self>,
+        expected_type: Option<&Type>,
         model: ModelRc<slint_interpreter::Value>,
     ) -> ModelRc<slint_interpreter::Value> {
         let Some(type_collection) = type_collection else {
             return model;
         };
         if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>() {
-            rust_model.apply_type_collection(type_collection);
+            let element_type = match expected_type {
+                Some(Type::Array(element)) => Some((**element).clone()),
+                _ => None,
+            };
+            rust_model.apply_type_collection(type_collection, element_type);
         }
         model
     }

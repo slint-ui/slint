@@ -177,6 +177,11 @@ pub trait WindowAdapterInternal: core::any::Any {
     ) {
     }
 
+    /// Get the parent window adapter of this window adapter
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        None
+    }
+
     /// Create a window for a popup.
     /// This function will create only the window adapter but does not show the popup it self
     /// Use this window adapter to create a new popup window and show it with `show_popup()`
@@ -632,11 +637,11 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
-        // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
-        let mut root_adapter = None;
-        ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut root_adapter);
-        let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
-        let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
+        let parent_adapter = window_adapter
+            .internal(crate::InternalToken)
+            .and_then(|internal| internal.get_parent())
+            .unwrap_or_else(|| window_adapter.clone());
+        let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {
                 Rc::ptr_eq(wa, &window_adapter)
@@ -765,7 +770,7 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         if let Some(popup_id) = popup_to_close {
-            WindowInner::from_pub(root_adapter.window()).close_popup(popup_id);
+            WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
         }
 
         crate::properties::ChangeTracker::run_change_handlers();

@@ -15,10 +15,12 @@ packages:
   - docs/astro
   - docs/common
   - docs/safety
+  - docs/nodejs
   - ui-libraries/material/docs
 
 catalog:
   '@astrojs/check': 0.9.8
+  '@astrojs/sitemap': 3.7.2
   '@astrojs/starlight': 0.38.4
   '@biomejs/biome': 2.4.13
   '@expressive-code/plugin-line-numbers': 0.41.7

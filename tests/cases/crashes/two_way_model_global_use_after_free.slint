@@ -1,0 +1,170 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: replacing the model of a repeater whose instances have
+// two-way bindings (via struct field access) to a global property used to
+// cause a use-after-free.  The old instances are destroyed during
+// ensure_updated / refresh_model, but the common property created by
+// link_two_way_with_map still held a forwarded binding referencing the
+// freed instance.  Reading the global from the new instance's init would
+// follow the stale chain into freed memory.
+//
+// prop1 is read from native code via the exported global to check values.
+// prop2 is NOT aliased from TestCase, so the two-way chain through it
+// is the pure link_two_way_with_map + link_two_way_to_model_data path
+// that originally crashed.
+
+struct Item { value: string }
+struct Wrapper { field: string }
+
+export global Glob {
+    in-out property <Wrapper> prop1: { field: "G1" };
+    in-out property <Wrapper> prop2: { field: "G2" };
+}
+
+component Inner {
+    in-out property <string> alias1 <=> Glob.prop1.field;
+    in-out property <string> alias2 <=> Glob.prop2.field;
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    in-out property <[Item]> the-model: [{ value: "a" }, { value: "b" }];
+    in-out property <Wrapper> glob-prop <=> Glob.prop1;
+    out property <length> layout-height: lay.height;
+
+    VerticalLayout {
+        alignment: start;
+        lay := VerticalLayout {
+            for data in the-model: Rectangle {
+                height: 50px;
+                Inner {
+                    alias1 <=> data.value;
+                    alias2 <=> data.value;
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Force the repeater to instantiate items from the default model
+// ["a", "b"]. This sets up two-way bindings from the instances to
+// both global properties.  Do NOT read the globals here: that would
+// cache the common_property value and mask the use-after-free because
+// the stale binding would never be re-evaluated.
+slint_testing::send_mouse_click(&instance, 5., 5.);
+
+// Replace the model.
+auto m = std::make_shared<slint::VectorModel<Item>>(std::vector<Item>{
+    Item { .value = "x" },
+    Item { .value = "y" },
+    Item { .value = "z" },
+});
+instance.set_the_model(m);
+
+// Force the repeater to update. The visit pass calls ensure_updated
+// which drops the old instances and creates new ones. Before the fix
+// the common_property's BindingMapper would follow the dangling raw
+// pointer here, causing a use-after-free.
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.global<Glob>().get_prop1().field, "z");
+assert_eq(instance.global<Glob>().get_prop2().field, "z");
+assert(instance.get_layout_height() > 0);
+
+// Write through the last row and verify it propagates to the globals.
+m->set_row_data(2, Item { .value = "modified" });
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.global<Glob>().get_prop1().field, "modified");
+assert_eq(instance.global<Glob>().get_prop2().field, "modified");
+
+// Writing to prop1 should propagate through the model to prop2
+// and into the model row.
+instance.global<Glob>().set_prop1(Wrapper { .field = "from1" });
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.global<Glob>().get_prop2().field, "from1");
+assert_eq(m->row_data(2).value().value, "from1");
+
+// And the reverse: writing to prop2 should propagate to prop1
+// and the model row.
+instance.global<Glob>().set_prop2(Wrapper { .field = "from2" });
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.global<Glob>().get_prop1().field, "from2");
+assert_eq(m->row_data(2).value().value, "from2");
+```
+
+```rust
+use slint::{Model, VecModel};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+
+let m = Rc::new(VecModel::from(vec![
+    Item { value: "x".into() },
+    Item { value: "y".into() },
+    Item { value: "z".into() },
+]));
+instance.set_the_model(m.clone().into());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.global::<Glob<'_>>().get_prop1().field, "z");
+assert_eq!(instance.global::<Glob<'_>>().get_prop2().field, "z");
+assert!(instance.get_layout_height() > 0.);
+
+m.set_row_data(2, Item { value: "modified".into() });
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.global::<Glob<'_>>().get_prop1().field, "modified");
+assert_eq!(instance.global::<Glob<'_>>().get_prop2().field, "modified");
+
+instance.global::<Glob<'_>>().set_prop1(Wrapper { field: "from1".into() });
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.global::<Glob<'_>>().get_prop2().field, "from1");
+assert_eq!(m.row_data(2).unwrap().value, "from1");
+
+instance.global::<Glob<'_>>().set_prop2(Wrapper { field: "from2".into() });
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.global::<Glob<'_>>().get_prop1().field, "from2");
+assert_eq!(m.row_data(2).unwrap().value, "from2");
+```
+
+```js
+let instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+
+let m = new slintlib.ArrayModel([
+    { value: "x" },
+    { value: "y" },
+    { value: "z" },
+]);
+instance.the_model = m;
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert(instance.layout_height >= 0);
+
+// Verify the global property reflects the last model row via
+// the two-way chain (glob-prop aliases Glob.prop1).
+assert.deepStrictEqual(instance.glob_prop, { field: "z" });
+
+m.setRowData(2, { value: "modified" });
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepStrictEqual(instance.glob_prop, { field: "modified" });
+
+// Writing to glob-prop (which aliases Glob.prop1) should propagate
+// through the two-way chain back into the model row.
+instance.glob_prop = { field: "from1" };
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepStrictEqual(m.rowData(2), { value: "from1" });
+
+// And the reverse: writing to the model should propagate to glob-prop.
+m.setRowData(2, { value: "from2" });
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.deepStrictEqual(instance.glob_prop, { field: "from2" });
+```
+*/

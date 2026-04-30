@@ -159,16 +159,26 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             }
             common_property
         };
-        Self::link_two_way_with_map_to_common_property(common_property, prop2, map_to, map_from);
+        Self::link_two_way_with_map_to_common_property(
+            common_property,
+            prop2,
+            map_to,
+            map_from,
+            false,
+        );
     }
 
     /// Make a two way binding between the common property and the binding prop2.
-    /// if prop2 has a binding, it will be preserved
+    /// Two-way bindings on prop2 are always forwarded through the chain.
+    /// Regular closure bindings on prop2 are preserved when
+    /// `preserve_prop2_binding` is true, or dropped (so the common
+    /// property's value wins) when false.
     pub(crate) fn link_two_way_with_map_to_common_property<T2: PartialEq + Clone + 'static>(
         common_property: Pin<Rc<Self>>,
         prop2: Pin<&Property<T2>>,
         map_to: impl Fn(&T) -> T2 + Clone + 'static,
         map_from: impl Fn(&mut T, &T2) + Clone + 'static,
+        preserve_prop2_binding: bool,
     ) {
         struct TwoWayBindingWithMap<T, T2, M1, M2> {
             common_property: Pin<Rc<Property<T>>>,
@@ -258,25 +268,36 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             prop2.debug_name.borrow()
         );
 
-        // Detach the old binding (if any) from prop2, transferring its
-        // dependency list back to the handle so that set_binding() will
-        // properly move it into the new TwoWayBindingWithMap binding.
-        // Without this, the old binding's dependency list would be orphaned
-        // when it is later freed via BindingMapper::drop, leaving
-        // DependencyNodes with dangling prev pointers.
         let old_binding = prop2.handle.detach_binding();
 
         unsafe {
-            prop2.handle.set_binding(
-                TwoWayBindingWithMap { common_property, map_to, map_from, marker: PhantomData },
-                #[cfg(slint_debug_property)]
-                debug_name.as_str(),
-            );
-
-            if let Some(binding) = old_binding {
-                prop2.handle.set_binding_impl(binding);
+            if let Some(old) = old_binding {
+                let new_binding = alloc_binding_holder(TwoWayBindingWithMap {
+                    common_property,
+                    map_to,
+                    map_from,
+                    marker: PhantomData,
+                });
+                if ((*old).vtable.intercept_set_binding)(old, new_binding) {
+                    prop2.handle.set_binding_impl(old);
+                } else {
+                    prop2.handle.set_binding_impl(new_binding);
+                    if preserve_prop2_binding {
+                        // Re-attach so TwoWayBindingWithMap wraps it
+                        // as a BindingMapper for reactivity.
+                        prop2.handle.set_binding_impl(old);
+                    } else {
+                        ((*old).vtable.drop)(old);
+                    }
+                }
+            } else {
+                prop2.handle.set_binding(
+                    TwoWayBindingWithMap { common_property, map_to, map_from, marker: PhantomData },
+                    #[cfg(slint_debug_property)]
+                    debug_name.as_str(),
+                );
             }
-        };
+        }
     }
 }
 
@@ -302,7 +323,7 @@ where
     }
 
     unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
-        panic!("Cannot assign a binding to a property bound two-way to a model");
+        false
     }
 
     fn intercept_set(self: Pin<&Self>, value: &T) -> bool {
@@ -323,7 +344,13 @@ impl<T: 'static> Property<T> {
     ) {
         let binding = TwoWayBindingModel { phantom: PhantomData, item_tree, getter, setter };
         // Safety: TwoWayBindingModel implements BindingCallable<T> for the same T as `Self`.
-        unsafe { self.handle.set_binding(binding) };
+        unsafe {
+            self.handle.set_binding(
+                binding,
+                #[cfg(slint_debug_property)]
+                &alloc::format!("{}<=>[model]", self.debug_name.borrow()),
+            )
+        };
     }
 }
 
@@ -598,8 +625,7 @@ fn test_two_way_with_map() {
 /// When a property already has a binding with dependants and is then linked
 /// via `link_two_way_with_map`, the old binding's dependency list must be
 /// transferred to the new `TwoWayBindingWithMap` binding. Without this
-/// transfer, the old binding is later freed (via `BindingMapper::drop`) while
-/// dependency nodes still point into its `dependencies` field, causing
+/// transfer, dependency nodes would point into freed memory, causing
 /// panics in `DependencyNode::debug_assert_valid` on drop.
 ///
 /// The drop order is arranged so that the tracker (which owns the
@@ -636,8 +662,9 @@ fn test_two_way_with_map_dependency_list_transfer() {
     assert!(!tracker.as_ref().is_dirty());
 
     // link_two_way_with_map replaces p_field's binding with a
-    // TwoWayBindingWithMap and wraps the old binding in a BindingMapper
-    // on the common property. The dependency list must be transferred.
+    // TwoWayBindingWithMap. The old closure binding is dropped
+    // (prop1's value wins), so p_field now reads from the common
+    // property initialized from p_struct.
     let p_struct = Rc::pin(Property::new(Wrapper { value: 0 }));
     Property::link_two_way_with_map(
         p_struct.as_ref(),
@@ -646,16 +673,16 @@ fn test_two_way_with_map_dependency_list_transfer() {
         |s, v| s.value = *v,
     );
 
-    assert_eq!(p_field.as_ref().get(), 20);
-    assert_eq!(p_struct.as_ref().get(), Wrapper { value: 20 });
+    assert_eq!(p_field.as_ref().get(), 0);
+    assert_eq!(p_struct.as_ref().get(), Wrapper { value: 0 });
 
-    // The tracker's dependency should still fire when the source changes.
-    source.as_ref().set(5);
+    // The binding replacement dirtied the tracker via the transferred
+    // dependency list.
     assert!(tracker.as_ref().is_dirty());
 
     // Implicit drop order: p_struct, p_field, tracker, source.
-    // p_field's drop frees the common property chain (including the old
-    // binding via BindingMapper::drop). tracker is dropped afterwards —
-    // its DependencyNode::remove would panic in debug_assert_valid if
-    // the dependency list was not properly transferred.
+    // p_field's drop frees the TwoWayBindingWithMap binding.
+    // tracker is dropped afterwards — its DependencyNode::remove
+    // would panic in debug_assert_valid if the dependency list was
+    // not properly transferred.
 }

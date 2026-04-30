@@ -768,11 +768,35 @@ impl Expression {
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
         let mut markdown = String::new();
         let mut values = Vec::new();
+        // Maps byte ranges in the markdown format string to source locations,
+        // sorted by range start. Used to report parse errors at the correct
+        // position in the .slint source.
+        let mut source_map: Vec<(std::ops::Range<usize>, crate::diagnostics::SourceLocation)> =
+            Vec::new();
+
+        fn record_string_literal(
+            markdown: &mut String,
+            source_map: &mut Vec<(std::ops::Range<usize>, crate::diagnostics::SourceLocation)>,
+            s: &str,
+            loc: crate::diagnostics::SourceLocation,
+        ) {
+            let start = markdown.len();
+            markdown.push_str(s);
+            let end = markdown.len();
+            if end > start {
+                source_map.push((start..end, loc));
+            }
+        }
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
                 if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
-                    markdown.push_str(&s);
+                    record_string_literal(
+                        &mut markdown,
+                        &mut source_map,
+                        &s,
+                        n.to_source_location(),
+                    );
                 } else {
                     ctx.diag.push_error("Cannot parse string literal".into(), &n);
                 }
@@ -782,7 +806,12 @@ impl Expression {
                         if let Some(s) =
                             crate::literals::unescape_string(n.as_token().unwrap().text())
                         {
-                            markdown.push_str(&s);
+                            record_string_literal(
+                                &mut markdown,
+                                &mut source_map,
+                                &s,
+                                n.to_source_location(),
+                            );
                         } else {
                             ctx.diag.push_error("Cannot parse string literal".into(), &n);
                         }
@@ -803,8 +832,10 @@ impl Expression {
                             }
                         };
                         values.push(expr);
+                        let start = markdown.len();
                         markdown
                             .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
+                        source_map.push((start..markdown.len(), node.to_source_location()));
                     }
                 }
             }
@@ -813,13 +844,52 @@ impl Expression {
         let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
 
         // Validate the markdown format string with dummy values
-        if let Err(e) = i_slint_common::styled_text::parse_interpolated(
+        let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated(
             &markdown,
             &vec![&[dummy_paragraph]; values.len()],
-        )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            ctx.diag.push_error(e.to_string(), &node);
+        );
+        for e in &parse_errors {
+            // Skip InvalidColor when the color value came from interpolation
+            // (dummy values resolve to empty strings during compile-time validation)
+            if i_slint_common::styled_text::is_invalid_color(e)
+                && e.range().is_some_and(|r| {
+                    r.end <= markdown.len()
+                        && markdown[r.start..r.end].contains(
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                        )
+                })
+            {
+                continue;
+            }
+            // Look up the source location from the error's byte range.
+            // Compute sub-literal precision: adjust the source span to point
+            // at the specific position within the string literal.
+            let loc = e.range().and_then(|r| {
+                // partition_point returns the first index where range.start > r.start,
+                // so idx - 1 is the last entry whose range could contain r.start.
+                let idx = source_map.partition_point(|(range, _)| range.start <= r.start);
+                if idx > 0 {
+                    let (fmt_range, loc) = &source_map[idx - 1];
+                    if fmt_range.contains(&r.start) {
+                        let delta = r.start - fmt_range.start;
+                        let err_len = r.len().min(loc.span.length.saturating_sub(delta));
+                        // +1 to skip the opening quote of the string literal
+                        return Some(crate::diagnostics::SourceLocation {
+                            source_file: loc.source_file.clone(),
+                            span: crate::diagnostics::Span::new(
+                                loc.span.offset + 1 + delta,
+                                err_len,
+                            ),
+                        });
+                    }
+                }
+                None
+            });
+            if let Some(loc) = loc {
+                ctx.diag.push_error_with_span(e.to_string(), loc);
+            } else {
+                ctx.diag.push_error(e.to_string(), &node);
+            }
         }
 
         Expression::FunctionCall {

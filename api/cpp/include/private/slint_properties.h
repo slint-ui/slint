@@ -222,7 +222,9 @@ struct Property
     }
 
     /// Bind `prop` two-way to a value stored in a model row. `getter` reads
-    /// the current row value; `setter` writes a new value back into the row.
+    /// the current row value (returning std::nullopt when the source is no
+    /// longer alive, which keeps the previous value); `setter` writes a new
+    /// value back into the row.
     template<typename Getter, typename Setter>
     static void link_two_way_to_model_data(const Property<T> *prop, Getter getter, Setter setter)
     {
@@ -235,7 +237,8 @@ struct Property
                 &prop->inner,
                 [](void *user_data, void *value) {
                     auto self = reinterpret_cast<ModelTwoWayBinding *>(user_data);
-                    *reinterpret_cast<T *>(value) = self->getter();
+                    if (auto v = self->getter())
+                        *reinterpret_cast<T *>(value) = *std::move(v);
                 },
                 new ModelTwoWayBinding { std::move(getter), std::move(setter) },
                 [](void *user_data) { delete reinterpret_cast<ModelTwoWayBinding *>(user_data); },

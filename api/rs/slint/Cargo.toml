@@ -100,6 +100,15 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 ## ```
 live-preview = ["dep:slint-interpreter"]
 
+## Enable the embedded MCP (Model Context Protocol) server.
+##
+## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set
+## at runtime, the application starts an HTTP server implementing the MCP Streamable HTTP
+## transport. This allows MCP clients to inspect and interact with the running UI.
+##
+## This is a developer/debug feature. It is not recommended to enable it in production builds.
+mcp = ["std", "i-slint-backend-selector/mcp"]
+
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
@@ -157,7 +166,7 @@ renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "i-slint-renderer-femtovg/opengl", "std"]
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate and [WGPU](https://crates.io/crates/wgpu).
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-slint-renderer-femtovg/wgpu", "std"]
 

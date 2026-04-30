@@ -24,11 +24,11 @@ if (props.alt === undefined || props.alt === null) {
 }
 
 if (typeof props.width === "string") {
-    props.width = parseInt(props.width);
+    props.width = Number.parseInt(props.width);
 }
 
 if (typeof props.height === "string") {
-    props.height = parseInt(props.height);
+    props.height = Number.parseInt(props.height);
 }
 
 if (!props.loading) {

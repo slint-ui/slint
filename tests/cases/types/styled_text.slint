@@ -36,7 +36,27 @@ export component TestCase inherits Window {
             text: @markdown("Hello \{world}");
             default-font-size: 24px;
         }
+        // Regression test for #11527 - interpolation in link URL
+        s8 := StyledText {
+            text: @markdown("[Click](\{my-url})");
+        }
+        // Color with a literal value
+        s9 := StyledText {
+            text: @markdown("<font color=\"red\">colored</font>");
+        }
+        // Color with an interpolated value
+        s10 := StyledText {
+            text: @markdown("<font color=\"\{my-color}\">colored</font>");
+        }
+        // Invalid color at runtime (should still render text, just without color)
+        s11 := StyledText {
+            text: @markdown("<font color=\"\{bad-color}\">still visible</font>");
+        }
     }
+
+    property <string> my-url: "https://slint.dev";
+    property <string> my-color: "blue";
+    property <string> bad-color: "not-a-color";
 
     out property<styled-text> t1: s1.text;
     out property<styled-text> t2: s2.text;
@@ -54,17 +74,21 @@ export component TestCase inherits Window {
     out property<length> w5: s5.preferred-width;
     out property<length> w6: s6.preferred-width;
     out property<length> w7: s7.preferred-width;
+    out property<length> w8: s8.preferred-width;
+    out property<length> w9: s9.preferred-width;
+    out property<length> w10: s10.preferred-width;
+    out property<length> w11: s11.preferred-width;
 
-    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1;
+    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1 && w8 > 0px && w9 > 0px && w10 > 0px && w11 > 0px;
 }
 
 /*
 ```rust
 use slint::private_unstable_api::re_exports::StyledText;
 let instance = TestCase::new().unwrap();
-assert_eq!(instance.get_t1(), StyledText::parse_interpolated::<StyledText>("Hello World", &[]).unwrap());
-assert_eq!(instance.get_t2(), StyledText::parse_interpolated::<StyledText>("Hello \\*World\\*", &[]).unwrap());
-assert_eq!(instance.get_t3(), StyledText::parse_interpolated::<StyledText>("Hello *World*", &[]).unwrap());
+assert_eq!(instance.get_t1(), StyledText::parse_interpolated::<StyledText>("Hello World", &[]).0);
+assert_eq!(instance.get_t2(), StyledText::parse_interpolated::<StyledText>("Hello \\*World\\*", &[]).0);
+assert_eq!(instance.get_t3(), StyledText::parse_interpolated::<StyledText>("Hello *World*", &[]).0);
 assert_eq!(instance.get_w1(), 66.0);
 assert_eq!(instance.get_w2(), 80.0);
 assert_eq!(instance.get_w3(), 64.0);
@@ -73,6 +97,11 @@ assert_eq!(instance.get_w5(), 65.0);
 assert!(instance.get_test());
 
 assert_eq!(instance.get_default_struct().text, StyledText::default());
+
+// s11 uses an invalid interpolated color — check that it logged a debug_log error
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+let has_color_error = logs.iter().any(|l| l.contains("Invalid color value") && l.contains("not-a-color"));
+assert!(has_color_error, "Expected debug_log about invalid color, got: {logs:?}");
 ```
 ```cpp
 auto handle = TestCase::create();
