@@ -209,7 +209,7 @@ fn main() -> std::io::Result<()> {
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config, ()));
 
     let diag = diag.check_and_exit_on_error();
 

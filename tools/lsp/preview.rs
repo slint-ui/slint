@@ -65,7 +65,7 @@ pub fn run(
 
     tracing::debug!("Preview: requesting state from LSP");
     to_lsp
-        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { unused: true })
+        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { files: Vec::new() })
         .unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
@@ -1436,7 +1436,7 @@ async fn parse_source(
             common::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
         );
 
-    let result = builder.build_from_source(source_code, path).await;
+    let result = builder.build_from_source(source_code, path, ()).await;
 
     let compiled = result.components().next();
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)

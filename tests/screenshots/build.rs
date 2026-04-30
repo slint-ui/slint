@@ -155,7 +155,7 @@ fn generate_source(
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
     let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config, ()));
 
     if diag.has_errors() {
         diag.print_warnings_and_exit_on_error();

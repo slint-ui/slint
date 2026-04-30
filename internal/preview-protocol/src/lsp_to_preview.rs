@@ -31,7 +31,7 @@ pub struct PreviewConfig {
 pub enum LspToPreviewMessage {
     InvalidateContents { url: lsp_types::Url },
     ForgetFile { url: lsp_types::Url },
-    SetContents { url: VersionedUrl, contents: String },
+    SetContents { url: VersionedUrl, contents: Vec<u8> },
     SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),
     HighlightFromEditor { url: Option<Url>, offset: u32 },

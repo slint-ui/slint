@@ -911,6 +911,7 @@ pub async fn load(
     source: String,
     path: std::path::PathBuf,
     mut compiler_config: CompilerConfiguration,
+    resource_preloader: impl i_slint_compiler::passes::ResourcePreloader,
 ) -> CompilationResult {
     // If the native style should be Qt, resolve it here as we know that we have it
     let is_native = compiler_config.style.as_deref() == Some("native");
@@ -953,11 +954,19 @@ pub async fn load(
             source,
             diag,
             compiler_config,
+            resource_preloader,
         )
         .await;
     #[cfg(not(feature = "internal-highlight"))]
-    let (path, mut diag, loader) =
-        i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
+    let (path, mut diag, loader) = i_slint_compiler::load_root_file(
+        &path,
+        &path,
+        source,
+        diag,
+        compiler_config,
+        resource_preloader,
+    )
+    .await;
     if diag.has_errors() {
         return CompilationResult {
             components: HashMap::new(),

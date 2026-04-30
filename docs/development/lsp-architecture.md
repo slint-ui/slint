@@ -352,7 +352,7 @@ pub enum LspToPreviewMessage {
 
 // Preview to LSP
 pub enum PreviewToLspMessage {
-    RequestState { unused: bool },
+    RequestState { paths: Vec<String> },
     UpdateElement { ... },
     SendWorkspaceEdit { ... },
     ShowDocument { ... },

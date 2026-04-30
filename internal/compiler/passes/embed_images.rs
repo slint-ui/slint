@@ -10,11 +10,58 @@ use crate::object_tree::*;
 use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::Arc;
 use typed_index_collections::TiVec;
+
+pub trait ResourcePreloader {
+    fn load<'a>(
+        &self,
+        paths: impl Iterator<Item = &'a str>,
+        push: Rc<impl Fn(/* path */ &'a str, /* extension */ String, /* data */ Arc<[u8]>)>,
+    ) -> impl Future<Output = ()>;
+}
+
+impl ResourcePreloader for () {
+    fn load<'a>(
+        &self,
+        _paths: impl Iterator<Item = &'a str>,
+        _push: Rc<impl Fn(&'a str, String, Arc<[u8]>)>,
+    ) -> impl Future<Output = ()> {
+        std::future::ready(())
+    }
+}
+
+pub async fn preload_images(doc: &Document, resource_preloader: impl ResourcePreloader) {
+    let mut all_components = Vec::new();
+    doc.visit_all_used_components(|c| all_components.push(c.clone()));
+
+    let mut urls = HashSet::<SmolStr>::new();
+    for component in &all_components {
+        visit_all_expressions(component, |e, _| {
+            foreach_image_url_from_expression(e, &mut |path| {
+                urls.insert(path.clone());
+            })
+        });
+    }
+
+    let global_embedded_resources = &doc.embedded_file_resources;
+    resource_preloader
+        .load(
+            urls.iter().map(SmolStr::as_str),
+            Rc::new(|url: &str, extension, data: Arc<[u8]>| {
+                let mut resources = global_embedded_resources.borrow_mut();
+                resources.push(EmbeddedResources {
+                    path: Some(url.into()),
+                    kind: EmbeddedResourcesKind::DataUriPayload(data.to_vec(), extension),
+                });
+            }),
+        )
+        .await;
+}
 
 pub async fn embed_images(
     doc: &Document,
@@ -29,6 +76,11 @@ pub async fn embed_images(
 
     let global_embedded_resources = &doc.embedded_file_resources;
     let mut path_to_id = HashMap::<SmolStr, EmbeddedResourcesIdx>::new();
+    for (id, resource) in global_embedded_resources.borrow().iter_enumerated() {
+        if let Some(path) = &resource.path {
+            path_to_id.insert(path.clone(), id);
+        }
+    }
 
     let mut all_components = Vec::new();
     doc.visit_all_used_components(|c| all_components.push(c.clone()));
@@ -41,7 +93,9 @@ pub async fn embed_images(
             // Collect URLs (sync!):
             for component in &all_components {
                 visit_all_expressions(component, |e, _| {
-                    collect_image_urls_from_expression(e, &mut urls)
+                    foreach_image_url_from_expression(e, &mut |path| {
+                        urls.insert(path.clone(), None);
+                    })
                 });
             }
 
@@ -70,17 +124,14 @@ pub async fn embed_images(
     }
 }
 
-fn collect_image_urls_from_expression(
-    e: &Expression,
-    urls: &mut HashMap<SmolStr, Option<SmolStr>>,
-) {
+fn foreach_image_url_from_expression(e: &Expression, f: &mut impl FnMut(&SmolStr)) {
     if let Expression::ImageReference { resource_ref, .. } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
-        urls.insert(path.clone(), None);
+        f(path);
     };
 
-    e.visit(|e| collect_image_urls_from_expression(e, urls));
+    e.visit(|e| foreach_image_url_from_expression(e, f));
 }
 
 fn embed_images_from_expression(
@@ -95,6 +146,10 @@ fn embed_images_from_expression(
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
+        if path_to_id.contains_key(path) {
+            return;
+        }
+
         if path.starts_with("data:") {
             let image_ref = embed_data_uri(
                 global_embedded_resources,

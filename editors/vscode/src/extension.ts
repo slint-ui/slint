@@ -11,6 +11,7 @@ import * as vscode from "vscode";
 import { SlintTelemetrySender } from "./telemetry";
 import * as common from "./common";
 import { NotificationType } from "vscode-languageclient";
+import * as lsp_commands from "./lsp_commands";
 
 import {
     LanguageClient,
@@ -189,6 +190,7 @@ function startClient(
     const devBuild = serverModule.includes("/target/debug/");
     if (devBuild) {
         options.env["RUST_BACKTRACE"] = "1";
+        options.env["RUST_LOG"] = "debug";
     }
 
     options.env["SLINT_LSP_PANIC_LOG_DIR"] = lsp_panic_log_dir(context).fsPath;
@@ -234,6 +236,8 @@ function startClient(
                 handleTelemetryEvent(params.type, context.globalState);
             },
         );
+
+        common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.disconnected);
     });
 
     const cl = new LanguageClient(
@@ -318,6 +322,8 @@ export function activate(context: vscode.ExtensionContext) {
     if (serverModule === undefined) {
         return;
     }
+
+    setupRemotePreview(context);
 
     const custom_lsp = !serverModule.startsWith(
         path.join(context.extensionPath, "bin"),
@@ -405,4 +411,85 @@ function startTelemetryTimer(
             }
         }
     }
+}
+
+const remotePreviewConnectionStringMatcher = /^(?:\[(?<ipv6>[0-9A-Fa-f:.]+)\]|(?<host>[^:\s\[\]]+)):(?<port>\d{1,5})$/;
+
+function setupRemotePreview(context: vscode.ExtensionContext) {
+    const remoteViewerStatusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Right, 100
+    );
+
+    common.updateRemoteViewerStatusBarItem(remoteViewerStatusBarItem);
+    common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.disconnected);
+    remoteViewerStatusBarItem.show();
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.selectRemotePreview", () => {
+            const picker = vscode.window.createQuickPick<vscode.QuickPickItem & Partial<common.RemoteViewerInfo>>();
+            picker.title = "Select a remote preview";
+            picker.placeholder = "Manual entry (e.g. 127.0.1:1234)";
+            picker.ignoreFocusOut = true;
+
+            const updateItems = () => {
+                const typed = picker.value.trim();
+                const items: (vscode.QuickPickItem & Partial<common.RemoteViewerInfo>)[] = [];
+
+                remotePreviewConnectionStringMatcher.lastIndex = 0;
+                const match = remotePreviewConnectionStringMatcher.exec(typed);
+
+                if (match) {
+                    items.push({
+                        id: 'ENTER',
+                        label: `Use typed value: ${typed}`,
+                        detail: "",
+                        alwaysShow: true,
+                        value: {
+                            addresses: [match.groups?.ipv6 ?? match.groups?.host ?? ""],
+                            port: parseInt(match.groups?.port ?? "1234"),
+                        },
+                    });
+                    items.push({ id: "sep", label: "", kind: vscode.QuickPickItemKind.Separator });
+                }
+
+                items.push(...common.remote_viewers.values());
+
+                picker.items = items;
+            };
+
+            const connect = async (item: common.RemoteViewerInfo) => {
+                lsp_commands.connectRemotePreview(item.value.addresses, item.value.port);
+                common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.connecting);
+
+                picker.hide();
+            };
+
+            // picker.onDidAccept(() => {
+            //     const picked = picker.activeItems[0] ?? picker.selectedItems[0];
+            //     if (picked) {
+            //         connect(picked as common.RemoteViewerInfo);
+            //     }
+            // });
+
+            picker.onDidChangeSelection((items) => {
+                const picked = items[0];
+                if (picked) {
+                    connect(picked as common.RemoteViewerInfo);
+                }
+            });
+
+            picker.onDidHide(() => {
+                picker.dispose();
+            });
+
+            updateItems();
+            picker.onDidChangeValue(updateItems);
+
+            picker.show();
+        }),
+        remoteViewerStatusBarItem,
+        vscode.commands.registerCommand("slint.disconnectRemotePreview", () => {
+            lsp_commands.disconnectRemotePreview();
+        }),
+    );
 }

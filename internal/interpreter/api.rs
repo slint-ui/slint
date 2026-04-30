@@ -781,6 +781,7 @@ impl ComponentCompiler {
     pub async fn build_from_path<P: AsRef<Path>>(
         &mut self,
         path: P,
+        resource_preloader: impl i_slint_compiler::passes::ResourcePreloader,
     ) -> Option<ComponentDefinition> {
         let path = path.as_ref();
         let source = match i_slint_compiler::diagnostics::load_from_path(path) {
@@ -791,7 +792,13 @@ impl ComponentCompiler {
             }
         };
 
-        let r = crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await;
+        let r = crate::dynamic_item_tree::load(
+            source,
+            path.into(),
+            self.config.clone(),
+            resource_preloader,
+        )
+        .await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -816,8 +823,15 @@ impl ComponentCompiler {
         &mut self,
         source_code: String,
         path: PathBuf,
+        resource_preloader: impl i_slint_compiler::passes::ResourcePreloader,
     ) -> Option<ComponentDefinition> {
-        let r = crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await;
+        let r = crate::dynamic_item_tree::load(
+            source_code,
+            path,
+            self.config.clone(),
+            resource_preloader,
+        )
+        .await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -949,7 +963,11 @@ impl Compiler {
     /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
-    pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
+    pub async fn build_from_path<P: AsRef<Path>>(
+        &self,
+        path: P,
+        resource_preloader: impl i_slint_compiler::passes::ResourcePreloader,
+    ) -> CompilationResult {
         let path = path.as_ref();
         let source = match i_slint_compiler::diagnostics::load_from_path(path) {
             Ok(s) => s,
@@ -967,7 +985,8 @@ impl Compiler {
             }
         };
 
-        crate::dynamic_item_tree::load(source, path.into(), self.config.clone()).await
+        crate::dynamic_item_tree::load(source, path.into(), self.config.clone(), resource_preloader)
+            .await
     }
 
     /// Compile some .slint code
@@ -982,8 +1001,14 @@ impl Compiler {
     /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
-    pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        crate::dynamic_item_tree::load(source_code, path, self.config.clone()).await
+    pub async fn build_from_source(
+        &self,
+        source_code: String,
+        path: PathBuf,
+        resource_preloader: impl i_slint_compiler::passes::ResourcePreloader,
+    ) -> CompilationResult {
+        crate::dynamic_item_tree::load(source_code, path, self.config.clone(), resource_preloader)
+            .await
     }
 }
 
@@ -1798,6 +1823,7 @@ fn component_definition_properties() {
     }"#
             .into(),
             "".into(),
+            (),
         ),
     )
     .component("Dummy")
@@ -1849,6 +1875,7 @@ fn component_definition_properties2() {
     }"#
             .into(),
             "".into(),
+            (),
         ),
     )
     .component("Dummy")
@@ -1902,6 +1929,7 @@ fn globals() {
     }"#
             .into(),
             "".into(),
+            (),
         ),
     )
     .component("Dummy")
@@ -2031,6 +2059,7 @@ fn call_functions() {
     }"#
             .into(),
             "".into(),
+            (),
         ),
     )
     .component("Test")
@@ -2075,6 +2104,7 @@ fn component_definition_struct_properties() {
     }"#
             .into(),
             "".into(),
+            (),
         ),
     )
     .component("Dummy")
@@ -2119,6 +2149,7 @@ fn component_definition_model_properties() {
     let comp_def = spin_on::spin_on(compiler.build_from_source(
         "export component Dummy { in-out property <[int]> prop: [42, 12]; }".into(),
         "".into(),
+        (),
     ))
     .component("Dummy")
     .unwrap();
@@ -2223,6 +2254,7 @@ fn test_multi_components() {
         "#
             .into(),
             PathBuf::from("hello.slint"),
+            (),
         ),
     );
 
@@ -2267,7 +2299,7 @@ fn compile(code: &str) -> (ComponentInstance, PathBuf) {
     let path = PathBuf::from("/tmp/test.slint");
 
     let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone(), ()));
 
     for d in &compile_result.diagnostics {
         eprintln!("{d}");

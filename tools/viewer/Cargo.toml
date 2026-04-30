@@ -65,6 +65,7 @@ env_logger = "0.11.0"
 itertools = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
+remote-viewer = { path = "../remote-viewer" }
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }

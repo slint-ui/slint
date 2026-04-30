@@ -80,6 +80,7 @@ members = [
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
   'xtask',
+  'tools/remote-viewer',
 ]
 
 default-members = [
