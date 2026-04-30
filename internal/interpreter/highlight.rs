@@ -3,11 +3,13 @@
 
 //! This module contains the code for the highlight of some elements
 
-use crate::dynamic_item_tree::{DynamicComponentVRc, ItemTreeBox};
+use crate::dynamic_item_tree::{DynamicComponentVRc, ErasedItemTreeBox, ItemTreeBox};
 use i_slint_compiler::object_tree::{Component, Element, ElementRc};
 use i_slint_core::graphics::euclid;
+use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect};
+use i_slint_core::window::WindowInner;
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::path::Path;
@@ -44,6 +46,32 @@ impl HighlightedRect {
     }
 }
 
+fn root_origin_in_native_coordinates(root_component_instance: &ItemTreeBox) -> LogicalPoint {
+    let vrc = VRc::into_dyn(
+        root_component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
+    );
+    ItemRc::new_root(vrc).map_to_native_window(LogicalPoint::default())
+}
+
+fn try_cast_item_tree_to_dynamic_component(item_tree: &ItemTreeRc) -> Option<DynamicComponentVRc> {
+    let comp_ref_pin = vtable::VRc::borrow_pin(item_tree);
+    vtable::VRef::downcast_pin::<ErasedItemTreeBox>(comp_ref_pin)?;
+
+    // Safety We just checked that the vtable matches `ErasedItemTreeBox`.
+    Some(unsafe { core::mem::transmute::<ItemTreeRc, DynamicComponentVRc>(item_tree.clone()) })
+}
+
+fn active_popup_instances(root_component_instance: &ItemTreeBox) -> Vec<DynamicComponentVRc> {
+    let Ok(window_adapter) = root_component_instance.window_adapter_ref() else {
+        return Vec::new();
+    };
+    let active_popups = WindowInner::from_pub(window_adapter.window()).active_popups();
+    active_popups
+        .iter()
+        .filter_map(|popup| try_cast_item_tree_to_dynamic_component(&popup.component))
+        .collect()
+}
+
 fn collect_highlight_data(
     component: &DynamicComponentVRc,
     elements: &[std::rc::Weak<RefCell<Element>>],
@@ -52,19 +80,39 @@ fn collect_highlight_data(
     let component_instance = component_instance.upgrade().unwrap();
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
+    let root_origin_in_native = root_origin_in_native_coordinates(&c);
+    let popup_instances = active_popup_instances(&c);
     let mut values = Vec::new();
     for element in elements.iter().filter_map(|e| e.upgrade()) {
         let element = normalize_repeated_element(element);
-        if let Some(repeater_path) = repeater_path(&element) {
+        let Some(repeater_path) = repeater_path(&element) else { continue };
+
+        let enclosing_component = element.borrow().enclosing_component.upgrade().unwrap();
+        if Rc::ptr_eq(&enclosing_component, &c.description().original) {
             fill_highlight_data(
                 &repeater_path,
                 &element,
                 &c,
-                &c,
                 ElementPositionFilter::IncludeClipped,
+                root_origin_in_native,
                 &mut values,
             );
-        }
+        } else {
+            for popup_instance in &popup_instances {
+                generativity::make_guard!(guard);
+                let popup = popup_instance.unerase(guard);
+                if Rc::ptr_eq(&popup.description().original, &enclosing_component) {
+                    fill_highlight_data(
+                        &repeater_path,
+                        &element,
+                        &popup,
+                        ElementPositionFilter::IncludeClipped,
+                        root_origin_in_native,
+                        &mut values,
+                    );
+                }
+            }
+        };
     }
     values
 }
@@ -102,12 +150,39 @@ pub fn element_positions(
 ) -> Vec<HighlightedRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
+    let root_origin_in_native = root_origin_in_native_coordinates(&c);
+    let popup_instances = active_popup_instances(&c);
 
     let mut values = Vec::new();
 
     let element = normalize_repeated_element(element.clone());
     if let Some(repeater_path) = repeater_path(&element) {
-        fill_highlight_data(&repeater_path, &element, &c, &c, filter_clipped, &mut values);
+        let enclosing_component = element.borrow().enclosing_component.upgrade().unwrap();
+        if Rc::ptr_eq(&enclosing_component, &c.description().original) {
+            fill_highlight_data(
+                &repeater_path,
+                &element,
+                &c,
+                filter_clipped,
+                root_origin_in_native,
+                &mut values,
+            );
+        } else {
+            for popup_instance in &popup_instances {
+                generativity::make_guard!(guard);
+                let popup = popup_instance.unerase(guard);
+                if Rc::ptr_eq(&popup.description().original, &enclosing_component) {
+                    fill_highlight_data(
+                        &repeater_path,
+                        &element,
+                        &popup,
+                        filter_clipped,
+                        root_origin_in_native,
+                        &mut values,
+                    );
+                }
+            }
+        }
     }
     values
 }
@@ -127,8 +202,8 @@ fn fill_highlight_data(
     repeater_path: &[SmolStr],
     element: &ElementRc,
     component_instance: &ItemTreeBox,
-    root_component_instance: &ItemTreeBox,
     filter_clipped: ElementPositionFilter,
+    root_origin_in_native: LogicalPoint,
     values: &mut Vec<HighlightedRect>,
 ) {
     if element.borrow().repeated.is_some() {
@@ -150,8 +225,8 @@ fn fill_highlight_data(
                     rest,
                     element,
                     &c.unerase(guard),
-                    root_component_instance,
                     filter_clipped,
+                    root_origin_in_native,
                     values,
                 );
             }
@@ -160,9 +235,6 @@ fn fill_highlight_data(
         let vrc = VRc::into_dyn(
             component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
         );
-        let root_vrc = VRc::into_dyn(
-            root_component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
-        );
         let index = element.borrow().item_index.get().copied().unwrap();
         let item_rc = ItemRc::new(vrc.clone(), index);
         if filter_clipped == ElementPositionFilter::IncludeClipped || item_rc.is_visible() {
@@ -170,11 +242,11 @@ fn fill_highlight_data(
             if geometry.size.is_empty() {
                 return;
             }
-            let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
-            let top_right = item_rc.map_to_item_tree(
-                geometry.origin + euclid::vec2(geometry.size.width, 0.),
-                &root_vrc,
-            );
+            let origin =
+                item_rc.map_to_native_window(geometry.origin) - root_origin_in_native.to_vector();
+            let top_right = item_rc
+                .map_to_native_window(geometry.origin + euclid::vec2(geometry.size.width, 0.))
+                - root_origin_in_native.to_vector();
             let delta = top_right - origin;
             let width = delta.length();
             let height = geometry.size.height * width / geometry.size.width;
@@ -238,8 +310,11 @@ fn find_element_node_at_source_code_position(
 fn repeater_path(elem: &ElementRc) -> Option<Vec<SmolStr>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element() {
-        // This is not a repeater, it might be a popup menu which is not supported ATM
-        parent.borrow().repeated.as_ref()?;
+        // This is a component coming from a repeated element. When this isn't the case (for example
+        // PopupWindow), stop at the current component.
+        if parent.borrow().repeated.is_none() {
+            return Some(Vec::new());
+        }
 
         let mut r = repeater_path(&parent)?;
         r.push(parent.borrow().id.clone());
