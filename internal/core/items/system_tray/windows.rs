@@ -186,6 +186,11 @@ impl PlatformTray {
             let _ = unsafe { DestroyMenu(old) };
         }
     }
+
+    pub fn set_visible(&self, _visible: bool) {
+        // TODO: toggle the notification-area icon (NIM_DELETE on hide,
+        // NIM_ADD on show, via Shell_NotifyIconW).
+    }
 }
 
 impl Drop for PlatformTray {
