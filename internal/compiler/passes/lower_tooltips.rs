@@ -22,9 +22,9 @@
 //!   - text mode: `text` binding is present, no children
 //!   - custom mode: children are present, no `text` binding
 //! - placement uses effective popup size:
-//!   - explicit `width`/`height` if set (> 0)
+//!   - explicit size from tooltip content (`width`/`height`) if set (> 0)
 //!   - otherwise `preferred-width`/`preferred-height`
-//! - custom mode expects one root child element which is used directly as tooltip visual.
+//! - custom mode expects one root child element which is used directly as tooltip content.
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
@@ -48,7 +48,7 @@ const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
 const PLACEMENT: &str = "placement";
 
-fn build_tooltip_visual(
+fn build_tooltip_content(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_impl_type: &ElementType,
@@ -66,7 +66,7 @@ fn build_tooltip_visual(
         })
         .unwrap_or_default();
     Element {
-        id: format_smolstr!("{}-visual", popup_id),
+        id: format_smolstr!("{}-content", popup_id),
         base_type: tooltip_impl_type.clone(),
         enclosing_component: enclosing_component.clone(),
         bindings,
@@ -95,28 +95,52 @@ fn build_tooltip_delay_timer(
     .make_rc()
 }
 
-fn auto_size_custom_root_to_content(custom_root: &ElementRc) {
-    let content_child = custom_root.borrow().children.first().cloned();
-    let Some(content_child) = content_child else {
-        return;
-    };
+fn bind_popup_effective_size_from_content(
+    popup_window_rc: &ElementRc,
+    tooltip_content_rc: &ElementRc,
+) {
+    let content_has_width = tooltip_content_rc.borrow().bindings.contains_key(WIDTH);
+    let content_has_height = tooltip_content_rc.borrow().bindings.contains_key(HEIGHT);
 
-    let mut root_mut = custom_root.borrow_mut();
-    if !root_mut.bindings.contains_key(WIDTH) {
-        let child_preferred_width =
-            NamedReference::new(&content_child, SmolStr::new_static("preferred-width"));
+    if content_has_width {
+        let explicit_width = NamedReference::new(tooltip_content_rc, SmolStr::new_static(WIDTH));
         let mut width_binding: BindingExpression =
-            Expression::PropertyReference(child_preferred_width).into();
+            Expression::PropertyReference(explicit_width).into();
         width_binding.priority = 1;
-        root_mut.bindings.insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+        popup_window_rc
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+    } else {
+        let preferred_width =
+            NamedReference::new(tooltip_content_rc, SmolStr::new_static("preferred-width"));
+        let mut width_binding: BindingExpression =
+            Expression::PropertyReference(preferred_width).into();
+        width_binding.priority = 1;
+        popup_window_rc
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
     }
-    if !root_mut.bindings.contains_key(HEIGHT) {
-        let child_preferred_height =
-            NamedReference::new(&content_child, SmolStr::new_static("preferred-height"));
+    if content_has_height {
+        let explicit_height = NamedReference::new(tooltip_content_rc, SmolStr::new_static(HEIGHT));
         let mut height_binding: BindingExpression =
-            Expression::PropertyReference(child_preferred_height).into();
+            Expression::PropertyReference(explicit_height).into();
         height_binding.priority = 1;
-        root_mut.bindings.insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+        popup_window_rc
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+    } else {
+        let preferred_height =
+            NamedReference::new(tooltip_content_rc, SmolStr::new_static("preferred-height"));
+        let mut height_binding: BindingExpression =
+            Expression::PropertyReference(preferred_height).into();
+        height_binding.priority = 1;
+        popup_window_rc
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
     }
 }
 
@@ -392,8 +416,7 @@ fn lower_tooltips_in_component(
 
     let mut tooltip_popup_id_counter: u32 = 0;
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        // Recurse-with-subcomponents traversal also visits generated children. Skip tooltip popup
-        // overlays produced by this pass, otherwise we'd try to lower our own output again.
+        // Traversal also visits generated children; skip tooltip popups created by this pass.
         let is_generated_tooltip_popup = {
             let elem_borrow = elem.borrow();
             matches!(&elem_borrow.base_type, t if *t == popup_window_type)
@@ -420,6 +443,24 @@ fn lower_tooltips_in_component(
                 "ToolTip cannot have both text and custom content".into(),
                 &*tooltip_candidate.borrow(),
             );
+            return;
+        }
+        let mut has_disallowed_prop = false;
+        {
+            let tooltip_borrow = tooltip_candidate.borrow();
+            for prop in ["x", "y", WIDTH, HEIGHT] {
+                if tooltip_borrow.bindings.contains_key(prop) {
+                    has_disallowed_prop = true;
+                    diag.push_error(
+                        format!(
+                            "The property '{prop}' cannot be set for ToolTip, because ToolTip is already setting it"
+                        ),
+                        &*tooltip_candidate.borrow(),
+                    );
+                }
+            }
+        }
+        if has_disallowed_prop {
             return;
         }
         if !has_custom_content && !has_text_binding {
@@ -468,13 +509,13 @@ fn lower_tooltips_in_component(
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-x"));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-y"));
-        let tooltip_visual = if has_custom_content {
-            let custom_root = custom_children.into_iter().next().expect("validated single custom child");
-            auto_size_custom_root_to_content(&custom_root);
+        let tooltip_content = if has_custom_content {
+            let custom_root =
+                custom_children.into_iter().next().expect("validated single custom child");
             custom_root
         } else {
             let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
-            build_tooltip_visual(
+            build_tooltip_content(
                 &popup_id_for_text,
                 &enclosing_component,
                 tooltip_impl_type,
@@ -482,7 +523,7 @@ fn lower_tooltips_in_component(
                 Vec::new(),
             )
         };
-        let popup_children = vec![tooltip_config.clone(), tooltip_visual];
+        let popup_children = vec![tooltip_config.clone(), tooltip_content.clone()];
 
         let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type
         {
@@ -513,6 +554,7 @@ fn lower_tooltips_in_component(
             ..Default::default()
         };
         let popup_window_rc = popup_window.make_rc();
+        bind_popup_effective_size_from_content(&popup_window_rc, &tooltip_content);
         wire_tooltip_placement(
             &popup_window_rc,
             parent_width,
@@ -544,7 +586,6 @@ pub async fn lower_tooltips(
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    // First check if any ToolTip is used - avoid loading std-widgets.slint if not needed.
     let mut has_tooltip = false;
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
@@ -558,7 +599,6 @@ pub async fn lower_tooltips(
         return;
     }
 
-    // Ignore import errors.
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tooltip_component = type_loader
         .import_component("std-widgets.slint", TOOLTIP_ELEMENT, &mut build_diags_to_ignore)
