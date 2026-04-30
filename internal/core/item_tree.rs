@@ -347,6 +347,16 @@ impl ItemRc {
         ItemWeak { item_tree: VRc::downgrade(&self.item_tree), index: self.index }
     }
 
+    /// Returns the root item of the parent tree
+    ///
+    /// If there is no parent tree, return None
+    pub fn parent_item_tree(&self) -> Option<ItemRc> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().parent_node(&mut r);
+        r.upgrade()
+    }
+
     /// Return the parent Item in the item tree.
     ///
     /// If the item is the root on its Window or PopupWindow, then the parent is None.
@@ -1664,7 +1674,11 @@ mod tests {
 
     crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for TestItemTree);
 
-    fn create_one_node_component() -> VRc<ItemTreeVTable, vtable::Dyn> {
+    fn create_one_node_component(
+        window_item: Option<WindowItem>,
+    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable, vtable::Dyn>) {
+        let window_adapter = WindowAdapter::new();
+        let weak = Rc::downgrade(&window_adapter);
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![ItemTreeNode::Item {
@@ -1677,15 +1691,15 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: WindowAdapter::new(),
-            window_item: None,
+            window_adapter,
+            window_item,
         });
-        VRc::into_dyn(component)
+        (weak, VRc::into_dyn(component))
     }
 
     #[test]
     fn test_tree_traversal_one_node_structure() {
-        let component = create_one_node_component();
+        let component = create_one_node_component(None).1;
 
         let item = ItemRc::new_root(component.clone());
 
@@ -1697,7 +1711,7 @@ mod tests {
 
     #[test]
     fn test_tree_traversal_one_node_forward_focus() {
-        let component = create_one_node_component();
+        let component = create_one_node_component(None).1;
 
         let item = ItemRc::new_root(component.clone());
 
@@ -1707,7 +1721,7 @@ mod tests {
 
     #[test]
     fn test_tree_traversal_one_node_backward_focus() {
-        let component = create_one_node_component();
+        let component = create_one_node_component(None).1;
 
         let item = ItemRc::new_root(component.clone());
 
@@ -2467,8 +2481,10 @@ mod tests {
     }
 
     // It does not contain any dynamic elements
-    fn create_subsubtree_items() -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
-        let window_adapter = WindowAdapter::new();
+    fn create_subsubtree_items(
+        window_adapter: Option<std::rc::Rc<WindowAdapter>>,
+    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
+        let window_adapter = window_adapter.unwrap_or(WindowAdapter::new());
         let weak = Rc::downgrade(&window_adapter);
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
@@ -2513,7 +2529,7 @@ mod tests {
 
     #[test]
     fn test_map_to_anchestor() {
-        let item_tree = create_subsubtree_items().1;
+        let item_tree = create_subsubtree_items(None).1;
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2542,7 +2558,7 @@ mod tests {
 
     #[test]
     fn test_map_to_window() {
-        let item_tree = create_subsubtree_items().1;
+        let item_tree = create_subsubtree_items(None).1;
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2556,16 +2572,22 @@ mod tests {
     #[test]
     fn test_map_to_native_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items();
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+        // A popup has it's own ItemTreeVTable
+        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
+        let popup_component =
+            create_subsubtree_items(Some(window_adapter_weak.upgrade().unwrap())).1;
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
-            &item_tree,
-            POPUP_LOCATION,
+            &popup_component,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
-            &ItemRc::new_root(item_tree.clone()),
+            &ItemRc::new_root(parent.clone()),
             false,
         );
 
-        let root = ItemRc::new_root(item_tree);
+        let root = ItemRc::new_root(popup_component);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
 
@@ -2594,10 +2616,10 @@ mod tests {
     #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items();
+        let (window_adapter_weak, item_tree) = create_subsubtree_items(None);
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
@@ -2624,9 +2646,9 @@ mod tests {
     }
 
     // Includes also dynamic elements
-    fn create_subsubtree_items_dynamic_elements()
-    -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
-        let window_adapter = WindowAdapter::new();
+    fn create_subsubtree_items_dynamic_elements(
+        window_adapter: Rc<WindowAdapter>,
+    ) -> VRc<ItemTreeVTable> {
         let weak = Rc::downgrade(&window_adapter);
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
@@ -2679,7 +2701,7 @@ mod tests {
             window_item: None,
         })]]);
 
-        (weak, VRc::into_dyn(item_tree))
+        VRc::into_dyn(item_tree)
     }
 
     // This time the element is a child of a dynamic element with a different item tree
@@ -2687,12 +2709,20 @@ mod tests {
     #[test]
     fn test_map_to_native_window_popup_dynamic_element() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items_dynamic_elements();
+
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+
+        // A popup has it's own ItemTreeVTable
+        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
+        let popup_component =
+            create_subsubtree_items_dynamic_elements(window_adapter_weak.upgrade().unwrap());
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
-            &item_tree,
-            POPUP_LOCATION,
+            &popup_component,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
-            &ItemRc::new_root(item_tree.clone()),
+            &ItemRc::new_root(parent.clone()),
             false,
         );
 
@@ -2703,7 +2733,7 @@ mod tests {
         let popup = active_popups.first().unwrap();
         assert!(matches!(popup.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
 
-        let root = ItemRc::new_root(item_tree);
+        let root = ItemRc::new_root(popup_component);
         let first_child = root.first_child().unwrap();
         // Check if the first item is a dynamic tree!
         let comp_ref_pin = vtable::VRc::borrow_pin(&root.item_tree);
@@ -2760,7 +2790,7 @@ mod tests {
         }
 
         fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
-            unimplemented!("Not required in this test");
+            // Will be called when showing a popup to mark the previous position dirty
         }
 
         fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {

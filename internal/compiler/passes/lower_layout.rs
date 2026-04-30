@@ -18,6 +18,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+/// Lower all layouts and assign a LayoutConstraints to the component
 pub fn lower_layouts(
     component: &Rc<Component>,
     type_loader: &mut TypeLoader,
@@ -49,6 +50,13 @@ pub fn lower_layouts(
         &Option::default(),
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
+
+            // Popups have their own layout constraints
+            for popup in component.popup_windows.borrow_mut().iter() {
+                let component = &popup.component;
+                *component.root_constraints.borrow_mut() =
+                    LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+            }
 
             lower_element_layout(
                 &component,
@@ -1677,6 +1685,15 @@ fn check_no_layout_properties(
 /// The Slint runtime will change the width and height property of the native WindowItem to match those of the actual
 /// window, but we don't want that to happen if we have a fixed layout.
 pub fn check_window_layout(component: &Rc<Component>) {
+    component.popup_windows.borrow().iter().for_each(|p| {
+        if p.component.root_constraints.borrow().fixed_height {
+            adjust_window_layout(&p.component, "height");
+        }
+
+        if p.component.root_constraints.borrow().fixed_height {
+            adjust_window_layout(&p.component, "width");
+        }
+    });
     if component.root_constraints.borrow().fixed_height {
         adjust_window_layout(component, "height");
     }
@@ -1685,6 +1702,8 @@ pub fn check_window_layout(component: &Rc<Component>) {
     }
 }
 
+/// Adds a new property called fixed-<`prop`> and connects to `prop`
+/// TODO: more explanation
 fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
     let new_prop = crate::layout::create_new_prop(
         &component.root_element,

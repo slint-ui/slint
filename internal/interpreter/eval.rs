@@ -888,16 +888,18 @@ fn call_builtin_function(
                 )
                 .try_into()
                 .expect("Invalid internal enumeration representation for close policy");
+                let popup_x = popup.x.clone();
+                let popup_y = popup.y.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
                     enclosing_component,
                     popup,
-                    |instance_ref| {
+                    move |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
+                        let x = load_property_helper(&comp, &popup_x.element(), popup_x.name())
                             .unwrap();
-                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
+                        let y = load_property_helper(&comp, &popup_y.element(), popup_y.name())
                             .unwrap();
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
@@ -905,7 +907,7 @@ fn call_builtin_function(
                         )
                     },
                     close_policy,
-                    enclosing_component.self_weak().get().unwrap().clone(),
+                    (*enclosing_component.self_weak().get().unwrap()).clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
@@ -967,7 +969,7 @@ fn call_builtin_function(
                 .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
-                Some(enclosing_component.self_weak().get().unwrap().clone()),
+                Some((*enclosing_component.self_weak().get().unwrap()).clone()),
                 None,
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
@@ -1066,7 +1068,7 @@ fn call_builtin_function(
                 }
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
-                    position,
+                    Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     true,

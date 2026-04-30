@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that the size of the popup window is correct when changing the size of the popup
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export global Properties {
+    in-out property <bool> popup-initialized: false;
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+
+    in-out property <bool> button-in-popup-pressed: false;
+}
+export component TestCase {
+    in-out property <bool> show-buttons;
+
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    width: 600px;
+    height: 400px;
+
+    popup := PopupWindow {
+        width: 100px;
+        height: 120px;
+
+        changed width => {
+            debug("Popup width changed");
+            Properties.popup-width = self.width;
+        }
+
+        changed height => {
+            debug("Popup height changed");
+            Properties.popup-height = self.height;
+        }
+
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        init => {
+            Properties.popup-initialized = true;
+            Properties.popup-width = self.width;
+            Properties.popup-height = self.height;
+            debug("Popup initialized");
+        }
+
+
+        VerticalBox {
+            padding: 9px;
+            spacing: 6px;
+
+            Button {
+                text: "Change";
+
+                clicked => {
+                    debug(self.text);
+                    Properties.button-in-popup-pressed = true;
+                    popup.width += 10px;
+                    popup.height += 12px;
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), -1.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), false);
+
+instance.invoke_show_popup();
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 100.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 120.);
+
+let window = instance.window();
+let pressed_position = LogicalPosition::new(50., 40.);
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_button_in_popup_pressed(), true);
+
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left }); // To trigger recalculation
+slint_testing::mock_elapsed_time(500);
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 110.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 132.);
+
+```
+*/

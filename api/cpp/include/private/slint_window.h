@@ -175,10 +175,23 @@ public:
         }
 
         auto popup = Component::create(parent_component, _own_globals);
-        auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
-        auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                              &parent_item, false);
+
+        struct PopupPositionData
+        {
+            PosGetter pos;
+            decltype(popup) popup_component;
+        };
+
+        auto position_data = new PopupPositionData { std::move(pos), popup };
+        auto id = cbindgen_private::slint_windowrc_show_popup(
+                &inner, &popup_dyn,
+                [](void *user_data) {
+                    auto data = reinterpret_cast<PopupPositionData *>(user_data);
+                    return data->pos(data->popup_component);
+                },
+                [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
+                position_data, close_policy, &parent_item, false);
         popup->user_init();
         return id;
     }
@@ -220,8 +233,12 @@ public:
         auto popup = Component::create(globals);
         init(&*popup);
         auto popup_dyn = popup.into_dyn();
+        auto position_data = new LogicalPosition(pos);
         auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
+                &inner, &popup_dyn,
+                [](void *user_data) { return *reinterpret_cast<LogicalPosition *>(user_data); },
+                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
+                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
                 &context_menu_rc, true);
         popup->user_init();
         return id;

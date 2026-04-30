@@ -1,0 +1,173 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that the position of the popup can be changed
+
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export global Properties {
+    in-out property <bool> popup-initialized: false;
+    in-out property <length> popup-x: -1px;
+    in-out property <length> popup-y: -1px;
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+
+    in-out property <int> update-popup: 0;
+    in-out property <length> popup-x-increment;
+    in-out property <length> popup-y-increment;
+    in-out property <length> popup-width-increment;
+    in-out property <length> popup-height-increment;
+
+}
+export component TestCase {
+    width: 600px;
+    height: 400px;
+
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    // For manual testing
+    TouchArea {
+        clicked => {
+            popup.show();
+        }
+    }
+
+    // For manual testing set running to true
+    Timer {
+        running: false;
+        interval: 1s;
+        triggered => {
+            Properties.popup-x-increment = 10px;
+            Properties.popup-y-increment = 20px;
+            Properties.popup-width-increment = 30px;
+            Properties.popup-height-increment = 40px;
+            Properties.update-popup += 1;
+        }
+    }
+
+    Rectangle {
+        background: red;
+    }
+
+    callback change-popup-properties(x-increment: length, y-increment: length, width-increment: length, height-increment: length);
+    change-popup-properties(x-increment, y-increment, width-increment, height-increment) => {
+        Properties.popup-x-increment = x-increment;
+        Properties.popup-y-increment = y-increment;
+        Properties.popup-width-increment = width-increment;
+        Properties.popup-height-increment = height-increment;
+
+        Properties.update-popup += 1;
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: 0;
+        width: 100px;
+        height: 50px;
+
+        in-out property <int> properties-changed <=> Properties.update-popup;
+
+        changed properties-changed => {
+            self.x += Properties.popup-x-increment;
+            self.y += Properties.popup-y-increment;
+            self.width += Properties.popup-width-increment;
+            self.height += Properties.popup-height-increment;
+        }
+
+        changed width => {
+            Properties.popup-width = self.width;
+        }
+
+        changed height => {
+            Properties.popup-height = self.height;
+        }
+
+        changed x => {
+            Properties.popup-x = self.x;
+        }
+
+        changed y => {
+            Properties.popup-y = self.y;
+        }
+
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        init => {
+            Properties.popup-initialized = true;
+            Properties.popup-width = self.width;
+            Properties.popup-height = self.height;
+            Properties.popup-x = self.x;
+            Properties.popup-y = self.y;
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let inner =  slint_testing::WindowInner::from_pub(&window);
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), false);
+
+instance.invoke_show_popup();
+
+assert_eq!(instance.global::<Properties<'_>>().get_popup_initialized(), true);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_x(), 0.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_y(), 0.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 100.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 50.);
+
+slint_testing::mock_elapsed_time(500);
+
+for i in 1..11 {
+    instance.invoke_change_popup_properties(10., 20., 30., 40.);
+    slint_testing::mock_elapsed_time(500); // First triggers the Property Tracker
+    slint_testing::mock_elapsed_time(500); // Second updates the popup properties, because the first just sets up the timer in single_shot
+    assert_eq!(instance.global::<Properties<'_>>().get_popup_x(), i as f32 * 10., "Iteration: {}", i);
+    assert_eq!(instance.global::<Properties<'_>>().get_popup_y(), i as f32 * 20., "Iteration: {}", i);
+
+    assert_eq!(inner.active_popups.borrow().len(), 1);
+    if let slint_testing::PopupWindowLocation::ChildWindow(position) = inner.active_popups.borrow().first().unwrap().location {
+        assert_eq!(position, slint_testing::LogicalPoint::new(i as f32 * 10., i as f32 * 20.))
+    } else {
+        assert!(false);
+    }
+}
+
+```
+
+```cpp
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.global<Properties>().get_popup_height(), -1.);
+assert_eq(instance.global<Properties>().get_popup_initialized(), false);
+
+instance.invoke_show_popup();
+
+assert_eq(instance.global<Properties>().get_popup_initialized(), true);
+assert_eq(instance.global<Properties>().get_popup_x(), 0.);
+assert_eq(instance.global<Properties>().get_popup_y(), 0.);
+assert_eq(instance.global<Properties>().get_popup_width(), 100.);
+assert_eq(instance.global<Properties>().get_popup_height(), 50.);
+
+slint_testing::mock_elapsed_time(500);
+
+for (size_t i=1; i < 11; i++) {
+    instance.invoke_change_popup_properties(10., 20., 30., 40.);
+    slint_testing::mock_elapsed_time(500); // First triggers the Property Tracker
+    slint_testing::mock_elapsed_time(500); // Second updates the popup properties, because the first just sets up the timer in single_shot
+    assert_eq(instance.global<Properties>().get_popup_x(), i * 10.);
+    assert_eq(instance.global<Properties>().get_popup_y(), i * 20.);
+}
+```
+*/

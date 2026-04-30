@@ -2721,12 +2721,12 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 }
 
-/// Show the popup at the given location
+/// Show the popup with a lazily evaluated location.
 pub fn show_popup(
     element: ElementRc,
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
-    pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> LogicalPosition,
+    pos_getter: impl Fn(InstanceRef<'_, '_>) -> LogicalPosition + 'static,
     close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2767,18 +2767,19 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
-    let pos = {
+    let inst_for_position = inst.clone();
+    let access_position = Box::new(move || {
         generativity::make_guard!(guard);
-        let compo_box = inst.unerase(guard);
+        let compo_box = inst_for_position.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
         pos_getter(instance_ref)
-    };
+    });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
     instance.description.popup_ids.borrow_mut().insert(
         element.borrow().id.clone(),
         WindowInner::from_pub(parent_window_adapter.window()).show_popup(
             &vtable::VRc::into_dyn(inst.clone()),
-            pos,
+            access_position,
             close_policy,
             parent_item,
             false,
