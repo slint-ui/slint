@@ -1702,6 +1702,8 @@ pub fn check_window_layout(component: &Rc<Component>) {
     }
 }
 
+/// Adds a new property called fixed-<`prop`> and connects to `prop`
+/// TODO: more explanation
 fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
     let new_prop = crate::layout::create_new_prop(
         &component.root_element,
