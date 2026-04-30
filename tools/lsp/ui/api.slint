@@ -298,6 +298,7 @@ export global Api {
     // Borders around things
     pure callback highlight-positions(source-uri: string, offset: int) -> [SelectionRectangle];
     in-out property <Selection> selection;
+    in-out property <bool> popup-selection-overlay;
     in-out property <DropMark> drop-mark;
     // The actual preview
     in-out property <component-factory> preview-area;

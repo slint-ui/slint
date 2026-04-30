@@ -72,6 +72,19 @@ fn active_popup_instances(root_component_instance: &ItemTreeBox) -> Vec<DynamicC
         .collect()
 }
 
+/// Return the root elements of currently active popups for this component instance.
+pub fn active_popup_roots(component_instance: &DynamicComponentVRc) -> Vec<ElementRc> {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+    active_popup_instances(&c)
+        .into_iter()
+        .map(|popup_instance| {
+            generativity::make_guard!(guard);
+            popup_instance.unerase(guard).description().original.root_element.clone()
+        })
+        .collect()
+}
+
 fn collect_highlight_data(
     component: &DynamicComponentVRc,
     elements: &[std::rc::Weak<RefCell<Element>>],
@@ -87,7 +100,7 @@ fn collect_highlight_data(
         let element = normalize_repeated_element(element);
         let Some(repeater_path) = repeater_path(&element) else { continue };
 
-        let enclosing_component = element.borrow().enclosing_component.upgrade().unwrap();
+        let enclosing_component = top_enclosing_component(&element);
         if Rc::ptr_eq(&enclosing_component, &c.description().original) {
             fill_highlight_data(
                 &repeater_path,
@@ -157,7 +170,7 @@ pub fn element_positions(
 
     let element = normalize_repeated_element(element.clone());
     if let Some(repeater_path) = repeater_path(&element) {
-        let enclosing_component = element.borrow().enclosing_component.upgrade().unwrap();
+        let enclosing_component = top_enclosing_component(&element);
         if Rc::ptr_eq(&enclosing_component, &c.description().original) {
             fill_highlight_data(
                 &repeater_path,
@@ -305,6 +318,17 @@ fn find_element_node_at_source_code_position(
         },
     );
     result
+}
+
+fn top_enclosing_component(element: &ElementRc) -> Rc<Component> {
+    let mut component = element.borrow().enclosing_component.upgrade().unwrap();
+    while let Some(parent) = component.parent_element() {
+        if parent.borrow().repeated.is_none() {
+            break;
+        }
+        component = parent.borrow().enclosing_component.upgrade().unwrap();
+    }
+    component
 }
 
 fn repeater_path(elem: &ElementRc) -> Option<Vec<SmolStr>> {

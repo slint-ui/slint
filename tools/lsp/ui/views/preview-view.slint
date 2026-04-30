@@ -183,6 +183,52 @@ component SelectionFrame {
     }
 }
 
+component SelectionOverlay inherits Rectangle {
+    in property <[SelectionRectangle]> selections;
+    in property <Selection> selection;
+    in property <bool> enabled: false;
+    in property <length> overlay-width: 0px;
+    in property <length> overlay-height: 0px;
+
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+    background: Colors.transparent;
+
+    public function refresh() {
+        if root.enabled && root.selections.length > 0 {
+            popup.close();
+            popup.show();
+        } else {
+            popup.close();
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: root.overlay-width;
+        height: root.overlay-height;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        Rectangle {
+            background: Colors.transparent;
+
+            for s[idx] in root.selections: SelectionFrame {
+                x: s.x;
+                y: s.y;
+                width: s.width;
+                height: s.height;
+                transform-rotation: s.angle;
+                interactive: false;
+                selection: root.selection;
+                is-primary: root.selection.highlight-index == idx;
+            }
+        }
+    }
+}
+
 export component PreviewView inherits Rectangle {
     property <[SelectionRectangle]> selections: Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
     in property <ComponentItem> visible-component;
@@ -208,6 +254,14 @@ export component PreviewView inherits Rectangle {
         if self.diagnostic-summary == DiagnosticSummary.Errors {
             StatusLineApi.help-text = @tr("Check your text editor for errors");
         }
+    }
+
+    changed selections => {
+        selection-overlay.refresh();
+    }
+
+    changed mode => {
+        selection-overlay.refresh();
     }
 
     Rectangle {
@@ -413,6 +467,14 @@ export component PreviewView inherits Rectangle {
                         x: 0px;
                         y: 0px;
                         max-popup-height: root.height * 0.9;
+                    }
+
+                    selection-overlay := SelectionOverlay {
+                        selections <=> root.selections;
+                        selection: Api.selection;
+                        enabled: root.mode == DrawAreaMode.selecting && Api.popup-selection-overlay;
+                        overlay-width: preview-area-container.width;
+                        overlay-height: preview-area-container.height;
                     }
 
                     selection-display-area := Rectangle {

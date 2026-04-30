@@ -68,6 +68,10 @@ fn lsp_element_node_position(
             )
     });
 
+    if f.starts_with("builtin:/") {
+        return None;
+    }
+
     use lsp_types::{Position, Range};
     let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
     let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
@@ -138,13 +142,28 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) =
-        crate::Url::parse(source_uri.as_str()).ok().and_then(|u| crate::common::uri_to_file(&u))
-    else {
-        return Default::default();
-    };
-    let offset = TextSize::new(offset as u32);
-    let positions = component_instance.component_positions(&path, offset.into());
+    let is_builtin = source_uri.starts_with("builtin:/");
+    let positions = (!is_builtin)
+        .then(|| crate::Url::parse(source_uri.as_str()).ok())
+        .flatten()
+        .and_then(|u| crate::common::uri_to_file(&u))
+        .map(|path| component_instance.component_positions(&path, offset as u32))
+        .filter(|positions| !positions.is_empty())
+        .or_else(|| {
+            super::selected_element().and_then(|selection| {
+                let instance_index = selection.instance_index;
+                selection.as_element().map(|element| {
+                    let positions = component_instance.element_positions(&element);
+                    positions
+                        .get(instance_index)
+                        .copied()
+                        .map(|position| vec![position])
+                        .unwrap_or(positions)
+                })
+            })
+        })
+        .unwrap_or_default();
+
     let model = slint::VecModel::from_iter(positions.iter().map(|g| ui::SelectionRectangle {
         width: g.rect.size.width,
         height: g.rect.size.height,
@@ -205,6 +224,7 @@ pub struct SelectionCandidate {
     pub debug_index: usize,
     pub geometry: HighlightedRect,
     pub is_in_root_component: bool,
+    pub is_popup: bool,
 }
 
 impl SelectionCandidate {
@@ -229,24 +249,26 @@ fn collect_all_element_nodes_covering_impl(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
     current_element: &ElementRc,
+    is_popup: bool,
     result: &mut Vec<SelectionCandidate>,
 ) {
     let ce = self_or_embedded_component_root(current_element);
 
     for c in ce.borrow().children.iter().rev() {
-        collect_all_element_nodes_covering_impl(position, component_instance, c, result);
+        collect_all_element_nodes_covering_impl(position, component_instance, c, is_popup, result);
     }
 
-    if let Some(geometry) = element_covers_point(position, component_instance, current_element) {
+    if let Some(geometry) = element_covers_point(position, component_instance, &ce) {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !common::is_element_node_ignored(&d.node)
-                && !d.node.source_file.path().starts_with("builtin:/")
+                && (is_popup || !d.node.source_file.path().starts_with("builtin:/"))
             {
                 // All nodes have the same geometry
                 result.push(SelectionCandidate {
                     element: ce.clone(),
                     debug_index: i,
                     is_in_root_component: false,
+                    is_popup,
                     geometry,
                 });
             }
@@ -277,14 +299,16 @@ pub fn collect_all_element_nodes_covering(
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
     let mut elements = Vec::new();
-    let root_component = component_instance.definition().root_component();
+    let popup_roots =
+        slint_interpreter::highlight::active_popup_roots(&component_instance.clone_strong().into());
 
-    // Check popups first
-    for popup in root_component.popup_windows.borrow().iter().rev() {
+    // Check active popups first
+    for popup_root in popup_roots.into_iter().rev() {
         collect_all_element_nodes_covering_impl(
             position,
             component_instance,
-            &real_root_element(popup.component.root_element.clone()),
+            &real_root_element(popup_root),
+            true,
             &mut elements,
         );
     }
@@ -294,6 +318,7 @@ pub fn collect_all_element_nodes_covering(
         position,
         component_instance,
         &root_element,
+        false,
         &mut elements,
     );
 
@@ -531,7 +556,10 @@ fn filter_nodes_for_selection(
     selection_candidate: &SelectionCandidate,
     enter_component: bool,
 ) -> Option<common::ElementRcNode> {
-    if !selection_candidate.is_in_root_component && !enter_component {
+    if !selection_candidate.is_in_root_component
+        && !selection_candidate.is_popup
+        && !enter_component
+    {
         return None;
     }
 
@@ -612,6 +640,7 @@ mod tests {
     use std::path::PathBuf;
 
     use i_slint_core::lengths::LogicalPoint;
+    use slint::ComponentHandle;
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
@@ -1117,7 +1146,6 @@ export component Main inherits Window {
             PathBuf::from("builtin:/fluent/combobox.slint"),
             "background got selected instead: {selected:?}",
         );
-
         let item_positions = component_instance
             .component_positions(&selected_path_and_offset.0, selected_path_and_offset.1.into());
         assert!(
