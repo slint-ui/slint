@@ -55,9 +55,7 @@ fn root_origin_in_native_coordinates(root_component_instance: &ItemTreeBox) -> L
 
 fn try_cast_item_tree_to_dynamic_component(item_tree: &ItemTreeRc) -> Option<DynamicComponentVRc> {
     let comp_ref_pin = vtable::VRc::borrow_pin(item_tree);
-    if vtable::VRef::downcast_pin::<ErasedItemTreeBox>(comp_ref_pin).is_none() {
-        return None;
-    }
+    vtable::VRef::downcast_pin::<ErasedItemTreeBox>(comp_ref_pin)?;
 
     // Safety We just checked that the vtable matches `ErasedItemTreeBox`.
     Some(unsafe { core::mem::transmute::<ItemTreeRc, DynamicComponentVRc>(item_tree.clone()) })
