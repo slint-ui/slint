@@ -10,7 +10,7 @@
 //! update algorithm can be shared between Rust and C++ (via FFI).
 
 use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
-use super::{Model, ModelRc};
+use super::{Model, ModelExt, ModelRc};
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
@@ -632,6 +632,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
         let model = self.model();
         model.set_row_data(row, data);
+    }
+
+    /// Read a row from the model, registering a dependency on it when
+    /// called from a binding evaluation.
+    pub fn model_row_data(self: Pin<&Self>, row: usize) -> Option<C::Data> {
+        self.model().row_data_tracked(row)
     }
 
     /// Set the model binding

@@ -6,7 +6,7 @@ use crate::global_component::CompiledGlobalCollection;
 use crate::{dynamic_type, eval};
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
-use i_slint_compiler::expression_tree::{Expression, NamedReference};
+use i_slint_compiler::expression_tree::{Expression, NamedReference, TwoWayBinding};
 use i_slint_compiler::langtype::{BuiltinPrivateStruct, StructName, Type};
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak, TransitionDirection};
 use i_slint_compiler::{CompilerConfiguration, generator, object_tree, parser};
@@ -1777,16 +1777,31 @@ pub fn instantiate(
                     }
                 }
                 for twb in &binding.two_way_bindings {
-                    if twb.field_access.is_empty()
-                        && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
-                    {
-                        // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        // (Except for struct and array, which may map to a Value)
-                        prop_info
-                            .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
-                    } else {
-                        let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
-                        prop_info.link_two_way_with_map(item, common, map);
+                    match twb {
+                        TwoWayBinding::Property { property, field_access }
+                            if field_access.is_empty()
+                                && !matches!(
+                                    &property_type,
+                                    Type::Struct(..) | Type::Array(..)
+                                ) =>
+                        {
+                            // Safety: The compiler ensured that the properties exist and have
+                            // the same type (except for struct/array, which may map to a Value).
+                            prop_info.link_two_ways(item, get_property_ptr(property, instance_ref));
+                        }
+                        TwoWayBinding::Property { property, field_access } => {
+                            let (common, map) =
+                                prepare_for_two_way_binding(instance_ref, property, field_access);
+                            prop_info.link_two_way_with_map(item, common, map);
+                        }
+                        TwoWayBinding::ModelData { repeated_element, field_access } => {
+                            let (getter, setter) = prepare_model_two_way_binding(
+                                instance_ref,
+                                repeated_element,
+                                field_access,
+                            );
+                            prop_info.link_two_way_to_model_data(item, getter, setter);
+                        }
                     }
                 }
             } else {
@@ -1798,15 +1813,35 @@ pub fn instantiate(
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
 
                     for twb in &binding.two_way_bindings {
-                        if twb.field_access.is_empty()
-                            && !matches!(&property_type, Type::Struct(..) | Type::Array(..))
-                        {
-                            // Safety: The compiler must have ensured that the properties exist and are of the same type
-                            prop_rtti
-                                .link_two_ways(item, get_property_ptr(&twb.property, instance_ref));
-                        } else {
-                            let (common, map) = prepare_for_two_way_binding(instance_ref, twb);
-                            prop_rtti.link_two_way_with_map(item, common, map);
+                        match twb {
+                            TwoWayBinding::Property { property, field_access }
+                                if field_access.is_empty()
+                                    && !matches!(
+                                        &property_type,
+                                        Type::Struct(..) | Type::Array(..)
+                                    ) =>
+                            {
+                                // Safety: The compiler ensured that the properties exist and
+                                // have the same type.
+                                prop_rtti
+                                    .link_two_ways(item, get_property_ptr(property, instance_ref));
+                            }
+                            TwoWayBinding::Property { property, field_access } => {
+                                let (common, map) = prepare_for_two_way_binding(
+                                    instance_ref,
+                                    property,
+                                    field_access,
+                                );
+                                prop_rtti.link_two_way_with_map(item, common, map);
+                            }
+                            TwoWayBinding::ModelData { repeated_element, field_access } => {
+                                let (getter, setter) = prepare_model_two_way_binding(
+                                    instance_ref,
+                                    repeated_element,
+                                    field_access,
+                                );
+                                prop_rtti.link_two_way_to_model_data(item, getter, setter);
+                            }
                         }
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
@@ -1869,45 +1904,33 @@ pub fn instantiate(
 
 fn prepare_for_two_way_binding(
     instance_ref: InstanceRef,
-    twb: &i_slint_compiler::expression_tree::TwoWayBinding,
+    property: &NamedReference,
+    field_access: &[SmolStr],
 ) -> (Pin<Rc<Property<Value>>>, Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>>) {
-    let element = twb.property.element();
-    let name = twb.property.name();
+    let element = property.element();
+    let name = property.name().as_str();
+
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_instance_for_element(
         &element,
         &eval::ComponentInstance::InstanceRef(instance_ref),
         guard,
     );
-    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if twb.field_access.is_empty() {
+    let map: Option<Rc<dyn rtti::TwoWayBindingMapping<Value>>> = if field_access.is_empty() {
         None
     } else {
         struct FieldAccess(Vec<SmolStr>);
         impl rtti::TwoWayBindingMapping<Value> for FieldAccess {
             fn map_to(&self, value: &Value) -> Value {
-                let mut value = value.clone();
-                for f in &self.0 {
-                    match value {
-                        Value::Struct(o) => value = o.get_field(f).cloned().unwrap_or_default(),
-                        Value::Void => return Value::Void,
-                        _ => panic!("Cannot map to a field of a non-struct {value:?}  - {f}"),
-                    }
-                }
-                value
+                walk_struct_field_path(value.clone(), &self.0).unwrap_or_default()
             }
-            fn map_from(&self, mut value: &mut Value, from: &Value) {
-                for f in &self.0 {
-                    match value {
-                        Value::Struct(o) => {
-                            value = o.0.get_mut(f).expect("field not found while mapping")
-                        }
-                        _ => panic!("Cannot map to a field of a non-struct {value:?}"),
-                    }
+            fn map_from(&self, root: &mut Value, from: &Value) {
+                if let Some(leaf) = walk_struct_field_path_mut(root, &self.0) {
+                    *leaf = from.clone();
                 }
-                *value = from.clone();
             }
         }
-        Some(Rc::new(FieldAccess(twb.field_access.clone())))
+        Some(Rc::new(FieldAccess(field_access.to_vec())))
     };
     let common = match enclosing_component {
         eval::ComponentInstance::InstanceRef(enclosing_component) => {
@@ -1928,7 +1951,7 @@ fn prepare_for_two_way_binding(
             let prop_info = item_info
                 .rtti
                 .properties
-                .get(name.as_str())
+                .get(name)
                 .unwrap_or_else(|| panic!("Property {} not in {}", name, element.id));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
@@ -1939,6 +1962,98 @@ fn prepare_for_two_way_binding(
         }
     };
     (common, map)
+}
+
+/// Build a (getter, setter) pair for a `TwoWayBinding::ModelData`. The
+/// setter writes the whole row back through the field-access path, and
+/// skips the write if the leaf value is unchanged.
+fn prepare_model_two_way_binding(
+    instance_ref: InstanceRef,
+    repeated_element: &i_slint_compiler::object_tree::ElementWeak,
+    field_access: &[SmolStr],
+) -> (Box<dyn Fn() -> Option<Value>>, Box<dyn Fn(&Value)>) {
+    let self_weak = instance_ref.self_weak().get().unwrap().clone();
+    let repeated_element = repeated_element.clone();
+    let field_access: Vec<SmolStr> = field_access.to_vec();
+
+    let getter = {
+        let self_weak = self_weak.clone();
+        let repeated_element = repeated_element.clone();
+        let field_access = field_access.clone();
+        Box::new(move || -> Option<Value> {
+            with_repeater_row(&self_weak, &repeated_element, |repeater, row| {
+                walk_struct_field_path(repeater.model_row_data(row)?, &field_access)
+            })
+        })
+    };
+
+    let setter = Box::new(move |new_value: &Value| {
+        with_repeater_row(&self_weak, &repeated_element, |repeater, row| {
+            let mut data = repeater.model_row_data(row)?;
+            // Short-circuit identical writes to avoid spurious change notifications.
+            let leaf = walk_struct_field_path_mut(&mut data, &field_access)?;
+            if &*leaf == new_value {
+                return Some(());
+            }
+            *leaf = new_value.clone();
+            repeater.model_set_row_data(row, data);
+            Some(())
+        });
+    });
+
+    (getter, setter)
+}
+
+/// Resolve the repeater that backs `repeated_element` and its current row
+/// index, then run `f`. Returns `None` if any link is unavailable.
+fn with_repeater_row<R>(
+    self_weak: &ErasedItemTreeBoxWeak,
+    repeated_element: &i_slint_compiler::object_tree::ElementWeak,
+    f: impl FnOnce(Pin<&Repeater<ErasedItemTreeBox>>, usize) -> Option<R>,
+) -> Option<R> {
+    let self_rc = self_weak.upgrade()?;
+    generativity::make_guard!(guard);
+    let s = self_rc.unerase(guard);
+    let instance = s.borrow_instance();
+    let element = repeated_element.upgrade()?;
+    let index = crate::eval::load_property(
+        instance,
+        &element.borrow().base_type.as_component().root_element,
+        crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
+    )
+    .ok()?;
+    let row = usize::try_from(i32::try_from(index).ok()?).ok()?;
+    generativity::make_guard!(guard);
+    let enclosing = crate::eval::enclosing_component_for_element(&element, instance, guard);
+    generativity::make_guard!(guard);
+    let (repeater, _) = get_repeater_by_name(enclosing, element.borrow().id.as_str(), guard);
+    f(repeater, row)
+}
+
+/// Follow a chain of struct field accesses on `value`.
+fn walk_struct_field_path(mut value: Value, fields: &[SmolStr]) -> Option<Value> {
+    for f in fields {
+        match value {
+            Value::Struct(o) => value = o.get_field(f).cloned().unwrap_or_default(),
+            Value::Void => return None,
+            _ => return None,
+        }
+    }
+    Some(value)
+}
+
+/// Mutable counterpart of [`walk_struct_field_path`].
+fn walk_struct_field_path_mut<'a>(
+    mut value: &'a mut Value,
+    fields: &[SmolStr],
+) -> Option<&'a mut Value> {
+    for f in fields {
+        match value {
+            Value::Struct(o) => value = o.0.get_mut(f)?,
+            _ => return None,
+        }
+    }
+    Some(value)
 }
 
 pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {

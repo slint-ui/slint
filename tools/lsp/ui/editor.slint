@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "api.slint";
+
+import { Spinner } from "std-widgets.slint";
+
+export component EditorUi inherits Window {
+    title: @tr("Slint Editor");
+
+    viewer := ComponentContainer {
+        component-factory: Api.preview-area;
+    }
+
+    if !viewer.has-component: Spinner {
+        indeterminate: true;
+    }
+}

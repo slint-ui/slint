@@ -7,7 +7,7 @@ use core::num::NonZeroUsize;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{self, TextSize, syntax_nodes};
 use lsp_types::Url;
-use slint::{ComponentHandle as _, Model, ModelRc, SharedString, ToSharedString as _};
+use slint::{Model, ModelRc, SharedString, ToSharedString as _};
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -248,16 +248,14 @@ fn create_node(
     }
 }
 
-pub fn reset_outline(ui: &ui::PreviewUi, root_component: Option<Rc<object_tree::Component>>) {
-    let api = ui.global::<ui::Api>();
+pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::Component>>) {
     match root_component {
         Some(root) => api.set_outline(ModelRc::new(TreeAdapterModel::new(OutlineModel::new(root)))),
         None => api.set_outline(Default::default()),
     }
 }
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
+pub fn setup(api: &ui::Api<'_>) {
     api.on_outline_select_element(|uri, offset| {
         super::element_selection::select_element_at_source_code_position(
             crate::common::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),

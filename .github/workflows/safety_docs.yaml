@@ -6,6 +6,11 @@ name: Safety Docs
 on:
     workflow_dispatch:
     workflow_call:
+      secrets:
+        CLOUDFLARE_ACCOUNT_ID_2:
+          required: true
+        CLOUDFLARE_API_TOKEN_2:
+          required: true
 
 jobs:
     build:
@@ -13,7 +18,7 @@ jobs:
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -25,3 +30,9 @@ jobs:
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build
+            - uses: ./.github/actions/cloudflare-preview-deploy
+              with:
+                working-directory: docs/safety
+                environment: safety-docs-staging
+                cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+                cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}

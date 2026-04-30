@@ -254,12 +254,13 @@ cargo xtask cppdocs
 
 ### Node.js API docs
 
-Run the following commands from the `/api/node` sub-folder to generate the docs using [typedoc](https://typedoc.org/) in the `/api/node/docs` sub-folder:
+Run the following commands from the `/docs/nodejs` sub-folder to generate the docs.
 
 ```sh
-npm install
-npm run docs
+pnpm install
+pnpm build
 ```
+
 
 ### Building search database
 

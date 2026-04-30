@@ -14,6 +14,10 @@ on:
       secrets:
         READ_WRITE_PRIVATE_KEY:
           required: true
+        CLOUDFLARE_API_TOKEN_2:
+          required: false
+        CLOUDFLARE_ACCOUNT_ID_2:
+          required: false
       inputs:
         release:
           type: string
@@ -87,6 +91,8 @@ jobs:
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
         runs-on: ubuntu-24.04
+        outputs:
+            version: ${{ steps.version.outputs.VERSION }}
         env:
             RUSTFLAGS: -D warnings -W deprecated
             RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/astro/src/utils/slint-docs-highlight.html -D warnings -W deprecated --cfg docsrs -Zunstable-options --generate-link-to-definition
@@ -96,7 +102,7 @@ jobs:
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -182,8 +188,53 @@ jobs:
             - name: "Upload Astro Docs Artifacts"
               uses: actions/upload-artifact@v7
               with:
-                  name: docs-astro
-                  path: artifact
+                name: docs-astro
+                path: artifact
+
+    docs-preview:
+        needs: [rust-cpp-docs, astro-docs-tests, node-python-docs]
+        # Forks don't have access to repository secrets; skip the preview job entirely so no runner is allocated.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: read
+            deployments: write
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v6.0.3
+              with:
+                version: 10.29.3
+            - uses: actions/setup-node@v6
+              with:
+                node-version: 24
+                package-manager-cache: false
+            - name: Download all docs artifacts
+              uses: actions/download-artifact@v8
+              with:
+                pattern: docs-*
+                path: restored-docs
+                merge-multiple: true
+            - name: Lay out docs under cf-assets
+              id: repack
+              working-directory: docs/astro
+              run: |
+                set -euo pipefail
+                rm -rf cf-assets
+                if [ "${{ inputs.release }}" != "true" ]; then
+                  prefix="master/docs"
+                else
+                  prefix="${{ needs.astro-docs-tests.outputs.version }}/docs"
+                fi
+                mkdir -p "cf-assets/${prefix}"
+                cp -R "${GITHUB_WORKSPACE}/restored-docs/docs/." "cf-assets/${prefix}/"
+                echo "site_prefix=${prefix}/slint" >> "${GITHUB_OUTPUT}"
+            - uses: ./.github/actions/cloudflare-preview-deploy
+              with:
+                working-directory: docs/astro
+                environment: docs-staging
+                path-suffix: ${{ steps.repack.outputs.site_prefix }}
+                cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
+                cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
@@ -192,7 +243,7 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v5.0.0
+            - uses: pnpm/action-setup@v6.0.3
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -213,9 +264,48 @@ jobs:
               uses: astral-sh/setup-uv@v7
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
-            - name: "Node docs"
-              run: pnpm run docs
+            - name: Extract version from Cargo.toml
+              id: version
+              run: |
+                  version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
+                  if [[ -z "$version" ]]; then
+                    echo "Version not found"
+                    exit 1
+                  fi
+                  echo "VERSION=$version" >> $GITHUB_OUTPUT
+            - name: "Update site and base for Node.js Starlight (sitemap and assets)"
+              run: |
+                  version="${{ steps.version.outputs.VERSION }}"
+                  if [ "$RELEASE_INPUT" != "true" ]; then
+                      base_url="https://snapshots.slint.dev"
+                      base_path="/master/docs/node/"
+                  else
+                      base_url="https://releases.slint.dev"
+                      base_path="/$version/docs/node/"
+                  fi
+                  sed -i "s|export const NODE_DOCS_BASE_URL = \".*\"|export const NODE_DOCS_BASE_URL = \"$base_url\"|" docs/nodejs/src/node-site-config.mjs
+                  sed -i "s|export const NODE_DOCS_BASE_PATH = \".*\"|export const NODE_DOCS_BASE_PATH = \"$base_path\"|" docs/nodejs/src/node-site-config.mjs
+            - name: "Build NAPI and TypeScript (api/node)"
+              run: pnpm run build
               working-directory: api/node
+            - name: "Node.js API Starlight site"
+              run: pnpm run build
+              working-directory: docs/nodejs
+            - name: "Repack Node docs for Cloudflare preview (PR)"
+              if: github.event_name == 'pull_request'
+              id: node_pr_repack
+              working-directory: docs/nodejs
+              run: |
+                  set -euo pipefail
+                  rm -rf cf-assets
+                  if [ "${{ inputs.release }}" != "true" ]; then
+                    prefix="master/docs"
+                  else
+                    prefix="${{ steps.version.outputs.VERSION }}/docs"
+                  fi
+                  mkdir -p "cf-assets/${prefix}/node"
+                  cp -R dist/. "cf-assets/${prefix}/node/"
+                  echo "site_prefix=${prefix}/node" >> "${GITHUB_OUTPUT}"
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
             - name: "Python docs"
@@ -224,7 +314,7 @@ jobs:
             - name: "Prepare docs for website structure"
               run: |
                   mkdir -p artifact/docs
-                  mv api/node/docs artifact/docs/node
+                  mv docs/nodejs/dist artifact/docs/node
                   mv api/python/slint/docs artifact/docs/python
             - name: "Upload Python/Node Docs Artifacts"
               uses: actions/upload-artifact@v7

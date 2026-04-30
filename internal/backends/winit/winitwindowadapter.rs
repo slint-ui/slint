@@ -1693,18 +1693,14 @@ fn adjust_window_size_to_satisfy_constraints(
     max_size: Option<winit::dpi::LogicalSize<f64>>,
 ) {
     let sf = adapter.window().scale_factor() as f64;
-    let Some(current_size) = adapter
+    let current_size = adapter
         .pending_requested_size
         .get()
-        .or_else(|| {
+        .unwrap_or_else(|| {
             let existing_adapter_size = adapter.size.get();
-            (existing_adapter_size.width != 0 && existing_adapter_size.height != 0)
-                .then(|| physical_size_to_winit(existing_adapter_size).into())
+            physical_size_to_winit(existing_adapter_size).into()
         })
-        .map(|s| s.to_logical::<f64>(sf))
-    else {
-        return;
-    };
+        .to_logical::<f64>(sf);
 
     let mut window_size = current_size;
     if let Some(min_size) = min_size {

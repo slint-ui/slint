@@ -1783,60 +1783,6 @@ pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>,
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
-/// This module contains a few functions used by the tests
-#[doc(hidden)]
-pub mod testing {
-    use super::ComponentHandle;
-    use i_slint_core::window::WindowInner;
-
-    /// Wrapper around [`i_slint_core::tests::slint_send_mouse_click`]
-    pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
-        i_slint_core::tests::slint_send_mouse_click(
-            x,
-            y,
-            &WindowInner::from_pub(comp.window()).window_adapter(),
-        );
-    }
-
-    /// Wrapper around [`i_slint_core::tests::slint_send_keyboard_char`]
-    pub fn send_keyboard_char(
-        comp: &super::ComponentInstance,
-        string: i_slint_core::SharedString,
-        pressed: bool,
-    ) {
-        i_slint_core::tests::slint_send_keyboard_char(
-            &string,
-            pressed,
-            &WindowInner::from_pub(comp.window()).window_adapter(),
-        );
-    }
-    /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
-    pub fn send_keyboard_string_sequence(
-        comp: &super::ComponentInstance,
-        string: i_slint_core::SharedString,
-    ) {
-        i_slint_core::tests::send_keyboard_string_sequence(
-            &string,
-            &WindowInner::from_pub(comp.window()).window_adapter(),
-        );
-    }
-
-    /// Simulate pressing a combination of keys together, then releasing them in reverse order.
-    ///
-    /// Each entry in `keys` is a key text (a single character or a special-key unicode codepoint).
-    /// All keys are pressed in order, then released in reverse
-    // Emulates the same behavior as `i_slint_backend_testing::send_key_combo_with_text`.
-    pub fn send_key_combo(comp: &super::ComponentInstance, keys: &[i_slint_core::SharedString]) {
-        let window_adapter = &WindowInner::from_pub(comp.window()).window_adapter();
-        for key in keys {
-            i_slint_core::tests::slint_send_keyboard_key_text(key, true, window_adapter);
-        }
-        for key in keys.iter().rev() {
-            i_slint_core::tests::slint_send_keyboard_key_text(key, false, window_adapter);
-        }
-    }
-}
-
 #[test]
 fn component_definition_properties() {
     i_slint_backend_testing::init_no_event_loop();

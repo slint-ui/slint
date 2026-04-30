@@ -58,12 +58,12 @@ impl super::GPURenderingContext {
         let wgpu_texture =
             create_flipped_texture_render(size, wgpu_device, wgpu_queue, &hal_texture);
 
-        let _ = surfman_device.bind_surface_to_context(&mut context, surface).map_err(
+        surfman_device.bind_surface_to_context(&mut context, surface).map_err(
             |(err, mut surface)| {
                 let _ = surfman_device.destroy_surface(&mut context, &mut surface);
-                err
+                MetalTextureError::Surfman(err)
             },
-        );
+        )?;
 
         Ok(wgpu_texture)
     }

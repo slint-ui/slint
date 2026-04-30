@@ -180,6 +180,7 @@ together and always contain the same value. Also known as bidirectional or bi-di
 
 The right hand side of the `<=>` must be a reference to a property of the same type,
 or a field of the same type within a property of struct type.
+Inside a `for` loop, it can also be the value of a model, which is kept in sync.
 The property type is optional with two-way bindings, it will be inferred if not specified.
 The initial value of a linked property will be the value of the right hand side of the binding.
 The two linked properties must be compatible in terms of input/output.

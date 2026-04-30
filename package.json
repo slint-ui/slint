@@ -3,7 +3,7 @@
   "version": "1.17.0",
   "description": "",
   "devDependencies": {
-    "knip": "6.4.1"
+    "knip": "6.5.0"
   },
   "scripts": {
     "knip": "knip",
@@ -12,7 +12,7 @@
     "lint": "pnpm --stream -r lint",
     "lint:fix": "pnpm --stream -r lint:fix",
     "type-check": "pnpm --stream -r type-check",
-    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' -r type-check"
+    "type-check:ci": "pnpm --stream --filter '!./editors/vscode' --filter '!slint_repository' --filter '!./docs/nodejs' -r type-check"
   },
   "packageManager": "pnpm@10.29.3",
   "pnpm": {
@@ -28,7 +28,8 @@
       "devalue@<5.6.4": ">=5.6.4",
       "devalue@<=5.6.3": ">=5.6.4",
       "flatted@<3.4.0": ">=3.4.0",
-      "yaml@>=2.0.0 <2.8.3": ">=2.8.3"
+      "yaml@>=2.0.0 <2.8.3": ">=2.8.3",
+      "uuid@<14.0.0": ">=14.0.0"
     }
   }
 }

@@ -1140,3 +1140,61 @@ fn partial_rendering_nested_scales() {
         }
     }
 }
+
+/// Regression test for https://github.com/slint-ui/slint/issues/11431.
+///
+/// A cached Layer (`cache-rendering-hint: true`) that starts zero-sized must
+/// re-render when its size later becomes non-zero. Without tracking the
+/// bounds-closure's dependencies on the zero-size path, the cache stores
+/// `None` with an empty dependency tracker and never reruns, so the layer
+/// stays invisible even after its size grows.
+#[test]
+fn layer_visible_after_becoming_non_zero_sized() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 32px;
+            height: 32px;
+            background: white;
+            in-out property <length> content-height: 0px;
+            Rectangle {
+                cache-rendering-hint: true;
+                x: 4px;
+                y: 4px;
+                width: 24px;
+                height: root.content-height;
+                background: red;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(32, 32).into());
+    ui.show().unwrap();
+
+    // Frame 1: the layer is 0-height, so the cache update closure returns
+    // None. The fix re-invokes the bounds closure with tracking so the
+    // dependency on `content-height` gets registered.
+    assert!(window.draw_if_needed());
+
+    ui.set_content_height(24.);
+
+    // Frame 2: the tracked dependency is now dirty, the layer cache reruns,
+    // and the red rectangle is drawn. Without the fix the cache stays on
+    // the stale None and the pixel below remains white.
+    assert!(window.draw_if_needed());
+
+    let pixels = window.render_buffer.pixels.borrow();
+    let buf = pixels.as_ref().expect("render buffer should contain pixels");
+    let data = buf.as_bytes();
+    let offset = ((16 * 32 + 16) * 4) as usize;
+    let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+    assert!(
+        r > 200 && g < 50 && b < 50,
+        "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
+    );
+}

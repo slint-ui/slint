@@ -22,6 +22,7 @@ default = ["backend-qt"]
 
 build-time = ["i-slint-compiler", "spin_on"]
 backend-qt = ["slint/backend-qt"]
+live-preview = ["slint/live-preview"]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"] }

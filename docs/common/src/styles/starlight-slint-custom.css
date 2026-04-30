@@ -58,13 +58,13 @@
     --badge-border-color: var(--sl-color-hairline);
     --slint-code-background: #151517;
 
+    .screenshot-container {
+        background-color: #cdcdcd;
+    }
+
     --sl-color-accent-low: hsl(228, 70%, 30%);
     --sl-color-accent: hsl(228, 100%, 70%);
     --sl-color-accent-high: hsl(228, 90%, 85%);
-}
-
-.screenshot-container {
-    background-color: #cdcdcd;
 }
 
 /* Light mode colors. */
@@ -76,17 +76,16 @@
     --sl-color-hairline: #edeef3;
     --slint-code-background: #f6f6f7;
 
+    .screenshot-container {
+        background-color: whitesmoke;
+    }
+
     --sl-color-accent-high: hsl(222, 80%, 35%);
     --sl-color-accent: hsl(222, 89%, 55%);
     --sl-color-accent-low: hsl(222, 89%, 85%);
-}
-
-:root[data-theme="light"] .site-title {
-    color: #000;
-}
-
-:root[data-theme="light"] .screenshot-container {
-    background-color: whitesmoke;
+    .site-title {
+        color: #000;
+    }
 }
 
 .hero {
@@ -102,6 +101,7 @@
 
 .site-title {
     font-size: 1.3rem;
+    color: #fff;
     margin-top: -4px;
 }
 
@@ -124,34 +124,8 @@ span {
     color: var(--sl-color-orange-high);
 }
 
-.sl-markdown-content .slint-property {
-    margin-top: 0.1rem;
-}
-
-.icon-gradient {
-    background: linear-gradient(
-        to right,
-        #3b82f6,
-        #a21caf,
-        #ec4899
-    ); /* blue-500, purple-700, pink-500 */
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent;
-}
-
-.icon-gradient-mask {
-    display: inline-block;
-    background: linear-gradient(
-        to right,
-        #3b82f6,
-        #a21caf,
-        #ec4899
-    ); /* blue-500, purple-700, pink-500 */
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: cover;
-    mask-size: cover;
-    /* The mask-image will be set inline for each icon */
+.sl-markdown-content {
+    .slint-property {
+        margin-top: 0.1rem;
+    }
 }

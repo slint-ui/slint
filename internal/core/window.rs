@@ -177,7 +177,10 @@ pub trait WindowAdapterInternal: core::any::Any {
     ) {
     }
 
-    fn get_parent(&self) -> Weak<dyn WindowAdapter>;
+    /// Get the parent window adapter of this window adapter
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        None
+    }
 
     /// Create a window for a popup.
     /// This function will create only the window adapter but does not show the popup it self
@@ -657,14 +660,10 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
-        let parent_adapter = if let Some(parent) = window_adapter
+        let parent_adapter = window_adapter
             .internal(crate::InternalToken)
-            .and_then(|internal| internal.get_parent().upgrade())
-        {
-            parent
-        } else {
-            window_adapter.clone()
-        };
+            .and_then(|internal| internal.get_parent())
+            .unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {

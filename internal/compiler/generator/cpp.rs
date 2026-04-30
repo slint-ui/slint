@@ -627,6 +627,87 @@ fn property_set_value_code(
     prop.then(|prop| format!("{prop}.set({value_expr})"))
 }
 
+/// Walk `field_access` on `root_ty`, prepending each access to `base` to
+/// produce a C++ expression (e.g. `base.foo.bar`), and return the leaf type.
+fn lower_field_access_chain(
+    mut base: String,
+    root_ty: &Type,
+    field_access: &[SmolStr],
+) -> (String, Type) {
+    let mut ty = root_ty.clone();
+    for f in field_access {
+        let Type::Struct(s) = &ty else { panic!("Field of two way binding on a non-struct type") };
+        base = struct_field_access(base, s, f);
+        ty = s.fields.get(f).unwrap().clone();
+    }
+    (base, ty)
+}
+
+/// Emit a `link_two_way_to_model_data` call wiring `p1` to a row of the
+/// model described by `info`, optionally through a struct `field_access`.
+fn generate_model_two_way_binding(
+    ctx: &EvaluationContext,
+    info: &llr::ResolvedModelTwoWayBinding,
+    p1: &str,
+    field_access: &[SmolStr],
+) -> String {
+    let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
+    let data_prop_name = ident(&body_sc.properties[info.data_prop].name);
+    let index_prop_name = ident(&body_sc.properties[info.index_prop].name);
+    let repeater_index = usize::from(info.repeater_index);
+
+    // Determine the C++ class name of `self` so we can cast back from
+    // the type-erased VRc obtained by locking the weak pointer.
+    let self_type = ident(
+        &ctx.current_sub_component()
+            .expect("model two-way bindings only exist on sub-components")
+            .name,
+    );
+
+    // Walk the parent chain in a single expression so the intermediate
+    // `lock().value()` temporaries live until we assign to `body_rc`.
+    let (body_setup, body) = if info.parent_level == 0 {
+        (String::new(), "self")
+    } else {
+        let chain: String = (0..info.parent_level).map(|_| "->parent.lock().value()").collect();
+        (format!("auto body_rc = self{chain}; "), "body_rc")
+    };
+
+    let (getter_expr, ty) = lower_field_access_chain(
+        format!("{body}->{data_prop_name}.get()"),
+        info.data_prop_ty,
+        field_access,
+    );
+    let (setter_lvalue, _) =
+        lower_field_access_chain("data".into(), info.data_prop_ty, field_access);
+    let cpp_ty = ty.cpp_type().unwrap();
+
+    // Capture a weak pointer instead of a raw `self` so the getter and
+    // setter stay safe when the repeater instance is destroyed while a
+    // forwarded binding on a shared common property still references it.
+    format!(
+        "slint::private_api::Property<{cpp_ty}>::link_two_way_to_model_data(&{p1}, \
+         [weak = self->self_weak]() -> std::optional<{cpp_ty}> {{ \
+            auto rc = weak.lock(); \
+            if (!rc) return std::nullopt; \
+            auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
+            {body_setup}return {getter_expr}; \
+         }}, \
+         [weak = self->self_weak](const {cpp_ty} &value) {{ \
+            auto rc = weak.lock(); \
+            if (!rc) return; \
+            auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
+            {body_setup}\
+            if (auto parent_opt = {body}->parent.lock()) {{ \
+                auto data = {body}->{data_prop_name}.get(); \
+                {setter_lvalue} = value; \
+                (*parent_opt)->repeater_{repeater_index}.model_set_row_data(\
+                    static_cast<size_t>({body}->{index_prop_name}.get()), data); \
+            }} \
+         }});"
+    )
+}
+
 fn handle_property_init(
     prop: &llr::MemberReference,
     binding_expression: &llr::BindingExpression,
@@ -2187,30 +2268,23 @@ fn generate_sub_component(
         ));
     }
 
-    for (prop1, prop2, fields) in &component.two_way_bindings {
-        if fields.is_empty() {
-            let ty = ctx.property_ty(prop1).cpp_type().unwrap();
-            let p1 = access_member(prop1, &ctx).unwrap();
+    for twb in &component.two_way_bindings {
+        let p1 = access_local_member(&twb.prop1, &ctx);
+        if let Some(info) = twb.resolve_model(&ctx) {
+            init.push(generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access));
+        } else if twb.field_access.is_empty() {
+            let ty = ctx.relative_property_ty(&twb.prop1, 0).cpp_type().unwrap();
             init.push(
-                access_member(prop2, &ctx).then(|p2| {
+                access_member(&twb.prop2, &ctx).then(|p2| {
                     format!("slint::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2})",)
                 }) + ";",
             );
         } else {
-            let mut access = "x".to_string();
-            let mut ty = ctx.property_ty(prop2);
-            let cpp_ty = ty.cpp_type().unwrap();
-            for f in fields {
-                let Type::Struct(s) = &ty else {
-                    panic!("Field of two way binding on a non-struct type")
-                };
-                access = struct_field_access(access, s, f);
-                ty = s.fields.get(f).unwrap();
-            }
-
-            let p1 = access_member(prop1, &ctx).unwrap();
+            let prop2_ty = ctx.property_ty(&twb.prop2);
+            let cpp_ty = prop2_ty.cpp_type().unwrap();
+            let (access, _) = lower_field_access_chain("x".into(), prop2_ty, &twb.field_access);
             init.push(
-                access_member(prop2, &ctx).then(|p2|
+                access_member(&twb.prop2, &ctx).then(|p2|
                     format!("slint::private_api::Property<{cpp_ty}>::link_two_way_with_map(&{p2}, &{p1}, [](const auto &x){{ return {access}; }}, [](auto &x, const auto &v){{ {access} = v; }})")
                 ) + ";",
             );

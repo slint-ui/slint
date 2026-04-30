@@ -240,5 +240,10 @@ class SlintEventLoop(asyncio.SelectorEventLoop):
         native.invoke_from_event_loop(run_handle_cb)
         return handle
 
-    def _write_to_self(self) -> None:
-        raise NotImplementedError
+    def _add_callback_signalsafe(self, handle: asyncio.Handle) -> None:
+        # Signal handlers are dispatched by asyncio via this method after the
+        # self-pipe wakeup byte is read. The base implementation appends to
+        # `_ready`, which only the default asyncio run loop drains; slint's
+        # native loop does not, so route through our own scheduler instead.
+        if not handle._cancelled:
+            self.call_soon(handle._run)
