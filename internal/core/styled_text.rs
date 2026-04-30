@@ -14,11 +14,10 @@ impl StyledText {
     pub fn parse_interpolated<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph]>>(
         format_string: &str,
         args: &[S],
-    ) -> Result<Self, i_slint_common::styled_text::StyledTextError<'static>> {
-        Ok(Self {
-            paragraphs: i_slint_common::styled_text::parse_interpolated(format_string, args)
-                .collect::<Result<crate::SharedVector<_>, _>>()?,
-        })
+    ) -> (Self, alloc::vec::Vec<i_slint_common::styled_text::StyledTextParseError>) {
+        let (paragraphs, errors) =
+            i_slint_common::styled_text::parse_interpolated(format_string, args);
+        (Self { paragraphs: paragraphs.as_slice().into() }, errors)
     }
 }
 
@@ -87,7 +86,11 @@ pub fn parse_markdown<S: AsRef<[i_slint_common::styled_text::StyledTextParagraph
 ) -> StyledText {
     #[cfg(feature = "std")]
     {
-        StyledText::parse_interpolated(_format_string, _args).unwrap()
+        let (styled_text, errors) = StyledText::parse_interpolated(_format_string, _args);
+        for e in &errors {
+            crate::debug_log!("@markdown: {e}");
+        }
+        styled_text
     }
     #[cfg(not(feature = "std"))]
     Default::default()

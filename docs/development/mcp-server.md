@@ -26,7 +26,7 @@ The MCP server shares a common introspection layer with the system-testing (prot
 
 The MCP server is controlled by two layers:
 
-1. **Cargo feature `mcp`** — Compiles the MCP server code. Defined in `internal/backends/testing/Cargo.toml` and forwarded through `internal/backends/selector/Cargo.toml`. Not currently exposed through the public `slint` crate.
+1. **Cargo feature `mcp`** — Compiles the MCP server code. Defined in `internal/backends/testing/Cargo.toml`, forwarded through `internal/backends/selector/Cargo.toml`, and exposed as the public `slint/mcp` feature.
 
 2. **Environment variable `SLINT_MCP_PORT`** — Controls whether the server actually starts at runtime. If not set, `mcp_server::init()` returns immediately with no overhead.
 
@@ -36,7 +36,7 @@ See the [README](../../internal/backends/testing/README.md#enabling-the-mcp-serv
 
 ## Initialization Flow
 
-Initialization is triggered from the backend selector (`internal/backends/selector/lib.rs`) after the platform is successfully created:
+Initialization is triggered from the backend selector (`internal/backends/selector/api.rs`) after the platform is successfully created:
 
 1. `mcp_server::init()` checks `SLINT_MCP_PORT`. If absent, returns early.
 2. Calls `introspection::ensure_window_tracking()` to install a window-shown hook that registers windows with the shared `IntrospectionState`.
@@ -130,4 +130,4 @@ The MCP transport uses the `serde_json`-based serialization, while the system-te
 | `internal/backends/testing/systest.rs` | System-testing TCP/protobuf transport (shares introspection layer) |
 | `internal/backends/testing/slint_systest.proto` | Protobuf definitions (source of truth for data types) |
 | `internal/backends/testing/build.rs` | Proto compilation pipeline |
-| `internal/backends/selector/lib.rs` | Backend initialization, MCP server startup hook |
+| `internal/backends/selector/api.rs` | Backend initialization, MCP server startup hook |

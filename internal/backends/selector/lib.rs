@@ -146,6 +146,19 @@ pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
     })
 }
 
+#[cfg(any(feature = "system-testing", feature = "mcp"))]
+pub(crate) fn init_testing_backends() {
+    #[cfg(feature = "system-testing")]
+    if let Err(e) = i_slint_backend_testing::systest::init() {
+        i_slint_core::debug_log!("System testing init failed: {e:?}");
+    }
+
+    #[cfg(feature = "mcp")]
+    if let Err(e) = i_slint_backend_testing::mcp_server::init() {
+        i_slint_core::debug_log!("MCP server init failed: {e:?}");
+    }
+}
+
 /// Run the callback with the platform abstraction.
 /// Create the backend if it does not exist yet
 pub fn with_platform<R>(
@@ -167,17 +180,9 @@ pub fn with_global_context<R>(f: impl FnOnce(&SlintContext) -> R) -> Result<R, P
         f,
     );
 
-    #[cfg(feature = "system-testing")]
+    #[cfg(any(feature = "system-testing", feature = "mcp"))]
     if result.is_ok() && platform_created {
-        i_slint_backend_testing::systest::init();
-    }
-
-    #[cfg(feature = "mcp")]
-    if result.is_ok()
-        && platform_created
-        && let Err(e) = i_slint_backend_testing::mcp_server::init()
-    {
-        i_slint_core::debug_log!("MCP server init failed: {e:?}");
+        init_testing_backends();
     }
 
     result

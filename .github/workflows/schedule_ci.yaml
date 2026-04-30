@@ -26,7 +26,7 @@ jobs:
         run: |
           if [ -n "${{ inputs.branch }}" ]; then
             echo "Triggering full CI for ${{ inputs.branch }}"
-            gh workflow run "CI" --ref "${{ inputs.branch }}" -f full=true
+            gh workflow run "CI" --repo ${{ github.repository }} --ref "${{ inputs.branch }}" -f full=true
             exit 0
           fi
 
@@ -37,7 +37,7 @@ jobs:
             count=$(gh api "repos/${{ github.repository }}/commits?sha=$branch&since=$since&per_page=1" -q 'length')
             if [ "$count" -gt 0 ]; then
               echo "Triggering full CI for $branch"
-              gh workflow run "CI" --ref "$branch" -f full=true
+              gh workflow run "CI" --repo ${{ github.repository }} --ref "$branch" -f full=true
             else
               echo "No recent changes on $branch, skipping"
             fi

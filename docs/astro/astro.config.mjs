@@ -2,10 +2,16 @@
 // SPDX-License-Identifier: MIT
 // @ts-check
 import { defineConfig } from "astro/config";
+import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
-import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
+import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     BASE_PATH,
     BASE_URL,
@@ -17,39 +23,34 @@ import {
 
 const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
 
+// Starlight prepends the base path to every sidebar link that is not a full
+// URL (http/https). Strip BASE_PATH so the re-added prefix produces the
+// intended absolute path (e.g. "/docs/../cpp/" -> "../cpp/" -> Starlight
+// adds base -> "/docs/../cpp/" which the browser resolves to "/cpp/").
+const sidebarHref = (/** @type {string} */ url) =>
+    url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
+
 // https://astro.build/config
 export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
-    trailingSlash: "always",
-    markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
-    },
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
     integrations: [
+        sitemap(),
         starlight({
             title: "Slint Docs",
             logo: {
                 src: "./src/assets/slint-logo-small-light.svg",
             },
-            customCss: ["./src/styles/custom.css", "./src/styles/theme.css"],
+            customCss: [
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+            ],
 
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
-                Header: "./src/components/Header.astro",
+                Header: "@slint/common-files/src/components/HeaderSlintDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
@@ -482,12 +483,12 @@ export default defineConfig({
                         items: [
                             {
                                 label: "C++ ↗",
-                                link: `${CPP_BASE_URL}`,
+                                link: sidebarHref(CPP_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
                                 label: "Rust ↗",
-                                link: `${RUST_SLINT_CRATE_URL}`,
+                                link: sidebarHref(RUST_SLINT_CRATE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -496,7 +497,7 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: `${NODEJS_BASE_URL}`,
+                                link: sidebarHref(NODEJS_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                             {
@@ -505,87 +506,19 @@ export default defineConfig({
                                     text: "beta",
                                     variant: "caution",
                                 },
-                                link: `${PYTHON_BASE_URL}`,
+                                link: sidebarHref(PYTHON_BASE_URL),
                                 attrs: { target: "_blank" },
                             },
                         ],
                     },
                 ]),
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
-                }),
+                slintStarlightLinksValidatorPlugin(),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/slint",
-                },
-                { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
-                {
-                    icon: "linkedin",
-                    label: "Linkedin",
-                    href: "https://www.linkedin.com/company/slint-ui",
-                },
-                {
-                    icon: "mastodon",
-                    label: "Mastodon",
-                    href: "https://fosstodon.org/@slint",
-                },
-            ],
+            social: slintStarlightSocial,
             favicon: "favicon.svg",
-            head: [
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/svg+xml",
-                        href: `${BASE_PATH}/favicon.svg`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "32x32",
-                        href: `${BASE_PATH}/favicon-32x32.png`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "16x16",
-                        href: `${BASE_PATH}/favicon-16x16.png`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/x-icon",
-                        href: `${BASE_PATH}/favicon.ico`,
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "mask-icon",
-                        href: `${BASE_PATH}/favicon.svg`,
-                        color: "#8D46E7",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "apple-touch-icon",
-                        sizes: "180x180",
-                        href: `${BASE_PATH}/apple-touch-icon.png`,
-                    },
-                },
-            ],
+            head: slintStarlightFaviconHead(
+                (filename) => `${BASE_PATH}/${filename}`,
+            ),
         }),
     ],
 });

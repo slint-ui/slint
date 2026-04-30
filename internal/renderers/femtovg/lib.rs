@@ -74,6 +74,20 @@ pub trait GraphicsBackend {
         width: NonZeroU32,
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+    /// Implement screenshot capture for this backend. The `canvas` is the FemtoVG canvas
+    /// (available for GL backends to call `canvas.screenshot()`). The `render` closure triggers
+    /// a full render pass, which WGPU-style implementations may redirect to an offscreen texture.
+    /// Return `None` if this backend does not support `take_snapshot`.
+    fn take_snapshot_pixels(
+        &self,
+        _canvas: Option<CanvasRc<Self::Renderer>>,
+        _width: u32,
+        _height: u32,
+        _render: &dyn Fn() -> Result<(), PlatformError>,
+    ) -> Option<Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError>> {
+        None
+    }
 }
 
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
@@ -84,6 +98,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     canvas: RefCell<Option<CanvasRc<B::Renderer>>>,
     graphics_cache: itemrenderer::ItemGraphicsCache<B::Renderer>,
+    layer_cache: itemrenderer::LayerCache<B::Renderer>,
     texture_cache: RefCell<images::TextureCache<B::Renderer>>,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
@@ -100,6 +115,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             rendering_notifier: Default::default(),
             canvas: RefCell::new(None),
             graphics_cache: Default::default(),
+            layer_cache: Default::default(),
             texture_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
@@ -210,11 +226,13 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 }
 
                 self.graphics_cache.clear_cache_if_scale_factor_changed(window);
+                self.layer_cache.clear_cache_if_scale_factor_changed(window);
                 self.text_layout_cache.clear_cache_if_scale_factor_changed(window);
 
                 let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                     &canvas,
                     &self.graphics_cache,
+                    &self.layer_cache,
                     &self.texture_cache,
                     &self.text_layout_cache,
                     window,
@@ -405,9 +423,10 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.text_layout_cache.component_destroyed(component);
-        if !self.graphics_cache.is_empty() {
+        if !self.graphics_cache.is_empty() || !self.layer_cache.is_empty() {
             self.graphics_backend.with_graphics_api(|_| {
                 self.graphics_cache.component_destroyed(component);
+                self.layer_cache.component_destroyed(component);
             })?;
         }
         Ok(())
@@ -419,6 +438,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         self.graphics_backend
             .with_graphics_api(|_| {
                 self.graphics_cache.clear_all();
+                self.layer_cache.clear_all();
                 self.texture_cache.borrow_mut().clear();
             })
             .ok();
@@ -438,24 +458,19 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         Ok(())
     }
 
-    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
+    /// Returns an image buffer of what was rendered last.
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
-        self.graphics_backend.with_graphics_api(|_| {
-            let Some(canvas) = self.canvas.borrow().as_ref().cloned() else {
-                return Err("FemtoVG renderer cannot take screenshot without a window".into());
-            };
-            let screenshot = canvas
-                .borrow_mut()
-                .screenshot()
-                .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
-
-            use rgb::ComponentBytes;
-            Ok(SharedPixelBuffer::clone_from_slice(
-                screenshot.buf().as_bytes(),
-                screenshot.width() as u32,
-                screenshot.height() as u32,
-            ))
-        })?
+        let size = self
+            .maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .map(|a| a.size())
+            .unwrap_or_default();
+        let canvas = self.canvas.borrow().as_ref().cloned();
+        self.graphics_backend
+            .take_snapshot_pixels(canvas, size.width, size.height, &|| self.render())
+            .unwrap_or_else(|| Err("take_snapshot is not supported by this FemtoVG backend".into()))
     }
 
     fn supports_transformations(&self) -> bool {
@@ -506,6 +521,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             rendering_notifier: Default::default(),
             canvas: RefCell::new(None),
             graphics_cache: Default::default(),
+            layer_cache: Default::default(),
             texture_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
@@ -529,6 +545,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
             }
 
             self.graphics_cache.clear_all();
+            self.layer_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
         })?;
 

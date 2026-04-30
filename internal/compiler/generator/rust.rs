@@ -3365,13 +3365,14 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 
                 let close_policy = compile_expression(close_policy, ctx);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
                     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                     let shared_global = #component_access_tokens.globals.get().unwrap();
-                    let globals = if let Some(popup_window_adapter) = sp::WindowInner::from_pub(#window_adapter_tokens.window()).create_popup_window_adapter() {
+                    let window_adapter = shared_global.window_adapter_impl();
+                    let window = sp::WindowInner::from_pub(window_adapter.window());
+                    let globals = if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
                         shared_global.clone_with_window_adapter(popup_window_adapter)
                     } else {
                         shared_global.clone()
@@ -3381,10 +3382,10 @@ fn compile_builtin_function_call(
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                        window.close_popup(current_id);
                     }
                     #component_access_tokens.#popup_id_name.set(Some(
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                        window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,

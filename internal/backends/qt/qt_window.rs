@@ -1810,6 +1810,8 @@ pub struct QtWindow {
 
     // Last icon image set on the window
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    parent: Weak<QtWindow>,
 }
 
 impl Drop for QtWindow {
@@ -1823,7 +1825,7 @@ impl Drop for QtWindow {
 }
 
 impl QtWindow {
-    pub fn new() -> Rc<Self> {
+    pub fn new(parent: Weak<QtWindow>) -> Rc<Self> {
         let rc = Rc::new_cyclic(|self_weak| {
             let window_ptr = self_weak.clone().into_raw();
             let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget, QWidgetDeleteLater>" {
@@ -1846,6 +1848,7 @@ impl QtWindow {
                 tree_structure_changed: RefCell::new(false),
                 color_scheme: Default::default(),
                 window_icon_cache_key: Default::default(),
+                parent,
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -2044,7 +2047,12 @@ impl WindowAdapter for QtWindow {
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos);
+            const auto* parent = widget_ptr->parentWidget();
+            if (parent) {
+                widget_ptr->move(parent->mapToGlobal(QPoint(0,0)) + pos);
+            } else {
+                widget_ptr->move(pos);
+            }
         }};
     }
 
@@ -2220,6 +2228,10 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 }
 
 impl WindowAdapterInternal for QtWindow {
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.parent.clone().upgrade().map(|rc| rc as _)
+    }
+
     fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }
@@ -2233,7 +2245,7 @@ impl WindowAdapterInternal for QtWindow {
     }
 
     fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new();
+        let popup_window = QtWindow::new(self.self_weak.clone());
         let popup_ptr = popup_window.widget_ptr();
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {

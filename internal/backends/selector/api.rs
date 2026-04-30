@@ -413,7 +413,15 @@ impl BackendSelector {
             }
         };
 
-        i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError)
+        let result =
+            i_slint_core::platform::set_platform(backend).map_err(PlatformError::SetPlatformError);
+
+        #[cfg(any(feature = "system-testing", feature = "mcp"))]
+        if result.is_ok() {
+            super::init_testing_backends();
+        }
+
+        result
     }
 
     #[cfg(target_os = "android")]
