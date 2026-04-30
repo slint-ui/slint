@@ -156,6 +156,16 @@ impl PlatformTray {
     pub fn set_visible(&self, _visible: bool) {
         // TODO: toggle the NSStatusItem's visibility (e.g. via `setVisible:`).
     }
+
+    pub fn set_icon(&self, _icon: &crate::graphics::Image) {
+        // TODO: rebuild NSImage from the new icon and call
+        // `button.setImage(...)` on the status item button.
+    }
+
+    pub fn set_title(&self, _title: &str) {
+        // TODO: update the NSStatusItem button's tool tip via
+        // `button.setToolTip(...)`.
+    }
 }
 
 impl Drop for PlatformTray {

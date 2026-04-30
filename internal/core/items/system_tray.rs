@@ -83,6 +83,14 @@ impl SystemTrayHandle {
     pub fn set_visible(&self, visible: bool) {
         self.0.set_visible(visible);
     }
+
+    pub fn set_icon(&self, icon: &Image) {
+        self.0.set_icon(icon);
+    }
+
+    pub fn set_title(&self, title: &str) {
+        self.0.set_title(title);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +126,8 @@ pub struct SystemTrayData {
     inner: std::cell::OnceCell<SystemTrayHandle>,
     change_tracker: crate::properties::ChangeTracker,
     visible_tracker: crate::properties::ChangeTracker,
+    icon_tracker: crate::properties::ChangeTracker,
+    title_tracker: crate::properties::ChangeTracker,
     menu: core::cell::RefCell<Option<MenuState>>,
 }
 
@@ -242,6 +252,44 @@ impl Item for SystemTray {
                 // will create it later; the next change-tracker fire (or the
                 // initial visibility burned in at creation, once that's wired
                 // up properly) takes care of the visible state.
+            },
+        );
+
+        // Push live icon / title changes through to the platform handle. The
+        // initial spawn always uses the latest values (the icon-driven init
+        // path reads them at fire time), so these trackers are no-ops until
+        // the user mutates the property after the tray is up.
+        self.data.icon_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(tray_rc) = self_weak.upgrade() else { return Image::default() };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return Image::default() };
+                tray.as_pin_ref().icon()
+            },
+            |self_weak, icon| {
+                let Some(tray_rc) = self_weak.upgrade() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                if let Some(handle) = tray.as_pin_ref().data.inner.get() {
+                    handle.set_icon(icon);
+                }
+            },
+        );
+
+        self.data.title_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                    return SharedString::default();
+                };
+                tray.as_pin_ref().title()
+            },
+            |self_weak, title| {
+                let Some(tray_rc) = self_weak.upgrade() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                if let Some(handle) = tray.as_pin_ref().data.inner.get() {
+                    handle.set_title(title.as_str());
+                }
             },
         );
     }

@@ -5,6 +5,7 @@
 
 use super::{Error, Params};
 use crate::SharedVector;
+use crate::graphics::Image;
 use crate::items::MenuEntry;
 use crate::menus::MenuVTable;
 use ::ksni::blocking::TrayMethods;
@@ -93,8 +94,8 @@ pub struct PlatformTray {
     // only way to bring it back is to spawn a new `KsniTray`. The state needed
     // to rebuild a fresh tray therefore lives on `PlatformTray`, not inside
     // `KsniTray` itself.
-    icon: ::ksni::Icon,
-    title: std::string::String,
+    icon: core::cell::RefCell<::ksni::Icon>,
+    title: core::cell::RefCell<std::string::String>,
     event_tx: async_channel::Sender<Event>,
     menu: core::cell::RefCell<std::vec::Vec<MenuNode>>,
     handle: core::cell::RefCell<Option<::ksni::blocking::Handle<KsniTray>>>,
@@ -107,18 +108,9 @@ impl PlatformTray {
         self_weak: crate::item_tree::ItemWeak,
         context: &crate::SlintContext,
     ) -> Result<Self, Error> {
-        let pixel_buffer = params.icon.to_rgba8().ok_or(Error::Rgba8)?;
-
-        let mut data = pixel_buffer.as_bytes().to_vec();
-        let width = pixel_buffer.width() as i32;
-        let height = pixel_buffer.height() as i32;
-
-        for pixel in data.chunks_exact_mut(4) {
-            pixel.rotate_right(1) // rgba to argb
-        }
+        let icon = image_to_argb_icon(params.icon)?;
 
         let (event_tx, event_rx) = async_channel::unbounded();
-        let icon = ::ksni::Icon { width, height, data };
         let title: std::string::String = params.title.into();
 
         let handle = spawn_tray(icon.clone(), title.clone(), std::vec::Vec::new(), &event_tx)?;
@@ -128,8 +120,8 @@ impl PlatformTray {
             .map_err(Error::EventLoopError)?;
 
         Ok(Self {
-            icon,
-            title,
+            icon: core::cell::RefCell::new(icon),
+            title: core::cell::RefCell::new(title),
             event_tx,
             menu: core::cell::RefCell::new(std::vec::Vec::new()),
             handle: core::cell::RefCell::new(Some(handle)),
@@ -160,7 +152,9 @@ impl PlatformTray {
         match (visible, slot.is_some()) {
             (true, false) => {
                 let menu = self.menu.borrow().clone();
-                match spawn_tray(self.icon.clone(), self.title.clone(), menu, &self.event_tx) {
+                let icon = self.icon.borrow().clone();
+                let title = self.title.borrow().clone();
+                match spawn_tray(icon, title, menu, &self.event_tx) {
                     Ok(handle) => *slot = Some(handle),
                     Err(_) => {
                         // Leave the slot empty; the next set_visible(true) retries.
@@ -177,6 +171,40 @@ impl PlatformTray {
             _ => {}
         }
     }
+
+    pub fn set_icon(&self, icon: &Image) {
+        // If the conversion fails (image with no rgba8 buffer), keep the
+        // previous icon. Mirrors the silent-failure behavior elsewhere on
+        // this backend; the platform handle is best-effort.
+        let Ok(new_icon) = image_to_argb_icon(icon) else { return };
+        *self.icon.borrow_mut() = new_icon.clone();
+        if let Some(handle) = self.handle.borrow().as_ref() {
+            handle.update(move |tray: &mut KsniTray| {
+                tray.icon = new_icon;
+            });
+        }
+    }
+
+    pub fn set_title(&self, title: &str) {
+        let new_title: std::string::String = title.into();
+        *self.title.borrow_mut() = new_title.clone();
+        if let Some(handle) = self.handle.borrow().as_ref() {
+            handle.update(move |tray: &mut KsniTray| {
+                tray.title = new_title;
+            });
+        }
+    }
+}
+
+fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
+    let pixel_buffer = image.to_rgba8().ok_or(Error::Rgba8)?;
+    let mut data = pixel_buffer.as_bytes().to_vec();
+    let width = pixel_buffer.width() as i32;
+    let height = pixel_buffer.height() as i32;
+    for pixel in data.chunks_exact_mut(4) {
+        pixel.rotate_right(1) // rgba to argb
+    }
+    Ok(::ksni::Icon { width, height, data })
 }
 
 fn spawn_tray(

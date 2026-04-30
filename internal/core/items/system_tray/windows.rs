@@ -191,6 +191,17 @@ impl PlatformTray {
         // TODO: toggle the notification-area icon (NIM_DELETE on hide,
         // NIM_ADD on show, via Shell_NotifyIconW).
     }
+
+    pub fn set_icon(&self, _icon: &crate::graphics::Image) {
+        // TODO: rebuild HICON from the new icon and apply it via
+        // Shell_NotifyIconW(NIM_MODIFY) (with NIF_ICON), then DestroyIcon
+        // the previous handle once the call returns.
+    }
+
+    pub fn set_title(&self, _title: &str) {
+        // TODO: update the tooltip via Shell_NotifyIconW(NIM_MODIFY) with
+        // NIF_TIP.
+    }
 }
 
 impl Drop for PlatformTray {
