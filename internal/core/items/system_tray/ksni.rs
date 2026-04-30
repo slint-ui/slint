@@ -12,6 +12,9 @@ use ::ksni::blocking::TrayMethods;
 /// Plain-data mirror of the menu tree. `ksni::MenuItem` isn't `Clone` (the
 /// `activate` callback is a `Box<dyn Fn>`), so we cache this intermediate
 /// representation and rebuild fresh `MenuItem`s each time ksni calls `menu()`.
+/// `Clone` is required because the cache lives on `PlatformTray` and is
+/// handed to each freshly spawned `KsniTray` when visibility toggles back on.
+#[derive(Clone)]
 enum MenuNode {
     Separator,
     SubMenu { label: std::string::String, enabled: bool, children: std::vec::Vec<MenuNode> },
@@ -85,7 +88,16 @@ fn node_to_ksni(
 }
 
 pub struct PlatformTray {
-    handle: ::ksni::blocking::Handle<KsniTray>,
+    // SNI has no hide operation: the only way to make the icon disappear is to
+    // drop the registered handle (which deregisters from the watcher), and the
+    // only way to bring it back is to spawn a new `KsniTray`. The state needed
+    // to rebuild a fresh tray therefore lives on `PlatformTray`, not inside
+    // `KsniTray` itself.
+    icon: ::ksni::Icon,
+    title: std::string::String,
+    event_tx: async_channel::Sender<Event>,
+    menu: core::cell::RefCell<std::vec::Vec<MenuNode>>,
+    handle: core::cell::RefCell<Option<::ksni::blocking::Handle<KsniTray>>>,
     _dispatcher: crate::future::JoinHandle<()>,
 }
 
@@ -106,29 +118,23 @@ impl PlatformTray {
         }
 
         let (event_tx, event_rx) = async_channel::unbounded();
+        let icon = ::ksni::Icon { width, height, data };
+        let title: std::string::String = params.title.into();
 
-        let tray = KsniTray {
-            icon: ::ksni::Icon { width, height, data },
-            title: params.title.into(),
-            menu: std::vec::Vec::new(),
-            event_tx,
-        };
-
-        // Blocks briefly on D-Bus name claim / service setup, then spawns the
-        // service loop on its own background thread. Returning the handle
-        // synchronously eliminates the pending-menu race an async spawn would
-        // otherwise create.
-        let handle = tray.spawn().map_err(|e| {
-            Error::PlatformError(crate::platform::PlatformError::Other(std::format!(
-                "Failed to spawn ksni tray: {e}"
-            )))
-        })?;
+        let handle = spawn_tray(icon.clone(), title.clone(), std::vec::Vec::new(), &event_tx)?;
 
         let dispatcher = context
             .spawn_local(dispatch_loop(event_rx, self_weak))
             .map_err(Error::EventLoopError)?;
 
-        Ok(Self { handle, _dispatcher: dispatcher })
+        Ok(Self {
+            icon,
+            title,
+            event_tx,
+            menu: core::cell::RefCell::new(std::vec::Vec::new()),
+            handle: core::cell::RefCell::new(Some(handle)),
+            _dispatcher: dispatcher,
+        })
     }
 
     pub fn rebuild_menu(
@@ -138,16 +144,57 @@ impl PlatformTray {
     ) {
         entries_out.clear();
         let new_menu = build_ksni_menu(menu, entries_out);
-        self.handle.update(move |tray: &mut KsniTray| {
-            tray.menu = new_menu;
-        });
+        // Update the cache unconditionally so the next respawn picks up the
+        // current menu even if we're hidden right now.
+        if let Some(handle) = self.handle.borrow().as_ref() {
+            let to_apply = new_menu.clone();
+            handle.update(move |tray: &mut KsniTray| {
+                tray.menu = to_apply;
+            });
+        }
+        *self.menu.borrow_mut() = new_menu;
     }
 
-    pub fn set_visible(&self, _visible: bool) {
-        // TODO: toggle StatusNotifierItem visibility (no direct SNI hide;
-        // typically by dropping the registered item on hide and re-registering
-        // on show).
+    pub fn set_visible(&self, visible: bool) {
+        let mut slot = self.handle.borrow_mut();
+        match (visible, slot.is_some()) {
+            (true, false) => {
+                let menu = self.menu.borrow().clone();
+                match spawn_tray(self.icon.clone(), self.title.clone(), menu, &self.event_tx) {
+                    Ok(handle) => *slot = Some(handle),
+                    Err(_) => {
+                        // Leave the slot empty; the next set_visible(true) retries.
+                        // Matches the project's existing tolerance for transient
+                        // watcher-offline conditions on Linux.
+                    }
+                }
+            }
+            (false, true) => {
+                // Drop the handle: the ksni service loop tears down and the
+                // StatusNotifierWatcher removes the item.
+                slot.take();
+            }
+            _ => {}
+        }
     }
+}
+
+fn spawn_tray(
+    icon: ::ksni::Icon,
+    title: std::string::String,
+    menu: std::vec::Vec<MenuNode>,
+    event_tx: &async_channel::Sender<Event>,
+) -> Result<::ksni::blocking::Handle<KsniTray>, Error> {
+    let tray = KsniTray { icon, title, menu, event_tx: event_tx.clone() };
+    // Blocks briefly on D-Bus name claim / service setup, then spawns the
+    // service loop on its own background thread. Returning the handle
+    // synchronously eliminates the pending-menu race an async spawn would
+    // otherwise create.
+    tray.spawn().map_err(|e| {
+        Error::PlatformError(crate::platform::PlatformError::Other(std::format!(
+            "Failed to spawn ksni tray: {e}"
+        )))
+    })
 }
 
 async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
