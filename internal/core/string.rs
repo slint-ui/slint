@@ -415,6 +415,26 @@ pub fn string_to_float(string: &str) -> Option<f32> {
 }
 
 #[test]
+fn test_string_to_float() {
+    const TEST: &[(&str, Option<f32>)] = &[
+        ("-", Some(0.)),
+        (".", Some(0.)),
+        ("-.", Some(0.)),
+        ("-.5", Some(-0.5)),
+        ("--", None),
+        ("..", None),
+        ("5.5.", None),
+        ("231.435", Some(231.435)),
+        ("-0.007", Some(-0.007)),
+        ("10e6", Some(10e6)),
+    ];
+
+    for (test_string, result) in TEST {
+        assert_eq!(string_to_float(test_string), *result);
+    }
+}
+
+#[test]
 fn simple_test() {
     use std::string::ToString;
     let x = SharedString::from("hello world!");
