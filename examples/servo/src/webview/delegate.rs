@@ -5,7 +5,7 @@ use slint::ComponentHandle;
 use std::rc::Rc;
 
 use crate::{MyApp, WebviewLogic, webview::SlintServoAdapter};
-use servo::{WebView, WebViewDelegate};
+use servo::{EmbedderControl, EmbedderControlId, WebView, WebViewDelegate};
 
 /// Servo delegate for handling browser engine callbacks.
 ///
@@ -55,6 +55,25 @@ impl WebViewDelegate for AppDelegate {
     fn notify_url_changed(&self, _webview: WebView, url: url::Url) {
         if let Some(app) = self.app.upgrade() {
             app.global::<WebviewLogic>().set_current_url(url.to_string().into());
+        }
+    }
+
+    fn show_embedder_control(&self, _webview: WebView, embedder_control: EmbedderControl) {
+        match embedder_control {
+            EmbedderControl::InputMethod(input_method_control) => {
+                if input_method_control.allow_virtual_keyboard() {
+                    if let Some(app) = self.app.upgrade() {
+                        app.window().show_ime();
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn hide_embedder_control(&self, _webview: WebView, _control_id: EmbedderControlId) {
+        if let Some(app) = self.app.upgrade() {
+            app.window().hide_ime();
         }
     }
 }
