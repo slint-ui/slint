@@ -24,8 +24,7 @@
 //! - placement uses effective popup size:
 //!   - explicit `width`/`height` if set (> 0)
 //!   - otherwise `preferred-width`/`preferred-height`
-//! - custom mode wraps children in a plain container and shrink-wraps it to the
-//!   content's preferred size for predictable placement calculations.
+//! - custom mode expects one root child element which is used directly as tooltip visual.
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
@@ -77,37 +76,6 @@ fn build_tooltip_visual(
     .make_rc()
 }
 
-fn build_custom_tooltip_content(
-    popup_id: &SmolStr,
-    enclosing_component: &std::rc::Weak<Component>,
-    rectangle_type: &ElementType,
-    children: Vec<ElementRc>,
-) -> ElementRc {
-    let content = Element {
-        id: format_smolstr!("{}-custom", popup_id),
-        base_type: rectangle_type.clone(),
-        enclosing_component: enclosing_component.clone(),
-        children,
-        ..Default::default()
-    }
-    .make_rc();
-
-    let preferred_width = NamedReference::new(&content, SmolStr::new_static("preferred-width"));
-    let preferred_height = NamedReference::new(&content, SmolStr::new_static("preferred-height"));
-
-    let mut width_binding: BindingExpression =
-        Expression::PropertyReference(preferred_width).into();
-    width_binding.priority = 1;
-    content.borrow_mut().bindings.insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
-
-    let mut height_binding: BindingExpression =
-        Expression::PropertyReference(preferred_height).into();
-    height_binding.priority = 1;
-    content.borrow_mut().bindings.insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
-
-    content
-}
-
 fn build_tooltip_delay_timer(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
@@ -125,6 +93,31 @@ fn build_tooltip_delay_timer(
         ..Default::default()
     }
     .make_rc()
+}
+
+fn auto_size_custom_root_to_content(custom_root: &ElementRc) {
+    let content_child = custom_root.borrow().children.first().cloned();
+    let Some(content_child) = content_child else {
+        return;
+    };
+
+    let mut root_mut = custom_root.borrow_mut();
+    if !root_mut.bindings.contains_key(WIDTH) {
+        let child_preferred_width =
+            NamedReference::new(&content_child, SmolStr::new_static("preferred-width"));
+        let mut width_binding: BindingExpression =
+            Expression::PropertyReference(child_preferred_width).into();
+        width_binding.priority = 1;
+        root_mut.bindings.insert(SmolStr::new_static(WIDTH), RefCell::new(width_binding));
+    }
+    if !root_mut.bindings.contains_key(HEIGHT) {
+        let child_preferred_height =
+            NamedReference::new(&content_child, SmolStr::new_static("preferred-height"));
+        let mut height_binding: BindingExpression =
+            Expression::PropertyReference(child_preferred_height).into();
+        height_binding.priority = 1;
+        root_mut.bindings.insert(SmolStr::new_static(HEIGHT), RefCell::new(height_binding));
+    }
 }
 
 fn build_tooltip_area(
@@ -390,7 +383,6 @@ fn lower_tooltips_in_component(
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
     let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
-    let rectangle_type = type_register.lookup_builtin_element("Rectangle").unwrap();
 
     let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
     let popup_close_policy_no_auto_close = EnumerationValue {
@@ -437,6 +429,13 @@ fn lower_tooltips_in_component(
             );
             return;
         }
+        if has_custom_content && tooltip_candidate.borrow().children.len() > 1 {
+            diag.push_error(
+                "ToolTip custom content must have exactly one root child element".into(),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
 
         let (tooltip_config, enclosing_component, popup_id, popup_id_for_text, custom_children) = {
             let mut elem_borrow = elem.borrow_mut();
@@ -470,12 +469,9 @@ fn lower_tooltips_in_component(
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-x"));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-y"));
         let tooltip_visual = if has_custom_content {
-            build_custom_tooltip_content(
-                &popup_id_for_text,
-                &enclosing_component,
-                &rectangle_type,
-                custom_children,
-            )
+            let custom_root = custom_children.into_iter().next().expect("validated single custom child");
+            auto_size_custom_root_to_content(&custom_root);
+            custom_root
         } else {
             let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
             build_tooltip_visual(
