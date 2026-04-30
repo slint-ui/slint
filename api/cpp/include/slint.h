@@ -527,6 +527,15 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
+cbindgen_private::SystemTray::SystemTray()
+{
+    slint_system_tray_data_init(&data);
+}
+cbindgen_private::SystemTray::~SystemTray()
+{
+    slint_system_tray_data_free(&data);
+}
+
 cbindgen_private::FocusScope::FocusScope()
 {
     slint_maybe_key_binding_list_init(&key_bindings);

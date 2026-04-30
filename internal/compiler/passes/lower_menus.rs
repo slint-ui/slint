@@ -125,11 +125,11 @@ pub async fn lower_menus(
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    // First check if any MenuBar or ContextMenuArea is used - avoid loading std-widgets.slint if not needed
+    // First check if any MenuBar, ContextMenuArea, or SystemTray is used - avoid loading std-widgets.slint if not needed
     let mut has_menubar_or_context_menu = false;
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "MenuBar" | "ContextMenuArea" | "ContextMenuInternal")) {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "MenuBar" | "ContextMenuArea" | "ContextMenuInternal" | "SystemTray")) {
                 has_menubar_or_context_menu = true;
             }
         })
@@ -190,6 +190,9 @@ pub async fn lower_menus(
             }
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal")) {
                 has_menu |= process_context_menu(elem, &useful_menu_component, diag);
+            }
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "SystemTray") {
+                process_system_tray(elem, &useful_menu_component, diag);
             }
         })
     });
@@ -347,6 +350,67 @@ fn process_context_menu(
     }
 
     true
+}
+
+fn process_system_tray(
+    system_tray_elem: &ElementRc,
+    components: &UsefulMenuComponents,
+    diag: &mut BuildDiagnostics,
+) {
+    // A Menu child is optional; without it, no SetupSystemTray call is emitted.
+    let menu_element_type: ElementType = system_tray_elem
+        .borrow()
+        .base_type
+        .as_builtin()
+        .additional_accepted_child_types
+        .get("Menu")
+        .expect("SystemTray should accept Menu")
+        .clone()
+        .into();
+
+    let mut menu_elem: Option<Rc<RefCell<Element>>> = None;
+    system_tray_elem.borrow_mut().children.retain(|x| {
+        if x.borrow().base_type == menu_element_type {
+            if let Some(ref existing) = menu_elem {
+                diag.push_error("Only one Menu is allowed in a SystemTray".into(), &*x.borrow());
+                diag.push_note("First Menu defined here".into(), &*existing.borrow());
+            } else {
+                menu_elem = Some(x.clone());
+            }
+            false
+        } else {
+            true
+        }
+    });
+
+    let Some(menu_elem) = menu_elem else {
+        // No menu is a valid configuration; nothing to lower.
+        return;
+    };
+
+    if menu_elem.borrow().repeated.is_some() {
+        diag.push_error(
+            "SystemTray's Menu cannot be in a conditional or repeated element".into(),
+            &*menu_elem.borrow(),
+        );
+    }
+
+    let source_location = Some(system_tray_elem.borrow().to_source_location());
+    let children = std::mem::take(&mut menu_elem.borrow_mut().children);
+    let c = lower_menu_items(system_tray_elem, children, components, diag);
+    let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
+
+    let setup = Expression::FunctionCall {
+        function: BuiltinFunction::SetupSystemTray.into(),
+        arguments: vec![
+            Expression::ElementReference(Rc::downgrade(system_tray_elem)),
+            item_tree_root,
+        ],
+        source_location,
+    };
+
+    let component = system_tray_elem.borrow().enclosing_component.upgrade().unwrap();
+    component.init_code.borrow_mut().constructor_code.push(setup);
 }
 
 fn process_window(

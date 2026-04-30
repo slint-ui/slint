@@ -4493,6 +4493,33 @@ fn compile_builtin_function_call(
                 }}")
             }
         }
+        BuiltinFunction::SetupSystemTray => {
+            let [
+                llr::Expression::PropertyReference(system_tray_ref),
+                llr::Expression::NumberLiteral(tree_index),
+            ] = arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupSystemTray")
+            };
+
+            let current_sub_component = ctx.current_sub_component().unwrap();
+            let item_tree_id = ident(
+                &ctx.compilation_unit.sub_components
+                    [current_sub_component.menu_item_trees[*tree_index as usize].root]
+                    .name,
+            );
+            let system_tray = access_member(system_tray_ref, ctx).unwrap();
+            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+
+            format!(
+                r"{{
+                    auto item_tree = {item_tree_id}::create(self);
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree.into_dyn());
+                    slint::cbindgen_private::ItemRc item_rc{{ {system_tray_rc} }};
+                    slint::cbindgen_private::slint_system_tray_set_menu(&{system_tray}, &item_rc, &menu_wrapper);
+                }}"
+            )
+        }
         BuiltinFunction::Use24HourFormat => {
             "slint::cbindgen_private::slint_date_time_use_24_hour_format()".to_string()
         }

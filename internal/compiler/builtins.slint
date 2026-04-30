@@ -833,3 +833,14 @@ export global NativePalette {
     //-is_non_item_type
     //-is_internal
 }
+
+// Lowered in lower_menus pass. See that pass documentation for more info.
+// The optional Menu child is lifted into a separate item tree and wired via
+// the `SetupSystemTray` builtin.
+export component SystemTray {
+    in property <image> icon;
+    in property <string> title;
+    callback activated();
+    Menu { }
+    //-disallow_global_types_as_child_elements
+}
