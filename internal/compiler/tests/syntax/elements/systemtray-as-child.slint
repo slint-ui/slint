@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//config:generate_all_exported_windows
+
+// SystemTray must be the root of an exported component. The platform tray
+// APIs only know how to bind to a top-level SystemTray-rooted component, so
+// nesting it as a child has no meaningful lowering and is rejected.
+
+export component InsideWindow inherits Window {
+    SystemTray {
+//  >         <error{SystemTray must be the root of an exported component, not a child element}
+        Menu { MenuItem { title: "Quit"; } }
+    }
+}
+
+component MyTray inherits SystemTray {
+    Menu { MenuItem { title: "Quit"; } }
+}
+
+export component InsideWindowViaSubclass inherits Window {
+    MyTray {}
+//  >     <error{SystemTray must be the root of an exported component, not a child element↵(Note: MyTray inherits SystemTray)}
+}

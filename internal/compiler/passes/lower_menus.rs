@@ -191,7 +191,18 @@ pub async fn lower_menus(
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal")) {
                 has_menu |= process_context_menu(elem, &useful_menu_component, diag);
             }
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "SystemTray") {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "SystemTray")
+                && matches!(&elem.borrow().base_type, ElementType::Builtin(b) if b.name == "SystemTray")
+            {
+                // Only the directly-Builtin SystemTray is processed here. A
+                // SystemTray-derived component as a child element (e.g.
+                // `MyTray {}` inside a Window) is rejected by
+                // `warn_about_child_windows`; calling `process_system_tray`
+                // on it would `as_builtin()`-panic on the still-Component
+                // base_type (lower_menus runs before inlining). The
+                // legitimate root case is reached via the parent
+                // `visit_all_used_components` entering the user component
+                // directly, whose root_element IS the SystemTray builtin.
                 process_system_tray(elem, &useful_menu_component, diag);
             }
         })
