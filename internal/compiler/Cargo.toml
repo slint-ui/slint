@@ -43,6 +43,10 @@ software-renderer = [
   "i-slint-common/svg-text",
   "dep:rayon",
 ]
+# Enable `image`\'s default feature set (additional codecs). This is enabled by
+# default by `slint-build` and the `slint-compiler` binary for compatibility, but
+# can be opted out from to keep builds minimal.
+image-default-format = ["image/default"]
 # Enable support to embed the fonts as signed distance fields
 sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
@@ -76,7 +80,7 @@ linked_hash_set = "0.1.4"
 typed-index-collections = { workspace = true }
 
 # for processing and embedding the rendered image (texture)
-image = { workspace = true, optional = true, features = ["default"] }
+image = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }
 # font embedding
 swash = { workspace = true, optional = true, features = ["scale", "render", "std"] }

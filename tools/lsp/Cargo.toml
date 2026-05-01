@@ -110,7 +110,7 @@ lsp-types = { workspace = true }
 i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2", "unstable-winit-030"], optional = true }
-slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-format"], optional = true }
 nucleo-matcher = "0.3.1"
 futures-util = "0.3.32"
 tokio-tungstenite-wasm = "0.8.2"
@@ -152,7 +152,7 @@ spin_on = { workspace = true }
 i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
 
 [build-dependencies]
-slint-build = { workspace = true, features = ["default"], optional = true }
+slint-build = { workspace = true, optional = true }
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false

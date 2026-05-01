@@ -146,7 +146,7 @@ i-slint-renderer-femtovg = { version = "=1.17.1", path = "internal/renderers/fem
 i-slint-renderer-skia = { version = "=1.17.1", path = "internal/renderers/skia", default-features = false }
 i-slint-renderer-software = { version = "=1.17.1", path = "internal/renderers/software", default-features = false }
 slint = { version = "=1.17.1", path = "api/rs/slint", default-features = false }
-slint-build = { version = "=1.17.1", path = "api/rs/build", default-features = false }
+slint-build = { version = "=1.17.1", path = "api/rs/build", default-features = false, features = ["compat-1-18", "software-renderer", "image-default-format"] }
 slint-cpp = { version = "=1.17.1", path = "api/cpp", default-features = false }
 slint-interpreter = { version = "=1.17.1", path = "internal/interpreter", default-features = false }
 slint-macros = { version = "=1.17.1", path = "api/rs/macros", default-features = false }
