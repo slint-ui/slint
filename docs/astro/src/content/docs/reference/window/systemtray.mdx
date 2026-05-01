@@ -4,6 +4,7 @@ description: SystemTray element api.
 ---
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Use the `SystemTray` element to add an icon and menu to the desktop's system tray,
 also known as the notification area, status area, or menu bar extras, depending on the platform.
@@ -14,7 +15,7 @@ A `SystemTray` component has no window of its own — the icon lives in the tray
 it presents is the menu.
 
 ```slint
-export component MyTray inherits SystemTray {
+export component ExampleTray inherits SystemTray {
     icon: @image-url("tray-icon.png");
     title: "My App";
 
@@ -53,6 +54,13 @@ for tray icons. Use `@image-url(...)` to embed an icon asset, or bind to an `ima
 fed from your code. The tray icon is only created once a non-empty image has been assigned.
 </SlintProperty>
 
+### visible
+<SlintProperty propName="visible" typeName="bool" defaultValue='true'>
+Whether the tray icon is registered with the OS.
+Set it to `false` to hide the icon without dropping the component instance, and back to `true` to show it again.
+The `show()` and `hide()` methods on the language-binding side are convenience aliases that set this property.
+</SlintProperty>
+
 ### title
 <SlintProperty propName="title" typeName="string" defaultValue='""'>
 A short description of the tray entry, used as a tooltip on platforms that support it and as
@@ -87,6 +95,91 @@ reflects the new state on its next open.
 Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTray` are ignored — tray menus are
 not attached to a focused window, so there is nothing for the shortcut to fire against.
 
+## Language Bindings
+
+The generated public API for a `SystemTray`-rooted component is smaller than the one
+for a `Window`-rooted component. Construction, property and callback accessors, and global
+access work the same way. Two things are missing:
+
+| Operation              | Window-rooted | SystemTray-rooted |
+| ---------------------- | :-----------: | :---------------: |
+| access the window      | yes           | **no**            |
+| run the event loop     | yes           | **no**            |
+
+`show` and `hide` exist on both, but on a `SystemTray` they set the `visible` property,
+and the platform backend translates that into the native tray API.
+A visible `SystemTray` keeps the event loop alive the same way a visible window does.
+
+A typical app instantiates both a main window and a tray, shows them, and runs the event loop.
+The snippets below also wire the built-in `activated` callback so a click on the tray icon
+brings the window back if the user has hidden it.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
+```rust
+fn main() -> Result<(), slint::PlatformError> {
+    let window = MainWindow::new()?;
+    let tray = ExampleTray::new()?;
+
+    let window_weak = window.as_weak();
+    tray.on_activated(move || {
+        if let Some(w) = window_weak.upgrade() {
+            let _ = w.show();
+        }
+    });
+
+    window.show()?;
+    tray.show()?;
+    slint::run_event_loop()
+}
+```
+</TabItem>
+<TabItem label="C++">
+```cpp
+int main() {
+    auto window = MainWindow::create();
+    auto tray = ExampleTray::create();
+
+    auto window_weak = slint::ComponentWeakHandle(window);
+    tray->on_activated([window_weak] {
+        if (auto w = window_weak.lock()) {
+            (*w)->show();
+        }
+    });
+
+    window->show();
+    tray->show();
+    slint::run_event_loop();
+}
+```
+</TabItem>
+<TabItem label="NodeJS">
+```js
+const window = new ui.MainWindow();
+const tray = new ui.ExampleTray();
+tray.activated = () => window.show();
+window.show();
+tray.show();
+await slint.runEventLoop();
+```
+</TabItem>
+<TabItem label="Python">
+```python
+window = module.MainWindow()
+tray = module.ExampleTray()
+tray.activated = lambda: window.show()
+window.show()
+tray.show()
+slint.run_event_loop()
+```
+</TabItem>
+</Tabs>
+
+A program that exposes only a `SystemTray` and no window is also valid: skip the
+`MainWindow` instance, and the loop quits once the tray is hidden (or `slint::quit_event_loop`
+is called). No `WindowAdapter` is created in that case — the platform backend is still
+selected the usual way, but no window opens.
+
 ## Platform Support
 
 | Platform      | Mechanism                                             |
@@ -98,26 +191,3 @@ not attached to a focused window, so there is nothing for the shortcut to fire a
 On Linux, a desktop environment or shell extension that implements the `StatusNotifierItem`
 specification is required; plain X11 system trays are not supported. GNOME, for example,
 needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
-
-## Example
-
-```slint
-export component ExampleTray inherits SystemTray {
-    icon: @image-url("favicon.png");
-    title: "Example";
-
-    callback open();
-    callback quit();
-
-    Menu {
-        MenuItem {
-            title: "Open";
-            activated => { open(); }
-        }
-        MenuItem {
-            title: "Quit";
-            activated => { quit(); }
-        }
-    }
-}
-```
