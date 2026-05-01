@@ -15,7 +15,7 @@ use crate::item_tree::ItemWeak;
 use crate::items::MenuEntry;
 use crate::menus::MenuVTable;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
@@ -55,13 +55,15 @@ const TRAY_UID: u32 = 1;
 
 struct Inner {
     hwnd: HWND,
-    hicon: HICON,
+    // Both `hicon` and `tip` can be replaced via `set_icon` / `set_title`, and
+    // are read on the wnd-proc thread for the `TaskbarCreated` re-add path —
+    // which is the same thread, so a single-threaded interior mutability cell
+    // is sufficient. `HICON` is `Copy`; `HSTRING` is not, so it lives in a
+    // `RefCell`.
+    hicon: Cell<HICON>,
     self_weak: ItemWeak,
     hmenu: Cell<Option<HMENU>>,
-    // A UTF-16 copy of the tooltip so NIM_ADD can be re-issued on TaskbarCreated
-    // without touching the Slint property tree from the wnd proc. Written once in
-    // the constructor and otherwise read-only.
-    tip: HSTRING,
+    tip: RefCell<HSTRING>,
 }
 
 impl Inner {
@@ -157,10 +159,10 @@ impl PlatformTray {
         // to user input after `NIM_ADD` has returned).
         let inner = std::boxed::Box::new(Inner {
             hwnd: scopeguard::ScopeGuard::into_inner(hwnd_guard),
-            hicon: scopeguard::ScopeGuard::into_inner(hicon_guard),
+            hicon: Cell::new(scopeguard::ScopeGuard::into_inner(hicon_guard)),
             self_weak,
             hmenu: Cell::new(None),
-            tip,
+            tip: RefCell::new(tip),
         });
         unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as isize) };
 
@@ -206,15 +208,33 @@ impl PlatformTray {
         let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
     }
 
-    pub fn set_icon(&self, _icon: &crate::graphics::Image) {
-        // TODO: rebuild HICON from the new icon and apply it via
-        // Shell_NotifyIconW(NIM_MODIFY) (with NIF_ICON), then DestroyIcon
-        // the previous handle once the call returns.
+    pub fn set_icon(&self, icon: &Image) {
+        // Build the new HICON before touching anything else; if conversion
+        // fails, leave the previous icon in place rather than blanking it.
+        let Ok(new_hicon) = create_hicon(icon) else { return };
+        let tip = self.inner.tip.borrow();
+        let data = notify_icon_data(self.inner.hwnd, new_hicon, &tip);
+        drop(tip);
+        let ok = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
+        if !ok.as_bool() {
+            // Shell rejected the modify; the registered icon hasn't changed,
+            // so we own the new HICON and have to free it.
+            let _ = unsafe { DestroyIcon(new_hicon) };
+            return;
+        }
+        // Success: swap in the new handle (so TaskbarCreated re-add picks it
+        // up too) and free the previous one.
+        let old = self.inner.hicon.replace(new_hicon);
+        let _ = unsafe { DestroyIcon(old) };
     }
 
-    pub fn set_title(&self, _title: &str) {
-        // TODO: update the tooltip via Shell_NotifyIconW(NIM_MODIFY) with
-        // NIF_TIP.
+    pub fn set_title(&self, title: &str) {
+        let new_tip = HSTRING::from(title);
+        let data = notify_icon_data(self.inner.hwnd, self.inner.hicon.get(), &new_tip);
+        let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
+        // Update the cache regardless of NIM_MODIFY's outcome so the next
+        // TaskbarCreated re-add reflects the property the user asked for.
+        *self.inner.tip.borrow_mut() = new_tip;
     }
 }
 
@@ -241,7 +261,7 @@ impl Drop for PlatformTray {
                 let _ = DestroyMenu(m);
             }
             let _ = DestroyWindow(self.inner.hwnd);
-            let _ = DestroyIcon(self.inner.hicon);
+            let _ = DestroyIcon(self.inner.hicon.get());
         }
     }
 }
@@ -278,7 +298,8 @@ unsafe extern "system" fn wnd_proc(
         let inner_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const Inner;
         if !inner_ptr.is_null() {
             let inner = unsafe { &*inner_ptr };
-            let data = notify_icon_data(hwnd, inner.hicon, &inner.tip);
+            let tip = inner.tip.borrow();
+            let data = notify_icon_data(hwnd, inner.hicon.get(), &tip);
             let _ = unsafe { Shell_NotifyIconW(NIM_ADD, &data) };
         }
         return LRESULT(0);
