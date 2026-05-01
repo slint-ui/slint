@@ -167,9 +167,11 @@ impl TargetState {
 
 #[derive(Default, Debug)]
 struct WorkerState {
+    /// The set of paths to watch
     watched_files: HashSet<PathBuf>,
     target_states: HashMap<PathBuf, TargetState>,
-    watched_dirs: HashSet<PathBuf>,
+    /// The set of actually registered watch paths, which may include probe directories and/or directly watched files.
+    registered_watches: HashSet<PathBuf>,
 }
 
 impl WorkerState {
@@ -230,12 +232,12 @@ impl WorkerState {
         let mut target_states = scan_target_states(&self.watched_files);
 
         for _ in 0..MAX_RECONCILE_PASSES {
-            let desired_dirs = watched_dirs_for_states(&target_states);
-            if desired_dirs == self.watched_dirs {
+            let desired_watches = desired_watches_for_states(&target_states);
+            if desired_watches == self.registered_watches {
                 break;
             }
 
-            self.apply_watch_plan(watcher, &desired_dirs)?;
+            self.apply_watch_plan(watcher, &desired_watches)?;
             target_states = scan_target_states(&self.watched_files);
         }
 
@@ -275,27 +277,27 @@ impl WorkerState {
     fn apply_watch_plan(
         &mut self,
         watcher: &mut notify::RecommendedWatcher,
-        desired_dirs: &HashSet<PathBuf>,
+        desired_registrations: &HashSet<PathBuf>,
     ) -> notify::Result<()> {
-        let current_dirs = self.watched_dirs.clone();
+        let current_watches = self.registered_watches.clone();
 
-        for dir in desired_dirs.difference(&current_dirs) {
-            match watcher.watch(dir, watch_mode()) {
+        for registration in desired_registrations.difference(&current_watches) {
+            match watcher.watch(registration, notify::RecursiveMode::NonRecursive) {
                 Ok(()) => {
-                    self.watched_dirs.insert(dir.clone());
+                    self.registered_watches.insert(registration.clone());
                 }
                 Err(err) if is_transient_watch_error(&err) => {}
                 Err(err) => return Err(err),
             }
         }
 
-        for dir in current_dirs.difference(desired_dirs) {
-            match watcher.unwatch(dir) {
+        for registration in current_watches.difference(desired_registrations) {
+            match watcher.unwatch(registration) {
                 Ok(()) => {}
                 Err(err) if is_transient_watch_error(&err) => {}
                 Err(err) => return Err(err),
             }
-            self.watched_dirs.remove(dir);
+            self.registered_watches.remove(registration);
         }
 
         Ok(())
@@ -363,8 +365,22 @@ fn scan_target_state(path: &Path) -> TargetState {
     }
 }
 
-fn watched_dirs_for_states(target_states: &HashMap<PathBuf, TargetState>) -> HashSet<PathBuf> {
-    target_states.values().filter_map(|state| state.probe_dir().cloned()).collect()
+fn desired_watches_for_states(target_states: &HashMap<PathBuf, TargetState>) -> HashSet<PathBuf> {
+    let mut watches = target_states
+        .values()
+        .filter_map(|state| state.probe_dir().cloned())
+        .collect::<HashSet<_>>();
+
+    if needs_direct_file_watches() {
+        watches.extend(
+            target_states
+                .iter()
+                .filter(|(_path, state)| state.exists())
+                .map(|(path, _state)| path.clone()),
+        );
+    }
+
+    watches
 }
 
 fn probe_dir_for_path(path: &Path) -> Option<PathBuf> {
@@ -398,15 +414,10 @@ fn worker_stopped_error() -> notify::Error {
     notify::Error::generic("file watcher worker thread stopped")
 }
 
-fn watch_mode() -> notify::RecursiveMode {
-    // TODO: Is it still necessary to use recursive mode on Apple platforms with
-    // the FSEvents backend, or can we switch to non-recursive mode there as well?
-    // Recursive mode can cause the notify limit to run out quickly.
-    if cfg!(target_vendor = "apple") {
-        notify::RecursiveMode::Recursive
-    } else {
-        notify::RecursiveMode::NonRecursive
-    }
+fn needs_direct_file_watches() -> bool {
+    // On macOS, notify does not report file changed events, if we only watch the parent
+    // directory, so we need to add a direct file watch as well.
+    cfg!(target_os = "macos")
 }
 
 #[cfg(test)]
