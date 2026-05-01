@@ -10303,7 +10303,6 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "itertools 0.14.0",
- "notify",
  "serde_json",
  "shlex",
  "slint-interpreter",

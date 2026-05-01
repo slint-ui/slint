@@ -1064,8 +1064,10 @@ impl CompilationResult {
         self.components.get(name).cloned()
     }
 
-    #[cfg(feature = "internal-live-preview")]
-    pub(crate) fn watch_paths(&self) -> &[PathBuf] {
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(feature = "internal-file-watcher")]
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
         &self.watch_paths
     }
 
