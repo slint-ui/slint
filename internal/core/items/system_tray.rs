@@ -213,11 +213,15 @@ impl Item for SystemTray {
                 if !*has_icon {
                     return;
                 }
-                // The change tracker fires from the Slint event loop once the item tree
-                // is mapped to a window, so this usually resolves. If it somehow doesn't,
-                // the tracker will re-fire on the next property change and try again.
-                let Some(adapter) = tray_rc.window_adapter() else { return };
-                let ctx = crate::window::WindowInner::from_pub(adapter.window()).context().clone();
+                // The platform is set before any item's `init` runs (the public
+                // component's `new` calls `ensure_backend()` first), so the
+                // global context is populated by the time this tracker fires
+                // from the event loop. SystemTray has no `WindowAdapter` of
+                // its own, so we read the context directly rather than going
+                // through `tray_rc.window_adapter()`.
+                let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned()) else {
+                    return;
+                };
                 let tray = tray.as_pin_ref();
                 let handle = match SystemTrayHandle::new(
                     Params { icon: &tray.icon(), title: &tray.title() },

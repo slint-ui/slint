@@ -594,6 +594,11 @@ pub struct CompilationUnit {
 }
 
 impl CompilationUnit {
+    pub fn needs_window_adapter(&self) -> bool {
+        self.public_components.iter().any(|p| p.top_level_type == TopLevelComponentType::Window)
+            || self.popup_menu.is_some()
+    }
+
     pub fn for_each_sub_components<'a>(
         &'a self,
         visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
