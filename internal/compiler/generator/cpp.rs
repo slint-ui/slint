@@ -1565,6 +1565,18 @@ fn generate_item_tree(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
+    let needs_window_adapter = root.needs_window_adapter();
+    // True only for the root tree of a SystemTray-rooted public component.
+    // Repeaters / popup_menu / popup-window trees stay on the windowed code
+    // path even when they live inside a tray-only unit (popup menus are
+    // window-shaped, and there's no SystemTray-rooted repeater root anyway).
+    let is_system_tray_root = parent_ctx.is_none()
+        && !is_popup
+        && root.public_components.iter().any(|p| {
+            p.item_tree.root == sub_tree.root
+                && p.top_level_type == llr::TopLevelComponentType::SystemTray
+        });
+
     target_struct.friends.push(format_smolstr!(
         "vtable::VRc<slint::private_api::ItemTreeVTable, {}>",
         item_tree_class_name
@@ -1929,17 +1941,26 @@ fn generate_item_tree(
         }),
     ));
 
+    let window_adapter_vtable_statements = if needs_window_adapter {
+        vec![format!(
+            "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
+        )]
+    } else {
+        // Tray-only units have no `WindowAdapter`. The runtime initializes
+        // `*result` to None before calling, so leaving it untouched reports
+        // "no adapter" — and crucially `do_create=true` no longer silently
+        // materializes a hidden window adapter.
+        vec![]
+    };
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
             name: "window_adapter".into(),
             signature:
-                "(slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
                     .into(),
             is_static: true,
-            statements: Some(vec![format!(
-                "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
-            )]),
+            statements: Some(window_adapter_vtable_statements),
             ..Default::default()
         }),
     ));
@@ -2024,9 +2045,12 @@ fn generate_item_tree(
     if parent_ctx.is_none() && !is_popup {
         create_code.push("self->user_init();".to_string());
         // initialize the Window in this point to be consistent with Rust.
-        // Go through `m_globals` rather than the `window()` member function:
-        // non-windowed components (e.g. SystemTray) don't expose `window()`.
-        create_code.push("self->m_globals.window();".to_string())
+        // SystemTray-rooted components have no `WindowAdapter`, so skip the
+        // eager creation — instantiating a tray must not spin up a hidden
+        // window adapter as a side effect.
+        if !is_system_tray_root {
+            create_code.push("self->m_globals.window();".to_string())
+        }
     }
 
     create_code
