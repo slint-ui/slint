@@ -361,13 +361,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     if path.starts_with("data:") {
                         match i_slint_compiler::data_uri::decode_data_uri(path) {
                             Ok((data, extension)) => {
-                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
-                                let ext_bytes: &'static [u8] =
-                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
-                                Ok(corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(data),
-                                    corelib::slice::Slice::from_slice(ext_bytes),
-                                ))
+                                corelib::graphics::decode_image_data(&data, &extension)
+                                    .ok_or_else(Default::default)
                             }
                             Err(_) => Err(Default::default()),
                         }
