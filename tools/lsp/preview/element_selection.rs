@@ -1148,10 +1148,7 @@ export component Main inherits Window {
         );
         let item_positions = component_instance
             .component_positions(&selected_path_and_offset.0, selected_path_and_offset.1.into());
-        assert!(
-            !item_positions.is_empty(),
-            "selected popup item has no geometry: {selected:?}",
-        );
+        assert!(!item_positions.is_empty(), "selected popup item has no geometry: {selected:?}",);
         assert!(
             item_positions.iter().any(|position| position.contains(popup_click)),
             "selected popup item does not cover the click: {item_positions:?}",
