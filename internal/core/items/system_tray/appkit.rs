@@ -159,14 +159,20 @@ impl PlatformTray {
         self.status_item.setVisible(visible);
     }
 
-    pub fn set_icon(&self, _icon: &crate::graphics::Image) {
-        // TODO: rebuild NSImage from the new icon and call
-        // `button.setImage(...)` on the status item button.
+    pub fn set_icon(&self, icon: &Image) {
+        // Build the new NSImage first; if conversion fails, leave the previous
+        // icon in place rather than blanking the button.
+        let Ok(image) = image_to_nsimage(icon) else { return };
+        if let Some(button) = self.status_item.button(self.mtm) {
+            button.setImage(Some(&image));
+        }
     }
 
-    pub fn set_title(&self, _title: &str) {
-        // TODO: update the NSStatusItem button's tool tip via
-        // `button.setToolTip(...)`.
+    pub fn set_title(&self, title: &str) {
+        if let Some(button) = self.status_item.button(self.mtm) {
+            let tooltip = NSString::from_str(title);
+            button.setToolTip(Some(&tooltip));
+        }
     }
 }
 
