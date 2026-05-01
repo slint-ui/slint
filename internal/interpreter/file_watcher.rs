@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
+use std::thread::{self, JoinHandle};
 
 use notify::Watcher as _;
 
@@ -27,11 +28,19 @@ pub struct WatchEvent {
     pub kind: FileChangeKind,
 }
 
-/// A native file watcher for a set of source or resource paths.
+/// A file watcher for a set of source or resource paths.
 pub struct FileWatcher {
-    watcher: notify::RecommendedWatcher,
-    watched_files: Arc<Mutex<HashSet<PathBuf>>>,
-    watched_dirs: HashSet<PathBuf>,
+    tx: mpsc::Sender<WorkerMessage>,
+
+    /// Use a worker thread for processing file events and updating watches.
+    ///
+    /// `notify` already invokes callbacks from backend-managed threads/event loops, but
+    /// reconcile performs `watch()` / `unwatch()` calls as it updates probe directories.
+    /// Backends such as inotify and kqueue route those operations through the same backend
+    /// loop and wait synchronously for an acknowledgement, so running reconcile directly in
+    /// the callback can deadlock. The dedicated worker thread keeps that work off the
+    /// backend callback thread while still serializing all watcher state transitions.
+    worker: Option<JoinHandle<()>>,
 }
 
 impl FileWatcher {
@@ -39,18 +48,27 @@ impl FileWatcher {
     ///
     /// Runtime watcher errors are forwarded to `on_error`.
     pub fn start(
-        mut on_event: impl FnMut(WatchEvent) + Send + 'static,
-        mut on_error: impl FnMut(notify::Error) + Send + 'static,
+        on_event: impl FnMut(WatchEvent) + Send + 'static,
+        on_error: impl FnMut(notify::Error) + Send + 'static,
     ) -> notify::Result<Self> {
-        let watched_files = Arc::new(Mutex::new(HashSet::new()));
-        let callback_files = watched_files.clone();
-        let watcher =
-            notify::recommended_watcher(move |event: notify::Result<notify::Event>| match event {
-                Ok(event) => forward_event(event, &callback_files, &mut on_event),
-                Err(err) => on_error(err),
-            })?;
+        let (tx, rx) = mpsc::channel();
+        let (startup_tx, startup_rx) = mpsc::sync_channel(1);
+        let worker_tx = tx.clone();
+        let worker = thread::spawn(move || {
+            worker_loop(rx, worker_tx, startup_tx, on_event, on_error);
+        });
 
-        Ok(Self { watcher, watched_files, watched_dirs: HashSet::new() })
+        match startup_rx.recv() {
+            Ok(Ok(())) => Ok(Self { tx, worker: Some(worker) }),
+            Ok(Err(err)) => {
+                let _ = worker.join();
+                Err(err)
+            }
+            Err(_) => {
+                let _ = worker.join();
+                Err(worker_stopped_error())
+            }
+        }
     }
 
     /// Replaces the watched path set with `paths`.
@@ -62,44 +80,21 @@ impl FileWatcher {
             .into_iter()
             .map(|path| i_slint_compiler::pathutils::clean_path(&path))
             .collect::<HashSet<_>>();
-        let watched_dirs = watched_files
-            .iter()
-            .filter_map(|path| watch_directory_for_path(path))
-            .collect::<HashSet<_>>();
 
-        for dir in self.watched_dirs.difference(&watched_dirs) {
-            self.watcher.unwatch(dir)?;
-        }
-
-        for dir in watched_dirs.difference(&self.watched_dirs) {
-            self.watcher.watch(dir, watch_mode())?;
-        }
-
-        *self.watched_files.lock().unwrap() = watched_files;
-        self.watched_dirs = watched_dirs;
-        Ok(())
+        let (response_tx, response_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(WorkerMessage::UpdateWatchedPaths { watched_files, response: response_tx })
+            .map_err(|_| worker_stopped_error())?;
+        response_rx.recv().map_err(|_| worker_stopped_error())?
     }
 }
 
-fn forward_event(
-    event: notify::Event,
-    watched_files: &Arc<Mutex<HashSet<PathBuf>>>,
-    on_event: &mut impl FnMut(WatchEvent),
-) {
-    let matching_events = {
-        let watched_files = watched_files.lock().unwrap();
-        if watched_files.is_empty() {
-            return;
+impl Drop for FileWatcher {
+    fn drop(&mut self) {
+        let _ = self.tx.send(WorkerMessage::Shutdown);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
         }
-
-        classify_event(event)
-            .into_iter()
-            .filter(|(path, _)| watched_files.contains(path))
-            .collect::<Vec<_>>()
-    };
-
-    for (path, kind) in matching_events {
-        on_event(WatchEvent { path, kind });
     }
 }
 
@@ -143,12 +138,270 @@ fn classify_event(event: notify::Event) -> Vec<(PathBuf, FileChangeKind)> {
     }
 }
 
-fn watch_directory_for_path(path: &Path) -> Option<PathBuf> {
-    let parent = path.parent()?;
-    parent.is_dir().then(|| i_slint_compiler::pathutils::clean_path(parent))
+enum WorkerMessage {
+    UpdateWatchedPaths {
+        watched_files: HashSet<PathBuf>,
+        response: mpsc::SyncSender<notify::Result<()>>,
+    },
+    RawEvent(notify::Result<notify::Event>),
+    Shutdown,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum TargetState {
+    Existing { probe_dir: Option<PathBuf> },
+    Missing { probe_dir: Option<PathBuf> },
+}
+
+impl TargetState {
+    fn exists(&self) -> bool {
+        matches!(self, Self::Existing { .. })
+    }
+
+    fn probe_dir(&self) -> Option<&PathBuf> {
+        match self {
+            Self::Existing { probe_dir } | Self::Missing { probe_dir } => probe_dir.as_ref(),
+        }
+    }
+}
+
+#[derive(Default, Debug)]
+struct WorkerState {
+    watched_files: HashSet<PathBuf>,
+    target_states: HashMap<PathBuf, TargetState>,
+    watched_dirs: HashSet<PathBuf>,
+}
+
+impl WorkerState {
+    fn update_watched_paths(
+        &mut self,
+        watcher: &mut notify::RecommendedWatcher,
+        watched_files: HashSet<PathBuf>,
+        on_event: &mut impl FnMut(WatchEvent),
+    ) -> notify::Result<()> {
+        let previous_states = watched_files
+            .iter()
+            .map(|path| {
+                let state = self
+                    .target_states
+                    .get(path)
+                    .cloned()
+                    .unwrap_or_else(|| scan_target_state(path));
+                (path.clone(), state)
+            })
+            .collect::<HashMap<_, _>>();
+
+        self.watched_files = watched_files;
+        self.target_states = previous_states.clone();
+        self.reconcile(watcher, previous_states, HashSet::new(), on_event)
+    }
+
+    fn handle_raw_event(
+        &mut self,
+        watcher: &mut notify::RecommendedWatcher,
+        event: notify::Event,
+        on_event: &mut impl FnMut(WatchEvent),
+    ) -> notify::Result<()> {
+        if self.watched_files.is_empty() {
+            return Ok(());
+        }
+
+        let previous_states = self.target_states.clone();
+        let changed_paths = classify_event(event)
+            .into_iter()
+            .filter_map(|(path, kind)| {
+                (kind == FileChangeKind::Changed && self.watched_files.contains(&path))
+                    .then_some(path)
+            })
+            .collect::<HashSet<_>>();
+
+        self.reconcile(watcher, previous_states, changed_paths, on_event)
+    }
+
+    fn reconcile(
+        &mut self,
+        watcher: &mut notify::RecommendedWatcher,
+        previous_states: HashMap<PathBuf, TargetState>,
+        changed_paths: HashSet<PathBuf>,
+        on_event: &mut impl FnMut(WatchEvent),
+    ) -> notify::Result<()> {
+        const MAX_RECONCILE_PASSES: usize = 8;
+
+        let mut target_states = scan_target_states(&self.watched_files);
+
+        for _ in 0..MAX_RECONCILE_PASSES {
+            let desired_dirs = watched_dirs_for_states(&target_states);
+            if desired_dirs == self.watched_dirs {
+                break;
+            }
+
+            self.apply_watch_plan(watcher, &desired_dirs)?;
+            target_states = scan_target_states(&self.watched_files);
+        }
+
+        self.target_states = target_states;
+
+        let mut transitioned_paths = HashSet::new();
+        for path in &self.watched_files {
+            let previous = previous_states.get(path).map(TargetState::exists).unwrap_or(false);
+            let current = self.target_states.get(path).map(TargetState::exists).unwrap_or(false);
+
+            match (previous, current) {
+                (false, true) => {
+                    transitioned_paths.insert(path.clone());
+                    on_event(WatchEvent { path: path.clone(), kind: FileChangeKind::Created });
+                }
+                (true, false) => {
+                    transitioned_paths.insert(path.clone());
+                    on_event(WatchEvent { path: path.clone(), kind: FileChangeKind::Deleted });
+                }
+                _ => {}
+            }
+        }
+
+        for path in changed_paths {
+            if transitioned_paths.contains(&path) {
+                continue;
+            }
+
+            if self.target_states.get(&path).map(TargetState::exists).unwrap_or(false) {
+                on_event(WatchEvent { path, kind: FileChangeKind::Changed });
+            }
+        }
+
+        Ok(())
+    }
+
+    fn apply_watch_plan(
+        &mut self,
+        watcher: &mut notify::RecommendedWatcher,
+        desired_dirs: &HashSet<PathBuf>,
+    ) -> notify::Result<()> {
+        let current_dirs = self.watched_dirs.clone();
+
+        for dir in desired_dirs.difference(&current_dirs) {
+            match watcher.watch(dir, watch_mode()) {
+                Ok(()) => {
+                    self.watched_dirs.insert(dir.clone());
+                }
+                Err(err) if is_transient_watch_error(&err) => {}
+                Err(err) => return Err(err),
+            }
+        }
+
+        for dir in current_dirs.difference(desired_dirs) {
+            match watcher.unwatch(dir) {
+                Ok(()) => {}
+                Err(err) if is_transient_watch_error(&err) => {}
+                Err(err) => return Err(err),
+            }
+            self.watched_dirs.remove(dir);
+        }
+
+        Ok(())
+    }
+}
+
+fn worker_loop(
+    rx: mpsc::Receiver<WorkerMessage>,
+    tx: mpsc::Sender<WorkerMessage>,
+    startup_tx: mpsc::SyncSender<notify::Result<()>>,
+    mut on_event: impl FnMut(WatchEvent) + Send + 'static,
+    mut on_error: impl FnMut(notify::Error) + Send + 'static,
+) {
+    let watcher = notify::recommended_watcher(move |event| {
+        // Keep the backend callback lightweight and forward the real work to the worker.
+        //
+        // This is especially needed on inotify backends, where calling watch/unwatch within
+        // the callback can cause a deadlock.
+        let _ = tx.send(WorkerMessage::RawEvent(event));
+    });
+
+    let mut watcher = match watcher {
+        Ok(watcher) => {
+            let _ = startup_tx.send(Ok(()));
+            watcher
+        }
+        Err(err) => {
+            let _ = startup_tx.send(Err(err));
+            return;
+        }
+    };
+
+    let mut state = WorkerState::default();
+
+    while let Ok(message) = rx.recv() {
+        match message {
+            WorkerMessage::UpdateWatchedPaths { watched_files, response } => {
+                let _ = response.send(state.update_watched_paths(
+                    &mut watcher,
+                    watched_files,
+                    &mut on_event,
+                ));
+            }
+            WorkerMessage::RawEvent(Ok(event)) => {
+                if let Err(err) = state.handle_raw_event(&mut watcher, event, &mut on_event) {
+                    on_error(err);
+                }
+            }
+            WorkerMessage::RawEvent(Err(err)) => on_error(err),
+            WorkerMessage::Shutdown => break,
+        }
+    }
+}
+
+fn scan_target_states(watched_files: &HashSet<PathBuf>) -> HashMap<PathBuf, TargetState> {
+    watched_files.iter().map(|path| (path.clone(), scan_target_state(path))).collect()
+}
+
+fn scan_target_state(path: &Path) -> TargetState {
+    let probe_dir = probe_dir_for_path(path);
+    if path.exists() {
+        TargetState::Existing { probe_dir }
+    } else {
+        TargetState::Missing { probe_dir }
+    }
+}
+
+fn watched_dirs_for_states(target_states: &HashMap<PathBuf, TargetState>) -> HashSet<PathBuf> {
+    target_states.values().filter_map(|state| state.probe_dir().cloned()).collect()
+}
+
+fn probe_dir_for_path(path: &Path) -> Option<PathBuf> {
+    if path.exists() {
+        let parent = path.parent()?;
+        parent.is_dir().then(|| i_slint_compiler::pathutils::clean_path(parent))
+    } else {
+        nearest_existing_ancestor(path)
+    }
+}
+
+fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
+    let mut current = path.parent()?;
+    while !current.is_dir() {
+        current = current.parent()?;
+    }
+
+    Some(i_slint_compiler::pathutils::clean_path(current))
+}
+
+fn is_transient_watch_error(err: &notify::Error) -> bool {
+    matches!(
+        err.kind,
+        notify::ErrorKind::PathNotFound
+            | notify::ErrorKind::WatchNotFound
+            | notify::ErrorKind::Generic(_)
+    )
+}
+
+fn worker_stopped_error() -> notify::Error {
+    notify::Error::generic("file watcher worker thread stopped")
 }
 
 fn watch_mode() -> notify::RecursiveMode {
+    // TODO: Is it still necessary to use recursive mode on Apple platforms with
+    // the FSEvents backend, or can we switch to non-recursive mode there as well?
+    // Recursive mode can cause the notify limit to run out quickly.
     if cfg!(target_vendor = "apple") {
         notify::RecursiveMode::Recursive
     } else {
@@ -163,7 +416,7 @@ mod tests {
     use std::fs;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{self, Receiver};
-    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     const WATCHER_SETTLE_DELAY: Duration = Duration::from_millis(50);
     const EVENT_TIMEOUT: Duration = Duration::from_millis(100);
@@ -224,6 +477,10 @@ mod tests {
             fs::remove_file(self.path(relative)).unwrap();
         }
 
+        fn remove_dir_all(&self, relative: impl AsRef<Path>) {
+            fs::remove_dir_all(self.path(relative)).unwrap();
+        }
+
         fn rename(&self, from: impl AsRef<Path>, to: impl AsRef<Path>) {
             let from = self.path(from);
             let to = self.path(to);
@@ -268,7 +525,6 @@ mod tests {
 
         fn expect_event(&self, path: &Path, kind: FileChangeKind) {
             let expected = WatchEvent { path: path.to_path_buf(), kind };
-            let deadline = Instant::now() + EVENT_TIMEOUT;
             let mut seen = Vec::new();
 
             loop {
@@ -288,8 +544,6 @@ mod tests {
         }
 
         fn expect_quiet(&self) {
-            let deadline = Instant::now() + QUIET_TIMEOUT;
-
             match self.events.recv_timeout(QUIET_TIMEOUT) {
                 Ok(event) => panic!("unexpected event during quiet period: {event:?}"),
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -422,5 +676,24 @@ mod tests {
 
         ctx.write("ui/second.slint", "second updated");
         ctx.expect_event(&second, FileChangeKind::Changed);
+    }
+
+    #[test]
+    fn refreshing_after_probe_directory_is_removed_recovers_cleanly() {
+        let mut ctx = TestContext::new();
+        ctx.write("test.slint", "export component Test { }");
+        let watched_nested = ctx.write("thing/thing.slint", "export component Thing { }");
+
+        ctx.watch(&["test.slint", "thing/thing.slint"]);
+        ctx.remove_dir_all("thing");
+        ctx.settle();
+        ctx.expect_event(&watched_nested, FileChangeKind::Deleted);
+        ctx.drain_events();
+        ctx.assert_no_errors();
+
+        ctx.watch(&["test.slint", "thing/thing.slint"]);
+
+        ctx.write("thing/thing.slint", "export component Thing { in property<string> x; }");
+        ctx.expect_event(&watched_nested, FileChangeKind::Created);
     }
 }
