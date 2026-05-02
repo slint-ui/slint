@@ -46,6 +46,10 @@ wgpu-29 = { workspace = true, optional = true, default-features = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
+# Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
+# it transparently when no BROWSER_WEBGPU adapter is available (e.g. in
+# headless Chromium without a usable WebGPU device).
+wgpu-29 = { workspace = true, optional = true, features = ["webgl"] }
 
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

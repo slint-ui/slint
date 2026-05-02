@@ -179,7 +179,6 @@ impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
         if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
         ) {
