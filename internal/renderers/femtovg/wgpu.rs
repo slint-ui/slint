@@ -186,6 +186,16 @@ impl GraphicsBackend for WGPUBackend {
         let Some(surface) = surface.as_ref() else {
             return Err("WGPU surface not yet initialized".into());
         };
+        // The surface may have been stored without an initial
+        // `surface.configure()` call when the canvas had zero area at the
+        // time the async wgpu init future resolved (see
+        // `configure_surface_from_init_result`). On WebGPU,
+        // get_current_texture() panics in that state; bail out here and
+        // wait for the first non-zero resize to configure the surface.
+        match self.surface_config.borrow().as_ref() {
+            Some(cfg) if cfg.width > 0 && cfg.height > 0 => {}
+            _ => return Err("WGPU surface not yet configured".into()),
+        }
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,
             wgpu::CurrentSurfaceTexture::Occluded => {
@@ -374,7 +384,14 @@ impl FemtoVGRenderer<WGPUBackend> {
             }
         }
 
-        surface.configure(&device, &surface_config);
+        // Skip the initial surface.configure() when the window has zero
+        // area — wgpu requires both dimensions to be non-zero. This happens
+        // on WASM when the async wgpu init future resolves before the
+        // browser has laid out the canvas. The subsequent resize event will
+        // re-configure with the real size.
+        if size.width > 0 && size.height > 0 {
+            surface.configure(&device, &surface_config);
+        }
 
         *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());
         *self.graphics_backend.device.borrow_mut() = Some(device.clone());
