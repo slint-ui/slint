@@ -161,6 +161,13 @@ pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
         }
         #[cfg(feature = "unstable-wgpu-29")]
         Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
+            // On WASM the wgpu init path uses
+            // `wgpu::util::new_instance_with_webgpu_detection`, which probes
+            // `navigator.gpu.requestAdapter()` asynchronously and falls through
+            // to the WebGL backend (compiled in via the wgpu-29 `webgl` feature)
+            // when no WebGPU adapter is reachable. So a hardware-accelerated
+            // adapter is effectively always available — assume yes here and
+            // let the actual init surface a real error if both fail.
             if cfg!(target_family = "wasm") {
                 return true;
             }
@@ -277,20 +284,23 @@ pub async fn async_init_instance_adapter_device_queue_surface(
 
             let surface = create_surface(&instance)?;
 
-            let adapter =
-                match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface)).await {
-                    Ok(adapter) => Ok(adapter),
-                    Err(_) => {
-                        instance
-                            .request_adapter(&wgpu::RequestAdapterOptions {
-                                power_preference: wgpu29_settings.power_preference,
-                                force_fallback_adapter: false,
-                                compatible_surface: Some(&surface),
-                            })
-                            .await
-                    }
+            let adapter = match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface))
+                .await
+            {
+                Ok(adapter) => Ok(adapter),
+                Err(_) => {
+                    instance
+                        .request_adapter(&wgpu::RequestAdapterOptions {
+                            power_preference: wgpu29_settings.power_preference,
+                            force_fallback_adapter: false,
+                            compatible_surface: Some(&surface),
+                        })
+                        .await
                 }
-                .expect("Failed to find an appropriate adapter");
+            }
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                alloc::format!("Failed to find an appropriate adapter: {e}").into()
+            })?;
 
             let (device, queue) = adapter
                 .request_device(&wgpu::DeviceDescriptor {
@@ -305,7 +315,9 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                     trace: wgpu::Trace::default(),
                 })
                 .await
-                .expect("Failed to create device");
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                    alloc::format!("Failed to create device: {e}").into()
+                })?;
 
             (instance, adapter, device, queue, surface)
         }
@@ -327,7 +339,9 @@ pub async fn async_init_instance_adapter_device_queue_surface(
             let adapter =
                 wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
                     .await
-                    .expect("Failed to find an appropriate adapter");
+                    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                        alloc::format!("Failed to find an appropriate adapter: {e}").into()
+                    })?;
 
             let (device, queue) = adapter
                 .request_device(&wgpu::DeviceDescriptor {
@@ -341,7 +355,9 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                     trace: wgpu::Trace::default(),
                 })
                 .await
-                .expect("Failed to create device");
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                    alloc::format!("Failed to create device: {e}").into()
+                })?;
             (instance, adapter, device, queue, surface)
         }
         Some(_) => {
