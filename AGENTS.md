@@ -122,7 +122,7 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 - Internal crates (`internal/`) are not semver-stable - they use exact version pinning
 - FFI modules are gated with `#[cfg(feature = "ffi")]`
-- C++ headers generated via `cargo xtask cbindgen`
+- C++ headers generated automatically during the build via `cbindgen` (invoked by `slint-cpp/build.rs`).
 - Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`) and backends (`backend-winit`, `backend-qt`)
 
 ## Version Control (Git)

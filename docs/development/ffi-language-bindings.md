@@ -721,12 +721,11 @@ define_cargo_feature(interpreter "Enable interpreter" ON)
 
 ### Header Generation
 
-```sh
-# Generate headers via xtask
-cargo xtask cbindgen
+Headers are generated automatically during the build process by the `slint-cpp` crate's `build.rs`.
 
-# Headers placed in:
-# - target/slint-cpp-generated/include/
+```sh
+# Headers are placed in the OUT_DIR of the slint-cpp build, for example:
+# target/debug/build/slint-cpp-[hash]/out/generated_include/
 ```
 
 ## Testing
@@ -774,7 +773,7 @@ cargo test -p i-slint-core ffi
 |-------|-------|----------|
 | Segfault on init | Size mismatch | Check `assert_eq!` for opaque types |
 | Memory leak | Missing drop_user_data | Ensure cleanup function is called |
-| Type mismatch | cbindgen out of sync | Regenerate headers with `cargo xtask cbindgen` |
+| Type mismatch | cbindgen out of sync | Rebuild the project to regenerate headers |
 | Undefined symbol | FFI function not exported | Add to `config.export.include` |
 | Python crash | GIL issues | Use `py.allow_threads()` for blocking calls |
 | Node crash | Ref counting | Use `RefCountedReference` for callbacks |
@@ -795,11 +794,8 @@ pub unsafe extern "C" fn slint_init(out: *mut OpaqueType) {
 ### Inspecting Generated Headers
 
 ```sh
-# View generated C++ headers
-ls target/slint-cpp-generated/include/
-
-# Check specific header
-cat target/slint-cpp-generated/include/slint_properties_internal.h
+# Find generated C++ headers
+find target -name "generated_include" -type d
 ```
 
 ### Tracing FFI Calls
