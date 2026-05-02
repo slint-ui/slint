@@ -108,6 +108,25 @@ impl SlintContext {
         self.0.platform.run_event_loop()
     }
 
+    /// Add one to the counter of "things keeping the event loop alive".
+    /// Visible windows and visible system tray icons are the canonical
+    /// callers; they pair with [`Self::release_keepalive`].
+    pub(crate) fn acquire_keepalive(&self) {
+        *self.0.window_count.borrow_mut() += 1;
+    }
+
+    /// Subtract one from the keepalive counter and quit the event loop if
+    /// nothing is keeping it alive anymore. Mirrors the post-decrement quit
+    /// that [`crate::window::WindowInner::hide`] used to do inline.
+    pub(crate) fn release_keepalive(&self) {
+        let mut count = self.0.window_count.borrow_mut();
+        *count -= 1;
+        if *count <= 0 {
+            drop(count);
+            let _ = self.event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
+        }
+    }
+
     pub fn set_xdg_app_id(&self, _app_id: crate::SharedString) {
         #[cfg(all(unix, not(target_os = "macos")))]
         {

@@ -134,7 +134,21 @@ pub struct SystemTrayData {
     icon_tracker: crate::properties::ChangeTracker,
     tooltip_tracker: crate::properties::ChangeTracker,
     title_tracker: crate::properties::ChangeTracker,
+    /// Whether this tray currently contributes to the SlintContext keepalive
+    /// counter. Flipped in lockstep with `acquire_keepalive`/`release_keepalive`
+    /// so that a re-fired tracker can't double-increment.
+    keepalive_live: core::cell::Cell<bool>,
     menu: core::cell::RefCell<Option<MenuState>>,
+}
+
+impl Drop for SystemTrayData {
+    fn drop(&mut self) {
+        if self.keepalive_live.get()
+            && let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned())
+        {
+            ctx.release_keepalive();
+        }
+    }
 }
 
 struct MenuState {
@@ -203,6 +217,28 @@ impl SystemTray {
             handle.rebuild_menu(vtable::VRc::borrow(menu_vrc), entries);
         });
     }
+
+    /// Reconcile the SlintContext keepalive counter with this tray's state.
+    /// A tray contributes to the counter only while it has a live platform
+    /// handle and its `visible` property is `true`; everything else is a
+    /// no-op so a re-fired tracker can't double-increment.
+    fn update_keepalive(self: Pin<&Self>) {
+        let want_live = self.data.inner.get().is_some() && self.visible();
+        let was_live = self.data.keepalive_live.get();
+        if want_live == was_live {
+            return;
+        }
+        let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned()) else {
+            return;
+        };
+        if want_live {
+            ctx.acquire_keepalive();
+            self.data.keepalive_live.set(true);
+        } else {
+            self.data.keepalive_live.set(false);
+            ctx.release_keepalive();
+        }
+    }
 }
 
 impl Item for SystemTray {
@@ -243,6 +279,7 @@ impl Item for SystemTray {
                 // If a menu was already installed before the icon was set, build it now
                 // that we have a platform handle.
                 tray.rebuild_menu();
+                tray.update_keepalive();
             },
         );
 
@@ -256,13 +293,13 @@ impl Item for SystemTray {
             |self_weak, visible| {
                 let Some(tray_rc) = self_weak.upgrade() else { return };
                 let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
-                if let Some(handle) = tray.as_pin_ref().data.inner.get() {
+                let tray = tray.as_pin_ref();
+                if let Some(handle) = tray.data.inner.get() {
                     handle.set_visible(*visible);
                 }
+                tray.update_keepalive();
                 // If the platform handle isn't up yet, the icon-driven init path
-                // will create it later; the next change-tracker fire (or the
-                // initial visibility burned in at creation, once that's wired
-                // up properly) takes care of the visible state.
+                // will create it later and call update_keepalive itself.
             },
         );
 

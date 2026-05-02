@@ -1244,7 +1244,7 @@ impl WindowInner {
         if let Some(component) = self.try_component() {
             let was_visible = self.strong_component_ref.replace(Some(component)).is_some();
             if !was_visible {
-                *(self.context().0.window_count.borrow_mut()) += 1;
+                self.context().acquire_keepalive();
             }
         }
 
@@ -1273,12 +1273,7 @@ impl WindowInner {
         let result = self.window_adapter().set_visible(false);
         let was_visible = self.strong_component_ref.borrow_mut().take().is_some();
         if was_visible {
-            let mut count = self.context().0.window_count.borrow_mut();
-            *count -= 1;
-            if *count <= 0 {
-                drop(count);
-                let _ = self.context().event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
-            }
+            self.context().release_keepalive();
         }
         result
     }
