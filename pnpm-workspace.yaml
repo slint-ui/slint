@@ -12,6 +12,7 @@ packages:
   - examples/carousel/node
   - examples/todo/node
   - examples/memory
+  - examples/system_tray
   - docs/astro
   - docs/common
   - docs/safety

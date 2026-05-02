@@ -67,6 +67,7 @@
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
+    "examples/system_tray": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",
