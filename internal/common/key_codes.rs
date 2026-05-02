@@ -29,7 +29,7 @@
 #[macro_export]
 macro_rules! for_each_keys {
     ($macro:ident) => {
-        $macro![
+        $macro! {
 '\u{0008}'  # Backspace   # => Backspace   # Qt_Key_Key_Backspace    # Backspace    # BackSpace  ;
 '\u{0009}'  # Tab         # => Tab         # Qt_Key_Key_Tab          # Tab          # Tab        ;
 '\u{000a}'  # Return      # => Enter       # Qt_Key_Key_Enter|Qt_Key_Key_Return # Enter # Return;
@@ -202,6 +202,6 @@ macro_rules! for_each_keys {
 ']' # CloseBracket      # CloseCurlyBracket ;
 '\''# Quote             # DoubleQuote       ;
 
-];
+}
     };
 }
