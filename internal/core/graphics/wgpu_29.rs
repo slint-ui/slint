@@ -150,6 +150,16 @@ use super::RequestedGraphicsAPI;
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter)
 pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
+    // On WASM the wgpu init path uses
+    // `wgpu::util::new_instance_with_webgpu_detection`, which probes
+    // `navigator.gpu.requestAdapter()` asynchronously and falls through
+    // to the WebGL backend (compiled in via the wgpu-29 `webgl` feature)
+    // when no WebGPU adapter is reachable. So a hardware-accelerated
+    // adapter is effectively always available; assume yes here and
+    // let the actual init surface a real error if both fail.
+    if cfg!(target_family = "wasm") {
+        return true;
+    }
     let allow_cpu = std::env::var("SLINT_WGPU_CPU").is_ok();
     if allow_cpu {
         return true;
@@ -160,26 +170,17 @@ pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
             (instance, wgpu::Backends::all())
         }
         #[cfg(feature = "unstable-wgpu-29")]
-        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-            (
-                wgpu::Instance::new(wgpu::InstanceDescriptor {
-                    backends: wgpu29_settings.backends,
-                    flags: wgpu29_settings.instance_flags,
-                    backend_options: wgpu29_settings.backend_options,
-                    memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
-                    display: None,
-                }),
-                wgpu29_settings.backends,
-            )
-        }
+        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => (
+            wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: wgpu29_settings.backends,
+                flags: wgpu29_settings.instance_flags,
+                backend_options: wgpu29_settings.backend_options,
+                memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
+                display: None,
+            }),
+            wgpu29_settings.backends,
+        ),
         None => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-
             let backends = wgpu::Backends::from_env().unwrap_or_default();
 
             (
@@ -277,20 +278,23 @@ pub async fn async_init_instance_adapter_device_queue_surface(
 
             let surface = create_surface(&instance)?;
 
-            let adapter =
-                match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface)).await {
-                    Ok(adapter) => Ok(adapter),
-                    Err(_) => {
-                        instance
-                            .request_adapter(&wgpu::RequestAdapterOptions {
-                                power_preference: wgpu29_settings.power_preference,
-                                force_fallback_adapter: false,
-                                compatible_surface: Some(&surface),
-                            })
-                            .await
-                    }
+            let adapter = match wgpu::util::initialize_adapter_from_env(&instance, Some(&surface))
+                .await
+            {
+                Ok(adapter) => Ok(adapter),
+                Err(_) => {
+                    instance
+                        .request_adapter(&wgpu::RequestAdapterOptions {
+                            power_preference: wgpu29_settings.power_preference,
+                            force_fallback_adapter: false,
+                            compatible_surface: Some(&surface),
+                        })
+                        .await
                 }
-                .expect("Failed to find an appropriate adapter");
+            }
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                alloc::format!("Failed to find an appropriate adapter: {e}").into()
+            })?;
 
             let (device, queue) = adapter
                 .request_device(&wgpu::DeviceDescriptor {
@@ -305,7 +309,9 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                     trace: wgpu::Trace::default(),
                 })
                 .await
-                .expect("Failed to create device");
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                    alloc::format!("Failed to create device: {e}").into()
+                })?;
 
             (instance, adapter, device, queue, surface)
         }
@@ -327,7 +333,9 @@ pub async fn async_init_instance_adapter_device_queue_surface(
             let adapter =
                 wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
                     .await
-                    .expect("Failed to find an appropriate adapter");
+                    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                        alloc::format!("Failed to find an appropriate adapter: {e}").into()
+                    })?;
 
             let (device, queue) = adapter
                 .request_device(&wgpu::DeviceDescriptor {
@@ -341,7 +349,9 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                     trace: wgpu::Trace::default(),
                 })
                 .await
-                .expect("Failed to create device");
+                .map_err(|e| -> Box<dyn std::error::Error + Send + Sync + 'static> {
+                    alloc::format!("Failed to create device: {e}").into()
+                })?;
             (instance, adapter, device, queue, surface)
         }
         Some(_) => {
