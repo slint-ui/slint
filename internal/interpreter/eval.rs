@@ -359,13 +359,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
                     if path.starts_with("data:") {
-                        match i_slint_compiler::data_uri::decode_data_uri(path) {
-                            Ok((data, extension)) => {
+                        i_slint_compiler::data_uri::decode_data_uri(path)
+                            .ok()
+                            .and_then(|(data, extension)| {
                                 corelib::graphics::decode_image_data(&data, &extension)
-                                    .ok_or_else(Default::default)
-                            }
-                            Err(_) => Err(Default::default()),
-                        }
+                            })
+                            .ok_or_else(Default::default)
                     } else {
                         let path = std::path::Path::new(path);
                         if path.starts_with("builtin:/") {
