@@ -577,12 +577,13 @@ struct [[deprecated]] VersionCheckHelper
 /// Enum for the event loop mode parameter of the slint::run_event_loop() function.
 /// It is used to determine when the event loop quits.
 enum class EventLoopMode {
-    /// The event loop will quit when the last window is closed
-    /// or when slint::quit_event_loop() is called.
+    /// The event loop quits when the last window is closed and the last
+    /// visible system tray icon is hidden, or when slint::quit_event_loop()
+    /// is called. A visible SystemTray keeps the loop alive on its own.
     QuitOnLastWindowClosed,
 
-    /// The event loop will keep running until slint::quit_event_loop() is called,
-    /// even when all windows are closed.
+    /// The event loop keeps running until slint::quit_event_loop() is
+    /// called, even when no windows or system tray icons are visible.
     RunUntilQuit
 };
 
@@ -590,9 +591,9 @@ enum class EventLoopMode {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 ///
-/// The mode parameter determines the behavior of the event loop when all windows are closed.
-/// By default, it is set to QuitOnLastWindowClose, which means the event loop will
-/// quit when the last window is closed.
+/// The mode parameter determines when the loop returns. The default,
+/// QuitOnLastWindowClosed, returns once the last window is closed and the
+/// last visible system tray icon is hidden.
 inline void run_event_loop(EventLoopMode mode = EventLoopMode::QuitOnLastWindowClosed)
 {
     private_api::assert_main_thread();
