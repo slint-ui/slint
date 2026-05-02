@@ -2814,7 +2814,7 @@ export global NativePalette {
 // the `SetupSystemTray` builtin.
 export component SystemTray {
     in property <image> icon;
-    in property <string> title;
+    in property <string> tooltip;
     in property <bool> visible: true;
     callback activated();
     Menu { }

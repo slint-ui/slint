@@ -55,7 +55,7 @@ const TRAY_UID: u32 = 1;
 
 struct Inner {
     hwnd: HWND,
-    // Both `hicon` and `tip` can be replaced via `set_icon` / `set_title`, and
+    // Both `hicon` and `tip` can be replaced via `set_icon` / `set_tooltip`, and
     // are read on the wnd-proc thread for the `TaskbarCreated` re-add path —
     // which is the same thread, so a single-threaded interior mutability cell
     // is sufficient. `HICON` is `Copy`; `HSTRING` is not, so it lives in a
@@ -143,7 +143,7 @@ impl PlatformTray {
             let _ = DestroyIcon(h);
         });
 
-        let tip = HSTRING::from(params.title);
+        let tip = HSTRING::from(params.tooltip);
         let data = notify_icon_data(*hwnd_guard, *hicon_guard, &tip);
         let added = unsafe { Shell_NotifyIconW(NIM_ADD, &data) };
         if !added.as_bool() {
@@ -228,8 +228,8 @@ impl PlatformTray {
         let _ = unsafe { DestroyIcon(old) };
     }
 
-    pub fn set_title(&self, title: &str) {
-        let new_tip = HSTRING::from(title);
+    pub fn set_tooltip(&self, tooltip: &str) {
+        let new_tip = HSTRING::from(tooltip);
         let data = notify_icon_data(self.inner.hwnd, self.inner.hicon.get(), &new_tip);
         let _ = unsafe { Shell_NotifyIconW(NIM_MODIFY, &data) };
         // Update the cache regardless of NIM_MODIFY's outcome so the next

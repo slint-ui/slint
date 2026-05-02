@@ -17,7 +17,7 @@ it presents is the menu.
 ```slint
 export component ExampleTray inherits SystemTray {
     icon: @image-url("tray-icon.png");
-    title: "My App";
+    tooltip: "My App";
 
     Menu {
         MenuItem {
@@ -61,10 +61,10 @@ Set it to `false` to hide the icon without dropping the component instance, and 
 The `show()` and `hide()` methods on the language-binding side are convenience aliases that set this property.
 </SlintProperty>
 
-### title
-<SlintProperty propName="title" typeName="string" defaultValue='""'>
-A short description of the tray entry, used as a tooltip on platforms that support it and as
-the accessible label of the icon. Typically the application name.
+### tooltip
+<SlintProperty propName="tooltip" typeName="string" defaultValue='""'>
+The hover text shown over the tray icon.
+Typically the application name or a short status message.
 </SlintProperty>
 
 ## Callbacks

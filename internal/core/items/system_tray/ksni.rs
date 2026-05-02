@@ -29,7 +29,7 @@ enum Event {
 
 struct KsniTray {
     icon: ::ksni::Icon,
-    title: std::string::String,
+    tooltip: std::string::String,
     menu: std::vec::Vec<MenuNode>,
     event_tx: async_channel::Sender<Event>,
 }
@@ -44,8 +44,11 @@ impl ::ksni::Tray for KsniTray {
         let _ = self.event_tx.try_send(Event::Activate(x, y));
     }
 
-    fn title(&self) -> std::string::String {
-        self.title.clone()
+    // Slint's `tooltip` property maps to SNI `ToolTip` (hover text), not SNI
+    // `Title` (descriptive name). The SNI `Title` slot is left at its default
+    // until a separate `title` property is introduced.
+    fn tool_tip(&self) -> ::ksni::ToolTip {
+        ::ksni::ToolTip { title: self.tooltip.clone(), ..Default::default() }
     }
 
     fn icon_pixmap(&self) -> std::vec::Vec<::ksni::Icon> {
@@ -95,7 +98,7 @@ pub struct PlatformTray {
     // to rebuild a fresh tray therefore lives on `PlatformTray`, not inside
     // `KsniTray` itself.
     icon: core::cell::RefCell<::ksni::Icon>,
-    title: core::cell::RefCell<std::string::String>,
+    tooltip: core::cell::RefCell<std::string::String>,
     event_tx: async_channel::Sender<Event>,
     menu: core::cell::RefCell<std::vec::Vec<MenuNode>>,
     handle: core::cell::RefCell<Option<::ksni::blocking::Handle<KsniTray>>>,
@@ -111,9 +114,9 @@ impl PlatformTray {
         let icon = image_to_argb_icon(params.icon)?;
 
         let (event_tx, event_rx) = async_channel::unbounded();
-        let title: std::string::String = params.title.into();
+        let tooltip: std::string::String = params.tooltip.into();
 
-        let handle = spawn_tray(icon.clone(), title.clone(), std::vec::Vec::new(), &event_tx)?;
+        let handle = spawn_tray(icon.clone(), tooltip.clone(), std::vec::Vec::new(), &event_tx)?;
 
         let dispatcher = context
             .spawn_local(dispatch_loop(event_rx, self_weak))
@@ -121,7 +124,7 @@ impl PlatformTray {
 
         Ok(Self {
             icon: core::cell::RefCell::new(icon),
-            title: core::cell::RefCell::new(title),
+            tooltip: core::cell::RefCell::new(tooltip),
             event_tx,
             menu: core::cell::RefCell::new(std::vec::Vec::new()),
             handle: core::cell::RefCell::new(Some(handle)),
@@ -153,8 +156,8 @@ impl PlatformTray {
             (true, false) => {
                 let menu = self.menu.borrow().clone();
                 let icon = self.icon.borrow().clone();
-                let title = self.title.borrow().clone();
-                match spawn_tray(icon, title, menu, &self.event_tx) {
+                let tooltip = self.tooltip.borrow().clone();
+                match spawn_tray(icon, tooltip, menu, &self.event_tx) {
                     Ok(handle) => *slot = Some(handle),
                     Err(_) => {
                         // Leave the slot empty; the next set_visible(true) retries.
@@ -185,12 +188,12 @@ impl PlatformTray {
         }
     }
 
-    pub fn set_title(&self, title: &str) {
-        let new_title: std::string::String = title.into();
-        *self.title.borrow_mut() = new_title.clone();
+    pub fn set_tooltip(&self, tooltip: &str) {
+        let new_tooltip: std::string::String = tooltip.into();
+        *self.tooltip.borrow_mut() = new_tooltip.clone();
         if let Some(handle) = self.handle.borrow().as_ref() {
             handle.update(move |tray: &mut KsniTray| {
-                tray.title = new_title;
+                tray.tooltip = new_tooltip;
             });
         }
     }
@@ -209,11 +212,11 @@ fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
 
 fn spawn_tray(
     icon: ::ksni::Icon,
-    title: std::string::String,
+    tooltip: std::string::String,
     menu: std::vec::Vec<MenuNode>,
     event_tx: &async_channel::Sender<Event>,
 ) -> Result<::ksni::blocking::Handle<KsniTray>, Error> {
-    let tray = KsniTray { icon, title, menu, event_tx: event_tx.clone() };
+    let tray = KsniTray { icon, tooltip, menu, event_tx: event_tx.clone() };
     // Blocks briefly on D-Bus name claim / service setup, then spawns the
     // service loop on its own background thread. Returning the handle
     // synchronously eliminates the pending-menu race an async spawn would

@@ -134,7 +134,7 @@ impl PlatformTray {
 
         if let Some(button) = status_item.button(mtm) {
             button.setImage(Some(&image));
-            let tooltip = NSString::from_str(params.title);
+            let tooltip = NSString::from_str(params.tooltip);
             button.setToolTip(Some(&tooltip));
         }
 
@@ -168,10 +168,10 @@ impl PlatformTray {
         }
     }
 
-    pub fn set_title(&self, title: &str) {
+    pub fn set_tooltip(&self, tooltip: &str) {
         if let Some(button) = self.status_item.button(self.mtm) {
-            let tooltip = NSString::from_str(title);
-            button.setToolTip(Some(&tooltip));
+            let s = NSString::from_str(tooltip);
+            button.setToolTip(Some(&s));
         }
     }
 }
