@@ -46,6 +46,7 @@ use self::windows::PlatformTray;
 pub struct Params<'a> {
     pub icon: &'a Image,
     pub tooltip: &'a str,
+    pub title: &'a str,
 }
 
 /// Errors raised while constructing a platform tray icon.
@@ -91,6 +92,10 @@ impl SystemTrayHandle {
     pub fn set_tooltip(&self, tooltip: &str) {
         self.0.set_tooltip(tooltip);
     }
+
+    pub fn set_title(&self, title: &str) {
+        self.0.set_title(title);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +133,7 @@ pub struct SystemTrayData {
     visible_tracker: crate::properties::ChangeTracker,
     icon_tracker: crate::properties::ChangeTracker,
     tooltip_tracker: crate::properties::ChangeTracker,
+    title_tracker: crate::properties::ChangeTracker,
     menu: core::cell::RefCell<Option<MenuState>>,
 }
 
@@ -158,6 +164,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
 pub struct SystemTray {
     pub icon: Property<Image>,
     pub tooltip: Property<SharedString>,
+    pub title: Property<SharedString>,
     pub visible: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
@@ -224,7 +231,7 @@ impl Item for SystemTray {
                 };
                 let tray = tray.as_pin_ref();
                 let handle = match SystemTrayHandle::new(
-                    Params { icon: &tray.icon(), tooltip: &tray.tooltip() },
+                    Params { icon: &tray.icon(), tooltip: &tray.tooltip(), title: &tray.title() },
                     self_weak.clone(),
                     &ctx,
                 ) {
@@ -293,6 +300,24 @@ impl Item for SystemTray {
                 let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
                 if let Some(handle) = tray.as_pin_ref().data.inner.get() {
                     handle.set_tooltip(tooltip.as_str());
+                }
+            },
+        );
+
+        self.data.title_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                    return SharedString::default();
+                };
+                tray.as_pin_ref().title()
+            },
+            |self_weak, title| {
+                let Some(tray_rc) = self_weak.upgrade() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                if let Some(handle) = tray.as_pin_ref().data.inner.get() {
+                    handle.set_title(title.as_str());
                 }
             },
         );

@@ -136,6 +136,11 @@ impl PlatformTray {
             button.setImage(Some(&image));
             let tooltip = NSString::from_str(params.tooltip);
             button.setToolTip(Some(&tooltip));
+            // Slint's `title` is the visible text next to the icon (think
+            // battery percentage or system clock). Setting an empty string
+            // simply leaves no label, which is the natural default.
+            let title = NSString::from_str(params.title);
+            button.setTitle(&title);
         }
 
         let action_target = MenuAction::new(mtm, self_weak);
@@ -172,6 +177,13 @@ impl PlatformTray {
         if let Some(button) = self.status_item.button(self.mtm) {
             let s = NSString::from_str(tooltip);
             button.setToolTip(Some(&s));
+        }
+    }
+
+    pub fn set_title(&self, title: &str) {
+        if let Some(button) = self.status_item.button(self.mtm) {
+            let s = NSString::from_str(title);
+            button.setTitle(&s);
         }
     }
 }

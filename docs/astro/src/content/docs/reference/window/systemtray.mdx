@@ -67,6 +67,18 @@ The hover text shown over the tray icon.
 Typically the application name or a short status message.
 </SlintProperty>
 
+### title
+<SlintProperty propName="title" typeName="string" defaultValue='""'>
+A descriptive name for the tray entry, separate from the hover tooltip.
+Where it actually shows up depends on the platform:
+
+| Platform      | Where `title` appears                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| Linux, \*BSD  | Used by accessibility tools and shown by some desktops when listing tray icons (e.g. an overflow menu). Set as the [StatusNotifierItem `Title`](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/StatusNotifierItem/) property. |
+| macOS         | The visible text label rendered next to the icon in the menu bar (think battery percent, clock). |
+| Windows       | Has no visible effect; the notification area renders only the icon.                              |
+</SlintProperty>
+
 ## Callbacks
 
 ### activated()

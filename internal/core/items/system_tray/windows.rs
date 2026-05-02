@@ -236,6 +236,12 @@ impl PlatformTray {
         // TaskbarCreated re-add reflects the property the user asked for.
         *self.inner.tip.borrow_mut() = new_tip;
     }
+
+    pub fn set_title(&self, _title: &str) {
+        // The Windows notification area renders only the icon; there's no
+        // shell-level slot for a visible title next to it. The screen-reader
+        // friendly name falls back to the tooltip, so this stays a no-op.
+    }
 }
 
 impl Drop for PlatformTray {

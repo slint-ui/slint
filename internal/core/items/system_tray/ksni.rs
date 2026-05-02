@@ -30,6 +30,7 @@ enum Event {
 struct KsniTray {
     icon: ::ksni::Icon,
     tooltip: std::string::String,
+    title: std::string::String,
     menu: std::vec::Vec<MenuNode>,
     event_tx: async_channel::Sender<Event>,
 }
@@ -44,11 +45,15 @@ impl ::ksni::Tray for KsniTray {
         let _ = self.event_tx.try_send(Event::Activate(x, y));
     }
 
-    // Slint's `tooltip` property maps to SNI `ToolTip` (hover text), not SNI
-    // `Title` (descriptive name). The SNI `Title` slot is left at its default
-    // until a separate `title` property is introduced.
+    // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip`.
     fn tool_tip(&self) -> ::ksni::ToolTip {
         ::ksni::ToolTip { title: self.tooltip.clone(), ..Default::default() }
+    }
+
+    // Slint's `title` is the descriptive name — it goes into SNI `Title`,
+    // which watchers expose for accessibility and overflow listings.
+    fn title(&self) -> std::string::String {
+        self.title.clone()
     }
 
     fn icon_pixmap(&self) -> std::vec::Vec<::ksni::Icon> {
@@ -99,6 +104,7 @@ pub struct PlatformTray {
     // `KsniTray` itself.
     icon: core::cell::RefCell<::ksni::Icon>,
     tooltip: core::cell::RefCell<std::string::String>,
+    title: core::cell::RefCell<std::string::String>,
     event_tx: async_channel::Sender<Event>,
     menu: core::cell::RefCell<std::vec::Vec<MenuNode>>,
     handle: core::cell::RefCell<Option<::ksni::blocking::Handle<KsniTray>>>,
@@ -115,8 +121,15 @@ impl PlatformTray {
 
         let (event_tx, event_rx) = async_channel::unbounded();
         let tooltip: std::string::String = params.tooltip.into();
+        let title: std::string::String = params.title.into();
 
-        let handle = spawn_tray(icon.clone(), tooltip.clone(), std::vec::Vec::new(), &event_tx)?;
+        let handle = spawn_tray(
+            icon.clone(),
+            tooltip.clone(),
+            title.clone(),
+            std::vec::Vec::new(),
+            &event_tx,
+        )?;
 
         let dispatcher = context
             .spawn_local(dispatch_loop(event_rx, self_weak))
@@ -125,6 +138,7 @@ impl PlatformTray {
         Ok(Self {
             icon: core::cell::RefCell::new(icon),
             tooltip: core::cell::RefCell::new(tooltip),
+            title: core::cell::RefCell::new(title),
             event_tx,
             menu: core::cell::RefCell::new(std::vec::Vec::new()),
             handle: core::cell::RefCell::new(Some(handle)),
@@ -157,7 +171,8 @@ impl PlatformTray {
                 let menu = self.menu.borrow().clone();
                 let icon = self.icon.borrow().clone();
                 let tooltip = self.tooltip.borrow().clone();
-                match spawn_tray(icon, tooltip, menu, &self.event_tx) {
+                let title = self.title.borrow().clone();
+                match spawn_tray(icon, tooltip, title, menu, &self.event_tx) {
                     Ok(handle) => *slot = Some(handle),
                     Err(_) => {
                         // Leave the slot empty; the next set_visible(true) retries.
@@ -197,6 +212,16 @@ impl PlatformTray {
             });
         }
     }
+
+    pub fn set_title(&self, title: &str) {
+        let new_title: std::string::String = title.into();
+        *self.title.borrow_mut() = new_title.clone();
+        if let Some(handle) = self.handle.borrow().as_ref() {
+            handle.update(move |tray: &mut KsniTray| {
+                tray.title = new_title;
+            });
+        }
+    }
 }
 
 fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
@@ -213,10 +238,11 @@ fn image_to_argb_icon(image: &Image) -> Result<::ksni::Icon, Error> {
 fn spawn_tray(
     icon: ::ksni::Icon,
     tooltip: std::string::String,
+    title: std::string::String,
     menu: std::vec::Vec<MenuNode>,
     event_tx: &async_channel::Sender<Event>,
 ) -> Result<::ksni::blocking::Handle<KsniTray>, Error> {
-    let tray = KsniTray { icon, tooltip, menu, event_tx: event_tx.clone() };
+    let tray = KsniTray { icon, tooltip, title, menu, event_tx: event_tx.clone() };
     // Blocks briefly on D-Bus name claim / service setup, then spawns the
     // service loop on its own background thread. Returning the handle
     // synchronously eliminates the pending-menu race an async spawn would
