@@ -22,6 +22,14 @@ pub struct JsComponentCompiler {
     diagnostics: Vec<slint_interpreter::Diagnostic>,
 }
 
+impl JsComponentCompiler {
+    /// Access the underlying compiler (for in-process callers like
+    /// deno-slint that bypass NAPI).
+    pub fn inner(&self) -> &Compiler {
+        &self.internal
+    }
+}
+
 #[napi]
 impl JsComponentCompiler {
     /// Returns a new ComponentCompiler.

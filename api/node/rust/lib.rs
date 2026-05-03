@@ -13,6 +13,11 @@ pub use types::*;
 mod uv_event_loop;
 pub use uv_event_loop::*;
 
+// Re-export underlying crates so downstream consumers (e.g. deno-slint) can
+// use the same types without adding their own direct dependencies.
+pub use i_slint_core;
+pub use slint_interpreter;
+
 use napi::Env;
 use napi::bindgen_prelude::*;
 
@@ -38,17 +43,13 @@ pub(crate) fn set_hidden_property<'a, V: napi::JsValue<'a>>(
 extern crate napi_derive;
 
 #[napi]
-pub fn mock_elapsed_time(_ms: f64) {
-    #[cfg(feature = "testing")]
-    i_slint_backend_testing::mock_elapsed_time(_ms as u64);
+pub fn mock_elapsed_time(ms: f64) {
+    i_slint_core::tests::slint_mock_elapsed_time(ms as _);
 }
 
 #[napi]
 pub fn get_mocked_time() -> f64 {
-    #[cfg(feature = "testing")]
-    return i_slint_backend_testing::get_mocked_time() as f64;
-    #[cfg(not(feature = "testing"))]
-    return 0.0;
+    i_slint_core::tests::slint_get_mocked_time() as f64
 }
 
 #[napi]

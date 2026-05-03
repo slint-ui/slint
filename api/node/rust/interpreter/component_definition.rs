@@ -11,6 +11,14 @@ pub struct JsComponentDefinition {
     internal: ComponentDefinition,
 }
 
+impl JsComponentDefinition {
+    /// Access the underlying definition (for in-process callers like
+    /// deno-slint that bypass NAPI).
+    pub fn inner(&self) -> &ComponentDefinition {
+        &self.internal
+    }
+}
+
 impl From<ComponentDefinition> for JsComponentDefinition {
     fn from(definition: ComponentDefinition) -> Self {
         Self { internal: definition }

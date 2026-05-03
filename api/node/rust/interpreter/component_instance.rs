@@ -23,6 +23,14 @@ pub struct JsComponentInstance {
     inner: ComponentInstance,
 }
 
+impl JsComponentInstance {
+    /// Access the underlying interpreter instance (for in-process callers
+    /// like deno-slint that bypass NAPI).
+    pub fn inner(&self) -> &ComponentInstance {
+        &self.inner
+    }
+}
+
 impl From<ComponentInstance> for JsComponentInstance {
     fn from(instance: ComponentInstance) -> Self {
         Self { inner: instance, anchor_seq: std::rc::Rc::new(std::cell::Cell::new(0)) }
@@ -387,40 +395,19 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn send_mouse_click(&self, _x: f64, _y: f64) {
-        #[cfg(feature = "testing")]
-        {
-            let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
-            i_slint_backend_testing::testing_backend::send_mouse_click(
-                _x as f32,
-                _y as f32,
-                &window_adapter,
-            );
-        }
+    pub fn send_mouse_click(&self, x: f64, y: f64) {
+        slint_interpreter::testing::send_mouse_click(&self.inner, x as f32, y as f32);
     }
 
     #[napi]
-    pub fn send_keyboard_string_sequence(&self, _sequence: String) {
-        #[cfg(feature = "testing")]
-        {
-            let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
-            i_slint_backend_testing::testing_backend::send_keyboard_string_sequence(
-                &_sequence.into(),
-                &window_adapter,
-            );
-        }
+    pub fn send_keyboard_string_sequence(&self, sequence: String) {
+        slint_interpreter::testing::send_keyboard_string_sequence(&self.inner, sequence.into());
     }
 
     #[napi]
     pub fn send_key_combo(&self, keys: Vec<String>) {
-        use i_slint_core::platform::WindowEvent;
-        let window = self.inner.window();
-        for key in &keys {
-            window.dispatch_event(WindowEvent::KeyPressed { text: key.into() });
-        }
-        for key in keys.iter().rev() {
-            window.dispatch_event(WindowEvent::KeyReleased { text: key.into() });
-        }
+        let keys: Vec<_> = keys.into_iter().map(Into::into).collect();
+        slint_interpreter::testing::send_key_combo(&self.inner, &keys);
     }
 
     #[napi]

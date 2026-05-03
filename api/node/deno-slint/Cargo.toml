@@ -1,0 +1,41 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[workspace]
+
+[package]
+name = "deno-slint"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "deno-slint"
+path = "src/main.rs"
+
+[features]
+default = ["testing"]
+testing = ["slint-node/testing", "dep:i-slint-backend-testing"]
+
+[dependencies]
+deno_runtime = { version = "0.255", features = ["include_js_files_for_snapshotting", "snapshot"] }
+deno_error = "0.7"
+deno_node = "0.185"
+deno_resolver = { version = "0.78", features = ["sync"] }
+async-compat = "0.2"
+tempfile = "3"
+sys_traits = { version = "0.1", features = ["real"] }
+node_resolver = "0.85"
+url = "2"
+
+# Link the slint-node NAPI crate (as rlib) so that slint-interpreter,
+# i-slint-core, etc. are shared in-process -- one GLOBAL_CONTEXT.
+slint-node = { path = "..", default-features = false, features = ["backend-winit", "renderer-software"] }
+
+i-slint-backend-selector = { path = "../../../internal/backends/selector", default-features = false, features = ["backend-winit", "renderer-software"] }
+i-slint-backend-testing = { path = "../../../internal/backends/testing", optional = true }
+
+# ed448-goldilocks 0.14.0-pre.12 is broken with pkcs8 0.11.0 (KeyMalformed
+# changed from unit to tuple variant).  Keep the git patch for now.
+[patch.crates-io]
+ed448-goldilocks = { git = "https://github.com/crate-crypto/Ed448-Goldilocks" }

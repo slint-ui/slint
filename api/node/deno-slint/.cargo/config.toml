@@ -1,0 +1,7 @@
+# Export symbols from the binary so that NAPI addons loaded via dlopen
+# can resolve napi_* functions provided by deno_napi.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-args=-rdynamic"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "link-args=-rdynamic"]
