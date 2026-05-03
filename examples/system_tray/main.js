@@ -2,9 +2,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// SystemTray is currently behind the experimental flag.
-process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1";
-
 import * as slint from "slint-ui";
 
 const ui = slint.loadFile(new URL("system_tray.slint", import.meta.url));

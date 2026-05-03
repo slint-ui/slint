@@ -1,7 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import os
 import pytest
 from slint import load_file, CompileError
 from pathlib import Path
@@ -101,9 +100,6 @@ def test_system_tray_has_no_window_attribute() -> None:
     # forward-looking: if `window` ever gets added to `slint.Component` (where
     # it would naturally live), this assertion catches that change leaking
     # onto a SystemTray, which is not a window.
-    #
-    # SystemTray is gated behind the experimental flag in the type register.
-    os.environ["SLINT_ENABLE_EXPERIMENTAL_FEATURES"] = "1"
     module = load_file(base_dir() / "test-system-tray.slint")
 
     tray = module.Tray()

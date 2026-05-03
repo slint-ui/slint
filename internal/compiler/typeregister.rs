@@ -635,8 +635,6 @@ impl TypeRegister {
         register.elements.remove("DropArea").unwrap();
         register.types.remove("DropEvent").unwrap(); // Also removed in docs/slint-doc-generator
 
-        register.elements.remove("SystemTray").unwrap();
-
         register.elements.remove("FlexboxLayout").unwrap();
         register.types.remove("FlexboxLayoutDirection").unwrap();
         register.types.remove("FlexboxLayoutAlignContent").unwrap();

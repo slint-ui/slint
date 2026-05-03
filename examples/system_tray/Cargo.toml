@@ -15,6 +15,3 @@ name = "system_tray"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-
-[build-dependencies]
-slint-build = { path = "../../api/rs/build" }

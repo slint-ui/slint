@@ -10906,7 +10906,6 @@ name = "system_tray"
 version = "1.16.0"
 dependencies = [
  "slint",
- "slint-build",
 ]
 
 [[package]]

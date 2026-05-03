@@ -178,8 +178,6 @@ test("loadSource", () => {
 });
 
 test("non-windowed components have no `window` property", () => {
-    process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1";
-
     const source = `
         export component Win inherits Window {
             in-out property <string> name: "world";

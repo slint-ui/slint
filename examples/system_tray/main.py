@@ -1,15 +1,9 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# SystemTray is currently behind the experimental flag in slint-python.
-# Set the env var before importing slint so the loader picks it up.
-import os
+from typing import Optional
 
-os.environ.setdefault("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
-
-from typing import Optional  # noqa: E402
-
-import slint  # noqa: E402
+import slint
 
 ui = slint.loader.system_tray
 
