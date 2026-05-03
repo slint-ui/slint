@@ -273,6 +273,10 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-read-only", Type::Bool),
     ]
     .into_iter()
+    .chain(std::iter::once((
+        "accessible-orientation",
+        Type::Enumeration(BUILTIN.with(|e| e.enums.Orientation.clone())),
+    )))
 }
 
 /// list of reserved property injected in every item

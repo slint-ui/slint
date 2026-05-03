@@ -109,4 +109,4 @@ pub fn configure_test_fonts() {
     .unwrap();
 }
 
-pub use i_slint_core::items::AccessibleRole;
+pub use i_slint_core::items::{AccessibleRole, Orientation};

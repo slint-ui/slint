@@ -164,6 +164,7 @@ component CupertinoTabBarBase inherits TabBarBase {
 }
 
 export component TabBarHorizontalImpl inherits CupertinoTabBarBase {
+    accessible-orientation: Orientation.horizontal;
     Flickable {
         HorizontalLayout {
             min-height: 22px;
@@ -175,6 +176,7 @@ export component TabBarHorizontalImpl inherits CupertinoTabBarBase {
 }
 
 export component TabBarVerticalImpl inherits CupertinoTabBarBase {
+    accessible-orientation: Orientation.vertical;
     Flickable {
         VerticalLayout {
             // TODO min-height: 22px;

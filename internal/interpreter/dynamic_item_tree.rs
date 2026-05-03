@@ -2453,6 +2453,7 @@ extern "C" fn accessible_string_property(
             Value::String(s) => *result = s,
             Value::Bool(b) => *result = if b { "true" } else { "false" }.into(),
             Value::Number(x) => *result = x.to_string().into(),
+            Value::EnumerationValue(_, v) => *result = v.into(),
             _ => unimplemented!("invalid type for accessible_string_property"),
         };
         true

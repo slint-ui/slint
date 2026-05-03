@@ -32,6 +32,10 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
             &mut enums_pub
         }};
+        (Orientation) => {{
+            writeln!(enums_priv, "using slint::Orientation;")?;
+            &mut enums_pub
+        }};
         ($_:ident) => {
             &mut enums_priv
         };
