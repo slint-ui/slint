@@ -53,6 +53,17 @@ define_class!(
             // backend is the Slint event-loop thread; dispatch directly.
             activate_entry(&self.ivars().self_weak, entry_index);
         }
+
+        // Wired as the status-bar button's action. Fires only when AppKit
+        // hasn't auto-popped a menu — i.e. when no `NSMenu` is attached
+        // (which `rebuild_menu` toggles based on whether the slint menu
+        // currently has any entries).
+        #[unsafe(method(tray_activated:))]
+        fn tray_activated(&self, _sender: *const objc2::runtime::AnyObject) {
+            let Some(item_rc) = self.ivars().self_weak.upgrade() else { return };
+            let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
+            tray.as_pin_ref().activated.call(&());
+        }
     }
 );
 
@@ -132,6 +143,8 @@ impl PlatformTray {
         let status_bar = NSStatusBar::systemStatusBar();
         let status_item = status_bar.statusItemWithLength(NSVariableStatusItemLength);
 
+        let action_target = MenuAction::new(mtm, self_weak);
+
         if let Some(button) = status_item.button(mtm) {
             button.setImage(Some(&image));
             let tooltip = NSString::from_str(params.tooltip);
@@ -141,9 +154,17 @@ impl PlatformTray {
             // simply leaves no label, which is the natural default.
             let title = NSString::from_str(params.title);
             button.setTitle(&title);
+            // Route clicks back to slint's `activated` callback. NSStatusItem
+            // only fires the button's action when no menu is attached;
+            // `rebuild_menu` toggles `setMenu` on/off based on whether the
+            // slint menu has entries, so a tray with no Menu (or one whose
+            // `if cond : Menu` is currently false) routes clicks here, while
+            // a tray with menu entries gets the standard auto-popup behavior.
+            unsafe {
+                button.setTarget(Some(action_target.as_ref()));
+                button.setAction(Some(sel!(tray_activated:)));
+            }
         }
-
-        let action_target = MenuAction::new(mtm, self_weak);
 
         Ok(Self { status_item, action_target, mtm })
     }
@@ -155,7 +176,15 @@ impl PlatformTray {
     ) {
         entries_out.clear();
         let ns_menu = build_menu(menu, &self.action_target, self.mtm, entries_out);
-        self.status_item.setMenu(Some(&ns_menu));
+        // Detach the menu when there are no entries so AppKit forwards clicks
+        // to the button's action (which fires slint's `activated`). An
+        // `if cond : Menu { ... }` whose condition is false reports zero
+        // entries here; on the next flip we re-attach a populated NSMenu.
+        if entries_out.is_empty() {
+            self.status_item.setMenu(None);
+        } else {
+            self.status_item.setMenu(Some(&ns_menu));
+        }
     }
 
     pub fn set_visible(&self, visible: bool) {

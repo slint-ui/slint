@@ -89,7 +89,7 @@ What counts as activation, and whether it's invoked at all, depends on the platf
 | Platform      | Activation behavior                                                                   |
 | ------------- | ------------------------------------------------------------------------------------- |
 | Linux, \*BSD  | Invoked on a left-click of the icon. The exact gesture is decided by the desktop environment or shell extension hosting the tray. |
-| macOS         | Not invoked. Clicking the icon always opens the menu; AppKit's status item has no separate activation gesture. |
+| macOS         | Invoked on a click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `activated` doesn't fire. |
 | Windows       | Invoked on a left-click of the icon. Right-click opens the menu.                      |
 
 ## Menu
