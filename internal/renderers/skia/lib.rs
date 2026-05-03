@@ -383,7 +383,7 @@ impl SkiaRenderer {
         }
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-27")]
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29"))]
     /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
     pub fn default_wgpu(context: &SkiaSharedContext) -> Self {
         Self {
