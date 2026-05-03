@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Exercises `if cond : Menu { ... }` inside a SystemTrayIcon. The tray has no
+// icon, so the platform layer stays inert and the test is mainly a compile
+// check that the conditional path lowers and codegens for every backend.
+
+export component TestCase inherits SystemTrayIcon {
+    in-out property <bool> show-menu: true;
+
+    if show-menu : Menu {
+        MenuItem { title: "Quit"; }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_show_menu(false);
+instance.set_show_menu(true);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_show_menu(false);
+instance.set_show_menu(true);
+```
+*/

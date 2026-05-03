@@ -1510,6 +1510,7 @@ fn call_builtin_function(
                 let [
                     Expression::ElementReference(system_tray_elem),
                     Expression::ElementReference(item_tree_root),
+                    rest @ ..,
                 ] = arguments
                 else {
                     panic!("internal error: incorrect argument count to SetupSystemTrayIcon")
@@ -1536,7 +1537,7 @@ fn call_builtin_function(
                 let menu_vrc = crate::dynamic_item_tree::make_menu_item_tree(
                     &menu_item_tree_component,
                     &enclosing_component,
-                    None,
+                    rest.first(),
                 );
 
                 let system_tray = item_rc

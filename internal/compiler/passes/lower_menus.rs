@@ -402,24 +402,34 @@ fn process_system_tray_icon(
         return;
     };
 
-    if menu_elem.borrow().repeated.is_some() {
-        diag.push_error(
-            "SystemTrayIcon's Menu cannot be in a conditional or repeated element".into(),
-            &*menu_elem.borrow(),
-        );
-    }
+    // `if cond : Menu { ... }` is allowed (the wrapper switches the menu's
+    // shadow tree on/off based on the condition); `for ... : Menu { ... }`
+    // is not.
+    let repeated = menu_elem.borrow_mut().repeated.take();
+    let condition = repeated.map(|repeated| {
+        if !repeated.is_conditional_element {
+            diag.push_error(
+                "SystemTrayIcon's Menu cannot be in a repeated element".into(),
+                &*menu_elem.borrow(),
+            );
+        }
+        repeated.model
+    });
 
     let source_location = Some(system_tray_elem.borrow().to_source_location());
     let children = std::mem::take(&mut menu_elem.borrow_mut().children);
     let c = lower_menu_items(system_tray_elem, children, components, diag);
     let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
 
+    let mut arguments =
+        vec![Expression::ElementReference(Rc::downgrade(system_tray_elem)), item_tree_root];
+    if let Some(condition) = condition {
+        arguments.push(condition);
+    }
+
     let setup = Expression::FunctionCall {
         function: BuiltinFunction::SetupSystemTrayIcon.into(),
-        arguments: vec![
-            Expression::ElementReference(Rc::downgrade(system_tray_elem)),
-            item_tree_root,
-        ],
+        arguments,
         source_location,
     };
 

@@ -4552,6 +4552,7 @@ fn compile_builtin_function_call(
             let [
                 llr::Expression::PropertyReference(system_tray_ref),
                 llr::Expression::NumberLiteral(tree_index),
+                rest @ ..,
             ] = arguments
             else {
                 panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
@@ -4566,10 +4567,26 @@ fn compile_builtin_function_call(
             let system_tray = access_member(system_tray_ref, ctx).unwrap();
             let system_tray_rc = access_item_rc(system_tray_ref, ctx);
 
+            // `if cond : Menu { ... }` is lowered to a condition lambda passed
+            // alongside the menu wrapper. `create_menu_wrapper` already accepts
+            // the optional condition pointer.
+            let condition = if let [condition] = rest {
+                let condition = compile_expression(condition, ctx);
+                format!(
+                    r"[](auto menu_tree) {{
+                        auto self_mapped = reinterpret_cast<const {item_tree_id} *>(menu_tree->operator->())->parent.lock();
+                        [[maybe_unused]] auto self = &**self_mapped;
+                        return {condition};
+                    }}"
+                )
+            } else {
+                "nullptr".to_string()
+            };
+
             format!(
                 r"{{
                     auto item_tree = {item_tree_id}::create(self);
-                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree.into_dyn());
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree.into_dyn(), {condition});
                     slint::cbindgen_private::ItemRc item_rc{{ {system_tray_rc} }};
                     slint::cbindgen_private::slint_system_tray_icon_set_menu(&{system_tray}, &item_rc, &menu_wrapper);
                 }}"

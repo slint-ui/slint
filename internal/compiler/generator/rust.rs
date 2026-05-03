@@ -4003,6 +4003,7 @@ fn compile_builtin_function_call(
             let [
                 Expression::PropertyReference(system_tray_ref),
                 Expression::NumberLiteral(tree_index),
+                rest @ ..,
             ] = arguments
             else {
                 panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
@@ -4017,11 +4018,29 @@ fn compile_builtin_function_call(
             let system_tray = access_member(system_tray_ref, ctx).unwrap();
             let system_tray_rc = access_item_rc(system_tray_ref, ctx);
 
+            // `if cond : Menu { ... }` lowers the condition into a closure that
+            // gates the menu's shadow tree. `MenuFromItemTree::new_with_condition`
+            // re-evaluates it through a property-tracked binding.
+            let menu_from_item_tree = if let Some(condition) = rest.first() {
+                let binding = compile_expression(condition, ctx);
+                quote!(sp::MenuFromItemTree::new_with_condition(
+                    sp::VRc::into_dyn(menu_item_tree_instance),
+                    {
+                        let self_weak = _self.self_weak.get().unwrap().clone();
+                        move || {
+                            let Some(self_rc) = self_weak.upgrade() else { return false };
+                            let _self = self_rc.as_pin_ref();
+                            #binding
+                        }
+                    },
+                ))
+            } else {
+                quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
+            };
+
             quote!({
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(
-                    sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)),
-                ));
+                let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
                 #system_tray.set_menu(#system_tray_rc, menu_vrc);
             })
         }
