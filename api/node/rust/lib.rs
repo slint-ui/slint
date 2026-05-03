@@ -9,6 +9,9 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
+mod uv_event_loop;
+pub use uv_event_loop::*;
+
 use napi::Env;
 use napi::bindgen_prelude::*;
 
