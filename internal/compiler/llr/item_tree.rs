@@ -567,7 +567,7 @@ pub struct ItemTree {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TopLevelComponentType {
     Window,
-    SystemTray,
+    SystemTrayIcon,
 }
 
 #[derive(Debug)]

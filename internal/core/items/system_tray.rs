@@ -3,7 +3,7 @@
 
 //! System tray integration.
 //!
-//! This module hosts the `SystemTray` native item (the element exposed to `.slint`) and
+//! This module hosts the `SystemTrayIcon` native item (the element exposed to `.slint`) and
 //! wraps the platform-specific tray icon backends: `ksni` on Linux/BSD, AppKit
 //! (`NSStatusBar` / `NSStatusItem`) on macOS, and `Shell_NotifyIconW` on Windows.
 
@@ -62,9 +62,9 @@ pub enum Error {
 }
 
 /// Owning handle to a live platform tray icon. Dropping it removes the icon.
-pub struct SystemTrayHandle(PlatformTray);
+pub struct SystemTrayIconHandle(PlatformTray);
 
-impl SystemTrayHandle {
+impl SystemTrayIconHandle {
     pub fn new(
         params: Params,
         self_weak: crate::item_tree::ItemWeak,
@@ -99,36 +99,36 @@ impl SystemTrayHandle {
 }
 
 // ---------------------------------------------------------------------------
-// Native `SystemTray` item, exposed to `.slint`.
+// Native `SystemTrayIcon` item, exposed to `.slint`.
 // ---------------------------------------------------------------------------
 
 #[repr(C)]
-/// Wraps the internal data structure for the SystemTray
-pub struct SystemTrayDataBox(core::ptr::NonNull<SystemTrayData>);
+/// Wraps the internal data structure for the SystemTrayIcon
+pub struct SystemTrayIconDataBox(core::ptr::NonNull<SystemTrayIconData>);
 
-impl Default for SystemTrayDataBox {
+impl Default for SystemTrayIconDataBox {
     fn default() -> Self {
-        SystemTrayDataBox(Box::leak(Box::<SystemTrayData>::default()).into())
+        SystemTrayIconDataBox(Box::leak(Box::<SystemTrayIconData>::default()).into())
     }
 }
-impl Drop for SystemTrayDataBox {
+impl Drop for SystemTrayIconDataBox {
     fn drop(&mut self) {
-        // Safety: the self.0 was constructed from a Box::leak in SystemTrayDataBox::default
+        // Safety: the self.0 was constructed from a Box::leak in SystemTrayIconDataBox::default
         drop(unsafe { Box::from_raw(self.0.as_ptr()) });
     }
 }
 
-impl core::ops::Deref for SystemTrayDataBox {
-    type Target = SystemTrayData;
+impl core::ops::Deref for SystemTrayIconDataBox {
+    type Target = SystemTrayIconData;
     fn deref(&self) -> &Self::Target {
-        // Safety: initialized in SystemTrayDataBox::default
+        // Safety: initialized in SystemTrayIconDataBox::default
         unsafe { self.0.as_ref() }
     }
 }
 
 #[derive(Default)]
-pub struct SystemTrayData {
-    inner: std::cell::OnceCell<SystemTrayHandle>,
+pub struct SystemTrayIconData {
+    inner: std::cell::OnceCell<SystemTrayIconHandle>,
     change_tracker: crate::properties::ChangeTracker,
     visible_tracker: crate::properties::ChangeTracker,
     icon_tracker: crate::properties::ChangeTracker,
@@ -141,7 +141,7 @@ pub struct SystemTrayData {
     menu: core::cell::RefCell<Option<MenuState>>,
 }
 
-impl Drop for SystemTrayData {
+impl Drop for SystemTrayIconData {
     fn drop(&mut self) {
         if self.keepalive_live.get()
             && let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned())
@@ -166,7 +166,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
         let self_weak = self.self_weak.clone();
         crate::timers::Timer::single_shot(Default::default(), move || {
             let Some(item_rc) = self_weak.upgrade() else { return };
-            let Some(tray) = item_rc.downcast::<SystemTray>() else { return };
+            let Some(tray) = item_rc.downcast::<SystemTrayIcon>() else { return };
             tray.as_pin_ref().rebuild_menu();
         });
     }
@@ -175,18 +175,18 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct SystemTray {
+pub struct SystemTrayIcon {
     pub icon: Property<Image>,
     pub tooltip: Property<SharedString>,
     pub title: Property<SharedString>,
     pub visible: Property<bool>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
-    data: SystemTrayDataBox,
+    data: SystemTrayIconDataBox,
 }
 
-impl SystemTray {
-    /// Called from generated code (via the `SetupSystemTray` builtin) to hand off the
+impl SystemTrayIcon {
+    /// Called from generated code (via the `SetupSystemTrayIcon` builtin) to hand off the
     /// lowered menu's `VRc<MenuVTable>` to the native item. The item walks the menu via
     /// this vtable inside its own `PropertyTracker`, so property changes inside the menu
     /// tree automatically trigger a rebuild of the platform tray menu. Subsequent calls
@@ -241,7 +241,7 @@ impl SystemTray {
     }
 }
 
-impl Item for SystemTray {
+impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         self.data.change_tracker.init_delayed(
             self_rc.downgrade(),
@@ -250,7 +250,7 @@ impl Item for SystemTray {
                 let Some(tray_rc) = self_weak.upgrade() else {
                     return;
                 };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else {
                     return;
                 };
                 if !*has_icon {
@@ -259,14 +259,14 @@ impl Item for SystemTray {
                 // The platform is set before any item's `init` runs (the public
                 // component's `new` calls `ensure_backend()` first), so the
                 // global context is populated by the time this tracker fires
-                // from the event loop. SystemTray has no `WindowAdapter` of
+                // from the event loop. SystemTrayIcon has no `WindowAdapter` of
                 // its own, so we read the context directly rather than going
                 // through `tray_rc.window_adapter()`.
                 let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned()) else {
                     return;
                 };
                 let tray = tray.as_pin_ref();
-                let handle = match SystemTrayHandle::new(
+                let handle = match SystemTrayIconHandle::new(
                     Params { icon: &tray.icon(), tooltip: &tray.tooltip(), title: &tray.title() },
                     self_weak.clone(),
                     &ctx,
@@ -287,12 +287,12 @@ impl Item for SystemTray {
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return false };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return false };
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else { return false };
                 tray.as_pin_ref().visible()
             },
             |self_weak, visible| {
                 let Some(tray_rc) = self_weak.upgrade() else { return };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else { return };
                 let tray = tray.as_pin_ref();
                 if let Some(handle) = tray.data.inner.get() {
                     handle.set_visible(*visible);
@@ -311,12 +311,14 @@ impl Item for SystemTray {
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return Image::default() };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return Image::default() };
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else {
+                    return Image::default();
+                };
                 tray.as_pin_ref().icon()
             },
             |self_weak, icon| {
                 let Some(tray_rc) = self_weak.upgrade() else { return };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else { return };
                 if let Some(handle) = tray.as_pin_ref().data.inner.get() {
                     handle.set_icon(icon);
                 }
@@ -327,14 +329,14 @@ impl Item for SystemTray {
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else {
                     return SharedString::default();
                 };
                 tray.as_pin_ref().tooltip()
             },
             |self_weak, tooltip| {
                 let Some(tray_rc) = self_weak.upgrade() else { return };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else { return };
                 if let Some(handle) = tray.as_pin_ref().data.inner.get() {
                     handle.set_tooltip(tooltip.as_str());
                 }
@@ -345,14 +347,14 @@ impl Item for SystemTray {
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else {
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else {
                     return SharedString::default();
                 };
                 tray.as_pin_ref().title()
             },
             |self_weak, title| {
                 let Some(tray_rc) = self_weak.upgrade() else { return };
-                let Some(tray) = tray_rc.downcast::<SystemTray>() else { return };
+                let Some(tray) = tray_rc.downcast::<SystemTrayIcon>() else { return };
                 if let Some(handle) = tray.as_pin_ref().data.inner.get() {
                     handle.set_title(title.as_str());
                 }
@@ -442,32 +444,32 @@ impl Item for SystemTray {
     }
 }
 
-impl ItemConsts for SystemTray {
+impl ItemConsts for SystemTrayIcon {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 /// # Safety
 /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a SystemTrayDataBox
+/// hold a SystemTrayIconDataBox
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_data_init(data: *mut SystemTrayDataBox) {
-    unsafe { core::ptr::write(data, SystemTrayDataBox::default()) };
+pub unsafe extern "C" fn slint_system_tray_icon_data_init(data: *mut SystemTrayIconDataBox) {
+    unsafe { core::ptr::write(data, SystemTrayIconDataBox::default()) };
 }
 
 /// # Safety
-/// This must be called using a non-null pointer pointing to an initialized SystemTrayDataBox
+/// This must be called using a non-null pointer pointing to an initialized SystemTrayIconDataBox
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_data_free(data: *mut SystemTrayDataBox) {
+pub unsafe extern "C" fn slint_system_tray_icon_data_free(data: *mut SystemTrayIconDataBox) {
     unsafe { core::ptr::drop_in_place(data) };
 }
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_set_menu(
-    system_tray: &SystemTray,
+pub unsafe extern "C" fn slint_system_tray_icon_set_menu(
+    system_tray: &SystemTrayIcon,
     item_rc: &ItemRc,
     menu_vrc: &vtable::VRc<crate::menus::MenuVTable>,
 ) {

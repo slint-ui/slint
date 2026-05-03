@@ -498,15 +498,15 @@ impl Component {
         matches!(&self.root_element.borrow().base_type, ElementType::Interface)
     }
 
-    /// True if this component's root resolves to the `SystemTray` native
+    /// True if this component's root resolves to the `SystemTrayIcon` native
     /// class. Uses `native_class()` rather than `builtin_type()` so the check
-    /// still matches once the root has been resolved to `Native(SystemTray)`
+    /// still matches once the root has been resolved to `Native(SystemTrayIcon)`
     /// after `resolve_native_classes`.
-    pub fn inherits_system_tray(&self) -> bool {
+    pub fn inherits_system_tray_icon(&self) -> bool {
         self.root_element
             .borrow()
             .native_class()
-            .is_some_and(|n| n.class_name.as_str() == "SystemTray")
+            .is_some_and(|n| n.class_name.as_str() == "SystemTrayIcon")
     }
 
     /// Returns the names of aliases to global singletons, exactly as

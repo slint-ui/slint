@@ -125,11 +125,11 @@ pub async fn lower_menus(
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    // First check if any MenuBar, ContextMenuArea, or SystemTray is used - avoid loading std-widgets.slint if not needed
+    // First check if any MenuBar, ContextMenuArea, or SystemTrayIcon is used - avoid loading std-widgets.slint if not needed
     let mut has_menubar_or_context_menu = false;
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "MenuBar" | "ContextMenuArea" | "ContextMenuInternal" | "SystemTray")) {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "MenuBar" | "ContextMenuArea" | "ContextMenuInternal" | "SystemTrayIcon")) {
                 has_menubar_or_context_menu = true;
             }
         })
@@ -191,19 +191,19 @@ pub async fn lower_menus(
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "ContextMenuArea" | "ContextMenuInternal")) {
                 has_menu |= process_context_menu(elem, &useful_menu_component, diag);
             }
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "SystemTray")
-                && matches!(&elem.borrow().base_type, ElementType::Builtin(b) if b.name == "SystemTray")
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "SystemTrayIcon")
+                && matches!(&elem.borrow().base_type, ElementType::Builtin(b) if b.name == "SystemTrayIcon")
             {
-                // Only the directly-Builtin SystemTray is processed here. A
-                // SystemTray-derived component as a child element (e.g.
+                // Only the directly-Builtin SystemTrayIcon is processed here. A
+                // SystemTrayIcon-derived component as a child element (e.g.
                 // `MyTray {}` inside a Window) is rejected by
-                // `warn_about_child_windows`; calling `process_system_tray`
+                // `warn_about_child_windows`; calling `process_system_tray_icon`
                 // on it would `as_builtin()`-panic on the still-Component
                 // base_type (lower_menus runs before inlining). The
                 // legitimate root case is reached via the parent
                 // `visit_all_used_components` entering the user component
-                // directly, whose root_element IS the SystemTray builtin.
-                process_system_tray(elem, &useful_menu_component, diag);
+                // directly, whose root_element IS the SystemTrayIcon builtin.
+                process_system_tray_icon(elem, &useful_menu_component, diag);
             }
         })
     });
@@ -363,19 +363,19 @@ fn process_context_menu(
     true
 }
 
-fn process_system_tray(
+fn process_system_tray_icon(
     system_tray_elem: &ElementRc,
     components: &UsefulMenuComponents,
     diag: &mut BuildDiagnostics,
 ) {
-    // A Menu child is optional; without it, no SetupSystemTray call is emitted.
+    // A Menu child is optional; without it, no SetupSystemTrayIcon call is emitted.
     let menu_element_type: ElementType = system_tray_elem
         .borrow()
         .base_type
         .as_builtin()
         .additional_accepted_child_types
         .get("Menu")
-        .expect("SystemTray should accept Menu")
+        .expect("SystemTrayIcon should accept Menu")
         .clone()
         .into();
 
@@ -383,7 +383,10 @@ fn process_system_tray(
     system_tray_elem.borrow_mut().children.retain(|x| {
         if x.borrow().base_type == menu_element_type {
             if let Some(ref existing) = menu_elem {
-                diag.push_error("Only one Menu is allowed in a SystemTray".into(), &*x.borrow());
+                diag.push_error(
+                    "Only one Menu is allowed in a SystemTrayIcon".into(),
+                    &*x.borrow(),
+                );
                 diag.push_note("First Menu defined here".into(), &*existing.borrow());
             } else {
                 menu_elem = Some(x.clone());
@@ -401,7 +404,7 @@ fn process_system_tray(
 
     if menu_elem.borrow().repeated.is_some() {
         diag.push_error(
-            "SystemTray's Menu cannot be in a conditional or repeated element".into(),
+            "SystemTrayIcon's Menu cannot be in a conditional or repeated element".into(),
             &*menu_elem.borrow(),
         );
     }
@@ -412,7 +415,7 @@ fn process_system_tray(
     let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
 
     let setup = Expression::FunctionCall {
-        function: BuiltinFunction::SetupSystemTray.into(),
+        function: BuiltinFunction::SetupSystemTrayIcon.into(),
         arguments: vec![
             Expression::ElementReference(Rc::downgrade(system_tray_elem)),
             item_tree_root,

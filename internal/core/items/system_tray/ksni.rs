@@ -257,7 +257,7 @@ fn spawn_tray(
 async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
     while let Ok(event) = rx.recv().await {
         let Some(item_rc) = self_weak.upgrade() else { continue };
-        let Some(tray) = item_rc.downcast::<super::SystemTray>() else { continue };
+        let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { continue };
         let tray = tray.as_pin_ref();
 
         match event {

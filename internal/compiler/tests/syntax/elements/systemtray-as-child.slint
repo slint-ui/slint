@@ -3,22 +3,22 @@
 
 //config:generate_all_exported_windows
 
-// SystemTray must be the root of an exported component. The platform tray
-// APIs only know how to bind to a top-level SystemTray-rooted component, so
+// SystemTrayIcon must be the root of an exported component. The platform tray
+// APIs only know how to bind to a top-level SystemTrayIcon-rooted component, so
 // nesting it as a child has no meaningful lowering and is rejected.
 
 export component InsideWindow inherits Window {
-    SystemTray {
-//  >         <error{SystemTray must be the root of an exported component, not a child element}
+    SystemTrayIcon {
+//  >             <error{SystemTrayIcon must be the root of an exported component, not a child element}
         Menu { MenuItem { title: "Quit"; } }
     }
 }
 
-component MyTray inherits SystemTray {
+component MyTray inherits SystemTrayIcon {
     Menu { MenuItem { title: "Quit"; } }
 }
 
 export component InsideWindowViaSubclass inherits Window {
     MyTray {}
-//  >     <error{SystemTray must be the root of an exported component, not a child element↵(Note: MyTray inherits SystemTray)}
+//  >     <error{SystemTrayIcon must be the root of an exported component, not a child element↵(Note: MyTray inherits SystemTrayIcon)}
 }

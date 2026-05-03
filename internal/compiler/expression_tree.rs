@@ -97,11 +97,11 @@ pub enum BuiltinFunction {
     /// `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
     /// `condition` is an optional expression that is the expression to `if condition : MenuBar { ... }` for optional menu
     SetupMenuBar,
-    /// Setup the menu of a `SystemTray`.
+    /// Setup the menu of a `SystemTrayIcon`.
     ///
     /// Arguments are `(system_tray_ref, menu_tree_root)` where `menu_tree_root` is an ElementReference to the root of
     /// the MenuItem tree, lowered to a NumberLiteral index into [`crate::llr::SubComponent::menu_item_trees`] in the LLR.
-    SetupSystemTray,
+    SetupSystemTrayIcon,
     Use24HourFormat,
     MonthDayCount,
     MonthOffset,
@@ -277,7 +277,7 @@ declare_builtin_function_types!(
     // entries, sub-menu, activate. But the types here are not accurate.
     SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
     // (system_tray_ref, menu_tree_ref) — types not accurate (menu_tree becomes an index in LLR)
-    SetupSystemTray: (Type::ElementReference, Type::ElementReference) -> Type::Void,
+    SetupSystemTrayIcon: (Type::ElementReference, Type::ElementReference) -> Type::Void,
     MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
@@ -333,7 +333,7 @@ impl BuiltinFunction {
             BuiltinFunction::AccentColor => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
             BuiltinFunction::SetupMenuBar => false,
-            BuiltinFunction::SetupSystemTray => false,
+            BuiltinFunction::SetupSystemTrayIcon => false,
             BuiltinFunction::MonthDayCount => false,
             BuiltinFunction::MonthOffset => false,
             BuiltinFunction::FormatDate => false,
@@ -425,7 +425,7 @@ impl BuiltinFunction {
             BuiltinFunction::AccentColor => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
             BuiltinFunction::SetupMenuBar => false,
-            BuiltinFunction::SetupSystemTray => false,
+            BuiltinFunction::SetupSystemTrayIcon => false,
             BuiltinFunction::MonthDayCount => true,
             BuiltinFunction::MonthOffset => true,
             BuiltinFunction::FormatDate => true,

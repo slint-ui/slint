@@ -18,10 +18,10 @@ pub fn handle_visible(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    // SystemTray uses `visible` as a real reactive property (toggling the tray
+    // SystemTrayIcon uses `visible` as a real reactive property (toggling the tray
     // icon's presence) rather than the lower-to-Clip layout sugar. Skip the
     // warning + lowering for tray-rooted components.
-    if component.inherits_system_tray() {
+    if component.inherits_system_tray_icon() {
         return;
     }
 

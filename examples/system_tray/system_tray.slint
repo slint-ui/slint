@@ -4,9 +4,9 @@
 import { LineEdit, CheckBox, Button, VerticalBox, HorizontalBox, GroupBox } from "std-widgets.slint";
 
 // The window the user interacts with. Edits to the inputs propagate to
-// the SystemTray instance via the host language's callbacks.
+// the SystemTrayIcon instance via the host language's callbacks.
 export component MainWindow inherits Window {
-    title: "Slint SystemTray Demo";
+    title: "Slint SystemTrayIcon Demo";
     preferred-width: 480px;
     preferred-height: 360px;
 
@@ -14,7 +14,7 @@ export component MainWindow inherits Window {
     // CheckBox below; the host language forwards changes onto the tray via
     // the *-changed callbacks.
     in-out property <string> tray-title: "Slint";
-    in-out property <string> tray-tooltip: "Slint SystemTray demo";
+    in-out property <string> tray-tooltip: "Slint SystemTrayIcon demo";
     in-out property <bool> tray-visible: true;
     in-out property <string> activation-log: "(no tray events yet)";
 
@@ -74,12 +74,12 @@ export component MainWindow inherits Window {
     }
 }
 
-export component ExampleTray inherits SystemTray {
+export component ExampleTray inherits SystemTrayIcon {
     icon: @image-url("favicon-white.png");
 
     // Wrapping properties so the host language gets typed `set_*` / property
     // accessors. The inherited `tooltip` / `title` / `visible` from the
-    // SystemTray builtin aren't auto-exposed on the public component handle.
+    // SystemTrayIcon builtin aren't auto-exposed on the public component handle.
     in-out property <string> tray-tooltip <=> root.tooltip;
     in-out property <string> tray-title <=> root.title;
     in-out property <bool> tray-visible <=> root.visible;

@@ -527,13 +527,13 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
-cbindgen_private::SystemTray::SystemTray()
+cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 {
-    slint_system_tray_data_init(&data);
+    slint_system_tray_icon_data_init(&data);
 }
-cbindgen_private::SystemTray::~SystemTray()
+cbindgen_private::SystemTrayIcon::~SystemTrayIcon()
 {
-    slint_system_tray_data_free(&data);
+    slint_system_tray_icon_data_free(&data);
 }
 
 cbindgen_private::FocusScope::FocusScope()
@@ -579,7 +579,7 @@ struct [[deprecated]] VersionCheckHelper
 enum class EventLoopMode {
     /// The event loop quits when the last window is closed and the last
     /// visible system tray icon is hidden, or when slint::quit_event_loop()
-    /// is called. A visible SystemTray keeps the loop alive on its own.
+    /// is called. A visible SystemTrayIcon keeps the loop alive on its own.
     QuitOnLastWindowClosed,
 
     /// The event loop keeps running until slint::quit_event_loop() is

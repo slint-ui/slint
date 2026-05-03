@@ -1,21 +1,21 @@
 ---
-title: SystemTray
-description: SystemTray element api.
+title: SystemTrayIcon
+description: SystemTrayIcon element api.
 ---
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-Use the `SystemTray` element to add an icon and menu to the desktop's system tray,
+Use the `SystemTrayIcon` element to add an icon and menu to the desktop's system tray,
 also known as the notification area, status area, or menu bar extras, depending on the platform.
 
-`SystemTray` is a top-level component: derive your own component
-from it with `inherits SystemTray` instead of placing it inside a <Link type="Window" />.
-A `SystemTray` component has no window of its own — the icon lives in the tray, and the only UI
+`SystemTrayIcon` is a top-level component: derive your own component
+from it with `inherits SystemTrayIcon` instead of placing it inside a <Link type="Window" />.
+A `SystemTrayIcon` component has no window of its own — the icon lives in the tray, and the only UI
 it presents is the menu.
 
 ```slint
-export component ExampleTray inherits SystemTray {
+export component ExampleTray inherits SystemTrayIcon {
     icon: @image-url("tray-icon.png");
     tooltip: "My App";
 
@@ -35,12 +35,12 @@ the tray icon appears as soon as the instance is created and an event loop is ru
 and disappears when the instance is dropped.
 
 :::note{Note}
-A `SystemTray` exported alongside a `Window` doesn't share <Link type="Globals" label="globals" /> with that window — each instance gets its own copy.
+A `SystemTrayIcon` exported alongside a `Window` doesn't share <Link type="Globals" label="globals" /> with that window — each instance gets its own copy.
 You may need to initialize the relevant globals on each instance, the same way you would across multiple windows.
 :::
 
 :::note{Note}
-A `SystemTray` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
+A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
 be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
 use `if` / `for` to build its entries dynamically.
 :::
@@ -104,23 +104,23 @@ The menu tree is reactive: when any property the menu reads changes (for example
 `enabled`, or `checked` binding of a `MenuItem`), Slint rebuilds the platform menu so the tray
 reflects the new state on its next open.
 
-Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTray` are ignored — tray menus are
+Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTrayIcon` are ignored — tray menus are
 not attached to a focused window, so there is nothing for the shortcut to fire against.
 
 ## Language Bindings
 
-The generated public API for a `SystemTray`-rooted component is smaller than the one
+The generated public API for a `SystemTrayIcon`-rooted component is smaller than the one
 for a `Window`-rooted component. Construction, property and callback accessors, and global
 access work the same way. Two things are missing:
 
-| Operation              | Window-rooted | SystemTray-rooted |
+| Operation              | Window-rooted | SystemTrayIcon-rooted |
 | ---------------------- | :-----------: | :---------------: |
 | access the window      | yes           | **no**            |
 | run the event loop     | yes           | **no**            |
 
-`show` and `hide` exist on both, but on a `SystemTray` they set the `visible` property,
+`show` and `hide` exist on both, but on a `SystemTrayIcon` they set the `visible` property,
 and the platform backend translates that into the native tray API.
-A visible `SystemTray` keeps the event loop alive the same way a visible window does.
+A visible `SystemTrayIcon` keeps the event loop alive the same way a visible window does.
 
 A typical app instantiates both a main window and a tray, shows them, and runs the event loop.
 The snippets below also wire the built-in `activated` callback so a click on the tray icon
@@ -187,7 +187,7 @@ slint.run_event_loop()
 </TabItem>
 </Tabs>
 
-A program that exposes only a `SystemTray` and no window is also valid: skip the
+A program that exposes only a `SystemTrayIcon` and no window is also valid: skip the
 `MainWindow` instance, and the loop quits once the tray is hidden (or `slint::quit_event_loop`
 is called). No `WindowAdapter` is created in that case — the platform backend is still
 selected the usual way, but no window opens.

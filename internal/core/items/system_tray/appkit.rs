@@ -3,7 +3,7 @@
 
 //! macOS system tray backend using AppKit (`NSStatusBar`, `NSStatusItem`, `NSMenu`).
 //!
-//! Everything in this module must run on the main thread. `SystemTrayHandle::new` is
+//! Everything in this module must run on the main thread. `SystemTrayIconHandle::new` is
 //! driven by a `ChangeTracker` that fires from the Slint event loop, which on macOS
 //! with the winit backend is the main thread.
 
@@ -65,7 +65,7 @@ impl MenuAction {
 
 fn activate_entry(self_weak: &ItemWeak, entry_index: usize) {
     let Some(item_rc) = self_weak.upgrade() else { return };
-    let Some(tray) = item_rc.downcast::<super::SystemTray>() else { return };
+    let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
     let tray = tray.as_pin_ref();
     let menu_borrow = tray.data.menu.borrow();
     let Some(state) = menu_borrow.as_ref() else { return };
@@ -109,7 +109,7 @@ fn image_to_nsimage(icon: &Image) -> Result<Retained<NSImage>, Error> {
 }
 
 // ---------------------------------------------------------------------------
-// PlatformTray: one per SystemTray item.
+// PlatformTray: one per SystemTrayIcon item.
 // ---------------------------------------------------------------------------
 
 pub struct PlatformTray {
@@ -125,7 +125,7 @@ impl PlatformTray {
         _context: &crate::SlintContext,
     ) -> Result<Self, Error> {
         let mtm = MainThreadMarker::new()
-            .expect("SystemTray must be created on the main thread on macOS");
+            .expect("SystemTrayIcon must be created on the main thread on macOS");
 
         let image = image_to_nsimage(params.icon)?;
 
@@ -191,7 +191,7 @@ impl PlatformTray {
 impl Drop for PlatformTray {
     fn drop(&mut self) {
         // Safe: PlatformTray is only constructed on the main thread and is owned by
-        // the SystemTray item, which is itself dropped on the event loop (main thread).
+        // the SystemTrayIcon item, which is itself dropped on the event loop (main thread).
         let status_bar = NSStatusBar::systemStatusBar();
         status_bar.removeStatusItem(&self.status_item);
     }
@@ -256,7 +256,7 @@ fn entry_to_nsmenuitem(
         item.setTag(entry_index as isize);
         // Tray menu items are never targeted at a focused responder; wire the action
         // to our MenuAction object directly. `shortcut` bindings on MenuItem are
-        // ignored (see the SystemTray docs) so no key equivalent is set.
+        // ignored (see the SystemTrayIcon docs) so no key equivalent is set.
         unsafe { item.setTarget(Some(target.as_ref())) };
         let action: Sel = sel!(activated:);
         unsafe { item.setAction(Some(action)) };

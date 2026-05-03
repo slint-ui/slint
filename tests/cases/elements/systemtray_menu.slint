@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Exercises lowering + code generation for a SystemTray with a Menu child,
+// Exercises lowering + code generation for a SystemTrayIcon with a Menu child,
 // including a separator and a nested sub-menu. At runtime the tray has no
 // icon, so the platform layer stays inert; this is primarily a compile test
 // for all generator backends.
 
-export component TestCase inherits SystemTray {
+export component TestCase inherits SystemTrayIcon {
     tooltip: "Test tray";
 
     in-out property <string> result;
@@ -44,7 +44,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
 
-// Compile-time check: a SystemTray-rooted component must not expose a
+// Compile-time check: a SystemTrayIcon-rooted component must not expose a
 // `window()` member. If a future change adds one, this fires. Wrapping
 // in a template lets the requires-expression SFINAE cleanly instead of
 // erroring on the missing member.
@@ -52,6 +52,6 @@ auto _has_window = []<typename T>(T*) {
     return requires(T t) { t.window(); };
 };
 static_assert(!_has_window(static_cast<TestCase *>(nullptr)),
-              "SystemTray-rooted components must not expose window()");
+              "SystemTrayIcon-rooted components must not expose window()");
 ```
 */

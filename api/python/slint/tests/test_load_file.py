@@ -99,7 +99,7 @@ def test_system_tray_has_no_window_attribute() -> None:
     # check is also true for a windowed component. The point of the test is
     # forward-looking: if `window` ever gets added to `slint.Component` (where
     # it would naturally live), this assertion catches that change leaking
-    # onto a SystemTray, which is not a window.
+    # onto a SystemTrayIcon, which is not a window.
     module = load_file(base_dir() / "test-system-tray.slint")
 
     tray = module.Tray()

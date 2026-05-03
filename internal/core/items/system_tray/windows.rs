@@ -69,7 +69,7 @@ struct Inner {
 impl Inner {
     fn activate(&self, entry_index: usize) {
         let Some(item_rc) = self.self_weak.upgrade() else { return };
-        let Some(tray) = item_rc.downcast::<super::SystemTray>() else { return };
+        let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
         let tray = tray.as_pin_ref();
         let menu_borrow = tray.data.menu.borrow();
         let Some(state) = menu_borrow.as_ref() else { return };
@@ -80,13 +80,13 @@ impl Inner {
 
     fn activated(&self) {
         let Some(item_rc) = self.self_weak.upgrade() else { return };
-        let Some(tray) = item_rc.downcast::<super::SystemTray>() else { return };
+        let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
         tray.as_pin_ref().activated.call(&());
     }
 }
 
 // ---------------------------------------------------------------------------
-// PlatformTray: the public backend type, owned by the Slint `SystemTray` item.
+// PlatformTray: the public backend type, owned by the Slint `SystemTrayIcon` item.
 // ---------------------------------------------------------------------------
 
 pub struct PlatformTray {

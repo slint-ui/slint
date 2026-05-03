@@ -3,17 +3,17 @@
 
 //config:generate_all_exported_windows
 
-export component A inherits SystemTray {
+export component A inherits SystemTrayIcon {
     Rectangle {}
-//  >        <error{Rectangle is not allowed within SystemTray. Only Menu are valid children}
+//  >        <error{Rectangle is not allowed within SystemTrayIcon. Only Menu are valid children}
 }
 
-export component B inherits SystemTray {
+export component B inherits SystemTrayIcon {
     Text { text: "nope"; }
-//  >   <error{Text is not allowed within SystemTray. Only Menu are valid children}
+//  >   <error{Text is not allowed within SystemTrayIcon. Only Menu are valid children}
 }
 
-export component C inherits SystemTray {
+export component C inherits SystemTrayIcon {
     TouchArea {}
-//  >        <error{TouchArea is not allowed within SystemTray. Only Menu are valid children}
+//  >        <error{TouchArea is not allowed within SystemTrayIcon. Only Menu are valid children}
 }

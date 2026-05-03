@@ -46,8 +46,8 @@ pub fn lower_to_item_tree(
     let public_components = document
         .exported_roots()
         .map(|component| {
-            let top_level_type = if component.inherits_system_tray() {
-                TopLevelComponentType::SystemTray
+            let top_level_type = if component.inherits_system_tray_icon() {
+                TopLevelComponentType::SystemTrayIcon
             } else {
                 TopLevelComponentType::Window
             };

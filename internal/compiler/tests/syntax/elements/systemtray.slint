@@ -3,23 +3,23 @@
 
 //config:generate_all_exported_windows
 
-export component A inherits SystemTray {
+export component A inherits SystemTrayIcon {
     if false : Menu {}
-//             >   <error{SystemTray's Menu cannot be in a conditional or repeated element}
+//             >   <error{SystemTrayIcon's Menu cannot be in a conditional or repeated element}
 }
 
-export component B inherits SystemTray {
+export component B inherits SystemTrayIcon {
     for _ in [1,2,3] : Menu {}
-//                     >   <error{SystemTray's Menu cannot be in a conditional or repeated element}
+//                     >   <error{SystemTrayIcon's Menu cannot be in a conditional or repeated element}
 }
 
-export component C inherits SystemTray {
+export component C inherits SystemTrayIcon {
     Menu {
 //  >   <note{First Menu defined here}
         MenuItem { title: "ok"; }
     }
     Menu {
-//  >   <error{Only one Menu is allowed in a SystemTray}
+//  >   <error{Only one Menu is allowed in a SystemTrayIcon}
         MenuItem { title: "another"; }
     }
 }

@@ -176,8 +176,8 @@
     "StyledText": {
         "href": "reference/generated/elements/styled-text/"
     },
-    "SystemTray": {
-        "href": "reference/window/systemtray/"
+    "SystemTrayIcon": {
+        "href": "reference/window/systemtrayicon/"
     },
     "styled_text": {
         "href": "reference/primitive-types/#styled-text"

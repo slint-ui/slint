@@ -143,7 +143,10 @@ pub fn ensure_window(
 
 pub fn inherits_window(component: &Rc<Component>) -> bool {
     component.root_element.borrow().builtin_type().is_none_or(|b| {
-        matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow" | "SystemTray")
+        matches!(
+            b.name.as_str(),
+            "Window" | "Dialog" | "WindowItem" | "PopupWindow" | "SystemTrayIcon"
+        )
     })
 }
 
@@ -178,14 +181,14 @@ pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut B
                         ),
                         &*elem,
                     );
-                } else if builtin.name.as_str() == "SystemTray" {
+                } else if builtin.name.as_str() == "SystemTrayIcon" {
                     // Unlike Window children (which become inert sub-windows), a
-                    // SystemTray inside another element has no meaningful lowering:
+                    // SystemTrayIcon inside another element has no meaningful lowering:
                     // the platform tray APIs only know how to bind to a top-level
-                    // SystemTray-rooted component. Reject at compile time.
+                    // SystemTrayIcon-rooted component. Reject at compile time.
                     diag.push_error(
                         format!(
-                            "SystemTray must be the root of an exported component, not a child element\
+                            "SystemTrayIcon must be the root of an exported component, not a child element\
                             {inheritance_hint}"
                         ),
                         &*elem,

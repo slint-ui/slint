@@ -1492,11 +1492,11 @@ fn call_builtin_function(
 
             Value::Void
         }
-        BuiltinFunction::SetupSystemTray => {
-            // `SystemTray` only exists on targets with a real tray backend (macOS,
+        BuiltinFunction::SetupSystemTrayIcon => {
+            // `SystemTrayIcon` only exists on targets with a real tray backend (macOS,
             // Windows, Linux/BSD); on other targets (wasm, iOS, Android) the item is
             // cfg'd out in i-slint-core. The interpreter still sees the builtin in the
-            // IR when a `.slint` uses `SystemTray`, so swallow it silently there.
+            // IR when a `.slint` uses `SystemTrayIcon`, so swallow it silently there.
             #[cfg(any(
                 target_os = "macos",
                 target_os = "windows",
@@ -1512,7 +1512,7 @@ fn call_builtin_function(
                     Expression::ElementReference(item_tree_root),
                 ] = arguments
                 else {
-                    panic!("internal error: incorrect argument count to SetupSystemTray")
+                    panic!("internal error: incorrect argument count to SetupSystemTrayIcon")
                 };
 
                 let component = local_context.component_instance;
@@ -1539,8 +1539,9 @@ fn call_builtin_function(
                     None,
                 );
 
-                let system_tray =
-                    item_rc.downcast::<corelib::items::SystemTray>().expect("SystemTray item");
+                let system_tray = item_rc
+                    .downcast::<corelib::items::SystemTrayIcon>()
+                    .expect("SystemTrayIcon item");
                 system_tray.as_pin_ref().set_menu(&item_rc, vtable::VRc::into_dyn(menu_vrc));
             }
 

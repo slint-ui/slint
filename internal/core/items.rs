@@ -50,7 +50,7 @@ use i_slint_core_macros::*;
     target_os = "windows",
     all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android"))
 ))]
-pub use system_tray::SystemTray;
+pub use system_tray::SystemTrayIcon;
 use vtable::*;
 
 mod component_container;
@@ -1868,7 +1868,7 @@ declare_item_vtable! {
     all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android"))
 ))]
 declare_item_vtable! {
-    fn slint_get_SystemTrayVTable() -> SystemTrayVTable for SystemTray
+    fn slint_get_SystemTrayIconVTable() -> SystemTrayIconVTable for SystemTrayIcon
 }
 
 macro_rules! declare_enums {

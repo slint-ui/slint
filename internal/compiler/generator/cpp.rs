@@ -1454,20 +1454,20 @@ fn generate_public_component(
 
     // Window-rooted components route `show`/`hide` through the underlying
     // window adapter, expose `window()`, and have a `run()` that drives the
-    // event loop. SystemTray-rooted components instead toggle the `visible`
+    // event loop. SystemTrayIcon-rooted components instead toggle the `visible`
     // property on the tray native item, expose no `window()`, and skip
     // `run()` entirely (a tray icon doesn't drive the event loop).
     let (show_body, hide_body) = match component.top_level_type {
         llr::TopLevelComponentType::Window => {
             ("m_globals.window().show();".to_string(), "m_globals.window().hide();".to_string())
         }
-        llr::TopLevelComponentType::SystemTray => {
+        llr::TopLevelComponentType::SystemTrayIcon => {
             let root_sub = &unit.sub_components[component.item_tree.root];
             let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
             debug_assert_eq!(
                 tray_item.ty.class_name.as_str(),
-                "SystemTray",
-                "TopLevelComponentType::SystemTray expects the root item to be a SystemTray"
+                "SystemTrayIcon",
+                "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
             );
             let tray_field = ident(&tray_item.name);
             (
@@ -1522,7 +1522,7 @@ fn generate_public_component(
                 }),
             ));
         }
-        llr::TopLevelComponentType::SystemTray => {}
+        llr::TopLevelComponentType::SystemTrayIcon => {}
     }
 
     component_struct.friends.push("slint::private_api::WindowAdapterRc".into());
@@ -1566,15 +1566,15 @@ fn generate_item_tree(
     conditional_includes: &ConditionalIncludes,
 ) {
     let needs_window_adapter = root.needs_window_adapter();
-    // True only for the root tree of a SystemTray-rooted public component.
+    // True only for the root tree of a SystemTrayIcon-rooted public component.
     // Repeaters / popup_menu / popup-window trees stay on the windowed code
     // path even when they live inside a tray-only unit (popup menus are
-    // window-shaped, and there's no SystemTray-rooted repeater root anyway).
+    // window-shaped, and there's no SystemTrayIcon-rooted repeater root anyway).
     let is_system_tray_root = parent_ctx.is_none()
         && !is_popup
         && root.public_components.iter().any(|p| {
             p.item_tree.root == sub_tree.root
-                && p.top_level_type == llr::TopLevelComponentType::SystemTray
+                && p.top_level_type == llr::TopLevelComponentType::SystemTrayIcon
         });
 
     target_struct.friends.push(format_smolstr!(
@@ -2045,7 +2045,7 @@ fn generate_item_tree(
     if parent_ctx.is_none() && !is_popup {
         create_code.push("self->user_init();".to_string());
         // initialize the Window in this point to be consistent with Rust.
-        // SystemTray-rooted components have no `WindowAdapter`, so skip the
+        // SystemTrayIcon-rooted components have no `WindowAdapter`, so skip the
         // eager creation — instantiating a tray must not spin up a hidden
         // window adapter as a side effect.
         if !is_system_tray_root {
@@ -4548,13 +4548,13 @@ fn compile_builtin_function_call(
                 }}")
             }
         }
-        BuiltinFunction::SetupSystemTray => {
+        BuiltinFunction::SetupSystemTrayIcon => {
             let [
                 llr::Expression::PropertyReference(system_tray_ref),
                 llr::Expression::NumberLiteral(tree_index),
             ] = arguments
             else {
-                panic!("internal error: incorrect arguments to SetupSystemTray")
+                panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
             };
 
             let current_sub_component = ctx.current_sub_component().unwrap();
@@ -4571,7 +4571,7 @@ fn compile_builtin_function_call(
                     auto item_tree = {item_tree_id}::create(self);
                     auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree.into_dyn());
                     slint::cbindgen_private::ItemRc item_rc{{ {system_tray_rc} }};
-                    slint::cbindgen_private::slint_system_tray_set_menu(&{system_tray}, &item_rc, &menu_wrapper);
+                    slint::cbindgen_private::slint_system_tray_icon_set_menu(&{system_tray}, &item_rc, &menu_wrapper);
                 }}"
             )
         }

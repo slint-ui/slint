@@ -182,7 +182,7 @@ test("non-windowed components have no `window` property", () => {
         export component Win inherits Window {
             in-out property <string> name: "world";
         }
-        export component Tray inherits SystemTray {
+        export component Tray inherits SystemTrayIcon {
             callback do-something();
         }
     `;
