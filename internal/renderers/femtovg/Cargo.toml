@@ -36,7 +36,7 @@ cfg-if = "1"
 derive_more = { workspace = true }
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { path = "../../../../femtovg", default-features = false, features = ["swash"] }
+femtovg = { git = "https://github.com/Murmele/femtovg.git", tag = "96953e53a9f300edde791363e888e9bc3d8e75f4", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
