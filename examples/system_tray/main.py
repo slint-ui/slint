@@ -56,6 +56,10 @@ class MainWindow(ui.MainWindow):
         self.tray.tray_visible = value
 
     @slint.callback
+    def tray_menu_enabled_changed(self, value: bool) -> None:
+        self.tray.menu_enabled = value
+
+    @slint.callback
     def hide_to_tray(self) -> None:
         # Hide the window but keep the loop alive via the visible tray.
         # Pressing the OS close button does the same thing by default
@@ -78,6 +82,7 @@ tray.main_window = main_window
 tray.tray_title = main_window.tray_title
 tray.tray_tooltip = main_window.tray_tooltip
 tray.tray_visible = main_window.tray_visible
+tray.menu_enabled = main_window.tray_menu_enabled
 
 main_window.show()
 slint.run_event_loop()

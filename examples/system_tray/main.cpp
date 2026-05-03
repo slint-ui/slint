@@ -16,6 +16,7 @@ int main()
     tray->set_tray_title(main_window->get_tray_title());
     tray->set_tray_tooltip(main_window->get_tray_tooltip());
     tray->set_tray_visible(main_window->get_tray_visible());
+    tray->set_menu_enabled(main_window->get_tray_menu_enabled());
 
     auto tray_weak = slint::ComponentWeakHandle(tray);
     auto window_weak = slint::ComponentWeakHandle(main_window);
@@ -34,6 +35,11 @@ int main()
     main_window->on_tray_visible_changed([tray_weak](bool value) {
         if (auto t = tray_weak.lock()) {
             (*t)->set_tray_visible(value);
+        }
+    });
+    main_window->on_tray_menu_enabled_changed([tray_weak](bool value) {
+        if (auto t = tray_weak.lock()) {
+            (*t)->set_menu_enabled(value);
         }
     });
 

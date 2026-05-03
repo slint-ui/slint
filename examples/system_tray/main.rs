@@ -15,6 +15,7 @@ fn main() {
     tray.set_tray_title(main_window.get_tray_title());
     tray.set_tray_tooltip(main_window.get_tray_tooltip());
     tray.set_tray_visible(main_window.get_tray_visible());
+    tray.set_menu_enabled(main_window.get_tray_menu_enabled());
 
     // Forward edits in the window onto the tray.
     let tray_weak = tray.as_weak();
@@ -33,6 +34,12 @@ fn main() {
     main_window.on_tray_visible_changed(move |v| {
         if let Some(t) = tray_weak.upgrade() {
             t.set_tray_visible(v);
+        }
+    });
+    let tray_weak = tray.as_weak();
+    main_window.on_tray_menu_enabled_changed(move |v| {
+        if let Some(t) = tray_weak.upgrade() {
+            t.set_menu_enabled(v);
         }
     });
 

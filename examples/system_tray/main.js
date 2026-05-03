@@ -14,6 +14,7 @@ const tray = new ui.ExampleTray();
 tray.tray_title = main_window.tray_title;
 tray.tray_tooltip = main_window.tray_tooltip;
 tray.tray_visible = main_window.tray_visible;
+tray.menu_enabled = main_window.tray_menu_enabled;
 
 // Forward edits in the window onto the tray.
 main_window.tray_title_changed = (value) => {
@@ -24,6 +25,9 @@ main_window.tray_tooltip_changed = (value) => {
 };
 main_window.tray_visible_changed = (value) => {
     tray.tray_visible = value;
+};
+main_window.tray_menu_enabled_changed = (value) => {
+    tray.menu_enabled = value;
 };
 
 // Hide-to-tray button: hide the window but keep the loop alive via the

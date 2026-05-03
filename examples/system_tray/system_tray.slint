@@ -16,11 +16,13 @@ export component MainWindow inherits Window {
     in-out property <string> tray-title: "Slint";
     in-out property <string> tray-tooltip: "Slint SystemTrayIcon demo";
     in-out property <bool> tray-visible: true;
+    in-out property <bool> tray-menu-enabled: true;
     in-out property <string> activation-log: "(no tray events yet)";
 
     callback tray-title-changed(string);
     callback tray-tooltip-changed(string);
     callback tray-visible-changed(bool);
+    callback tray-menu-enabled-changed(bool);
     callback hide-to-tray;
     callback quit;
 
@@ -51,6 +53,14 @@ export component MainWindow inherits Window {
                     text: "Tray icon visible";
                     checked <=> root.tray-visible;
                     toggled => { root.tray-visible-changed(self.checked); }
+                }
+                CheckBox {
+                    // When this is unchecked the slint Menu's `if cond` falls
+                    // false. On macOS that detaches the NSMenu and clicks on
+                    // the icon fire `activated` instead of popping a menu.
+                    text: "Tray menu enabled";
+                    checked <=> root.tray-menu-enabled;
+                    toggled => { root.tray-menu-enabled-changed(self.checked); }
                 }
             }
         }
@@ -83,14 +93,19 @@ export component ExampleTray inherits SystemTrayIcon {
     in-out property <string> tray-tooltip <=> root.tooltip;
     in-out property <string> tray-title <=> root.title;
     in-out property <bool> tray-visible <=> root.visible;
+    // Drives the conditional `if cond : Menu { ... }` below. Set to false
+    // from the host language to detach the menu and exercise the
+    // "no menu attached" branch (on macOS that's where `activated` fires).
+    in-out property <bool> menu-enabled: true;
 
     callback toggle-window;
     callback quit;
 
-    // Left-click (or platform equivalent) toggles the main window.
+    // Left-click (or platform equivalent) fires this callback when the
+    // platform doesn't auto-popup a menu instead.
     activated => { toggle-window(); }
 
-    Menu {
+    if root.menu-enabled : Menu {
         MenuItem {
             title: "Show / hide window";
             activated => { toggle-window(); }
