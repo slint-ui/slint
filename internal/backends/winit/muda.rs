@@ -341,6 +341,13 @@ fn key_string_to_key(string: &str) -> muda::accelerator::Key {
 fn physical_key_string_to_code(string: &str) -> Option<muda::accelerator::Code> {
     use muda::accelerator::Code;
 
+    static WARN_ONCE: std::sync::Once = std::sync::Once::new();
+    WARN_ONCE.call_once(|| {
+        i_slint_core::debug_log!(
+            "Warning: Physical keys used in menu shortcuts are interpreted as logical keys based on a US keyboard layout. Use @keys(...) for menu shortcuts."
+        );
+    });
+
     macro_rules! key_string_to_code_impl {
         ($($name:ident # $code:ident;)*) => {
             match string {
@@ -351,6 +358,103 @@ fn physical_key_string_to_code(string: &str) -> Option<muda::accelerator::Code> 
     }
 
     i_slint_common::for_each_physical_keys!(key_string_to_code_impl)
+}
+
+fn code_to_logical_key(code: muda::accelerator::Code) -> muda::accelerator::Key {
+    use muda::accelerator::{Code, Key};
+    match code {
+        Code::KeyA => Key::Character("a".into()),
+        Code::KeyB => Key::Character("b".into()),
+        Code::KeyC => Key::Character("c".into()),
+        Code::KeyD => Key::Character("d".into()),
+        Code::KeyE => Key::Character("e".into()),
+        Code::KeyF => Key::Character("f".into()),
+        Code::KeyG => Key::Character("g".into()),
+        Code::KeyH => Key::Character("h".into()),
+        Code::KeyI => Key::Character("i".into()),
+        Code::KeyJ => Key::Character("j".into()),
+        Code::KeyK => Key::Character("k".into()),
+        Code::KeyL => Key::Character("l".into()),
+        Code::KeyM => Key::Character("m".into()),
+        Code::KeyN => Key::Character("n".into()),
+        Code::KeyO => Key::Character("o".into()),
+        Code::KeyP => Key::Character("p".into()),
+        Code::KeyQ => Key::Character("q".into()),
+        Code::KeyR => Key::Character("r".into()),
+        Code::KeyS => Key::Character("s".into()),
+        Code::KeyT => Key::Character("t".into()),
+        Code::KeyU => Key::Character("u".into()),
+        Code::KeyV => Key::Character("v".into()),
+        Code::KeyW => Key::Character("w".into()),
+        Code::KeyX => Key::Character("x".into()),
+        Code::KeyY => Key::Character("y".into()),
+        Code::KeyZ => Key::Character("z".into()),
+        Code::Digit0 => Key::Character("0".into()),
+        Code::Digit1 => Key::Character("1".into()),
+        Code::Digit2 => Key::Character("2".into()),
+        Code::Digit3 => Key::Character("3".into()),
+        Code::Digit4 => Key::Character("4".into()),
+        Code::Digit5 => Key::Character("5".into()),
+        Code::Digit6 => Key::Character("6".into()),
+        Code::Digit7 => Key::Character("7".into()),
+        Code::Digit8 => Key::Character("8".into()),
+        Code::Digit9 => Key::Character("9".into()),
+        Code::Backquote => Key::Character("`".into()),
+        Code::Minus => Key::Character("-".into()),
+        Code::Equal => Key::Character("=".into()),
+        Code::BracketLeft => Key::Character("[".into()),
+        Code::BracketRight => Key::Character("]".into()),
+        Code::Backslash => Key::Character("\\".into()),
+        Code::Semicolon => Key::Character(";".into()),
+        Code::Quote => Key::Character("'".into()),
+        Code::Comma => Key::Character(",".into()),
+        Code::Period => Key::Character(".".into()),
+        Code::Slash => Key::Character("/".into()),
+        Code::Space => Key::Character(" ".into()),
+        Code::Escape => Key::Escape,
+        Code::Tab => Key::Tab,
+        Code::Enter => Key::Enter,
+        Code::Backspace => Key::Backspace,
+        Code::Delete => Key::Delete,
+        Code::Insert => Key::Insert,
+        Code::Home => Key::Home,
+        Code::End => Key::End,
+        Code::PageUp => Key::PageUp,
+        Code::PageDown => Key::PageDown,
+        Code::ArrowUp => Key::ArrowUp,
+        Code::ArrowDown => Key::ArrowDown,
+        Code::ArrowLeft => Key::ArrowLeft,
+        Code::ArrowRight => Key::ArrowRight,
+        Code::ContextMenu => Key::ContextMenu,
+        Code::CapsLock => Key::CapsLock,
+        Code::ScrollLock => Key::ScrollLock,
+        Code::Pause => Key::Pause,
+        Code::F1 => Key::F1,
+        Code::F2 => Key::F2,
+        Code::F3 => Key::F3,
+        Code::F4 => Key::F4,
+        Code::F5 => Key::F5,
+        Code::F6 => Key::F6,
+        Code::F7 => Key::F7,
+        Code::F8 => Key::F8,
+        Code::F9 => Key::F9,
+        Code::F10 => Key::F10,
+        Code::F11 => Key::F11,
+        Code::F12 => Key::F12,
+        Code::F13 => Key::F13,
+        Code::F14 => Key::F14,
+        Code::F15 => Key::F15,
+        Code::F16 => Key::F16,
+        Code::F17 => Key::F17,
+        Code::F18 => Key::F18,
+        Code::F19 => Key::F19,
+        Code::F20 => Key::F20,
+        Code::F21 => Key::F21,
+        Code::F22 => Key::F22,
+        Code::F23 => Key::F23,
+        Code::F24 => Key::F24,
+        _ => Key::Unidentified,
+    }
 }
 
 fn keys_to_accelerator(
@@ -386,7 +490,8 @@ fn keys_to_accelerator(
         }
     }
     if shortcut.is_physical {
-        Some(Accelerator::new(Some(modifiers), physical_key_string_to_code(&shortcut.key)?).into())
+        let code = physical_key_string_to_code(&shortcut.key)?;
+        Some(KeyAccelerator::new(Some(modifiers), code_to_logical_key(code)))
     } else {
         let key = key_string_to_key(&shortcut.key);
         Some(KeyAccelerator::new(Some(modifiers), key))
