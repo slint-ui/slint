@@ -244,13 +244,6 @@ impl i_slint_core::model::Model for PyModelShared {
                 return;
             };
 
-            let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
-                eprintln!(
-                    "Python: Model implementation is lacking type collection (in remove_row)"
-                );
-                return;
-            };
-
             if let Err(err) = obj.call_method1(py, "remove_row", (row,)) {
                 crate::handle_unraisable(
                     py,

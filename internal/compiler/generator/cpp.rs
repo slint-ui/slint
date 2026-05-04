@@ -4415,6 +4415,15 @@ fn compile_builtin_function_call(
         BuiltinFunction::ArrayLength => {
             format!("slint::private_api::model_length({})", a.next().unwrap())
         }
+        BuiltinFunction::ArrayPush => {
+            todo!()
+        }
+        BuiltinFunction::ArrayRemove => {
+            todo!()
+        }
+        BuiltinFunction::ArrayInsert => {
+            todo!()
+        }
         BuiltinFunction::Rgb => {
             format!("slint::Color::from_argb_uint8(std::clamp(static_cast<float>({a}) * 255., 0., 255.), std::clamp(static_cast<int>({r}), 0, 255), std::clamp(static_cast<int>({g}), 0, 255), std::clamp(static_cast<int>({b}), 0, 255))",
                 r = a.next().unwrap(),
