@@ -664,7 +664,8 @@ fn lower_menu_items(
                     );
                 }
                 if in_menubar && let Some(binding) = element.borrow().bindings.get("shortcut") {
-                    if matches!(&binding.borrow().expression, Expression::Keys(k) if k.is_physical) {
+                    if matches!(&binding.borrow().expression, Expression::Keys(k) if k.is_physical)
+                    {
                         diag.push_warning(
                             "Physical keys in MenuItem shortcuts are interpreted as logical keys by native menu bars. Use @keys(...) for menu shortcuts instead"
                                 .into(),
