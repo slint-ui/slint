@@ -219,18 +219,14 @@ impl i_slint_core::model::Model for PyModelShared {
             };
 
             let Some(type_collection) = self.type_collection.borrow().as_ref().cloned() else {
-                eprintln!(
-                    "Python: Model implementation is lacking type collection (in push_row)"
-                );
+                eprintln!("Python: Model implementation is lacking type collection (in push_row)");
                 return;
             };
 
             let element_type = self.element_type.borrow().clone();
-            if let Err(err) = obj.call_method1(
-                py, 
-                "push_row", 
-                (type_collection.to_py_value(data, element_type),),
-            ) {
+            if let Err(err) =
+                obj.call_method1(py, "push_row", (type_collection.to_py_value(data, element_type),))
+            {
                 crate::handle_unraisable(
                     py,
                     "Python: Model implementation of push_row() threw an exception".into(),
@@ -239,7 +235,7 @@ impl i_slint_core::model::Model for PyModelShared {
             };
         });
     }
-    
+
     fn remove_row(&self, row: usize) {
         Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
@@ -255,9 +251,7 @@ impl i_slint_core::model::Model for PyModelShared {
                 return;
             };
 
-            if let Err(err) =
-                obj.call_method1(py, "remove_row", (row,))
-            {
+            if let Err(err) = obj.call_method1(py, "remove_row", (row,)) {
                 crate::handle_unraisable(
                     py,
                     "Python: Model implementation of remove_row() threw an exception".into(),
@@ -266,7 +260,7 @@ impl i_slint_core::model::Model for PyModelShared {
             };
         });
     }
-    
+
     fn insert_row(&self, row: usize, data: Self::Data) {
         Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
@@ -284,8 +278,8 @@ impl i_slint_core::model::Model for PyModelShared {
 
             let element_type = self.element_type.borrow().clone();
             if let Err(err) = obj.call_method1(
-                py, 
-                "insert_row", 
+                py,
+                "insert_row",
                 (row, type_collection.to_py_value(data, element_type)),
             ) {
                 crate::handle_unraisable(

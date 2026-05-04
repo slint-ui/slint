@@ -170,12 +170,12 @@ def test_model_modifications() -> None:
             public function insert-one(index: int, value: int) { ints.insert(index, value) }
         }
         """,
-        Path("")
+        Path(""),
     ).component("App")
 
     assert compdef is not None
 
-    instance =compdef.create()
+    instance = compdef.create()
     assert instance is not None
 
     model = models.ListModel([1, 2, 3])

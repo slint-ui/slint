@@ -393,7 +393,7 @@ fn array_push_macro(
                 "This method needs 1 argument but {} were provided",
                 if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
             ),
-            node
+            node,
         );
         return Expression::Invalid;
     }
@@ -401,10 +401,7 @@ fn array_push_macro(
     let element_type = match args[0].0.ty() {
         Type::Array(t) => (*t).clone(),
         _ => {
-            diag.push_error(
-                format!("push() was called on a non-array: {:?}", args[0].0),
-                node
-            );
+            diag.push_error(format!("push() was called on a non-array: {:?}", args[0].0), node);
             return Expression::Invalid;
         }
     };
@@ -430,16 +427,13 @@ fn array_remove_macro(
                 "This method needs 1 argument but {} were provided",
                 if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
             ),
-            node
+            node,
         );
         return Expression::Invalid;
     }
 
     if !matches!(args[0].0.ty(), Type::Array(_)) {
-        diag.push_error(
-            format!("remove() was called on a non-array: {:?}", args[0].0),
-            node
-        );
+        diag.push_error(format!("remove() was called on a non-array: {:?}", args[0].0), node);
         return Expression::Invalid;
     }
 
@@ -464,7 +458,7 @@ fn array_insert_macro(
                 "This method needs 2 argument but {} were provided",
                 if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
             ),
-            node
+            node,
         );
         return Expression::Invalid;
     }
@@ -472,10 +466,7 @@ fn array_insert_macro(
     let element_type = match args[0].0.ty() {
         Type::Array(t) => (*t).clone(),
         _ => {
-            diag.push_error(
-                format!("push() was called on a non-array: {:?}", args[0].0),
-                node
-            );
+            diag.push_error(format!("push() was called on a non-array: {:?}", args[0].0), node);
             return Expression::Invalid;
         }
     };

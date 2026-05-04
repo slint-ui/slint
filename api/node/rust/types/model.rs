@@ -214,17 +214,17 @@ impl Model for JsModel {
             return;
         };
 
-        let push_row_fn: Function<Unknown<'_>, Unknown> =
-            match model.get_named_property("pushRow") {
-                Ok(f) => f,
-                Err(e) => {
-                    eprintln!("{}", e.to_string());
-                    eprintln!(
-                        "Node.js: JavaScript Model<T> implementation is missing pushRow property"
-                    );
-                    return;
-                }
-            };
+        let push_row_fn: Function<Unknown<'_>, Unknown> = match model.get_named_property("pushRow")
+        {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}", e.to_string());
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing pushRow property"
+                );
+                return;
+            }
+        };
 
         let Ok(js_data) = to_js_unknown(&self.env, &data) else {
             eprintln!(
@@ -233,7 +233,7 @@ impl Model for JsModel {
             return;
         };
 
-        if let Err(exception) = push_row_fn.apply(model,js_data) {
+        if let Err(exception) = push_row_fn.apply(model, js_data) {
             eprintln!(
                 "Node.js: JavaScript Model<T>'s pushRow function threw an exception: {exception}"
             );
@@ -251,17 +251,16 @@ impl Model for JsModel {
             return;
         };
 
-        let remove_row_fn: Function<f64, Unknown> =
-            match model.get_named_property("removeRow") {
-                Ok(f) => f,
-                Err(e) => {
-                    eprintln!("{}", e.to_string());
-                    eprintln!(
-                        "Node.js: JavaScript Model<T> implementation is missing removeRow property"
-                    );
-                    return;
-                }
-            };
+        let remove_row_fn: Function<f64, Unknown> = match model.get_named_property("removeRow") {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}", e.to_string());
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing removeRow property"
+                );
+                return;
+            }
+        };
 
         if let Err(exception) = remove_row_fn.apply(model, row as f64) {
             eprintln!(
@@ -269,7 +268,7 @@ impl Model for JsModel {
             );
         }
     }
-    
+
     fn insert_row(&self, row: usize, data: Self::Data) {
         let Ok(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s insertRow threw an exception");

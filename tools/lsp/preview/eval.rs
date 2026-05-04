@@ -675,7 +675,7 @@ fn handle_builtin_function(
                 return Value::Void;
             }
 
-            let value=  eval_expression(&arguments[2], local_context, None);
+            let value = eval_expression(&arguments[2], local_context, None);
             model.insert_row(index, value);
 
             Value::Void

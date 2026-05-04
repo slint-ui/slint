@@ -156,7 +156,8 @@ pub trait Model {
         crate::debug_log!(
             "Model::push_row called on a model of type {} which does not re-implement this method. \
             This happens when trying to modify a read-only model",
-            core::any::type_name::<Self>());
+            core::any::type_name::<Self>()
+        );
     }
 
     /// Remove a row from the model at the specified index.
@@ -171,7 +172,8 @@ pub trait Model {
         crate::debug_log!(
             "Model::remove_row called on a model of type {} which does not re-implement this method. \
             This happens when trying to modify a read-only model",
-            core::any::type_name::<Self>());
+            core::any::type_name::<Self>()
+        );
     }
 
     /// Insert a new row at the specified index and move the next rows by 1 step to the right.
@@ -186,7 +188,8 @@ pub trait Model {
         crate::debug_log!(
             "Model::insert_row called on a model of type {} which does not re-implement this method. \
             This happens when trying to modify a read-only model",
-            core::any::type_name::<Self>());
+            core::any::type_name::<Self>()
+        );
     }
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
@@ -914,7 +917,7 @@ impl<T> Model for ModelRc<T> {
     fn insert_row(&self, row: usize, data: Self::Data) {
         if let Some(model) = self.0.as_ref() {
             model.insert_row(row, data);
-        }   
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {

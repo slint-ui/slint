@@ -1416,7 +1416,7 @@ fn call_builtin_function(
                 Value::Model(m) => m,
                 _ => panic!("First argument not an array: {:?}", arguments[0]),
             };
-             let index = match eval_expression(&arguments[1], local_context) {
+            let index = match eval_expression(&arguments[1], local_context) {
                 Value::Number(i) => i as usize,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
