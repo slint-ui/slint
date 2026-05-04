@@ -75,6 +75,24 @@ pub fn send_key_combo_with_text<
     }
 }
 
+/// Simulate entering a keyboard shortcut where each key has text and an optional physical key string.
+///
+/// This is needed for tests that need to exercise physical keys (`@physical-keys(...)`).
+pub fn send_key_combo_with_text_and_physical_keys<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    keys: &[(SharedString, SharedString)],
+) {
+    for (text, physical_key) in keys {
+        send_keyboard_key_text_with_physical_key(component, text, physical_key, true);
+    }
+    for (text, physical_key) in keys.iter().rev() {
+        send_keyboard_key_text_with_physical_key(component, text, physical_key, false);
+    }
+}
+
 /// Simulate a single key event with the given text (pressed or released).
 ///
 /// Unlike [`send_keyboard_char`], the text is dispatched as a single event,
@@ -92,6 +110,29 @@ pub fn send_keyboard_key_text<
         pressed,
         &WindowInner::from_pub(component.window()).window_adapter(),
     )
+}
+
+/// Simulate a single key event with the given text and physical key string (pressed or released).
+pub fn send_keyboard_key_text_with_physical_key<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    text: &SharedString,
+    physical_key: &SharedString,
+    pressed: bool,
+) {
+    use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+
+    let mut key_event = i_slint_core::items::KeyEvent::default();
+    key_event.text = text.clone();
+    key_event.physical_key = physical_key.clone();
+
+    WindowInner::from_pub(component.window()).process_key_input(InternalKeyEvent {
+        event_type: if pressed { KeyEventType::KeyPressed } else { KeyEventType::KeyReleased },
+        key_event,
+        ..Default::default()
+    });
 }
 
 /// Simulate entering a sequence of ascii characters key by (pressed or released).
