@@ -26,13 +26,13 @@ catalog:
   '@expressive-code/plugin-line-numbers': 0.41.7
   '@playwright/test': 1.59.1
   '@types/node': 24.12.0
-  astro: 6.1.9
+  astro: 6.2.1
   astro-embed: 0.13.0
   cspell: 10.0.0
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
   sharp: 0.34.5
-  starlight-links-validator: 0.23.0
+  starlight-links-validator: 0.24.0
   remark-parse: 11.0.0
   typescript: 6.0.3
   unified: 11.0.5
