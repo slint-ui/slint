@@ -1220,6 +1220,10 @@ pub(crate) fn process_delayed_event(
         None => return MouseInputState::default(),
     };
 
+    // Recover the real previous click target so click_count is preserved across delayed events
+    let prev_target = mouse_input_state.delayed_exit_items.last().and_then(|x| x.upgrade());
+    let last_top_item = prev_target.as_ref().unwrap_or(&top_item);
+
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
             send_mouse_event_to_item(
@@ -1227,7 +1231,7 @@ pub(crate) fn process_delayed_event(
                 ItemRc::new(component.clone(), index),
                 window_adapter,
                 &mut mouse_input_state,
-                Some(&top_item),
+                Some(last_top_item),
                 true,
             )
         };

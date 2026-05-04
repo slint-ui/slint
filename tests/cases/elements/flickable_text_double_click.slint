@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Double-clicking on a TextInput inside a Flickable should select a word
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    flick := Flickable {
+        x: 0phx;
+        y: 0phx;
+        width: 500phx;
+        height: 500phx;
+        viewport-height: 2000phx;
+
+        ti := TextInput {
+            x: 0phx;
+            y: 0phx;
+            width: 200phx;
+            height: 30phx;
+            font-family: "FixedTestFont";
+            font-size: 10phx;
+        }
+    }
+
+    out property <string> test_text <=> ti.text;
+    out property <int> test_cursor_pos: ti.cursor-position-byte-offset;
+    out property <int> test_anchor_pos: ti.anchor-position-byte-offset;
+    out property <bool> has_selection: test_cursor_pos != test_anchor_pos;
+    out property <bool> input_focused: ti.has-focus;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Focus the TextInput with a click
+slint_testing::send_mouse_click(&instance, 50.0, 15.0);
+slint_testing::mock_elapsed_time(200);
+assert!(instance.get_input_focused(), "TextInput should be focused");
+
+// Type text
+slint_testing::send_keyboard_string_sequence(&instance, "Hello World");
+assert_eq!(instance.get_test_text(), "Hello World");
+assert!(!instance.get_has_selection(), "No selection after typing");
+
+// Wait to reset click count
+slint_testing::mock_elapsed_time(1000);
+
+// Double-click on "Hello" (FixedTestFont at 10phx = 10phx per character, x=25 → column 2)
+slint_testing::send_mouse_click(&instance, 25.0, 5.0);
+slint_testing::mock_elapsed_time(50);
+slint_testing::send_mouse_click(&instance, 25.0, 5.0);
+
+// "Hello" should be selected (offsets 0 to 5)
+assert!(instance.get_has_selection(), "Double-click in Flickable should select a word");
+assert_eq!(instance.get_test_anchor_pos(), 0, "Selection anchor should be at start of 'Hello'");
+assert_eq!(instance.get_test_cursor_pos(), 5, "Selection cursor should be at end of 'Hello'");
+```
+*/
