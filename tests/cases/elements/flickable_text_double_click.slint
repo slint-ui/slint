@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Double-clicking on a TextInput inside a Flickable should select a word
+// Test TextInput inside a Flickable: double-click selects a word
+// and the mouse cursor stays as "text" during the Flickable press delay
 
 export component TestCase inherits Window {
     width: 500phx;
@@ -33,12 +34,19 @@ export component TestCase inherits Window {
 
 /*
 ```rust
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+use slint::private_unstable_api::re_exports::MouseCursor;
+
 let instance = TestCase::new().unwrap();
+let cursor = || slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor());
+
+assert_eq!(cursor(), MouseCursor::Default);
 
 // Focus the TextInput with a click
 slint_testing::send_mouse_click(&instance, 50.0, 15.0);
 slint_testing::mock_elapsed_time(200);
 assert!(instance.get_input_focused(), "TextInput should be focused");
+assert_eq!(cursor(), MouseCursor::Text, "Cursor should be text after clicking on TextInput");
 
 // Type text
 slint_testing::send_keyboard_string_sequence(&instance, "Hello World");
@@ -48,7 +56,20 @@ assert!(!instance.get_has_selection(), "No selection after typing");
 // Wait to reset click count
 slint_testing::mock_elapsed_time(1000);
 
-// Double-click on "Hello" (FixedTestFont at 10phx = 10phx per character, x=25 → column 2)
+// Verify cursor stays "text" during a press while Flickable delays the event
+let position = LogicalPosition::new(25.0, 5.0);
+let button = PointerEventButton::Left;
+instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+assert_eq!(cursor(), MouseCursor::Text, "Cursor should be text after moving over TextInput");
+instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+assert_eq!(cursor(), MouseCursor::Text, "Cursor must stay text during Flickable press delay");
+slint_testing::mock_elapsed_time(50);
+assert_eq!(cursor(), MouseCursor::Text, "Cursor must stay text while delay is pending");
+instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+assert_eq!(cursor(), MouseCursor::Text, "Cursor should be text after release");
+
+// Wait to reset click count, then double-click on "Hello"
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 25.0, 5.0);
 slint_testing::mock_elapsed_time(50);
 slint_testing::send_mouse_click(&instance, 25.0, 5.0);
@@ -57,5 +78,6 @@ slint_testing::send_mouse_click(&instance, 25.0, 5.0);
 assert!(instance.get_has_selection(), "Double-click in Flickable should select a word");
 assert_eq!(instance.get_test_anchor_pos(), 0, "Selection anchor should be at start of 'Hello'");
 assert_eq!(instance.get_test_cursor_pos(), 5, "Selection cursor should be at end of 'Hello'");
+assert_eq!(cursor(), MouseCursor::Text, "Cursor should be text after double-click");
 ```
 */

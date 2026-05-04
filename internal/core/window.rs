@@ -630,6 +630,7 @@ impl WindowInner {
 
         let pressed_event = matches!(event, MouseEvent::Pressed { .. });
         let released_event = matches!(event, MouseEvent::Released { .. });
+        let had_delay = mouse_input_state.has_delayed_event();
 
         let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
@@ -761,7 +762,10 @@ impl WindowInner {
             self.click_state.check_repeat(event, self.context().platform().click_interval());
         }
 
-        if old_cursor != mouse_input_state.cursor
+        if !had_delay && mouse_input_state.has_delayed_event() {
+            // A delay was just set up, preserve the old cursor
+            mouse_input_state.cursor = old_cursor;
+        } else if old_cursor != mouse_input_state.cursor
             && let Some(window_adapter) = window_adapter.internal(crate::InternalToken)
         {
             window_adapter.set_mouse_cursor(mouse_input_state.cursor);

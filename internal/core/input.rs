@@ -1012,6 +1012,11 @@ impl MouseInputState {
     pub fn top_item_including_delayed(&self) -> Option<ItemRc> {
         self.delayed_exit_items.last().and_then(|x| x.upgrade()).or_else(|| self.top_item())
     }
+
+    /// Returns true if there is a pending delayed event (e.g. from a Flickable)
+    pub fn has_delayed_event(&self) -> bool {
+        self.delayed.is_some()
+    }
 }
 
 /// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
@@ -1165,7 +1170,7 @@ pub fn process_mouse_input(
     root: ItemRc,
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
-    mouse_input_state: MouseInputState,
+    mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
@@ -1185,7 +1190,8 @@ pub fn process_mouse_input(
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
                 .is_none_or(|(a, b)| a.0 != b.0))
     {
-        // Keep the delayed event
+        // Keep the delayed event, but preserve the cursor from the new result
+        mouse_input_state.cursor = result.cursor;
         return mouse_input_state;
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
