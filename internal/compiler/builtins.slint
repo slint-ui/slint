@@ -2812,11 +2812,190 @@ export global NativePalette {
 // Lowered in lower_menus pass. See that pass documentation for more info.
 // The optional Menu child is lifted into a separate item tree and wired via
 // the `SetupSystemTrayIcon` builtin.
+
+/// Use the `SystemTrayIcon` element to add an icon and menu to the desktop's system tray,
+/// also known as the notification area, status area, or menu bar extras, depending on the platform.
+///
+/// `SystemTrayIcon` is a top-level component: derive your own component
+/// from it with `inherits SystemTrayIcon` instead of placing it inside a <Link type="Window" />.
+/// A `SystemTrayIcon` component has no window of its own — the icon lives in the tray, and the only UI
+/// it presents is the menu.
+///
+/// ```slint
+/// export component ExampleTray inherits SystemTrayIcon {
+///     icon: @image-url("tray-icon.png");
+///     tooltip: "My App";
+///
+///     Menu {
+///         MenuItem {
+///             title: "Quit";
+///             activated => { quit(); }
+///         }
+///     }
+///
+///     callback quit();
+/// }
+/// ```
+///
+/// Create the component from your language binding as you would any other Slint component;
+/// the tray icon appears as soon as the instance is created and an event loop is running,
+/// and disappears when the instance is dropped.
+///
+/// :::note{Note}
+/// A `SystemTrayIcon` exported alongside a `Window` doesn't share <Link type="Globals" label="globals" /> with that window — each instance gets its own copy.
+/// You may need to initialize the relevant globals on each instance, the same way you would across multiple windows.
+/// :::
+///
+/// :::note{Note}
+/// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
+/// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
+/// use `if` / `for` to build its entries dynamically.
+/// :::
+///
+/// \skip_children
+/// \footer
+/// ## Menu
+///
+/// The child `Menu` defines the menu that is shown when the user clicks or right-clicks the tray
+/// icon. Its structure is the same as for <Link type="MenuBar" /> and `ContextMenuArea`: use
+/// `MenuItem` for entries, nested `Menu` elements for sub-menus, and `MenuSeparator` for
+/// separators. See <Link type="Menu" /> for the properties and callbacks available on those
+/// elements.
+///
+/// The menu tree is reactive: when any property the menu reads changes (for example the `title`,
+/// `enabled`, or `checked` binding of a `MenuItem`), Slint rebuilds the platform menu so the tray
+/// reflects the new state on its next open.
+///
+/// Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTrayIcon` are ignored — tray menus are
+/// not attached to a focused window, so there is nothing for the shortcut to fire against.
+///
+/// ## Language Bindings
+///
+/// The generated public API for a `SystemTrayIcon`-rooted component is smaller than the one
+/// for a `Window`-rooted component. Construction, property and callback accessors, and global
+/// access work the same way. Two things are missing:
+///
+/// | Operation              | Window-rooted | SystemTrayIcon-rooted |
+/// | ---------------------- | :-----------: | :---------------: |
+/// | access the window      | yes           | **no**            |
+/// | run the event loop     | yes           | **no**            |
+///
+/// `show` and `hide` exist on both, but on a `SystemTrayIcon` they set the `visible` property,
+/// and the platform backend translates that into the native tray API.
+/// A visible `SystemTrayIcon` keeps the event loop alive the same way a visible window does.
+///
+/// A typical app instantiates both a main window and a tray, shows them, and runs the event loop.
+/// The snippets below also wire the built-in `activated` callback so a click on the tray icon
+/// brings the window back if the user has hidden it.
+///
+/// <Tabs syncKey="dev-language">
+/// <TabItem label="Rust">
+/// ```rust
+/// fn main() -> Result<(), slint::PlatformError> {
+///     let window = MainWindow::new()?;
+///     let tray = ExampleTray::new()?;
+///
+///     let window_weak = window.as_weak();
+///     tray.on_activated(move || {
+///         if let Some(w) = window_weak.upgrade() {
+///             let _ = w.show();
+///         }
+///     });
+///
+///     window.show()?;
+///     tray.show()?;
+///     slint::run_event_loop()
+/// }
+/// ```
+/// </TabItem>
+/// <TabItem label="C++">
+/// ```cpp
+/// int main() {
+///     auto window = MainWindow::create();
+///     auto tray = ExampleTray::create();
+///
+///     auto window_weak = slint::ComponentWeakHandle(window);
+///     tray->on_activated([window_weak] {
+///         if (auto w = window_weak.lock()) {
+///             (*w)->show();
+///         }
+///     });
+///
+///     window->show();
+///     tray->show();
+///     slint::run_event_loop();
+/// }
+/// ```
+/// </TabItem>
+/// <TabItem label="NodeJS">
+/// ```js
+/// const window = new ui.MainWindow();
+/// const tray = new ui.ExampleTray();
+/// tray.activated = () => window.show();
+/// window.show();
+/// tray.show();
+/// await slint.runEventLoop();
+/// ```
+/// </TabItem>
+/// <TabItem label="Python">
+/// ```python
+/// window = module.MainWindow()
+/// tray = module.ExampleTray()
+/// tray.activated = lambda: window.show()
+/// window.show()
+/// tray.show()
+/// slint.run_event_loop()
+/// ```
+/// </TabItem>
+/// </Tabs>
+///
+/// A program that exposes only a `SystemTrayIcon` and no window is also valid: skip the
+/// `MainWindow` instance, and the loop quits once the tray is hidden (or `slint::quit_event_loop`
+/// is called). No `WindowAdapter` is created in that case — the platform backend is still
+/// selected the usual way, but no window opens.
+///
+/// ## Platform Support
+///
+/// | Platform      | Mechanism                                             |
+/// | ------------- | ----------------------------------------------------- |
+/// | Linux, \*BSD  | `StatusNotifierItem` / `AppIndicator` on D-Bus        |
+/// | macOS         | `NSStatusItem` in the menu bar                        |
+/// | Windows       | Shell notification area icon (`Shell_NotifyIcon`)     |
+///
+/// On Linux, a desktop environment or shell extension that implements the `StatusNotifierItem`
+/// specification is required; plain X11 system trays are not supported. GNOME, for example,
+/// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
+///
+/// \group:window
 export component SystemTrayIcon {
+    /// The icon shown in the system tray. The image is scaled by the platform to the size expected
+    /// for tray icons. Use `@image-url(...)` to embed an icon asset, or bind to an `image` property
+    /// fed from your code. The tray icon is only created once a non-empty image has been assigned.
     in property <image> icon;
+    /// The hover text shown over the tray icon.
+    /// Typically the application name or a short status message.
     in property <string> tooltip;
-    in property <string> title;
+    /// Whether the tray icon is registered with the OS.
+    /// Set it to `false` to hide the icon without dropping the component instance, and back to `true` to show it again.
+    /// The `show()` and `hide()` methods on the language-binding side are convenience aliases that set this property.
     in property <bool> visible: true;
+    /// A descriptive name for the tray entry, separate from the hover tooltip.
+    /// Where it actually shows up depends on the platform:
+    ///
+    /// | Platform      | Where `title` appears                                                                            |
+    /// | ------------- | ------------------------------------------------------------------------------------------------ |
+    /// | Linux, \*BSD  | Used by accessibility tools and shown by some desktops when listing tray icons (e.g. an overflow menu). Set as the [StatusNotifierItem `Title`](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/StatusNotifierItem/) property. |
+    /// | macOS         | The visible text label rendered next to the icon in the menu bar (think battery percent, clock). |
+    /// | Windows       | Has no visible effect; the notification area renders only the icon.                              |
+    in property <string> title;
+    /// Invoked when the user activates the tray icon itself, as opposed to picking an entry from its menu.
+    /// What counts as activation, and whether it's invoked at all, depends on the platform:
+    ///
+    /// | Platform      | Activation behavior                                                                   |
+    /// | ------------- | ------------------------------------------------------------------------------------- |
+    /// | Linux, \*BSD  | Invoked on a left-click of the icon. The exact gesture is decided by the desktop environment or shell extension hosting the tray. |
+    /// | macOS         | Invoked on a click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `activated` doesn't fire. |
+    /// | Windows       | Invoked on a left-click of the icon. Right-click opens the menu.                      |
     callback activated();
     Menu { }
     //-disallow_global_types_as_child_elements

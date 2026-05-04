@@ -1122,6 +1122,9 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         if all_text.contains("<Link ") {
             writeln!(file, "import Link from '@slint/common-files/src/components/Link.astro';")?;
         }
+        if all_text.contains("<Tabs ") || all_text.contains("<TabItem ") {
+            writeln!(file, "import {{ Tabs, TabItem }} from '@astrojs/starlight/components';")?;
+        }
         writeln!(file)?;
 
         let mut sc = ScreenshotCounter::new(&elem.name);
