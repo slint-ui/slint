@@ -5,17 +5,17 @@ export Test := Window {
 //          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Text {
         text: "hel\lo";
-//                |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+//                ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
     }
     property <string> p1: "hello\"world";
     property <string> p2: "hello\\";
     property <string> p3: "hello\world";
-//                              |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+//                              ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
     property <string> p4: "ok\{p1}bad\xend";
-//                                   |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+//                                   ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
     // Bad escape after \u{...} escape
     property <string> p5: "a\u{41}b\xc";
-//                                 |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+//                                 ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
 
     // Unicode escape without opening brace
     property <string> p6: "abc\uxx";
@@ -27,11 +27,11 @@ export Test := Window {
 
     // Invalid hexadecimal in unicode escape
     property <string> p8: "abc\u{xyz}";
-//                               |error{Invalid hexadecimal in unicode escape}
+//                               > <error{Invalid hexadecimal in unicode escape}
 
     // Invalid unicode code point (out of range)
     property <string> p9: "abc\u{ffffff}";
-//                               |error{Invalid unicode code point}
+//                               >    <error{Invalid unicode code point}
 
     // Bare \u at end of string
     property <string> p10: "\u";

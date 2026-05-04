@@ -20,6 +20,7 @@ enum EscapeChunk<'a> {
 /// human-readable message.
 struct EscapeError {
     offset: usize,
+    length: usize,
     message: &'static str,
 }
 
@@ -31,18 +32,18 @@ fn walk_escapes<'a>(
     mut callback: impl FnMut(EscapeChunk<'a>),
 ) -> Result<(), EscapeError> {
     if raw_token.contains('\n') {
-        return Err(EscapeError { offset: 0, message: "Newline in string literal" });
+        return Err(EscapeError { offset: 0, length: 0, message: "Newline in string literal" });
     }
     let prefix_len = if raw_token.starts_with('"') || raw_token.starts_with('}') {
         1
     } else {
-        return Err(EscapeError { offset: 0, message: "Cannot parse string literal" });
+        return Err(EscapeError { offset: 0, length: 0, message: "Cannot parse string literal" });
     };
     let content = &raw_token[prefix_len..];
     let content = content
         .strip_suffix('"')
         .or_else(|| content.strip_suffix("\\{"))
-        .ok_or(EscapeError { offset: 0, message: "Cannot parse string literal" })?;
+        .ok_or(EscapeError { offset: 0, length: 0, message: "Cannot parse string literal" })?;
 
     let mut pos = 0;
     while pos < content.len() {
@@ -50,7 +51,8 @@ fn walk_escapes<'a>(
             if pos + 1 >= content.len() {
                 return Err(EscapeError {
                     offset: prefix_len + pos,
-                    message: "Unknown escape sequence. Use '\\\\' to escape a literal backslash",
+                    length: 1,
+                    message: r"Unknown escape sequence. Use '\\' to escape a literal backslash",
                 });
             }
             let (source_len, decoded) = match content.as_bytes()[pos + 1] {
@@ -63,6 +65,7 @@ fn walk_escapes<'a>(
                     if !has_brace {
                         return Err(EscapeError {
                             offset: prefix_len + brace_start,
+                            length: 0,
                             message: "Invalid unicode escape: expected '{'",
                         });
                     }
@@ -71,6 +74,7 @@ fn walk_escapes<'a>(
                         None => {
                             return Err(EscapeError {
                                 offset: prefix_len + brace_start,
+                                length: 0,
                                 message: "Unterminated unicode escape",
                             });
                         }
@@ -78,18 +82,23 @@ fn walk_escapes<'a>(
                     let hex = &content[brace_start + 1..brace_end];
                     let x = u32::from_str_radix(hex, 16).map_err(|_| EscapeError {
                         offset: prefix_len + brace_start + 1,
+                        length: hex.len(),
                         message: "Invalid hexadecimal in unicode escape",
                     })?;
                     let ch = std::char::from_u32(x).ok_or(EscapeError {
                         offset: prefix_len + brace_start + 1,
+                        length: hex.len(),
                         message: "Invalid unicode code point",
                     })?;
                     (brace_end + 1 - pos, ch)
                 }
                 _ => {
+                    let next_char_len =
+                        content[pos + 1..].chars().next().map_or(1, |c| c.len_utf8());
                     return Err(EscapeError {
                         offset: prefix_len + pos,
-                        message: "Unknown escape sequence. Use '\\\\' to escape a literal backslash",
+                        length: 1 + next_char_len,
+                        message: r"Unknown escape sequence. Use '\\' to escape a literal backslash",
                     });
                 }
             };
@@ -139,7 +148,7 @@ pub fn unescape_string_reporting(
                 e.message.into(),
                 SourceLocation {
                     source_file: loc.source_file,
-                    span: Span::new(loc.span.offset + e.offset, 0),
+                    span: Span::new(loc.span.offset + e.offset, e.length),
                 },
             );
             None
@@ -266,7 +275,7 @@ impl StringLiteralSourceMap {
                     e.message.into(),
                     SourceLocation {
                         source_file: loc.source_file,
-                        span: Span::new(loc.span.offset + e.offset, 0),
+                        span: Span::new(loc.span.offset + e.offset, e.length),
                     },
                 );
                 false
