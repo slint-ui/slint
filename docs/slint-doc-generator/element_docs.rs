@@ -595,10 +595,10 @@ fn resolve_inherited<T: Clone>(
 ) -> Option<T> {
     let mut current = name;
     loop {
-        if let Some(elem) = components.get(current) {
-            if let Some(val) = getter(elem) {
-                return Some(val.clone());
-            }
+        if let Some(elem) = components.get(current)
+            && let Some(val) = getter(elem)
+        {
+            return Some(val.clone());
         }
         match inheritance.get(current) {
             Some(parent) => current = parent,
