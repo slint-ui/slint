@@ -45,20 +45,20 @@ class Model[T](native.PyModelBase, Iterable[T]):
         Re-implement this method in a sub-class to provide the data."""
         return cast(T, super().row_data(row))
 
-    def push_row(self, data: T) -> None:
-        """Add a new row to the model with the provided data.
+    def push_row(self, value: T) -> None:
+        """Add a new row to the model with the provided value.
         Re-implement this method in a sub-class to handle the change."""
-        super().push_row(data)
+        super().push_row(value)
 
     def remove_row(self, row: int) -> None:
         """Remove the row at the given index.
         Re-implement this method in a sub-class to handle the change."""
         super().remove_row(row)
 
-    def insert_row(self, row: int, data: T) -> None:
+    def insert_row(self, row: int, value: T) -> None:
         """Insert a new row at the given index.
         Re-implement this method in a sub-class to handle the change."""
-        super().insert_row(row, data)
+        super().insert_row(row, value)
 
     def notify_row_changed(self, row: int) -> None:
         """Call this method from a sub-class to notify the views that a row has changed."""
@@ -106,16 +106,16 @@ class ListModel[T](Model[T]):
         self.list[row] = value
         super().notify_row_changed(row)
 
-    def push_row(self, data: T) -> None:
-        self.list.append(data)
+    def push_row(self, value: T) -> None:
+        self.list.append(value)
         super().notify_row_added(len(self.list) - 1, 1)
 
     def remove_row(self, row: int) -> None:
         del self.list[row]
         super().notify_row_removed(row, 1)
 
-    def insert_row(self, row: int, data: T) -> None:
-        self.list.insert(row, data)
+    def insert_row(self, row: int, value: T) -> None:
+        self.list.insert(row, value)
         self.notify_row_added(row, 1)
 
     def __delitem__(self, key: int | slice) -> None:
