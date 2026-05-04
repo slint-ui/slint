@@ -298,6 +298,9 @@ export component TextInput {
     in property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
     in property <InputType> input-type;
     in property <CapsMode> caps-mode;
+    in property <string> accept-button-text;
+    in property <bool> accept-button-enabled: true;
+    in property <bool> delete-button-enabled: true;
     // Internal, undocumented property, only exposed for tests.
     out property <int> cursor-position_byte-offset;
     // Internal, undocumented property, only exposed for tests.

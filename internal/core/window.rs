@@ -287,6 +287,17 @@ pub struct InputMethodProperties {
     pub input_type: InputType,
     /// The caps mode for the text edit
     pub caps_mode: CapsMode,
+    /// Custom label to display on the input method's accept (Done/Return)
+    /// button. When empty, the input method should use its default label.
+    pub accept_button_text: SharedString,
+    /// Whether the input method's accept (Done/Return) button is enabled.
+    /// When false, the button should be rendered in a disabled state and
+    /// presses should be ignored.
+    pub accept_button_enabled: bool,
+    /// Whether the input method's delete (Backspace) button is enabled.
+    /// When false, the button should be rendered in a disabled state and
+    /// presses should be ignored.
+    pub delete_button_enabled: bool,
 }
 
 /// This struct describes layout constraints of a resizable element, such as a window.

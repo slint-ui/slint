@@ -485,6 +485,9 @@ pub struct TextInput {
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
     pub caps_mode: Property<CapsMode>,
+    pub accept_button_text: Property<SharedString>,
+    pub accept_button_enabled: Property<bool>,
+    pub delete_button_enabled: Property<bool>,
     pub letter_spacing: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
@@ -1500,6 +1503,9 @@ impl TextInput {
             anchor_point,
             input_type: self.input_type(),
             caps_mode: self.caps_mode(),
+            accept_button_text: self.accept_button_text(),
+            accept_button_enabled: self.accept_button_enabled(),
+            delete_button_enabled: self.delete_button_enabled(),
         }
     }
 
