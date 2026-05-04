@@ -135,7 +135,6 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorMix => 50,
         BuiltinFunction::ColorWithAlpha => 50,
         BuiltinFunction::ImageSize => 50,
-        // TODO I have currently no idea is the weight of the new functions is correct.
         BuiltinFunction::ArrayLength
         | BuiltinFunction::ArrayPush
         | BuiltinFunction::ArrayRemove

@@ -159,7 +159,7 @@ def test_model_writeback() -> None:
     assert list(instance.get_property("model")) == [25, 42]
 
 
-def test_model_modify() -> None:
+def test_model_modifications() -> None:
     compiler = native.Compiler()
     compdef = compiler.build_from_source(
         """
