@@ -87,7 +87,7 @@ jobs:
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - uses: pnpm/action-setup@v6.0.3
+      - uses: pnpm/action-setup@v6.0.5
         with:
           version: 10.29.3
       - uses: actions/setup-node@v6
