@@ -213,7 +213,7 @@ component BasicBorderRectangle inherits Rectangle {
 ///     }
 /// }
 /// ```
-/// \doc-file:elements/rectangle.mdx
+/// \group:elements
 component BorderRectangle inherits BasicBorderRectangle {
     //! To target specific corners with different values use the following properties:
     ///
@@ -392,7 +392,7 @@ component ImageItem inherits Empty {
 ///     accessible-role: none;
 /// }
 /// ```
-/// \doc-file:elements/image.mdx
+/// \group:elements
 export component ClippedImage inherits ImageItem {
     /// The horizontal alignment of the image within the element.
     /// \default center
@@ -579,7 +579,7 @@ component SimpleText inherits Empty {
 ///
 ///  - `accessible-role: text;`
 ///  - `accessible-label: text;`
-/// \doc-file:elements/text.mdx
+/// \group:elements
 component ComplexText inherits SimpleText {
     /// The name of the font family selected for rendering the text.
     ///
@@ -708,7 +708,7 @@ export { ComplexText as Text }
 /// Footnotes        |
 /// Math expressions |
 /// Other HTML tags  |
-/// \doc-file:elements/styled-text.mdx
+/// \group:elements
 component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
@@ -764,7 +764,7 @@ export { StyledTextItem as StyledText }
 ///     }
 /// }
 /// ```
-/// \doc-file:gestures/toucharea.mdx
+/// \group:gestures
 export component TouchArea {
     /// When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
     /// passed through to elements underneath.
@@ -877,7 +877,7 @@ export component TouchArea {
 /// If no element captures the `KeyEvent`, then the `KeyEvent` is delivered to the focused element by calling `key-pressed` or `key-released`.
 /// If these callbacks return `EventResult::accept`, then event delivery is finished and the event has been handled. Otherwise, (recursively) try
 /// to deliver the key event to the parent element.
-/// \doc-file:keyboard-input/focusscope.mdx
+/// \group:keyboard-input
 export component FocusScope {
     /// Is `true` when the element has keyboard focus.
     out property <bool> has-focus;
@@ -999,7 +999,7 @@ component KeyBinding {
 /// It will scroll regardless of the `interactive` property.
 /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
 /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
-/// \doc-file:gestures/flickable.mdx
+/// \group:gestures
 export component Flickable inherits Empty {
     /// ```slint imageAlt="flickable interactive" width="200" height="200"
     /// Flickable {
@@ -1071,7 +1071,7 @@ export component Flickable inherits Empty {
 ///
 /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
 /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
-/// \doc-file:gestures/swipegesturehandler.mdx
+/// \group:gestures
 export component SwipeGestureHandler {
     /// When disabled, the `SwipeGestureHandler` doesn't recognize any gestures.
     in property <bool> enabled: true;
@@ -1159,7 +1159,7 @@ export component SwipeGestureHandler {
 /// The `scale` property provides a cumulative scale factor relative to the start of the gesture (starting at `1.0`).
 /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
 /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
-/// \doc-file:gestures/scalerotategesturehandler.mdx
+/// \group:gestures
 export component ScaleRotateGestureHandler {
     /// When disabled, the `ScaleRotateGestureHandler` doesn't recognize any gestures and any on-going gesture is cancelled.
     in property <bool> enabled: true;
@@ -1325,7 +1325,7 @@ component Menu {
 /// }
 /// ```
 /// \skip_children
-/// \doc-file:window/menubar.mdx
+/// \group:window
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -1395,7 +1395,7 @@ export component ContextMenuInternal inherits ContextMenu {
 ///     }
 /// }
 /// ```
-/// \doc-file:window/contextmenuarea.mdx
+/// \group:window
 export component ContextMenuArea inherits Empty {
     //! ## Function
     //!
@@ -1472,7 +1472,7 @@ component WindowItem {
     }
 }
 
-/// \doc-file:window/window.mdx
+/// \group:window
 export component Window inherits WindowItem {
     MenuBar { }
 }
@@ -1531,7 +1531,7 @@ export component BoxShadow inherits Empty {
 ///  - `accessible-value: text;`
 ///  - `accessible-enabled: enabled;`
 ///  - `accessible-read-only: read-only; `
-/// \doc-file:keyboard-input/textinput.mdx
+/// \group:keyboard-input
 export component TextInput {
     /// The text rendered and editable by the user.
     /// \default ""
@@ -1759,7 +1759,7 @@ component Row {
 ///     }
 /// }
 /// ```
-/// \doc-file:layouts/gridlayout.mdx
+/// \group:layouts
 export component GridLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
@@ -1811,7 +1811,7 @@ export component GridLayout {
 /// Places its children next to each other vertically.
 /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
-/// \doc-file:layouts/verticallayout.mdx
+/// \group:layouts
 export component VerticalLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout.
@@ -1876,7 +1876,7 @@ export component VerticalLayout {
 /// Places its children next to each other horizontally.
 /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
-/// \doc-file:layouts/horizontallayout.mdx
+/// \group:layouts
 export component HorizontalLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout.
@@ -2014,7 +2014,7 @@ export component HorizontalLayout {
 /// - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
 /// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
 /// \draft
-/// \doc-file:layouts/flexboxlayout.mdx
+/// \group:layouts
 export component FlexboxLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout. CSS Flexbox usually calls this "gap", but "spacing" is used in Slint for consistency with other layout types.
@@ -2172,7 +2172,7 @@ component Close {
 /// When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
 /// and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
 /// accordingly.
-/// \doc-file:elements/path.mdx
+/// \group:elements
 export component Path {
     /// The color for filling the shape of the path.
     in property <brush> fill;
@@ -2356,7 +2356,7 @@ export component TabWidget {
 /// :::note{Note}
 /// It isn't allowed to access properties of elements within the popup from outside of the `PopupWindow`. See [#4438](https://github.com/slint-ui/slint/issues/4438).
 /// :::
-/// \doc-file:window/popupwindow.mdx
+/// \group:window
 export component PopupWindow {
     //property <length> x;
     //property <length> y;
@@ -2433,7 +2433,6 @@ export component PopupWindow {
 ///     }
 /// }
 /// ```
-/// \doc-file:timer.mdx
 export component Timer {
     /// The interval between timer ticks. This property is mandatory.
     /// ```slint "interval: 250ms;"
@@ -2521,7 +2520,7 @@ export component Timer {
 ///
 /// Same as <Link type="Window"/>.
 /// \skip_inherited
-/// \doc-file:window/dialog.mdx
+/// \group:window
 export component Dialog inherits WindowItem { }
 
 component PropertyAnimation {
@@ -2551,7 +2550,7 @@ component PropertyAnimation {
 /// }
 /// ```
 ///
-/// \doc-file:keyboard-input/textinputinterface.mdx
+/// \group:keyboard-input
 export global TextInputInterface {
     //! ## Properties
     //!
@@ -2562,7 +2561,6 @@ export global TextInputInterface {
 }
 
 /// The **Platform** namespace contains properties that help deal with platform specific differences.
-/// \doc-file:global-namespaces/platform.mdx
 export global Platform {
     /// This property holds the type of the operating system detected at run-time.
     ///

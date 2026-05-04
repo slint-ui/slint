@@ -275,7 +275,7 @@ export default defineConfig({
                                     },
                                     {
                                         label: "Timer",
-                                        slug: "reference/timer",
+                                        slug: "reference/generated/timer",
                                     },
                                 ],
                             },
@@ -286,13 +286,15 @@ export default defineConfig({
                                     {
                                         label: "Basic Elements",
                                         autogenerate: {
-                                            directory: "reference/elements",
+                                            directory:
+                                                "reference/generated/elements",
                                         },
                                     },
                                     {
                                         label: "Gestures",
                                         autogenerate: {
-                                            directory: "reference/gestures",
+                                            directory:
+                                                "reference/generated/gestures",
                                         },
                                     },
                                     {
@@ -304,15 +306,15 @@ export default defineConfig({
                                             },
                                             {
                                                 label: "FocusScope",
-                                                slug: "reference/keyboard-input/focusscope",
+                                                slug: "reference/generated/keyboard-input/focus-scope",
                                             },
                                             {
                                                 label: "TextInput",
-                                                slug: "reference/keyboard-input/textinput",
+                                                slug: "reference/generated/keyboard-input/text-input",
                                             },
                                             {
                                                 label: "TextInputInterface",
-                                                slug: "reference/keyboard-input/textinputinterface",
+                                                slug: "reference/generated/keyboard-input/text-input-interface",
                                             },
                                         ],
                                     },
@@ -325,28 +327,29 @@ export default defineConfig({
                                             },
                                             {
                                                 label: "GridLayout",
-                                                slug: "reference/layouts/gridlayout",
+                                                slug: "reference/generated/layouts/grid-layout",
                                             },
                                             {
                                                 label: "HorizontalLayout",
-                                                slug: "reference/layouts/horizontallayout",
+                                                slug: "reference/generated/layouts/horizontal-layout",
                                             },
                                             {
                                                 label: "VerticalLayout",
-                                                slug: "reference/layouts/verticallayout",
+                                                slug: "reference/generated/layouts/vertical-layout",
                                             },
                                             // FlexboxLayout is experimental. When it ships, drop
-                                            // `draft: true` from flexboxlayout.mdx and uncomment:
+                                            // `draft: true` from flexbox-layout.mdx and uncomment:
                                             // {
                                             //     label: "FlexboxLayout",
-                                            //     slug: "reference/layouts/flexboxlayout",
+                                            //     slug: "reference/generated/layouts/flexbox-layout",
                                             // },
                                         ],
                                     },
                                     {
                                         label: "Window",
                                         autogenerate: {
-                                            directory: "reference/window",
+                                            directory:
+                                                "reference/generated/window",
                                         },
                                     },
                                 ],
@@ -357,7 +360,7 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Global Structs and Enums",
-                                        slug: "reference/global-structs-enums",
+                                        slug: "reference/generated/global-structs-enums",
                                     },
                                     {
                                         label: "Global Functions",
@@ -375,7 +378,7 @@ export default defineConfig({
                                     },
                                     {
                                         label: "Platform Namespace",
-                                        slug: "reference/global-namespaces/platform",
+                                        slug: "reference/generated/platform",
                                     },
                                     {
                                         label: "FontWeight Namespace",
@@ -511,7 +514,7 @@ export default defineConfig({
                             },
                         ],
                     },
-                ]),
+                ], { exclude: ["/reference/generated/enums/**", "/reference/generated/structs/**"] }),
                 slintStarlightLinksValidatorPlugin(),
             ],
             social: slintStarlightSocial,

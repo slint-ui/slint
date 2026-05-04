@@ -11,10 +11,7 @@ node_modules
 /_deps
 .DS_Store
 Pipfile.lock
-/docs/astro/src/content/collections/enums/
-/docs/astro/src/content/collections/structs/
 /playwright-report
-global-structs-enums.mdx
 
 # Ignore all package-lock.json files
 **/package-lock.json

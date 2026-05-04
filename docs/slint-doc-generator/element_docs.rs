@@ -49,9 +49,9 @@ struct ElementDoc {
     /// draft pages when experimental features are disabled.
     /// Extracted from `\draft` annotation.
     draft: bool,
-    /// Path relative to docs/reference/, e.g. "elements/rectangle.mdx".
-    /// Extracted from `\doc-file:` annotation. Empty means no page.
-    doc_file: String,
+    /// Subdirectory within the generated output folder, e.g. "elements".
+    /// Extracted from `\group` annotation. `None` means no page is generated.
+    group: Option<String>,
     members: Vec<MemberDoc>,
     /// Direct child component names (sub-elements).
     children: Vec<String>,
@@ -158,13 +158,18 @@ fn extract_default(doc: &str) -> (String, Option<String>) {
     (doc.to_string(), None)
 }
 
-/// Extract and remove `\doc-file:path` annotation.
-fn extract_doc_file(doc: &mut String) -> String {
-    let mut result = String::new();
+/// Extract and remove `\group` or `\group:name` annotation.
+/// Returns `Some(name)` when a group was specified (name may be empty
+/// for bare `\group`), or `None` when the annotation is absent.
+fn extract_group(doc: &mut String) -> Option<String> {
+    let mut result = None;
     let mut lines: Vec<&str> = doc.lines().collect();
     for i in (0..lines.len()).rev() {
-        if let Some(val) = lines[i].strip_prefix("\\doc-file:") {
-            result = val.trim().to_string();
+        if let Some(val) = lines[i].strip_prefix("\\group:") {
+            result = Some(val.trim().to_string());
+            lines.remove(i);
+        } else if lines[i].trim() == "\\group" {
+            result = Some(String::new());
             lines.remove(i);
         }
     }
@@ -173,29 +178,9 @@ fn extract_doc_file(doc: &mut String) -> String {
 }
 
 /// Strip `\draft` and return whether it was present.
-fn strip_draft(doc: &mut String) -> bool {
-    if doc.contains("\\draft") {
-        *doc = doc.replace("\\draft", "").trim().to_string();
-        true
-    } else {
-        false
-    }
-}
-
-/// Strip `\skip_inherited` and return whether it was present.
-fn strip_skip_inherited(doc: &mut String) -> bool {
-    if doc.contains("\\skip_inherited") {
-        *doc = doc.replace("\\skip_inherited", "").trim().to_string();
-        true
-    } else {
-        false
-    }
-}
-
-/// Strip `\skip_children` and return whether it was present.
-fn strip_skip_children(doc: &mut String) -> bool {
-    if doc.contains("\\skip_children") {
-        *doc = doc.replace("\\skip_children", "").trim().to_string();
+fn strip_annotation(doc: &mut String, tag: &str) -> bool {
+    if doc.contains(tag) {
+        *doc = doc.replace(tag, "").trim().to_string();
         true
     } else {
         false
@@ -225,8 +210,12 @@ impl ScreenshotCounter {
         Self { element_slug: mdx::to_kebab_case(element_name), next: 1 }
     }
 
+    fn path_for(&self, n: usize) -> String {
+        format!("/src/assets/generated/{}-{n}.png", self.element_slug)
+    }
+
     fn next_path(&mut self) -> String {
-        let path = format!("/src/assets/generated/{}-{}.png", self.element_slug, self.next);
+        let path = self.path_for(self.next);
         self.next += 1;
         path
     }
@@ -235,7 +224,7 @@ impl ScreenshotCounter {
     /// the preceding screenshot).
     fn prev_path(&self) -> String {
         assert!(self.next > 1, "noScreenShot used before any screenshot was generated");
-        format!("/src/assets/generated/{}-{}.png", self.element_slug, self.next - 1)
+        self.path_for(self.next - 1)
     }
 }
 
@@ -596,25 +585,71 @@ fn resolve_inheritance(
     }
 }
 
-/// Walk up the inheritance chain to find the first non-empty value.
+/// Walk up the inheritance chain to find the first value for which
+/// `getter` returns `Some`.
+fn resolve_inherited<T: Clone>(
+    name: &str,
+    components: &BTreeMap<String, ElementDoc>,
+    inheritance: &HashMap<String, String>,
+    getter: fn(&ElementDoc) -> Option<&T>,
+) -> Option<T> {
+    let mut current = name;
+    loop {
+        if let Some(elem) = components.get(current) {
+            if let Some(val) = getter(elem) {
+                return Some(val.clone());
+            }
+        }
+        match inheritance.get(current) {
+            Some(parent) => current = parent,
+            None => return None,
+        }
+    }
+}
+
+/// Convenience wrapper: resolve a `String` field, treating empty as absent.
 fn resolve_inherited_field(
     name: &str,
     components: &BTreeMap<String, ElementDoc>,
     inheritance: &HashMap<String, String>,
-    getter: fn(&ElementDoc) -> &str,
+    getter: fn(&ElementDoc) -> &String,
 ) -> String {
     let mut current = name;
     loop {
         if let Some(elem) = components.get(current) {
             let val = getter(elem);
             if !val.is_empty() {
-                return val.to_string();
+                return val.clone();
             }
         }
         match inheritance.get(current) {
             Some(parent) => current = parent,
             None => return String::new(),
         }
+    }
+}
+
+/// Build an `ElementDoc` for export, resolving inherited fields.
+fn build_exported_doc(
+    export_name: String,
+    internal_name: &str,
+    elem: &ElementDoc,
+    components: &BTreeMap<String, ElementDoc>,
+    inheritance: &HashMap<String, String>,
+) -> ElementDoc {
+    ElementDoc {
+        name: export_name,
+        is_global: elem.is_global,
+        description: resolve_inherited_field(internal_name, components, inheritance, |e| {
+            &e.description
+        }),
+        footer: resolve_inherited_field(internal_name, components, inheritance, |e| &e.footer),
+        draft: elem.draft,
+        group: resolve_inherited(internal_name, components, inheritance, |e| e.group.as_ref()),
+        skip_inherited: false,
+        skip_children: elem.skip_children,
+        members: elem.members.clone(),
+        children: elem.children.clone(),
     }
 }
 
@@ -656,12 +691,12 @@ fn extract_builtin_element_docs() -> (Vec<ElementDoc>, BTreeMap<String, ElementD
         }
 
         let mut description = extract_doc_comment(&c).unwrap_or_default();
-        let doc_file = extract_doc_file(&mut description);
-        let draft = strip_draft(&mut description);
+        let group = extract_group(&mut description);
+        let draft = strip_annotation(&mut description, "\\draft");
         let (desc, footer) = split_footer(&description);
         description = desc;
-        let skip_inherited = strip_skip_inherited(&mut description);
-        let skip_children = strip_skip_children(&mut description);
+        let skip_inherited = strip_annotation(&mut description, "\\skip_inherited");
+        let skip_children = strip_annotation(&mut description, "\\skip_children");
 
         let children = elem_node
             .SubElement()
@@ -681,9 +716,9 @@ fn extract_builtin_element_docs() -> (Vec<ElementDoc>, BTreeMap<String, ElementD
                 description,
                 footer,
                 draft,
+                group,
                 skip_inherited,
                 skip_children,
-                doc_file,
                 members: extract_members(&elem_node),
                 children,
             },
@@ -713,24 +748,13 @@ fn extract_builtin_element_docs() -> (Vec<ElementDoc>, BTreeMap<String, ElementD
             .unwrap_or_else(|| internal_name.clone());
         seen.insert(export_name.clone());
         let elem = &components[internal_name];
-        result.push(ElementDoc {
-            name: export_name,
-            is_global: elem.is_global,
-            description: resolve_inherited_field(internal_name, &components, &inheritance, |e| {
-                &e.description
-            }),
-            footer: resolve_inherited_field(internal_name, &components, &inheritance, |e| {
-                &e.footer
-            }),
-            draft: elem.draft,
-            skip_inherited: false,
-            skip_children: elem.skip_children,
-            doc_file: resolve_inherited_field(internal_name, &components, &inheritance, |e| {
-                &e.doc_file
-            }),
-            members: elem.members.clone(),
-            children: elem.children.clone(),
-        });
+        result.push(build_exported_doc(
+            export_name,
+            internal_name,
+            elem,
+            &components,
+            &inheritance,
+        ));
     }
 
     // Second pass: re-exported aliases (export { X as Y }).
@@ -739,55 +763,28 @@ fn extract_builtin_element_docs() -> (Vec<ElementDoc>, BTreeMap<String, ElementD
             continue;
         }
         if let Some(elem) = components.get(internal_name) {
-            result.push(ElementDoc {
-                name: export_name.clone(),
-                is_global: elem.is_global,
-                description: resolve_inherited_field(
-                    internal_name,
-                    &components,
-                    &inheritance,
-                    |e| &e.description,
-                ),
-                footer: resolve_inherited_field(internal_name, &components, &inheritance, |e| {
-                    &e.footer
-                }),
-                draft: elem.draft,
-                skip_inherited: false,
-                skip_children: elem.skip_children,
-                doc_file: resolve_inherited_field(internal_name, &components, &inheritance, |e| {
-                    &e.doc_file
-                }),
-                members: elem.members.clone(),
-                children: elem.children.clone(),
-            });
+            result.push(build_exported_doc(
+                export_name.clone(),
+                internal_name,
+                elem,
+                &components,
+                &inheritance,
+            ));
         }
     }
 
-    // Third pass: non-exported components with a doc-file (e.g. MenuBar).
-    // Collect internal names already handled via export aliases.
+    // Third pass: non-exported components with a group (e.g. MenuBar).
     let seen_internal: HashSet<&str> = export_aliases.values().map(|s| s.as_str()).collect();
     for (name, elem) in &components {
-        if seen.contains(name.as_str())
-            || seen_internal.contains(name.as_str())
-            || elem.doc_file.is_empty()
-        {
+        if seen.contains(name.as_str()) || seen_internal.contains(name.as_str()) {
+            continue;
+        }
+        let doc = build_exported_doc(name.clone(), name, elem, &components, &inheritance);
+        if doc.group.is_none() {
             continue;
         }
         seen.insert(name.clone());
-        result.push(ElementDoc {
-            name: name.clone(),
-            is_global: elem.is_global,
-            description: resolve_inherited_field(name, &components, &inheritance, |e| {
-                &e.description
-            }),
-            footer: resolve_inherited_field(name, &components, &inheritance, |e| &e.footer),
-            draft: elem.draft,
-            skip_inherited: false,
-            skip_children: elem.skip_children,
-            doc_file: elem.doc_file.clone(),
-            members: elem.members.clone(),
-            children: elem.children.clone(),
-        });
+        result.push(doc);
     }
 
     result.sort_by(|a, b| a.name.cmp(&b.name));
@@ -798,7 +795,12 @@ fn extract_builtin_element_docs() -> (Vec<ElementDoc>, BTreeMap<String, ElementD
 
 /// Build a set of internal component names that have their own doc page.
 fn components_with_own_page(all: &BTreeMap<String, ElementDoc>) -> HashSet<String> {
-    all.iter().filter(|(_, e)| !e.doc_file.is_empty()).map(|(k, _)| k.clone()).collect()
+    all.iter()
+        .filter(|(_, e)| {
+            !e.description.is_empty() || e.members.iter().any(|m| m.has_doc_comment)
+        })
+        .map(|(k, _)| k.clone())
+        .collect()
 }
 
 fn write_slint_property(
@@ -917,7 +919,6 @@ fn write_members(
 fn write_sub_element(
     file: &mut impl Write,
     child_name: &str,
-    _parent_name: &str,
     child: &ElementDoc,
     all_components: &BTreeMap<String, ElementDoc>,
     enums: &HashSet<String>,
@@ -998,7 +999,6 @@ fn write_sub_element(
             write_sub_element(
                 file,
                 gc_name,
-                _parent_name,
                 gc,
                 all_components,
                 enums,
@@ -1052,7 +1052,8 @@ fn collect_all_text(elem: &ElementDoc, all: &BTreeMap<String, ElementDoc>) -> St
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let (elements, all_components) = extract_builtin_element_docs();
     let root_dir = crate::root_dir();
-    let reference_dir = root_dir.join("docs/astro/src/content/docs/reference");
+    let generated_dir = root_dir.join("docs/astro/src/content/docs/reference/generated");
+    create_dir_all(&generated_dir)?;
 
     // Include all types for resolution, regardless of experimental flag.
     let enum_names: HashSet<String> = mdx::extract_enum_docs(true).keys().cloned().collect();
@@ -1061,14 +1062,24 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let own_page = components_with_own_page(&all_components);
 
     for elem in &elements {
-        if elem.doc_file.is_empty() || elem.draft {
+        if elem.draft {
+            continue;
+        }
+        let has_docs = !elem.description.is_empty()
+            || elem.members.iter().any(|m| m.has_doc_comment);
+        if !has_docs {
             continue;
         }
 
-        let path = reference_dir.join(&elem.doc_file);
-        if let Some(parent) = path.parent() {
-            create_dir_all(parent)?;
-        }
+        let filename = format!("{}.mdx", mdx::to_kebab_case(&elem.name));
+        let path = match elem.group.as_deref() {
+            Some(group) if !group.is_empty() => {
+                let subdir = generated_dir.join(group);
+                create_dir_all(&subdir)?;
+                subdir.join(&filename)
+            }
+            _ => generated_dir.join(&filename),
+        };
         let mut file = BufWriter::new(
             std::fs::File::create(&path).map_err(|e| format!("error creating {path:?}: {e}"))?,
         );
@@ -1103,7 +1114,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
             if all_text.contains(&format!("<{name} />")) || all_text.contains(&format!("<{name}/>"))
             {
                 extra_imports.push(format!(
-                    "import {name} from '/src/content/collections/structs/{name}.md';"
+                    "import {name} from '/src/content/docs/reference/generated/structs/{name}.md';"
                 ));
             }
         }
@@ -1111,7 +1122,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
             if all_text.contains(&format!("<{name} />")) || all_text.contains(&format!("<{name}/>"))
             {
                 extra_imports.push(format!(
-                    "import {name} from '/src/content/collections/enums/{name}.md';"
+                    "import {name} from '/src/content/docs/reference/generated/enums/{name}.md';"
                 ));
             }
         }
@@ -1147,7 +1158,6 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
                     write_sub_element(
                         &mut file,
                         child_name,
-                        &elem.name,
                         child,
                         &all_components,
                         &enum_names,
