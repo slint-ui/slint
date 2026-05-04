@@ -48,6 +48,16 @@ To start the application, execute:
 cargo run
 ```
 
+## Node.js
+
+```sh
+cd demos/weather-demo
+pnpm install
+pnpm start
+```
+
+Set the `OPEN_WEATHER_API_KEY` environment variable for real weather data. Without it, the application loads dummy data.
+
 ## Android
 To be able to compile the application for Android, you must follow an initial setup. The instruction is available in [Slint's documentation](https://releases.slint.dev/latest/docs/rust/slint/android/#building-and-deploying).
 

@@ -36,6 +36,16 @@ Then, you can run the demo on an Android device with the following command:
 cargo apk run -p energy-monitor --target aarch64-linux-android --lib
 ```
 
+### Node.js
+
+```sh
+cd demos/energy-monitor
+pnpm install
+pnpm start
+```
+
+The same `WEATHER_API`, `WEATHER_LAT`, and `WEATHER_LONG` environment variables apply.
+
 ### Web
 
 ```sh
