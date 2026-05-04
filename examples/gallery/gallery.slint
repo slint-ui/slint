@@ -15,7 +15,13 @@ import {
 } from "ui/pages/pages.slint";
 import { SideBar } from "ui/side_bar.slint";
 
-export { TableViewPageAdapter }
+import { CheckBox, StandardListView } from "std-widgets.slint";
+import { AboutPage, ControlsPage, ControlsPageLogic, EasingsPage, ListViewPage, StyledTextPage, TableViewPage, TableViewPageAdapter } from "ui/pages/pages.slint";
+import { GallerySettings } from "ui/gallery_settings.slint";
+import { SideBar } from "ui/side_bar.slint";
+
+export { TableViewPageAdapter, ControlsPageLogic }
+
 export component App inherits Window {
     preferred-width: 700px;
     preferred-height: 500px;
