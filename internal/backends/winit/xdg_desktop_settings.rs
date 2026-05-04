@@ -22,6 +22,29 @@ fn xdg_accent_color_to_slint(value: zbus::zvariant::OwnedValue) -> Option<Color>
     Some(Color::from_argb_f32(1.0, r as f32, g as f32, b as f32))
 }
 
+async fn read_cursor_blink_settings(
+    settings_proxy: &zbus::Proxy<'_>,
+) -> Option<core::time::Duration> {
+    let blink_enabled: zbus::Result<zbus::zvariant::OwnedValue> =
+        settings_proxy.call("ReadOne", &("org.gnome.desktop.interface", "cursor-blink")).await;
+    if let Ok(value) = blink_enabled
+        && value.downcast_ref::<bool>() == Ok(false)
+    {
+        return Some(core::time::Duration::ZERO);
+    }
+
+    let blink_time: zbus::Result<zbus::zvariant::OwnedValue> =
+        settings_proxy.call("ReadOne", &("org.gnome.desktop.interface", "cursor-blink-time")).await;
+    if let Ok(value) = blink_time
+        && let Ok(ms) = value.downcast_ref::<i32>()
+        && ms > 0
+    {
+        return Some(core::time::Duration::from_millis(ms as u64));
+    }
+
+    None
+}
+
 pub async fn watch(window_weak: Weak<WinitWindowAdapter>) -> zbus::Result<()> {
     let connection = zbus::Connection::session().await?;
     let settings_proxy: zbus::Proxy = zbus::proxy::Builder::new(&connection)
@@ -42,28 +65,54 @@ pub async fn watch(window_weak: Weak<WinitWindowAdapter>) -> zbus::Result<()> {
     if let Some(color) = accent_result.ok().and_then(xdg_accent_color_to_slint) {
         window.set_accent_color(color);
     }
+
+    let shared_data = window.shared_backend_data.clone();
     drop(window);
+
+    if let Some(interval) = read_cursor_blink_settings(&settings_proxy).await {
+        shared_data.cursor_blink_interval.set(interval);
+    }
 
     use futures::stream::StreamExt;
 
-    let mut settings_stream = settings_proxy
-        .receive_signal_with_args("SettingChanged", &[(0, "org.freedesktop.appearance")])
-        .await?
-        .map(|message| {
-            let (_, key, value): (String, String, zbus::zvariant::OwnedValue) =
+    let mut settings_stream =
+        settings_proxy.receive_signal("SettingChanged").await?.map(|message| {
+            let (namespace, key, value): (String, String, zbus::zvariant::OwnedValue) =
                 message.body().deserialize().ok()?;
-            Some((key, value))
+            Some((namespace, key, value))
         });
 
-    while let Some(Some((key, value))) = settings_stream.next().await {
-        let Some(window) = window_weak.upgrade() else { return Ok(()) };
-        match key.as_str() {
-            "color-scheme" => {
+    while let Some(Some((namespace, key, value))) = settings_stream.next().await {
+        match (namespace.as_str(), key.as_str()) {
+            ("org.freedesktop.appearance", "color-scheme") => {
+                let Some(window) = window_weak.upgrade() else { return Ok(()) };
                 window.set_color_scheme(xdg_color_scheme_to_slint(value));
             }
-            "accent-color" => {
+            ("org.freedesktop.appearance", "accent-color") => {
+                let Some(window) = window_weak.upgrade() else { return Ok(()) };
                 if let Some(color) = xdg_accent_color_to_slint(value) {
                     window.set_accent_color(color);
+                }
+            }
+            ("org.gnome.desktop.interface", "cursor-blink") => {
+                if let Ok(enabled) = value.downcast_ref::<bool>() {
+                    if enabled {
+                        let interval = read_cursor_blink_settings(&settings_proxy)
+                            .await
+                            .unwrap_or(crate::DEFAULT_CURSOR_FLASH_CYCLE);
+                        shared_data.cursor_blink_interval.set(interval);
+                    } else {
+                        shared_data.cursor_blink_interval.set(core::time::Duration::ZERO);
+                    }
+                }
+            }
+            ("org.gnome.desktop.interface", "cursor-blink-time") => {
+                if let Ok(ms) = value.downcast_ref::<i32>()
+                    && ms > 0
+                {
+                    shared_data
+                        .cursor_blink_interval
+                        .set(core::time::Duration::from_millis(ms as u64));
                 }
             }
             _ => {}
