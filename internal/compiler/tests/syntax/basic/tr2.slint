@@ -39,7 +39,7 @@ export component X {
 
     // Bad escape in @tr format string
     property <string> t18: @tr("foo\xbar");
-//                                 >    <error{Cannot parse string literal}
+//                                 |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
 
     // Escape before format error: \n shifts the source map
     property <string> t19: @tr("a\nb{bad}", 1);
@@ -57,9 +57,9 @@ export component X {
 
     // Bad escape in @tr context string
     property <string> t23: @tr("ctx\x" => "hello");
-//                                 > <error{Cannot parse string literal}
+//                                 |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
 
     // Bad escape in @tr plural string
     property <string> t24: @tr("one" | "plu\xral" % 5);
-//                                         >    <error{Cannot parse string literal}
+//                                         |error{Unknown escape sequence. Use '\\' to escape a literal backslash}
 }

@@ -91,7 +91,7 @@ impl TokenInfo {
 pub fn token_info(document_cache: &common::DocumentCache, token: SyntaxToken) -> Option<TokenInfo> {
     let mut node = token.parent();
     if node.kind() == SyntaxKind::AtImageUrl && token.kind() == SyntaxKind::StringLiteral {
-        let path = i_slint_compiler::literals::unescape_string(token.text()).ok()?;
+        let path = i_slint_compiler::literals::unescape_string(token.text())?;
         let path = token.source_file.path().parent().map(|p| p.to_path_buf())?.join(path);
 
         return Some(TokenInfo::Image(clean_path(&path)));

@@ -9,22 +9,49 @@ use smol_str::SmolStr;
 use strum::IntoEnumIterator;
 
 /// Describes one chunk produced by [`walk_escapes`].
-enum EscapeChunk {
-    /// A plain character (same bytes in source and output).
-    Plain { len: usize },
+enum EscapeChunk<'a> {
+    /// Consecutive plain characters (same bytes in source and output).
+    Plain(&'a str),
     /// An escape sequence: `source_len` bytes in the source produce `decoded`.
     Escape { source_len: usize, decoded: char },
 }
 
-/// Walk the content of a string literal (after stripping the opening delimiter),
-/// calling `callback` for each chunk. Returns `Ok(())` on success, or `Err(pos)`
-/// with the byte offset of the malformed escape within `content`.
-fn walk_escapes(content: &str, mut callback: impl FnMut(EscapeChunk)) -> Result<(), usize> {
+/// Error returned by [`walk_escapes`]: byte offset within the raw token and a
+/// human-readable message.
+struct EscapeError {
+    offset: usize,
+    message: &'static str,
+}
+
+/// Walk a string literal token (including its delimiters), strip the delimiters,
+/// and call `callback` for each chunk of the content. Returns `Ok(())` on success,
+/// or an [`EscapeError`] pointing at the problematic byte in the raw token.
+fn walk_escapes<'a>(
+    raw_token: &'a str,
+    mut callback: impl FnMut(EscapeChunk<'a>),
+) -> Result<(), EscapeError> {
+    if raw_token.contains('\n') {
+        return Err(EscapeError { offset: 0, message: "Newline in string literal" });
+    }
+    let prefix_len = if raw_token.starts_with('"') || raw_token.starts_with('}') {
+        1
+    } else {
+        return Err(EscapeError { offset: 0, message: "Cannot parse string literal" });
+    };
+    let content = &raw_token[prefix_len..];
+    let content = content
+        .strip_suffix('"')
+        .or_else(|| content.strip_suffix("\\{"))
+        .ok_or(EscapeError { offset: 0, message: "Cannot parse string literal" })?;
+
     let mut pos = 0;
     while pos < content.len() {
         if content.as_bytes()[pos] == b'\\' {
             if pos + 1 >= content.len() {
-                return Err(pos);
+                return Err(EscapeError {
+                    offset: prefix_len + pos,
+                    message: "Unknown escape sequence. Use '\\\\' to escape a literal backslash",
+                });
             }
             let (source_len, decoded) = match content.as_bytes()[pos + 1] {
                 b'"' => (2, '"'),
@@ -34,60 +61,58 @@ fn walk_escapes(content: &str, mut callback: impl FnMut(EscapeChunk)) -> Result<
                     let brace_start = pos + 2;
                     let has_brace = content.as_bytes().get(brace_start) == Some(&b'{');
                     if !has_brace {
-                        return Err(pos);
+                        return Err(EscapeError {
+                            offset: prefix_len + brace_start,
+                            message: "Invalid unicode escape: expected '{'",
+                        });
                     }
                     let brace_end = match content[brace_start..].find('}') {
                         Some(i) => i + brace_start,
-                        None => return Err(pos),
+                        None => {
+                            return Err(EscapeError {
+                                offset: prefix_len + brace_start,
+                                message: "Unterminated unicode escape",
+                            });
+                        }
                     };
                     let hex = &content[brace_start + 1..brace_end];
-                    let x = u32::from_str_radix(hex, 16).map_err(|_| pos)?;
-                    let ch = std::char::from_u32(x).ok_or(pos)?;
+                    let x = u32::from_str_radix(hex, 16).map_err(|_| EscapeError {
+                        offset: prefix_len + brace_start + 1,
+                        message: "Invalid hexadecimal in unicode escape",
+                    })?;
+                    let ch = std::char::from_u32(x).ok_or(EscapeError {
+                        offset: prefix_len + brace_start + 1,
+                        message: "Invalid unicode code point",
+                    })?;
                     (brace_end + 1 - pos, ch)
                 }
-                _ => return Err(pos),
+                _ => {
+                    return Err(EscapeError {
+                        offset: prefix_len + pos,
+                        message: "Unknown escape sequence. Use '\\\\' to escape a literal backslash",
+                    });
+                }
             };
             callback(EscapeChunk::Escape { source_len, decoded });
             pos += source_len;
         } else {
-            let ch_len = content[pos..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
-            callback(EscapeChunk::Plain { len: ch_len });
-            pos += ch_len;
+            let start = pos;
+            pos = content[pos..].find('\\').map_or(content.len(), |i| pos + i);
+            callback(EscapeChunk::Plain(&content[start..pos]));
         }
     }
     Ok(())
 }
 
-/// Unescape a string literal token. Returns `Ok(unescaped)` on success,
-/// or `Err(offset)` with the byte offset of the bad escape within the raw token.
-pub fn unescape_string(string: &str) -> Result<SmolStr, usize> {
-    if string.contains('\n') {
-        // FIXME: new line in string literal not yet supported
-        return Err(0);
-    }
-    let prefix_len =
-        if string.starts_with('"') || string.starts_with('}') { 1 } else { return Err(0) };
-    let content = &string[prefix_len..];
-    let content =
-        content.strip_suffix('"').or_else(|| content.strip_suffix("\\{")).ok_or(0usize)?;
-    if !content.contains('\\') {
-        return Ok(content.into());
-    }
-    let mut result = String::with_capacity(content.len());
-    let mut pos = 0;
-    walk_escapes(content, |chunk| match chunk {
-        EscapeChunk::Plain { len } => {
-            result += &content[pos..pos + len];
-            pos += len;
-        }
-        EscapeChunk::Escape { source_len, decoded } => {
-            result.push(decoded);
-            pos += source_len;
-        }
+/// Unescape a string literal token, returning `None` on error.
+pub fn unescape_string(string: &str) -> Option<SmolStr> {
+    let mut result = String::with_capacity(string.len());
+    walk_escapes(string, |chunk| match chunk {
+        EscapeChunk::Plain(s) => result += s,
+        EscapeChunk::Escape { decoded, .. } => result.push(decoded),
     })
-    // Map error offset from content-relative to raw-token-relative
-    .map_err(|offset| prefix_len + offset)?;
-    Ok(result.into())
+    .ok()?;
+    Some(result.into())
 }
 
 /// Unescape a string literal token, reporting any error on the token's source location
@@ -102,18 +127,19 @@ pub fn unescape_string_reporting(
         diag.push_error("Cannot parse string literal".into(), fallback);
         return None;
     };
-    match unescape_string(token.text()) {
-        Ok(s) => Some(s),
-        Err(offset) => {
+    let mut result = String::with_capacity(token.text().len());
+    match walk_escapes(token.text(), |chunk| match chunk {
+        EscapeChunk::Plain(s) => result += s,
+        EscapeChunk::Escape { decoded, .. } => result.push(decoded),
+    }) {
+        Ok(()) => Some(result.into()),
+        Err(e) => {
             let loc = token.to_source_location();
             diag.push_error_with_span(
-                "Cannot parse string literal".into(),
+                e.message.into(),
                 SourceLocation {
                     source_file: loc.source_file,
-                    span: Span::new(
-                        loc.span.offset + offset,
-                        loc.span.length.saturating_sub(offset),
-                    ),
+                    span: Span::new(loc.span.offset + e.offset, 0),
                 },
             );
             None
@@ -123,32 +149,36 @@ pub fn unescape_string_reporting(
 
 #[test]
 fn test_unescape_string() {
-    assert_eq!(unescape_string(r#""foo_bar""#), Ok("foo_bar".into()));
-    assert_eq!(unescape_string(r#""foo\"bar""#), Ok("foo\"bar".into()));
-    assert_eq!(unescape_string(r#""foo\\\"bar""#), Ok("foo\\\"bar".into()));
-    assert_eq!(unescape_string(r#""fo\na\\r""#), Ok("fo\na\\r".into()));
-    assert_eq!(unescape_string(r#""fo\xa""#), Err(3));
-    assert_eq!(unescape_string(r#""fooo\""#), Err(5));
-    assert_eq!(unescape_string(r#""f\n\n\nf""#), Ok("f\n\n\nf".into()));
-    assert_eq!(unescape_string(r#""music\♪xx""#), Err(6));
-    assert_eq!(unescape_string(r#""music\"♪\"🎝""#), Ok("music\"♪\"🎝".into()));
-    assert_eq!(unescape_string(r#""foo_bar"#), Err(0));
-    assert_eq!(unescape_string(r#""foo_bar\"#), Err(0));
-    assert_eq!(unescape_string(r#"foo_bar""#), Err(0));
-    assert_eq!(unescape_string(r#""d\u{8}a\u{d4}f\u{Ed3}""#), Ok("d\u{8}a\u{d4}f\u{ED3}".into()));
-    assert_eq!(unescape_string(r#""xxx\""#), Err(4));
-    assert_eq!(unescape_string(r#""xxx\u""#), Err(4));
-    assert_eq!(unescape_string(r#""xxx\uxx""#), Err(4));
-    assert_eq!(unescape_string(r#""xxx\u{""#), Err(4));
-    assert_eq!(unescape_string(r#""xxx\u{22""#), Err(4));
-    assert_eq!(unescape_string(r#""xxx\u{qsdf}""#), Err(4));
-    assert_eq!(unescape_string(r#""xxx\u{1234567890}""#), Err(4));
+    assert_eq!(unescape_string(r#""foo_bar""#).as_deref(), Some("foo_bar"));
+    assert_eq!(unescape_string(r#""foo\"bar""#).as_deref(), Some("foo\"bar"));
+    assert_eq!(unescape_string(r#""foo\\\"bar""#).as_deref(), Some("foo\\\"bar"));
+    assert_eq!(unescape_string(r#""fo\na\\r""#).as_deref(), Some("fo\na\\r"));
+    assert_eq!(unescape_string(r#""fo\xa""#), None);
+    assert_eq!(unescape_string(r#""fooo\""#), None);
+    assert_eq!(unescape_string(r#""f\n\n\nf""#).as_deref(), Some("f\n\n\nf"));
+    assert_eq!(unescape_string(r#""music\♪xx""#), None);
+    assert_eq!(unescape_string(r#""music\"♪\"🎝""#).as_deref(), Some("music\"♪\"🎝"));
+    assert_eq!(unescape_string(r#""foo_bar"#), None);
+    assert_eq!(unescape_string(r#""foo_bar\"#), None);
+    assert_eq!(unescape_string(r#"foo_bar""#), None);
+    assert_eq!(
+        unescape_string(r#""d\u{8}a\u{d4}f\u{Ed3}""#).as_deref(),
+        Some("d\u{8}a\u{d4}f\u{ED3}")
+    );
+    assert_eq!(unescape_string(r#""xxx\""#), None);
+    assert_eq!(unescape_string(r#""xxx\u""#), None);
+    assert_eq!(unescape_string(r#""xxx\uxx""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{22""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{qsdf}""#), None);
+    assert_eq!(unescape_string(r#""xxx\u{1234567890}""#), None);
 }
 
 /// Maps byte offsets in a string assembled from one or more string literal tokens
 /// back to precise source locations, accounting for escape sequences.
 #[derive(Default)]
 pub struct StringLiteralSourceMap {
+    assembled: String,
     entries: Vec<SourceMapEntry>,
 }
 
@@ -167,83 +197,88 @@ impl StringLiteralSourceMap {
         Self::default()
     }
 
-    /// Unescape a string literal token and optionally append the result to
-    /// `assembled`, recording the source mapping. Returns the unescaped content,
-    /// or reports an error and returns `None`.
+    /// Return the assembled (unescaped) string.
+    pub fn as_str(&self) -> &str {
+        &self.assembled
+    }
+
+    /// Consume the source map and return the assembled string.
+    pub fn into_string(self) -> String {
+        self.assembled
+    }
+
+    /// Unescape a string literal token, appending to the internal assembled string
+    /// and recording the source mapping. Reports errors to `diag` and returns
+    /// `false` on failure.
     pub fn push(
         &mut self,
-        assembled: Option<&mut String>,
         token: &crate::parser::SyntaxToken,
         diag: &mut BuildDiagnostics,
-    ) -> Option<SmolStr> {
-        let unescaped = unescape_string_reporting(Some(token), diag, token)?;
-        let base = assembled.as_ref().map(|a| a.len()).unwrap_or(0);
-        if let Some(assembled) = assembled {
-            assembled.push_str(&unescaped);
-        }
-        if unescaped.is_empty() {
-            return Some(unescaped);
-        }
+    ) -> bool {
         let loc = token.to_source_location();
         let token_offset = loc.span.offset;
         let raw = token.text();
-        if !raw.contains('\\') {
-            // No escapes: the whole content maps 1:1 (skip delimiter)
-            self.entries.push(SourceMapEntry {
-                assembled_start: base,
-                source_offset: token_offset + 1,
-                source_file: loc.source_file,
-            });
-        } else {
-            let content = &raw[1..]; // skip opening delimiter
-            let content = content
-                .strip_suffix('"')
-                .or_else(|| content.strip_suffix("\\{"))
-                .unwrap_or(content);
-            let mut assembled_pos = 0usize;
-            let mut source_pos = 1usize; // 1 for opening delimiter
-            let mut segment_start_assembled = 0usize;
-            let mut segment_start_source = 1usize;
-            let _ = walk_escapes(content, |chunk| match chunk {
-                EscapeChunk::Plain { len } => {
-                    assembled_pos += len;
-                    source_pos += len;
-                }
-                EscapeChunk::Escape { source_len, decoded } => {
-                    if assembled_pos > segment_start_assembled {
-                        self.entries.push(SourceMapEntry {
-                            assembled_start: base + segment_start_assembled,
-                            source_offset: token_offset + segment_start_source,
-                            source_file: loc.source_file.clone(),
-                        });
-                    }
+        let base = self.assembled.len();
+
+        let mut source_pos = 1usize;
+        let mut segment_start_assembled = base;
+        let mut segment_start_source = 1usize;
+
+        let result = walk_escapes(raw, |chunk| match chunk {
+            EscapeChunk::Plain(s) => {
+                self.assembled += s;
+                source_pos += s.len();
+            }
+            EscapeChunk::Escape { source_len, decoded } => {
+                if self.assembled.len() > segment_start_assembled {
                     self.entries.push(SourceMapEntry {
-                        assembled_start: base + assembled_pos,
-                        source_offset: token_offset + source_pos,
+                        assembled_start: segment_start_assembled,
+                        source_offset: token_offset + segment_start_source,
                         source_file: loc.source_file.clone(),
                     });
-                    assembled_pos += decoded.len_utf8();
-                    source_pos += source_len;
-                    segment_start_assembled = assembled_pos;
-                    segment_start_source = source_pos;
                 }
-            });
-            if assembled_pos > segment_start_assembled {
                 self.entries.push(SourceMapEntry {
-                    assembled_start: base + segment_start_assembled,
-                    source_offset: token_offset + segment_start_source,
-                    source_file: loc.source_file,
+                    assembled_start: self.assembled.len(),
+                    source_offset: token_offset + source_pos,
+                    source_file: loc.source_file.clone(),
                 });
+                self.assembled.push(decoded);
+                source_pos += source_len;
+                segment_start_assembled = self.assembled.len();
+                segment_start_source = source_pos;
+            }
+        });
+
+        match result {
+            Ok(()) => {
+                if self.assembled.len() > segment_start_assembled {
+                    self.entries.push(SourceMapEntry {
+                        assembled_start: segment_start_assembled,
+                        source_offset: token_offset + segment_start_source,
+                        source_file: loc.source_file,
+                    });
+                }
+                true
+            }
+            Err(e) => {
+                self.assembled.truncate(base);
+                diag.push_error_with_span(
+                    e.message.into(),
+                    SourceLocation {
+                        source_file: loc.source_file,
+                        span: Span::new(loc.span.offset + e.offset, 0),
+                    },
+                );
+                false
             }
         }
-        Some(unescaped)
     }
 
     /// Append a non-literal character (e.g., an interpolation placeholder)
     /// where source and assembled offsets correspond 1:1.
-    pub fn push_raw_char(&mut self, assembled: &mut String, ch: char, loc: SourceLocation) {
-        let start = assembled.len();
-        assembled.push(ch);
+    pub fn push_raw_char(&mut self, ch: char, loc: SourceLocation) {
+        let start = self.assembled.len();
+        self.assembled.push(ch);
         self.entries.push(SourceMapEntry {
             assembled_start: start,
             source_offset: loc.span.offset,

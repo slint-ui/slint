@@ -760,17 +760,16 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let mut markdown = String::new();
         let mut values = Vec::new();
         let mut source_map = crate::literals::StringLiteralSourceMap::new();
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                source_map.push(Some(&mut markdown), n.as_token().unwrap(), ctx.diag);
+                source_map.push(n.as_token().unwrap(), ctx.diag);
             } else if n.kind() == SyntaxKind::StringTemplate {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
-                        source_map.push(Some(&mut markdown), n.as_token().unwrap(), ctx.diag);
+                        source_map.push(n.as_token().unwrap(), ctx.diag);
                     } else if n.kind() == SyntaxKind::Expression {
                         let node = n.into_node().unwrap();
                         let expr = Expression::from_expression_node(node.clone().into(), ctx);
@@ -789,7 +788,6 @@ impl Expression {
                         };
                         values.push(expr);
                         source_map.push_raw_char(
-                            &mut markdown,
                             i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
                             node.to_source_location(),
                         );
@@ -799,10 +797,11 @@ impl Expression {
         }
 
         let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
+        let markdown = source_map.as_str();
 
         // Validate the markdown format string with dummy values
         let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated(
-            &markdown,
+            markdown,
             &vec![&[dummy_paragraph]; values.len()],
         );
         for e in &parse_errors {
@@ -828,7 +827,7 @@ impl Expression {
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(markdown.into()),
+                Expression::StringLiteral(source_map.into_string().into()),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -841,9 +840,10 @@ impl Expression {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
-        let Some(string) = source_map.push(None, &string_token, ctx.diag) else {
+        if !source_map.push(&string_token, ctx.diag) {
             return Expression::Invalid;
-        };
+        }
+        let string: SmolStr = source_map.as_str().into();
         let context = node.TrContext().map(|n| {
             crate::literals::unescape_string_reporting(
                 n.child_token(SyntaxKind::StringLiteral).as_ref(),
