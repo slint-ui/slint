@@ -796,9 +796,7 @@ fn extract_builtin_element_docs() -> (Vec<ElementDoc>, BTreeMap<String, ElementD
 /// Build a set of internal component names that have their own doc page.
 fn components_with_own_page(all: &BTreeMap<String, ElementDoc>) -> HashSet<String> {
     all.iter()
-        .filter(|(_, e)| {
-            !e.description.is_empty() || e.members.iter().any(|m| m.has_doc_comment)
-        })
+        .filter(|(_, e)| !e.description.is_empty() || e.members.iter().any(|m| m.has_doc_comment))
         .map(|(k, _)| k.clone())
         .collect()
 }
@@ -996,16 +994,7 @@ fn write_sub_element(
     // Recurse into grandchildren.
     for gc_name in &child.children {
         if let Some(gc) = all_components.get(gc_name.as_str()) {
-            write_sub_element(
-                file,
-                gc_name,
-                gc,
-                all_components,
-                enums,
-                structs,
-                seen,
-                sc,
-            )?;
+            write_sub_element(file, gc_name, gc, all_components, enums, structs, seen, sc)?;
         }
     }
 
@@ -1065,8 +1054,8 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         if elem.draft {
             continue;
         }
-        let has_docs = !elem.description.is_empty()
-            || elem.members.iter().any(|m| m.has_doc_comment);
+        let has_docs =
+            !elem.description.is_empty() || elem.members.iter().any(|m| m.has_doc_comment);
         if !has_docs {
             continue;
         }

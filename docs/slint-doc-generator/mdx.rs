@@ -42,7 +42,11 @@ description: Global Structs and Enums
     )?;
 
     for name in structs.keys() {
-        writeln!(file, "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"", name)?;
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
+            name
+        )?;
     }
 
     if !structs.is_empty() {
@@ -54,7 +58,11 @@ description: Global Structs and Enums
         if name == "keys" {
             continue;
         }
-        writeln!(file, "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"", name)?;
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
+            name
+        )?;
     }
 
     writeln!(file)?;
