@@ -1030,6 +1030,8 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<BasicBorderRectangle>(),
             rtti_for::<BorderRectangle>(),
             rtti_for::<TouchArea>(),
+            rtti_for::<TooltipArea>(),
+            rtti_for::<ToolTip>(),
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
@@ -1770,8 +1772,7 @@ pub fn instantiate(
             } else {
                 let item_within_component = &description.items[&elem.id];
                 let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                if let Some(prop_rtti) =
-                    item_within_component.rtti.properties.get(prop_name.as_str())
+                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name.as_str())
                 {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
 
@@ -2800,6 +2801,7 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
+    inst.run_setup_code();
     let pos = {
         generativity::make_guard!(guard);
         let compo_box = inst.unerase(guard);
@@ -2814,10 +2816,12 @@ pub fn show_popup(
             pos,
             close_policy,
             parent_item,
-            false,
+            match popup.popup_kind {
+                object_tree::PopupWindowKind::Regular => i_slint_core::window::PopupKind::Regular,
+                object_tree::PopupWindowKind::Tooltip => i_slint_core::window::PopupKind::Tooltip,
+            },
         ),
     );
-    inst.run_setup_code();
 }
 
 pub fn close_popup(

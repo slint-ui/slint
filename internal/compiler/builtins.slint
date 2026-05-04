@@ -2373,6 +2373,196 @@ export component PopupWindow {
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 }
 
+/// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+export component TooltipArea inherits Empty {
+    /// Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+    out property <bool> has-hover;
+    /// Pointer x within this area during hover.
+    out property <length> mouse-x;
+    /// Pointer y within this area during hover.
+    out property <length> mouse-y;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 280px;
+///     height: 160px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Hover me";
+///
+///             ToolTip {
+///                 text: "This is a tooltip";
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// Use `ToolTip` to show a small popup when the **parent** element is hovered. The tooltip appears while the mouse is over that parent and hides when the pointer leaves.
+///
+/// The active style provides the visual implementation for text tooltips; this builtin describes the lowered behavior.
+///
+/// You can bind a plain string via `text`, or build **custom** content by nesting **one** root element (such as `Rectangle`, `HorizontalLayout`, or `VerticalLayout`) instead of setting `text`, and placing the remaining UI inside that root.
+///
+/// A parent may have **at most one** `ToolTip`. Multiple sibling `ToolTip` elements produce a compiler error.
+///
+/// \footer
+/// ## Custom content
+///
+/// When you need richer layout (multiple lines, badges, shortcuts, colors), omit `text`, provide the single wrapping child, then add backgrounds, padding, and nested layouts yourself. Placement uses that content's implicit or explicit size.
+///
+/// :::note{Note}
+/// For custom tooltips, keep exactly one outer element (`Rectangle`, `VerticalLayout`, and similar); put every other widget inside it.
+/// :::
+///
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 320px;
+///     height: 220px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Custom tooltip";
+///
+///             ToolTip {
+///                 placement: pointer;
+///
+///                 Rectangle {
+///                     border-radius: 8px;
+///                     background: #1f2937;
+///
+///                     VerticalLayout {
+///                         padding: 10px;
+///                         spacing: 6px;
+///
+///                         Text {
+///                             text: "Save document";
+///                             color: #fff;
+///                             font-weight: 600;
+///                         }
+///
+///                         Text {
+///                             text: "Press the shortcut to save.";
+///                             color: #d1d5db;
+///                             wrap: word-wrap;
+///                         }
+///
+///                         HorizontalLayout {
+///                             spacing: 4px;
+///
+///                             Rectangle {
+///                                 border-radius: 4px;
+///                                 background: #374151;
+///
+///                                 HorizontalLayout {
+///                                     padding: 4px 6px;
+///                                     Text { text: "Ctrl"; color: #fff; font-size: 12px; }
+///                                 }
+///                             }
+///
+///                             Rectangle {
+///                                 border-radius: 4px;
+///                                 background: #374151;
+///
+///                                 HorizontalLayout {
+///                                     padding: 4px 6px;
+///                                     Text { text: "S"; color: #fff; font-size: 12px; }
+///                                 }
+///                             }
+///                         }
+///                     }
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component ToolTip inherits Empty {
+    /// Text rendered by the active style's tooltip implementation. Setting `text` means the `ToolTip` must remain childless because custom markup lives in the single alternate child instead.
+    /// ```slint
+    /// Button {
+    ///     text: "Save";
+    ///
+    ///     ToolTip {
+    ///         text: "Save the current file";
+    ///     }
+    /// }
+    /// ```
+    in property <string> text;
+    /// Placement relative to the pointer or hovered element (<ToolTipPlacement />).
+    ///
+    /// - `pointer`: anchor using the hover position captured when shown; stays fixed until hidden.
+    /// - `above` / `below` / `left` / `right`: anchor centered along the hovered element's respective outside edge with a spacing gap.
+    /// ```slint playground
+    /// import { Button } from "std-widgets.slint";
+    ///
+    /// export component Example inherits Window {
+    ///     width: 280px;
+    ///     height: 160px;
+    ///
+    ///     VerticalLayout {
+    ///         alignment: center;
+    ///         spacing: 24px;
+    ///
+    ///         Button {
+    ///             text: "Pointer";
+    ///
+    ///             ToolTip {
+    ///                 placement: pointer;
+    ///                 text: "Shown near the cursor when it appears";
+    ///             }
+    ///         }
+    ///
+    ///         Button {
+    ///             text: "Below";
+    ///
+    ///             ToolTip {
+    ///                 placement: below;
+    ///                 text: "Anchored below the button";
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    in property <ToolTipPlacement> placement: pointer;
+    /// Delay before showing the tooltip after hover begins—use larger values when the cursor only glances across controls.
+    /// ```slint playground
+    /// import { Button } from "std-widgets.slint";
+    ///
+    /// export component Example inherits Window {
+    ///     width: 280px;
+    ///     height: 160px;
+    ///
+    ///     VerticalLayout {
+    ///         alignment: center;
+    ///
+    ///         Button {
+    ///             text: "Slow tooltip";
+    ///
+    ///             ToolTip {
+    ///                 delay: 700ms;
+    ///                 text: "Appears after the pointer rests briefly";
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    in property <duration> delay: 500ms;
+    //-can_be_declared_without_children_slot
+}
+
 /// :::note[Note]
 /// Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
 /// :::
@@ -2588,7 +2778,9 @@ export global Platform {
     ///     }
     /// }
     /// ```
-    function open-url(url: string) -> bool { return false; }
+    function open-url(url: string) -> bool {
+        return false;
+    }
     /// The decimal separator currently used for localized float to string and vice versa conversions
     /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
     out property <string> decimal-separator;
