@@ -6,6 +6,10 @@ import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, Ver
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
+export global ControlsPageLogic {
+    callback split-string(string) -> [string];
+}
+
 export component ControlsPage inherits Page {
     title: @tr("Controls");
     show-enable-read-only: true;
@@ -188,58 +192,117 @@ export component ControlsPage inherits Page {
         }
     }
 
-    GroupBox {
+    tabGroup := GroupBox {
         title: @tr("TabWidget");
 
-        TabWidget {
-            Tab {
-                title: @tr("Tab 1");
+        in-out property <bool> show-tab-1: true;
+        in-out property <bool> show-tab-2: true;
+        in-out property <bool> show-tab-3: true;
 
-                VerticalBox {
-                    alignment: start;
+        VerticalBox {
+            HorizontalBox {
+                padding-top: 10px;
+                padding-bottom: 10px;
 
-                    GroupBox {
-                        title: @tr("Content of tab 1");
+                CheckBox {
+                    text: "Show Tab 1";
+                    checked <=> tabGroup.show-tab-1;
+                }
+                CheckBox {
+                    text: "Show Tab 2";
+                    checked <=> tabGroup.show-tab-2;
+                }
+                CheckBox {
+                    text: "Show Tab 3";
+                    checked <=> tabGroup.show-tab-3;
+                }
+            }
 
-                        HorizontalBox {
-                            alignment: start;
+            TabWidget {
+                if tabGroup.show-tab-1: Tab {
+                    title: @tr("Tab 1");
 
-                            Button {
-                                text: @tr("Click me");
-                                enabled: GallerySettings.widgets-enabled;
+                    VerticalBox {
+                        alignment: start;
+
+                        GroupBox {
+                            title: @tr("Content of tab 1");
+
+                            HorizontalBox {
+                                alignment: start;
+
+                                Button {
+                                    text: @tr("Click me");
+                                    enabled: GallerySettings.widgets-enabled;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Tab {
-                title: @tr("Tab 2");
+                if tabGroup.show-tab-2: Tab {
+                    title: @tr("Tab 2");
 
-                VerticalBox {
-                    alignment: start;
+                    VerticalBox {
+                        alignment: start;
 
-                    GroupBox {
-                        title: @tr("Content of tab 2");
+                        GroupBox {
+                            title: @tr("Content of tab 2");
 
-                        VerticalBox {
-                            alignment: start;
+                            VerticalBox {
+                                alignment: start;
 
-                            CheckBox {
-                                text: @tr("Check me");
-                                enabled: GallerySettings.widgets-enabled;
+                                CheckBox {
+                                    text: @tr("Check me");
+                                    enabled: GallerySettings.widgets-enabled;
+                                }
                             }
                         }
                     }
                 }
+
+                if tabGroup.show-tab-3: Tab {
+                    title: @tr("Tab 3");
+
+                    VerticalBox {
+                        Text {
+                            text: @tr("Content of tab 3");
+                        }
+                    }
+                }
+            }
+        }
+
+        editableTabs := VerticalBox {
+            in-out property <string> tab-text: "Alpha,Beta,Gamma";
+            in-out property <[string]> tab-names: ["Alpha", "Beta", "Gamma"];
+
+            HorizontalBox {
+                padding-top: 10px;
+                padding-bottom: 10px;
+
+                Text {
+                    text: "Tabs (comma separated):";
+                    vertical-alignment: center;
+                }
+                LineEdit {
+                    text <=> editableTabs.tab-text;
+                    edited(value) => {
+                        editableTabs.tab-names = ControlsPageLogic.split-string(value);
+                    }
+                }
             }
 
-            Tab {
-                title: @tr("Tab 3");
-
-                VerticalBox {
-                    Text {
-                        text: @tr("Content of tab 3");
+            TabWidget {
+                for tab-name[idx] in editableTabs.tab-names: Tab {
+                    title: tab-name;
+                    VerticalBox {
+                        alignment: center;
+                        Text {
+                            text: tab-name;
+                            font-size: 32px;
+                            horizontal-alignment: center;
+                        }
                     }
                 }
             }
