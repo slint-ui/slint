@@ -1091,11 +1091,6 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
         .iter()
         .cloned(),
     );
-    #[cfg(any(
-        target_os = "macos",
-        target_os = "windows",
-        all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android"))
-    ))]
     rtti.extend([rtti_for::<SystemTrayIcon>()].iter().cloned());
 
     trait NativeHelper {

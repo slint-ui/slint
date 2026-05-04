@@ -45,11 +45,6 @@ use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
-#[cfg(any(
-    target_os = "macos",
-    target_os = "windows",
-    all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android"))
-))]
 pub use system_tray::SystemTrayIcon;
 use vtable::*;
 
@@ -69,11 +64,6 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
-#[cfg(any(
-    target_os = "macos",
-    target_os = "windows",
-    all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android"))
-))]
 pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
@@ -1862,11 +1852,6 @@ declare_item_vtable! {
     fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
 }
 
-#[cfg(any(
-    target_os = "macos",
-    target_os = "windows",
-    all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android"))
-))]
 declare_item_vtable! {
     fn slint_get_SystemTrayIconVTable() -> SystemTrayIconVTable for SystemTrayIcon
 }

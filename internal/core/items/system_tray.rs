@@ -28,19 +28,24 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 
-#[cfg(target_os = "macos")]
-mod appkit;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-mod ksni;
-#[cfg(target_os = "windows")]
-mod windows;
-
-#[cfg(target_os = "macos")]
-use self::appkit::PlatformTray;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-use self::ksni::PlatformTray;
-#[cfg(target_os = "windows")]
-use self::windows::PlatformTray;
+// Pick the per-platform tray backend. The `dummy` arm catches anything without a
+// real native tray (Android, WASM, embedded targets, …) so a `SystemTrayIcon`-
+// rooted component constructs without surfacing an icon to any host shell.
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "macos")] {
+        mod appkit;
+        use self::appkit::PlatformTray;
+    } else if #[cfg(target_os = "windows")] {
+        mod windows;
+        use self::windows::PlatformTray;
+    } else if #[cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+        mod ksni;
+        use self::ksni::PlatformTray;
+    } else {
+        mod dummy;
+        use self::dummy::PlatformTray;
+    }
+}
 
 /// Parameters passed to the platform-specific tray backend when building a tray icon.
 pub struct Params<'a> {
@@ -51,7 +56,7 @@ pub struct Params<'a> {
 
 /// Errors raised while constructing a platform tray icon.
 #[allow(dead_code)]
-#[derive(Debug, derive_more::Error, derive_more::Display)]
+#[derive(Debug, derive_more::Display)]
 pub enum Error {
     #[display("Failed to create a rgba8 buffer from an icon image")]
     Rgba8,
@@ -76,7 +81,7 @@ impl SystemTrayIconHandle {
     pub fn rebuild_menu(
         &self,
         menu: vtable::VRef<'_, crate::menus::MenuVTable>,
-        entries_out: &mut std::vec::Vec<crate::items::MenuEntry>,
+        entries_out: &mut alloc::vec::Vec<crate::items::MenuEntry>,
     ) {
         self.0.rebuild_menu(menu, entries_out);
     }
@@ -128,7 +133,7 @@ impl core::ops::Deref for SystemTrayIconDataBox {
 
 #[derive(Default)]
 pub struct SystemTrayIconData {
-    inner: std::cell::OnceCell<SystemTrayIconHandle>,
+    inner: core::cell::OnceCell<SystemTrayIconHandle>,
     change_tracker: crate::properties::ChangeTracker,
     visible_tracker: crate::properties::ChangeTracker,
     icon_tracker: crate::properties::ChangeTracker,
@@ -153,7 +158,7 @@ impl Drop for SystemTrayIconData {
 
 struct MenuState {
     menu_vrc: vtable::VRc<crate::menus::MenuVTable>,
-    entries: std::vec::Vec<crate::items::MenuEntry>,
+    entries: alloc::vec::Vec<crate::items::MenuEntry>,
     tracker: Pin<Box<crate::properties::PropertyTracker<false, MenuDirtyHandler>>>,
 }
 
@@ -200,7 +205,7 @@ impl SystemTrayIcon {
             MenuDirtyHandler { self_weak: self_rc.downgrade() },
         ));
         *self.data.menu.borrow_mut() =
-            Some(MenuState { menu_vrc, entries: std::vec::Vec::new(), tracker });
+            Some(MenuState { menu_vrc, entries: alloc::vec::Vec::new(), tracker });
         // If the platform tray is already up (icon was set before the menu), populate
         // the menu now; otherwise the icon tracker's notify will call rebuild_menu
         // once the handle exists.
