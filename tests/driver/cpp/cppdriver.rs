@@ -173,6 +173,14 @@ namespace slint_testing = slint::private_api::testing;
         cmd.arg("--error-exitcode=1");
         cmd.arg("--num-callers=50");
         cmd.arg(binary_path.deref());
+    } else if std::env::var("USE_LLDB").is_ok() {
+        cmd = std::process::Command::new("rust-lldb");
+        cmd.args(["--one-line-on-crash", "bt\nexit 1"]);
+        cmd.args(["--one-line", "run"]);
+        cmd.arg("-Q");
+        cmd.arg("-b");
+        cmd.arg("-f");
+        cmd.arg(binary_path.deref());
     } else {
         cmd = std::process::Command::new(binary_path.deref());
     }
