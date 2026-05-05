@@ -207,8 +207,7 @@ fn strip_skip_children(doc: &mut String) -> bool {
 /// Attribute keys that are consumed by the screenshot system and removed
 /// from the code fence info string. Everything else (e.g. `playground`)
 /// stays on the fence.
-const SCREENSHOT_ATTRS: &[&str] =
-    &["imageAlt", "width", "height", "skip", "noScreenShot", "needsBackground", "scale"];
+const SCREENSHOT_ATTRS: &[&str] = &["imageAlt", "width", "height", "needsBackground", "scale"];
 
 fn is_screenshot_attr(key: &str) -> bool {
     SCREENSHOT_ATTRS.contains(&key)
@@ -229,13 +228,6 @@ impl ScreenshotCounter {
         let path = format!("/src/assets/generated/{}-{}.png", self.element_slug, self.next);
         self.next += 1;
         path
-    }
-
-    /// Return the previous image path (for `noScreenShot` blocks that reuse
-    /// the preceding screenshot).
-    fn prev_path(&self) -> String {
-        assert!(self.next > 1, "noScreenShot used before any screenshot was generated");
-        format!("/src/assets/generated/{}-{}.png", self.element_slug, self.next - 1)
     }
 }
 
@@ -310,11 +302,7 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
                     let get =
                         |key: &str| attrs.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
 
-                    let is_no_screenshot = attrs.iter().any(|(k, _)| k == "noScreenShot");
-                    let is_skip = get("skip").is_some_and(|v| v.is_empty() || v == "true");
-
-                    let image_path =
-                        if is_no_screenshot { counter.prev_path() } else { counter.next_path() };
+                    let image_path = counter.next_path();
 
                     // Build <CodeSnippetMD ...> opening tag.
                     let mut tag = format!("<CodeSnippetMD imagePath=\"{image_path}\"");
@@ -332,12 +320,6 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
                     }
                     if let Some(s) = get("scale") {
                         write!(tag, " scale=\"{s}\"").unwrap();
-                    }
-                    if is_skip {
-                        tag.push_str(" skip=\"true\"");
-                    }
-                    if is_no_screenshot {
-                        tag.push_str(" noScreenShot");
                     }
                     tag.push('>');
 
@@ -450,6 +432,7 @@ fn function_signature(f: &syntax_nodes::Function) -> String {
 
 fn extract_members(elem_node: &syntax_nodes::Element) -> Vec<MemberDoc> {
     let mut members = Vec::new();
+    let mut in_code_fence = false;
 
     for child in elem_node.children_with_tokens() {
         match child.kind() {
@@ -521,8 +504,15 @@ fn extract_members(elem_node: &syntax_nodes::Element) -> Vec<MemberDoc> {
                     if let Some(content) =
                         text.strip_prefix("//! ").or_else(|| text.strip_prefix("//!"))
                     {
+                        // Track code fences: lines starting with `#` inside a
+                        // code fence are not markdown headings.
+                        let is_heading = content.starts_with('#') && !in_code_fence;
+                        if content.starts_with("```") || content.starts_with("~~~") {
+                            in_code_fence = !in_code_fence;
+                        }
+
                         // Merge consecutive non-heading //! lines into one block.
-                        if !content.starts_with('#')
+                        if !is_heading
                             && let Some(last) = members.last_mut()
                             && last.kind == MemberKind::SectionHeader
                         {

@@ -80,18 +80,18 @@ component BasicBorderRectangle inherits Rectangle {
     in property <length> border-width;
     //! ### clip
     //! <SlintProperty propName="clip" typeName="bool" defaultValue="false">
-    //! ```slint imageAlt="rectangle clip" width="200" height="400" skip
+    //! ```slint imageAlt="rectangle clip" width="200" height="400"
     //! // clip: false; the default
     //! Rectangle {
     //!     x: 50px; y: 50px;
     //!     width: 150px;
     //!     height: 150px;
     //!     background: darkslategray;
-    //!     Text {
-    //!         text: "clip: false";
-    //!         font-size: 20pt;
-    //!         color: white;
-    //!     }
+    //! # Text {
+    //! #     text: "clip: false";
+    //! #     font-size: 20pt;
+    //! #     color: white;
+    //! # }
     //!     Rectangle {
     //!         x: -40px; y: -40px;
     //!         width: 100px;
@@ -107,43 +107,11 @@ component BasicBorderRectangle inherits Rectangle {
     //!     height: 150px;
     //!     background: darkslategray;
     //!     clip: true;
-    //!     Text {
-    //!         text: "clip: true";
-    //!         font-size: 20pt;
-    //!         color: white;
-    //!     }
-    //!     Rectangle {
-    //!         x: -40px; y: -40px;
-    //!         width: 100px;
-    //!         height: 100px;
-    //!         background: lightslategray;
-    //!     }
-    //! }
-    //!
-    //! ```
-    //!
-    //! ```slint imageAlt="rectangle clip" width="200" height="400" noScreenShot
-    //! // clip: false; the default
-    //! Rectangle {
-    //!     x: 50px; y: 50px;
-    //!     width: 150px;
-    //!     height: 150px;
-    //!     background: darkslategray;
-    //!     Rectangle {
-    //!         x: -40px; y: -40px;
-    //!         width: 100px;
-    //!         height: 100px;
-    //!         background: lightslategray;
-    //!     }
-    //! }
-    //!
-    //! // clip: true; Clips the children of this Rectangle
-    //! Rectangle {
-    //!     x: 50px; y: 250px;
-    //!     width: 150px;
-    //!     height: 150px;
-    //!     background: darkslategray;
-    //!     clip: true;
+    //! # Text {
+    //! #     text: "clip: true";
+    //! #     font-size: 20pt;
+    //! #     color: white;
+    //! # }
     //!     Rectangle {
     //!         x: -40px; y: -40px;
     //!         width: 100px;
