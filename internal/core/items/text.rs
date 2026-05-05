@@ -1305,7 +1305,7 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().text())
+        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
     }
 }
 
