@@ -462,24 +462,6 @@ fn lower_tooltips_in_component(
             );
             return;
         }
-        let mut has_disallowed_prop = false;
-        {
-            let tooltip_borrow = tooltip_candidate.borrow();
-            for prop in ["x", "y", WIDTH, HEIGHT] {
-                if tooltip_borrow.bindings.contains_key(prop) {
-                    has_disallowed_prop = true;
-                    diag.push_error(
-                        format!(
-                            "The property '{prop}' cannot be set for ToolTip, because ToolTip is already setting it"
-                        ),
-                        &*tooltip_candidate.borrow(),
-                    );
-                }
-            }
-        }
-        if has_disallowed_prop {
-            return;
-        }
         if !has_custom_content && !has_text_binding {
             diag.push_error(
                 "ToolTip must provide either text or custom content".into(),
