@@ -750,8 +750,7 @@ class EventLoop {
             const nodejsPollInterval = 16;
             const id = setInterval(() => {
                 if (
-                    napi.processEvents() ===
-                        napi.ProcessEventsResult.Exited ||
+                    napi.processEvents() === napi.ProcessEventsResult.Exited ||
                     this.#quit_loop
                 ) {
                     clearInterval(id);

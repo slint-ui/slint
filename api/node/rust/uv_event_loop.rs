@@ -100,8 +100,9 @@ mod platform {
 
     impl Watcher {
         fn new(uv_fd: c_int) -> napi::Result<Self> {
-            let (cancel_r, cancel_w) = rustix::pipe::pipe_with(rustix::pipe::PipeFlags::NONBLOCK)
-                .map_err(|e| napi::Error::from_reason(format!("failed to create pipe: {e}")))?;
+            let (cancel_r, cancel_w) =
+                rustix::pipe::pipe_with(rustix::pipe::PipeFlags::NONBLOCK)
+                    .map_err(|e| napi::Error::from_reason(format!("failed to create pipe: {e}")))?;
 
             // Dup the read end so the thread owns its own fd — no raw fd sharing.
             let thread_cancel_r = cancel_r
@@ -109,11 +110,7 @@ mod platform {
                 .map_err(|e| napi::Error::from_reason(format!("failed to dup cancel fd: {e}")))?;
 
             let state = Arc::new(WatcherState {
-                inner: Mutex::new(WatcherInner {
-                    watching: false,
-                    shutdown: false,
-                    timeout: None,
-                }),
+                inner: Mutex::new(WatcherInner { watching: false, shutdown: false, timeout: None }),
                 condvar: Condvar::new(),
             });
 
@@ -163,11 +160,7 @@ mod platform {
         }
     }
 
-    fn watcher_thread(
-        state: Arc<WatcherState>,
-        uv_fd: c_int,
-        cancel_r: std::os::fd::OwnedFd,
-    ) {
+    fn watcher_thread(state: Arc<WatcherState>, uv_fd: c_int, cancel_r: std::os::fd::OwnedFd) {
         // SAFETY: uv_fd is owned by libuv and stays valid for the process lifetime.
         let uv_borrowed = unsafe { BorrowedFd::borrow_raw(uv_fd) };
 
@@ -210,7 +203,10 @@ mod platform {
         static CACHED_WATCHER: std::cell::RefCell<Option<Watcher>> = const { std::cell::RefCell::new(None) };
     }
 
-    fn with_uv(env: &Env, f: impl FnOnce(&UvFunctions) -> napi::Result<ProcessEventsResult>) -> napi::Result<ProcessEventsResult> {
+    fn with_uv(
+        env: &Env,
+        f: impl FnOnce(&UvFunctions) -> napi::Result<ProcessEventsResult>,
+    ) -> napi::Result<ProcessEventsResult> {
         CACHED_UV.with(|cell| {
             let mut cached = cell.borrow_mut();
             if cached.is_none() {
@@ -223,7 +219,10 @@ mod platform {
         })
     }
 
-    fn with_watcher(uv_fd: c_int, f: impl FnOnce(&Watcher) -> napi::Result<ProcessEventsResult>) -> napi::Result<ProcessEventsResult> {
+    fn with_watcher(
+        uv_fd: c_int,
+        f: impl FnOnce(&Watcher) -> napi::Result<ProcessEventsResult>,
+    ) -> napi::Result<ProcessEventsResult> {
         CACHED_WATCHER.with(|cell| {
             let mut cached = cell.borrow_mut();
             if cached.is_none() {
@@ -312,12 +311,8 @@ mod platform {
         false
     }
 
-    pub(crate) fn run_integrated_event_loop_impl(
-        _env: &Env,
-    ) -> napi::Result<ProcessEventsResult> {
-        Err(napi::Error::from_reason(
-            "integrated event loop not available on this platform",
-        ))
+    pub(crate) fn run_integrated_event_loop_impl(_env: &Env) -> napi::Result<ProcessEventsResult> {
+        Err(napi::Error::from_reason("integrated event loop not available on this platform"))
     }
 }
 
