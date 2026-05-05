@@ -134,7 +134,7 @@ fn reorder_static_z(elem: &Rc<RefCell<crate::object_tree::Element>>, diag: &mut 
 /// or default to z=0.
 fn setup_dynamic_z_order(
     elem: &Rc<RefCell<crate::object_tree::Element>>,
-    _diag: &mut BuildDiagnostics,
+    diag: &mut BuildDiagnostics,
 ) {
     use crate::namedreference::NamedReference;
 
@@ -146,14 +146,23 @@ fn setup_dynamic_z_order(
     for (idx, child_elm) in elem.borrow().children.iter().enumerate() {
         if child_elm.borrow().repeated.is_some() {
             // Repeater/conditional child: z lives in the inner component.
-            // Evaluate at compile time if constant, otherwise default to 0.
+            // Must be a compile-time constant; per-item dynamic z in repeaters
+            // is not yet supported.
             let z_val = if let ElementType::Component(c) = &child_elm.borrow().base_type {
-                c.root_element
-                    .borrow_mut()
-                    .bindings
-                    .remove("z")
-                    .and_then(|e| try_eval_const_expr(&e.borrow().expression))
-                    .unwrap_or(0.)
+                let binding = c.root_element.borrow_mut().bindings.remove("z");
+                if let Some(e) = binding {
+                    if let Some(val) = try_eval_const_expr(&e.borrow().expression) {
+                        val
+                    } else {
+                        diag.push_error(
+                            "'z' in a repeated element must be a constant".into(),
+                            &*e.borrow(),
+                        );
+                        0.
+                    }
+                } else {
+                    0.
+                }
             } else {
                 0.
             };

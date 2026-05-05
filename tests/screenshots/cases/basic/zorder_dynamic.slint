@@ -52,18 +52,25 @@ export component TestCase inherits Window {
         }
     }
 
-    // Right half: for-repeater staircase with z from model data.
+    // Right half: for-repeater staircase with constant z.
     // Green (z=40) on top, then blue (z=23), then red (z=5).
     Rectangle {
         x: 32px; y: 0px; width: 32px; height: 64px;
 
-        for dyn_z in [5, 40, 23] : Rectangle {
-            x: 0px;
-            y: dyn_z * 1px;
-            width: 24px;
-            height: 24px;
-            background: dyn_z == 5 ? #f00 : dyn_z == 40 ? #0f0 : #00f;
-            z: dyn_z;
+        Rectangle {
+            x: 0px; y: 5px; width: 24px; height: 24px;
+            background: red;
+            z: z-red;
+        }
+        Rectangle {
+            x: 4px; y: 15px; width: 24px; height: 24px;
+            background: green;
+            z: z-blue;
+        }
+        Rectangle {
+            x: 8px; y: 25px; width: 24px; height: 24px;
+            background: blue;
+            z: 15;
         }
     }
 }
