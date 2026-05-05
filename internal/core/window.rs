@@ -1497,9 +1497,7 @@ impl WindowInner {
             WindowInner::from_pub(popup_window).set_component(popup_componentrc);
             popup_window.set_position(LogicalPosition::from_euclid(position));
             popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
-            popup_window_adapter
-                .set_visible(true)
-                .expect("unable to show popup window");
+            popup_window_adapter.set_visible(true).expect("unable to show popup window");
             PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 

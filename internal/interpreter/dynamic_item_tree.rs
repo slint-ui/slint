@@ -1772,7 +1772,8 @@ pub fn instantiate(
             } else {
                 let item_within_component = &description.items[&elem.id];
                 let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
-                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name.as_str())
+                if let Some(prop_rtti) =
+                    item_within_component.rtti.properties.get(prop_name.as_str())
                 {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
 
