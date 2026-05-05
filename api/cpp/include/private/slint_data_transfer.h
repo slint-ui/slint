@@ -26,9 +26,9 @@ public:
     /// relevant format is done on-demand.
     explicit DataTransfer(const slint::Image &image) { (void)image; }
 
-    /// Compare two `DataTransfer` values for equality. This will return true if `b` is an unmodified
-    /// clone of `a`, but if any modification has been done to either value since cloning then this
-    /// will return false even if the two values are semantically identical.
+    /// Compare two `DataTransfer` values for equality. This will return true if `b` is an
+    /// unmodified clone of `a`, but if any modification has been done to either value since cloning
+    /// then this will return false even if the two values are semantically identical.
     friend bool operator==(const DataTransfer &a, const DataTransfer &b) = default;
 
 private:
