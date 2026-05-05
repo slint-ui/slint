@@ -1797,6 +1797,12 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
         (Value::Number(a), Value::Number(b), '-') => Value::Number(a - b),
         (Value::Number(a), Value::Number(b), '/') => Value::Number(a / b),
         (Value::Number(a), Value::Number(b), '*') => Value::Number(a * b),
+        (Value::Model(ref mut a), b, '+') => {
+            if !a.push_back(b.clone()) {
+                corelib::debug_log!("unsupported {a:?} {op} {b:?}");
+            }
+            Value::Model(a.clone())
+        }
         (lhs, rhs, op) => panic!("unsupported {lhs:?} {op} {rhs:?}"),
     };
     match lhs {

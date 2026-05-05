@@ -2347,6 +2347,27 @@ fn generate_sub_component(
     }
 
     let mut properties_init_code = Vec::new();
+
+    // For writable (in/in-out) public array-typed properties with no explicit initializer,
+    // set a default empty VectorModel so the property is never null.
+    let EvaluationScope::SubComponent(component_idx, _) = ctx.current_scope else { unreachable!() };
+    let initialized_props: std::collections::HashSet<_> =
+        component.property_init.iter().map(|(p, _)| p.clone()).collect();
+    if let Some(public_comp) =
+        root.public_components.iter().find(|pc| pc.item_tree.root == component_idx)
+    {
+        for pub_prop in public_comp.public_properties.iter().filter(|p| !p.read_only) {
+            if let Type::Array(item_ty) = &pub_prop.ty
+                && !initialized_props.contains(&pub_prop.prop)
+                && let Some(cpp_ty) = item_ty.cpp_type()
+            {
+                let p = access_member(&pub_prop.prop, &ctx).unwrap();
+                properties_init_code
+                    .push(format!("{p}.set(std::make_shared<slint::VectorModel<{cpp_ty}>>());"));
+            }
+        }
+    }
+
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut properties_init_code, &ctx)
     }
@@ -3953,11 +3974,23 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let rhs_str = compile_expression(rhs, ctx);
 
             let lhs_ty = lhs.ty(ctx);
+            let rhs_ty = rhs.ty(ctx);
 
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let op = if *op == '=' { "<" } else { ">=" };
                 format!(
                     "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
+                )
+            } else if *op == '+'
+                && matches!(&lhs_ty, Type::Array(item_type) if **item_type == rhs_ty)
+            {
+                format!(
+                    "[&](){{ \
+                        auto lhs = {lhs_str}; \
+                        const auto &rhs = {rhs_str}; \
+                        slint::private_api::model_push_back(lhs, rhs); \
+                        return lhs; \
+                    }}()"
                 )
             } else {
                 let mut buffer = [0; 3];
@@ -4027,12 +4060,19 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 .iter()
                 .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             match output {
-                llr::ArrayOutput::Model => format!(
-                    "std::make_shared<slint::private_api::ArrayModel<{count},{ty}>>({val})",
-                    count = values.len(),
-                    ty = ty,
-                    val = val.join(", ")
-                ),
+                llr::ArrayOutput::Model => {
+                    if *element_ty == Type::Void {
+                        // Empty untyped array — use the Array<0, void> specialization which
+                        // has a default constructor and avoids the invalid std::vector<void>.
+                        "std::make_shared<slint::private_api::ArrayModel<0, void>>()".to_string()
+                    } else {
+                        format!(
+                            "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
+                            ty = ty,
+                            val = val.join(", ")
+                        )
+                    }
+                }
                 llr::ArrayOutput::Slice => format!(
                     "slint::private_api::make_slice<{ty}>(std::array<{ty}, {count}>{{ {val} }}.data(), {count})",
                     count = values.len(),

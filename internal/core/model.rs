@@ -226,6 +226,16 @@ pub trait Model {
     fn as_any(&self) -> &dyn core::any::Any {
         &()
     }
+
+    fn push_back(&self, _value: Self::Data) -> bool {
+        #[cfg(feature = "std")]
+        crate::debug_log!(
+            "Model::push_back called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>(),
+        );
+        false
+    }
 }
 
 /// Extension trait with extra methods implemented on types that implement [`Model`]
@@ -355,6 +365,10 @@ impl<M: Model> Model for Rc<M> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         (**self).set_row_data(row, data)
     }
+
+    fn push_back(&self, value: Self::Data) -> bool {
+        (**self).push_back(value)
+    }
 }
 
 /// A [`Model`] backed by a `Vec<T>`, using interior mutability.
@@ -471,6 +485,12 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         self.array.borrow().len()
     }
 
+    fn push_back(&self, value: Self::Data) -> bool {
+        self.array.borrow_mut().push(value);
+        self.notify.row_added(self.row_count() - 1, 1);
+        true
+    }
+
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         self.array.borrow().get(row).cloned()
     }
@@ -498,14 +518,6 @@ pub struct SharedVectorModel<T> {
     notify: ModelNotify,
 }
 
-impl<T: Clone + 'static> SharedVectorModel<T> {
-    /// Add a row at the end of the model
-    pub fn push(&self, value: T) {
-        self.array.borrow_mut().push(value);
-        self.notify.row_added(self.array.borrow().len() - 1, 1)
-    }
-}
-
 impl<T> SharedVectorModel<T> {
     /// Returns a clone of the model's backing shared vector.
     pub fn shared_vector(&self) -> SharedVector<T> {
@@ -524,6 +536,12 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
 
     fn row_count(&self) -> usize {
         self.array.borrow().len()
+    }
+
+    fn push_back(&self, value: Self::Data) -> bool {
+        self.array.borrow_mut().push(value);
+        self.notify.row_added(self.array.borrow().len() - 1, 1);
+        true
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
@@ -808,6 +826,10 @@ impl<T> Model for ModelRc<T> {
 
     fn row_count(&self) -> usize {
         self.0.as_ref().map_or(0, |model| model.row_count())
+    }
+
+    fn push_back(&self, value: Self::Data) -> bool {
+        self.0.as_ref().is_some_and(|model| model.push_back(value))
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {

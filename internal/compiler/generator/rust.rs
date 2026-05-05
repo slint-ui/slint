@@ -1373,6 +1373,29 @@ fn generate_sub_component(
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut init, &ctx)
     }
+
+    // Initialize array-type writable (in/in-out) public properties with no binding to an
+    // empty VecModel so that the `+=` operator works on them.
+    let initialized_props: std::collections::HashSet<llr::MemberReference> =
+        component.property_init.iter().map(|(r, _)| r.clone()).collect();
+    if let Some(public_comp) =
+        root.public_components.iter().find(|pc| pc.item_tree.root == component_idx)
+    {
+        for pub_prop in public_comp.public_properties.iter().filter(|p| !p.read_only) {
+            if initialized_props.contains(&pub_prop.prop) {
+                continue;
+            }
+            if let Type::Array(element_ty) = &pub_prop.ty
+                && let Some(rust_element_ty) = rust_primitive_type(element_ty)
+            {
+                let prop = access_member(&pub_prop.prop, &ctx);
+                init.push(prop.then(|p| {
+                    quote!(#p.set(sp::ModelRc::new(sp::VecModel::<#rust_element_ty>::default()));)
+                }));
+            }
+        }
+    }
+
     for prop in &component.const_properties {
         let rust_property = access_local_member(prop, &ctx);
         init.push(quote!(#rust_property.set_constant();))
@@ -3066,12 +3089,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_ty = lhs.ty(ctx);
+            let rhs_ty = rhs.ty(ctx);
             let lhs = compile_expression_to_value_no_parenthesis(lhs, ctx);
             let rhs = compile_expression_to_value_no_parenthesis(rhs, ctx);
 
             if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
                 let maybe_negate = if *op == '!' { quote!(!) } else { quote!() };
                 quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
+            } else if let Type::Array(element_ty) = &lhs_ty && **element_ty == rhs_ty && *op == '+' {
+                quote!({
+                    let model = #lhs;
+                    model.push_back(#rhs);
+                    model
+                })
             } else {
                 let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
                     OperatorClass::ArithmeticOp => match lhs_ty {

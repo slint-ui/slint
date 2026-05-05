@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    in-out property <[string]> m1; // set from native code
+    out property<int> length_m1: m1.length;
+
+    out property <[string]> m2; // kept empty
+    out property<int> length_m2: m2.length;
+
+    out property <[string]> m3: [];
+    out property<int> length_m3: m3.length;
+
+    out property <[string]> m4: ["foo"];
+    out property<int> length_m4: m4.length;
+
+    out property <[string]> m5: m4; // copy of another model.
+    out property<int> length_m5: m5.length;
+
+    public function append() {
+        let value = "bar";
+        self.m1 += value;
+        self.m2 += value;
+        self.m3 += value;
+        self.m4 += value;
+        self.m5 += value;
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_length_m1(), 0);
+assert_eq(instance.get_length_m2(), 0);
+assert_eq(instance.get_length_m3(), 0);
+assert_eq(instance.get_length_m4(), 1);
+assert_eq(instance.get_length_m5(), 1);
+
+instance.invoke_append();
+assert_eq(instance.get_length_m1(), 1);
+assert_eq(instance.get_length_m2(), 0);
+assert_eq(instance.get_length_m3(), 1);
+assert_eq(instance.get_length_m4(), 3);
+assert_eq(instance.get_length_m5(), 3);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_length_m1(), 0);
+assert_eq!(instance.get_length_m2(), 0);
+assert_eq!(instance.get_length_m3(), 0);
+assert_eq!(instance.get_length_m4(), 1);
+assert_eq!(instance.get_length_m5(), 1);
+
+instance.invoke_append();
+
+assert_eq!(instance.get_length_m1(), 1);
+assert_eq!(instance.get_length_m2(), 0);
+assert_eq!(instance.get_length_m3(), 1);
+assert_eq!(instance.get_length_m4(), 3);
+assert_eq!(instance.get_length_m5(), 3);
+
+```
+*/
