@@ -967,6 +967,7 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
+                    #[cfg(feature = "internal-file-watcher")]
                     watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
@@ -1006,7 +1007,7 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    #[cfg_attr(not(feature = "internal-live-preview"), allow(unused))]
+    #[cfg(feature = "internal-file-watcher")]
     pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,

@@ -113,7 +113,7 @@ struct Cli {
 }
 
 struct Viewer {
-    instance: Option<ComponentInstance>,
+    instance: ComponentInstance,
     file_watcher: FileWatcher,
     args: Cli,
     // The reload timer, used to debounce multiple file change events into a single reload
@@ -171,7 +171,7 @@ fn main() -> Result<()> {
         let component = component.clone_strong();
         SLINT_VIEWER.with(move |viewer| {
             viewer.replace(Some(Viewer {
-                instance: Some(component),
+                instance: component,
                 file_watcher,
                 args,
                 reload_timer: Timer::default(),
@@ -388,22 +388,15 @@ fn reload() {
             return;
         };
 
-        let instance = if let Some(handle) = viewer.instance.take() {
-            let window = handle.window();
-            let new_handle = component.create_with_existing_window(window).unwrap();
-            init_dialog(&new_handle);
-            new_handle
-        } else {
-            let handle = component.create().unwrap();
-            init_dialog(&handle);
-            handle.show().unwrap();
-            handle
-        };
-        install_callbacks(&instance, &viewer.args.on);
-        viewer.instance.replace(instance);
+        let window = viewer.instance.window();
+        let new_instance = component.create_with_existing_window(window).unwrap();
+        init_dialog(&new_instance);
+        install_callbacks(&new_instance, &viewer.args.on);
         if let Some(data_path) = &viewer.args.load_data {
-            let _ = load_data(&component, viewer.instance.as_ref().unwrap(), data_path);
+            let _ = load_data(&component, &new_instance, data_path);
         }
+        viewer.instance = new_instance;
+
         eprintln!("Successful reload of {}", viewer.args.path.display());
     });
 }
