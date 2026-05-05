@@ -797,6 +797,10 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
+        // On Android, some item structs contain Option<Timer> for layout compatibility.
+        // These fields are never accessed from C++.
+        using ::slint::Timer;
+        template<typename T> struct Option { alignas(T) char data[sizeof(T)]; };
     }
     template<typename ModelData> class Model;
 }",
@@ -1051,6 +1055,7 @@ declare_features! {
     backend_winit_wayland
     backend_linuxkms
     backend_linuxkms_noseat
+    backend_android_activity
     renderer_femtovg
     renderer_skia
     renderer_skia_opengl

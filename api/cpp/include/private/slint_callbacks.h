@@ -3,9 +3,25 @@
 
 #pragma once
 #include <tuple>
+#include <utility>
 #include "private/slint_properties_internal.h"
 
 namespace slint::private_api {
+
+namespace detail {
+template<typename F, typename Tuple, std::size_t... I>
+decltype(auto) apply_impl(F &&f, Tuple &&t, std::index_sequence<I...>)
+{
+    return std::forward<F>(f)(std::get<I>(std::forward<Tuple>(t))...);
+}
+template<typename F, typename Tuple>
+decltype(auto) apply(F &&f, Tuple &&t)
+{
+    return apply_impl(std::forward<F>(f), std::forward<Tuple>(t),
+                      std::make_index_sequence<
+                              std::tuple_size_v<std::remove_reference_t<Tuple>>> {});
+}
+} // namespace detail
 
 /// A Callback stores a function pointer with no parameters and no return value.
 /// It's possible to set that pointer via set_handler() and it can be invoked via call(). This is
@@ -33,9 +49,10 @@ struct Callback<Ret(Arg...)>
         cbindgen_private::slint_callback_set_handler(
                 &inner,
                 [](void *user_data, const void *arg, void *ret) {
+                    Tuple args = *reinterpret_cast<const Tuple *>(arg);
                     *reinterpret_cast<Ret *>(ret) =
-                            std::apply(*reinterpret_cast<F *>(user_data),
-                                       *reinterpret_cast<const Tuple *>(arg));
+                            detail::apply(*reinterpret_cast<F *>(user_data),
+                                       std::move(args));
                 },
                 new F(std::move(binding)),
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
@@ -77,8 +94,9 @@ struct Callback<void(Arg...)>
         cbindgen_private::slint_callback_set_handler(
                 &inner,
                 [](void *user_data, const void *arg, void *) {
-                    std::apply(*reinterpret_cast<F *>(user_data),
-                               *reinterpret_cast<const Tuple *>(arg));
+                    Tuple args = *reinterpret_cast<const Tuple *>(arg);
+                    detail::apply(*reinterpret_cast<F *>(user_data),
+                               std::move(args));
                 },
                 new F(std::move(binding)),
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });

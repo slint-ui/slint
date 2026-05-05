@@ -1,0 +1,308 @@
+---
+// cSpell: ignore abifilters gradlew logcat
+title: Android (C++)
+description: Building Slint C++ applications for Android
+---
+
+import { Code } from '@astrojs/starlight/components';
+
+This guide explains how to build and deploy Slint applications written in C++ on Android.
+
+The build uses the standard Android toolchain: **Gradle** orchestrates the build, **CMake** compiles
+the native code (both the Slint runtime via Rust and your C++ application), and Gradle packages
+everything into an APK.
+
+## Prerequisites
+
+### Android SDK and NDK
+
+Install [Android Studio](https://developer.android.com/studio). In the settings, navigate to
+"Languages & Frameworks" > "Android SDK" and install:
+- The latest Android SDK (API 35 or newer recommended)
+- The Android NDK (under the "SDK Tools" tab)
+- CMake (under the "SDK Tools" tab)
+
+Set up the following environment variables:
+
+```sh
+export ANDROID_HOME=$HOME/Android/Sdk
+export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>
+export JAVA_HOME=/path/to/jdk   # Optional if javac is in PATH
+```
+
+### Rust Toolchain
+
+Slint's runtime is written in Rust. Install the Rust toolchain and add the Android target:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add aarch64-linux-android
+```
+
+Add other targets if you need to support additional ABIs:
+
+```sh
+rustup target add armv7-linux-androideabi  # armeabi-v7a
+rustup target add x86_64-linux-android     # x86_64 (emulator)
+rustup target add i686-linux-android       # x86 (emulator)
+```
+
+## Project Setup
+
+The easiest way to start is to copy the template project from
+[`api/cpp/android/`](https://github.com/slint-ui/slint/tree/master/api/cpp/android) in the
+Slint repository.
+
+A Slint C++ Android project has this structure:
+
+```
+my-app/
+├── build.gradle.kts              # Top-level Gradle config
+├── settings.gradle.kts           # Project name
+├── gradle.properties
+├── gradle/wrapper/               # Gradle wrapper
+├── app/
+│   ├── build.gradle.kts          # Android app: SDK versions, CMake setup
+│   └── src/main/
+│       ├── AndroidManifest.xml   # NativeActivity declaration
+│       └── cpp/
+│           ├── CMakeLists.txt    # Finds Slint and builds your app
+│           ├── main.cpp          # Your application code
+│           └── main.slint        # Your Slint UI
+```
+
+### CMakeLists.txt
+
+The CMake file fetches Slint and builds your app as a shared library:
+
+```cmake
+cmake_minimum_required(VERSION 3.21)
+project(SlintApp LANGUAGES CXX)
+
+include(FetchContent)
+FetchContent_Declare(
+    Slint
+    GIT_REPOSITORY https://github.com/slint-ui/slint.git
+    GIT_TAG v1.17.0
+    SOURCE_SUBDIR api/cpp
+)
+FetchContent_MakeAvailable(Slint)
+
+add_library(app SHARED main.cpp)
+target_link_libraries(app PRIVATE Slint::Slint)
+slint_target_sources(app main.slint)
+```
+
+When CMake is invoked by Gradle with the Android NDK toolchain, Slint automatically:
+- Detects the Android target and maps the ABI to the correct Rust target
+- Enables the Android backend and Skia renderer
+- Disables desktop-only backends (winit, Qt)
+- Sets the Material style as default
+
+### AndroidManifest.xml
+
+The manifest declares a `NativeActivity` that loads your native library:
+
+```xml
+<application
+    android:label="My Slint App"
+    android:hasCode="false">
+    <activity
+        android:name="android.app.NativeActivity"
+        android:exported="true"
+        android:configChanges="orientation|screenSize|keyboardHidden">
+        <meta-data
+            android:name="android.app.lib_name"
+            android:value="app" />
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+    </activity>
+</application>
+```
+
+The `android:value="app"` must match the CMake library name in `add_library(app SHARED ...)`.
+
+### app/build.gradle.kts
+
+```kotlin
+plugins {
+    id("com.android.application")
+}
+
+android {
+    namespace = "dev.slint.app"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "dev.slint.app"
+        minSdk = 26
+        targetSdk = 35
+
+        ndk {
+            // Add other ABIs as needed: "armeabi-v7a", "x86_64", "x86"
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+}
+```
+
+The minimum SDK is 26 (Android 8.0), which is required by the Slint Android backend.
+
+## Writing Your Application
+
+The entry point for a Slint C++ Android application is the `slint_main` function:
+
+```cpp
+#include "main.h"  // Generated from main.slint
+
+extern "C" void slint_main()
+{
+    auto window = MainWindow::create();
+    window->run();
+}
+```
+
+This function is called by the Slint runtime after Android platform initialization is complete.
+From here, you use the standard Slint C++ API — create windows, set up callbacks, run the event
+loop. No Android-specific code is needed for a basic application.
+
+The `extern "C"` and the name `slint_main` are required. The Slint runtime provides the actual
+Android entry point (`android_main`) internally and calls your `slint_main` once the platform
+is ready.
+
+### Slint UI File
+
+Define your UI in a `.slint` file as usual:
+
+```slint
+export component MainWindow inherits Window {
+    preferred-width: 360px;
+    preferred-height: 640px;
+
+    VerticalLayout {
+        alignment: center;
+        Text {
+            text: "Hello from Slint on Android!";
+            horizontal-alignment: center;
+            font-size: 24px;
+        }
+    }
+}
+```
+
+## Building and Deploying
+
+### Build and Install
+
+Connect a device or start an emulator, then:
+
+```sh
+./gradlew installDebug
+```
+
+This builds the native library (Rust + C++), packages it into an APK, and installs it on the
+connected device.
+
+:::note[Note]
+The first build takes longer because it compiles the Slint runtime and Skia renderer from source.
+Subsequent builds are faster thanks to Cargo's incremental compilation.
+:::
+
+### View Logs
+
+```sh
+adb logcat -s "slint"
+```
+
+### Release Builds
+
+```sh
+./gradlew assembleRelease
+```
+
+The APK is in `app/build/outputs/apk/release/`.
+
+### Multiple ABIs
+
+To build for multiple ABIs, add them to `abiFilters` in `build.gradle.kts`:
+
+```kotlin
+ndk {
+    abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+}
+```
+
+Each ABI requires the corresponding Rust target to be installed and triggers a separate Rust
+compilation, which increases build time.
+
+## JNI Interop
+
+To call Java APIs from your C++ code (for example, to access sensors, notifications, or other
+Android platform features), you can use JNI directly.
+
+### Adding Java Sources
+
+Add Java files to `app/src/main/java/` and set `android:hasCode="true"` in your
+`AndroidManifest.xml`. Gradle compiles them automatically alongside your native code.
+
+### Calling Java from C++
+
+Use the NDK's JNI headers to call Java methods:
+
+```cpp
+#include <jni.h>
+
+// Get JNIEnv* from the current thread.
+// On Android, the JavaVM is available from the native activity.
+void call_java_method(JNIEnv *env)
+{
+    jclass cls = env->FindClass("com/example/MyHelper");
+    jmethodID method = env->GetStaticMethodID(cls, "doSomething", "()V");
+    env->CallStaticVoidMethod(cls, method);
+}
+```
+
+For accessing the `JNIEnv*`, you typically obtain it from the `JavaVM` associated with the
+native activity. See the
+[Android NDK JNI documentation](https://developer.android.com/training/articles/perf-jni) for
+details.
+
+## Virtual Device Setup
+
+For development, an Android emulator is convenient. Create one in Android Studio's
+Virtual Device Manager (available under "More Actions" on the main screen).
+
+Recommended setup:
+- Use a recent API level (35) for your primary test device
+- Also test with API 26 (your minimum) to catch compatibility issues
+- For virtual keyboard testing, set `hw.keyboard=no` in the device's `config.ini`
+
+See the [Rust Android guide](/guide/platforms/mobile/android#virtual-device-setup) for detailed
+emulator setup instructions, which also apply to C++ development.
+
+## Troubleshooting
+
+### Common Issues
+
+**"Rust target not installed"**: Run `rustup target add aarch64-linux-android` (or the target
+matching your ABI).
+
+**"ANDROID_NDK_ROOT not set"**: The NDK path must be available to the Rust build. Set it as an
+environment variable or ensure the NDK is installed via Android Studio's SDK Manager.
+
+**Build fails with Skia errors**: The Skia renderer requires `clang` to be available on your
+host system. Install it with your system package manager.
+
+**App crashes on startup**: Check `adb logcat` for errors. Common causes:
+- Library name in `AndroidManifest.xml` doesn't match the CMake target name
+- Missing `slint_main` function (must be `extern "C"`)
+- API level below 26

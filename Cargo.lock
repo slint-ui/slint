@@ -10103,6 +10103,7 @@ dependencies = [
  "cbindgen",
  "esp-backtrace",
  "esp-println",
+ "i-slint-backend-android-activity",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
  "i-slint-common",

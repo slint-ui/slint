@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MainWindow inherits Window {
+    preferred-width: 360px;
+    preferred-height: 640px;
+
+    VerticalLayout {
+        alignment: center;
+
+        Text {
+            text: "Hello from Slint on Android!";
+            horizontal-alignment: center;
+            font-size: 24px;
+        }
+    }
+}

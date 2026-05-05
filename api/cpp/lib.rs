@@ -38,6 +38,22 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
+#[cfg(all(target_os = "android", feature = "backend-android-activity"))]
+mod android {
+    unsafe extern "C" {
+        fn slint_main();
+    }
+
+    #[unsafe(no_mangle)]
+    fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
+        i_slint_core::platform::set_platform(alloc::boxed::Box::new(
+            i_slint_backend_android_activity::AndroidPlatform::new(app),
+        ))
+        .unwrap();
+        unsafe { slint_main() };
+    }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
     assert_eq!(
