@@ -9,6 +9,8 @@
 namespace slint::private_api {
 
 namespace detail {
+// Custom apply implementation to replace std::apply.
+// NDK r27's libc++ rejects std::apply with const tuple references in some configurations.
 template<typename F, typename Tuple, std::size_t... I>
 decltype(auto) apply_impl(F &&f, Tuple &&t, std::index_sequence<I...>)
 {

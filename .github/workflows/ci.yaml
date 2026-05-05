@@ -678,6 +678,26 @@ jobs:
             - name: Build usecases demo
               run: cargo apk build -p usecases --target aarch64-linux-android --lib
 
+    android_cpp:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        runs-on: ubuntu-latest
+        env:
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - name: Build usecases demo for Android (CMake cross-compile)
+              run: |
+                  cmake -B build-android-usecases -S demos/usecases/cpp \
+                    -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake \
+                    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26
+                  cmake --build build-android-usecases
+
     test-figma-inspector:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.figma_inspector == 'true' }}
