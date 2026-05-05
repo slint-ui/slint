@@ -55,7 +55,7 @@ css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
 send_wrapper = { workspace = true }
 # Removed by node_package xtask
-i-slint-backend-testing = { workspace = true, optional = true }
+i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 smol_str = { workspace = true }
 
 [build-dependencies]

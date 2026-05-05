@@ -118,7 +118,7 @@ futures = { version = "0.3.31" }
 objc2 = { workspace = true }
 # For GL rendering
 objc2-app-kit = { version = "0.3.2", features = ["NSColor", "NSView", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSRunLoop", "NSObjCRuntime"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink"] }
 block2 = "0.6.2"
 

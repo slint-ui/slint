@@ -251,17 +251,18 @@ fn collect_all_element_nodes_covering_impl(
 }
 
 fn assign_is_in_root_component(candidates: &mut [SelectionCandidate]) {
-    let mut root_text_range: Option<i_slint_compiler::parser::TextRange> = None;
+    let mut root_anchor: Option<(PathBuf, i_slint_compiler::parser::TextRange)> = None;
     for sc in candidates.iter_mut().rev() {
         let Some(en) = sc.as_element_node() else {
             continue;
         };
 
-        let node_text_range = en.with_element_node(|n| n.text_range());
-        if let Some(rtr) = root_text_range {
-            sc.is_in_root_component = rtr.contains_range(node_text_range);
+        let (node_path, node_text_range) =
+            en.with_element_node(|n| (n.source_file.path().to_path_buf(), n.text_range()));
+        if let Some((rp, rtr)) = &root_anchor {
+            sc.is_in_root_component = &node_path == rp && rtr.contains_range(node_text_range);
         } else {
-            root_text_range = Some(node_text_range);
+            root_anchor = Some((node_path, node_text_range));
             sc.is_in_root_component = true;
         }
     }
@@ -870,6 +871,70 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
                 true
             )
             .is_none()
+        );
+    }
+
+    #[test]
+    fn test_select_imported_component_at_use_site() {
+        use crate::common::test::{main_test_file_name, test_file_name};
+        use crate::preview::test::interpret_test_with_sources;
+        use std::collections::HashMap;
+
+        let main_path = main_test_file_name();
+        let controls_path = test_file_name("controls.slint");
+
+        let main_source = format!(
+            r#"import {{ MyInput }} from "{controls}";
+
+export component Demo inherits Window {{
+    width: 200px;
+    height: 200px;
+
+    MyInput {{
+        x: 0px; y: 0px;
+        width: 200px;
+        height: 200px;
+    }}
+}}
+"#,
+            controls = controls_path.to_string_lossy()
+        );
+
+        let controls_source = r#"component InputBlocker {
+    width: 100%;
+    height: 100%;
+    TouchArea {
+        clicked => { }
+    }
+}
+
+export component MyInput {
+    width: 100%;
+    height: 100%;
+    auth-checker := InputBlocker { }
+}
+"#;
+
+        let component_instance = interpret_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (main_path.clone(), main_source),
+                (controls_path.clone(), controls_source.to_string()),
+            ]),
+        );
+
+        let selected = super::select_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(100.0, 100.0),
+            /* enter_component */ false,
+        )
+        .expect("a click on MyInput should select something");
+
+        let (path, _offset) = selected.path_and_offset();
+        assert_eq!(
+            path, main_path,
+            "selection without `enter_component` should land on the MyInput use site \
+             in the main file, not on a node inside the imported component"
         );
     }
 }

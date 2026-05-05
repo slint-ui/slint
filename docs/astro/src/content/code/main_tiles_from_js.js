@@ -7,7 +7,7 @@ import * as slint from "slint-ui";
 const ui = slint.loadFile(new URL("./ui/app-window.slint", import.meta.url));
 const mainWindow = new ui.MainWindow();
 
-const initial_tiles = mainWindow.memory_tiles;
+const initial_tiles = [...mainWindow.memory_tiles];
 const tiles = initial_tiles.concat(
     initial_tiles.map((tile) => Object.assign({}, tile)),
 );

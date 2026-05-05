@@ -25,7 +25,7 @@
 #    endif
 #endif // !defined(DOXYGEN)
 
-#if defined(__cpp_deleted_function) && __cpp_deleted_function >= 202403L
+#if defined(__cpp_deleted_function) && __cpp_deleted_function >= 202403L && __cplusplus > 202302L
 #    define SLINT_DELETED_FUNCTION(reason) delete (reason)
 #else
 #    define SLINT_DELETED_FUNCTION(reason) delete

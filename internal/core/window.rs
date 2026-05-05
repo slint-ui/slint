@@ -24,7 +24,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, SharedString, SharedVector};
+use crate::{Callback, Coord, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -175,6 +175,11 @@ pub trait WindowAdapterInternal: core::any::Any {
         _component: ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
+    }
+
+    /// Get the parent window adapter of this window adapter
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        None
     }
 
     /// Create a window for a popup.
@@ -632,11 +637,11 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
-        // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
-        let mut root_adapter = None;
-        ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut root_adapter);
-        let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
-        let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
+        let parent_adapter = window_adapter
+            .internal(crate::InternalToken)
+            .and_then(|internal| internal.get_parent())
+            .unwrap_or_else(|| window_adapter.clone());
+        let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {
                 Rc::ptr_eq(wa, &window_adapter)
@@ -765,7 +770,7 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         if let Some(popup_id) = popup_to_close {
-            WindowInner::from_pub(root_adapter.window()).close_popup(popup_id);
+            WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
         }
 
         crate::properties::ChangeTracker::run_change_handlers();
@@ -1676,6 +1681,7 @@ impl WindowInner {
         }
     }
 
+    // Get geometry of the virtual keyboard if available
     pub(crate) fn window_item_virtual_keyboard(
         &self,
     ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
@@ -1683,7 +1689,12 @@ impl WindowInner {
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
-        Some((window_item.virtual_keyboard_position(), window_item.virtual_keyboard_size()))
+        let keyboard_size = window_item.virtual_keyboard_size();
+        if keyboard_size.width == 0. as Coord || keyboard_size.height == 0. as Coord {
+            None
+        } else {
+            Some((window_item.virtual_keyboard_position(), keyboard_size))
+        }
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.

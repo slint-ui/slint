@@ -696,9 +696,13 @@ fn lower_sub_component(
                     to: Type::String,
                 },
                 Type::String => super::Expression::PropertyReference(prop),
-                Type::Enumeration(e) if e.name == "AccessibleRole" => {
+                Type::Enumeration(ref e) if e.name == "AccessibleRole" => {
                     super::Expression::PropertyReference(prop)
                 }
+                Type::Enumeration(_) => super::Expression::Cast {
+                    from: super::Expression::PropertyReference(prop).into(),
+                    to: Type::String,
+                },
                 Type::Callback(callback) => super::Expression::CallBackCall {
                     callback: prop,
                     arguments: (0..callback.args.len())

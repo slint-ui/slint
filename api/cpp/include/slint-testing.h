@@ -378,6 +378,19 @@ public:
         return get_accessible_bool_property(cbindgen_private::AccessibleStringProperty::ReadOnly);
     }
 
+    /// Returns the accessible-orientation of that element, if any.
+    std::optional<Orientation> accessible_orientation() const
+    {
+        if (auto str = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Orientation)) {
+            if (*str == "horizontal")
+                return Orientation::Horizontal;
+            if (*str == "vertical")
+                return Orientation::Vertical;
+        }
+        return std::nullopt;
+    }
+
     /// Invokes the expand accessibility action of that element
     /// (`accessible-action-expand`).
     void invoke_accessible_expand_action() const

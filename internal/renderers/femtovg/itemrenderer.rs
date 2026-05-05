@@ -13,8 +13,8 @@ use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
-    RenderRectangle, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer, RenderBorderRectangle,
+    RenderImage, RenderRectangle, RenderText,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
@@ -39,11 +39,6 @@ pub type CanvasRc<R> = Rc<RefCell<Canvas<R>>>;
 
 pub enum ItemGraphicsCacheEntry<R: femtovg::Renderer + TextureImporter> {
     Texture(Rc<Texture<R>>),
-    TextureWithOrigin {
-        texture: Rc<Texture<R>>,
-        /// Designated point where to draw the texture, relative to the item this cache entry is associated with.
-        origin: PhysicalPoint,
-    },
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
@@ -56,9 +51,6 @@ impl<R: femtovg::Renderer + TextureImporter> Clone for ItemGraphicsCacheEntry<R>
     fn clone(&self) -> Self {
         match self {
             Self::Texture(arg0) => Self::Texture(arg0.clone()),
-            Self::TextureWithOrigin { texture, origin } => {
-                Self::TextureWithOrigin { texture: texture.clone(), origin: *origin }
-            }
             Self::ColorizedImage { _original_image, colorized_image } => Self::ColorizedImage {
                 _original_image: _original_image.clone(),
                 colorized_image: colorized_image.clone(),
@@ -71,7 +63,6 @@ impl<R: femtovg::Renderer + TextureImporter> ItemGraphicsCacheEntry<R> {
     fn as_texture(&self) -> &Rc<Texture<R>> {
         match self {
             ItemGraphicsCacheEntry::Texture(image) => image,
-            ItemGraphicsCacheEntry::TextureWithOrigin { texture, .. } => texture,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
         }
     }
@@ -81,6 +72,7 @@ impl<R: femtovg::Renderer + TextureImporter> ItemGraphicsCacheEntry<R> {
 }
 
 pub(super) type ItemGraphicsCache<R> = ItemCache<Option<ItemGraphicsCacheEntry<R>>>;
+pub(super) type LayerCache<R> = ItemCache<Option<(PhysicalPoint, Rc<Texture<R>>)>>;
 
 const KAPPA90: f32 = 0.55228;
 
@@ -93,6 +85,7 @@ struct State {
 
 pub struct GLItemRenderer<'a, R: femtovg::Renderer + TextureImporter> {
     graphics_cache: &'a ItemGraphicsCache<R>,
+    layer_cache: &'a LayerCache<R>,
     texture_cache: &'a RefCell<super::images::TextureCache<R>>,
     box_shadow_cache: FemtovgBoxShadowCache<R>,
     canvas: CanvasRc<R>,
@@ -640,7 +633,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
-            self.graphics_cache.release(item_rc);
+            self.layer_cache.release(item_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -654,7 +647,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(1.0, self_rc)
         } else {
-            self.graphics_cache.release(self_rc);
+            self.layer_cache.release(self_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -683,7 +676,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
         if !radius.is_zero() {
             if let Some((layer_origin, layer_image)) =
-                self.render_layer(item_rc, &|| item_rc.geometry())
+                i_slint_core::item_rendering::render_layer(self, item_rc)
             {
                 let layer_image_paint = layer_image.as_paint();
 
@@ -702,7 +695,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
 
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
-            self.graphics_cache.release(item_rc);
+            self.layer_cache.release(item_rc);
             self.combine_clip(geometry, radius, border_width);
             RenderingResult::ContinueRenderingChildren
         }
@@ -786,7 +779,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         });
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Texture(texture)) => texture.id,
-            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture, .. }) => texture.id,
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             None => return,
         };
@@ -1033,10 +1025,85 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
     }
 }
 
+impl<'a, R: femtovg::Renderer + TextureImporter> LayerRenderer<'a> for GLItemRenderer<'a, R> {
+    type LayerTarget = Rc<Texture<R>>;
+    type Image = Rc<Texture<R>>;
+
+    fn layer_cache(&self) -> &'a ItemCache<Option<(PhysicalPoint, Self::Image)>> {
+        self.layer_cache
+    }
+
+    fn create_layer_target(
+        &mut self,
+        item_rc: &ItemRc,
+        physical_size: euclid::Size2D<f32, i_slint_core::lengths::PhysicalPx>,
+    ) -> Option<Self::LayerTarget> {
+        let size = physical_size.ceil().try_cast::<u32>()?;
+
+        // Reuse the previously cached layer texture if its size matches: the
+        // cache entry holds the only other reference, so once we return from
+        // the outer `get_or_update_cache_entry` that ref is dropped.
+        let reused = self.layer_cache.with_entry(item_rc, |cache_entry| match cache_entry {
+            Some((_, texture)) if texture.size() == Some(size.to_untyped()) => {
+                let cloned = texture.clone();
+                debug_assert_eq!(Rc::strong_count(&cloned), 2);
+                Some(cloned)
+            }
+            _ => None,
+        });
+
+        reused.or_else(|| {
+            *self.metrics.layers_created.as_mut().unwrap() += 1;
+            Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
+        })
+    }
+
+    fn render_into_layer(
+        &mut self,
+        layer_image: Self::LayerTarget,
+        item_rc: &ItemRc,
+        bounding_rect: LogicalRect,
+    ) -> Self::Image {
+        let render_target = layer_image.as_render_target();
+        let size = layer_image.size().unwrap_or_default();
+        let previous_render_target = self.current_render_target();
+        let physical_origin = bounding_rect.origin.cast() * self.scale_factor;
+
+        self.save_state();
+        *self.state.last_mut().unwrap() = State {
+            scissor: bounding_rect,
+            global_alpha: 1.,
+            current_render_target: render_target,
+        };
+
+        {
+            let mut canvas = self.canvas.borrow_mut();
+            canvas.set_render_target(render_target);
+            canvas.reset();
+            canvas.clear_rect(0, 0, size.width, size.height, femtovg::Color::rgba(0, 0, 0, 0));
+            canvas.translate(-physical_origin.x, -physical_origin.y);
+        }
+
+        let window_adapter = self.window().window_adapter();
+        i_slint_core::item_rendering::render_item_children(
+            self,
+            item_rc.item_tree(),
+            item_rc.index() as isize,
+            &window_adapter,
+        );
+
+        self.canvas.borrow_mut().set_render_target(previous_render_target);
+        self.restore_state();
+
+        layer_image
+    }
+}
+
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     pub(super) fn new(
         canvas: &CanvasRc<R>,
         graphics_cache: &'a ItemGraphicsCache<R>,
+        layer_cache: &'a LayerCache<R>,
         texture_cache: &'a RefCell<super::images::TextureCache<R>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         window: &'a i_slint_core::api::Window,
@@ -1046,6 +1113,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let scale_factor = ScaleFactor::new(window.scale_factor());
         Self {
             graphics_cache,
+            layer_cache,
             texture_cache,
             box_shadow_cache: Default::default(),
             canvas: canvas.clone(),
@@ -1096,103 +1164,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         result
     }
 
-    fn render_layer(
-        &mut self,
-        item_rc: &ItemRc,
-        layer_bounding_rect_fn: &dyn Fn() -> LogicalRect,
-    ) -> Option<(PhysicalPoint, Rc<Texture<R>>)> {
-        let existing_layer_texture =
-            self.graphics_cache.with_entry(item_rc, |cache_entry| match cache_entry {
-                Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture, .. }) => {
-                    Some(texture.clone())
-                }
-                _ => None,
-            });
-
-        let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
-            let bounding_rect = layer_bounding_rect_fn();
-            let origin = bounding_rect.origin * self.scale_factor;
-            let size = (bounding_rect.size * self.scale_factor).ceil().try_cast()?;
-
-            let layer_image = existing_layer_texture
-                .and_then(|layer_texture| {
-                    // If we have an existing layer texture, there must be only one reference from within
-                    // the existing cache entry and one through the `existing_layer_texture` variable.
-                    // Then it is safe to render new content into it in this callback and when we return
-                    // into `get_or_update_cache_entry` the first ref is dropped.
-                    debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
-                    if layer_texture.size() == Some(size.to_untyped()) {
-                        Some(layer_texture)
-                    } else {
-                        None
-                    }
-                })
-                .or_else(|| {
-                    *self.metrics.layers_created.as_mut().unwrap() += 1;
-                    Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
-                })?;
-
-            let previous_render_target = self.current_render_target();
-
-            {
-                let mut canvas = self.canvas.borrow_mut();
-                canvas.save();
-
-                canvas.set_render_target(layer_image.as_render_target());
-
-                canvas.reset();
-
-                canvas.clear_rect(0, 0, size.width, size.height, femtovg::Color::rgba(0, 0, 0, 0));
-
-                canvas.translate(-origin.x, -origin.y);
-            }
-
-            *self.state.last_mut().unwrap() = State {
-                scissor: bounding_rect,
-                global_alpha: 1.,
-                current_render_target: layer_image.as_render_target(),
-            };
-
-            let window_adapter = self.window().window_adapter();
-
-            i_slint_core::item_rendering::render_item_children(
-                self,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &window_adapter,
-            );
-
-            {
-                let mut canvas = self.canvas.borrow_mut();
-                canvas.restore();
-
-                canvas.set_render_target(previous_render_target);
-            }
-
-            Some(ItemGraphicsCacheEntry::TextureWithOrigin { texture: layer_image, origin })
-        });
-
-        cache_entry.and_then(|item_cache_entry| match item_cache_entry {
-            ItemGraphicsCacheEntry::TextureWithOrigin { texture, origin } => {
-                Some((origin, texture.clone()))
-            }
-            _ => None,
-        })
-    }
-
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
-        let window_adapter = self.window().window_adapter();
-        let current_clip = self.get_current_clip();
-        if let Some((layer_origin, layer_image)) = self.render_layer(item_rc, &|| {
-            // We don't need to include the size of the "layer" item itself, since it has no content.
-            // But intersect with the union of the clip with the geometry to make sure we don't
-            // render insanely large surface.
-            i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
-                    .intersection(&current_clip.union(&item_rc.geometry()))
-                    .unwrap_or_default()
-            })
-        }) && let Some(layer_size) = layer_image.size()
+        if let Some((layer_origin, layer_image)) =
+            i_slint_core::item_rendering::render_layer(self, item_rc)
+            && let Some(layer_size) = layer_image.size()
         {
             let mut layer_path = femtovg::Path::new();
             // On the paint for the layer, we don't need anti-aliasing on the fringes,

@@ -78,8 +78,12 @@ pub(super) fn try_create(
     window_adapter: Weak<WinitWindowAdapter>,
     winit_window: &winit::window::Window,
 ) -> Option<Box<dyn super::FrameThrottle>> {
-    // CADisplayLink on macOS requires 14.0+; check at runtime.
-    AnyClass::get(c"CADisplayLink")?;
+    // -[NSView displayLinkWithTarget:selector:] is only available on macOS
+    // 14.0+. The CADisplayLink class itself is reachable on older macOS via
+    // QuartzCore, so check for the selector instead of the class.
+    if !AnyClass::get(c"NSView")?.responds_to(sel!(displayLinkWithTarget:selector:)) {
+        return None;
+    }
 
     let mtm = MainThreadMarker::new().expect("frame throttle must be created on main thread");
 

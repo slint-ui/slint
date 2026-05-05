@@ -25,6 +25,15 @@ TestCase := Rectangle {
         source: @image-url("data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%2295%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpolygon%20fill%3D%22%23231815%22%20points%3D%2250%2C0%2065.451%2C31.271%20100%2C36.287%2075%2C60.729%2081.902%2C95%2050%2C78.361%2018.098%2C95%2025%2C60.729%200%2C36.287%2034.549%2C31.271%22%2F%3E%3C%2Fsvg%3E");
     }
 
+    img6 := Image {
+        source: @image-url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjUiIGN5PSIyMCIgcj0iMTUiIGZpbGw9InJlZCIvPjwvc3ZnPg==");
+    }
+
+    // same data URI as img4, tests deduplication
+    img7 := Image {
+        source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
+    }
+
     out property <image> with-border: @image-url("dog.jpg", nine-slice(12 13 14 15));
 
     property <length> img_width: img.width;
@@ -33,7 +42,9 @@ TestCase := Rectangle {
     property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
          img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0 && test_no_overflow == -149.5 &&
          img4.source.width == 1 && img4.source.height == 1 &&
-         img5.source.width > 0 && img5.source.height > 0;
+         img5.source.width > 0 && img5.source.height > 0 &&
+         img6.source.width == 50 && img6.source.height == 40 &&
+         img7.source.width == 1 && img7.source.height == 1;
 }
 
 /*

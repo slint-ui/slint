@@ -433,6 +433,12 @@ for i in 5: Rectangle {
 The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
 </SlintProperty>
 
+### accessible-orientation
+<SlintProperty typeName="enum" enumName="Orientation">
+The orientation of the element when it makes sense, such as a `Slider` or a `ScrollBar`. Assistive
+technologies can use this to inform the user whether the widget is laid out horizontally or vertically.
+</SlintProperty>
+
 ### accessible-value-maximum
 <SlintProperty typeName="float" propName="accessible-value-maximum" default="0">
 The maximum value of the item. This is used for example by spin boxes.

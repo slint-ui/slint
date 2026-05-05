@@ -6,7 +6,9 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::Weak;
 
-use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeId, TreeUpdate};
+use accesskit::{
+    Action, ActionRequest, Node, NodeId, Orientation, Role, Toggled, Tree, TreeId, TreeUpdate,
+};
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
@@ -662,6 +664,16 @@ impl NodeCollection {
             .is_some_and(|x| x == "true")
         {
             node.set_read_only();
+        }
+
+        if let Some(orientation) = item
+            .accessible_string_property(AccessibleStringProperty::Orientation)
+            .and_then(|s| s.parse::<i_slint_core::items::Orientation>().ok())
+        {
+            node.set_orientation(match orientation {
+                i_slint_core::items::Orientation::Horizontal => Orientation::Horizontal,
+                i_slint_core::items::Orientation::Vertical => Orientation::Vertical,
+            });
         }
 
         if item

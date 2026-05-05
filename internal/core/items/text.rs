@@ -964,71 +964,41 @@ impl Item for TextInput {
                     return KeyEventResult::EventAccepted;
                 }
 
-                match event.text_shortcut() {
-                    Some(text_shortcut) if !self.read_only() => match text_shortcut {
-                        TextShortcut::Move(direction) => {
-                            TextInput::move_cursor(
-                                self,
-                                direction,
-                                event.key_event.modifiers.into(),
-                                TextChangeNotify::TriggerCallbacks,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteForward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::Forward,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteBackward => {
-                            // Special case: backspace breaks the grapheme and selects the previous character
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::PreviousCharacter,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteWordForward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::ForwardByWord,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteWordBackward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::BackwardByWord,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteToStartOfLine => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::StartOfLine,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                    },
-                    Some(_) => {
+                let delete_direction = match event.text_shortcut() {
+                    Some(TextShortcut::Move(direction)) => {
+                        TextInput::move_cursor(
+                            self,
+                            direction,
+                            event.key_event.modifiers.into(),
+                            TextChangeNotify::TriggerCallbacks,
+                            window_adapter,
+                            self_rc,
+                        );
+                        return KeyEventResult::EventAccepted;
+                    }
+                    // Special case: backspace breaks the grapheme and selects the previous character
+                    Some(TextShortcut::DeleteBackward) => {
+                        Some(TextCursorDirection::PreviousCharacter)
+                    }
+                    Some(TextShortcut::DeleteForward) => Some(TextCursorDirection::Forward),
+                    Some(TextShortcut::DeleteWordForward) => {
+                        Some(TextCursorDirection::ForwardByWord)
+                    }
+                    Some(TextShortcut::DeleteWordBackward) => {
+                        Some(TextCursorDirection::BackwardByWord)
+                    }
+                    Some(TextShortcut::DeleteToStartOfLine) => {
+                        Some(TextCursorDirection::StartOfLine)
+                    }
+                    None => None,
+                };
+                if let Some(direction) = delete_direction {
+                    if self.read_only() {
                         return KeyEventResult::EventIgnored;
                     }
-                    None => (),
-                };
+                    TextInput::select_and_delete(self, direction, window_adapter, self_rc);
+                    return KeyEventResult::EventAccepted;
+                }
 
                 if let Some(keycode) = event.key_event.text.chars().next()
                     && keycode == key_codes::Return
@@ -2028,7 +1998,7 @@ impl TextInput {
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
             let cursor_position = self.cursor_position(&text);
-            let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
+            let cursor_visible = self.cursor_visible() && self.enabled();
             let cursor_position = if cursor_visible && selection_range.is_empty() {
                 Some(cursor_position)
             } else {

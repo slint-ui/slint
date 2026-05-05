@@ -16,6 +16,21 @@ export SubElements := Rectangle {
 //              >                                              <error{Cannot find image file builtin:/common/does-not-exist.svg}
     }
 
+    Image {
+        source: @image-url("data:text/plain;base64,SGVsbG8=");
+//              >                                           <error{Unsupported media type: text/plain. Only image/* data URLs are supported}
+    }
+
+    Image {
+        source: @image-url("data:not-valid");
+//              >                          <error{Invalid data URI: data url is missing comma delimiting attributes and body}
+    }
+
+    Image {
+        source: @image-url("data:image/png;base64,!!!invalid-base64!!!");
+//              >                                                      <error{Invalid data URI payload: symbol with codepoint 33 not expected}
+    }
+
     Rectangle {
         background: red;
     }

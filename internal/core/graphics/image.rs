@@ -1019,6 +1019,33 @@ pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_,
     })
 }
 
+/// Decode image data with the given format hint (a file extension such as "png" or "svg").
+/// The result is not cached.
+#[cfg(feature = "image-decoders")]
+pub fn decode_image_data(data: &[u8], format: &str) -> Option<Image> {
+    #[cfg(feature = "svg")]
+    if format == "svg" || format == "svgz" {
+        return Image::load_from_svg_data(data).ok();
+    }
+
+    let image_format = image::ImageFormat::from_extension(format);
+    let decoded = if let Some(fmt) = image_format {
+        image::load_from_memory_with_format(data, fmt)
+    } else {
+        image::load_from_memory(data)
+    };
+    match decoded {
+        Ok(image) => Some(Image(ImageInner::EmbeddedImage {
+            cache_key: ImageCacheKey::Invalid,
+            buffer: cache::dynamic_image_to_shared_image_buffer(image),
+        })),
+        Err(err) => {
+            crate::debug_log!("Error decoding image data: {}", err);
+            None
+        }
+    }
+}
+
 #[test]
 fn test_image_size_from_buffer_without_backend() {
     {
