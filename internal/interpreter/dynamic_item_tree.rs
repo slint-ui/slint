@@ -821,7 +821,8 @@ extern "C" fn visit_children_item(
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
 
-    // Macro-like helper to avoid duplicating the visit_dynamic closure
+    // Macro needed because `visit_item_tree*` requires the closure to be generic over
+    // the generativity lifetime of Instance<'_>, which a regular closure cannot satisfy.
     macro_rules! visit_dyn {
         () => {
             |_, order, visitor, index: u32| {
@@ -1503,21 +1504,19 @@ pub(crate) fn generate_item_tree<'id>(
     for (idx, elem_rc) in builder.original_elements.iter().enumerate() {
         let elem = elem_rc.borrow();
         if elem.has_dynamic_z_order {
-            let mut child_infos = Vec::new();
-            let mut ref_idx = 0;
-            for (child_idx, _child) in elem.children.iter().enumerate() {
-                if let Some((_, val)) =
-                    elem.dynamic_z_child_constants.iter().find(|(i, _)| *i == child_idx)
-                {
-                    child_infos.push(ZInterpreterChildInfo::Constant(*val));
-                } else if ref_idx < elem.dynamic_z_child_refs.len() {
-                    let nr = &elem.dynamic_z_child_refs[ref_idx];
-                    child_infos.push(ZInterpreterChildInfo::Property(nr.name().clone()));
-                    ref_idx += 1;
-                } else {
-                    child_infos.push(ZInterpreterChildInfo::Constant(0.0));
-                }
-            }
+            let child_infos: Vec<_> = elem
+                .children
+                .iter()
+                .map(|child| match &child.borrow().z_order {
+                    Some(i_slint_compiler::object_tree::ZOrder::Constant(val)) => {
+                        ZInterpreterChildInfo::Constant(*val)
+                    }
+                    Some(i_slint_compiler::object_tree::ZOrder::Dynamic(nr)) => {
+                        ZInterpreterChildInfo::Property(nr.name().clone())
+                    }
+                    None => ZInterpreterChildInfo::Constant(0.0),
+                })
+                .collect();
             z_order_info.insert(idx as u32, child_infos);
         }
     }

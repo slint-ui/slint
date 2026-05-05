@@ -55,17 +55,15 @@ fn reorder_children_by_zorder(
                     .get("z")
                     .map(|e| try_eval_const_expr(&e.borrow().expression).is_some())
                     .unwrap_or(false)
+            } else if let ElementType::Component(c) = &child_elm.borrow().base_type {
+                c.root_element
+                    .borrow()
+                    .bindings
+                    .get("z")
+                    .map(|e| try_eval_const_expr(&e.borrow().expression).is_some())
+                    .unwrap_or(false)
             } else {
-                if let ElementType::Component(c) = &child_elm.borrow().base_type {
-                    c.root_element
-                        .borrow()
-                        .bindings
-                        .get("z")
-                        .map(|e| try_eval_const_expr(&e.borrow().expression).is_some())
-                        .unwrap_or(false)
-                } else {
-                    false
-                }
+                false
             };
             if !is_const {
                 has_dynamic_z = true;
@@ -137,13 +135,11 @@ fn setup_dynamic_z_order(
     diag: &mut BuildDiagnostics,
 ) {
     use crate::namedreference::NamedReference;
+    use crate::object_tree::ZOrder;
 
     elem.borrow_mut().has_dynamic_z_order = true;
 
-    let mut z_refs = Vec::new();
-    let mut z_constants = Vec::new();
-
-    for (idx, child_elm) in elem.borrow().children.iter().enumerate() {
+    for child_elm in elem.borrow().children.iter() {
         if child_elm.borrow().repeated.is_some() {
             // Repeater/conditional child: z lives in the inner component.
             // Must be a compile-time constant; per-item dynamic z in repeaters
@@ -166,7 +162,7 @@ fn setup_dynamic_z_order(
             } else {
                 0.
             };
-            z_constants.push((idx, z_val as f32));
+            child_elm.borrow_mut().z_order = Some(ZOrder::Constant(z_val as f32));
         } else {
             // Non-repeater child: create NamedReference for runtime access.
             if !child_elm.borrow().bindings.contains_key("z") {
@@ -180,12 +176,10 @@ fn setup_dynamic_z_order(
                     .into(),
                 );
             }
-            z_refs.push(NamedReference::new(child_elm, smol_str::SmolStr::new_static("z")));
+            let nr = NamedReference::new(child_elm, smol_str::SmolStr::new_static("z"));
+            child_elm.borrow_mut().z_order = Some(ZOrder::Dynamic(nr));
         }
     }
-    let mut e = elem.borrow_mut();
-    e.dynamic_z_child_refs = z_refs;
-    e.dynamic_z_child_constants = z_constants;
 }
 
 fn try_eval_const_expr(expression: &Expression) -> Option<f64> {

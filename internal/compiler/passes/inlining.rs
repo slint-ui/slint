@@ -402,8 +402,7 @@ fn duplicate_element_with_mapping(
         is_flickable_viewport: elem.is_flickable_viewport,
         has_popup_child: elem.has_popup_child,
         has_dynamic_z_order: elem.has_dynamic_z_order,
-        dynamic_z_child_refs: elem.dynamic_z_child_refs.clone(),
-        dynamic_z_child_constants: elem.dynamic_z_child_constants.clone(),
+        z_order: elem.z_order.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.

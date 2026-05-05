@@ -1084,24 +1084,24 @@ fn make_tree(
     let children = e.children.iter().map(|c| make_tree(state, c, component, sub_component_path));
     let repeater_count = component.mapping.repeater_count;
 
-    // Check if this element has dynamic z-ordering. If so, build the z sources:
-    // - Non-repeater children: NamedReferences resolved via property_mapping
-    // - Repeater children: constant values stored at compile time
+    // Check if this element has dynamic z-ordering. If so, build the z sources
+    // from each child's z_order field.
     let z_sort_order_property = if e.has_dynamic_z_order {
-        let children_count = e.children.len();
-        let mut z_sources: Vec<(u32, ZChildSource)> = Vec::with_capacity(children_count);
-        // Track which child indices have repeater constants
-        let mut ref_idx = 0;
-        for child_idx in 0..children_count {
-            if let Some((_, val)) =
-                e.dynamic_z_child_constants.iter().find(|(i, _)| *i == child_idx)
-            {
-                z_sources.push((child_idx as u32, ZChildSource::Constant(*val)));
-            } else {
-                let z_nr = &e.dynamic_z_child_refs[ref_idx];
-                let member_ref = component.mapping.map_property_reference(z_nr, state);
-                z_sources.push((child_idx as u32, ZChildSource::Property(member_ref)));
-                ref_idx += 1;
+        use crate::object_tree::ZOrder;
+        let mut z_sources: Vec<(u32, ZChildSource)> = Vec::with_capacity(e.children.len());
+        for (child_idx, child) in e.children.iter().enumerate() {
+            let child_z = child.borrow().z_order.clone();
+            match child_z {
+                Some(ZOrder::Constant(val)) => {
+                    z_sources.push((child_idx as u32, ZChildSource::Constant(val)));
+                }
+                Some(ZOrder::Dynamic(ref nr)) => {
+                    let member_ref = component.mapping.map_property_reference(nr, state);
+                    z_sources.push((child_idx as u32, ZChildSource::Property(member_ref)));
+                }
+                None => {
+                    z_sources.push((child_idx as u32, ZChildSource::Constant(0.0)));
+                }
             }
         }
         Some(z_sources)
