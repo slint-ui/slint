@@ -677,8 +677,19 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         if !radius.is_zero() {
             if let Some((layer_origin, layer_image)) =
                 i_slint_core::item_rendering::render_layer(self, item_rc)
+                && let Some(layer_image_size) = layer_image.size()
             {
-                let layer_image_paint = layer_image.as_paint();
+                let layer_image_width = layer_image_size.width as f32;
+                let layer_image_height = layer_image_size.height as f32;
+                let layer_image_paint = femtovg::Paint::image(
+                    layer_image.id(),
+                    layer_origin.x,
+                    layer_origin.y,
+                    layer_image_width,
+                    layer_image_height,
+                    0.0,
+                    1.0,
+                );
 
                 let layer_path = clip_path_for_rect_alike_item(
                     geometry,
@@ -688,7 +699,15 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 );
 
                 self.canvas.borrow_mut().save_with(|canvas| {
-                    canvas.translate(layer_origin.x, layer_origin.y);
+                    // The layer_path can be bigger than the layer image (e.g. when the children occupy
+                    // a smaller region than the clip), so clip to avoid the image paint extending past
+                    // the image bounds.
+                    canvas.intersect_scissor(
+                        layer_origin.x,
+                        layer_origin.y,
+                        layer_image_width,
+                        layer_image_height,
+                    );
                     canvas.fill_path(&layer_path, &layer_image_paint);
                 });
             }

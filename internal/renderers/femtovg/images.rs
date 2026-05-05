@@ -120,6 +120,10 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
         )
     }
 
+    pub fn id(&self) -> femtovg::ImageId {
+        self.id
+    }
+
     // Upload the image to the GPU. This function could take just a canvas as parameter,
     // but since an upload requires a current context, this is "enforced" by taking
     // a renderer instead (which implies a current context).

@@ -26,7 +26,9 @@ fn write_global_structs_enums_index(
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let path = root_dir.join("docs/astro/src/content/docs/reference/global-structs-enums.mdx");
+    let generated_dir = root_dir.join("docs/astro/src/content/docs/reference/generated");
+    create_dir_all(&generated_dir)?;
+    let path = generated_dir.join("global-structs-enums.mdx");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
@@ -40,7 +42,11 @@ description: Global Structs and Enums
     )?;
 
     for name in structs.keys() {
-        writeln!(file, "import {0} from \"../../collections/structs/{0}.md\"", name)?;
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
+            name
+        )?;
     }
 
     if !structs.is_empty() {
@@ -52,7 +58,11 @@ description: Global Structs and Enums
         if name == "keys" {
             continue;
         }
-        writeln!(file, "import {0} from \"../../collections/enums/{0}.md\"", name)?;
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
+            name
+        )?;
     }
 
     writeln!(file)?;
@@ -86,7 +96,7 @@ fn write_individual_enum_files(
     root_dir: &Path,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = root_dir.join("docs/astro/src/content/collections/enums");
+    let enums_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -304,7 +314,7 @@ fn write_individual_struct_files(
     root_dir: &Path,
     structs: std::collections::BTreeMap<String, StructDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let structs_dir = root_dir.join("docs/astro/src/content/collections/structs");
+    let structs_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/structs");
     create_dir_all(&structs_dir).context(format!(
         "Failed to create folder holding individual structs doc files {structs_dir:?}"
     ))?;
@@ -366,7 +376,7 @@ pub fn to_kebab_case(str: &str) -> String {
 
 fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
     let root_dir = &crate::root_dir();
-    let enums_dir = root_dir.join("docs/astro/src/content/collections/enums");
+    let enums_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -374,6 +384,11 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
     let path = enums_dir.join("keys.md");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+
+    writeln!(file, "---")?;
+    writeln!(file, "title: keys")?;
+    writeln!(file, "---")?;
+    writeln!(file)?;
 
     macro_rules! collect_special_key {
         ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
