@@ -1301,7 +1301,7 @@ pub enum PlatformError {
     /// Another platform-specific error occurred.
     OtherError(Box<dyn core::error::Error + Send + Sync>),
 
-    /// [`DataTransfer::read`](crate::data_transfer::DataTransfer::read) was called, but no value of that type was provided.
+    /// [`DataTransfer::fetch`](crate::data_transfer::DataTransfer::fetch) was called, but no value of that type was provided.
     DataTransferTypeNotFound(String),
 }
 
