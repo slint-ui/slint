@@ -16,7 +16,7 @@ keywords = ["viewer", "gui", "ui", "toolkit"]
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
 i-slint-backend-selector = { workspace = true }
-i-slint-preview-protocol = { path = "../../internal/preview-protocol" }
+i-slint-preview-protocol = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
 slint = { path = "../../api/rs/slint", features = ["serde", "backend-android-activity-06"] }
 lsp-types = { version = "0.95.0" }
