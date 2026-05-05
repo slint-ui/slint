@@ -19,9 +19,9 @@ decltype(auto) apply_impl(F &&f, Tuple &&t, std::index_sequence<I...>)
 template<typename F, typename Tuple>
 decltype(auto) apply(F &&f, Tuple &&t)
 {
-    return apply_impl(std::forward<F>(f), std::forward<Tuple>(t),
-                      std::make_index_sequence<
-                              std::tuple_size_v<std::remove_reference_t<Tuple>>> {});
+    return apply_impl(
+            std::forward<F>(f), std::forward<Tuple>(t),
+            std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tuple>>> {});
 }
 } // namespace detail
 
@@ -53,8 +53,7 @@ struct Callback<Ret(Arg...)>
                 [](void *user_data, const void *arg, void *ret) {
                     Tuple args = *reinterpret_cast<const Tuple *>(arg);
                     *reinterpret_cast<Ret *>(ret) =
-                            detail::apply(*reinterpret_cast<F *>(user_data),
-                                       std::move(args));
+                            detail::apply(*reinterpret_cast<F *>(user_data), std::move(args));
                 },
                 new F(std::move(binding)),
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
@@ -97,8 +96,7 @@ struct Callback<void(Arg...)>
                 &inner,
                 [](void *user_data, const void *arg, void *) {
                     Tuple args = *reinterpret_cast<const Tuple *>(arg);
-                    detail::apply(*reinterpret_cast<F *>(user_data),
-                               std::move(args));
+                    detail::apply(*reinterpret_cast<F *>(user_data), std::move(args));
                 },
                 new F(std::move(binding)),
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });

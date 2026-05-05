@@ -37,7 +37,13 @@ backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 # Auto-enabled by CMake when building for Android; not intended as a user-facing option.
-backend-android-activity = ["i-slint-backend-android-activity/native-activity", "i-slint-backend-android-activity/aa-06", "i-slint-backend-selector/backend-android-activity", "renderer-skia", "std"]
+backend-android-activity = [
+  "i-slint-backend-android-activity/native-activity",
+  "i-slint-backend-android-activity/aa-06",
+  "i-slint-backend-selector/backend-android-activity",
+  "renderer-skia",
+  "std",
+]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
