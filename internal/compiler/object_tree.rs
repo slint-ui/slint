@@ -812,6 +812,15 @@ pub struct Element {
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
 
+    /// This element's children have dynamic z-ordering (z bound to non-constant expressions)
+    pub has_dynamic_z_order: bool,
+    /// NamedReferences to non-repeater children's z properties (for dynamic z-ordering).
+    /// Stored here so they get fixed up by move_declarations.
+    pub dynamic_z_child_refs: Vec<NamedReference>,
+    /// Compile-time z values for repeater/conditional children (child_index, z_value).
+    /// These children can't have their z materialized on the parent component.
+    pub dynamic_z_child_constants: Vec<(usize, f32)>,
+
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
 
@@ -2644,6 +2653,12 @@ pub fn visit_all_named_references_in_element(
         vis(&mut geometry_props.height);
         elem.borrow_mut().geometry_props = Some(geometry_props);
     }
+
+    let mut dynamic_z_child_refs = std::mem::take(&mut elem.borrow_mut().dynamic_z_child_refs);
+    for r in &mut dynamic_z_child_refs {
+        vis(r);
+    }
+    elem.borrow_mut().dynamic_z_child_refs = dynamic_z_child_refs;
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {

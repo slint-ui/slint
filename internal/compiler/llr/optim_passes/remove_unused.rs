@@ -277,6 +277,25 @@ mod visitor {
         for p in public_properties {
             visit_public_property(p, &scope, state, visitor);
         }
+        visit_tree_node_z_properties(&mut item_tree.tree, &scope, state, visitor);
+    }
+
+    fn visit_tree_node_z_properties(
+        node: &mut crate::llr::TreeNode,
+        scope: &EvaluationScope,
+        state: &VisitorState,
+        visitor: &mut (impl Visitor + ?Sized),
+    ) {
+        if let Some(z_props) = &mut node.z_sort_order_property {
+            for (_, z_source) in z_props {
+                if let crate::llr::ZChildSource::Property(member_ref) = z_source {
+                    visit_member_reference(member_ref, scope, state, visitor);
+                }
+            }
+        }
+        for child in &mut node.children {
+            visit_tree_node_z_properties(child, scope, state, visitor);
+        }
     }
 
     pub fn visit_sub_component(
@@ -337,6 +356,8 @@ mod visitor {
             if let Some(data_prop) = data_prop {
                 visitor.visit_property_idx(data_prop, &inner_scope, state);
             }
+
+            visit_tree_node_z_properties(&mut sub_tree.tree, &inner_scope, state, visitor);
 
             if let Some(listview) = listview {
                 visit_member_reference(&mut listview.viewport_y, &scope, state, visitor);

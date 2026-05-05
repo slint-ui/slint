@@ -1398,6 +1398,80 @@ pub fn visit_item_tree<Base>(
     }
 }
 
+/// Compute a sorted list of child indices based on their z values.
+/// Returns a SharedVector<f32> where each entry is a child offset (relative to children_index)
+/// sorted by the corresponding z value (stable sort).
+pub fn compute_sorted_children_by_z(z_values: &[f32]) -> crate::SharedVector<f32> {
+    let mut indices: alloc::vec::Vec<u32> = (0..z_values.len() as u32).collect();
+    indices.sort_by(|&a, &b| {
+        z_values[a as usize]
+            .partial_cmp(&z_values[b as usize])
+            .unwrap_or(core::cmp::Ordering::Equal)
+    });
+    indices.iter().map(|&i| i as f32).collect()
+}
+
+/// Like `visit_item_tree`, but uses a pre-computed sorted order for children instead of
+/// the sequential order from the item tree array.
+/// `sorted_children_offsets` contains child offsets (0-based relative to children_index)
+/// in the desired visitation order (back-to-front).
+pub fn visit_item_tree_with_sorted_children<Base>(
+    base: Pin<&Base>,
+    item_tree: &ItemTreeRc,
+    item_tree_array: &[ItemTreeNode],
+    index: isize,
+    order: TraversalOrder,
+    mut visitor: vtable::VRefMut<ItemVisitorVTable>,
+    visit_dynamic: impl Fn(
+        Pin<&Base>,
+        TraversalOrder,
+        vtable::VRefMut<ItemVisitorVTable>,
+        u32,
+    ) -> VisitChildrenResult,
+    sorted_children_offsets: &[f32],
+) -> VisitChildrenResult {
+    let mut visit_at_index = |idx: u32| -> VisitChildrenResult {
+        match &item_tree_array[idx as usize] {
+            ItemTreeNode::Item { .. } => {
+                let item = crate::items::ItemRc::new(item_tree.clone(), idx);
+                visitor.visit_item(item_tree, idx, item.borrow())
+            }
+            ItemTreeNode::DynamicTree { index, .. } => {
+                if let Some(sub_idx) =
+                    visit_dynamic(base, order, visitor.borrow_mut(), *index).aborted_index()
+                {
+                    VisitChildrenResult::abort(idx, sub_idx)
+                } else {
+                    VisitChildrenResult::CONTINUE
+                }
+            }
+        }
+    };
+    if index == -1 {
+        visit_at_index(0)
+    } else {
+        match &item_tree_array[index as usize] {
+            ItemTreeNode::Item { children_index, children_count, .. } => {
+                let count = sorted_children_offsets.len().min(*children_count as usize);
+                for i in 0..count {
+                    let offset_idx = match order {
+                        TraversalOrder::BackToFront => i,
+                        TraversalOrder::FrontToBack => count - 1 - i,
+                    };
+                    let child_offset = sorted_children_offsets[offset_idx] as u32;
+                    let idx = *children_index + child_offset;
+                    let maybe_abort_index = visit_at_index(idx);
+                    if maybe_abort_index.has_aborted() {
+                        return maybe_abort_index;
+                    }
+                }
+            }
+            ItemTreeNode::DynamicTree { .. } => panic!("should not be called with dynamic items"),
+        };
+        VisitChildrenResult::CONTINUE
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -1461,6 +1535,40 @@ pub(crate) mod ffi {
             visitor,
             |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
         )
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_visit_item_tree_with_sorted_children(
+        item_tree: &ItemTreeRc,
+        item_tree_array: Slice<ItemTreeNode>,
+        index: isize,
+        order: TraversalOrder,
+        visitor: VRefMut<ItemVisitorVTable>,
+        visit_dynamic: extern "C" fn(
+            base: *const c_void,
+            order: TraversalOrder,
+            visitor: vtable::VRefMut<ItemVisitorVTable>,
+            dyn_index: u32,
+        ) -> VisitChildrenResult,
+        sorted_children_offsets: Slice<f32>,
+    ) -> VisitChildrenResult {
+        crate::item_tree::visit_item_tree_with_sorted_children(
+            VRc::as_pin_ref(item_tree),
+            item_tree,
+            item_tree_array.as_slice(),
+            index,
+            order,
+            visitor,
+            |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
+            sorted_children_offsets.as_slice(),
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_compute_sorted_children_by_z(
+        z_values: Slice<f32>,
+    ) -> crate::SharedVector<f32> {
+        crate::item_tree::compute_sorted_children_by_z(z_values.as_slice())
     }
 }
 

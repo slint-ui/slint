@@ -61,6 +61,11 @@ fn can_optimize(elem: &ElementRc) -> bool {
         _ => return false,
     };
 
+    // Don't optimize if the element has a z binding (needed for dynamic z-ordering)
+    if e.bindings.contains_key("z") {
+        return false;
+    }
+
     let analysis = e.property_analysis.borrow();
     for coord in ["x", "y"] {
         if e.bindings.contains_key(coord) || analysis.get(coord).is_some_and(|a| a.is_set) {

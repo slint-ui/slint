@@ -1948,10 +1948,24 @@ fn generate_item_tree(
     }));
     let mut item_tree_array = Vec::new();
     let mut item_array = Vec::new();
+    // Collect nodes that have dynamic z-ordering (node_index, sub_component_path, z_sort_order_property)
+    let mut z_sorted_nodes: Vec<(
+        usize,
+        Vec<llr::SubComponentInstanceIdx>,
+        Vec<(u32, llr::ZChildSource)>,
+    )> = Vec::new();
+    let mut current_node_index: usize = 0;
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
+        let node_idx = current_node_index;
+        current_node_index += 1;
         let (path, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
+
+        if let Some(ref z_prop) = node.z_sort_order_property {
+            z_sorted_nodes.push((node_idx, node.sub_component_path.clone(), z_prop.clone()));
+        }
+
         match node.item_index {
             Either::Right(mut repeater_index) => {
                 assert_eq!(node.children.len(), 0);
@@ -2046,6 +2060,69 @@ fn generate_item_tree(
         )
     };
 
+    // Generate visit_children_item body, potentially with z-sorted branches
+    let z_sorted_visit_body = if z_sorted_nodes.is_empty() {
+        quote! {
+            return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic, None);
+        }
+    } else {
+        // Generate match arms for z-sorted nodes
+        let mut z_match_arms = Vec::new();
+        for (node_idx, node_sub_component_path, child_z_refs) in &z_sorted_nodes {
+            let idx_lit = *node_idx as isize;
+            let count = child_z_refs.len();
+            let z_reads: Vec<_> = child_z_refs.iter().map(|(_, z_source)| {
+                match z_source {
+                    llr::ZChildSource::Constant(val) => {
+                        quote!(#val)
+                    }
+                    llr::ZChildSource::Property(member_ref) => {
+                        match member_ref {
+                            llr::MemberReference::Relative { parent_level: 0, local_reference } => {
+                                let full_path: Vec<_> = node_sub_component_path.iter()
+                                    .chain(local_reference.sub_component_path.iter())
+                                    .copied()
+                                    .collect();
+                                match &local_reference.reference {
+                                    llr::LocalMemberIndex::Property(property_index) => {
+                                        let (compo_path, sub_component) = follow_sub_component_path(
+                                            root,
+                                            sub_tree.root,
+                                            &full_path,
+                                        );
+                                        let component_id = self::inner_component_id(sub_component);
+                                        let property_name = ident(&sub_component.properties[*property_index].name);
+                                        let property_field =
+                                            access_component_field_offset(&component_id, &property_name);
+                                        quote!((#compo_path #property_field).apply_pin(self).get() as f32)
+                                    }
+                                    _ => quote!(0.0f32),
+                                }
+                            }
+                            _ => quote!(0.0f32),
+                        }
+                    }
+                }
+            }).collect();
+            z_match_arms.push(quote! {
+                #idx_lit => {
+                    let z_values: [f32; #count] = [#(#z_reads),*];
+                    let mut sorted = sp::SharedVector::default();
+                    sp::compute_sorted_children_by_z(&z_values, &mut sorted);
+                    return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic, Some(sorted.as_slice()));
+                }
+            });
+        }
+        quote! {
+            match index {
+                #(#z_match_arms)*
+                _ => {
+                    return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic, None);
+                }
+            }
+        }
+    };
+
     quote!(
         #sub_comp
 
@@ -2087,7 +2164,7 @@ fn generate_item_tree(
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
-                return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
+                #z_sorted_visit_body
                 #[allow(unused)]
                 fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>, dyn_index: u32) -> sp::VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
