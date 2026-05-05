@@ -108,7 +108,10 @@ function hideHashLines() {
                 }
                 const lines = context.codeBlock.getLines();
                 for (let i = lines.length - 1; i >= 0; i--) {
-                    if (lines[i].text.startsWith("# ") || lines[i].text === "#") {
+                    if (
+                        lines[i].text.startsWith("# ") ||
+                        lines[i].text === "#"
+                    ) {
                         context.codeBlock.deleteLine(i);
                     }
                 }
