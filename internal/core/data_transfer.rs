@@ -18,14 +18,52 @@ type DataTransferProvider = Rc<LazyCell<BytesResult, Box<dyn FnOnce() -> BytesRe
 type ProviderList = SharedVector<(SharedString, DataTransferProvider)>;
 
 /// `DataTransfer` abstracts over the various ways of transferring data within an application
-/// and between applications. The details will depend on the current platform, but the common
-/// features are:
+/// and between applications.
+///
+/// The details will depend on the current platform, but the common features are:
 ///
 /// - Each `DataTransfer` contains multiple views over the same data in different formats,
 ///   specified by MIME type
 /// - The `DataTransfer` may contain an in-memory representation of the data, which can be
 ///   sent and received within the current application
 /// - Serializing to a given format may be done eagerly or lazily
+///
+/// Wayland and X11 have direct support for specifying data transfer types using the MIME
+/// standard, but on platforms that have a different system, MIME types will be mapped to
+/// the host OS's types. For example, on Windows there is special-cased support for bitmaps
+/// using [`DataPackage.SetBitmap`][windows-bmp]. That would be mapped to the `image/bmp`
+/// MIME type.
+///
+/// [windows-bmp]: https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.datapackage.setbitmap
+///
+/// > Note: The full mapping between OS type and MIME type for each supported platform will be
+/// > elaborated on here once the drag-and-drop feature has been completed. To track its
+/// > progress, see [the tracking issue][dnd-tracking-issue].
+///
+/// [dnd-tracking-issue]: https://github.com/slint-ui/slint/issues/1967
+///
+/// The easiest way to construct this type is via the [`From<SharedString>`](SharedString) and
+/// [`From<Image>`](Image) implementations. The opposite of these operations are
+/// [`fetch_plaintext`](DataTransfer::fetch_plaintext) and [`fetch_image`](DataTransfer::fetch_image)
+/// respectively.
+///
+/// The `From<SharedString>` implementation will create a plaintext `DataTransfer`. This
+/// currently means that it will provide `text/plain` and `text/plain;charset=utf-8`, as well
+/// as supplying a `user_data` that can be downcast to [`SharedString`]. To get this list of
+/// types programmatically, see [`DataTransfer::PLAINTEXT_MIME_TYPES`].
+///
+/// The `From<Image>` implementation will create a `DataTransfer` that can be read as any of
+/// the image formats supported by Slint. As above, this will set a `user_data` which can be
+/// downcast to [`Image`], but it will also provide various MIME types. Currently, the MIME
+/// types initialized by the `From<Image>` implementation are:
+///
+/// - `image/jpeg`
+/// - `image/gif`
+/// - `image/png`
+/// - `image/bmp`
+/// - `image/svg+xml` (if the `svg` feature is enabled)
+///
+/// To get this list of types programmatically, see [`DataTransfer::IMAGE_MIME_TYPES`].
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct DataTransfer {
@@ -46,7 +84,7 @@ impl core::fmt::Debug for DataTransfer {
                 "mime_types",
                 &self.providers.iter().map(|(type_, _)| type_).collect::<alloc::vec::Vec<_>>(),
             )
-            .field("has_internal", &self.user_data.is_some())
+            .field("has_user_data", &self.user_data.is_some())
             .finish()
     }
 }
@@ -84,7 +122,7 @@ impl From<SharedString> for DataTransfer {
 
         let plaintext_no_null = SharedVector::from_slice(value.as_str().as_bytes());
 
-        for mime_type in mime::PLAINTEXT.iter().copied() {
+        for mime_type in Self::PLAINTEXT_MIME_TYPES.iter().copied() {
             out.set_data(mime_type.into(), plaintext_no_null.clone());
         }
 
@@ -100,10 +138,7 @@ impl From<Image> for DataTransfer {
 
         out.set_user_data(Rc::new(value.clone()));
 
-        let available_image_types =
-            if cfg!(feature = "svg") { mime::IMAGE } else { mime::PIXMAP_IMAGE };
-
-        for mime_type in available_image_types.iter().copied() {
+        for mime_type in Self::IMAGE_MIME_TYPES.iter().copied() {
             out.set_provider(mime_type.into(), || {
                 Err(ProviderError::other("Serializing images not yet implemented"))
             });
@@ -212,7 +247,8 @@ impl DataTransfer {
     /// The set of MIME types recognized by [`DataTransfer::fetch_plaintext`].
     pub const PLAINTEXT_MIME_TYPES: &[&str] = mime::PLAINTEXT;
     /// The set of MIME types recognized by [`DataTransfer::fetch_image`].
-    pub const IMAGE_MIME_TYPES: &[&str] = mime::IMAGE;
+    pub const IMAGE_MIME_TYPES: &[&str] =
+        if cfg!(feature = "svg") { mime::IMAGE } else { mime::PIXMAP_IMAGE };
 
     /// Set the application-internal data represented by this [`DataTransfer`].
     /// This can be read with [`DataTransfer::user_data`], and allows circumventing
@@ -235,7 +271,7 @@ impl DataTransfer {
 
         // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
         // but on Windows this should handle WTF-16 to UTF-8 conversion.
-        self.find_type(mime::PLAINTEXT).and_then(|(_, text)| {
+        self.find_type(Self::PLAINTEXT_MIME_TYPES).and_then(|(_, text)| {
             Ok(alloc::string::String::from_utf8(text.to_vec())
                 .map_err(ProviderError::other)?
                 .into())
@@ -254,12 +290,9 @@ impl DataTransfer {
 
         #[cfg(feature = "image-decoders")]
         {
-            let available_image_types =
-                if cfg!(feature = "svg") { mime::IMAGE } else { mime::PIXMAP_IMAGE };
-
             // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
             // but on Windows this should handle WTF-16 to UTF-8 conversion.
-            self.find_type(available_image_types).and_then(|(type_, image_data)| {
+            self.find_type(Self::IMAGE_MIME_TYPES).and_then(|(type_, image_data)| {
                 let image_ext = match type_ {
                     mime::image::BMP => "bmp",
                     mime::image::GIF => "gif",

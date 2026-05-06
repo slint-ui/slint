@@ -133,7 +133,7 @@ impl PlatformClipboard for TestingPlatformClipboard {
             return;
         }
 
-        let Some(string) = data.clone().fetch_plaintext().ok() else {
+        let Ok(string) = data.clone().fetch_plaintext() else {
             eprintln!(
                 "Testing clipboard provided non-string data: {:?}",
                 data.mime_types().collect::<Vec<_>>()

@@ -839,7 +839,7 @@ struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
 #[cfg(target_arch = "wasm32")]
 impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
     fn set(&self, clipboard: i_slint_core::platform::Clipboard, data: DataTransfer) {
-        let Some(string) = data.clone().fetch_plaintext().ok() else {
+        let Ok(string) = data.clone().fetch_plaintext() else {
             eprintln!(
                 "Testing clipboard provided non-string data: {:?}",
                 data.mime_types().collect::<Vec<_>>()
@@ -869,7 +869,7 @@ impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
             return;
         };
 
-        let Some(string) = data.clone().fetch_plaintext().ok() else {
+        let Ok(string) = data.clone().fetch_plaintext() else {
             eprintln!(
                 "Testing clipboard provided non-string data: {:?}",
                 data.mime_types().collect::<Vec<_>>()

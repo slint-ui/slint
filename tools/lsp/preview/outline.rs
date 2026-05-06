@@ -270,7 +270,7 @@ pub fn setup(api: &ui::Api<'_>) {
         );
     });
     api.on_outline_drop(|data, target_uri, target_offset, location| {
-        if let Some(drag_item) = data.try_into().ok()
+        if let Ok(drag_item) = data.try_into()
             && let Some(edit) = drop_edit(drag_item, target_uri, target_offset, location)
         {
             preview::send_workspace_edit("Drop element".to_string(), edit, true);
@@ -369,7 +369,7 @@ fn can_drop(
     target_offset: i32,
     location: ui::DropLocation,
 ) -> bool {
-    let Some(data) = data.try_into().ok() else {
+    let Ok(data) = data.try_into() else {
         return false;
     };
 
