@@ -539,8 +539,8 @@ fn lower_tooltips_in_component(
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
-        let tooltip_text =
-            (!has_custom_content).then(|| NamedReference::new(&tooltip_config, SmolStr::new_static("text")));
+        let tooltip_text = (!has_custom_content)
+            .then(|| NamedReference::new(&tooltip_config, SmolStr::new_static("text")));
         let tooltip_content = build_tooltip_content(
             &popup_id_for_text,
             &enclosing_component,
