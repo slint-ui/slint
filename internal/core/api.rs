@@ -648,7 +648,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
-                    touch_id: 0,
+                    touch_finger_id: 0,
                 });
             }
             crate::platform::WindowEvent::PointerReleased { position, button } => {
@@ -656,13 +656,13 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
-                    touch_id: 0,
+                    touch_finger_id: 0,
                 });
             }
             crate::platform::WindowEvent::PointerMoved { position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
-                    touch_id: 0,
+                    touch_finger_id: 0,
                 });
             }
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {

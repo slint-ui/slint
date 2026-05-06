@@ -12,7 +12,7 @@ pub fn convert_slint_pointer_event_to_servo_input_event(
     pointer_event: &PointerEvent,
     point: WebViewPoint,
 ) -> InputEvent {
-    if pointer_event.touch_id > 0 {
+    if pointer_event.touch_finger_id > 0 {
         handle_touch_events(pointer_event, point)
     } else {
         handle_mouse_events(pointer_event, point)
@@ -20,11 +20,11 @@ pub fn convert_slint_pointer_event_to_servo_input_event(
 }
 
 fn handle_touch_events(pointer_event: &PointerEvent, point: WebViewPoint) -> InputEvent {
-    let touch_id = TouchId(pointer_event.touch_id);
+    let touch_finger_id = TouchId(pointer_event.touch_finger_id);
     let touch_event = match pointer_event.kind {
-        PointerEventKind::Down => TouchEvent::new(TouchEventType::Down, touch_id, point),
-        PointerEventKind::Up => TouchEvent::new(TouchEventType::Up, touch_id, point),
-        _ => TouchEvent::new(TouchEventType::Move, touch_id, point),
+        PointerEventKind::Down => TouchEvent::new(TouchEventType::Down, touch_finger_id, point),
+        PointerEventKind::Up => TouchEvent::new(TouchEventType::Up, touch_finger_id, point),
+        _ => TouchEvent::new(TouchEventType::Move, touch_finger_id, point),
     };
     InputEvent::Touch(touch_event)
 }

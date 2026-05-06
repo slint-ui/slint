@@ -306,7 +306,7 @@ impl Item for StyledTextItem {
                 position,
                 button: PointerEventButton::Left,
                 click_count: _,
-                touch_id: _,
+                touch_finger_id: _,
             } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursor::Pointer;

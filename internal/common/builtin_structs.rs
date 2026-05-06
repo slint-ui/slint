@@ -67,8 +67,8 @@ macro_rules! for_each_builtin_structs {
                     kind: PointerEventKind,
                     /// The keyboard modifiers pressed during the event
                     modifiers: KeyboardModifiers,
-                    /// The unique ID of the touch point. 0 means it's not a touch event (e.g., mouse).
-                    touch_id: i32,
+                    /// The unique ID of the touch point, indicating the finger ID. 0 means it's not a touch event (e.g., mouse).
+                    touch_finger_id: i32,
                 }
                 private {
                 }
