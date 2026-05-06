@@ -70,29 +70,35 @@ export type RemoteViewerInfo = {
 };
 export const remote_viewers = new Map<string, RemoteViewerInfo>();
 
-export let remoteViewerStatusBarItem: vscode.StatusBarItem | undefined;
+let remoteViewerStatusBarItem: vscode.StatusBarItem | undefined;
 export function updateRemoteViewerStatusBarItem(newItem: vscode.StatusBarItem) {
     remoteViewerStatusBarItem = newItem;
 }
 export enum RemoteViewerStatusBarItemState {
-    disconnected,
-    connecting,
-    connected,
+    disconnected = 0,
+    connecting = 1,
+    connected = 2,
 }
-export function setRemoteViewerStatusBarItemState(state: RemoteViewerStatusBarItemState) {
+export function setRemoteViewerStatusBarItemState(
+    state: RemoteViewerStatusBarItemState,
+) {
     if (remoteViewerStatusBarItem) {
         switch (state) {
             case RemoteViewerStatusBarItemState.disconnected:
-                remoteViewerStatusBarItem.text = `$(vm) Slint Remote Preview`;
-                remoteViewerStatusBarItem.command = 'slint.selectRemotePreview';
+                remoteViewerStatusBarItem.text = "$(vm) Slint Remote Preview";
+                remoteViewerStatusBarItem.command = "slint.selectRemotePreview";
                 break;
             case RemoteViewerStatusBarItemState.connecting:
-                remoteViewerStatusBarItem.text = `$(vm-connect) Slint Remote Preview`;
-                remoteViewerStatusBarItem.command = 'slint.disconnectRemotePreview';
+                remoteViewerStatusBarItem.text =
+                    "$(vm-connect) Slint Remote Preview";
+                remoteViewerStatusBarItem.command =
+                    "slint.disconnectRemotePreview";
                 break;
             case RemoteViewerStatusBarItemState.connected:
-                remoteViewerStatusBarItem.text = `$(vm-active) Slint Remote Preview`;
-                remoteViewerStatusBarItem.command = 'slint.disconnectRemotePreview';
+                remoteViewerStatusBarItem.text =
+                    "$(vm-active) Slint Remote Preview";
+                remoteViewerStatusBarItem.command =
+                    "slint.disconnectRemotePreview";
                 break;
         }
     }
@@ -192,9 +198,13 @@ export function activate(
 
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
-        cl?.onNotification("slint/remote_viewer_discovered", async (params) => {
-            vscode.window.showInformationMessage(`Received update for remote viewers: ${JSON.stringify(params)}`);
-            cl.outputChannel.appendLine(`Received update for remote viewers: ${JSON.stringify(params)}`);
+        cl?.onNotification("slint/remote_viewer_discovered", (params) => {
+            vscode.window.showInformationMessage(
+                `Received update for remote viewers: ${JSON.stringify(params)}`,
+            );
+            cl.outputChannel.appendLine(
+                `Received update for remote viewers: ${JSON.stringify(params)}`,
+            );
             const old_entry = remote_viewers.get(params.host);
             if (old_entry) {
                 clearTimeout(old_entry.timer);
@@ -203,7 +213,7 @@ export function activate(
                 id: params.host,
 
                 label: params.host,
-                detail: params.addresses.join(', '),
+                detail: params.addresses.join(", "),
 
                 value: params,
                 timer: setTimeout(() => {
@@ -212,17 +222,29 @@ export function activate(
             };
             remote_viewers.set(params.host, remote_viewer_entry);
         });
-        cl?.onNotification("slint/remote_viewer_connection_state", async (params) => {
+        cl?.onNotification("slint/remote_viewer_connection_state", (params) => {
             switch (params.state) {
                 case "connected":
-                    vscode.window.showInformationMessage(`Remote viewer connected: ${params.address}:${params.port}, remoteViewerStatusBarItem ${remoteViewerStatusBarItem ? 'available' : 'undefined'}`);
-                    cl.outputChannel.appendLine(`Remote viewer connected: ${params.address}:${params.port}`);
-                    setRemoteViewerStatusBarItemState(RemoteViewerStatusBarItemState.connected);
+                    vscode.window.showInformationMessage(
+                        `Remote viewer connected: ${params.address}:${params.port}, remoteViewerStatusBarItem ${remoteViewerStatusBarItem ? "available" : "undefined"}`,
+                    );
+                    cl.outputChannel.appendLine(
+                        `Remote viewer connected: ${params.address}:${params.port}`,
+                    );
+                    setRemoteViewerStatusBarItemState(
+                        RemoteViewerStatusBarItemState.connected,
+                    );
                     break;
                 case "disconnected":
-                    vscode.window.showInformationMessage(`Remote viewer disconnected: ${params.address}:${params.port}`);
-                    cl.outputChannel.appendLine(`Remote viewer disconnected: ${params.address}:${params.port}`);
-                    setRemoteViewerStatusBarItemState(RemoteViewerStatusBarItemState.disconnected);
+                    vscode.window.showInformationMessage(
+                        `Remote viewer disconnected: ${params.address}:${params.port}`,
+                    );
+                    cl.outputChannel.appendLine(
+                        `Remote viewer disconnected: ${params.address}:${params.port}`,
+                    );
+                    setRemoteViewerStatusBarItemState(
+                        RemoteViewerStatusBarItemState.disconnected,
+                    );
                     break;
             }
             // TODO

@@ -1,13 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 use i_slint_preview_protocol::PreviewTarget;
 use std::{any::Any, cell::RefCell, collections::HashMap};
 
-use crate::common::{LspToPreview, Result};
+use super::{LspToPreview, Result};
 
+#[allow(dead_code)]
 pub struct SwitchableLspToPreview {
     lsp_to_previews: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
     current_target: RefCell<PreviewTarget>,
 }
 
+#[allow(dead_code)]
 impl SwitchableLspToPreview {
     pub fn new(
         lsp_to_previews: HashMap<PreviewTarget, Box<dyn LspToPreview>>,

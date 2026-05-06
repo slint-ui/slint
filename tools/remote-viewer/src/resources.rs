@@ -1,8 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 use std::collections::HashSet;
 
 use i_slint_compiler::typeloader::TypeLoader;
 use lsp_types::Url;
 
+#[allow(dead_code)]
 fn extract_resources(dependencies: &HashSet<Url>, type_loader: &TypeLoader) -> HashSet<Url> {
     let mut result: HashSet<Url> = Default::default();
 

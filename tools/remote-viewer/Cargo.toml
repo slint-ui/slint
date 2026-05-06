@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 [package]
 name = "remote-viewer"
 description = "The remote viewer binary for Slint"
@@ -18,7 +21,7 @@ i-slint-core = { workspace = true }
 i-slint-backend-selector = { workspace = true }
 i-slint-preview-protocol = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
-slint = { path = "../../api/rs/slint", features = ["serde", "backend-android-activity-06"] }
+slint = { workspace = true, features = ["default", "serde", "backend-android-activity-06"] }
 lsp-types = { version = "0.95.0" }
 serde = { version = "1.0", features = ["derive"] }
 dashmap = { version = "6.1.0" }

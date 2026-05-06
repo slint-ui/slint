@@ -19,6 +19,8 @@ pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 pub mod rename_component;
 pub mod rename_element_id;
+mod switchable;
+pub use switchable::SwitchableLspToPreview;
 #[cfg(test)]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]

@@ -22,8 +22,15 @@ export function showPreview(url: LspURI, component: string): Thenable<unknown> {
     return vscode.commands.executeCommand("slint/showPreview", url, component);
 }
 
-export function connectRemotePreview(addresses: string[], port: number): Thenable<unknown> {
-    return vscode.commands.executeCommand("slint/connectRemotePreview", addresses, port);
+export function connectRemotePreview(
+    addresses: string[],
+    port: number,
+): Thenable<unknown> {
+    return vscode.commands.executeCommand(
+        "slint/connectRemotePreview",
+        addresses,
+        port,
+    );
 }
 
 export function disconnectRemotePreview(): Thenable<unknown> {

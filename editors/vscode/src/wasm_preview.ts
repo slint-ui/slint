@@ -25,7 +25,10 @@ export function update_configuration() {
     if (language_client) {
         send_to_lsp({
             PreviewTypeChanged: {
-                target: (previewPanel !== null || use_wasm_preview()) ? 'embedded-wasm' : 'child-process',
+                target:
+                    previewPanel !== null || use_wasm_preview()
+                        ? "embedded-wasm"
+                        : "child-process",
             },
         });
     }
