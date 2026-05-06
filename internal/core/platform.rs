@@ -10,6 +10,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
+use crate::input::KeyEvent;
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
@@ -355,12 +356,7 @@ pub enum WindowEvent {
     /// The pointer exited the window.
     PointerExited,
     /// A key was pressed or released.
-    Key {
-        /// Whether the key was pressed or released.
-        event_type: WindowKeyEventType,
-        /// The key event details.
-        event: WindowKeyEvent,
-    },
+    Key(WindowKeyEvent),
     /// A key was pressed.
     KeyPressed {
         /// The unicode representation of the key pressed.
@@ -427,28 +423,24 @@ pub enum WindowEvent {
 }
 
 /// The kind of key event delivered through [`WindowEvent::Key`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum WindowKeyEventType {
     /// A key was pressed.
+    #[default]
     Pressed,
     /// A key was released.
     Released,
 }
 
 /// A platform key event delivered through [`WindowEvent::Key`].
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[non_exhaustive]
 pub struct WindowKeyEvent {
-    /// The unicode representation of the key.
-    pub text: SharedString,
-    /// The physical key that was pressed, if the backend can report it.
-    ///
-    /// This uses the same names as `@physical-keys(...)`, for example `A`,
-    /// `Digit1`, or `LeftArrow`.
-    pub physical_key: SharedString,
-    /// This field is set to true for repeated key press events.
-    pub repeat: bool,
+    /// Whether the key was pressed or released.
+    pub event_type: WindowKeyEventType,
+    /// The key event details.
+    pub event: KeyEvent,
 }
 
 impl WindowEvent {

@@ -706,18 +706,13 @@ impl Window {
                 self.0.process_mouse_input(MouseEvent::Exit);
                 WindowEventDispatchResult::Accepted
             }
-            crate::platform::WindowEvent::Key { event_type, event } => {
+            crate::platform::WindowEvent::Key(event) => {
                 self.0.process_key_input(InternalKeyEvent {
-                    event_type: match event_type {
+                    event_type: match event.event_type {
                         crate::platform::WindowKeyEventType::Pressed => KeyEventType::KeyPressed,
                         crate::platform::WindowKeyEventType::Released => KeyEventType::KeyReleased,
                     },
-                    key_event: crate::input::KeyEvent {
-                        text: event.text,
-                        physical_key: event.physical_key,
-                        repeat: event.repeat,
-                        ..Default::default()
-                    },
+                    key_event: event.event,
                     ..Default::default()
                 });
             }
