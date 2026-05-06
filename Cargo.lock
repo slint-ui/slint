@@ -5438,6 +5438,7 @@ dependencies = [
 name = "i-slint-preview-protocol"
 version = "1.17.0"
 dependencies = [
+ "derive_more",
  "lsp-types",
  "serde",
  "serde_json",

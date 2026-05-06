@@ -297,7 +297,6 @@ pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-    resource_preloader: impl crate::passes::ResourcePreloader,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
@@ -317,8 +316,7 @@ pub async fn compile_syntax_node(
     );
 
     if !diagnostics.has_errors() {
-        passes::run_passes(&mut doc, &mut loader, false, &mut diagnostics, resource_preloader)
-            .await;
+        passes::run_passes(&mut doc, &mut loader, false, &mut diagnostics).await;
     } else {
         // Don't run all the passes in case of errors because because some invariants are not met.
         passes::run_import_passes(&doc, &loader, &mut diagnostics);
@@ -337,13 +335,11 @@ pub async fn load_root_file(
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-    resource_preloader: impl passes::ResourcePreloader,
 ) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
-    let (path, _) = loader
-        .load_root_file(path, source_path, source_code, false, &mut diagnostics, resource_preloader)
-        .await;
+    let (path, _) =
+        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
 
     (path, diagnostics, loader)
 }
@@ -360,7 +356,6 @@ pub async fn load_root_file_with_raw_type_loader(
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-    resource_preloader: impl passes::ResourcePreloader,
 ) -> (
     std::path::PathBuf,
     diagnostics::BuildDiagnostics,
@@ -369,9 +364,8 @@ pub async fn load_root_file_with_raw_type_loader(
 ) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
-    let (path, raw_type_loader) = loader
-        .load_root_file(path, source_path, source_code, true, &mut diagnostics, resource_preloader)
-        .await;
+    let (path, raw_type_loader) =
+        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
 
     (path, diagnostics, loader, raw_type_loader)
 }
