@@ -1782,7 +1782,7 @@ mod tests {
             ("add(..)", "add(${1:a}, ${2:b})"),
             ("caller()", "caller()"),
             ("clear-focus()", "clear-focus()"),
-            ("set-selection-offsets(..)", "set-selection-offsets(${1:int}, ${2:int})"),
+            ("set-selection-offsets(..)", "set-selection-offsets(${1:start}, ${2:end})"),
             ("my-callback(..)", "my-callback(${1:hello}, ${2:world})"),
         ]
         .map(|(label, insert_text)| CompletionItem {

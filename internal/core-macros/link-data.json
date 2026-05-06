@@ -120,7 +120,7 @@
         "href": "guide/backends-and-renderers/backend_linuxkms/"
     },
     "MenuBar": {
-        "href": "reference/window/menubar/"
+        "href": "reference/window/window/#menubar"
     },
     "Menu": {
         "href": "reference/window/contextmenuarea/#menu"
