@@ -55,7 +55,7 @@ export component OutlineView inherits VerticalLayout {
     lv := ListView {
         for item[idx] in outline-data: DragArea {
             height: 38px;
-            data: Api.transfer-component-move(item.uri, item.offset);
+            data: Api.move-element-instance-data(item.uri, item.offset);
 
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
 

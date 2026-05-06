@@ -15,7 +15,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{self, DropCommand, SelectionNotification, preview_data, properties};
+use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -167,20 +167,20 @@ pub fn create_ui(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_transfer_component(|index: i32| -> DataTransfer {
+    api.on_new_component_data(|index: i32| -> DataTransfer {
         let Ok(index) = index.try_into() else {
             return Default::default();
         };
         let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DropCommand::Copy { index }));
+        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
         transfer
     });
-    api.on_transfer_component_move(|uri: SharedString, offset: i32| -> DataTransfer {
+    api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
         };
         let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DropCommand::Move { uri, offset }));
+        transfer.set_user_data(Rc::new(DragItem::MoveElementInstance { uri, offset }));
         transfer
     });
     api.on_drop(move |data: DataTransfer, x: f32, y: f32| {

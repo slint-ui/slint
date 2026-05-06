@@ -742,24 +742,39 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
+/// An item in the preview UI being dragged.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
-enum DropCommand {
-    Move { uri: SharedString, offset: u32 },
-    Copy { index: usize },
+enum DragItem {
+    /// An existing element instance to be moved.
+    MoveElementInstance { uri: SharedString, offset: u32 },
+    /// A new component from the palette to be instantiated.
+    NewComponent { index: usize },
 }
 
-impl TryFrom<DataTransfer> for DropCommand {
-    type Error = PlatformError;
+/// Tried to convert a [`DataTransfer`] to a [`DragItem`], but the data transfer's user data
+/// was of the wrong type.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, Default)]
+pub struct InvalidDataTransferForDragItem;
 
-    fn try_from(value: DataTransfer) -> Result<Self, Self::Error> {
-        value.user_data().and_then(|any| any.downcast().ok().as_deref().cloned()).ok_or_else(|| {
-            PlatformError::Other("`DataTransfer` user data was not `DropCommand`".into())
-        })
+impl std::fmt::Display for InvalidDataTransferForDragItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`DataTransfer` user data was not `DropCommand`")
     }
 }
 
-impl From<DropCommand> for DataTransfer {
-    fn from(value: DropCommand) -> Self {
+impl TryFrom<DataTransfer> for DragItem {
+    type Error = InvalidDataTransferForDragItem;
+
+    fn try_from(value: DataTransfer) -> Result<Self, Self::Error> {
+        value
+            .user_data()
+            .and_then(|any| any.downcast::<Self>().ok().as_deref().cloned())
+            .ok_or(InvalidDataTransferForDragItem)
+    }
+}
+
+impl From<DragItem> for DataTransfer {
+    fn from(value: DragItem) -> Self {
         let mut out = DataTransfer::default();
         out.set_user_data(Rc::new(value));
         out
@@ -767,7 +782,7 @@ impl From<DropCommand> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DropCommand::Copy { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
         return false;
     };
 
@@ -793,7 +808,7 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DropCommand::Copy { index: component_index }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
         return;
     };
 

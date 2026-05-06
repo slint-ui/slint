@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::preview::{self, DropCommand, ui};
+use crate::preview::{self, DragItem, ui};
 use core::cell::RefCell;
 use core::num::NonZeroUsize;
 use i_slint_compiler::object_tree;
@@ -270,27 +270,23 @@ pub fn setup(api: &ui::Api<'_>) {
         );
     });
     api.on_outline_drop(|data, target_uri, target_offset, location| {
-        let Some(edit) = drop_edit(data, target_uri, target_offset, location) else {
-            return;
-        };
-        preview::send_workspace_edit("Drop element".to_string(), edit, true);
+        if let Some(drag_item) = data.try_into().ok()
+            && let Some(edit) = drop_edit(drag_item, target_uri, target_offset, location)
+        {
+            preview::send_workspace_edit("Drop element".to_string(), edit, true);
+        }
     });
     api.on_outline_can_drop(|data, target_uri, target_offset, location| {
         can_drop(data, target_uri, target_offset, location)
     });
 }
 
-fn drop_edit<T>(
-    data: T,
+fn drop_edit(
+    drag_item: DragItem,
     target_uri: SharedString,
     target_offset: i32,
     location: ui::DropLocation,
-) -> Option<lsp_types::WorkspaceEdit>
-where
-    T: TryInto<DropCommand>,
-{
-    let cmd: DropCommand = data.try_into().ok()?;
-
+) -> Option<lsp_types::WorkspaceEdit> {
     let document_cache = super::document_cache()?;
     let url = Url::parse(target_uri.as_str()).ok()?;
     let target_elem =
@@ -334,8 +330,8 @@ where
         }
     };
 
-    let workspace_edit = match cmd {
-        DropCommand::Move { uri: item_uri, offset: item_offset } => {
+    let workspace_edit = match drag_item {
+        DragItem::MoveElementInstance { uri: item_uri, offset: item_offset } => {
             if *item_uri != *target_uri {
                 return None;
             }
@@ -351,7 +347,7 @@ where
                 document_cache.format,
             )?
         }
-        DropCommand::Copy { index: library_index } => {
+        DragItem::NewComponent { index: library_index } => {
             let component = super::PREVIEW_STATE.with(|preview_state| {
                 let preview_state = preview_state.borrow();
                 preview_state.known_components.get(library_index).cloned()
@@ -379,7 +375,7 @@ fn can_drop(
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     struct CacheEntry {
-        data: DropCommand,
+        data: DragItem,
         target_uri: SharedString,
         target_offset: i32,
         location: bool,

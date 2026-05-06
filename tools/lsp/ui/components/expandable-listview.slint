@@ -77,7 +77,7 @@ component ItemTemplate {
     min-height: max(EditorSizeSettings.item-height, content-layer.min-height);
 
     DragArea {
-        data: Api.transfer-component(data.index);
+        data: Api.new-component-data(data.index);
 
         touch-area := TouchArea {
             changed has-hover => {
