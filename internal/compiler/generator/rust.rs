@@ -359,8 +359,7 @@ fn generate_public_component(
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
         quote!(
-            sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES);
-            sp::set_bundled_decimal_separators(_SLINT_TRANSLATED_DECIMAL_SEPARATORS);
+            sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES, _SLINT_TRANSLATED_DECIMAL_SEPARATORS);
         )
     });
     #[cfg(not(feature = "bundle-translations"))]

@@ -403,10 +403,11 @@ fn update_locale_decimal_separator() {
     });
 }
 
-/// This function is called by the generated code to assign the list of bundled languages.
+/// This function is called by the generated code to assign the list of bundled languages
+/// and decimal separators.
 /// Do nothing if the list is already assigned.
 /// It selects also the language based on the system locale as default
-pub fn set_bundled_languages(languages: &[&'static str]) {
+pub fn set_bundled_languages(languages: &[&'static str], separators: &[Option<&str>]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         if ctx.0.translations_bundle_languages.borrow().is_none() {
@@ -419,15 +420,7 @@ pub fn set_bundled_languages(languages: &[&'static str]) {
                 update_locale_decimal_separator();
             }
         }
-    });
-}
 
-/// This function is called by generated code to assign bundled decimal separators.
-/// Each entry corresponds to one language and originates from msgctxt
-/// "Slint: decimal separator" / msgid "." in PO files.
-pub fn set_bundled_decimal_separators(separators: &[Option<&str>]) {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return };
         if ctx.0.translations_bundle_decimal_separators.borrow().is_none() {
             ctx.0.translations_bundle_decimal_separators.replace(Some(
                 separators.iter().map(|s| s.and_then(|x| x.chars().next())).collect(),
@@ -625,18 +618,14 @@ mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_translate_set_bundled_languages(languages: Slice<Slice<'static, u8>>) {
+    pub extern "C" fn slint_translate_set_bundled_languages(
+        languages: Slice<Slice<'static, u8>>,
+        separators: Slice<*const core::ffi::c_char>,
+    ) {
         let languages = languages
             .iter()
             .map(|x| core::str::from_utf8(x.as_slice()).unwrap())
             .collect::<alloc::vec::Vec<_>>();
-        set_bundled_languages(&languages);
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_translate_set_bundled_decimal_separators(
-        separators: Slice<*const core::ffi::c_char>,
-    ) {
         let separators = separators
             .iter()
             .map(|p| {
@@ -647,7 +636,7 @@ mod ffi {
                 }
             })
             .collect::<alloc::vec::Vec<_>>();
-        set_bundled_decimal_separators(&separators);
+        set_bundled_languages(&languages, &separators);
     }
 
     #[unsafe(no_mangle)]

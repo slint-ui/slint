@@ -2024,11 +2024,9 @@ fn generate_item_tree(
                     .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
-            create_code.push("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));".to_string());
-            create_code.push(format!(
-                "slint::cbindgen_private::slint_translate_set_bundled_decimal_separators(slint::private_api::make_slice(reinterpret_cast<const char *const *>(slint_translation_bundle_decimal_separators), {}));",
-                translations.decimal_separators.len()
-            ));
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
+                                                                                                     slint::private_api::make_slice(reinterpret_cast<const char *const *>(slint_translation_bundle_decimal_separators), {}));",
+                                                                                                     translations.decimal_separators.len()));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
