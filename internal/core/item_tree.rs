@@ -615,6 +615,7 @@ impl ItemRc {
     }
 
     /// Maps a position in window coordinates to the item coordinates
+    #[cfg(test)]
     pub(crate) fn map_from_window(&self, p: LogicalPoint) -> LogicalPoint {
         self.map_from_item_tree_impl(p, |_| false)
     }
@@ -647,6 +648,7 @@ impl ItemRc {
         self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
     }
 
+    #[cfg(test)]
     fn map_from_item_tree_impl(
         &self,
         p: LogicalPoint,
