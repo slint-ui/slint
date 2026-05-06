@@ -111,7 +111,9 @@ mod platform {
                 return Ok(flag.clone());
             }
 
-            let async_fd = async_io::Async::new(UvFdWrapper(uv.fd())).map_err(|e| {
+            // new_nonblocking: the fd is a kqueue/epoll handle, not a real I/O
+            // fd — setting non-blocking mode via ioctl fails on macOS kqueue.
+            let async_fd = async_io::Async::new_nonblocking(UvFdWrapper(uv.fd())).map_err(|e| {
                 napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
             })?;
 
