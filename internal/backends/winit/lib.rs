@@ -14,7 +14,9 @@ use i_slint_core::api::EventLoopError;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::{EventLoopProxy, PlatformError};
 use i_slint_core::window::WindowAdapter;
+use i_slint_core::SlintContextWeak;
 use renderer::WinitCompatibleRenderer;
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -384,6 +386,7 @@ impl BackendBuilder {
             #[cfg(target_family = "wasm")]
             spawn_event_loop: self.spawn_event_loop,
             custom_application_handler: self.custom_application_handler.into(),
+            context: OnceCell::new(),
         })
     }
 }
@@ -599,6 +602,10 @@ pub struct Backend {
     event_loop_state: RefCell<Option<crate::event_loop::EventLoopState>>,
     shared_data: Rc<SharedBackendData>,
     custom_application_handler: RefCell<Option<Box<dyn crate::CustomApplicationHandler>>>,
+    /// Weak handle to the SlintContext that owns this backend, set by
+    /// `Platform::bind_context`. Lets backend code spawn futures and write
+    /// process-wide state without needing a window adapter.
+    context: OnceCell<SlintContextWeak>,
 
     /// This hook is called before a Window is created.
     ///
@@ -666,7 +673,24 @@ impl Backend {
 
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
+impl Backend {
+    /// Returns the `SlintContext` that owns this backend, if it is still alive.
+    /// Available after `set_platform` has called `bind_context`.
+    #[allow(dead_code)]
+    pub(crate) fn context(&self) -> Option<i_slint_core::SlintContext> {
+        self.context.get().and_then(SlintContextWeak::upgrade)
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
+    fn bind_context(
+        &self,
+        ctx: i_slint_core::SlintContextWeak,
+        _: i_slint_core::InternalToken,
+    ) {
+        let _ = self.context.set(ctx);
+    }
+
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         let mut attrs = WinitWindowAdapter::window_attributes()?;
 
