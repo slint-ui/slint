@@ -10,7 +10,7 @@ use i_slint_compiler::{expression_tree, langtype};
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
-use slint::{Model, ModelRc, SharedString, SharedVector, ToSharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
