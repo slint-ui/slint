@@ -18,7 +18,8 @@ fn reuse_window() {
     let handle = {
         let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
-        let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+        let result =
+            spin_on::spin_on(compiler.build_from_source(code.into(), Default::default(), ()));
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let definition = result.component("MainWindow").unwrap();
         let instance = definition.create().unwrap();
@@ -32,7 +33,8 @@ fn reuse_window() {
     let _handle2 = {
         let mut compiler = Compiler::default();
         compiler.set_style("fluent".into());
-        let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+        let result =
+            spin_on::spin_on(compiler.build_from_source(code.into(), Default::default(), ()));
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
         let definition = result.component("MainWindow").unwrap();
         let instance = definition.create_with_existing_window(handle.window()).unwrap();
@@ -68,7 +70,7 @@ export component Clock {
 }
     "#;
     let compiler = Compiler::default();
-    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default(), ()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("Clock").unwrap();
     let instance = definition.create().unwrap();

@@ -565,7 +565,7 @@ fn test_no_property_for_100pc() {
         &mut test_diags,
     );
     let (doc, diag, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config, ()));
     assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 
     let root_elem = doc.inner_components.last().unwrap().root_element.borrow();

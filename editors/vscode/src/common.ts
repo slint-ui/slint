@@ -55,6 +55,49 @@ export class ClientHandle {
 
 const client = new ClientHandle();
 
+export type RemoteViewerInfo = {
+    id: string;
+
+    label: string;
+    detail: string;
+
+    value: {
+        addresses: string[];
+        port: number;
+    };
+
+    timer?: NodeJS.Timeout;
+};
+export const remote_viewers = new Map<string, RemoteViewerInfo>();
+
+export let remoteViewerStatusBarItem: vscode.StatusBarItem | undefined;
+export function updateRemoteViewerStatusBarItem(newItem: vscode.StatusBarItem) {
+    remoteViewerStatusBarItem = newItem;
+}
+export enum RemoteViewerStatusBarItemState {
+    disconnected,
+    connecting,
+    connected,
+}
+export function setRemoteViewerStatusBarItemState(state: RemoteViewerStatusBarItemState) {
+    if (remoteViewerStatusBarItem) {
+        switch (state) {
+            case RemoteViewerStatusBarItemState.disconnected:
+                remoteViewerStatusBarItem.text = `$(vm) Slint Remote Preview`;
+                remoteViewerStatusBarItem.command = 'slint.selectRemotePreview';
+                break;
+            case RemoteViewerStatusBarItemState.connecting:
+                remoteViewerStatusBarItem.text = `$(vm-connect) Slint Remote Preview`;
+                remoteViewerStatusBarItem.command = 'slint.disconnectRemotePreview';
+                break;
+            case RemoteViewerStatusBarItemState.connected:
+                remoteViewerStatusBarItem.text = `$(vm-active) Slint Remote Preview`;
+                remoteViewerStatusBarItem.command = 'slint.disconnectRemotePreview';
+                break;
+        }
+    }
+}
+
 // LSP related:
 
 // Set up our middleware. It is used to redirect/forward to the WASM preview
@@ -149,6 +192,41 @@ export function activate(
 
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
+        cl?.onNotification("slint/remote_viewer_discovered", async (params) => {
+            vscode.window.showInformationMessage(`Received update for remote viewers: ${JSON.stringify(params)}`);
+            cl.outputChannel.appendLine(`Received update for remote viewers: ${JSON.stringify(params)}`);
+            const old_entry = remote_viewers.get(params.host);
+            if (old_entry) {
+                clearTimeout(old_entry.timer);
+            }
+            const remote_viewer_entry = {
+                id: params.host,
+
+                label: params.host,
+                detail: params.addresses.join(', '),
+
+                value: params,
+                timer: setTimeout(() => {
+                    remote_viewers.delete(params.host);
+                }, 60000),
+            };
+            remote_viewers.set(params.host, remote_viewer_entry);
+        });
+        cl?.onNotification("slint/remote_viewer_connection_state", async (params) => {
+            switch (params.state) {
+                case "connected":
+                    vscode.window.showInformationMessage(`Remote viewer connected: ${params.address}:${params.port}, remoteViewerStatusBarItem ${remoteViewerStatusBarItem ? 'available' : 'undefined'}`);
+                    cl.outputChannel.appendLine(`Remote viewer connected: ${params.address}:${params.port}`);
+                    setRemoteViewerStatusBarItemState(RemoteViewerStatusBarItemState.connected);
+                    break;
+                case "disconnected":
+                    vscode.window.showInformationMessage(`Remote viewer disconnected: ${params.address}:${params.port}`);
+                    cl.outputChannel.appendLine(`Remote viewer disconnected: ${params.address}:${params.port}`);
+                    setRemoteViewerStatusBarItemState(RemoteViewerStatusBarItemState.disconnected);
+                    break;
+            }
+            // TODO
+        });
     });
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
@@ -236,6 +314,10 @@ export function deactivate(): Thenable<void> | undefined {
     if (!client.client) {
         return undefined;
     }
+    for (const viewer of remote_viewers.values()) {
+        clearTimeout(viewer.timer);
+    }
+    remote_viewers.clear();
     return client.stop();
 }
 

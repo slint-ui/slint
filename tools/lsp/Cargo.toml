@@ -65,7 +65,7 @@ renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Enable support for previewing .slint files
-preview = ["preview-builtin", "preview-external", "preview-engine"]
+preview = ["preview-builtin", "preview-external", "preview-remote", "preview-engine"]
 ## [deprecated] Used to enable the "Show Preview" lenses and action on components.
 preview-lense = []
 ## [deprecated] Used to enable partial support for external previewers.
@@ -84,6 +84,8 @@ preview-engine = [
 preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = []
+## Support the remote preview via a WebSocket connection
+preview-remote = []
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -110,6 +112,8 @@ slint = { workspace = true, features = ["compat-1-2"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 nucleo-matcher = "0.3.1"
 futures-util = "0.3.32"
+tokio-tungstenite-wasm = "0.8.2"
+postcard = { version = "1.1.3", features = ["alloc"] }
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_arch = "wasm32", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
@@ -120,6 +124,7 @@ crossbeam-channel = "0.5"                                                       
 lsp-server = "0.7"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
+mdns-sd = "0.18.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"

@@ -9,9 +9,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::common;
-use crate::language::convert_diagnostics;
-use crate::language::load_document_impl;
+use crate::{
+    common,
+    language::{convert_diagnostics, load_document_impl},
+    preview::connector::SwitchableLspToPreview,
+};
 
 use super::Context;
 
@@ -31,8 +33,9 @@ pub fn mock_context() -> Context {
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: None,
         open_urls: HashSet::new(),
-        to_preview: Rc::new(common::DummyLspToPreview::default()),
+        to_preview: Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default())),
         pending_recompile: Default::default(),
+        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
     }
 }
 
@@ -74,8 +77,11 @@ pub fn loaded_document_cache_with_file_name(
         init_param: Default::default(),
         to_show: None,
         open_urls: Default::default(),
-        to_preview: std::rc::Rc::new(common::DummyLspToPreview::default()),
+        to_preview: std::rc::Rc::new(SwitchableLspToPreview::with_one(
+            common::DummyLspToPreview::default(),
+        )),
         pending_recompile: Default::default(),
+        preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
     };
     let (extra_files, diag) =
         spin_on::spin_on(load_document_impl(&mut ctx, content, url.clone(), Some(42)));

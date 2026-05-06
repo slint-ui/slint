@@ -1479,6 +1479,7 @@ impl TypeLoader {
         source_code: String,
         keep_raw: bool,
         diag: &mut BuildDiagnostics,
+        resource_preloader: impl crate::passes::ResourcePreloader,
     ) -> (PathBuf, Option<TypeLoader>) {
         let path = crate::pathutils::clean_path(path);
         let doc_node: syntax_nodes::Document =
@@ -1491,7 +1492,8 @@ impl TypeLoader {
         let mut state = state.borrow_mut();
         let state = &mut *state;
         let raw_type_loader = if !state.diag.has_errors() {
-            crate::passes::run_passes(&mut doc, state.tl, keep_raw, state.diag).await
+            crate::passes::run_passes(&mut doc, state.tl, keep_raw, state.diag, resource_preloader)
+                .await
         } else {
             None
         };

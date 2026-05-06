@@ -32,7 +32,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
     }
     let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config, ()));
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();
@@ -122,7 +122,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         // Append the python code to the bottom of the generated file and run it
 
         let mut f = std::fs::File::options().append(true).open(&python_file).unwrap();
-        f.write(python_script.as_bytes()).unwrap();
+        f.write_all(python_script.as_bytes()).unwrap();
     };
 
     let o = std::process::Command::new("uvx")

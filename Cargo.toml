@@ -80,6 +80,7 @@ members = [
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
   'xtask',
+  'tools/remote-viewer',
 ]
 
 default-members = [
@@ -135,6 +136,7 @@ i-slint-common = { version = "=1.17.0", path = "internal/common", default-featur
 i-slint-compiler = { version = "=1.17.0", path = "internal/compiler", default-features = false }
 i-slint-core = { version = "=1.17.0", path = "internal/core", default-features = false }
 i-slint-core-macros = { version = "=1.17.0", path = "internal/core-macros", default-features = false }
+i-slint-preview-protocol = { version = "=1.17.0", path = "internal/preview-protocol" }
 i-slint-renderer-femtovg = { version = "=1.17.0", path = "internal/renderers/femtovg", default-features = false }
 i-slint-renderer-skia = { version = "=1.17.0", path = "internal/renderers/skia", default-features = false }
 i-slint-renderer-software = { version = "=1.17.0", path = "internal/renderers/software", default-features = false }

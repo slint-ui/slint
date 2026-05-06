@@ -15,9 +15,9 @@ use lsp_server::{Message, RequestId};
 use lsp_types::{MessageType, Url, notification::Notification};
 
 use crate::{
-    common::{self, LspToPreview, Result, document_cache::OpenImportCallback},
+    common::{self, Result, document_cache::OpenImportCallback},
     language, preview,
-    preview::connector::EmbeddedLspToPreview,
+    preview::connector::{EmbeddedLspToPreview, SwitchableLspToPreview},
 };
 
 pub fn editor_main() {
@@ -197,18 +197,22 @@ fn start_lsp_thread(
 
 fn bridge_crossbeam_to_tokio(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-) -> tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage> {
+) -> (
+    tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
+    tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage>,
+) {
     let (from_preview_tx, from_preview_rx) =
         tokio::sync::mpsc::unbounded_channel::<PreviewToLspMessage>();
+    let inner_from_preview_tx = from_preview_tx.clone();
     std::thread::spawn(move || {
         while let Ok(msg) = from_preview.recv() {
-            if from_preview_tx.send(msg).is_err() {
+            if inner_from_preview_tx.send(msg).is_err() {
                 break;
             }
         }
         tracing::debug!("Preview->LSP crossbeam adapter thread exited");
     });
-    from_preview_rx
+    (from_preview_tx, from_preview_rx)
 }
 
 async fn lsp_main(
@@ -219,10 +223,10 @@ async fn lsp_main(
 ) -> Result<()> {
     use crate::common::document_cache::CompilerConfiguration;
 
-    let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
+    let (from_preview_tx, mut from_preview_rx) = bridge_crossbeam_to_tokio(from_preview);
 
     // Wrap to_preview in Rc for sharing with the import callback and Context
-    let to_preview: Rc<dyn LspToPreview> = Rc::new(to_preview);
+    let to_preview = Rc::new(SwitchableLspToPreview::with_one(to_preview));
 
     let open_import_callback = {
         let to_preview = Rc::clone(&to_preview);
@@ -230,7 +234,7 @@ async fn lsp_main(
             let to_preview = Rc::clone(&to_preview);
             Box::pin(async move {
                 tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read_to_string(&path);
+                let contents = std::fs::read(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
@@ -241,7 +245,13 @@ async fn lsp_main(
                         to_preview.send(&LspToPreviewMessage::ForgetFile { url });
                     }
                 }
-                Some(contents.map(|c| (None, c)))
+                Some(
+                    contents
+                        .and_then(|c| {
+                            String::from_utf8(c).map_err(|err| std::io::Error::other(err))
+                        })
+                        .map(|c| (None, c)),
+                )
             })
                 as Pin<
                     Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>,
@@ -265,6 +275,7 @@ async fn lsp_main(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
+        preview_to_lsp_sender: from_preview_tx,
     };
 
     // Load the initial document through the compiler. This triggers the import

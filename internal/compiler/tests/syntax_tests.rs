@@ -447,6 +447,7 @@ fn process_file_source(
             syntax_node.clone(),
             parse_diagnostics,
             compiler_config.clone(),
+            (),
         ));
         build_diags
     } else {
@@ -472,6 +473,7 @@ fn process_file_source(
             syntax_node,
             compile_diagnostics,
             compiler_config,
+            (),
         ));
     }
 

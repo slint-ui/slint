@@ -6,11 +6,14 @@
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use itertools::Itertools;
+use remote_viewer::tracing_subscriber::layer::SubscriberExt as _;
+use remote_viewer::tracing_subscriber::util::SubscriberInitExt as _;
 use slint_interpreter::{
     ComponentDefinition, ComponentHandle, ComponentInstance, Value, json::JsonExt,
 };
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
+use std::net::{Ipv6Addr, SocketAddrV6};
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -52,63 +55,92 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Enable remote viewer mode. Only --disable-mdns and at most one of --port or --listen are valid options in this mode.
+    #[arg(long, default_value_t = false)]
+    remote: bool,
+
+    /// The network port to listen on. If not present, it will pick a random port. Requires --remote.
+    #[arg(long, value_name = "NUM", requires = "remote", conflicts_with = "listen")]
+    port: Option<u16>,
+
+    /// The IP and network port to listen on. By default, it will pick a random
+    /// port and listen on all addresses. Requires --remote.
+    #[arg(long, value_name = "IP:PORT", requires = "remote", conflicts_with = "port")]
+    listen: Option<std::net::SocketAddr>,
+
+    /// Don't announce the remote viewer on the local network. Requires --remote.
+    #[arg(long, requires = "remote")]
+    disable_mdns: bool,
+
     /// Include path for other .slint files or images
-    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
+    #[arg(
+        short = 'I',
+        value_name = "include path",
+        number_of_values = 1,
+        action,
+        conflicts_with = "remote"
+    )]
     include_paths: Vec<std::path::PathBuf>,
 
     /// Specify Library location of the '@library' in the form 'library=/path/to/library'
-    #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
+    #[arg(
+        short = 'L',
+        value_name = "library=path",
+        number_of_values = 1,
+        action,
+        conflicts_with = "remote"
+    )]
     library_paths: Vec<String>,
 
     /// The .slint file to load ('-' for stdin)
-    #[arg(name = "path", action)]
-    path: std::path::PathBuf,
+    #[arg(name = "path", action, required = true, conflicts_with = "remote")]
+    path: Option<std::path::PathBuf>,
 
     /// The style name. Defaults to 'fluent' if not specified
-    #[arg(long, value_name = "style name", action)]
+    #[arg(long, value_name = "style name", action, conflicts_with = "remote")]
     style: Option<String>,
 
     /// The name of the component to view. If unset, the last exported component of the file is used.
     /// If the component name is not in the .slint file , nothing will be shown
-    #[arg(long, value_name = "component name", action)]
+    #[arg(long, value_name = "component name", action, conflicts_with = "remote")]
     component: Option<String>,
 
     /// The rendering backend
-    #[arg(long, value_name = "backend", action)]
+    #[arg(long, value_name = "backend", action, conflicts_with = "remote")]
     backend: Option<String>,
 
     /// Automatically watch the file system, and reload when it changes
-    #[arg(long, action)]
+    #[arg(long, action, conflicts_with = "remote")]
     auto_reload: bool,
 
     /// Load properties from a json file ('-' for stdin)
-    #[arg(long, value_name = "json file", action)]
+    #[arg(long, value_name = "json file", action, conflicts_with = "remote")]
     load_data: Option<std::path::PathBuf>,
 
     /// Store properties values in a json file at exit ('-' for stdout)
-    #[arg(long, value_name = "json file", action)]
+    #[arg(long, value_name = "json file", action, conflicts_with = "remote")]
     save_data: Option<std::path::PathBuf>,
 
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
     /// to be passed to the shell to be executed. Occurrences of `$1` will be replaced by the first argument,
     /// and so on.
-    #[arg(long, value_names(&["callback", "handler"]), number_of_values = 2, action)]
+    #[arg(long, value_names(&["callback", "handler"]), number_of_values = 2, action, conflicts_with = "remote")]
     on: Vec<String>,
 
     #[cfg(feature = "gettext")]
     /// Translation domain
-    #[arg(long = "translation-domain", action)]
+    #[arg(long = "translation-domain", action, conflicts_with = "remote")]
     translation_domain: Option<String>,
 
     #[cfg(feature = "gettext")]
     /// Translation directory where the translation files are searched for
-    #[arg(long = "translation-dir", action)]
+    #[arg(long = "translation-dir", action, conflicts_with = "remote")]
     translation_dir: Option<std::path::PathBuf>,
 
     #[cfg(feature = "gettext")]
     /// Disable the default to use the component name as translation context when none is specified in `@tr`
-    #[arg(long = "no-default-translation-context")]
+    #[arg(long = "no-default-translation-context", conflicts_with = "remote")]
     no_default_translation_context: bool,
 }
 
@@ -116,8 +148,31 @@ thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInsta
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
-    env_logger::init();
     let args = Cli::parse();
+
+    if args.remote {
+        remote_viewer::tracing_subscriber::registry()
+            .with(remote_viewer::tracing_subscriber::fmt::layer())
+            .with(remote_viewer::tracing_subscriber::EnvFilter::from_default_env())
+            .init();
+        let rt =
+            remote_viewer::tokio::runtime::Builder::new_current_thread().enable_io().build()?;
+
+        let address = args.listen.or_else(|| {
+            args.port.map(|port| {
+                std::net::SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, port, 0, 0))
+            })
+        });
+
+        match rt.block_on(remote_viewer::run(address, !args.disable_mdns)) {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                remote_viewer::tracing::error!("{err}");
+                std::process::exit(-1);
+            }
+        }
+    }
+    env_logger::init();
 
     if args.auto_reload && args.save_data.is_some() {
         eprintln!("Cannot pass both --auto-reload and --save-data");
@@ -138,7 +193,7 @@ fn main() -> Result<()> {
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
     let compiler = init_compiler(&args, fswatcher);
-    let r = spin_on::spin_on(compiler.build_from_path(&args.path));
+    let r = spin_on::spin_on(compiler.build_from_path(args.path.as_ref().unwrap()));
     r.print_diagnostics();
     if r.has_errors() {
         std::process::exit(-1);
@@ -148,10 +203,13 @@ fn main() -> Result<()> {
     let Some(c) = r.components().next() else {
         match args.component {
             Some(name) => {
-                eprintln!("Component '{name}' not found in file '{}'", args.path.display());
+                eprintln!(
+                    "Component '{name}' not found in file '{}'",
+                    args.path.unwrap().display()
+                );
             }
             None => {
-                eprintln!("No component found in file '{}'", args.path.display());
+                eprintln!("No component found in file '{}'", args.path.unwrap().display());
             }
         }
         std::process::exit(-1);
@@ -235,7 +293,7 @@ fn init_compiler(
         compiler.set_style(style.clone());
     }
     if let Some(watcher) = fswatcher {
-        watch_with_retry(&args.path, &watcher);
+        watch_with_retry(args.path.as_ref().unwrap(), &watcher);
         if let Some(data_path) = &args.load_data {
             watch_with_retry(data_path, &watcher);
         }
@@ -337,7 +395,7 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
 
 async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
     let compiler = init_compiler(&args, Some(fswatcher));
-    let r = compiler.build_from_path(&args.path).await;
+    let r = compiler.build_from_path(args.path.as_ref().unwrap()).await;
     r.print_diagnostics();
     if let Some(c) = r.components().next() {
         CURRENT_INSTANCE.with(|current| {
@@ -356,7 +414,7 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
             if let Some(data_path) = args.load_data {
                 let _ = load_data(&c, current.as_ref().unwrap(), &data_path);
             }
-            eprintln!("Successful reload of {}", args.path.display());
+            eprintln!("Successful reload of {}", args.path.unwrap().display());
         });
     } else if !r.has_errors() {
         match &args.component {
