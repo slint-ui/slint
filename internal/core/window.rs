@@ -9,7 +9,6 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
-use crate::graphics::Color;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -202,11 +201,6 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// Handle focus change
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
-
-    /// Returns the system accent color, or transparent if the platform doesn't provide one.
-    fn accent_color(&self) -> Color {
-        Color::default()
-    }
 
     /// Returns whether we can have a native menu bar
     fn supports_native_menu_bar(&self) -> bool {
@@ -1277,13 +1271,6 @@ impl WindowInner {
         result
     }
 
-    /// Returns the system accent color, or transparent if unavailable.
-    pub fn accent_color(&self) -> Color {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color())
-    }
-
     /// Return whether the platform supports native menu bars
     pub fn supports_native_menu_bar(&self) -> bool {
         self.window_adapter()
@@ -1769,6 +1756,18 @@ impl WindowInner {
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
+/// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
+/// from the component's [`crate::SlintContext`] reached via its window adapter, or
+/// transparent if none is associated.
+pub fn accent_color(root: &crate::item_tree::ItemTreeRc) -> crate::graphics::Color {
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map_or(crate::graphics::Color::default(), |a| {
+        WindowInner::from_pub(a.window()).context().accent_color()
+    })
+}
+
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
 #[cfg(feature = "ffi")]
@@ -1781,8 +1780,8 @@ pub mod ffi {
     use crate::SharedVector;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::Size;
-    use crate::graphics::{IntSize, Rgba8Pixel};
-    use crate::items::WindowItem;
+    use crate::graphics::{Color, IntSize, Rgba8Pixel};
+    use crate::items::{ColorScheme, WindowItem};
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -2195,16 +2194,12 @@ pub mod ffi {
         }
     }
 
-    /// Return the system accent color, or transparent if not available
+    /// Return the system accent color, or transparent if not available. The accent color
+    /// is process-wide and lives on [`crate::SlintContext`], so this no longer needs a
+    /// window-adapter handle.
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_accent_color(
-        handle: *const WindowAdapterRcOpaque,
-        out: &mut Color,
-    ) {
-        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
-        *out = window_adapter
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color());
+    pub extern "C" fn slint_accent_color(root: &crate::item_tree::ItemTreeRc, out: &mut Color) {
+        *out = super::accent_color(root);
     }
 
     /// Return whether the platform supports native menu bars

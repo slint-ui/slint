@@ -10,7 +10,6 @@ use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
-use i_slint_core::graphics::Color;
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventResult, KeyEventType, TouchPhase};
 use i_slint_core::items::ColorScheme;
 use i_slint_core::lengths::PhysicalEdges;
@@ -163,10 +162,6 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
-    fn accent_color(&self) -> Color {
-        self.java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&self.app, e))
-    }
-
     fn safe_area_inset(&self) -> PhysicalEdges {
         if self.fullscreen.get() {
             Default::default()
@@ -186,6 +181,8 @@ impl AndroidWindowAdapter {
                 0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
                 _ => ColorScheme::Unknown,
             };
+        let initial_accent =
+            java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&app, e));
         let rc = Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
@@ -205,9 +202,9 @@ impl AndroidWindowAdapter {
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
         });
-        i_slint_core::window::WindowInner::from_pub(&rc.window)
-            .context()
-            .set_color_scheme(initial_scheme);
+        let ctx = i_slint_core::window::WindowInner::from_pub(&rc.window).context();
+        ctx.set_color_scheme(initial_scheme);
+        ctx.set_accent_color(initial_accent);
         rc
     }
 

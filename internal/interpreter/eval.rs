@@ -1444,12 +1444,10 @@ fn call_builtin_function(
         .color_scheme()
         .into(),
         BuiltinFunction::AccentColor => {
-            let color = local_context
-                .component_instance
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .map_or(corelib::Color::default(), |x| x.accent_color());
-            Value::Brush(corelib::Brush::SolidColor(color))
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            Value::Brush(corelib::Brush::SolidColor(corelib::window::accent_color(&root)))
         }
         BuiltinFunction::SupportsNativeMenuBar => local_context
             .component_instance

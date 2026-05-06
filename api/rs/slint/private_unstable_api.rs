@@ -211,7 +211,7 @@ pub mod re_exports {
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, accent_color,
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,

@@ -3,6 +3,7 @@
 
 use crate::Property;
 use crate::api::PlatformError;
+use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::items::ColorScheme;
 use crate::platform::{EventLoopProxy, Platform};
@@ -26,6 +27,10 @@ pub(crate) struct SlintContextInner {
     /// it through [`SlintContext::color_scheme`]. Window-less components like `SystemTrayIcon`
     /// rely on this as their default source.
     pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
+    /// Process-wide system accent color. Backends' system-theme observers write here; bindings
+    /// read from it through [`SlintContext::accent_color`]. Defaults to a transparent color when
+    /// the platform doesn't expose one.
+    pub(crate) accent_color: core::pin::Pin<Box<Property<Color>>>,
     pub(crate) translations_bundle_languages:
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) window_shown_hook:
@@ -60,6 +65,10 @@ impl SlintContext {
             color_scheme: Box::pin(Property::new_named(
                 ColorScheme::Unknown,
                 "SlintContext::color_scheme",
+            )),
+            accent_color: Box::pin(Property::new_named(
+                Color::default(),
+                "SlintContext::accent_color",
             )),
             translations_bundle_languages: Default::default(),
             window_shown_hook: Default::default(),
@@ -127,6 +136,18 @@ impl SlintContext {
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_color_scheme(&self, scheme: ColorScheme) {
         self.0.color_scheme.as_ref().set(scheme);
+    }
+
+    /// Returns the process-wide system accent color. Reads register a property dependency,
+    /// so bindings re-evaluate when the platform reports an accent-color change.
+    pub fn accent_color(&self) -> Color {
+        self.0.accent_color.as_ref().get()
+    }
+
+    /// Backend-side write path for the process-wide accent color. Called by each
+    /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
+    pub fn set_accent_color(&self, color: Color) {
+        self.0.accent_color.as_ref().set(color);
     }
 
     /// Add one to the counter of "things keeping the event loop alive".

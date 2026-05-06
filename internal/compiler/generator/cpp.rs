@@ -4500,7 +4500,10 @@ fn compile_builtin_function_call(
             format!("{}.color_scheme()", access_window_field(ctx))
         }
         BuiltinFunction::AccentColor => {
-            format!("{}.accent_color()", access_window_field(ctx))
+            format!(
+                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); slint::Color col; slint::cbindgen_private::slint_accent_color(&_root, &col); return col; }}()",
+                ctx.generator_state.global_access
+            )
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))

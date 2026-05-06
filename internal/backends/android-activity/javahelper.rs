@@ -565,9 +565,11 @@ fn callback_set_night_mode<'local>(
                 0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
                 _ => ColorScheme::Unknown,
             };
-            i_slint_core::window::WindowInner::from_pub(&w.window)
-                .context()
-                .set_color_scheme(scheme);
+            let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
+            ctx.set_color_scheme(scheme);
+            if let Ok(accent) = w.java_helper.accent_color() {
+                ctx.set_accent_color(accent);
+            }
         }
     })
     .unwrap();
