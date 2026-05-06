@@ -1567,8 +1567,11 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_compute_sorted_children_by_z(
         z_values: Slice<f32>,
-    ) -> crate::SharedVector<f32> {
-        crate::item_tree::compute_sorted_children_by_z(z_values.as_slice())
+        out: *mut crate::SharedVector<f32>,
+    ) {
+        unsafe {
+            core::ptr::write(out, crate::item_tree::compute_sorted_children_by_z(z_values.as_slice()))
+        }
     }
 }
 

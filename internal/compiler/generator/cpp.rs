@@ -1726,7 +1726,8 @@ fn generate_item_tree(
             let z_list = z_reads.join(", ");
             visit_children_statements.push(format!("case {node_idx}: {{"));
             visit_children_statements.push(format!("    float z_values[{count}] = {{{z_list}}};"));
-            visit_children_statements.push(format!("    auto sorted = slint::cbindgen_private::slint_compute_sorted_children_by_z(slint::cbindgen_private::Slice<float>{{z_values, {count}}});"));
+            visit_children_statements.push("    slint::SharedVector<float> sorted;".into());
+            visit_children_statements.push(format!("    slint::cbindgen_private::slint_compute_sorted_children_by_z(slint::cbindgen_private::Slice<float>{{z_values, {count}}}, &sorted);"));
             visit_children_statements.push("    return slint::cbindgen_private::slint_visit_item_tree_with_sorted_children(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, slint::cbindgen_private::Slice<float>{sorted.begin(), sorted.size()});".into());
             visit_children_statements.push("}".into());
         }
