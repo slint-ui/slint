@@ -610,7 +610,7 @@ export component Main { }
                 init_param: Default::default(),
                 to_show: None,
                 open_urls: Default::default(),
-                to_preview: Rc::new(crate::preview::connector::SwitchableLspToPreview::with_one(
+                to_preview: Rc::new(crate::common::SwitchableLspToPreview::with_one(
                     crate::common::DummyLspToPreview::default(),
                 )),
                 pending_recompile: Default::default(),

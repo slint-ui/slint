@@ -24,6 +24,7 @@ use mdns_sd::ServiceInfo;
 
 #[derive(Clone, Debug)]
 pub struct VersionedFileContent {
+    #[allow(dead_code)]
     pub version: SourceFileVersion,
     pub contents: Arc<[u8]>,
 }
@@ -49,6 +50,7 @@ pub enum ConnectionMessage {
         preview_component: PreviewComponent,
         file_cache: Arc<DashMap<String, CacheEntry>>,
     },
+    #[allow(dead_code)]
     HighlightFromEditor {
         url: Option<Url>,
         offset: u32,

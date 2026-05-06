@@ -11,8 +11,8 @@ use std::rc::Rc;
 
 use crate::{
     common,
+    common::SwitchableLspToPreview,
     language::{convert_diagnostics, load_document_impl},
-    preview::connector::SwitchableLspToPreview,
 };
 
 use super::Context;

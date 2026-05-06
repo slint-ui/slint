@@ -7,8 +7,6 @@
 use crate::common;
 use crate::preview::{self, connector, ui};
 
-use slint_interpreter::ComponentHandle;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 

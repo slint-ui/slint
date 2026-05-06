@@ -12,8 +12,8 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
+use crate::common::SwitchableLspToPreview;
 use crate::common::uri_to_file;
-use crate::preview::connector::SwitchableLspToPreview;
 use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
@@ -48,7 +48,9 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
+#[cfg(feature = "preview-remote")]
 pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
+#[cfg(feature = "preview-remote")]
 pub const DISCONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/disconnectRemotePreview";
 
 fn command_list() -> Vec<String> {
@@ -174,6 +176,7 @@ pub struct Context {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
+    #[cfg_attr(not(feature = "preview-remote"), allow(dead_code))]
     pub preview_to_lsp_sender: tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 

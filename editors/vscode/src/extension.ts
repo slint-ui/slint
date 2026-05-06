@@ -237,7 +237,9 @@ function startClient(
             },
         );
 
-        common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.disconnected);
+        common.setRemoteViewerStatusBarItemState(
+            common.RemoteViewerStatusBarItemState.disconnected,
+        );
     });
 
     const cl = new LanguageClient(
@@ -413,43 +415,56 @@ function startTelemetryTimer(
     }
 }
 
-const remotePreviewConnectionStringMatcher = /^(?:\[(?<ipv6>[0-9A-Fa-f:.]+)\]|(?<host>[^:\s\[\]]+)):(?<port>\d{1,5})$/;
+const remotePreviewConnectionStringMatcher =
+    /^(?:\[(?<ipv6>[0-9A-Fa-f:.]+)\]|(?<host>[^:\s\[\]]+)):(?<port>\d{1,5})$/;
 
 function setupRemotePreview(context: vscode.ExtensionContext) {
     const remoteViewerStatusBarItem = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Right, 100
+        vscode.StatusBarAlignment.Right,
+        100,
     );
 
     common.updateRemoteViewerStatusBarItem(remoteViewerStatusBarItem);
-    common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.disconnected);
+    common.setRemoteViewerStatusBarItemState(
+        common.RemoteViewerStatusBarItemState.disconnected,
+    );
     remoteViewerStatusBarItem.show();
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.selectRemotePreview", () => {
-            const picker = vscode.window.createQuickPick<vscode.QuickPickItem & Partial<common.RemoteViewerInfo>>();
+            const picker = vscode.window.createQuickPick<
+                vscode.QuickPickItem & Partial<common.RemoteViewerInfo>
+            >();
             picker.title = "Select a remote preview";
             picker.placeholder = "Manual entry (e.g. 127.0.1:1234)";
             picker.ignoreFocusOut = true;
 
             const updateItems = () => {
                 const typed = picker.value.trim();
-                const items: (vscode.QuickPickItem & Partial<common.RemoteViewerInfo>)[] = [];
+                const items: (vscode.QuickPickItem &
+                    Partial<common.RemoteViewerInfo>)[] = [];
 
                 remotePreviewConnectionStringMatcher.lastIndex = 0;
                 const match = remotePreviewConnectionStringMatcher.exec(typed);
 
                 if (match) {
                     items.push({
-                        id: 'ENTER',
+                        id: "ENTER",
                         label: `Use typed value: ${typed}`,
                         detail: "",
                         alwaysShow: true,
                         value: {
-                            addresses: [match.groups?.ipv6 ?? match.groups?.host ?? ""],
-                            port: parseInt(match.groups?.port ?? "1234"),
+                            addresses: [
+                                match.groups?.ipv6 ?? match.groups?.host ?? "",
+                            ],
+                            port: Number.parseInt(match.groups?.port ?? "1234"),
                         },
                     });
-                    items.push({ id: "sep", label: "", kind: vscode.QuickPickItemKind.Separator });
+                    items.push({
+                        id: "sep",
+                        label: "",
+                        kind: vscode.QuickPickItemKind.Separator,
+                    });
                 }
 
                 items.push(...common.remote_viewers.values());
@@ -457,9 +472,14 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
                 picker.items = items;
             };
 
-            const connect = async (item: common.RemoteViewerInfo) => {
-                lsp_commands.connectRemotePreview(item.value.addresses, item.value.port);
-                common.setRemoteViewerStatusBarItemState(common.RemoteViewerStatusBarItemState.connecting);
+            const connect = (item: common.RemoteViewerInfo) => {
+                lsp_commands.connectRemotePreview(
+                    item.value.addresses,
+                    item.value.port,
+                );
+                common.setRemoteViewerStatusBarItemState(
+                    common.RemoteViewerStatusBarItemState.connecting,
+                );
 
                 picker.hide();
             };
