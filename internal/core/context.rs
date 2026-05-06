@@ -8,7 +8,7 @@ use crate::input::InternalKeyboardModifierState;
 use crate::items::ColorScheme;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 use core::cell::Cell;
 
 crate::thread_local! {
@@ -198,6 +198,26 @@ impl SlintContext {
             maybe_translator.as_ref()
         })
         .ok()
+    }
+
+    /// Returns a weak handle to this context, suitable for stashing in places that must
+    /// not keep the context alive (e.g. a backend that's owned by the context itself).
+    pub fn downgrade(&self) -> SlintContextWeak {
+        SlintContextWeak(Rc::downgrade(&self.0))
+    }
+}
+
+/// Weak handle to a [`SlintContext`]. Backends that opt into
+/// [`crate::platform::Platform::bind_context`] receive one of these right after
+/// `set_platform` so they can spawn futures and write process-wide state without
+/// holding the context strongly.
+#[derive(Clone)]
+pub struct SlintContextWeak(Weak<SlintContextInner>);
+
+impl SlintContextWeak {
+    /// Attempts to upgrade to a strong [`SlintContext`].
+    pub fn upgrade(&self) -> Option<SlintContext> {
+        self.0.upgrade().map(SlintContext)
     }
 }
 
