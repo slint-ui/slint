@@ -7,15 +7,9 @@ export component TestCase inherits Window {
     ti := TextInput {
         input-type: decimal;
     }
-    ti-loc := TextInput {
-        y: 50phx;
-        input-type: decimal;
-    }
 
     out property <bool> input_focused: ti.has_focus;
     in-out property <string> text <=> ti.text;
-    out property <bool> input_focused_loc: ti-loc.has_focus;
-    in-out property <string> text_loc <=> ti-loc.text;
 }
 
 /*
@@ -80,16 +74,29 @@ let send_and_check = |seq: &str, expected: &str| {
 send_and_check(",", ",");
 
 // dot should be rejected in a comma locale
-instance.set_text_loc("".into());
+instance.set_text("".into());
 send_and_check(".", "");
 
 // build a full decimal number with comma separator
-instance.set_text_loc("".into());
+instance.set_text("".into());
 for (seq, expected) in [("-", "-"), ("1", "-1"), (",", "-1,"), ("5", "-1,5")] {
     send_and_check(seq, expected);
 }
 
 // only one comma allowed
 send_and_check(",", "-1,5");
+
+// switch to a dot-separator locale (e.g. English)
+slint_testing::set_locale(&instance, "en-US");
+instance.set_text("".into());
+
+// comma should now be rejected
+send_and_check("3", "3");
+send_and_check(",", "3");
+
+// dot should now be accepted
+for (seq, expected) in [(".", "3."), ("1", "3.1")] {
+    send_and_check(seq, expected);
+}
 ```
 */
