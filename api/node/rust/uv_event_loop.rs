@@ -11,9 +11,13 @@
 //! 3. When readable, the reactor wakes the future's `Waker`.
 //! 4. `Waker::wake` calls `invoke_from_event_loop`,
 //!    posting an event to the platform backend.
-//! 5. `process_events` returns early (the timeout is an upper bound).
+//! 5. `run_integrated_event_loop` sees the flag and breaks out of its loop.
 //! 6. Control returns to JS; Node's `uv_run` picks up the pending I/O.
 //! 7. JS re-enters via `setTimeout(pump, 0)`.
+//!
+//! The loop in step 5 is key: `process_events` returns on any platform event
+//! (mouse moves, repaints, etc.), but we only return to JS when the libuv fd
+//! signals readiness or the uv timeout elapses.
 //!
 //! On Windows/Deno the JS side falls back to 16ms polling.
 
@@ -21,9 +25,11 @@
 mod platform {
     use super::super::ProcessEventsResult;
     use napi::Env;
-    use std::cell::{Cell, OnceCell};
+    use std::cell::OnceCell;
     use std::os::fd::BorrowedFd;
     use std::os::raw::c_int;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
     type UvBackendFdFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s) -> c_int;
@@ -83,7 +89,7 @@ mod platform {
 
     thread_local! {
         static CACHED_UV: OnceCell<Option<UvFunctions>> = const { OnceCell::new() };
-        static WATCHER_SPAWNED: Cell<bool> = const { Cell::new(false) };
+        static WATCHER_FLAG: OnceCell<Arc<AtomicBool>> = const { OnceCell::new() };
     }
 
     fn get_uv(env: &Env) -> napi::Result<UvFunctions> {
@@ -97,45 +103,61 @@ mod platform {
         get_uv(env).is_ok()
     }
 
-    /// Spawns a persistent future watching the libuv fd. Called once.
-    fn ensure_watcher_spawned(uv: &UvFunctions) -> napi::Result<()> {
-        if WATCHER_SPAWNED.get() {
-            return Ok(());
-        }
-        let async_fd = async_io::Async::new(UvFdWrapper(uv.fd())).map_err(|e| {
-            napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
-        })?;
-        slint_interpreter::spawn_local(async move {
-            loop {
-                // The wake is the useful side effect: readable() completing means
-                // FutureRunner::wake called invoke_from_event_loop, which made
-                // process_events return. We loop to re-register with the reactor.
-                if async_fd.readable().await.is_err() {
-                    break;
-                }
+    /// Spawns a persistent future watching the libuv fd and returns
+    /// the flag it sets when the fd becomes readable.
+    fn ensure_watcher_spawned(uv: &UvFunctions) -> napi::Result<Arc<AtomicBool>> {
+        WATCHER_FLAG.with(|cell| {
+            if let Some(flag) = cell.get() {
+                return Ok(flag.clone());
             }
+
+            let async_fd = async_io::Async::new(UvFdWrapper(uv.fd())).map_err(|e| {
+                napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
+            })?;
+
+            let flag = Arc::new(AtomicBool::new(false));
+            let flag_for_future = flag.clone();
+            slint_interpreter::spawn_local(async move {
+                loop {
+                    // readable() completing means FutureRunner::wake called
+                    // invoke_from_event_loop, which made process_events return.
+                    if async_fd.readable().await.is_err() {
+                        break;
+                    }
+                    flag_for_future.store(true, Ordering::Relaxed);
+                }
+            })
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+
+            cell.set(flag.clone()).ok();
+            Ok(flag)
         })
-        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-        WATCHER_SPAWNED.set(true);
-        Ok(())
     }
 
-    /// Runs one iteration: spawns the fd watcher if needed,
-    /// then blocks in `process_events(uv_backend_timeout)`.
+    /// Keeps processing platform events until the libuv fd becomes readable
+    /// (JS has pending work) or the uv timeout elapses (JS timer is due).
+    /// This avoids returning to JS unnecessarily on every mouse move or
+    /// window event that only concerns the platform backend.
     pub(crate) fn run_integrated_event_loop_impl(env: &Env) -> napi::Result<ProcessEventsResult> {
         let uv = get_uv(env)?;
-        let uv_timeout = uv.timeout_ms();
+        let fd_ready = ensure_watcher_spawned(&uv)?;
 
-        if uv_timeout == 0 {
-            return crate::process_events_with_timeout(Duration::ZERO);
+        loop {
+            let uv_timeout = uv.timeout_ms();
+            let timeout = if uv_timeout < 0 {
+                Duration::MAX
+            } else {
+                Duration::from_millis(uv_timeout as u64)
+            };
+
+            if let ProcessEventsResult::Exited = crate::process_events_with_timeout(timeout)? {
+                return Ok(ProcessEventsResult::Exited);
+            }
+
+            if uv_timeout == 0 || fd_ready.swap(false, Ordering::Relaxed) {
+                return Ok(ProcessEventsResult::Continue);
+            }
         }
-
-        ensure_watcher_spawned(&uv)?;
-
-        let pump_timeout =
-            if uv_timeout < 0 { Duration::MAX } else { Duration::from_millis(uv_timeout as u64) };
-
-        crate::process_events_with_timeout(pump_timeout)
     }
 }
 
