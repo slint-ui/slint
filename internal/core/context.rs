@@ -4,6 +4,7 @@
 use crate::Property;
 use crate::api::PlatformError;
 use crate::input::InternalKeyboardModifierState;
+use crate::items::ColorScheme;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -21,6 +22,10 @@ pub(crate) struct SlintContextInner {
     /// so that every translated string gets re-translated. The property's value is the current selected
     /// language when bundling translations.
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
+    /// Process-wide color scheme. Backends' system-theme observers write here; bindings read from
+    /// it through [`SlintContext::color_scheme`]. Window-less components like `SystemTrayIcon`
+    /// rely on this as their default source.
+    pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
     pub(crate) translations_bundle_languages:
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) window_shown_hook:
@@ -52,6 +57,10 @@ impl SlintContext {
             platform,
             window_count: 0.into(),
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
+            color_scheme: Box::pin(Property::new_named(
+                ColorScheme::Unknown,
+                "SlintContext::color_scheme",
+            )),
             translations_bundle_languages: Default::default(),
             window_shown_hook: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
@@ -106,6 +115,18 @@ impl SlintContext {
 
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
         self.0.platform.run_event_loop()
+    }
+
+    /// Returns the process-wide color scheme. Reads register a property dependency,
+    /// so bindings re-evaluate when the platform reports a system-theme change.
+    pub fn color_scheme(&self) -> ColorScheme {
+        self.0.color_scheme.as_ref().get()
+    }
+
+    /// Backend-side write path for the process-wide color scheme. Called by each
+    /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
+    pub fn set_color_scheme(&self, scheme: ColorScheme) {
+        self.0.color_scheme.as_ref().set(scheme);
     }
 
     /// Add one to the counter of "things keeping the event loop alive".

@@ -38,7 +38,6 @@ pub struct AndroidWindowAdapter {
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
-    pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
@@ -164,10 +163,6 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
-    fn color_scheme(&self) -> ColorScheme {
-        self.color_scheme.as_ref().get()
-    }
-
     fn accent_color(&self) -> Color {
         self.java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&self.app, e))
     }
@@ -184,15 +179,14 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 impl AndroidWindowAdapter {
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
-        let color_scheme = Box::pin(Property::new(
+        let initial_scheme =
             match java_helper.color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)) {
                 0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
                 0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
                 0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
                 _ => ColorScheme::Unknown,
-            },
-        ));
-        Rc::<Self>::new_cyclic(|w| Self {
+            };
+        let rc = Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
             #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")))]
@@ -204,14 +198,17 @@ impl AndroidWindowAdapter {
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
-            color_scheme,
             java_helper,
             fullscreen: Cell::new(false),
             offset: Default::default(),
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
-        })
+        });
+        i_slint_core::window::WindowInner::from_pub(&rc.window)
+            .context()
+            .set_color_scheme(initial_scheme);
+        rc
     }
 
     pub fn process_event(&self, event: &PollEvent<'_>) -> Result<ControlFlow<()>, PlatformError> {

@@ -1806,8 +1806,6 @@ pub struct QtWindow {
 
     tree_structure_changed: RefCell<bool>,
 
-    color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
-
     // Last icon image set on the window
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 
@@ -1846,7 +1844,6 @@ impl QtWindow {
                 cache: Default::default(),
                 text_layout_cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
-                color_scheme: Default::default(),
                 window_icon_cache_key: Default::default(),
                 parent,
             }
@@ -1857,6 +1854,16 @@ impl QtWindow {
             widget_ptr->rust_window = rust_window;
         }};
         ALL_WINDOWS.with(|aw| aw.borrow_mut().push(rc.self_weak.clone()));
+
+        let initial_scheme = if cpp! {unsafe [] -> bool as "bool" {
+            return qApp->palette().color(QPalette::Window).valueF() < 0.5;
+        }} {
+            ColorScheme::Dark
+        } else {
+            ColorScheme::Light
+        };
+        WindowInner::from_pub(&rc.window).context().set_color_scheme(initial_scheme);
+
         rc
     }
 
@@ -2347,21 +2354,6 @@ impl WindowAdapterInternal for QtWindow {
                 }
             }};
         }
-    }
-
-    fn color_scheme(&self) -> ColorScheme {
-        let ds = self.color_scheme.get_or_init(|| {
-            Box::pin(Property::new(
-                if cpp! {unsafe [] -> bool as "bool" {
-                    return qApp->palette().color(QPalette::Window).valueF() < 0.5;
-                }} {
-                    ColorScheme::Dark
-                } else {
-                    ColorScheme::Light
-                },
-            ))
-        });
-        ds.as_ref().get()
     }
 
     fn accent_color(&self) -> i_slint_core::graphics::Color {
