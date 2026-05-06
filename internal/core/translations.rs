@@ -533,7 +533,7 @@ mod ffi {
 
     /// return the current decimal-separator for the `Platform.decimal-separator` property
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_decimal_separator(out: &mut SharedString) {
+    pub extern "C" fn slint_decimal_separator(out: &mut SharedString) {
         crate::context::GLOBAL_CONTEXT.with(|ctx| {
             let separator = if let Some(ctx) = ctx.get() {
                 ctx.0.locale_decimal_separator.as_ref().get().unwrap_or(DEFAULT_SEPARATOR)
