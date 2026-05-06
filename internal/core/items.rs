@@ -45,6 +45,7 @@ use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+pub use system_tray::SystemTrayIcon;
 use vtable::*;
 
 mod component_container;
@@ -63,6 +64,7 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
+pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object
@@ -1848,6 +1850,10 @@ declare_item_vtable! {
 
 declare_item_vtable! {
     fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
+}
+
+declare_item_vtable! {
+    fn slint_get_SystemTrayIconVTable() -> SystemTrayIconVTable for SystemTrayIcon
 }
 
 macro_rules! declare_enums {

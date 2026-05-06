@@ -44,7 +44,7 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
 
             for prop_name in crate::typeregister::reserved_accessibility_properties()
                 .map(|x| x.0)
-                .chain(std::iter::once("accessible-role"))
+                .chain(["accessible-role", "accessible-orientation"])
             {
                 if accessible_role_set {
                     if elem.borrow().is_binding_set(prop_name, false) {

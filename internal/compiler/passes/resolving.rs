@@ -414,12 +414,9 @@ impl Expression {
                 },
                 NodeOrToken::Token(token) => match token.kind() {
                     SyntaxKind::StringLiteral => Some(
-                        crate::literals::unescape_string(token.text())
+                        crate::literals::unescape_string_reporting(Some(&token), ctx.diag, &token)
                             .map(Self::StringLiteral)
-                            .unwrap_or_else(|| {
-                                ctx.diag.push_error("Cannot parse string literal".into(), &token);
-                                Self::Invalid
-                            }),
+                            .unwrap_or(Self::Invalid),
                     ),
                     SyntaxKind::NumberLiteral => Some(
                         crate::literals::parse_number_literal(token.text().into()).unwrap_or_else(
@@ -448,15 +445,12 @@ impl Expression {
     }
 
     fn from_at_image_url_node(node: syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Self {
-        let s = match node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|x| crate::literals::unescape_string(&x))
-        {
-            Some(s) => s,
-            None => {
-                ctx.diag.push_error("Cannot parse string literal".into(), &node);
-                return Self::Invalid;
-            }
+        let Some(s) = crate::literals::unescape_string_reporting(
+            node.child_token(SyntaxKind::StringLiteral).as_ref(),
+            ctx.diag,
+            &node,
+        ) else {
+            return Self::Invalid;
         };
 
         if s.is_empty() {
@@ -766,26 +760,16 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let mut markdown = String::new();
         let mut values = Vec::new();
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
-                    markdown.push_str(&s);
-                } else {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                }
+                source_map.push(n.as_token().unwrap(), ctx.diag);
             } else if n.kind() == SyntaxKind::StringTemplate {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
-                        if let Some(s) =
-                            crate::literals::unescape_string(n.as_token().unwrap().text())
-                        {
-                            markdown.push_str(&s);
-                        } else {
-                            ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                        }
+                        source_map.push(n.as_token().unwrap(), ctx.diag);
                     } else if n.kind() == SyntaxKind::Expression {
                         let node = n.into_node().unwrap();
                         let expr = Expression::from_expression_node(node.clone().into(), ctx);
@@ -803,29 +787,47 @@ impl Expression {
                             }
                         };
                         values.push(expr);
-                        markdown
-                            .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
+                        source_map.push_raw_char(
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                            node.to_source_location(),
+                        );
                     }
                 }
             }
         }
 
         let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
+        let markdown = source_map.as_str();
 
         // Validate the markdown format string with dummy values
-        if let Err(e) = i_slint_common::styled_text::parse_interpolated(
-            &markdown,
+        let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated(
+            markdown,
             &vec![&[dummy_paragraph]; values.len()],
-        )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            ctx.diag.push_error(e.to_string(), &node);
+        );
+        for e in &parse_errors {
+            // Skip InvalidColor when the color value came from interpolation
+            // (dummy values resolve to empty strings during compile-time validation)
+            if i_slint_common::styled_text::is_invalid_color(e)
+                && e.range().is_some_and(|r| {
+                    r.end <= markdown.len()
+                        && markdown[r.start..r.end].contains(
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                        )
+                })
+            {
+                continue;
+            }
+            if let Some(r) = e.range() {
+                source_map.report(ctx.diag, e.to_string(), r, &node);
+            } else {
+                ctx.diag.push_error(e.to_string(), &node);
+            }
         }
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(markdown.into()),
+                Expression::StringLiteral(source_map.into_string().into()),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -833,29 +835,30 @@ impl Expression {
     }
 
     fn from_at_tr(node: syntax_nodes::AtTr, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|s| crate::literals::unescape_string(&s))
-        else {
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
+        let Some(string_token) = node.child_token(SyntaxKind::StringLiteral) else {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
+        if !source_map.push(&string_token, ctx.diag) {
+            return Expression::Invalid;
+        }
+        let string: SmolStr = source_map.as_str().into();
         let context = node.TrContext().map(|n| {
-            n.child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| crate::literals::unescape_string(&s))
-                .unwrap_or_else(|| {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                    Default::default()
-                })
+            crate::literals::unescape_string_reporting(
+                n.child_token(SyntaxKind::StringLiteral).as_ref(),
+                ctx.diag,
+                &n,
+            )
+            .unwrap_or_default()
         });
         let plural = node.TrPlural().map(|pl| {
-            let s = pl
-                .child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| crate::literals::unescape_string(&s))
-                .unwrap_or_else(|| {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &pl);
-                    Default::default()
-                });
+            let s = crate::literals::unescape_string_reporting(
+                pl.child_token(SyntaxKind::StringLiteral).as_ref(),
+                ctx.diag,
+                &pl,
+            )
+            .unwrap_or_default();
             let n = pl.Expression();
             let expr = Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::Int32,
@@ -887,8 +890,11 @@ impl Expression {
             let mut has_n = false;
             while let Some(mut p) = string[pos..].find(['{', '}']) {
                 if string.len() - pos < p + 1 {
-                    ctx.diag.push_error(
+                    p += pos;
+                    source_map.report(
+                        ctx.diag,
                         "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
+                        p..p + 1,
                         &node,
                     );
                     break;
@@ -901,8 +907,10 @@ impl Expression {
                         pos = p + 2;
                         continue;
                     } else {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "Unescaped '}' in format string. Escape '}' with '}}'".into(),
+                            p..p + 1,
                             &node,
                         );
                         break;
@@ -919,9 +927,11 @@ impl Expression {
                 let end = if let Some(end) = string[p..].find('}') {
                     end + p
                 } else {
-                    ctx.diag.push_error(
+                    source_map.report(
+                        ctx.diag,
                         "Unterminated placeholder in format string. '{' must be escaped with '{{'"
                             .into(),
+                        p..string.len(),
                         &node,
                     );
                     break;
@@ -934,14 +944,20 @@ impl Expression {
                 } else if argument == "n" {
                     has_n = true;
                     if plural.is_none() {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "`{n}` placeholder can only be found in plural form".into(),
+                            p..end + 1,
                             &node,
                         );
                     }
                 } else {
-                    ctx.diag
-                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                    source_map.report(
+                        ctx.diag,
+                        "Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(),
+                        p..end + 1,
+                        &node,
+                    );
                     break;
                 };
                 pos = end + 1;
@@ -1105,7 +1121,8 @@ impl Expression {
 
         // If there is a string literal, use it as the key
         if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
-            && let Some(key) = crate::literals::unescape_string(token.text())
+            && let Some(key) =
+                crate::literals::unescape_string_reporting(Some(&token), ctx.diag, &token)
         {
             // NFC-normalize the key string for consistent matching
             let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
@@ -1588,12 +1605,9 @@ impl Expression {
         for n in node.children_with_tokens() {
             let expr = if n.kind() == SyntaxKind::StringLiteral {
                 let token = n.as_token().unwrap();
-                crate::literals::unescape_string(token.text())
+                crate::literals::unescape_string_reporting(Some(token), ctx.diag, token)
                     .map(Self::StringLiteral)
-                    .unwrap_or_else(|| {
-                        ctx.diag.push_error("Cannot parse string literal".into(), token);
-                        Self::Invalid
-                    })
+                    .unwrap_or(Self::Invalid)
             } else if n.kind() == SyntaxKind::Expression {
                 let node = n.into_node().unwrap();
                 let expr = Expression::from_expression_node(node.clone().into(), ctx);

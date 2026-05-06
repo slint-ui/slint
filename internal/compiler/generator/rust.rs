@@ -341,6 +341,21 @@ fn generate_public_component(
         &ctx,
     );
 
+    // SystemTrayIcon-rooted components don't have a `WindowAdapter`. Skip the
+    // eager creation calls in `new` / `new_with_context` so instantiating
+    // a tray doesn't spin up a hidden window adapter as a side effect.
+    let (eager_create_window, init_with_context): (Option<TokenStream>, TokenStream) =
+        match llr.top_level_type {
+            llr::TopLevelComponentType::Window => (
+                Some(quote!(
+                    // ensure that the window exist as this point so further call to window() don't panic
+                    inner.globals.get().unwrap().window_adapter_ref()?;
+                )),
+                quote!(inner.globals.get().unwrap().create_window_from_context(ctx)?;),
+            ),
+            llr::TopLevelComponentType::SystemTrayIcon => (None, quote!(let _ = ctx;)),
+        };
+
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
         quote!(
@@ -353,6 +368,95 @@ fn generate_public_component(
 
     let experimental = compiler_config.enable_experimental;
 
+    // Window-rooted components get the full `ComponentHandle` impl. SystemTrayIcon
+    // gets an inherent impl with no `window()` accessor: a tray icon is not a
+    // `slint::Window` and the previous accessor's body would panic at runtime.
+    let handle_impl = {
+        let common = |vis: TokenStream| {
+            quote!(
+                #vis fn as_weak(&self) -> slint::Weak<Self> {
+                    slint::Weak::new(sp::VRc::downgrade(&self.0))
+                }
+
+                #vis fn clone_strong(&self) -> Self {
+                    Self(self.0.clone())
+                }
+
+                #vis fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
+                    T::get(&self)
+                }
+            )
+        };
+        match llr.top_level_type {
+            llr::TopLevelComponentType::Window => {
+                let common = common(quote!());
+                quote!(
+                    impl slint::ComponentHandle for #public_component_id {
+                        #common
+
+                        fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.show()?;
+                            sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
+                            self.hide()?;
+                            ::core::result::Result::Ok(())
+                        }
+
+                        fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
+                        }
+
+                        fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
+                        }
+
+                        fn window(&self) -> &slint::Window {
+                            self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
+                        }
+                    }
+                )
+            }
+            llr::TopLevelComponentType::SystemTrayIcon => {
+                // Look up the SystemTrayIcon native item — it sits as item 0 of the
+                // root sub-component when the public component inherits SystemTrayIcon.
+                let root_sub = &unit.sub_components[llr.item_tree.root];
+                let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
+                debug_assert_eq!(
+                    tray_item.ty.class_name.as_str(),
+                    "SystemTrayIcon",
+                    "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
+                );
+                let tray_field = ident(&tray_item.name);
+                let common = common(quote!(pub));
+                // No `run()`: a tray icon doesn't drive the event loop. `show`/`hide`
+                // toggle the `visible` property; the platform side of the change
+                // tracker turns that into a real show/hide of the OS tray icon.
+                quote!(
+                    impl #public_component_id {
+                        #common
+
+                        pub fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            let _self = sp::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#tray_field()
+                                .apply_pin(_self)
+                                .visible
+                                .set(true);
+                            ::core::result::Result::Ok(())
+                        }
+
+                        pub fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            let _self = sp::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#tray_field()
+                                .apply_pin(_self)
+                                .visible
+                                .set(false);
+                            ::core::result::Result::Ok(())
+                        }
+                    }
+                )
+            }
+        }
+    };
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
@@ -362,8 +466,7 @@ fn generate_public_component(
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
-                // ensure that the window exist as this point so further call to window() don't panic
-                inner.globals.get().unwrap().window_adapter_ref()?;
+                #eager_create_window
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 ::core::result::Result::Ok(Self(inner))
             }
@@ -373,7 +476,7 @@ fn generate_public_component(
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
 
-                inner.globals.get().unwrap().create_window_from_context(ctx)?;
+                #init_with_context
 
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 ::core::result::Result::Ok(Self(inner))
@@ -396,38 +499,7 @@ fn generate_public_component(
             }
         }
 
-        impl slint::ComponentHandle for #public_component_id {
-            fn as_weak(&self) -> slint::Weak<Self> {
-                slint::Weak::new(sp::VRc::downgrade(&self.0))
-            }
-
-            fn clone_strong(&self) -> Self {
-                Self(self.0.clone())
-            }
-
-            fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.show()?;
-                sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
-                self.hide()?;
-                ::core::result::Result::Ok(())
-            }
-
-            fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
-            }
-
-            fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
-            }
-
-            fn window(&self) -> &slint::Window {
-                self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
-            }
-
-            fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
-                T::get(&self)
-            }
-        }
+        #handle_impl
     )
 }
 
@@ -495,6 +567,36 @@ fn generate_shared_globals(
         })
         .unzip();
 
+    let needs_window_adapter = llr.needs_window_adapter();
+
+    // `create_window_from_context` is only invoked from a Window-rooted
+    // public component's `new_with_context`, and `maybe_window_adapter_impl`
+    // is only invoked from per-tree `register_item_tree` / PinnedDrop hooks
+    // — both gated out for tray-only units. Emit them only when something
+    // actually calls them; otherwise `#![deny(warnings)]` builds (e.g.
+    // test-driver-rust with `--features build-time`) trip on dead_code.
+    // `window_adapter_impl` / `window_adapter_ref` are kept unconditionally
+    // because expression codegen (layout-info, font metrics) still
+    // references them on every tree.
+    let optional_window_adapter_helpers = needs_window_adapter.then(|| {
+        quote!(
+            #[cfg(#experimental)]
+            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
+                let adapter = ctx.platform().create_window_adapter()?;
+                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+                sp::Ok(())
+            }
+
+            fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
+                self.window_adapter.get().cloned()
+            }
+        )
+    });
+
     quote! {
         #pub_token struct SharedGlobals {
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
@@ -546,20 +648,7 @@ fn generate_shared_globals(
                 })
             }
 
-            #[cfg(#experimental)]
-            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
-                let adapter = ctx.platform().create_window_adapter()?;
-                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
-                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
-                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
-                #apply_constant_scale_factor
-                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
-                sp::Ok(())
-            }
-
-            fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
-                self.window_adapter.get().cloned()
-            }
+            #optional_window_adapter_helpers
         }
     }
 }
@@ -1801,7 +1890,14 @@ fn generate_item_tree(
     index_property: Option<llr::PropertyIdx>,
     is_popup: bool,
 ) -> TokenStream {
-    let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
+    let needs_window_adapter = root.needs_window_adapter();
+    let sub_comp = generate_sub_component(
+        sub_tree.root,
+        root,
+        parent_ctx,
+        index_property,
+        needs_window_adapter,
+    );
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
         .iter()
@@ -1910,6 +2006,48 @@ fn generate_item_tree(
         quote!(false)
     };
 
+    // SystemTrayIcon-only compilation units don't have a `WindowAdapter` on
+    // SharedGlobals, so the per-tree register / unregister / vtable hooks
+    // skip the adapter-touching paths and bottom out at None. Without a
+    // `WindowAdapter` there's no renderer to free graphics resources with
+    // and tray-rooted items allocate none, so the `PinnedDrop` impl is
+    // omitted entirely (the struct uses `#[pin]` instead of `#[pin_drop]`).
+    let (register_window_adapter_arg, pinned_drop_impl, window_adapter_vtable_body): (
+        TokenStream,
+        Option<TokenStream>,
+        TokenStream,
+    ) = if needs_window_adapter {
+        (
+            quote!(globals.maybe_window_adapter_impl()),
+            Some(quote!(
+                impl sp::PinnedDrop for #inner_component_id {
+                    fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
+                        sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
+                        if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
+                            sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
+                        }
+                    }
+                }
+            )),
+            quote!(if do_create {
+                *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
+            } else {
+                *result = self.globals.get().unwrap().maybe_window_adapter_impl();
+            }),
+        )
+    } else {
+        (
+            quote!(::core::option::Option::None),
+            None,
+            // Always None for tray-rooted trees: there's no adapter to hand
+            // out and `do_create=true` must not silently materialize one.
+            quote!(
+                let _ = do_create;
+                *result = sp::None;
+            ),
+        )
+    };
+
     quote!(
         #sub_comp
 
@@ -1921,7 +2059,7 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
-                sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
+                sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
                 ::core::result::Result::Ok(self_rc)
             }
@@ -1945,14 +2083,7 @@ fn generate_item_tree(
             ItemTreeVTable_static!(static VT for self::#inner_component_id);
         };
 
-        impl sp::PinnedDrop for #inner_component_id {
-            fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
-                sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
-                if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
-                    sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
-                }
-            }
-        }
+        #pinned_drop_impl
 
         impl sp::ItemTree for #inner_component_id {
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
@@ -2054,11 +2185,7 @@ fn generate_item_tree(
                 do_create: bool,
                 result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
             ) {
-                if do_create {
-                    *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
-                } else {
-                    *result = self.globals.get().unwrap().maybe_window_adapter_impl();
-                }
+                #window_adapter_vtable_body
             }
         }
 
@@ -3367,13 +3494,14 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 
                 let close_policy = compile_expression(close_policy, ctx);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
                     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                     let shared_global = #component_access_tokens.globals.get().unwrap();
-                    let globals = if let Some(popup_window_adapter) = sp::WindowInner::from_pub(#window_adapter_tokens.window()).create_popup_window_adapter() {
+                    let window_adapter = shared_global.window_adapter_impl();
+                    let window = sp::WindowInner::from_pub(window_adapter.window());
+                    let globals = if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
                         shared_global.clone_with_window_adapter(popup_window_adapter)
                     } else {
                         shared_global.clone()
@@ -3383,10 +3511,10 @@ fn compile_builtin_function_call(
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                        window.close_popup(current_id);
                     }
                     #component_access_tokens.#popup_id_name.set(Some(
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                        window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,
@@ -3879,6 +4007,51 @@ fn compile_builtin_function_call(
                 }
                 sp::WindowInner::from_pub(#window_adapter_tokens.window())
                     .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
+            })
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                Expression::PropertyReference(system_tray_ref),
+                Expression::NumberLiteral(tree_index),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
+            };
+
+            let current_sub_component = ctx.current_sub_component().unwrap();
+            let item_tree_id = inner_component_id(
+                &ctx.compilation_unit.sub_components
+                    [current_sub_component.menu_item_trees[*tree_index as usize].root],
+            );
+
+            let system_tray = access_member(system_tray_ref, ctx).unwrap();
+            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+
+            // `if cond : Menu { ... }` lowers the condition into a closure that
+            // gates the menu's shadow tree. `MenuFromItemTree::new_with_condition`
+            // re-evaluates it through a property-tracked binding.
+            let menu_from_item_tree = if let Some(condition) = rest.first() {
+                let binding = compile_expression(condition, ctx);
+                quote!(sp::MenuFromItemTree::new_with_condition(
+                    sp::VRc::into_dyn(menu_item_tree_instance),
+                    {
+                        let self_weak = _self.self_weak.get().unwrap().clone();
+                        move || {
+                            let Some(self_rc) = self_weak.upgrade() else { return false };
+                            let _self = self_rc.as_pin_ref();
+                            #binding
+                        }
+                    },
+                ))
+            } else {
+                quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
+            };
+
+            quote!({
+                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
+                #system_tray.set_menu(#system_tray_rc, menu_vrc);
             })
         }
         BuiltinFunction::MonthDayCount => {

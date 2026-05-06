@@ -656,6 +656,14 @@ fn generate_model_two_way_binding(
     let index_prop_name = ident(&body_sc.properties[info.index_prop].name);
     let repeater_index = usize::from(info.repeater_index);
 
+    // Determine the C++ class name of `self` so we can cast back from
+    // the type-erased VRc obtained by locking the weak pointer.
+    let self_type = ident(
+        &ctx.current_sub_component()
+            .expect("model two-way bindings only exist on sub-components")
+            .name,
+    );
+
     // Walk the parent chain in a single expression so the intermediate
     // `lock().value()` temporaries live until we assign to `body_rc`.
     let (body_setup, body) = if info.parent_level == 0 {
@@ -674,10 +682,21 @@ fn generate_model_two_way_binding(
         lower_field_access_chain("data".into(), info.data_prop_ty, field_access);
     let cpp_ty = ty.cpp_type().unwrap();
 
+    // Capture a weak pointer instead of a raw `self` so the getter and
+    // setter stay safe when the repeater instance is destroyed while a
+    // forwarded binding on a shared common property still references it.
     format!(
         "slint::private_api::Property<{cpp_ty}>::link_two_way_to_model_data(&{p1}, \
-         [self]() -> {cpp_ty} {{ {body_setup}return {getter_expr}; }}, \
-         [self](const {cpp_ty} &value) {{ \
+         [weak = self->self_weak]() -> std::optional<{cpp_ty}> {{ \
+            auto rc = weak.lock(); \
+            if (!rc) return std::nullopt; \
+            auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
+            {body_setup}return {getter_expr}; \
+         }}, \
+         [weak = self->self_weak](const {cpp_ty} &value) {{ \
+            auto rc = weak.lock(); \
+            if (!rc) return; \
+            auto self = reinterpret_cast<const {self_type}*>((*rc).borrow().instance); \
             {body_setup}\
             if (auto parent_opt = {body}->parent.lock()) {{ \
                 auto data = {body}->{data_prop_name}.get(); \
@@ -1433,12 +1452,37 @@ fn generate_public_component(
         &ctx,
     );
 
+    // Window-rooted components route `show`/`hide` through the underlying
+    // window adapter, expose `window()`, and have a `run()` that drives the
+    // event loop. SystemTrayIcon-rooted components instead toggle the `visible`
+    // property on the tray native item, expose no `window()`, and skip
+    // `run()` entirely (a tray icon doesn't drive the event loop).
+    let (show_body, hide_body) = match component.top_level_type {
+        llr::TopLevelComponentType::Window => {
+            ("m_globals.window().show();".to_string(), "m_globals.window().hide();".to_string())
+        }
+        llr::TopLevelComponentType::SystemTrayIcon => {
+            let root_sub = &unit.sub_components[component.item_tree.root];
+            let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
+            debug_assert_eq!(
+                tray_item.ty.class_name.as_str(),
+                "SystemTrayIcon",
+                "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
+            );
+            let tray_field = ident(&tray_item.name);
+            (
+                format!("{tray_field}.visible.set(true);"),
+                format!("{tray_field}.visible.set(false);"),
+            )
+        }
+    };
+
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "show".into(),
             signature: "() -> void".into(),
-            statements: Some(vec!["window().show();".into()]),
+            statements: Some(vec![show_body]),
             ..Default::default()
         }),
     ));
@@ -1448,34 +1492,38 @@ fn generate_public_component(
         Declaration::Function(Function {
             name: "hide".into(),
             signature: "() -> void".into(),
-            statements: Some(vec!["window().hide();".into()]),
+            statements: Some(vec![hide_body]),
             ..Default::default()
         }),
     ));
 
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "window".into(),
-            signature: "() const -> slint::Window&".into(),
-            statements: Some(vec!["return m_globals.window();".into()]),
-            ..Default::default()
-        }),
-    ));
-
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "run".into(),
-            signature: "() -> void".into(),
-            statements: Some(vec![
-                "show();".into(),
-                "slint::run_event_loop();".into(),
-                "hide();".into(),
-            ]),
-            ..Default::default()
-        }),
-    ));
+    match component.top_level_type {
+        llr::TopLevelComponentType::Window => {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "window".into(),
+                    signature: "() const -> slint::Window&".into(),
+                    statements: Some(vec!["return m_globals.window();".into()]),
+                    ..Default::default()
+                }),
+            ));
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "run".into(),
+                    signature: "() -> void".into(),
+                    statements: Some(vec![
+                        "show();".into(),
+                        "slint::run_event_loop();".into(),
+                        "hide();".into(),
+                    ]),
+                    ..Default::default()
+                }),
+            ));
+        }
+        llr::TopLevelComponentType::SystemTrayIcon => {}
+    }
 
     component_struct.friends.push("slint::private_api::WindowAdapterRc".into());
 
@@ -1517,6 +1565,18 @@ fn generate_item_tree(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
+    let needs_window_adapter = root.needs_window_adapter();
+    // True only for the root tree of a SystemTrayIcon-rooted public component.
+    // Repeaters / popup_menu / popup-window trees stay on the windowed code
+    // path even when they live inside a tray-only unit (popup menus are
+    // window-shaped, and there's no SystemTrayIcon-rooted repeater root anyway).
+    let is_system_tray_root = parent_ctx.is_none()
+        && !is_popup
+        && root.public_components.iter().any(|p| {
+            p.item_tree.root == sub_tree.root
+                && p.top_level_type == llr::TopLevelComponentType::SystemTrayIcon
+        });
+
     target_struct.friends.push(format_smolstr!(
         "vtable::VRc<slint::private_api::ItemTreeVTable, {}>",
         item_tree_class_name
@@ -1881,17 +1941,26 @@ fn generate_item_tree(
         }),
     ));
 
+    let window_adapter_vtable_statements = if needs_window_adapter {
+        vec![format!(
+            "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
+        )]
+    } else {
+        // Tray-only units have no `WindowAdapter`. The runtime initializes
+        // `*result` to None before calling, so leaving it untouched reports
+        // "no adapter" — and crucially `do_create=true` no longer silently
+        // materializes a hidden window adapter.
+        vec![]
+    };
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
             name: "window_adapter".into(),
             signature:
-                "(slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
                     .into(),
             is_static: true,
-            statements: Some(vec![format!(
-                "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
-            )]),
+            statements: Some(window_adapter_vtable_statements),
             ..Default::default()
         }),
     ));
@@ -1979,8 +2048,13 @@ fn generate_item_tree(
     // And in PopupWindow this is also called by the runtime
     if parent_ctx.is_none() && !is_popup {
         create_code.push("self->user_init();".to_string());
-        // initialize the Window in this point to be consistent with Rust
-        create_code.push("self->window();".to_string())
+        // initialize the Window in this point to be consistent with Rust.
+        // SystemTrayIcon-rooted components have no `WindowAdapter`, so skip the
+        // eager creation — instantiating a tray must not spin up a hidden
+        // window adapter as a side effect.
+        if !is_system_tray_root {
+            create_code.push("self->m_globals.window();".to_string())
+        }
     }
 
     create_code
@@ -4478,6 +4552,50 @@ fn compile_builtin_function_call(
                     }}
                 }}")
             }
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                llr::Expression::PropertyReference(system_tray_ref),
+                llr::Expression::NumberLiteral(tree_index),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
+            };
+
+            let current_sub_component = ctx.current_sub_component().unwrap();
+            let item_tree_id = ident(
+                &ctx.compilation_unit.sub_components
+                    [current_sub_component.menu_item_trees[*tree_index as usize].root]
+                    .name,
+            );
+            let system_tray = access_member(system_tray_ref, ctx).unwrap();
+            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+
+            // `if cond : Menu { ... }` is lowered to a condition lambda passed
+            // alongside the menu wrapper. `create_menu_wrapper` already accepts
+            // the optional condition pointer.
+            let condition = if let [condition] = rest {
+                let condition = compile_expression(condition, ctx);
+                format!(
+                    r"[](auto menu_tree) {{
+                        auto self_mapped = reinterpret_cast<const {item_tree_id} *>(menu_tree->operator->())->parent.lock();
+                        [[maybe_unused]] auto self = &**self_mapped;
+                        return {condition};
+                    }}"
+                )
+            } else {
+                "nullptr".to_string()
+            };
+
+            format!(
+                r"{{
+                    auto item_tree = {item_tree_id}::create(self);
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree.into_dyn(), {condition});
+                    slint::cbindgen_private::ItemRc item_rc{{ {system_tray_rc} }};
+                    slint::cbindgen_private::slint_system_tray_icon_set_menu(&{system_tray}, &item_rc, &menu_wrapper);
+                }}"
+            )
         }
         BuiltinFunction::Use24HourFormat => {
             "slint::cbindgen_private::slint_date_time_use_24_hour_format()".to_string()

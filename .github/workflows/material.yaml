@@ -95,7 +95,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Take screenshots
-        run: cargo run -p slint-docsnapper -- -Lmaterial=$PWD/src/material.slint docs
+        run: cargo run -p slint-doc-generator -- screenshots -Lmaterial=$PWD/src/material.slint docs
         working-directory: ui-libraries/material
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test the accessible-orientation property.
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    in-out property <Orientation> slider-orientation: Orientation.horizontal;
+
+    VerticalLayout {
+        Rectangle {
+            accessible-role: slider;
+            accessible-label: "horizontal-slider";
+            accessible-orientation: Orientation.horizontal;
+        }
+        Rectangle {
+            accessible-role: slider;
+            accessible-label: "vertical-slider";
+            accessible-orientation: Orientation.vertical;
+        }
+        Rectangle {
+            accessible-role: slider;
+            accessible-label: "dynamic-slider";
+            accessible-orientation: root.slider-orientation;
+        }
+        Rectangle {
+            accessible-role: button;
+            accessible-label: "no-orientation";
+        }
+    }
+}
+
+
+/*
+
+```rust
+use slint_testing::Orientation;
+
+let instance = TestCase::new().unwrap();
+
+let h = slint_testing::ElementHandle::find_by_accessible_label(&instance, "horizontal-slider").next().unwrap();
+assert_eq!(h.accessible_orientation(), Some(Orientation::Horizontal));
+
+let v = slint_testing::ElementHandle::find_by_accessible_label(&instance, "vertical-slider").next().unwrap();
+assert_eq!(v.accessible_orientation(), Some(Orientation::Vertical));
+
+let d = slint_testing::ElementHandle::find_by_accessible_label(&instance, "dynamic-slider").next().unwrap();
+assert_eq!(d.accessible_orientation(), Some(Orientation::Horizontal));
+instance.set_slider_orientation(Orientation::Vertical);
+assert_eq!(d.accessible_orientation(), Some(Orientation::Vertical));
+
+let b = slint_testing::ElementHandle::find_by_accessible_label(&instance, "no-orientation").next().unwrap();
+// Element has no accessible-orientation binding, so the property is not exposed.
+assert!(b.accessible_orientation().is_none());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto h = slint::testing::ElementHandle::find_by_accessible_label(handle, "horizontal-slider");
+assert_eq(h.size(), 1);
+assert(h[0].accessible_orientation().has_value());
+assert(*h[0].accessible_orientation() == slint::Orientation::Horizontal);
+
+auto v = slint::testing::ElementHandle::find_by_accessible_label(handle, "vertical-slider");
+assert_eq(v.size(), 1);
+assert(v[0].accessible_orientation().has_value());
+assert(*v[0].accessible_orientation() == slint::Orientation::Vertical);
+
+auto d = slint::testing::ElementHandle::find_by_accessible_label(handle, "dynamic-slider");
+assert_eq(d.size(), 1);
+assert(*d[0].accessible_orientation() == slint::Orientation::Horizontal);
+instance.set_slider_orientation(slint::Orientation::Vertical);
+assert(*d[0].accessible_orientation() == slint::Orientation::Vertical);
+
+auto b = slint::testing::ElementHandle::find_by_accessible_label(handle, "no-orientation");
+assert_eq(b.size(), 1);
+assert(!b[0].accessible_orientation().has_value());
+```
+
+*/

@@ -263,7 +263,13 @@ mod visitor {
     }
 
     pub fn visit_public_component(
-        PublicComponent { public_properties, private_properties: _, item_tree, name:_ }: &mut PublicComponent,
+        PublicComponent {
+            public_properties,
+            private_properties: _,
+            item_tree,
+            name: _,
+            top_level_type: _,
+        }: &mut PublicComponent,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
     ) {

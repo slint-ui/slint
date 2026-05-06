@@ -77,7 +77,7 @@ runs:
           env:
             PREVIEW_URL: ${{ steps.preview.outputs.url }}
             PREVIEW_PATH_SUFFIX: ${{ inputs.path-suffix }}
-            DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+            DEPLOY_ENVIRONMENT: ${{ inputs.environment }}-${{ github.event.number }}
           with:
             script: |
               const raw = (process.env.PREVIEW_URL || '').trim();
@@ -91,7 +91,8 @@ runs:
                 ref,
                 environment: process.env.DEPLOY_ENVIRONMENT,
                 auto_merge: false,
-                required_contexts: []
+                required_contexts: [],
+                transient_environment: true
               });
               if (deployment.data.id) {
                 await github.rest.repos.createDeploymentStatus({

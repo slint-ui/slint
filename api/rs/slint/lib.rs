@@ -232,21 +232,25 @@ pub mod private_unstable_api;
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system for rendering to the screen
 /// and reacting to user input.
-/// This function will run until the last window is closed or until
-/// [`quit_event_loop()`] is called.
 ///
-/// See also [`run_event_loop_until_quit()`] to keep the event loop running until
-/// [`quit_event_loop()`] is called, even if all windows are closed.
+/// This function will run until the last window is closed and the last
+/// visible system tray icon is hidden, or until [`quit_event_loop()`] is
+/// called. A visible `SystemTrayIcon` keeps the loop alive on its own, so a
+/// tray-only program can use this variant directly.
+///
+/// See also [`run_event_loop_until_quit()`] to keep the loop running even
+/// when nothing visible is left.
 pub fn run_event_loop() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.run_event_loop())
 }
 
-/// Similar to [`run_event_loop()`], but this function enters the main event loop
-/// and continues to run even when the last window is closed, until
+/// Similar to [`run_event_loop()`], but this function continues to run even
+/// when no windows or system tray icons are visible, until
 /// [`quit_event_loop()`] is called.
 ///
-/// This is useful for system tray applications where the application needs to stay alive
-/// even if no windows are visible.
+/// Use this for daemon-style programs that wait on callbacks without any
+/// visible UI. A program with at least one visible window or `SystemTrayIcon`
+/// can use [`run_event_loop()`] instead, since either keeps the loop alive.
 pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| {
         #[allow(deprecated)]

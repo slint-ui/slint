@@ -155,7 +155,9 @@ impl ImageCache {
     }
 }
 
-fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
+pub(super) fn dynamic_image_to_shared_image_buffer(
+    dynamic_image: image::DynamicImage,
+) -> SharedImageBuffer {
     use rgb::AsPixels;
 
     if dynamic_image.color().has_alpha() {

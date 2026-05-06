@@ -352,7 +352,7 @@ pub struct WinitWindowAdapter {
     winit_window_or_none: RefCell<WinitWindowOrNone>,
     window_existence_wakers: RefCell<Vec<core::task::Waker>>,
 
-    #[cfg(not(use_winit_theme))]
+    #[cfg(xdg_desktop_settings)]
     xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
     #[cfg(target_os = "macos")]
@@ -408,7 +408,7 @@ impl WinitWindowAdapter {
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
-            #[cfg(not(use_winit_theme))]
+            #[cfg(xdg_desktop_settings)]
             xdg_settings_watcher: Default::default(),
             #[cfg(target_os = "macos")]
             macos_color_observer: OnceCell::new(),
@@ -881,7 +881,7 @@ impl WinitWindowAdapter {
         }
 
         // Inform winit about the selected color theme, so that the window decoration is drawn correctly.
-        #[cfg(not(use_winit_theme))]
+        #[cfg(xdg_desktop_settings)]
         if let Some(winit_window) = self.winit_window() {
             winit_window.set_theme(match scheme {
                 ColorScheme::Unknown => None,
@@ -951,15 +951,15 @@ impl WinitWindowAdapter {
         }
     }
 
-    #[cfg(not(use_winit_theme))]
+    #[cfg(xdg_desktop_settings)]
     fn spawn_xdg_settings_watcher(&self) -> Option<i_slint_core::future::JoinHandle<()>> {
         let window_inner = WindowInner::from_pub(self.window());
         let self_weak = self.self_weak.clone();
         window_inner
             .context()
             .spawn_local(async move {
-                if let Err(err) = crate::xdg_color_scheme::watch(self_weak).await {
-                    i_slint_core::debug_log!("Error watching for xdg color schemes: {}", err);
+                if let Err(err) = crate::xdg_desktop_settings::watch(self_weak).await {
+                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {}", err);
                 }
             })
             .ok()
@@ -1496,7 +1496,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             .get_or_init(|| {
                 Box::pin(Property::new({
                     cfg_if::cfg_if! {
-                        if #[cfg(use_winit_theme)] {
+                        if #[cfg(not(xdg_desktop_settings))] {
                             self.winit_window_or_none
                                 .borrow()
                                 .as_window()
@@ -1666,7 +1666,7 @@ impl Drop for WinitWindowAdapter {
             self.winit_window_or_none.borrow().as_window().map(|winit_window| winit_window.id()),
         );
 
-        #[cfg(not(use_winit_theme))]
+        #[cfg(xdg_desktop_settings)]
         if let Some(xdg_watch_future) = self.xdg_settings_watcher.take() {
             xdg_watch_future.abort();
         }

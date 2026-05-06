@@ -124,8 +124,8 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
-    #[allow(dead_code)]
     pub open_url: Rc<RefCell<Option<SharedString>>>,
+    pub debug_logs: Rc<RefCell<Vec<String>>>,
 }
 
 impl TestingBackend {
@@ -135,6 +135,7 @@ impl TestingBackend {
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
             open_url: Default::default(),
+            debug_logs: Default::default(),
         }
     }
 }
@@ -150,6 +151,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             mouse_cursor: Default::default(),
             all_item_trees: Default::default(),
             open_url: self.open_url.clone(),
+            debug_logs: self.debug_logs.clone(),
         }))
     }
 
@@ -211,6 +213,11 @@ impl i_slint_core::platform::Platform for TestingBackend {
         *self.open_url.borrow_mut() = Some(url.into());
         Ok(())
     }
+
+    fn debug_log(&self, arguments: core::fmt::Arguments) {
+        self.debug_logs.borrow_mut().push(arguments.to_string());
+        i_slint_core::debug_log::default_debug_log(arguments);
+    }
 }
 
 #[derive(Default)]
@@ -235,6 +242,7 @@ pub struct TestingWindow {
     mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
+    pub debug_logs: Rc<RefCell<Vec<String>>>,
 }
 
 impl TestingWindow {
@@ -246,6 +254,11 @@ impl TestingWindow {
     #[allow(dead_code)]
     pub fn open_url(&self) -> Option<SharedString> {
         self.open_url.borrow().clone()
+    }
+
+    /// Drain and return all debug_log messages captured since the last call.
+    pub fn take_debug_log(&self) -> Vec<String> {
+        self.debug_logs.borrow_mut().drain(..).collect()
     }
 }
 

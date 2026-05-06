@@ -1300,6 +1300,16 @@ impl ComponentDefinition {
         self.inner.unerase(guard).id()
     }
 
+    /// True if instances of this component expose a `slint::Window`-shaped API
+    /// (i.e. calling [`ComponentInstance::window`] is meaningful). False for
+    /// non-windowed roots such as `SystemTrayIcon`, where `window()` would panic.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn is_window(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        !self.inner.unerase(guard).original.inherits_system_tray_icon()
+    }
+
     /// This gives access to the tree of Elements.
     #[cfg(feature = "internal")]
     #[doc(hidden)]
@@ -1368,6 +1378,11 @@ impl ComponentInstance {
     pub fn definition(&self) -> ComponentDefinition {
         generativity::make_guard!(guard);
         ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
+    }
+
+    fn is_system_tray_rooted(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).description().original.inherits_system_tray_icon()
     }
 
     /// Return the value for a public property of this component.
@@ -1689,10 +1704,25 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            // Mirror what the Rust/C++ generators emit for tray-rooted public
+            // components: toggle the `visible` property; the change-tracker on
+            // the SystemTrayIcon native item dispatches to the platform handle.
+            self.set_property("visible", Value::Bool(true)).expect(
+                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            self.set_property("visible", Value::Bool(false)).expect(
+                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().hide()
     }
 

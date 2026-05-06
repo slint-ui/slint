@@ -359,18 +359,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
                     if path.starts_with("data:") {
-                        match i_slint_compiler::data_uri::decode_data_uri(path) {
-                            Ok((data, extension)) => {
-                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
-                                let ext_bytes: &'static [u8] =
-                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
-                                Ok(corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(data),
-                                    corelib::slice::Slice::from_slice(ext_bytes),
-                                ))
-                            }
-                            Err(_) => Err(Default::default()),
-                        }
+                        i_slint_compiler::data_uri::decode_data_uri(path)
+                            .ok()
+                            .and_then(|(data, extension)| {
+                                corelib::graphics::decode_image_data(&data, &extension)
+                            })
+                            .ok_or_else(Default::default)
                     } else {
                         let path = std::path::Path::new(path);
                         if path.starts_with("builtin:/") {
@@ -1501,6 +1495,40 @@ fn call_builtin_function(
             set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu).unwrap();
             set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
                 .unwrap();
+
+            Value::Void
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                Expression::ElementReference(system_tray_elem),
+                Expression::ElementReference(item_tree_root),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupSystemTrayIcon")
+            };
+
+            let component = local_context.component_instance;
+            let elem = system_tray_elem.upgrade().unwrap();
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+            let description = enclosing_component.description;
+            let item_info = &description.items[elem.borrow().id.as_str()];
+            let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_tree = vtable::VRc::into_dyn(item_comp);
+            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
+
+            let menu_item_tree_component =
+                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+            let menu_vrc = crate::dynamic_item_tree::make_menu_item_tree(
+                &menu_item_tree_component,
+                &enclosing_component,
+                rest.first(),
+            );
+
+            let system_tray =
+                item_rc.downcast::<corelib::items::SystemTrayIcon>().expect("SystemTrayIcon item");
+            system_tray.as_pin_ref().set_menu(&item_rc, vtable::VRc::into_dyn(menu_vrc));
 
             Value::Void
         }
