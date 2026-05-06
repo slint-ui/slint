@@ -1756,6 +1756,25 @@ impl WindowInner {
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
+/// Runtime entry point for `BuiltinFunction::ColorScheme`. Returns the tray's own
+/// scheme when the root is a [`crate::items::SystemTrayIcon`], otherwise the
+/// component's [`crate::SlintContext`] value reached via its window adapter.
+pub fn resolve_color_scheme(root: &crate::item_tree::ItemTreeRc) -> crate::items::ColorScheme {
+    let root_item = ItemRc::new_root(root.clone());
+    if let Some(tray) = root_item.downcast::<crate::items::SystemTrayIcon>() {
+        let scheme = tray.as_pin_ref().color_scheme();
+        if scheme != crate::items::ColorScheme::Unknown {
+            return scheme;
+        }
+    }
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map_or(crate::items::ColorScheme::Unknown, |a| {
+        WindowInner::from_pub(a.window()).context().color_scheme()
+    })
+}
+
 /// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
 /// from the component's [`crate::SlintContext`] reached via its window adapter, or
 /// transparent if none is associated.
@@ -1781,7 +1800,7 @@ pub mod ffi {
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::Size;
     use crate::graphics::{Color, IntSize, Rgba8Pixel};
-    use crate::items::{ColorScheme, WindowItem};
+    use crate::items::WindowItem;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -2183,23 +2202,23 @@ pub mod ffi {
         }
     }
 
-    /// Return whether the style is using a dark theme
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_color_scheme(
-        handle: *const WindowAdapterRcOpaque,
-    ) -> ColorScheme {
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            WindowInner::from_pub(window_adapter.window()).context().color_scheme()
-        }
-    }
-
     /// Return the system accent color, or transparent if not available. The accent color
     /// is process-wide and lives on [`crate::SlintContext`], so this no longer needs a
     /// window-adapter handle.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_accent_color(root: &crate::item_tree::ItemTreeRc, out: &mut Color) {
         *out = super::accent_color(root);
+    }
+
+    /// C ABI counterpart of [`super::resolve_color_scheme`]. The C++ generator emits a call
+    /// to this for `BuiltinFunction::ColorScheme` so a `Palette.color-scheme` binding inside
+    /// a tray-rooted component resolves to the tray's scheme without forcing a window
+    /// adapter to be created.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_resolve_color_scheme(
+        root: &crate::item_tree::ItemTreeRc,
+    ) -> crate::items::ColorScheme {
+        super::resolve_color_scheme(root)
     }
 
     /// Return whether the platform supports native menu bars
