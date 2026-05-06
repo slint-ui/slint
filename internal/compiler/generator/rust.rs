@@ -1948,7 +1948,6 @@ fn generate_item_tree(
     }));
     let mut item_tree_array = Vec::new();
     let mut item_array = Vec::new();
-    // Collect nodes that have dynamic z-ordering (node_index, sub_component_path, z_sort_order_property)
     let mut z_sorted_nodes: Vec<(
         usize,
         Vec<llr::SubComponentInstanceIdx>,

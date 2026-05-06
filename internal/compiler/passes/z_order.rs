@@ -27,45 +27,17 @@ fn reorder_children_by_zorder(
     elem: &Rc<RefCell<crate::object_tree::Element>>,
     diag: &mut BuildDiagnostics,
 ) {
-    let children_count = elem.borrow().children.len();
-    if children_count == 0 {
+    if elem.borrow().children.is_empty() {
         return;
     }
 
-    // First pass: determine if we have any z properties and whether they're all constant
     let mut has_any_z = false;
     let mut has_dynamic_z = false;
 
     for child_elm in elem.borrow().children.iter() {
-        let has_z = child_elm.borrow().bindings.contains_key("z");
-        let repeated_has_z = if !has_z {
-            child_elm.borrow().repeated.is_some()
-                && matches!(&child_elm.borrow().base_type, ElementType::Component(c)
-                    if c.root_element.borrow().bindings.contains_key("z"))
-        } else {
-            false
-        };
-
-        if has_z || repeated_has_z {
+        if has_z_binding(child_elm) {
             has_any_z = true;
-            let is_const = if has_z {
-                child_elm
-                    .borrow()
-                    .bindings
-                    .get("z")
-                    .map(|e| try_eval_const_expr(&e.borrow().expression).is_some())
-                    .unwrap_or(false)
-            } else if let ElementType::Component(c) = &child_elm.borrow().base_type {
-                c.root_element
-                    .borrow()
-                    .bindings
-                    .get("z")
-                    .map(|e| try_eval_const_expr(&e.borrow().expression).is_some())
-                    .unwrap_or(false)
-            } else {
-                false
-            };
-            if !is_const {
+            if get_z_expr(child_elm).is_none() {
                 has_dynamic_z = true;
             }
         }
@@ -180,6 +152,37 @@ fn setup_dynamic_z_order(
             child_elm.borrow_mut().z_order = Some(ZOrder::Dynamic(nr));
         }
     }
+}
+
+/// Try to evaluate the z binding expression for a child element, checking both
+/// direct bindings and repeated component root elements.
+fn get_z_expr(child_elm: &ElementRc) -> Option<f64> {
+    let child = child_elm.borrow();
+    if let Some(b) = child.bindings.get("z") {
+        return try_eval_const_expr(&b.borrow().expression);
+    }
+    if child.repeated.is_some() {
+        if let ElementType::Component(c) = &child.base_type {
+            if let Some(b) = c.root_element.borrow().bindings.get("z") {
+                return try_eval_const_expr(&b.borrow().expression);
+            }
+        }
+    }
+    None
+}
+
+/// Check whether a child element has a z binding at all.
+fn has_z_binding(child_elm: &ElementRc) -> bool {
+    let child = child_elm.borrow();
+    if child.bindings.contains_key("z") {
+        return true;
+    }
+    if child.repeated.is_some() {
+        if let ElementType::Component(c) = &child.base_type {
+            return c.root_element.borrow().bindings.contains_key("z");
+        }
+    }
+    false
 }
 
 fn try_eval_const_expr(expression: &Expression) -> Option<f64> {

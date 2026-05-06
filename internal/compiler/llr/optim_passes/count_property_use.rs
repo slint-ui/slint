@@ -152,7 +152,6 @@ pub fn count_property_use(root: &CompilationUnit) {
         visit_property(&p.activated, &ctx);
     }
 
-    // Visit z_sort_order_property references in tree nodes
     fn visit_tree_z_properties(node: &crate::llr::TreeNode, ctx: &EvaluationContext) {
         if let Some(z_props) = &node.z_sort_order_property {
             for (_, z_source) in z_props {
@@ -169,7 +168,6 @@ pub fn count_property_use(root: &CompilationUnit) {
         let ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
         visit_tree_z_properties(&c.item_tree.tree, &ctx);
     }
-    // Also visit z properties in repeated element sub_trees
     root.for_each_sub_components(&mut |sc, _ctx| {
         for r in &sc.repeated {
             let rep_ctx = EvaluationContext::new_sub_component(root, r.sub_tree.root, (), None);

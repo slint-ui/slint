@@ -1386,7 +1386,8 @@ pub fn visit_item_tree<Base>(
         match &item_tree_array[index as usize] {
             ItemTreeNode::Item { children_index, children_count, .. } => {
                 if let Some(sorted) = sorted_children_offsets {
-                    let count = sorted.len().min(*children_count as usize);
+                    debug_assert_eq!(sorted.len(), *children_count as usize);
+                    let count = sorted.len();
                     for i in 0..count {
                         let offset_idx = match order {
                             TraversalOrder::BackToFront => i,
