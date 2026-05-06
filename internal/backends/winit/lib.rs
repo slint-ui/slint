@@ -854,8 +854,6 @@ impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
         &self,
         clipboard: i_slint_core::platform::Clipboard,
     ) -> Result<DataTransfer, PlatformError> {
-        use i_slint_core::SharedString;
-
         Ok(crate::wasm_input_helper::get_clipboard_text(clipboard)
             .map(|string| SharedString::from(string).into())
             .unwrap_or_default())

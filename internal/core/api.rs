@@ -1300,9 +1300,6 @@ pub enum PlatformError {
 
     /// Another platform-specific error occurred.
     OtherError(Box<dyn core::error::Error + Send + Sync>),
-
-    /// [`DataTransfer::fetch`](crate::data_transfer::DataTransfer::fetch) was called, but no value of that type was provided.
-    DataTransferTypeNotFound(String),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1335,9 +1332,6 @@ impl core::fmt::Display for PlatformError {
             }
             PlatformError::Other(str) => f.write_str(str),
             PlatformError::OtherError(error) => error.fmt(f),
-            PlatformError::DataTransferTypeNotFound(type_) => {
-                write!(f, "Type not found in `data-transfer`: {type_}")
-            }
         }
     }
 }
