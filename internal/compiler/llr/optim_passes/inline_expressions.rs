@@ -135,10 +135,10 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorMix => 50,
         BuiltinFunction::ColorWithAlpha => 50,
         BuiltinFunction::ImageSize => 50,
-        BuiltinFunction::ArrayLength
-        | BuiltinFunction::ArrayPush
+        BuiltinFunction::ArrayLength => 50,
+        BuiltinFunction::ArrayPush
         | BuiltinFunction::ArrayRemove
-        | BuiltinFunction::ArrayInsert => 50,
+        | BuiltinFunction::ArrayInsert => ALLOC_COST,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,

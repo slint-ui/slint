@@ -531,18 +531,15 @@ impl<T: Clone + 'static> Model for VecModel<T> {
     }
 
     fn push_row(&self, data: Self::Data) {
-        self.array.borrow_mut().push(data);
-        self.notify.row_added(self.array.borrow().len() - 1, 1);
+        self.push(data);
     }
 
     fn remove_row(&self, row: usize) {
-        self.array.borrow_mut().remove(row);
-        self.notify.row_removed(row, 1);
+        self.remove(row);
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) {
-        self.array.borrow_mut().insert(row, data);
-        self.notify.row_added(row, 1);
+        self.insert(row, data);
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
