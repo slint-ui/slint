@@ -23,8 +23,8 @@ pub(crate) struct SlintContextInner {
     /// language when bundling translations.
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
     /// Process-wide color scheme. Backends' system-theme observers write here; bindings read from
-    /// it (directly or through `WindowInner::color_scheme`). Window-less components like
-    /// `SystemTrayIcon` rely on this as their default source.
+    /// it through [`SlintContext::color_scheme`]. Window-less components like `SystemTrayIcon`
+    /// rely on this as their default source.
     pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
     pub(crate) translations_bundle_languages:
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
