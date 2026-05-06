@@ -704,7 +704,8 @@ impl i_slint_core::platform::Platform for Backend {
         _: i_slint_core::InternalToken,
     ) {
         #[cfg(xdg_desktop_settings)]
-        if let Some(strong_ctx) = ctx.upgrade() {
+        {
+            let strong_ctx = ctx.upgrade().expect("bind_context is called while the SlintContext is still alive");
             let shared_weak = Rc::downgrade(&self.shared_data);
             let ctx_weak = ctx.clone();
             if let Ok(handle) = strong_ctx.spawn_local(async move {
