@@ -58,11 +58,11 @@ pub mod vulkan_surface;
 pub mod opengl_surface;
 
 #[cfg(feature = "wgpu-27")]
-mod wgpu_27_surface;
+pub mod wgpu_27_surface;
 #[cfg(feature = "wgpu-27")]
 pub use self::wgpu_27_surface as wgpu_surface;
 #[cfg(feature = "wgpu-29")]
-mod wgpu_29_surface;
+pub mod wgpu_29_surface;
 #[cfg(feature = "wgpu-29")]
 pub use self::wgpu_29_surface as wgpu_surface;
 

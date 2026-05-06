@@ -198,9 +198,9 @@ impl AndroidWindowAdapter {
             #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-29")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
             #[cfg(feature = "unstable-wgpu-29")]
-            renderer: SkiaRenderer::default_wgpu_29(&SkiaSharedContext::default()),
+            renderer: SkiaRenderer::default_wgpu(&SkiaSharedContext::default()),
             #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-29")))]
-            renderer: SkiaRenderer::default_wgpu_27(&SkiaSharedContext::default()),
+            renderer: SkiaRenderer::default_wgpu(&SkiaSharedContext::default()),
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),

@@ -145,21 +145,34 @@ impl super::Surface for WGPUSurface {
     ) -> Result<(), PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let frame = match self.surface.get_current_texture() {
-            Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Timeout) => {
-                self.surface.get_current_texture().map_err(|e| {
-                    format!("Error obtaining current surface texture after timeout: {e}")
-                })?
+        fn get_texture(
+            device: &wgpu::Device,
+            surface: &wgpu::Surface<'_>,
+            surface_config: &wgpu::SurfaceConfiguration,
+            retry: bool,
+        ) -> Result<wgpu::SurfaceTexture, PlatformError> {
+            match surface.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(texture) => Ok(texture),
+                wgpu::CurrentSurfaceTexture::Timeout => {
+                    if retry {
+                        get_texture(device, surface, surface_config, false)
+                    } else {
+                        Err(PlatformError::Other("Timeout".into()))
+                    }
+                }
+                // Outdated or lost: re-configure and try again
+                _ => {
+                    if retry {
+                        surface.configure(device, surface_config);
+                        get_texture(device, surface, surface_config, false)
+                    } else {
+                        Err(PlatformError::Other("Error begin surface_rendering".into()))
+                    }
+                }
             }
-            // Outdated or lost: re-configure and try again
-            Err(_) => {
-                self.surface.configure(&self.device, &self.surface_config.borrow());
-                self.surface.get_current_texture().map_err(|e| {
-                    format!("Error obtaining current surface texture after initial error: {e}")
-                })?
-            }
-        };
+        }
+
+        let frame = get_texture(&self.device, &self.surface, &self.surface_config.borrow(), true)?;
 
         let skia_surface = self.backend.make_surface(size, gr_context, &frame);
 

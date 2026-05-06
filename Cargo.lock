@@ -3341,6 +3341,7 @@ dependencies = [
 [[package]]
 name = "femtovg"
 version = "0.23.2"
+source = "git+https://github.com/Murmele/femtovg.git?rev=96953e53a9f300edde791363e888e9bc3d8e75f4#96953e53a9f300edde791363e888e9bc3d8e75f4"
 dependencies = [
  "bitflags 2.11.1",
  "bytemuck",
