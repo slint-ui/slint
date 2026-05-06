@@ -4497,7 +4497,13 @@ fn compile_builtin_function_call(
             )
         }
         BuiltinFunction::ColorScheme => {
-            format!("{}.color_scheme()", access_window_field(ctx))
+            // Route through the runtime helper so a `Palette.color-scheme` binding
+            // inside a SystemTrayIcon-rooted component naturally resolves against
+            // the tray's scheme without going through any window adapter.
+            format!(
+                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); return slint::cbindgen_private::slint_resolve_color_scheme(&_root); }}()",
+                ctx.generator_state.global_access
+            )
         }
         BuiltinFunction::AccentColor => {
             format!(
