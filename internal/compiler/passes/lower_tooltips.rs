@@ -45,6 +45,8 @@ const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
 const TOOLTIP_GAP_PX: f64 = 8.;
 
 const HAS_HOVER: &str = "has-hover";
+const MOUSE_X: &str = "mouse-x";
+const MOUSE_Y: &str = "mouse-y";
 const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
 const PLACEMENT: &str = "placement";
@@ -369,9 +371,19 @@ fn wire_tooltip_visibility_behavior(
     };
 
     let callback = Expression::Condition {
-        condition: Box::new(Expression::PropertyReference(has_hover_nr)),
-        true_expr: Box::new(Expression::CodeBlock(vec![set_running_true, restart_timer])),
+        condition: Box::new(Expression::PropertyReference(has_hover_nr.clone())),
+        true_expr: Box::new(Expression::CodeBlock(vec![set_running_true, restart_timer.clone()])),
         false_expr: Box::new(Expression::CodeBlock(vec![set_running_false.clone(), close_popup])),
+    };
+
+    let restart_on_move = Expression::Condition {
+        condition: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(Expression::PropertyReference(has_hover_nr.clone())),
+            rhs: Box::new(Expression::PropertyReference(timer_running.clone())),
+            op: '&',
+        }),
+        true_expr: Box::new(Expression::CodeBlock(vec![restart_timer.clone()])),
+        false_expr: Box::new(Expression::CodeBlock(Vec::new())),
     };
     let timer_triggered = Expression::CodeBlock(vec![show_popup, set_running_false]);
 
@@ -382,6 +394,20 @@ fn wire_tooltip_visibility_behavior(
         .or_default()
         .borrow_mut()
         .push(callback);
+    tooltip_area
+        .borrow_mut()
+        .change_callbacks
+        .entry(SmolStr::new_static(MOUSE_X))
+        .or_default()
+        .borrow_mut()
+        .push(restart_on_move.clone());
+    tooltip_area
+        .borrow_mut()
+        .change_callbacks
+        .entry(SmolStr::new_static(MOUSE_Y))
+        .or_default()
+        .borrow_mut()
+        .push(restart_on_move);
 
     {
         let mut elem_borrow = elem.borrow_mut();
@@ -507,8 +533,8 @@ fn lower_tooltips_in_component(
             .clone();
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
-        let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-x"));
-        let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static("mouse-y"));
+        let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
+        let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
         let tooltip_content = if has_custom_content {
             custom_children.into_iter().next().expect("validated single custom child")
         } else {
