@@ -23,7 +23,7 @@ use i_slint_preview_protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
 use lsp_types::Url;
-use slint::{PlatformError, SharedString, ToSharedString as _};
+use slint::{PlatformError, SharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -742,50 +742,27 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-const SLINT_COMPONENT_MIME_TYPE: &str = "application/x-slint-component";
-const SLINT_COMPONENT_MOVE_MIME_TYPE: &str = "application/x-slint-component-move";
-
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 enum DropCommand {
     Move { uri: SharedString, offset: u32 },
     Copy { index: usize },
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-struct InvalidDropCommand;
+impl TryFrom<DataTransfer> for DropCommand {
+    type Error = PlatformError;
 
-impl DropCommand {
-    fn try_parse_move(data: &DataTransfer) -> Option<Self> {
-        data.fetch(SLINT_COMPONENT_MOVE_MIME_TYPE).ok().and_then(|bytes| {
-            let string = str::from_utf8(&bytes).ok()?;
-            let (uri, offset_str) = string.rsplit_once(':')?;
-            let uri = uri.to_shared_string();
-            let offset = offset_str.parse().ok()?;
-
-            Some(DropCommand::Move { uri, offset })
-        })
-    }
-
-    fn try_parse_copy(data: &DataTransfer) -> Option<Self> {
-        data.fetch(SLINT_COMPONENT_MIME_TYPE).ok().and_then(|bytes| {
-            let string = str::from_utf8(&bytes).ok()?;
-            let index = string.parse().ok()?;
-
-            Some(DropCommand::Copy { index })
+    fn try_from(value: DataTransfer) -> Result<Self, Self::Error> {
+        value.user_data().and_then(|any| any.downcast().ok().as_deref().cloned()).ok_or_else(|| {
+            PlatformError::Other("`DataTransfer` user data was not `DropCommand`".into())
         })
     }
 }
 
-impl TryFrom<DataTransfer> for DropCommand {
-    type Error = InvalidDropCommand;
-    fn try_from(data: DataTransfer) -> Result<DropCommand, Self::Error> {
-        if let Some(move_cmd) = Self::try_parse_move(&data) {
-            Ok(move_cmd)
-        } else if let Some(copy_cmd) = Self::try_parse_copy(&data) {
-            Ok(copy_cmd)
-        } else {
-            Err(InvalidDropCommand)
-        }
+impl From<DropCommand> for DataTransfer {
+    fn from(value: DropCommand) -> Self {
+        let mut out = DataTransfer::default();
+        out.set_user_data(Rc::new(value));
+        out
     }
 }
 

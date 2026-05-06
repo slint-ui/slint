@@ -15,10 +15,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{
-    self, SLINT_COMPONENT_MIME_TYPE, SLINT_COMPONENT_MOVE_MIME_TYPE, SelectionNotification,
-    preview_data, properties,
-};
+use crate::preview::{self, DropCommand, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -171,20 +168,19 @@ pub fn create_ui(
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
     api.on_transfer_component(|index: i32| -> DataTransfer {
+        let Ok(index) = index.try_into() else {
+            return Default::default();
+        };
         let mut transfer = DataTransfer::default();
-        transfer.set_data(
-            SLINT_COMPONENT_MIME_TYPE.to_shared_string(),
-            SharedVector::from_slice(index.to_string().as_bytes()),
-        );
+        transfer.set_user_data(Rc::new(DropCommand::Copy { index }));
         transfer
     });
-    api.on_transfer_component_move(|uri: SharedString, index: i32| -> DataTransfer {
-        let string = format!("{uri}:{index}");
+    api.on_transfer_component_move(|uri: SharedString, offset: i32| -> DataTransfer {
+        let Ok(offset) = offset.try_into() else {
+            return Default::default();
+        };
         let mut transfer = DataTransfer::default();
-        transfer.set_data(
-            SLINT_COMPONENT_MOVE_MIME_TYPE.to_shared_string(),
-            SharedVector::from_slice(string.as_bytes()),
-        );
+        transfer.set_user_data(Rc::new(DropCommand::Move { uri, offset }));
         transfer
     });
     api.on_drop(move |data: DataTransfer, x: f32, y: f32| {

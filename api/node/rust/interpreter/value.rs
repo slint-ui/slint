@@ -8,7 +8,7 @@ use crate::{
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{ModelRc, SharedVectorModel};
-use i_slint_core::{Brush, Color, DataTransfer, SharedVector};
+use i_slint_core::{Brush, Color, SharedVector};
 use napi::bindgen_prelude::*;
 use napi::{Env, JsValue, Result, ValueType};
 use napi_derive::napi;
@@ -333,7 +333,8 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
         | Type::LayoutCache
         | Type::ArrayOfU16
         | Type::ElementReference
-        | Type::StyledText => Err(napi::Error::from_reason("reason")),
+        | Type::StyledText
+        | Type::DataTransfer => Err(napi::Error::from_reason("reason")),
     }
 }
 
