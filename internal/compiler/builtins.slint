@@ -2965,6 +2965,10 @@ export component SystemTrayIcon {
     /// | macOS         | Invoked on a click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `activated` doesn't fire. |
     /// | Windows       | Invoked on a left-click of the icon. Right-click opens the menu.                      |
     callback activated();
+    /// The color scheme the host shell currently uses for the tray area, so you can pick a tray
+    /// icon that contrasts with it. Falls back to `ColorScheme.unknown` when the platform doesn't
+    /// expose this reliably.
+    out property <ColorScheme> color-scheme;
     Menu { }
     //-disallow_global_types_as_child_elements
     //-is_non_item_type
