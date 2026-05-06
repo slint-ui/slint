@@ -11,6 +11,31 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use std::{path::Path, path::PathBuf};
 
+/// Compute a relative path from `from` to `to` using ".." components.
+fn diff_paths(to: &Path, from: &Path) -> PathBuf {
+    let to = to.canonicalize().unwrap_or_else(|_| to.to_path_buf());
+    let from = from.canonicalize().unwrap_or_else(|_| from.to_path_buf());
+    let mut to_parts = to.components().peekable();
+    let mut from_parts = from.components().peekable();
+    // Skip common prefix
+    while let (Some(a), Some(b)) = (to_parts.peek(), from_parts.peek()) {
+        if a == b {
+            to_parts.next();
+            from_parts.next();
+        } else {
+            break;
+        }
+    }
+    let mut result = PathBuf::new();
+    for _ in from_parts {
+        result.push("..");
+    }
+    for part in to_parts {
+        result.push(part);
+    }
+    result
+}
+
 #[derive(Copy, Clone, Debug)]
 struct LicenseTagStyle {
     tag_start: &'static str,
@@ -1006,7 +1031,118 @@ impl LicenseHeaderCheck {
 
         self.check_dependencies(&doc, &expected_version)?;
 
+        // Check that a LICENSES directory exists with the right symlinks
+        let crate_dir = path.parent().unwrap();
+        self.check_licenses_dir(crate_dir, license)?;
+
         doc.save_if_changed()
+    }
+
+    fn check_licenses_dir(&self, crate_dir: &Path, license: &str) -> Result<()> {
+        let root = super::root_dir();
+        let root_licenses = root.join("LICENSES");
+        let licenses_dir = crate_dir.join("LICENSES");
+
+        // Read root LICENSES/ once and build a stem-to-filename map
+        let root_license_files: Vec<(String, String)> = std::fs::read_dir(&root_licenses)
+            .context("Cannot read root LICENSES directory")?
+            .filter_map(|e| e.ok())
+            .filter_map(|e| {
+                let path = e.path();
+                let stem = path.file_stem()?.to_string_lossy().to_string();
+                let filename = path.file_name()?.to_string_lossy().to_string();
+                Some((stem, filename))
+            })
+            .collect();
+
+        let spdx_ids: Vec<&str> =
+            license.split(" OR ").flat_map(|s| s.split(" AND ")).map(|s| s.trim()).collect();
+
+        let mut expected_filenames: Vec<String> = Vec::new();
+        for id in &spdx_ids {
+            let filename =
+                root_license_files.iter().find(|(stem, _)| stem == id).map(|(_, f)| f.clone());
+            match filename {
+                Some(f) => expected_filenames.push(f),
+                None => {
+                    return Err(anyhow!(
+                        "No license file found in root LICENSES/ for SPDX id '{}'",
+                        id
+                    ));
+                }
+            }
+        }
+
+        if !licenses_dir.exists() {
+            if self.fix_it {
+                eprintln!(
+                    "Fixing up {:?} as instructed. Creating missing LICENSES directory.",
+                    crate_dir
+                );
+                std::fs::create_dir(&licenses_dir)
+                    .context("Failed to create LICENSES directory")?;
+            } else {
+                return Err(anyhow!(
+                    "Missing LICENSES directory for published crate {:?}",
+                    crate_dir
+                ));
+            }
+        }
+
+        // Compute relative path after directory exists so canonicalize works
+        let rel_prefix = diff_paths(&root_licenses, &licenses_dir);
+
+        for filename in &expected_filenames {
+            let symlink_path = licenses_dir.join(filename);
+            let expected_target = rel_prefix.join(filename);
+
+            if let Ok(meta) = std::fs::symlink_metadata(&symlink_path) {
+                if !meta.file_type().is_symlink() {
+                    return Err(anyhow!("{:?} exists but is not a symlink", symlink_path));
+                }
+                let target = std::fs::read_link(&symlink_path)
+                    .context("Cannot read LICENSE symlink target")?;
+                if target == expected_target {
+                    continue;
+                }
+                if self.fix_it {
+                    eprintln!(
+                        "Fixing up {:?} as instructed. Symlink points to wrong target.",
+                        symlink_path
+                    );
+                    std::fs::remove_file(&symlink_path)
+                        .context("Failed to remove incorrect symlink")?;
+                } else {
+                    return Err(anyhow!(
+                        "{:?} points to {:?}, expected {:?}",
+                        symlink_path,
+                        target,
+                        expected_target
+                    ));
+                }
+            }
+
+            if self.fix_it {
+                eprintln!(
+                    "Fixing up {:?} as instructed. Creating symlink -> {:?}.",
+                    symlink_path, expected_target
+                );
+                #[cfg(unix)]
+                std::os::unix::fs::symlink(&expected_target, &symlink_path)
+                    .context("Failed to create LICENSE symlink")?;
+                #[cfg(windows)]
+                std::os::windows::fs::symlink_file(&expected_target, &symlink_path)
+                    .context("Failed to create LICENSE symlink")?;
+            } else {
+                return Err(anyhow!(
+                    "Missing LICENSE symlink {:?} -> {:?}",
+                    symlink_path,
+                    expected_target
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     fn check_dependencies(&self, doc: &CargoToml, expected_version: &str) -> Result<()> {
