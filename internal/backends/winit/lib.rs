@@ -384,6 +384,8 @@ impl BackendBuilder {
             #[cfg(target_family = "wasm")]
             spawn_event_loop: self.spawn_event_loop,
             custom_application_handler: self.custom_application_handler.into(),
+            #[cfg(xdg_desktop_settings)]
+            xdg_watcher: RefCell::new(None),
         })
     }
 }
@@ -599,6 +601,10 @@ pub struct Backend {
     event_loop_state: RefCell<Option<crate::event_loop::EventLoopState>>,
     shared_data: Rc<SharedBackendData>,
     custom_application_handler: RefCell<Option<Box<dyn crate::CustomApplicationHandler>>>,
+    /// Backend-wide XDG desktop portal watcher. Spawned in `bind_context`
+    /// and aborted on backend drop.
+    #[cfg(xdg_desktop_settings)]
+    xdg_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
     /// This hook is called before a Window is created.
     ///
@@ -666,7 +672,34 @@ impl Backend {
 
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
+#[cfg(xdg_desktop_settings)]
+impl Drop for Backend {
+    fn drop(&mut self) {
+        if let Some(handle) = self.xdg_watcher.borrow_mut().take() {
+            handle.abort();
+        }
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
+    fn bind_context(&self, _ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        #[cfg(xdg_desktop_settings)]
+        {
+            let strong_ctx = _ctx
+                .upgrade()
+                .expect("bind_context is called while the SlintContext is still alive");
+            let shared_weak = Rc::downgrade(&self.shared_data);
+            let ctx_weak = _ctx.clone();
+            if let Ok(handle) = strong_ctx.spawn_local(async move {
+                if let Err(err) = crate::xdg_desktop_settings::watch(shared_weak, ctx_weak).await {
+                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {}", err);
+                }
+            }) {
+                *self.xdg_watcher.borrow_mut() = Some(handle);
+            }
+        }
+    }
+
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         let mut attrs = WinitWindowAdapter::window_attributes()?;
 
