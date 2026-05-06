@@ -161,12 +161,11 @@ fn get_z_expr(child_elm: &ElementRc) -> Option<f64> {
     if let Some(b) = child.bindings.get("z") {
         return try_eval_const_expr(&b.borrow().expression);
     }
-    if child.repeated.is_some() {
-        if let ElementType::Component(c) = &child.base_type {
-            if let Some(b) = c.root_element.borrow().bindings.get("z") {
-                return try_eval_const_expr(&b.borrow().expression);
-            }
-        }
+    if child.repeated.is_some()
+        && let ElementType::Component(c) = &child.base_type
+        && let Some(b) = c.root_element.borrow().bindings.get("z")
+    {
+        return try_eval_const_expr(&b.borrow().expression);
     }
     None
 }
@@ -177,10 +176,10 @@ fn has_z_binding(child_elm: &ElementRc) -> bool {
     if child.bindings.contains_key("z") {
         return true;
     }
-    if child.repeated.is_some() {
-        if let ElementType::Component(c) = &child.base_type {
-            return c.root_element.borrow().bindings.contains_key("z");
-        }
+    if child.repeated.is_some()
+        && let ElementType::Component(c) = &child.base_type
+    {
+        return c.root_element.borrow().bindings.contains_key("z");
     }
     false
 }

@@ -154,7 +154,7 @@ pub fn count_property_use(root: &CompilationUnit) {
 
     fn visit_tree_z_properties(node: &crate::llr::TreeNode, ctx: &EvaluationContext) {
         if let Some(z_props) = &node.z_sort_order_property {
-            for (_, z_source) in z_props {
+            for z_source in z_props {
                 if let crate::llr::ZChildSource::Property(member_ref) = z_source {
                     visit_property(member_ref, ctx);
                 }
@@ -168,12 +168,26 @@ pub fn count_property_use(root: &CompilationUnit) {
         let ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
         visit_tree_z_properties(&c.item_tree.tree, &ctx);
     }
-    root.for_each_sub_components(&mut |sc, _ctx| {
+    root.for_each_sub_components(&mut |sc, ctx| {
         for r in &sc.repeated {
             let rep_ctx = EvaluationContext::new_sub_component(root, r.sub_tree.root, (), None);
             visit_tree_z_properties(&r.sub_tree.tree, &rep_ctx);
         }
+        for popup in &sc.popup_windows {
+            let parent_ctx = ParentScope::new(ctx, None);
+            let popup_ctx = EvaluationContext::new_sub_component(
+                root,
+                popup.item_tree.root,
+                (),
+                Some(&parent_ctx),
+            );
+            visit_tree_z_properties(&popup.item_tree.tree, &popup_ctx);
+        }
     });
+    if let Some(p) = &root.popup_menu {
+        let ctx = EvaluationContext::new_sub_component(root, p.item_tree.root, (), None);
+        visit_tree_z_properties(&p.item_tree.tree, &ctx);
+    }
 
     clean_unused_bindings(root);
 }

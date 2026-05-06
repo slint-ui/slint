@@ -1088,19 +1088,19 @@ fn make_tree(
     // from each child's z_order field.
     let z_sort_order_property = if e.has_dynamic_z_order {
         use crate::object_tree::ZOrder;
-        let mut z_sources: Vec<(u32, ZChildSource)> = Vec::with_capacity(e.children.len());
-        for (child_idx, child) in e.children.iter().enumerate() {
+        let mut z_sources: Vec<ZChildSource> = Vec::with_capacity(e.children.len());
+        for child in e.children.iter() {
             let child_z = child.borrow().z_order.clone();
             match child_z {
                 Some(ZOrder::Constant(val)) => {
-                    z_sources.push((child_idx as u32, ZChildSource::Constant(val)));
+                    z_sources.push(ZChildSource::Constant(val));
                 }
                 Some(ZOrder::Dynamic(ref nr)) => {
                     let member_ref = component.mapping.map_property_reference(nr, state);
-                    z_sources.push((child_idx as u32, ZChildSource::Property(member_ref)));
+                    z_sources.push(ZChildSource::Property(member_ref));
                 }
                 None => {
-                    z_sources.push((child_idx as u32, ZChildSource::Constant(0.0)));
+                    z_sources.push(ZChildSource::Constant(0.0));
                 }
             }
         }

@@ -1597,7 +1597,7 @@ fn generate_item_tree(
     let mut z_sorted_nodes: Vec<(
         usize,
         Vec<llr::SubComponentInstanceIdx>,
-        Vec<(u32, llr::ZChildSource)>,
+        Vec<llr::ZChildSource>,
     )> = Vec::new();
     let mut current_node_index: usize = 0;
 
@@ -1699,7 +1699,7 @@ fn generate_item_tree(
             let count = child_z_refs.len();
             let z_reads: Vec<String> = child_z_refs
                 .iter()
-                .map(|(_, z_source)| match z_source {
+                .map(|z_source| match z_source {
                     llr::ZChildSource::Constant(val) => format!("{val:.1}f"),
                     llr::ZChildSource::Property(member_ref) => match member_ref {
                         llr::MemberReference::Relative { parent_level: 0, local_reference } => {

@@ -397,9 +397,9 @@ pub struct TreeNode {
     pub children: Vec<TreeNode>,
     pub is_accessible: bool,
     /// If set, this node's children have dynamic z-ordering.
-    /// Each entry is (child_offset, source_of_z_value).
+    /// Each entry corresponds to a child (by index) and describes the source of its z value.
     /// The code generator will read these z values at runtime and sort children accordingly.
-    pub z_sort_order_property: Option<Vec<(u32, ZChildSource)>>,
+    pub z_sort_order_property: Option<Vec<ZChildSource>>,
 }
 
 /// Source of a child's z value for dynamic z-ordering.

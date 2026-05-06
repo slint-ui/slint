@@ -1387,30 +1387,19 @@ pub fn visit_item_tree<Base>(
             ItemTreeNode::Item { children_index, children_count, .. } => {
                 if let Some(sorted) = sorted_children_offsets {
                     debug_assert_eq!(sorted.len(), *children_count as usize);
-                    let count = sorted.len();
-                    for i in 0..count {
-                        let offset_idx = match order {
-                            TraversalOrder::BackToFront => i,
-                            TraversalOrder::FrontToBack => count - 1 - i,
-                        };
-                        let idx = *children_index + sorted[offset_idx];
-                        let maybe_abort_index = visit_at_index(idx);
-                        if maybe_abort_index.has_aborted() {
-                            return maybe_abort_index;
-                        }
-                    }
-                } else {
-                    for c in 0..*children_count {
-                        let idx = match order {
-                            TraversalOrder::BackToFront => *children_index + c,
-                            TraversalOrder::FrontToBack => {
-                                *children_index + *children_count - c - 1
-                            }
-                        };
-                        let maybe_abort_index = visit_at_index(idx);
-                        if maybe_abort_index.has_aborted() {
-                            return maybe_abort_index;
-                        }
+                }
+                let count = *children_count as usize;
+                for i in 0..count {
+                    let offset_idx = match order {
+                        TraversalOrder::BackToFront => i,
+                        TraversalOrder::FrontToBack => count - 1 - i,
+                    };
+                    let idx = *children_index
+                        + sorted_children_offsets
+                            .map_or(offset_idx as u32, |sorted| sorted[offset_idx]);
+                    let maybe_abort_index = visit_at_index(idx);
+                    if maybe_abort_index.has_aborted() {
+                        return maybe_abort_index;
                     }
                 }
             }
