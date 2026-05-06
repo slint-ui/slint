@@ -189,7 +189,6 @@ pub mod re_exports {
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
         VisitChildrenResult, compute_sorted_children_by_z, visit_item_tree,
-        visit_item_tree_with_sorted_children,
     };
     pub use i_slint_core::items::{Transform, *};
     pub use i_slint_core::layout::*;

@@ -862,8 +862,9 @@ extern "C" fn visit_children_item(
                     .unwrap_or(0.0),
             })
             .collect();
-        let sorted = i_slint_core::item_tree::compute_sorted_children_by_z(&z_values);
-        return i_slint_core::item_tree::visit_item_tree_with_sorted_children(
+        let mut sorted = i_slint_core::SharedVector::default();
+        i_slint_core::item_tree::compute_sorted_children_by_z(&z_values, &mut sorted);
+        return i_slint_core::item_tree::visit_item_tree(
             instance_ref.instance,
             &vtable::VRc::into_dyn(comp_rc),
             get_item_tree(component).as_slice(),
@@ -871,7 +872,7 @@ extern "C" fn visit_children_item(
             order,
             v,
             visit_dyn!(),
-            sorted.as_slice(),
+            Some(sorted.as_slice()),
         );
     }
 
@@ -883,6 +884,7 @@ extern "C" fn visit_children_item(
         order,
         v,
         visit_dyn!(),
+        None,
     )
 }
 
