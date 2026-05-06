@@ -19,7 +19,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -202,11 +202,6 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// Handle focus change
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
-
-    /// returns the color scheme used
-    fn color_scheme(&self) -> ColorScheme {
-        ColorScheme::Unknown
-    }
 
     /// Returns the system accent color, or transparent if the platform doesn't provide one.
     fn accent_color(&self) -> Color {
@@ -1282,13 +1277,6 @@ impl WindowInner {
         result
     }
 
-    /// returns the color theme used
-    pub fn color_scheme(&self) -> ColorScheme {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-    }
-
     /// Returns the system accent color, or transparent if unavailable.
     pub fn accent_color(&self) -> Color {
         self.window_adapter()
@@ -2203,9 +2191,7 @@ pub mod ffi {
     ) -> ColorScheme {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter
-                .internal(crate::InternalToken)
-                .map_or(ColorScheme::Unknown, |x| x.color_scheme())
+            WindowInner::from_pub(window_adapter.window()).context().color_scheme()
         }
     }
 

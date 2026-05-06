@@ -3916,7 +3916,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ColorScheme => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).context().color_scheme())
         }
         BuiltinFunction::AccentColor => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
