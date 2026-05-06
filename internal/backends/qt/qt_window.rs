@@ -1862,7 +1862,19 @@ impl QtWindow {
         } else {
             ColorScheme::Light
         };
-        WindowInner::from_pub(&rc.window).context().set_color_scheme(initial_scheme);
+        let initial_accent = {
+            let argb = cpp! {unsafe [] -> u32 as "QRgb" {
+                #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+                    return qApp->palette().color(QPalette::Accent).rgba();
+                #else
+                    return qApp->palette().color(QPalette::Highlight).rgba();
+                #endif
+            }};
+            i_slint_core::graphics::Color::from_argb_encoded(argb)
+        };
+        let ctx = WindowInner::from_pub(&rc.window).context();
+        ctx.set_color_scheme(initial_scheme);
+        ctx.set_accent_color(initial_accent);
 
         rc
     }
@@ -2354,17 +2366,6 @@ impl WindowAdapterInternal for QtWindow {
                 }
             }};
         }
-    }
-
-    fn accent_color(&self) -> i_slint_core::graphics::Color {
-        let argb = cpp! {unsafe [] -> u32 as "QRgb" {
-            #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-                return qApp->palette().color(QPalette::Accent).rgba();
-            #else
-                return qApp->palette().color(QPalette::Highlight).rgba();
-            #endif
-        }};
-        i_slint_core::graphics::Color::from_argb_encoded(argb)
     }
 
     fn bring_to_front(&self) -> Result<(), i_slint_core::platform::PlatformError> {

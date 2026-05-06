@@ -3918,7 +3918,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::AccentColor => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).accent_color())
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).context().accent_color())
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);

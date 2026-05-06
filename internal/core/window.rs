@@ -9,7 +9,6 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
-use crate::graphics::Color;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -202,11 +201,6 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// Handle focus change
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
-
-    /// Returns the system accent color, or transparent if the platform doesn't provide one.
-    fn accent_color(&self) -> Color {
-        Color::default()
-    }
 
     /// Returns whether we can have a native menu bar
     fn supports_native_menu_bar(&self) -> bool {
@@ -1277,13 +1271,6 @@ impl WindowInner {
         result
     }
 
-    /// Returns the system accent color, or transparent if unavailable.
-    pub fn accent_color(&self) -> Color {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color())
-    }
-
     /// Return whether the platform supports native menu bars
     pub fn supports_native_menu_bar(&self) -> bool {
         self.window_adapter()
@@ -1781,8 +1768,8 @@ pub mod ffi {
     use crate::SharedVector;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::Size;
-    use crate::graphics::{IntSize, Rgba8Pixel};
-    use crate::items::WindowItem;
+    use crate::graphics::{Color, IntSize, Rgba8Pixel};
+    use crate::items::{ColorScheme, WindowItem};
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -2202,9 +2189,7 @@ pub mod ffi {
         out: &mut Color,
     ) {
         let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
-        *out = window_adapter
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color());
+        *out = WindowInner::from_pub(window_adapter.window()).context().accent_color();
     }
 
     /// Return whether the platform supports native menu bars
