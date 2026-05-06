@@ -9,24 +9,9 @@
 //! text just changed), evaluating that property recurses into the renderer's
 //! `text_size`, which tries to borrow the same `RefCell` again and panics.
 
-use slint::PhysicalSize;
-use slint::platform::software_renderer::{
-    MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, SoftwareRenderer, TargetPixel,
-};
-use slint::platform::{PlatformError, WindowAdapter};
-use std::rc::Rc;
+mod common;
 
-thread_local! {
-    static WINDOW: Rc<MinimalSoftwareWindow> =
-        MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
-}
-
-struct TestPlatform;
-impl slint::platform::Platform for TestPlatform {
-    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        Ok(WINDOW.with(|x| x.clone()))
-    }
-}
+use slint::platform::software_renderer::{PremultipliedRgbaColor, SoftwareRenderer, TargetPixel};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Default)]
@@ -64,9 +49,7 @@ fn text_input_cursor_rect_does_not_recurse_into_font_context() {
         std::env::set_var("SLINT_SOFTWARE_RENDERER_PARLEY_DISABLED", "1");
     }
 
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = WINDOW.with(|x| x.clone());
-    window.set_size(PhysicalSize::new(WIDTH as u32, HEIGHT as u32));
+    let window = common::setup(WIDTH as u32, HEIGHT as u32);
 
     slint::slint! {
         export component TestCase inherits Window {
