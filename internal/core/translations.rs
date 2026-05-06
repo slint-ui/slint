@@ -379,16 +379,15 @@ fn update_locale_decimal_separator() {
         {
             // Check bundled
             let language_index = ctx.0.translations_dirty.as_ref().get();
-            if let Some(_l) = l.get(language_index) {
-                if let Some(c) = ctx
+            if let Some(_l) = l.get(language_index)
+                && let Some(c) = ctx
                     .0
                     .translations_bundle_decimal_separators
                     .borrow()
                     .as_ref()
                     .and_then(|v| v.get(language_index).and_then(|v| *v))
-                {
-                    ctx.0.locale_decimal_separator.as_ref().set(Some(c))
-                }
+            {
+                ctx.0.locale_decimal_separator.as_ref().set(Some(c))
             }
         } else {
             // No bundled languages
