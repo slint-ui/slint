@@ -350,9 +350,6 @@ pub struct WinitWindowAdapter {
     winit_window_or_none: RefCell<WinitWindowOrNone>,
     window_existence_wakers: RefCell<Vec<core::task::Waker>>,
 
-    #[cfg(xdg_desktop_settings)]
-    xdg_settings_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
-
     #[cfg(target_os = "macos")]
     macos_color_observer: OnceCell<
         objc2::rc::Retained<objc2::runtime::ProtocolObject<dyn objc2::runtime::NSObjectProtocol>>,
@@ -404,8 +401,6 @@ impl WinitWindowAdapter {
             #[cfg(any(enable_accesskit, muda))]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
-            #[cfg(xdg_desktop_settings)]
-            xdg_settings_watcher: Default::default(),
             #[cfg(target_os = "macos")]
             macos_color_observer: OnceCell::new(),
             #[cfg(muda)]
@@ -475,15 +470,21 @@ impl WinitWindowAdapter {
 
         let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
 
-        // Push the host shell's color scheme and accent color to the SlintContext. With
-        // `xdg_desktop_settings` we let the portal watcher report them; otherwise winit
-        // exposes the system Light/Dark setting directly on the new window, and the
-        // OS-specific query yields the accent color.
+        // Push the host shell's color scheme and accent color to the SlintContext.
+        // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
+        // `Backend::bind_context`) is responsible for that; we only echo the
+        // current scheme to this fresh winit window so its CSDs render correctly.
+        // Otherwise winit exposes the system Light/Dark setting directly on the
+        // new window, and the OS-specific query yields the accent color.
         cfg_if::cfg_if! {
             if #[cfg(xdg_desktop_settings)] {
-                if let Some(old_watch) = self.xdg_settings_watcher.replace(self.spawn_xdg_settings_watcher()) {
-                    old_watch.abort();
-                }
+                let scheme = WindowInner::from_pub(self.window()).context().color_scheme();
+                winit_window.set_theme(match scheme {
+                    ColorScheme::Dark => Some(winit::window::Theme::Dark),
+                    ColorScheme::Light => Some(winit::window::Theme::Light),
+                    ColorScheme::Unknown => None,
+                    _ => None,
+                });
             } else {
                 let initial_scheme = winit_window.theme().map_or(ColorScheme::Unknown, |theme| match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
@@ -960,20 +961,6 @@ impl WinitWindowAdapter {
             WinitWindowOrNone::HasWindow { accesskit_adapter, .. } => callback(accesskit_adapter),
             WinitWindowOrNone::None(..) => {}
         }
-    }
-
-    #[cfg(xdg_desktop_settings)]
-    fn spawn_xdg_settings_watcher(&self) -> Option<i_slint_core::future::JoinHandle<()>> {
-        let window_inner = WindowInner::from_pub(self.window());
-        let self_weak = self.self_weak.clone();
-        window_inner
-            .context()
-            .spawn_local(async move {
-                if let Err(err) = crate::xdg_desktop_settings::watch(self_weak).await {
-                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {}", err);
-                }
-            })
-            .ok()
     }
 
     /// Register an observer for macOS system color changes so that
@@ -1636,11 +1623,6 @@ impl Drop for WinitWindowAdapter {
         self.shared_backend_data.unregister_window(
             self.winit_window_or_none.borrow().as_window().map(|winit_window| winit_window.id()),
         );
-
-        #[cfg(xdg_desktop_settings)]
-        if let Some(xdg_watch_future) = self.xdg_settings_watcher.take() {
-            xdg_watch_future.abort();
-        }
 
         #[cfg(target_os = "macos")]
         if let Some(observer) = self.macos_color_observer.get() {
