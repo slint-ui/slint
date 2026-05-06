@@ -38,9 +38,7 @@ pub enum ProcessEventsResult {
     Exited,
 }
 
-fn process_events_with_timeout(
-    timeout: std::time::Duration,
-) -> napi::Result<ProcessEventsResult> {
+fn process_events_with_timeout(timeout: std::time::Duration) -> napi::Result<ProcessEventsResult> {
     i_slint_backend_selector::with_platform(|b| {
         b.process_events(timeout, i_slint_core::InternalToken)
     })
