@@ -1,19 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{net::SocketAddr, path::Path, rc::Rc, sync::Arc};
+use std::{net::SocketAddr, rc::Rc};
 
-use futures_util::FutureExt;
-use i_slint_compiler::{diagnostics::BuildDiagnostics, passes::ResourcePreloader};
+use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
 use i_slint_preview_protocol::PreviewToLspMessage;
 use slint::{ComponentHandle as _, SharedString};
-use slint_interpreter::ComponentInstance;
 use tokio::sync;
 
 use crate::{
     compilation,
-    connection::{self, CacheEntry, Connection},
+    connection::{self, CacheEntry},
     util,
 };
 
@@ -32,7 +30,7 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
     let mut compiler = compilation::init_compiler(Rc::downgrade(&connection));
     let current_exe = std::env::current_exe().unwrap();
     let compilation_result = compiler
-        .build_from_source(MAIN_SLINT.to_owned(), current_exe.parent().unwrap().to_owned(), ())
+        .build_from_source(MAIN_SLINT.to_owned(), current_exe.parent().unwrap().to_owned())
         .await;
     if compilation_result.has_errors() {
         let mut build_diagnostics = BuildDiagnostics::default();
@@ -110,8 +108,8 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                         "Cached files: {:#?}",
                         file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
                     );
-                    let file_cache_preloader =
-                        FileCachePreloader { connection: &connection, window: &inner_window };
+                    // TODO: pass resources from the file cache to the compiler via
+                    // a resource preloader in CompilerConfiguration
                     let compilation_result = if let Some(entry) = file_cache.get(
                         preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap(),
                     ) && let CacheEntry::Ready(file) = &*entry
@@ -121,7 +119,6 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                             .build_from_source(
                                 str::from_utf8(&file.contents).unwrap().to_owned(),
                                 preview_component.url.path().into(),
-                                file_cache_preloader,
                             )
                             .await
                     } else {
@@ -129,9 +126,7 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                             "Failed fetching file {} from cache.",
                             preview_component.url
                         );
-                        compiler
-                            .build_from_path(preview_component.url.path(), file_cache_preloader)
-                            .await
+                        compiler.build_from_path(preview_component.url.path()).await
                     };
                     if compilation_result.has_errors() {
                         let mut build_diagnostics = BuildDiagnostics::default();
@@ -265,50 +260,4 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
         mdns.shutdown().await?;
     }
     Ok(())
-}
-
-struct FileCachePreloader<'a> {
-    connection: &'a Connection,
-    window: &'a ComponentInstance,
-}
-
-impl<'p> ResourcePreloader for FileCachePreloader<'p> {
-    fn load<'a>(
-        &self,
-        paths: impl Iterator<Item = &'a str>,
-        push: Rc<impl Fn(/* url */ &'a str, /* extension */ String, /* data */ Vec<u8>)>,
-    ) -> impl Future<Output = ()> {
-        if let Err(err) =
-            self.window.set_property("message", SharedString::from("Loading resources...").into())
-        {
-            tracing::error!("Failed setting property: {err}");
-        }
-
-        futures_util::future::join_all(paths.map(|path| {
-            let push = push.clone();
-            async move {
-                if path.starts_with("builtin:/") {
-                    tracing::debug!("Skipping builtin resource {path}");
-                    return;
-                }
-                tracing::debug!("Preloading file {path}");
-                match self.connection.request_file(path.to_owned()).await {
-                    Ok(file) => {
-                        tracing::debug!("Got file {path} with {} bytes", file.contents.len());
-                        let extension = Path::new(&path)
-                            .extension()
-                            .and_then(std::ffi::OsStr::to_str)
-                            .map(std::string::ToString::to_string)
-                            .unwrap_or_default();
-
-                        push(path, extension, file.contents.to_vec());
-                    }
-                    Err(err) => {
-                        tracing::error!("Failed requesting file {path}: {err}");
-                    }
-                }
-            }
-        }))
-        .map(|_| ())
-    }
 }

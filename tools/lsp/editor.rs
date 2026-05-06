@@ -247,9 +247,7 @@ async fn lsp_main(
                 }
                 Some(
                     contents
-                        .and_then(|c| {
-                            String::from_utf8(c).map_err(|err| std::io::Error::other(err))
-                        })
+                        .and_then(|c| String::from_utf8(c).map_err(std::io::Error::other))
                         .map(|c| (None, c)),
                 )
             })

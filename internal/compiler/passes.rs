@@ -61,7 +61,6 @@ use crate::expression_tree::Expression;
 use smol_str::SmolStr;
 
 pub use binding_analysis::GlobalAnalysis;
-pub use embed_images::ResourcePreloader;
 
 pub fn ignore_debug_hooks(expr: &Expression) -> &Expression {
     let mut expr = expr;
@@ -78,7 +77,6 @@ pub async fn run_passes(
     type_loader: &mut crate::typeloader::TypeLoader,
     keep_raw: bool,
     diag: &mut crate::diagnostics::BuildDiagnostics,
-    resource_preloader: impl ResourcePreloader,
 ) -> Option<crate::typeloader::TypeLoader> {
     let style_metrics = {
         // Ignore import errors
@@ -243,7 +241,6 @@ pub async fn run_passes(
         }
     });
 
-    embed_images::preload_images(doc, resource_preloader).await;
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,

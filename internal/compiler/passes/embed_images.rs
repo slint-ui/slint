@@ -10,57 +10,11 @@ use crate::object_tree::*;
 use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use typed_index_collections::TiVec;
-
-pub trait ResourcePreloader {
-    fn load<'a>(
-        &self,
-        paths: impl Iterator<Item = &'a str>,
-        push: Rc<impl Fn(/* path */ &'a str, /* extension */ String, /* data */ Vec<u8>)>,
-    ) -> impl Future<Output = ()>;
-}
-
-impl ResourcePreloader for () {
-    fn load<'a>(
-        &self,
-        _paths: impl Iterator<Item = &'a str>,
-        _push: Rc<impl Fn(&'a str, String, Vec<u8>)>,
-    ) -> impl Future<Output = ()> {
-        std::future::ready(())
-    }
-}
-
-pub async fn preload_images(doc: &Document, resource_preloader: impl ResourcePreloader) {
-    let mut all_components = Vec::new();
-    doc.visit_all_used_components(|c| all_components.push(c.clone()));
-
-    let mut paths = HashSet::<SmolStr>::new();
-    for component in &all_components {
-        visit_all_expressions(component, |e, _| {
-            foreach_image_url_from_expression(e, &mut |path| {
-                paths.insert(path.clone());
-            })
-        });
-    }
-
-    let global_embedded_resources = &doc.embedded_file_resources;
-    resource_preloader
-        .load(
-            paths.iter().map(SmolStr::as_str),
-            Rc::new(|path: &str, extension, data: Vec<u8>| {
-                // let mut resources = global_embedded_resources.borrow_mut();
-                // resources.push(EmbeddedResources {
-                //     path: Some(path.into()),
-                //     kind: EmbeddedResourcesKind::DataUriPayload(data, extension),
-                // });
-            }),
-        )
-        .await;
-}
 
 pub async fn embed_images(
     doc: &Document,
@@ -75,11 +29,6 @@ pub async fn embed_images(
 
     let global_embedded_resources = &doc.embedded_file_resources;
     let mut path_to_id = HashMap::<SmolStr, EmbeddedResourcesIdx>::new();
-    for (id, resource) in global_embedded_resources.borrow().iter_enumerated() {
-        if let Some(path) = &resource.path {
-            path_to_id.insert(path.clone(), id);
-        }
-    }
 
     let mut all_components = Vec::new();
     doc.visit_all_used_components(|c| all_components.push(c.clone()));
@@ -92,9 +41,7 @@ pub async fn embed_images(
             // Collect URLs (sync!):
             for component in &all_components {
                 visit_all_expressions(component, |e, _| {
-                    foreach_image_url_from_expression(e, &mut |path| {
-                        urls.insert(path.clone(), None);
-                    })
+                    collect_image_urls_from_expression(e, &mut urls)
                 });
             }
 
@@ -123,14 +70,17 @@ pub async fn embed_images(
     }
 }
 
-fn foreach_image_url_from_expression(e: &Expression, f: &mut impl FnMut(&SmolStr)) {
+fn collect_image_urls_from_expression(
+    e: &Expression,
+    urls: &mut HashMap<SmolStr, Option<SmolStr>>,
+) {
     if let Expression::ImageReference { resource_ref, .. } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
-        f(path);
+        urls.insert(path.clone(), None);
     };
 
-    e.visit(|e| foreach_image_url_from_expression(e, f));
+    e.visit(|e| collect_image_urls_from_expression(e, urls));
 }
 
 fn embed_images_from_expression(
@@ -145,16 +95,6 @@ fn embed_images_from_expression(
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
-        if let Some(id) = path_to_id.get(path) {
-            if let Some(resource) = global_embedded_resources.borrow().get(*id)
-                && let EmbeddedResourcesKind::DataUriPayload(_, extension) = &resource.kind
-            {
-                *resource_ref =
-                    ImageReference::EmbeddedData { resource_id: *id, extension: extension.clone() };
-            }
-            return;
-        }
-
         if path.starts_with("data:") {
             // Data URIs have no external file to track, so skip for
             // Nothing (interpreter) and ListAllResources (dependency tracking).
