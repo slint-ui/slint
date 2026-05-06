@@ -6,17 +6,14 @@
 
 #![deny(missing_docs)]
 
-use alloc::{boxed::Box, rc::Rc, string::String};
+use alloc::{boxed::Box, rc::Rc};
 use core::{any::Any, cell::LazyCell};
 
-use crate::{
-    SharedString, SharedVector,
-    api::{Image, PlatformError},
-};
+use crate::{SharedString, SharedVector, api::Image};
 
 mod mime;
 
-type BytesResult = Result<SharedVector<u8>, PlatformError>;
+type BytesResult = Result<SharedVector<u8>, ProviderError>;
 type DataTransferProvider = Rc<LazyCell<BytesResult, Box<dyn FnOnce() -> BytesResult>>>;
 type ProviderList = SharedVector<(SharedString, DataTransferProvider)>;
 
@@ -108,7 +105,7 @@ impl From<Image> for DataTransfer {
 
         for mime_type in available_image_types.iter().copied() {
             out.set_provider(mime_type.into(), || {
-                Err(PlatformError::Other("Serializing images not yet implemented".into()))
+                Err(ProviderError::other("Serializing images not yet implemented"))
             });
         }
 
@@ -116,26 +113,99 @@ impl From<Image> for DataTransfer {
     }
 }
 
-/// Helper so that [`BytesResult`] can be cloned when reading.
-fn clone_platform_result<T>(res: &Result<T, PlatformError>) -> Result<T, PlatformError>
-where
-    T: Clone,
-{
-    fn clone_error(err: &PlatformError) -> PlatformError {
-        match err {
-            PlatformError::NoPlatform => PlatformError::NoPlatform,
-            PlatformError::NoEventLoopProvider => PlatformError::NoEventLoopProvider,
-            PlatformError::SetPlatformError(err) => PlatformError::SetPlatformError(err.clone()),
-            PlatformError::Unsupported => PlatformError::Unsupported,
-            PlatformError::Other(msg) => PlatformError::Other(msg.clone()),
-            PlatformError::OtherError(err) => PlatformError::Other(alloc::format!("{err}")),
-            PlatformError::DataTransferTypeNotFound(err) => {
-                PlatformError::DataTransferTypeNotFound(err.clone())
+/// An error which can occur while fetching data from a `DataTransfer`.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum DataTransferError {
+    /// The type was not listed in the set of available MIME types.
+    TypeNotFound(SharedString),
+    /// Some error occurred while running a provider.
+    Provider(ProviderError),
+}
+
+impl core::fmt::Display for DataTransferError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DataTransferError::TypeNotFound(mime_type) => {
+                write!(f, "Type not supplied by data transfer: {mime_type}")
+            }
+            DataTransferError::Provider(provider_error) => {
+                write!(f, "Error running data transfer provider: {provider_error}")
             }
         }
     }
+}
 
-    res.as_ref().cloned().map_err(clone_error)
+/// An error that can occur when a provider for a [`DataTransfer`] runs. See [`DataTransfer::set_provider`].
+///
+/// This is essentially just a wrapper around [`std::io::Error`] which removes the
+/// ability to access the [`ErrorKind`](std::io::ErrorKind) on `no_std` targets.
+#[derive(Debug, Clone)]
+pub struct ProviderError {
+    #[cfg(feature = "std")]
+    inner: Rc<std::io::Error>,
+    #[cfg(not(feature = "std"))]
+    inner: Rc<dyn core::error::Error + Send + Sync + 'static>,
+}
+
+impl core::ops::Deref for ProviderError {
+    type Target = dyn core::error::Error;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.inner
+    }
+}
+
+#[cfg(feature = "std")]
+impl ProviderError {
+    /// Create a [`ProviderError`] with an unknown [`ErrorKind`](std::io::ErrorKind).
+    pub fn other<E>(other: E) -> Self
+    where
+        E: Into<Box<dyn core::error::Error + Send + Sync + 'static>>,
+    {
+        std::io::Error::other(other).into()
+    }
+
+    /// Returns the corresponding [`ErrorKind`](std::io::ErrorKind) for this error.
+    pub fn kind(&self) -> std::io::ErrorKind {
+        self.inner.kind()
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl ProviderError {
+    /// Create a [`ProviderError`] from some arbitrary error type.
+    pub fn other<E>(other: E) -> Self
+    where
+        E: Into<Box<dyn core::error::Error + Send + Sync + 'static>>,
+    {
+        ProviderError { inner: Rc::from(other.into()) }
+    }
+}
+
+impl core::fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T> From<T> for ProviderError
+where
+    T: Into<Rc<std::io::Error>>,
+{
+    fn from(value: T) -> Self {
+        Self { inner: value.into() }
+    }
+}
+
+impl<T> From<T> for DataTransferError
+where
+    T: Into<ProviderError>,
+{
+    fn from(value: T) -> Self {
+        Self::Provider(value.into())
+    }
 }
 
 impl DataTransfer {
@@ -153,38 +223,10 @@ impl DataTransfer {
         self
     }
 
-    /// Set a lazily-evaluated provider for a given MIME type, returning a byte vector
-    /// that can be transferred between applications.
-    pub fn set_provider(
-        &mut self,
-        mime_type: SharedString,
-        provider: impl FnOnce() -> Result<SharedVector<u8>, PlatformError> + 'static,
-    ) -> &mut Self {
-        self.providers.push((mime_type, Rc::new(LazyCell::new(Box::new(provider)))));
-        self
-    }
-
-    /// Set the data for a given MIME type as a byte vector that can be transferred
-    /// between applications.
-    pub fn set_data(&mut self, mime_type: SharedString, data: SharedVector<u8>) -> &mut Self {
-        self.set_provider(mime_type, || Ok(data))
-    }
-
-    /// Get the set of available MIME types.
-    pub fn mime_types(&self) -> impl Iterator<Item = &str> + use<'_> {
-        self.providers.iter().map(|(type_, _)| &**type_)
-    }
-
-    /// Get the application-internal data represented by this [`DataTransfer`], if
-    /// one exists.
-    pub fn user_data(&self) -> Option<Rc<dyn Any>> {
-        self.user_data.clone()
-    }
-
     /// Helper to read this [`DataTransfer`] as plaintext, supporting multiple encodings.
     ///
     /// The caller should assume that this method call may do IO.
-    pub fn fetch_plaintext(&self) -> Result<SharedString, PlatformError> {
+    pub fn fetch_plaintext(&self) -> Result<SharedString, DataTransferError> {
         if let Some(internal_str) =
             self.user_data().and_then(|any| any.downcast_ref::<SharedString>().cloned())
         {
@@ -194,8 +236,8 @@ impl DataTransfer {
         // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
         // but on Windows this should handle WTF-16 to UTF-8 conversion.
         self.find_type(mime::PLAINTEXT).and_then(|(_, text)| {
-            Ok(String::from_utf8(text.to_vec())
-                .map_err(|e| PlatformError::OtherError(Box::new(e)))?
+            Ok(alloc::string::String::from_utf8(text.to_vec())
+                .map_err(ProviderError::other)?
                 .into())
         })
     }
@@ -203,7 +245,7 @@ impl DataTransfer {
     /// Helper to read this [`DataTransfer`] as an image, supporting multiple image types.
     ///
     /// The caller should assume that this method call may do IO.
-    pub fn fetch_image(&self) -> Result<Image, PlatformError> {
+    pub fn fetch_image(&self) -> Result<Image, DataTransferError> {
         if let Some(internal_image) =
             self.user_data().and_then(|any| any.downcast_ref::<Image>().cloned())
         {
@@ -227,26 +269,56 @@ impl DataTransfer {
                     _ => "",
                 };
 
-                Image::load_from_dynamic_data(&image_data, image_ext)
-                    .map_err(|err| PlatformError::Other(alloc::format!("{err}")))
+                Ok(Image::load_from_dynamic_data(&image_data, image_ext)
+                    .map_err(|err| ProviderError::other(alloc::format!("{err}")))?)
             })
         }
 
         #[cfg(not(feature = "image-decoders"))]
         {
-            Err(PlatformError::DataTransferTypeNotFound("image".into()))
+            Err(DataTransferError::TypeNotFound("image".into()))
         }
+    }
+
+    /// Set the data for a given MIME type as a byte vector that can be transferred
+    /// between applications.
+    pub fn set_data(&mut self, mime_type: SharedString, data: SharedVector<u8>) -> &mut Self {
+        self.set_provider(mime_type, || Ok(data))
+    }
+
+    /// Get the set of available MIME types.
+    pub fn mime_types(&self) -> impl Iterator<Item = &str> + use<'_> {
+        self.providers.iter().map(|(type_, _)| &**type_)
+    }
+
+    /// Get the application-internal data represented by this [`DataTransfer`], if
+    /// one exists.
+    pub fn user_data(&self) -> Option<Rc<dyn Any>> {
+        self.user_data.clone()
+    }
+
+    /// Set a lazily-evaluated provider for a given MIME type. The provider should return a byte
+    /// vector that can be transferred between applications, or an error if something goes wrong.
+    pub fn set_provider(
+        &mut self,
+        mime_type: SharedString,
+        provider: impl FnOnce() -> Result<SharedVector<u8>, ProviderError> + 'static,
+    ) -> &mut Self {
+        self.providers.push((mime_type, Rc::new(LazyCell::new(Box::new(provider)))));
+        self
     }
 
     /// Fetch the binary representation of this [`DataTransfer`] as the specified MIME
     /// type.
     ///
     /// The caller should assume that this method call may do IO.
-    pub fn fetch(&self, mime_type: &str) -> Result<SharedVector<u8>, PlatformError> {
+    pub fn fetch(&self, mime_type: &str) -> Result<SharedVector<u8>, DataTransferError> {
         self.providers
             .iter()
-            .find_map(|(type_, value)| (type_ == mime_type).then(|| clone_platform_result(value)))
-            .unwrap_or_else(|| Err(PlatformError::DataTransferTypeNotFound(mime_type.into())))
+            .find_map(|(type_, value)| {
+                (type_ == mime_type).then(|| (***value).clone().map_err(Into::into))
+            })
+            .unwrap_or_else(|| Err(DataTransferError::TypeNotFound(mime_type.into())))
     }
 
     /// Fetch the binary representation of this [`DataTransfer`] as one of the specified
@@ -254,7 +326,10 @@ impl DataTransfer {
     /// is not taken into account).
     ///
     /// The caller should assume that this method call may do IO.
-    fn find_type(&self, mime_types: &[&str]) -> Result<(&str, SharedVector<u8>), PlatformError> {
+    fn find_type(
+        &self,
+        mime_types: &[&str],
+    ) -> Result<(&str, SharedVector<u8>), DataTransferError> {
         // TODO: Should we prefer to go in the order specified in the data transfer or in the
         // `mime_types` argument? Only X11 and Wayland have a proper concept of source-defined
         // type ordering, so maybe it makes more sense for the destination to define the
@@ -264,13 +339,14 @@ impl DataTransfer {
             .find_map(|(type_, value)| {
                 mime_types
                     .contains(&&**type_)
-                    .then(|| clone_platform_result(value).map(|val| (&**type_, val)))
+                    .then(|| (***value).clone().map(|value| (&**type_, value)).map_err(Into::into))
             })
             .unwrap_or_else(|| {
                 if let Some(last) = mime_types.last().copied() {
-                    Err(PlatformError::DataTransferTypeNotFound(last.into()))
+                    Err(DataTransferError::TypeNotFound(last.into()))
                 } else {
-                    Err(PlatformError::Unsupported)
+                    // For now, this method is private, so we can afford to have a less-helpful error message
+                    Err(ProviderError::other("Internal error: No MIME types supplied").into())
                 }
             })
     }
