@@ -132,7 +132,7 @@ impl Item for TouchArea {
                     button: *button,
                     kind: PointerEventKind::Down,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    touch_id: touch_id.map(|id| (id + 1) as i32).unwrap_or(0),
+                    touch_id: *touch_id,
                 },));
 
                 InputEventResult::GrabMouse
@@ -171,7 +171,7 @@ impl Item for TouchArea {
                     button: *button,
                     kind: PointerEventKind::Up,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    touch_id: touch_id.map(|id| (id + 1) as i32).unwrap_or(0),
+                    touch_id: *touch_id,
                 },));
 
                 InputEventResult::EventAccepted
@@ -181,7 +181,7 @@ impl Item for TouchArea {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    touch_id: touch_id.map(|id| (id + 1) as i32).unwrap_or(0),
+                    touch_id: *touch_id,
                 },));
                 if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved().apply_pin(self).call(&());
