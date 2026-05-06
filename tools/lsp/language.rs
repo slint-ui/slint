@@ -22,7 +22,9 @@ use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+use i_slint_preview_protocol::LspToPreviewMessage;
 use itertools::Itertools;
+use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
@@ -334,14 +336,24 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(result)
     });
     rh.register::<HoverRequest>(|params, ctx| {
-        let result = token_descr(
+        let Some((token, _text_size)) = token_descr(
             &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
-        )
-        .and_then(|(token, _)| hover::get_tooltip(&mut ctx.document_cache, token));
+        ) else {
+            return Ok(None);
+        };
 
-        Ok(result)
+        let hover = hover::get_tooltip(&mut ctx.document_cache, token.clone());
+
+        // we will show a tooltip in the editor, also update the highlight in the live preview
+        if hover.is_some() {
+            let (_document, preview) =
+                get_highlights_for_position(ctx, &params.text_document_position_params);
+            ctx.to_preview.send(&preview);
+        }
+
+        Ok(hover)
     });
     rh.register::<SignatureHelpRequest>(|params, ctx| {
         let result = token_descr(
@@ -412,78 +424,21 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(semantic_tokens::get_semantic_tokens(&mut ctx.document_cache, &params.text_document))
     });
     rh.register::<DocumentHighlightRequest>(|params, ctx| {
-        let uri = params.text_document_position_params.text_document.uri;
-        if let Some((tk, _)) =
-            token_descr(&ctx.document_cache, &uri, &params.text_document_position_params.position)
-        {
-            let p = tk.parent();
-            let gp = p.parent();
+        tracing::trace!(
+            "DocumentHighlightRequest for {} at {:?}",
+            params.text_document_position_params.text_document.uri,
+            params.text_document_position_params.position
+        );
 
-            if p.kind() == SyntaxKind::DeclaredIdentifier
-                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
-            {
-                let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+        let (document_highlights, preview) =
+            get_highlights_for_position(ctx, &params.text_document_position_params);
 
-                ctx.to_preview.send(
-                    &i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
-                        url: Some(uri),
-                        offset: element.text_range().start().into(),
-                    },
-                );
+        // Update the highlight in the live preview.
+        // We do this even if there are no highlights to clear any previous highlights.
+        ctx.to_preview.send(&preview);
 
-                let range = util::node_to_lsp_range(&p, ctx.document_cache.format);
-                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-            }
-
-            if p.kind() == SyntaxKind::QualifiedName
-                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
-            {
-                let range = util::node_to_lsp_range(&p, ctx.document_cache.format);
-
-                if gp
-                    .as_ref()
-                    .unwrap()
-                    .parent()
-                    .as_ref()
-                    .is_some_and(|n| n.kind() != SyntaxKind::Component)
-                {
-                    ctx.to_preview.send(
-                        &i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
-                            url: Some(uri),
-                            offset: gp.unwrap().text_range().start().into(),
-                        },
-                    );
-                }
-                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-            }
-
-            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
-                ctx.to_preview.send(
-                    &i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
-                        url: None,
-                        offset: 0,
-                    },
-                );
-                return Ok(Some(
-                    value
-                        .into_iter()
-                        .map(|r| lsp_types::DocumentHighlight {
-                            range: util::text_range_to_lsp_range(
-                                &p.source_file,
-                                r,
-                                ctx.document_cache.format,
-                            ),
-                            kind: None,
-                        })
-                        .collect(),
-                ));
-            }
-        }
-        ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
-            url: None,
-            offset: 0,
-        });
-        Ok(None)
+        let not_empty = !document_highlights.is_empty();
+        Ok(not_empty.then_some(document_highlights))
     });
     rh.register::<Rename>(|params, ctx| {
         let uri = params.text_document_position.text_document.uri;
@@ -1474,6 +1429,73 @@ export component MainWindow inherits Window {
     }
 
     (!result.is_empty()).then_some(result)
+}
+
+/// Returns the list of DocumentHighlights, plus a LspToPreviewMessage::HighlightFromEditor  for the
+/// given position
+/// The list of DocumentHighlights will be empty if there is no highlight to show in the editor
+/// The HighlightFromEditor will have url=None if there is no highlight to show in the preview
+fn get_highlights_for_position(
+    ctx: &Context,
+    params: &TextDocumentPositionParams,
+) -> (Vec<lsp_types::DocumentHighlight>, LspToPreviewMessage) {
+    let uri = params.text_document.uri.clone();
+    if let Some((token, _)) = token_descr(&ctx.document_cache, &uri, &params.position) {
+        let parent = token.parent();
+        let grand_parent = parent.parent();
+
+        if parent.kind() == SyntaxKind::DeclaredIdentifier
+            && grand_parent.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
+        {
+            let element = grand_parent.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+
+            let preview_highlight =
+                i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                    url: Some(uri),
+                    offset: element.text_range().start().into(),
+                };
+
+            let range = util::node_to_lsp_range(&parent, ctx.document_cache.format);
+            return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
+        }
+
+        if parent.kind() == SyntaxKind::QualifiedName
+            && grand_parent.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
+        {
+            let great_grand_parent = grand_parent.as_ref().unwrap().parent();
+            let should_highlight_preview =
+                great_grand_parent.as_ref().is_some_and(|n| n.kind() != SyntaxKind::Component);
+            let preview_highlight =
+                i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                    url: should_highlight_preview.then_some(uri),
+                    offset: grand_parent.unwrap().text_range().start().into(),
+                };
+            let range = util::node_to_lsp_range(&parent, ctx.document_cache.format);
+
+            return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
+        }
+
+        if let Some(value) = common::rename_element_id::find_element_ids(&token, &parent) {
+            let preview_highlight =
+                i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                    url: None,
+                    offset: 0,
+                };
+            let document_highlight = value
+                .into_iter()
+                .map(|r| lsp_types::DocumentHighlight {
+                    range: util::text_range_to_lsp_range(
+                        &parent.source_file,
+                        r,
+                        ctx.document_cache.format,
+                    ),
+                    kind: None,
+                })
+                .collect();
+            return (document_highlight, preview_highlight);
+        }
+    }
+    (vec![], LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 })
 }
 
 pub async fn startup_lsp(ctx: &mut Context) -> common::Result<()> {
