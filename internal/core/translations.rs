@@ -380,15 +380,6 @@ fn update_locale_decimal_separator() {
             // Check bundled
             let language_index = ctx.0.translations_dirty.as_ref().get();
             if let Some(_l) = l.get(language_index) {
-                // Determine the decimal separator from the locale using icu
-                #[cfg(feature = "std")]
-                ctx.0
-                    .locale_decimal_separator
-                    .as_ref()
-                    .set(i_slint_common::decimal_separator_for_locale(_l));
-
-                // Check if decimal separator is bundled for non std
-                #[cfg(not(feature = "std"))]
                 if let Some(c) = ctx
                     .0
                     .translations_bundle_decimal_separators
