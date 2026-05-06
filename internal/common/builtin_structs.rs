@@ -57,8 +57,9 @@ macro_rules! for_each_builtin_structs {
 
             /// Represents a Pointer event sent by the windowing system.
             /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
+            #[non_exhaustive]
             struct PointerEvent {
-                @name = BuiltinPrivateStruct::PointerEvent,
+                @name = BuiltinPublicStruct::PointerEvent,
                 export {
                     /// The button that was pressed or released
                     button: PointerEventButton,
@@ -75,8 +76,9 @@ macro_rules! for_each_builtin_structs {
 
             /// Represents a Pointer scroll (or wheel) event sent by the windowing system.
             /// This structure is passed to the `scroll-event` callback of the `TouchArea` element.
+            #[non_exhaustive]
             struct PointerScrollEvent {
-                @name = BuiltinPrivateStruct::PointerScrollEvent,
+                @name = BuiltinPublicStruct::PointerScrollEvent,
                 export {
                     /// The amount of pixel in the horizontal direction
                     delta_x: Coord,
