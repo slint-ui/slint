@@ -153,11 +153,7 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     // Visit z_sort_order_property references in tree nodes
-    fn visit_tree_z_properties(
-        node: &crate::llr::TreeNode,
-        root: &CompilationUnit,
-        ctx: &EvaluationContext,
-    ) {
+    fn visit_tree_z_properties(node: &crate::llr::TreeNode, ctx: &EvaluationContext) {
         if let Some(z_props) = &node.z_sort_order_property {
             for (_, z_source) in z_props {
                 if let crate::llr::ZChildSource::Property(member_ref) = z_source {
@@ -166,18 +162,18 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
         for child in &node.children {
-            visit_tree_z_properties(child, root, ctx);
+            visit_tree_z_properties(child, ctx);
         }
     }
     for c in &root.public_components {
         let ctx = EvaluationContext::new_sub_component(root, c.item_tree.root, (), None);
-        visit_tree_z_properties(&c.item_tree.tree, root, &ctx);
+        visit_tree_z_properties(&c.item_tree.tree, &ctx);
     }
     // Also visit z properties in repeated element sub_trees
     root.for_each_sub_components(&mut |sc, _ctx| {
         for r in &sc.repeated {
             let rep_ctx = EvaluationContext::new_sub_component(root, r.sub_tree.root, (), None);
-            visit_tree_z_properties(&r.sub_tree.tree, root, &rep_ctx);
+            visit_tree_z_properties(&r.sub_tree.tree, &rep_ctx);
         }
     });
 

@@ -1399,7 +1399,7 @@ pub fn visit_item_tree<Base>(
 }
 
 /// Compute a sorted list of child indices based on their z values.
-/// Returns a SharedVector<f32> where each entry is a child offset (relative to children_index)
+/// Returns a `SharedVector<f32>` where each entry is a child offset (relative to children_index)
 /// sorted by the corresponding z value (stable sort).
 pub fn compute_sorted_children_by_z(z_values: &[f32]) -> crate::SharedVector<f32> {
     let mut indices: alloc::vec::Vec<u32> = (0..z_values.len() as u32).collect();

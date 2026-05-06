@@ -840,39 +840,39 @@ extern "C" fn visit_children_item(
     }
 
     // Check if this node has dynamic z-ordering
-    if index >= 0 {
-        if let Some(z_children) = instance_ref.description.z_order_info.get(&(index as u32)) {
-            let z_values: Vec<f32> = z_children
-                .iter()
-                .map(|child_info| match child_info {
-                    ZInterpreterChildInfo::Constant(val) => *val,
-                    ZInterpreterChildInfo::Property(prop_name) => instance_ref
-                        .description
-                        .custom_properties
-                        .get(prop_name)
-                        .and_then(|p| unsafe {
-                            p.prop
-                                .get(core::pin::Pin::new_unchecked(
-                                    &*(instance_ref.as_ptr().add(p.offset)),
-                                ))
-                                .ok()
-                        })
-                        .and_then(|v| if let Value::Number(n) = v { Some(n as f32) } else { None })
-                        .unwrap_or(0.0),
-                })
-                .collect();
-            let sorted = i_slint_core::item_tree::compute_sorted_children_by_z(&z_values);
-            return i_slint_core::item_tree::visit_item_tree_with_sorted_children(
-                instance_ref.instance,
-                &vtable::VRc::into_dyn(comp_rc),
-                get_item_tree(component).as_slice(),
-                index,
-                order,
-                v,
-                visit_dyn!(),
-                sorted.as_slice(),
-            );
-        }
+    if index >= 0
+        && let Some(z_children) = instance_ref.description.z_order_info.get(&(index as u32))
+    {
+        let z_values: Vec<f32> = z_children
+            .iter()
+            .map(|child_info| match child_info {
+                ZInterpreterChildInfo::Constant(val) => *val,
+                ZInterpreterChildInfo::Property(prop_name) => instance_ref
+                    .description
+                    .custom_properties
+                    .get(prop_name)
+                    .and_then(|p| unsafe {
+                        p.prop
+                            .get(core::pin::Pin::new_unchecked(
+                                &*(instance_ref.as_ptr().add(p.offset)),
+                            ))
+                            .ok()
+                    })
+                    .and_then(|v| if let Value::Number(n) = v { Some(n as f32) } else { None })
+                    .unwrap_or(0.0),
+            })
+            .collect();
+        let sorted = i_slint_core::item_tree::compute_sorted_children_by_z(&z_values);
+        return i_slint_core::item_tree::visit_item_tree_with_sorted_children(
+            instance_ref.instance,
+            &vtable::VRc::into_dyn(comp_rc),
+            get_item_tree(component).as_slice(),
+            index,
+            order,
+            v,
+            visit_dyn!(),
+            sorted.as_slice(),
+        );
     }
 
     i_slint_core::item_tree::visit_item_tree(
