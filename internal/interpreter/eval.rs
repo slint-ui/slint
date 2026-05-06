@@ -8,7 +8,7 @@ use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
 };
 use corelib::input::FocusReason;
-use corelib::items::{ColorScheme, ItemRc, ItemRef, PropertyAnimation, WindowItem};
+use corelib::items::{ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
@@ -1421,12 +1421,12 @@ fn call_builtin_function(
             let a = a.clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
-        BuiltinFunction::ColorScheme => local_context
-            .component_instance
-            .window_adapter()
-            .internal(corelib::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-            .into(),
+        BuiltinFunction::ColorScheme => corelib::window::WindowInner::from_pub(
+            local_context.component_instance.window_adapter().window(),
+        )
+        .context()
+        .color_scheme()
+        .into(),
         BuiltinFunction::AccentColor => {
             let color = local_context
                 .component_instance

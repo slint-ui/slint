@@ -315,7 +315,6 @@ pub struct WinitWindowAdapter {
     window: corelib::api::Window,
     pub(crate) self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
-    color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
     accent_color: OnceCell<Pin<Box<Property<Color>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
     /// Indicates if the window is shown, from the perspective of the API user.
@@ -388,7 +387,6 @@ impl WinitWindowAdapter {
             window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
-            color_scheme: Default::default(),
             accent_color: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
@@ -478,6 +476,23 @@ impl WinitWindowAdapter {
         }
 
         let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
+
+        // Push the host shell's color scheme to the SlintContext. With
+        // `xdg_desktop_settings` we let the portal watcher report it; otherwise winit
+        // exposes the system Light/Dark setting directly on the new window.
+        cfg_if::cfg_if! {
+            if #[cfg(xdg_desktop_settings)] {
+                if let Some(old_watch) = self.xdg_settings_watcher.replace(self.spawn_xdg_settings_watcher()) {
+                    old_watch.abort();
+                }
+            } else {
+                let initial_scheme = winit_window.theme().map_or(ColorScheme::Unknown, |theme| match theme {
+                    winit::window::Theme::Dark => ColorScheme::Dark,
+                    winit::window::Theme::Light => ColorScheme::Light,
+                });
+                self.set_color_scheme(initial_scheme);
+            }
+        }
 
         let scale_factor =
             overriding_scale_factor.unwrap_or_else(|| winit_window.scale_factor() as f32);
@@ -862,10 +877,7 @@ impl WinitWindowAdapter {
     }
 
     pub fn set_color_scheme(&self, scheme: ColorScheme) {
-        self.color_scheme
-            .get_or_init(|| Box::pin(Property::new(ColorScheme::Unknown)))
-            .as_ref()
-            .set(scheme);
+        WindowInner::from_pub(self.window()).context().set_color_scheme(scheme);
 
         // Update the menubar theme
         #[cfg(target_os = "windows")]
@@ -1092,15 +1104,13 @@ impl WinitWindowAdapter {
 
             winit_window.set_visible(true);
 
-            // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
-            // the window wasn't mapped yet.
-            if let Some(color_scheme_prop) = self.color_scheme.get()
-                && let Some(theme) = winit_window.theme()
-            {
-                color_scheme_prop.as_ref().set(match theme {
+            // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms
+            // `winit_window.theme()` only reports a real value once the window is shown.
+            if let Some(theme) = winit_window.theme() {
+                self.set_color_scheme(match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
                     winit::window::Theme::Light => ColorScheme::Light,
-                })
+                });
             }
 
             // In wasm a request_redraw() issued before show() results in a draw() even when the window
@@ -1489,33 +1499,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
             _ => {}
         };
-    }
-
-    fn color_scheme(&self) -> ColorScheme {
-        self.color_scheme
-            .get_or_init(|| {
-                Box::pin(Property::new({
-                    cfg_if::cfg_if! {
-                        if #[cfg(not(xdg_desktop_settings))] {
-                            self.winit_window_or_none
-                                .borrow()
-                                .as_window()
-                                .and_then(|window| window.theme())
-                                .map_or(ColorScheme::Unknown, |theme| match theme {
-                                    winit::window::Theme::Dark => ColorScheme::Dark,
-                                    winit::window::Theme::Light => ColorScheme::Light,
-                                })
-                        } else {
-                            if let Some(old_watch) = self.xdg_settings_watcher.replace(self.spawn_xdg_settings_watcher()) {
-                                old_watch.abort()
-                            }
-                            ColorScheme::Unknown
-                        }
-                    }
-                }))
-            })
-            .as_ref()
-            .get()
     }
 
     fn accent_color(&self) -> Color {
