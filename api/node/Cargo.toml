@@ -60,7 +60,7 @@ smol_str = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libloading = "0.9"
-rustix = { version = "1.1", features = ["pipe", "event"] }
+async-io = "2"
 
 [build-dependencies]
 napi-build = "2"

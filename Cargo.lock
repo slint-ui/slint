@@ -10257,6 +10257,7 @@ dependencies = [
 name = "slint-node"
 version = "1.17.0"
 dependencies = [
+ "async-io 2.6.0",
  "css-color-parser2",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
@@ -10267,7 +10268,6 @@ dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "rustix 1.1.4",
  "send_wrapper",
  "slint-interpreter",
  "smol_str 0.3.2",
