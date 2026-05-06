@@ -204,32 +204,6 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                             "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
                     ))
         }
-        // TODO: JS doesn't currently have a good way to construct a `DataTransfer`
-        Type::DataTransfer => {
-            let direct_value = unknown
-                .coerce_to_object()?
-                .get::<ExternalRef<DataTransfer>>("data_transfer")
-                .ok()
-                .flatten()
-                .map(|data_transfer| Value::DataTransfer((*data_transfer).clone()));
-
-            if let Some(direct_value) = direct_value {
-                return Ok(direct_value);
-            }
-
-            for cast_type in [Type::String, Type::Image] {
-                let Some(converted) = to_value(env, unknown, &cast_type)
-                    .ok()
-                    .and_then(|val| val.try_cast(Type::DataTransfer).ok())
-                else {
-                    continue;
-                };
-
-                return Ok(converted);
-            }
-
-            Err(napi::Error::from_reason("Cannot convert object to data-transfer".to_string()))
-        }
         Type::Image => {
             let object = unknown.coerce_to_object()?;
             if let Some(direct_image) = object.get::<ExternalRef<Image>>("image").ok().flatten() {
