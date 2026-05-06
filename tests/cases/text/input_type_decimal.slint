@@ -63,11 +63,11 @@ for (seq, expected) in [("d", "-465"), ("7", "-765")] {
 let instance = TestCase::new().unwrap();
 slint_testing::set_locale(&instance, "de-DE");
 slint_testing::send_mouse_click(&instance, 5., 55.);
-assert!(instance.get_input_focused_loc());
+assert!(instance.get_input_focused());
 
 let send_and_check = |seq: &str, expected: &str| {
     slint_testing::send_keyboard_string_sequence(&instance, seq);
-    assert_eq!(instance.get_text_loc(), expected);
+    assert_eq!(instance.get_text(), expected);
 };
 
 // comma should be accepted as decimal separator
