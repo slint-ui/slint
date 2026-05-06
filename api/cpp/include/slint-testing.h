@@ -391,6 +391,21 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-live of that element, if any.
+    std::optional<AccessibleLive> accessible_live() const
+    {
+        if (auto str = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Live)) {
+            if (*str == "off")
+                return AccessibleLive::Off;
+            if (*str == "polite")
+                return AccessibleLive::Polite;
+            if (*str == "assertive")
+                return AccessibleLive::Assertive;
+        }
+        return std::nullopt;
+    }
+
     /// Invokes the expand accessibility action of that element
     /// (`accessible-action-expand`).
     void invoke_accessible_expand_action() const

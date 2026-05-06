@@ -408,6 +408,13 @@ The orientation of the element when it makes sense, such as a `Slider` or a `Scr
 technologies can use this to inform the user whether the widget is laid out horizontally or vertically.
 </SlintProperty>
 
+### accessible-live
+<SlintProperty typeName="enum" enumName="AccessibleLive">
+Marks the element as a live region whose textual content should be announced by assistive
+technologies when it changes. Use `polite` for non-urgent updates and `assertive` for updates that
+should interrupt the user. The default `off` disables live announcements.
+</SlintProperty>
+
 ### accessible-value-maximum
 <SlintProperty typeName="float" propName="accessible-value-maximum" default="0">
 The maximum value of the item. This is used for example by spin boxes.

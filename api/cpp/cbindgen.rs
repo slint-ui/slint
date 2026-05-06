@@ -36,6 +36,10 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::Orientation;")?;
             &mut enums_pub
         }};
+        (AccessibleLive) => {{
+            writeln!(enums_priv, "using slint::AccessibleLive;")?;
+            &mut enums_pub
+        }};
         ($_:ident) => {
             &mut enums_priv
         };
