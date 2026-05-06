@@ -417,7 +417,6 @@ pub fn set_bundled_languages(languages: &[&'static str], separators: &[Option<&s
                 if let Some(idx) = language_index_from_sys_locale(languages) {
                     ctx.0.translations_dirty.as_ref().set(idx);
                 }
-                update_locale_decimal_separator();
             }
         }
 
@@ -425,8 +424,8 @@ pub fn set_bundled_languages(languages: &[&'static str], separators: &[Option<&s
             ctx.0.translations_bundle_decimal_separators.replace(Some(
                 separators.iter().map(|s| s.and_then(|x| x.chars().next())).collect(),
             ));
-            update_locale_decimal_separator();
         }
+        update_locale_decimal_separator();
     });
 }
 
