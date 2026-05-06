@@ -7,6 +7,8 @@
 
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+#[cfg(target_os = "macos")]
+use std::cell::OnceCell;
 use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
@@ -36,7 +38,6 @@ use corelib::items::{ItemRc, ItemRef};
 #[cfg(any(enable_accesskit, muda))]
 use crate::SlintEvent;
 use crate::{EventResult, SharedBackendData};
-use corelib::Property;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
@@ -44,7 +45,6 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
-use std::cell::OnceCell;
 #[cfg(any(enable_accesskit, muda))]
 use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
@@ -315,7 +315,6 @@ pub struct WinitWindowAdapter {
     window: corelib::api::Window,
     pub(crate) self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
-    accent_color: OnceCell<Pin<Box<Property<Color>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
     /// Indicates if the window is shown, from the perspective of the API user.
     shown: Cell<WindowVisibility>,
@@ -387,7 +386,6 @@ impl WinitWindowAdapter {
             window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
-            accent_color: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
             window_level: Default::default(),
@@ -477,9 +475,10 @@ impl WinitWindowAdapter {
 
         let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
 
-        // Push the host shell's color scheme to the SlintContext. With
-        // `xdg_desktop_settings` we let the portal watcher report it; otherwise winit
-        // exposes the system Light/Dark setting directly on the new window.
+        // Push the host shell's color scheme and accent color to the SlintContext. With
+        // `xdg_desktop_settings` we let the portal watcher report them; otherwise winit
+        // exposes the system Light/Dark setting directly on the new window, and the
+        // OS-specific query yields the accent color.
         cfg_if::cfg_if! {
             if #[cfg(xdg_desktop_settings)] {
                 if let Some(old_watch) = self.xdg_settings_watcher.replace(self.spawn_xdg_settings_watcher()) {
@@ -491,6 +490,9 @@ impl WinitWindowAdapter {
                     winit::window::Theme::Light => ColorScheme::Light,
                 });
                 self.set_color_scheme(initial_scheme);
+                #[cfg(target_os = "macos")]
+                self.setup_macos_color_observer();
+                self.set_accent_color(Self::query_system_accent_color());
             }
         }
 
@@ -822,10 +824,7 @@ impl WinitWindowAdapter {
     }
 
     pub fn set_accent_color(&self, color: Color) {
-        self.accent_color
-            .get_or_init(|| Box::pin(Property::new(Color::default())))
-            .as_ref()
-            .set(color);
+        WindowInner::from_pub(self.window()).context().set_accent_color(color);
     }
 
     fn query_system_accent_color() -> Color {
@@ -1499,17 +1498,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
             _ => {}
         };
-    }
-
-    fn accent_color(&self) -> Color {
-        self.accent_color
-            .get_or_init(|| {
-                #[cfg(target_os = "macos")]
-                self.setup_macos_color_observer();
-                Box::pin(Property::new(Self::query_system_accent_color()))
-            })
-            .as_ref()
-            .get()
     }
 
     #[cfg(muda)]
