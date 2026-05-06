@@ -86,7 +86,7 @@ impl Item for TouchArea {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    is_touch: false,
+                    touch_id: 0,
                 },));
             }
             return InputEventFilterResult::ForwardAndIgnore;
@@ -121,7 +121,7 @@ impl Item for TouchArea {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::Pressed { position, button, is_touch, .. } => {
+            MouseEvent::Pressed { position, button, touch_id, .. } => {
                 self.grabbed.set(true);
                 if *button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x().apply_pin(self).set(position.x_length());
@@ -132,7 +132,7 @@ impl Item for TouchArea {
                     button: *button,
                     kind: PointerEventKind::Down,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    is_touch: *is_touch,
+                    touch_id: touch_id.map(|id| (id + 1) as i32).unwrap_or(0),
                 },));
 
                 InputEventResult::GrabMouse
@@ -144,14 +144,14 @@ impl Item for TouchArea {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
                         modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                        is_touch: false,
+                        touch_id: 0,
                     },));
                 }
 
                 InputEventResult::EventAccepted
             }
 
-            MouseEvent::Released { button, position, click_count, is_touch } => {
+            MouseEvent::Released { button, position, click_count, touch_id } => {
                 let geometry = self_rc.geometry();
                 if *button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(*position)
@@ -171,17 +171,17 @@ impl Item for TouchArea {
                     button: *button,
                     kind: PointerEventKind::Up,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    is_touch: *is_touch,
+                    touch_id: touch_id.map(|id| (id + 1) as i32).unwrap_or(0),
                 },));
 
                 InputEventResult::EventAccepted
             }
-            MouseEvent::Moved { is_touch, .. } => {
+            MouseEvent::Moved { touch_id, .. } => {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
                     modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
-                    is_touch: *is_touch,
+                    touch_id: touch_id.map(|id| (id + 1) as i32).unwrap_or(0),
                 },));
                 if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved().apply_pin(self).call(&());

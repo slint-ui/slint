@@ -131,7 +131,7 @@ impl EventLoopState {
             && let Some(window) = self.shared_backend_data.window_by_id(window_id)
         {
             let runtime_window = WindowInner::from_pub(window.window());
-            runtime_window.process_mouse_input(MouseEvent::Moved { position, is_touch: false });
+            runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_id: None });
         }
     }
 }
@@ -439,7 +439,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                             position: self.cursor_pos,
                             button,
                             click_count: 0,
-                            is_touch: false,
+                            touch_id: None,
                         }
                     }
                     winit::event::ElementState::Released => {
@@ -448,7 +448,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                             position: self.cursor_pos,
                             button,
                             click_count: 0,
-                            is_touch: false,
+                            touch_id: None,
                         }
                     }
                 };

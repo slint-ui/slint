@@ -36,8 +36,8 @@ pub enum MouseEvent {
         button: PointerEventButton,
         /// The current click count reported for this press.
         click_count: u8,
-        /// Whether the event originated from touch input.
-        is_touch: bool,
+        /// The touch ID if the event originated from touch input.
+        touch_id: Option<u32>,
     },
     /// The mouse or finger was released
     Released {
@@ -47,15 +47,15 @@ pub enum MouseEvent {
         button: PointerEventButton,
         /// The current click count reported for this release.
         click_count: u8,
-        /// Whether the event originated from touch input.
-        is_touch: bool,
+        /// The touch ID if the event originated from touch input.
+        touch_id: Option<u32>,
     },
     /// The position of the pointer has changed
     Moved {
         /// The new position of the pointer.
         position: LogicalPoint,
-        /// Whether the event originated from touch input.
-        is_touch: bool,
+        /// The touch ID if the event originated from touch input.
+        touch_id: Option<u32>,
     },
     /// Wheel was operated.
     Wheel {
@@ -97,14 +97,14 @@ pub enum MouseEvent {
 }
 
 impl MouseEvent {
-    /// The flag for when event generated from touch
-    pub fn is_touch(&self) -> Option<bool> {
+    /// The touch ID if the event originated from touch input.
+    pub fn touch_id(&self) -> Option<u32> {
         match self {
-            MouseEvent::Pressed { is_touch, .. } => Some(*is_touch),
-            MouseEvent::Released { is_touch, .. } => Some(*is_touch),
-            MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
+            MouseEvent::Pressed { touch_id, .. } => *touch_id,
+            MouseEvent::Released { touch_id, .. } => *touch_id,
+            MouseEvent::Moved { touch_id, .. } => *touch_id,
             MouseEvent::Wheel { .. } => None,
-            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => Some(true),
+            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => Some(0), // Gesture
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
             MouseEvent::Exit => None,
         }
@@ -945,7 +945,7 @@ impl ClickState {
     /// Check if the click is repeated.
     pub fn check_repeat(&self, mouse_event: MouseEvent, click_interval: Duration) -> MouseEvent {
         match mouse_event {
-            MouseEvent::Pressed { position, button, is_touch, .. } => {
+            MouseEvent::Pressed { position, button, touch_id, .. } => {
                 let instant_now = crate::animations::Instant::now();
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
@@ -966,15 +966,15 @@ impl ClickState {
                     position,
                     button,
                     click_count: self.click_count.get(),
-                    is_touch,
+                    touch_id,
                 };
             }
-            MouseEvent::Released { position, button, is_touch, .. } => {
+            MouseEvent::Released { position, button, touch_id, .. } => {
                 return MouseEvent::Released {
                     position,
                     button,
                     click_count: self.click_count.get(),
-                    is_touch,
+                    touch_id,
                 };
             }
             _ => {}
@@ -1109,7 +1109,7 @@ pub(crate) fn handle_mouse_grab(
             // Return a move event so that the new position can be registered properly
             Some(mouse_event.position().map_or(MouseEvent::Exit, |position| MouseEvent::Moved {
                 position,
-                is_touch: mouse_event.is_touch().unwrap_or(false),
+                touch_id: mouse_event.touch_id(),
             }))
         }
     }
@@ -1202,7 +1202,7 @@ pub fn process_mouse_input(
         // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
         return process_mouse_input(
             root,
-            &MouseEvent::Moved { position: *position, is_touch: false },
+            &MouseEvent::Moved { position: *position, touch_id: None },
             window_adapter,
             result,
         );
@@ -1673,7 +1673,7 @@ impl TouchState {
                 position,
                 button: PointerEventButton::Left,
                 click_count: 0,
-                is_touch: true,
+                touch_id: Some(id as u32),
             });
         } else if total == 2 {
             // Second finger: transition Idle → TwoFingersDown.
@@ -1700,7 +1700,7 @@ impl TouchState {
                 position: primary_pos,
                 button: PointerEventButton::Left,
                 click_count: 0,
-                is_touch: true,
+                touch_id: Some(id as u32),
             });
         }
         // 3+ fingers: tracked in active_touches but ignored for gesture.
@@ -1717,7 +1717,7 @@ impl TouchState {
         match self.gesture_state {
             GestureRecognitionState::Idle => {
                 if self.primary_touch_id == Some(id) {
-                    events.push(MouseEvent::Moved { position, is_touch: true });
+                    events.push(MouseEvent::Moved { position, touch_id: Some(id as u32) });
                 }
             }
             GestureRecognitionState::TwoFingersDown {
@@ -1817,7 +1817,7 @@ impl TouchState {
                         position,
                         button: PointerEventButton::Left,
                         click_count: 0,
-                        is_touch: true,
+                        touch_id: Some(id as u32),
                     });
                     events.push(MouseEvent::Exit);
                 }
@@ -1832,7 +1832,7 @@ impl TouchState {
                             position: remaining_pos,
                             button: PointerEventButton::Left,
                             click_count: 0,
-                            is_touch: true,
+                            touch_id: Some(id as u32),
                         });
                     } else {
                         self.primary_touch_id = None;
@@ -1876,7 +1876,7 @@ impl TouchState {
                         position: rpos,
                         button: PointerEventButton::Left,
                         click_count: 0,
-                        is_touch: true,
+                        touch_id: Some(id as u32),
                     });
                 } else {
                     events.push(MouseEvent::Exit);

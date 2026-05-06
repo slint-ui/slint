@@ -455,16 +455,6 @@ pub mod platform {
 ///
 /// See also the list of [global structs and enums](slint:StructType)
 pub mod language {
-    macro_rules! export_enums {
-        ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
-            $(
-                pub use i_slint_core::items::$Name;
-            )*
-        };
-    }
-
-    i_slint_common::for_each_enums!(export_enums);
-
     macro_rules! export_builtin_structs {
         ($(
             $(#[$attr:meta])*
@@ -489,6 +479,8 @@ pub mod language {
     }
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
+
+    pub use i_slint_core::items::{ColorScheme, PointerEventButton, PointerEventKind};
 }
 
 #[cfg(any(
