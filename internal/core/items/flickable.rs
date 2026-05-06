@@ -329,9 +329,9 @@ impl Flickable {
             let keyboard_pos = keyboard_rect.0;
 
             let self_in_window_coordinates = self_rc.map_to_native_window(geometry.origin);
-            if keyboard_pos.y < (self_in_window_coordinates.y + geometry.height()) {
+            if (keyboard_pos.y as Coord) < (self_in_window_coordinates.y + geometry.height()) {
                 // Keyboard is below the flickable and overlapping
-                geometry.size.height = keyboard_pos.y - self_in_window_coordinates.y;
+                geometry.size.height = keyboard_pos.y as Coord - self_in_window_coordinates.y;
             }
         }
         geometry
