@@ -247,6 +247,8 @@ impl DataTransfer {
     /// The set of MIME types recognized by [`DataTransfer::fetch_plaintext`].
     pub const PLAINTEXT_MIME_TYPES: &[&str] = mime::PLAINTEXT;
     /// The set of MIME types recognized by [`DataTransfer::fetch_image`].
+    // TODO: It might be nice to filter this by the types which are enabled in
+    // `image`, but there's no way to do that in a constant right now.
     pub const IMAGE_MIME_TYPES: &[&str] =
         if cfg!(feature = "svg") { mime::IMAGE } else { mime::PIXMAP_IMAGE };
 
@@ -271,17 +273,23 @@ impl DataTransfer {
 
         // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
         // but on Windows this should handle WTF-16 to UTF-8 conversion.
-        self.find_type(Self::PLAINTEXT_MIME_TYPES).and_then(|(_, text)| {
-            Ok(alloc::string::String::from_utf8(text.to_vec())
-                .map_err(ProviderError::other)?
-                .into())
-        })
+        let Some(find_result) = self.find_type(Self::PLAINTEXT_MIME_TYPES.iter().copied()) else {
+            return Err(DataTransferError::TypeNotFound(mime::text::PLAIN.into()));
+        };
+
+        let (_, utf8_text) = find_result?;
+
+        Ok(alloc::string::String::from_utf8(utf8_text.to_vec())
+            .map_err(ProviderError::other)?
+            .into())
     }
 
     /// Helper to read this [`DataTransfer`] as an image, supporting multiple image types.
     ///
     /// The caller should assume that this method call may do IO.
     pub fn fetch_image(&self) -> Result<Image, DataTransferError> {
+        const NO_IMAGE_FORMATS_ENABLED_ERROR: &str = "No image formats enabled";
+
         if let Some(internal_image) =
             self.user_data().and_then(|any| any.downcast_ref::<Image>().cloned())
         {
@@ -290,26 +298,57 @@ impl DataTransfer {
 
         #[cfg(feature = "image-decoders")]
         {
+            // We filter by readable types here. For now, we want to avoid trying every
+            // possible format in turn, in order to make performance easier to reason
+            // about. However, if it's impossible for the read to succeed because of the
+            // enabled image formats then we won't initiate a decode. This means that
+            // the formats don't quite match `Self::IMAGE_MIME_TYPES`, but that constant
+            // is still a good approximation for the purposes of checking if incoming
+            // data is an image.
+            let available_image_types = mime::PIXMAP_IMAGE.iter().copied().filter(|ty| {
+                image::ImageFormat::from_mime_type(ty)
+                    .is_some_and(|format| format.reading_enabled())
+            });
+
+            // SVG has separate handling, so we don't need to filter it by
+            // `ImageFormat::reading_enabled`.
+            #[cfg(feature = "svg")]
+            let available_image_types =
+                available_image_types.chain(core::iter::once(mime::image::SVG));
+
+            // We should really have a way to specify that none of a set of MIME types were
+            // found, but for now we just return the first one. This also gives us a good
+            // place to return an error if no formats are enabled.
+            let Some(diagnostic_mime_type) = available_image_types.clone().next() else {
+                return Err(ProviderError::other(NO_IMAGE_FORMATS_ENABLED_ERROR).into());
+            };
+
             // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
             // but on Windows this should handle WTF-16 to UTF-8 conversion.
-            self.find_type(Self::IMAGE_MIME_TYPES).and_then(|(type_, image_data)| {
-                let image_ext = match type_ {
-                    mime::image::BMP => "bmp",
-                    mime::image::GIF => "gif",
-                    mime::image::JPEG => "jpeg",
-                    mime::image::PNG => "png",
-                    mime::image::SVG => "svg",
-                    _ => "",
-                };
+            let (type_, image_data) = self
+                .find_type(available_image_types)
+                .ok_or_else(|| DataTransferError::TypeNotFound(diagnostic_mime_type.into()))??;
 
-                Ok(Image::load_from_dynamic_data(&image_data, image_ext)
-                    .map_err(|err| ProviderError::other(alloc::format!("{err}")))?)
-            })
+            // `load_from_dynamic_data` takes an extension, not a MIME type
+            // TODO: It might be worth having a way to pass in a MIME type rather than an
+            // extension, so we can use `ImageFormat::from_mime_type` instead of mapping
+            // between the two here.
+            let image_ext = match type_ {
+                mime::image::BMP => "bmp",
+                mime::image::GIF => "gif",
+                mime::image::JPEG => "jpeg",
+                mime::image::PNG => "png",
+                mime::image::SVG => "svg",
+                _ => "",
+            };
+
+            Ok(Image::load_from_dynamic_data(&image_data, image_ext)
+                .map_err(|err| ProviderError::other(alloc::format!("{err}")))?)
         }
 
         #[cfg(not(feature = "image-decoders"))]
         {
-            Err(DataTransferError::TypeNotFound("image".into()))
+            Err(ProviderError::other(NO_IMAGE_FORMATS_ENABLED_ERROR).into())
         }
     }
 
@@ -359,28 +398,23 @@ impl DataTransfer {
     /// is not taken into account).
     ///
     /// The caller should assume that this method call may do IO.
-    fn find_type(
+    fn find_type<'a, I>(
         &self,
-        mime_types: &[&str],
-    ) -> Result<(&str, SharedVector<u8>), DataTransferError> {
+        mime_types: I,
+    ) -> Option<Result<(&str, SharedVector<u8>), ProviderError>>
+    where
+        I: IntoIterator<Item = &'a str> + Clone,
+    {
         // TODO: Should we prefer to go in the order specified in the data transfer or in the
         // `mime_types` argument? Only X11 and Wayland have a proper concept of source-defined
         // type ordering, so maybe it makes more sense for the destination to define the
         // preference order.
-        self.providers
-            .iter()
-            .find_map(|(type_, value)| {
-                mime_types
-                    .contains(&&**type_)
-                    .then(|| (***value).clone().map(|value| (&**type_, value)).map_err(Into::into))
-            })
-            .unwrap_or_else(|| {
-                if let Some(last) = mime_types.last().copied() {
-                    Err(DataTransferError::TypeNotFound(last.into()))
-                } else {
-                    // For now, this method is private, so we can afford to have a less-helpful error message
-                    Err(ProviderError::other("Internal error: No MIME types supplied").into())
-                }
-            })
+        self.providers.iter().find_map(|(type_, value)| {
+            mime_types
+                .clone()
+                .into_iter()
+                .any(|check_type| check_type == &**type_)
+                .then(|| (***value).clone().map(|value| (&**type_, value)))
+        })
     }
 }
