@@ -387,6 +387,8 @@ impl BackendBuilder {
             spawn_event_loop: self.spawn_event_loop,
             custom_application_handler: self.custom_application_handler.into(),
             context: OnceCell::new(),
+            #[cfg(xdg_desktop_settings)]
+            xdg_watcher: RefCell::new(None),
         })
     }
 }
@@ -606,6 +608,10 @@ pub struct Backend {
     /// `Platform::bind_context`. Lets backend code spawn futures and write
     /// process-wide state without needing a window adapter.
     context: OnceCell<SlintContextWeak>,
+    /// Backend-wide XDG desktop portal watcher. Spawned in `bind_context`
+    /// and aborted on backend drop.
+    #[cfg(xdg_desktop_settings)]
+    xdg_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
 
     /// This hook is called before a Window is created.
     ///
@@ -682,12 +688,35 @@ impl Backend {
     }
 }
 
+#[cfg(xdg_desktop_settings)]
+impl Drop for Backend {
+    fn drop(&mut self) {
+        if let Some(handle) = self.xdg_watcher.borrow_mut().take() {
+            handle.abort();
+        }
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
     fn bind_context(
         &self,
         ctx: i_slint_core::SlintContextWeak,
         _: i_slint_core::InternalToken,
     ) {
+        #[cfg(xdg_desktop_settings)]
+        if let Some(strong_ctx) = ctx.upgrade() {
+            let shared_weak = Rc::downgrade(&self.shared_data);
+            let ctx_weak = ctx.clone();
+            if let Ok(handle) = strong_ctx.spawn_local(async move {
+                if let Err(err) =
+                    crate::xdg_desktop_settings::watch(shared_weak, ctx_weak).await
+                {
+                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {}", err);
+                }
+            }) {
+                *self.xdg_watcher.borrow_mut() = Some(handle);
+            }
+        }
         let _ = self.context.set(ctx);
     }
 
