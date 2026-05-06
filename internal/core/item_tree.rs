@@ -1570,7 +1570,10 @@ pub(crate) mod ffi {
         out: *mut crate::SharedVector<f32>,
     ) {
         unsafe {
-            core::ptr::write(out, crate::item_tree::compute_sorted_children_by_z(z_values.as_slice()))
+            core::ptr::write(
+                out,
+                crate::item_tree::compute_sorted_children_by_z(z_values.as_slice()),
+            )
         }
     }
 }
