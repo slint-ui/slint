@@ -111,50 +111,75 @@ export component ControlsPage inherits Page {
 
                 ToolTip {
                     placement: above;
+
+                    VerticalBox {
+                        padding: 10px;
+                        spacing: 6px;
+                        Text {
+                            text: @tr("Quick Actions");
+                            font-weight: 700;
+                            color: #fff;
+                        }
+
+                        Text {
+                            text: @tr("Open command palette and search settings.");
+                            color: #d1d5db;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalBox {
+                            spacing: 6px;
+                            Rectangle {
+                                border-radius: 4px;
+                                background: #374151;
+                                HorizontalBox {
+                                    padding: 4px;
+                                    Text {
+                                        text: "Ctrl";
+                                        color: #fff;
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                border-radius: 4px;
+                                background: #374151;
+                                HorizontalBox {
+                                    padding: 4px;
+                                    Text {
+                                        text: "K";
+                                        color: #fff;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button {
+                text: @tr("No-background ToolTip");
+                enabled: GallerySettings.widgets-enabled;
+
+                ToolTip {
+                    placement: above;
+                    no-background: true;
+
                     Rectangle {
                         border-radius: 6px;
-                        background: #222;
+                        background: #374151;
 
                         VerticalBox {
-                            padding: 10px;
-                            spacing: 6px;
+                            padding: 8px;
+                            spacing: 4px;
                             Text {
-                                text: @tr("Quick Actions");
-                                font-weight: 700;
+                                text: @tr("Custom background");
                                 color: #fff;
+                                font-weight: 700;
                             }
-
                             Text {
-                                text: @tr("Open command palette and search settings.");
+                                text: @tr("no-background: true");
                                 color: #d1d5db;
-                                wrap: word-wrap;
-                            }
-
-                            HorizontalBox {
-                                spacing: 6px;
-                                Rectangle {
-                                    border-radius: 4px;
-                                    background: #374151;
-                                    HorizontalBox {
-                                        padding: 4px;
-                                        Text {
-                                            text: "Ctrl";
-                                            color: #fff;
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    border-radius: 4px;
-                                    background: #374151;
-                                    HorizontalBox {
-                                        padding: 4px;
-                                        Text {
-                                            text: "K";
-                                            color: #fff;
-                                        }
-                                    }
-                                }
                             }
                         }
                     }

@@ -2015,6 +2015,7 @@ pub struct ToolTip {
     pub text: Property<SharedString>,
     pub placement: Property<ToolTipPlacement>,
     pub delay: Property<i64>,
+    pub no_background: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

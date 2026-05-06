@@ -2561,6 +2561,8 @@ export component ToolTip inherits Empty {
     /// }
     /// ```
     in property <duration> delay: 500ms;
+    /// If true, custom-content tooltips are shown without themed background/border decoration.
+    in property <bool> no-background: false;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
 }
@@ -2961,11 +2963,6 @@ export component NativeTab {
 export global NativeStyleMetrics {
     out property <length> layout-spacing;
     out property <length> layout-padding;
-    out property <length> tooltip-border-radius;
-    out property <length> tooltip-padding-left;
-    out property <length> tooltip-padding-right;
-    out property <length> tooltip-padding-top;
-    out property <length> tooltip-padding-bottom;
     out property <length> text-cursor-width;
     out property <color> window-background;
     out property <color> default-text-color;

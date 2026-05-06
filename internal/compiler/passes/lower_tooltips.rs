@@ -50,24 +50,26 @@ const MOUSE_Y: &str = "mouse-y";
 const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
 const PLACEMENT: &str = "placement";
+const NO_BACKGROUND: &str = "no-background";
 
 fn build_tooltip_content(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_impl_type: &ElementType,
     tooltip_text: Option<NamedReference>,
+    tooltip_no_background: NamedReference,
     children: Vec<ElementRc>,
 ) -> ElementRc {
-    let bindings = tooltip_text
-        .map(|tooltip_text| {
-            [(
-                SmolStr::new_static("text"),
-                RefCell::new(Expression::PropertyReference(tooltip_text).into()),
-            )]
-            .into_iter()
-            .collect()
-        })
-        .unwrap_or_default();
+    let mut bindings = std::collections::BTreeMap::from([(
+        SmolStr::new_static(NO_BACKGROUND),
+        RefCell::new(Expression::PropertyReference(tooltip_no_background).into()),
+    )]);
+    if let Some(tooltip_text) = tooltip_text {
+        bindings.insert(
+            SmolStr::new_static("text"),
+            RefCell::new(Expression::PropertyReference(tooltip_text).into()),
+        );
+    }
     Element {
         id: format_smolstr!("{}-content", popup_id),
         base_type: tooltip_impl_type.clone(),
@@ -524,6 +526,8 @@ fn lower_tooltips_in_component(
 
         let tooltip_placement =
             NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
+        let tooltip_no_background =
+            NamedReference::new(&tooltip_config, SmolStr::new_static(NO_BACKGROUND));
         let tooltip_delay_binding = tooltip_config
             .borrow()
             .bindings
@@ -535,18 +539,16 @@ fn lower_tooltips_in_component(
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
-        let tooltip_content = if has_custom_content {
-            custom_children.into_iter().next().expect("validated single custom child")
-        } else {
-            let tooltip_text = NamedReference::new(&tooltip_config, SmolStr::new_static("text"));
-            build_tooltip_content(
-                &popup_id_for_text,
-                &enclosing_component,
-                tooltip_impl_type,
-                Some(tooltip_text),
-                Vec::new(),
-            )
-        };
+        let tooltip_text =
+            (!has_custom_content).then(|| NamedReference::new(&tooltip_config, SmolStr::new_static("text")));
+        let tooltip_content = build_tooltip_content(
+            &popup_id_for_text,
+            &enclosing_component,
+            tooltip_impl_type,
+            tooltip_text,
+            tooltip_no_background,
+            custom_children,
+        );
         let popup_children = vec![tooltip_config.clone(), tooltip_content.clone()];
 
         let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type
