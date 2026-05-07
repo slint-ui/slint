@@ -2025,7 +2025,7 @@ fn generate_item_tree(
                     .join(", ")
             ));
             create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
-                                                                                                     slint::private_api::make_slice(reinterpret_cast<const char *const *>(slint_translation_bundle_decimal_separators), {}));",
+                                                                                                     slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
                                                                                                      translations.decimal_separators.len()));
         }
 
@@ -5305,7 +5305,7 @@ fn generate_translation(
         }));
     }
     declarations.push(Declaration::Var(Var {
-        ty: "const char8_t* const".into(),
+        ty: "uint32_t".into(),
         name: "slint_translation_bundle_decimal_separators".into(),
         array_size: Some(translations.decimal_separators.len()),
         init: Some(format!(
@@ -5313,10 +5313,7 @@ fn generate_translation(
             translations
                 .decimal_separators
                 .iter()
-                .map(|s| match s {
-                    Some(s) => format_smolstr!("u8\"{}\"", escape_string(s.as_str())),
-                    None => "nullptr".into(),
-                })
+                .map(|s| format_smolstr!("{}", *s as u32),)
                 .join(", ")
         )),
         ..Default::default()

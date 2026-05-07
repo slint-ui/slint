@@ -7,8 +7,6 @@ pub use formatter::FormatArgs;
 #[cfg(feature = "tr")]
 pub use tr::Translator;
 
-pub(crate) const DEFAULT_SEPARATOR: char = '.';
-
 mod formatter {
     use core::fmt::{Display, Formatter, Result};
 
@@ -372,7 +370,7 @@ pub fn translate_from_bundle_with_plural(
 fn update_locale_decimal_separator() {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        ctx.0.locale_decimal_separator.as_ref().set(None);
+        ctx.0.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
 
         if let Some(l) = ctx.0.translations_bundle_languages.borrow().as_ref()
             && !l.is_empty()
@@ -385,9 +383,9 @@ fn update_locale_decimal_separator() {
                     .translations_bundle_decimal_separators
                     .borrow()
                     .as_ref()
-                    .and_then(|v| v.get(language_index).and_then(|v| *v))
+                    .and_then(|v| v.get(language_index).and_then(|v| Some(*v)))
             {
-                ctx.0.locale_decimal_separator.as_ref().set(Some(c))
+                ctx.0.locale_decimal_separator.as_ref().set(c)
             }
         } else {
             // No bundled languages
@@ -407,7 +405,7 @@ fn update_locale_decimal_separator() {
 /// and decimal separators.
 /// Do nothing if the list is already assigned.
 /// It selects also the language based on the system locale as default
-pub fn set_bundled_languages(languages: &[&'static str], separators: &[Option<&str>]) {
+pub fn set_bundled_languages(languages: &[&'static str], separators: &[char]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         if ctx.0.translations_bundle_languages.borrow().is_none() {
@@ -421,9 +419,7 @@ pub fn set_bundled_languages(languages: &[&'static str], separators: &[Option<&s
         }
 
         if ctx.0.translations_bundle_decimal_separators.borrow().is_none() {
-            ctx.0.translations_bundle_decimal_separators.replace(Some(
-                separators.iter().map(|s| s.and_then(|x| x.chars().next())).collect(),
-            ));
+            ctx.0.translations_bundle_decimal_separators.replace(Some(separators.to_vec()));
         }
         update_locale_decimal_separator();
     });
@@ -474,7 +470,7 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
             #[cfg(feature = "std")]
-            ctx.0.locale_decimal_separator.as_ref().set(None);
+            ctx.0.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {
@@ -527,9 +523,9 @@ mod ffi {
     pub extern "C" fn slint_decimal_separator(out: &mut SharedString) {
         crate::context::GLOBAL_CONTEXT.with(|ctx| {
             let separator = if let Some(ctx) = ctx.get() {
-                ctx.0.locale_decimal_separator.as_ref().get().unwrap_or(DEFAULT_SEPARATOR)
+                ctx.0.locale_decimal_separator.as_ref().get()
             } else {
-                DEFAULT_SEPARATOR
+                i_slint_common::DEFAULT_DECIMAL_SEPARATOR
             };
             *out = crate::SharedString::from(separator)
         })
@@ -619,7 +615,7 @@ mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_translate_set_bundled_languages(
         languages: Slice<Slice<'static, u8>>,
-        separators: Slice<*const core::ffi::c_char>,
+        separators: Slice<u32>,
     ) {
         let languages = languages
             .iter()
@@ -627,13 +623,7 @@ mod ffi {
             .collect::<alloc::vec::Vec<_>>();
         let separators = separators
             .iter()
-            .map(|p| {
-                if p.is_null() {
-                    None
-                } else {
-                    unsafe { core::ffi::CStr::from_ptr(*p) }.to_str().ok()
-                }
-            })
+            .map(|p| core::char::from_u32(*p).unwrap_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR))
             .collect::<alloc::vec::Vec<_>>();
         set_bundled_languages(&languages, &separators);
     }

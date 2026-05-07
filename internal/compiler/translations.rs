@@ -34,7 +34,7 @@ pub struct Translations {
     pub languages: Vec<SmolStr>,
 
     /// Decimal separator per language read from the po file
-    pub decimal_separators: Vec<Option<SmolStr>>,
+    pub decimal_separators: Vec<char>,
 }
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl TranslationsBuilder {
     pub fn load_translations(path: &Path, domain: &str) -> std::io::Result<Self> {
         let mut languages = vec!["".into()];
         let mut catalogs = Vec::new();
-        let mut decimal_separators = vec![None];
+        let mut decimal_separators = vec![i_slint_common::DEFAULT_DECIMAL_SEPARATOR];
         let mut plural_rules =
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
         for l in std::fs::read_dir(path)
@@ -66,10 +66,7 @@ impl TranslationsBuilder {
                 })?;
                 let language_name = l.file_name().to_string_lossy().to_smolstr();
                 languages.push(language_name.clone());
-                decimal_separators.push(
-                    decimal_separator_for_locale(language_name.as_str())
-                        .map(|separator| separator.to_smolstr()),
-                );
+                decimal_separators.push(decimal_separator_for_locale(language_name.as_str()));
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
                     let plural_expr = header.split(';').find_map(|sub_entry| {

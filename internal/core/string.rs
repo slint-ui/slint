@@ -346,14 +346,13 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
         let mut result =
             if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
 
-        if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
-            && c != '.'
-        {
-            result.replace_characters('.', c, 1);
-            result
-        } else {
-            result
+        if let Some(ctx) = ctx.get() {
+            let decimal_separator = ctx.0.locale_decimal_separator.as_ref().get();
+            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+                result.replace_characters('.', decimal_separator, 1);
+            }
         }
+        result
     })
 }
 
@@ -362,14 +361,13 @@ pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
 
-        if let Some(c) = ctx.get().and_then(|ctx| ctx.0.locale_decimal_separator.as_ref().get())
-            && c != '.'
-        {
-            result.replace_characters('.', c, 1);
-            result
-        } else {
-            result
+        if let Some(ctx) = ctx.get() {
+            let decimal_separator = ctx.0.locale_decimal_separator.as_ref().get();
+            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+                result.replace_characters('.', decimal_separator, 1);
+            }
         }
+        result
     })
 }
 

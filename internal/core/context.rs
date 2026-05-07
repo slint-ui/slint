@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::Property;
 use crate::api::PlatformError;
 use crate::input::InternalKeyboardModifierState;
 use crate::platform::{EventLoopProxy, Platform};
-use crate::{Property, translations};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
@@ -25,10 +25,10 @@ pub(crate) struct SlintContextInner {
     pub(crate) translations_bundle_languages:
         core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) translations_bundle_decimal_separators:
-        core::cell::RefCell<Option<alloc::vec::Vec<Option<char>>>>,
+        core::cell::RefCell<Option<alloc::vec::Vec<char>>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
-    pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<Option<char>>>>,
+    pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<char>>>,
 
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
@@ -61,7 +61,7 @@ impl SlintContext {
             translations_bundle_decimal_separators: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: Box::pin(Property::new_named(
-                None,
+                i_slint_common::DEFAULT_DECIMAL_SEPARATOR,
                 "SlintContext::locale_decimal_separator",
             )),
             #[cfg(all(unix, not(target_os = "macos")))]
@@ -156,7 +156,7 @@ impl SlintContext {
 
     /// Returns the locale's decimal separator, falling back to `translations::DEFAULT_SEPARATOR`.
     pub fn locale_decimal_separator(&self) -> char {
-        self.0.locale_decimal_separator.as_ref().get().unwrap_or(translations::DEFAULT_SEPARATOR)
+        self.0.locale_decimal_separator.as_ref().get()
     }
 
     /// Override the locale used for decimal separator detection (testing only).

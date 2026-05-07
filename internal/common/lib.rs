@@ -18,6 +18,8 @@ pub mod sharedfontique;
 
 pub mod styled_text;
 
+pub const DEFAULT_DECIMAL_SEPARATOR: char = '.';
+
 #[cfg(feature = "locale-decimal-separator")]
 fn locale_from_string(locale: &str) -> Option<icu_locale_core::Locale> {
     // sys_locale may return locales with '_' (e.g. "de_DE.UTF-8"), normalize to BCP47 '-'
@@ -30,11 +32,15 @@ fn locale_from_string(locale: &str) -> Option<icu_locale_core::Locale> {
 /// Returns the decimal separator character for the given locale string,
 /// or `None` if the locale cannot be parsed or has no ICU data.
 #[cfg(feature = "locale-decimal-separator")]
-pub fn decimal_separator_for_locale(locale: &str) -> Option<char> {
+pub fn decimal_separator_for_locale(locale: &str) -> char {
     use icu_decimal::provider::{Baked, DecimalSymbolsV1};
     use icu_provider::prelude::*;
 
-    let locale = locale_from_string(locale)?;
+    let locale = if let Some(locale) = locale_from_string(locale) {
+        locale
+    } else {
+        return DEFAULT_DECIMAL_SEPARATOR;
+    };
     let data_locale = DataLocale::from(&locale);
     let request = DataRequest {
         id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
@@ -47,6 +53,7 @@ pub fn decimal_separator_for_locale(locale: &str) -> Option<char> {
     DataProvider::<DecimalSymbolsV1>::load(&Baked, request)
         .ok()
         .and_then(|r| r.payload.get().decimal_separator().chars().next())
+        .unwrap_or(DEFAULT_DECIMAL_SEPARATOR)
 }
 
 /// Detect the native style depending on the platform
@@ -90,36 +97,37 @@ pub const ROW_COL_AUTO: f32 = u16::MAX as f32 + 1.;
 #[cfg(all(test, feature = "locale-decimal-separator"))]
 mod tests {
     use super::decimal_separator_for_locale;
+    use crate::DEFAULT_DECIMAL_SEPARATOR;
 
     #[test]
     fn test_decimal_separator_for_locale() {
         // Comma locales
-        assert_eq!(decimal_separator_for_locale("de"), Some(','));
-        assert_eq!(decimal_separator_for_locale("de-DE"), Some(','));
-        assert_eq!(decimal_separator_for_locale("de_DE"), Some(','));
-        assert_eq!(decimal_separator_for_locale("de_DE.UTF-8"), Some(','));
-        assert_eq!(decimal_separator_for_locale("fr"), Some(','));
-        assert_eq!(decimal_separator_for_locale("fr-FR"), Some(','));
-        assert_eq!(decimal_separator_for_locale("it"), Some(','));
-        assert_eq!(decimal_separator_for_locale("es"), Some(','));
-        assert_eq!(decimal_separator_for_locale("pt"), Some(','));
-        assert_eq!(decimal_separator_for_locale("nl"), Some(','));
-        assert_eq!(decimal_separator_for_locale("sv"), Some(','));
-        assert_eq!(decimal_separator_for_locale("ru"), Some(','));
-        assert_eq!(decimal_separator_for_locale("pl"), Some(','));
-        assert_eq!(decimal_separator_for_locale("cs"), Some(','));
-        assert_eq!(decimal_separator_for_locale("tr"), Some(','));
-        assert_eq!(decimal_separator_for_locale("vi"), Some(','));
+        assert_eq!(decimal_separator_for_locale("de"), ',');
+        assert_eq!(decimal_separator_for_locale("de-DE"), ',');
+        assert_eq!(decimal_separator_for_locale("de_DE"), ',');
+        assert_eq!(decimal_separator_for_locale("de_DE.UTF-8"), ',');
+        assert_eq!(decimal_separator_for_locale("fr"), ',');
+        assert_eq!(decimal_separator_for_locale("fr-FR"), ',');
+        assert_eq!(decimal_separator_for_locale("it"), ',');
+        assert_eq!(decimal_separator_for_locale("es"), ',');
+        assert_eq!(decimal_separator_for_locale("pt"), ',');
+        assert_eq!(decimal_separator_for_locale("nl"), ',');
+        assert_eq!(decimal_separator_for_locale("sv"), ',');
+        assert_eq!(decimal_separator_for_locale("ru"), ',');
+        assert_eq!(decimal_separator_for_locale("pl"), ',');
+        assert_eq!(decimal_separator_for_locale("cs"), ',');
+        assert_eq!(decimal_separator_for_locale("tr"), ',');
+        assert_eq!(decimal_separator_for_locale("vi"), ',');
 
         // Dot locales
-        assert_eq!(decimal_separator_for_locale("en"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("en-US"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("en_GB"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("ja"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("zh"), Some('.'));
-        assert_eq!(decimal_separator_for_locale("ko"), Some('.'));
+        assert_eq!(decimal_separator_for_locale("en"), '.');
+        assert_eq!(decimal_separator_for_locale("en-US"), '.');
+        assert_eq!(decimal_separator_for_locale("en_GB"), '.');
+        assert_eq!(decimal_separator_for_locale("ja"), '.');
+        assert_eq!(decimal_separator_for_locale("zh"), '.');
+        assert_eq!(decimal_separator_for_locale("ko"), '.');
 
         // Empty / unknown
-        assert_eq!(decimal_separator_for_locale(""), None);
+        assert_eq!(decimal_separator_for_locale(""), DEFAULT_DECIMAL_SEPARATOR);
     }
 }
