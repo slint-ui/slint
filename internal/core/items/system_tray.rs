@@ -466,11 +466,12 @@ impl ItemConsts for SystemTrayIcon {
 /// If the root item of the tree is a [`SystemTrayIcon`], returns its tray-area scheme
 /// (written by the macOS AppKit observer). When that scheme is [`ColorScheme::Unknown`]
 /// — including on every non-AppKit backend, where the tray has no separate appearance —
-/// the function falls back to the process-wide [`SlintContext::color_scheme`].
+/// the function falls back to the component's own [`SlintContext`] reached through
+/// its window adapter.
 ///
 /// This is the runtime entry point that the compiler emits for `BuiltinFunction::ColorScheme`,
 /// so a `Palette.color-scheme` binding inside a tray-rooted component naturally resolves
-/// against the tray's scheme without going through any window adapter.
+/// against the tray's scheme.
 pub fn resolve_color_scheme(root: &crate::item_tree::ItemTreeRc) -> ColorScheme {
     let root_item = ItemRc::new_root(root.clone());
     if let Some(tray) = root_item.downcast::<SystemTrayIcon>() {
@@ -479,8 +480,12 @@ pub fn resolve_color_scheme(root: &crate::item_tree::ItemTreeRc) -> ColorScheme 
             return scheme;
         }
     }
-    crate::context::GLOBAL_CONTEXT
-        .with(|p| p.get().map_or(ColorScheme::Unknown, |ctx| ctx.color_scheme()))
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map_or(ColorScheme::Unknown, |a| {
+        crate::window::WindowInner::from_pub(a.window()).context().color_scheme()
+    })
 }
 
 /// # Safety
