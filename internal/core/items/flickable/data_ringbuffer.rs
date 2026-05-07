@@ -55,6 +55,11 @@ impl<const N: usize> PositionTimeRingBuffer<N> {
         if !self.empty() { Some(self.values[self.latest_index()].0) } else { None }
     }
 
+    /// Returns the last position value added to the buffer if not empty otherwise None
+    pub fn last_position(&self) -> Option<LogicalPoint> {
+        if !self.empty() { Some(self.values[self.latest_index()].1) } else { None }
+    }
+
     /// Returns the difference between the oldest and the newest point
     pub fn diff(&self) -> (Duration, Vector2D<Coord, LogicalPx>) {
         if self.full {
