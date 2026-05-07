@@ -39,6 +39,21 @@ pub use i_slint_backend_testing;
 pub use slint_interpreter;
 
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_context_accent_color(
+    root: &i_slint_core::item_tree::ItemTreeRc,
+    out: &mut i_slint_core::graphics::Color,
+) {
+    *out = i_slint_core::window::accent_color(root);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_context_color_scheme(
+    root: &i_slint_core::item_tree::ItemTreeRc,
+) -> i_slint_core::items::ColorScheme {
+    i_slint_core::window::resolve_color_scheme(root)
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
     assert_eq!(
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),

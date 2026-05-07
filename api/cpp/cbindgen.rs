@@ -610,8 +610,6 @@ fn gen_corelib(
             "slint_windowrc_size",
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
-            "slint_resolve_color_scheme",
-            "slint_accent_color",
             "slint_windowrc_supports_native_menu_bar",
             "slint_windowrc_setup_native_menu_bar",
             "slint_windowrc_setup_menu_bar_shortcuts",
