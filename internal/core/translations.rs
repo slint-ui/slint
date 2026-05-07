@@ -383,7 +383,7 @@ fn update_locale_decimal_separator() {
                     .translations_bundle_decimal_separators
                     .borrow()
                     .as_ref()
-                    .and_then(|v| v.get(language_index).and_then(|v| Some(*v)))
+                    .and_then(|v| v.get(language_index).map(|v| *v))
             {
                 ctx.0.locale_decimal_separator.as_ref().set(c)
             }
