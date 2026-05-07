@@ -361,7 +361,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         i_slint_compiler::data_uri::decode_data_uri(path)
                             .ok()
                             .and_then(|(data, extension)| {
-                                corelib::graphics::Image::load_from_dynamic_data(&data, &extension)
+                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
                                     .ok()
                             })
                             .ok_or_else(Default::default)

@@ -787,23 +787,6 @@ impl Image {
         })
     }
 
-    #[cfg(feature = "image-decoders")]
-    /// Load an Image from a path to a file containing an image.
-    ///
-    /// Supported formats are SVG, PNG and JPEG.
-    /// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
-    /// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
-    /// by enabling the `image-default-formats` cargo feature.
-    pub fn load_from_dynamic_data(bytes: &[u8], format: &str) -> Result<Self, LoadImageError> {
-        ImageInner::load_from_data_with_cache_key(
-            ImageCacheKey::Invalid,
-            bytes.into(),
-            format.as_bytes().into(),
-        )
-        .map(Self)
-        .ok_or(Default::default())
-    }
-
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
     /// channels (red, green and blue) encoded as u8.
     pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
@@ -1029,6 +1012,23 @@ impl Image {
             _ => None,
         }
     }
+}
+
+#[cfg(feature = "image-decoders")]
+/// Load an Image from a path to a file containing an image.
+///
+/// Supported formats are SVG, PNG and JPEG.
+/// Enable support for additional formats supported by the [`image` crate](https://crates.io/crates/image) (
+/// AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP)
+/// by enabling the `image-default-formats` cargo feature.
+pub fn load_image_from_dynamic_data(bytes: &[u8], format: &str) -> Result<Image, LoadImageError> {
+    ImageInner::load_from_data_with_cache_key(
+        ImageCacheKey::Invalid,
+        bytes.into(),
+        format.as_bytes().into(),
+    )
+    .map(Image)
+    .ok_or(Default::default())
 }
 
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.

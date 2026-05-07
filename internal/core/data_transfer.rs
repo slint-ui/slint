@@ -4,13 +4,13 @@
 //! Types and helpers related to the [`DataTransfer`] type, which implements type-indexed arbitrary
 //! data transfer both within an application and between applications.
 
-#![deny(missing_docs)]
-
 use alloc::{boxed::Box, rc::Rc};
 use core::{any::Any, cell::LazyCell};
 
 use crate::{SharedString, SharedVector, api::Image};
 
+#[cfg(feature = "ffi")]
+pub mod ffi;
 mod mime;
 
 type BytesResult = Result<SharedVector<u8>, ProviderError>;
@@ -100,19 +100,6 @@ impl PartialEq for DataTransfer {
             && self.user_data.as_ref().map(Rc::as_ptr) == other.user_data.as_ref().map(Rc::as_ptr)
     }
 }
-
-/// Should match `DataTransfer` in `slint_data_transfer.h`
-#[repr(C)]
-struct DataTransferCppSizeMock([*const core::ffi::c_void; 3]);
-
-const _: () = {
-    assert!(
-        core::mem::align_of::<DataTransfer>() == core::mem::align_of::<DataTransferCppSizeMock>()
-    );
-    assert!(
-        core::mem::size_of::<DataTransfer>() == core::mem::size_of::<DataTransferCppSizeMock>()
-    );
-};
 
 impl From<SharedString> for DataTransfer {
     fn from(value: SharedString) -> Self {
@@ -342,7 +329,7 @@ impl DataTransfer {
                 _ => "",
             };
 
-            Ok(Image::load_from_dynamic_data(&image_data, image_ext)
+            Ok(crate::graphics::load_image_from_dynamic_data(&image_data, image_ext)
                 .map_err(|err| ProviderError::other(alloc::format!("{err}")))?)
         }
 

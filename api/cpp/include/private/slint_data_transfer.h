@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "private/slint_data_transfer_internal.h"
+
 namespace slint {
 /// `DataTransfer` abstracts over the various ways of transferring data within an application
 /// and between applications. The details will depend on the current platform, but the common
@@ -20,11 +22,11 @@ public:
     DataTransfer() = default;
 
     /// Explicit cast from `SharedString`, for plaintext
-    explicit DataTransfer(const slint::SharedString &string) { (void)string; }
+    explicit DataTransfer(const SharedString &string) { (void)string; }
 
     /// Explicit cast from `Image`, for any image type supported by Slint. Conversion to the
     /// relevant format is done on-demand.
-    explicit DataTransfer(const slint::Image &image) { (void)image; }
+    explicit DataTransfer(const Image &image) { (void)image; }
 
     /// Compare two `DataTransfer` values for equality. This will return true if `b` is an
     /// unmodified clone of `a`, but if any modification has been done to either value since cloning
@@ -34,6 +36,6 @@ public:
 private:
     /// Dummy pointers to ensure that this type is the same size as `DataTransfer` in
     /// `i_slint_core`. See `i_slint_core::data_transfer::DataTransferCppSizeMock`.
-    void *_sizeShim[3];
+    cbindgen_private::types::DataTransferOpaque _inner;
 };
 }
