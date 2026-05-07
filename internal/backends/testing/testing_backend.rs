@@ -121,7 +121,7 @@ pub struct TestingBackendOptions {
 }
 
 pub struct TestingBackend {
-    clipboard: Mutex<Option<SharedString>>,
+    clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
@@ -181,7 +181,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             return None;
         }
 
-        self.clipboard.lock().unwrap().as_ref().map(|value| value.clone().into())
+        self.clipboard.lock().unwrap().as_ref().map(|value| value.clone())
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {

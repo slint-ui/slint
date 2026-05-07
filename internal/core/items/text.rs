@@ -1934,7 +1934,7 @@ impl TextInput {
         WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .set_clipboard_text(&text, clipboard);
+            .set_clipboard_text(&text[anchor..cursor], clipboard);
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
