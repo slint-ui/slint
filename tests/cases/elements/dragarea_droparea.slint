@@ -78,13 +78,11 @@ instance.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default()
 instance.on_transfer_to_image(|data| data.fetch_image().unwrap_or_default());
 
 instance.on_can_drop(|data, use_image| {
-    let expected_mime_types = if use_image {
-        slint::DataTransfer::IMAGE_MIME_TYPES
+    if use_image {
+        data.has_image()
     } else {
-        slint::DataTransfer::PLAINTEXT_MIME_TYPES
-    };
-
-    data.mime_types().any(|ty| expected_mime_types.contains(&ty))
+        data.has_plaintext()
+    }
 });
 
 assert_eq!(instance.get_contains_drag(), false);

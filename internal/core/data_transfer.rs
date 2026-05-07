@@ -5,17 +5,27 @@
 //! data transfer both within an application and between applications.
 
 use alloc::{boxed::Box, rc::Rc};
-use core::{any::Any, cell::LazyCell};
+use core::any::Any;
 
-use crate::{SharedString, SharedVector, api::Image};
+use crate::{SharedString, api::Image};
 
 #[cfg(feature = "ffi")]
 pub mod ffi;
-mod mime;
 
-type BytesResult = Result<SharedVector<u8>, ProviderError>;
-type DataTransferProvider = Rc<LazyCell<BytesResult, Box<dyn FnOnce() -> BytesResult>>>;
-type ProviderList = SharedVector<(SharedString, DataTransferProvider)>;
+/// Hidden type to make `DataTransfer` smaller and easier to use in FFI.
+///
+/// In particular, `Image` is a different size depending on feature flags, so this
+/// allows `DataTransfer` to have a normalized size no matter what flags are enabled.
+#[derive(Default, Clone, PartialEq)]
+struct DataTransferInner {
+    // TODO: Custom binary data providers with custom MIME types.
+    /// Special-cased support for images, as the precise implementation of transferring
+    /// images differs between platforms.
+    image: Option<Image>,
+    /// Special-cased support for plaintext, as the precise implementation of transferring
+    /// text differs between platforms.
+    plaintext: Option<SharedString>,
+}
 
 /// `DataTransfer` abstracts over the various ways of transferring data within an application
 /// and between applications.
@@ -48,29 +58,23 @@ type ProviderList = SharedVector<(SharedString, DataTransferProvider)>;
 /// respectively.
 ///
 /// The `From<SharedString>` implementation will create a plaintext `DataTransfer`. This
-/// currently means that it will provide `text/plain` and `text/plain;charset=utf-8`, as well
-/// as supplying a `user_data` that can be downcast to [`SharedString`]. To get this list of
-/// types programmatically, see [`DataTransfer::PLAINTEXT_MIME_TYPES`].
+/// currently means that it will provide `text/plain` and `text/plain;charset=utf-8`.
 ///
 /// The `From<Image>` implementation will create a `DataTransfer` that can be read as any of
-/// the image formats supported by Slint. As above, this will set a `user_data` which can be
-/// downcast to [`Image`], but it will also provide various MIME types. Currently, the MIME
-/// types initialized by the `From<Image>` implementation are:
+/// the image formats supported by Slint. Currently, the MIME types initialized by the
+/// `From<Image>` implementation are:
 ///
 /// - `image/jpeg`
 /// - `image/gif`
 /// - `image/png`
 /// - `image/bmp`
 /// - `image/svg+xml` (if the `svg` feature is enabled)
-///
-/// To get this list of types programmatically, see [`DataTransfer::IMAGE_MIME_TYPES`].
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct DataTransfer {
-    /// A set of possibly-lazy providers. As `DataTransfer` is expected to be initialized
-    /// in a single shot, with a relatively small number of elements, a vector is used for
-    /// simplicity and to reduce cache misses.
-    providers: ProviderList,
+    /// Special-cased types. `Option<Rc>` to prevent allocating if this `DataTransfer`
+    /// only contains `user_data`.
+    inner: Option<Rc<DataTransferInner>>,
     /// A custom in-memory value. No MIME type-based dispatch is done here - if the user
     /// wants to store one of a set of possible values, they should store their own enum
     /// and handle the dispatch themselves.
@@ -80,10 +84,7 @@ pub struct DataTransfer {
 impl core::fmt::Debug for DataTransfer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DataTransfer")
-            .field(
-                "mime_types",
-                &self.providers.iter().map(|(type_, _)| type_).collect::<alloc::vec::Vec<_>>(),
-            )
+            .field("mime_types", &self.mime_types().collect::<alloc::vec::Vec<_>>())
             .field("has_user_data", &self.user_data.is_some())
             .finish()
     }
@@ -96,7 +97,7 @@ impl core::fmt::Debug for DataTransfer {
 // identical.
 impl PartialEq for DataTransfer {
     fn eq(&self, other: &Self) -> bool {
-        self.providers.as_ptr_range() == other.providers.as_ptr_range()
+        self.inner == other.inner
             && self.user_data.as_ref().map(Rc::as_ptr) == other.user_data.as_ref().map(Rc::as_ptr)
     }
 }
@@ -105,15 +106,7 @@ impl From<SharedString> for DataTransfer {
     fn from(value: SharedString) -> Self {
         let mut out = DataTransfer::default();
 
-        out.set_user_data(Rc::new(value.clone()));
-
-        let plaintext_no_null = SharedVector::from_slice(value.as_str().as_bytes());
-
-        for mime_type in Self::PLAINTEXT_MIME_TYPES.iter().copied() {
-            out.set_data(mime_type.into(), plaintext_no_null.clone());
-        }
-
-        // TODO: handle reading as UTF-16
+        out.set_plaintext(value);
 
         out
     }
@@ -123,13 +116,7 @@ impl From<Image> for DataTransfer {
     fn from(value: Image) -> Self {
         let mut out = DataTransfer::default();
 
-        out.set_user_data(Rc::new(value.clone()));
-
-        for mime_type in Self::IMAGE_MIME_TYPES.iter().copied() {
-            out.set_provider(mime_type.into(), || {
-                Err(ProviderError::other("Serializing images not yet implemented"))
-            });
-        }
+        out.set_image(value);
 
         out
     }
@@ -230,14 +217,37 @@ where
     }
 }
 
+const PLAINTEXT_MIME_TYPES: &[&str] = &["text/plain", "text/plain;charset=utf-8"];
+
 impl DataTransfer {
-    /// The set of MIME types recognized by [`DataTransfer::fetch_plaintext`].
-    pub const PLAINTEXT_MIME_TYPES: &[&str] = mime::PLAINTEXT;
-    /// The set of MIME types recognized by [`DataTransfer::fetch_image`].
-    // TODO: It might be nice to filter this by the types which are enabled in
-    // `image`, but there's no way to do that in a constant right now.
-    pub const IMAGE_MIME_TYPES: &[&str] =
-        if cfg!(feature = "svg") { mime::IMAGE } else { mime::PIXMAP_IMAGE };
+    /// Set the internal special-cased image field
+    fn set_image(&mut self, image: Image) -> &mut Self {
+        Rc::make_mut(self.inner.get_or_insert_default()).image = Some(image);
+        self
+    }
+
+    /// Set the internal special-cased plaintext field
+    fn set_plaintext(&mut self, plaintext: SharedString) -> &mut Self {
+        Rc::make_mut(self.inner.get_or_insert_default()).plaintext = Some(plaintext);
+        self
+    }
+
+    /// Returns `true` if this data transfer advertises that it is readable as an [`Image`].
+    ///
+    /// This means that This does not necessarily mean that `fetch_image` will return `Ok`,
+    /// as an I/O error may occur.
+    pub fn has_image(&self) -> bool {
+        self.inner.as_ref().is_some_and(|inner| inner.image.is_some())
+    }
+
+    /// Returns `true` if this data transfer advertises that it is readable as plaintext.
+    ///
+    /// This means that This does not necessarily mean that `fetch_plaintext` will return
+    /// `Ok`, as an I/O error may occur.
+    pub fn has_plaintext(&self) -> bool {
+        self.inner.as_ref().is_some_and(|inner| inner.plaintext.is_some())
+            || self.mime_types().any(|ty| PLAINTEXT_MIME_TYPES.contains(&ty))
+    }
 
     /// Set the application-internal data represented by this [`DataTransfer`].
     /// This can be read with [`DataTransfer::user_data`], and allows circumventing
@@ -252,156 +262,41 @@ impl DataTransfer {
     ///
     /// The caller should assume that this method call may do IO.
     pub fn fetch_plaintext(&self) -> Result<SharedString, DataTransferError> {
-        if let Some(internal_str) =
-            self.user_data().and_then(|any| any.downcast_ref::<SharedString>().cloned())
-        {
-            return Ok(internal_str);
-        }
-
-        // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
-        // but on Windows this should handle WTF-16 to UTF-8 conversion.
-        let Some(find_result) = self.find_type(Self::PLAINTEXT_MIME_TYPES.iter().copied()) else {
-            return Err(DataTransferError::TypeNotFound(mime::text::PLAIN.into()));
-        };
-
-        let (_, utf8_text) = find_result?;
-
-        Ok(alloc::string::String::from_utf8(utf8_text.to_vec())
-            .map_err(ProviderError::other)?
-            .into())
+        self.inner
+            .as_ref()
+            .and_then(|inner| inner.plaintext.clone())
+            .ok_or_else(|| DataTransferError::TypeNotFound(PLAINTEXT_MIME_TYPES[0].into()))
     }
 
     /// Helper to read this [`DataTransfer`] as an image, supporting multiple image types.
     ///
     /// The caller should assume that this method call may do IO.
     pub fn fetch_image(&self) -> Result<Image, DataTransferError> {
-        const NO_IMAGE_FORMATS_ENABLED_ERROR: &str = "No image formats enabled";
-
-        if let Some(internal_image) =
-            self.user_data().and_then(|any| any.downcast_ref::<Image>().cloned())
-        {
-            return Ok(internal_image);
-        }
-
-        #[cfg(feature = "image-decoders")]
-        {
-            // We filter by readable types here. For now, we want to avoid trying every
-            // possible format in turn, in order to make performance easier to reason
-            // about. However, if it's impossible for the read to succeed because of the
-            // enabled image formats then we won't initiate a decode. This means that
-            // the formats don't quite match `Self::IMAGE_MIME_TYPES`, but that constant
-            // is still a good approximation for the purposes of checking if incoming
-            // data is an image.
-            let available_image_types = mime::PIXMAP_IMAGE.iter().copied().filter(|ty| {
-                image::ImageFormat::from_mime_type(ty)
-                    .is_some_and(|format| format.reading_enabled())
-            });
-
-            // SVG has separate handling, so we don't need to filter it by
-            // `ImageFormat::reading_enabled`.
-            #[cfg(feature = "svg")]
-            let available_image_types =
-                available_image_types.chain(core::iter::once(mime::image::SVG));
-
-            // We should really have a way to specify that none of a set of MIME types were
-            // found, but for now we just return the first one. This also gives us a good
-            // place to return an error if no formats are enabled.
-            let Some(diagnostic_mime_type) = available_image_types.clone().next() else {
-                return Err(ProviderError::other(NO_IMAGE_FORMATS_ENABLED_ERROR).into());
-            };
-
-            // This only handles UTF-8 text for now, so we can ignore the actual MIME type,
-            // but on Windows this should handle WTF-16 to UTF-8 conversion.
-            let (type_, image_data) = self
-                .find_type(available_image_types)
-                .ok_or_else(|| DataTransferError::TypeNotFound(diagnostic_mime_type.into()))??;
-
-            // `load_from_dynamic_data` takes an extension, not a MIME type
-            // TODO: It might be worth having a way to pass in a MIME type rather than an
-            // extension, so we can use `ImageFormat::from_mime_type` instead of mapping
-            // between the two here.
-            let image_ext = match type_ {
-                mime::image::BMP => "bmp",
-                mime::image::GIF => "gif",
-                mime::image::JPEG => "jpeg",
-                mime::image::PNG => "png",
-                mime::image::SVG => "svg",
-                _ => "",
-            };
-
-            Ok(crate::graphics::load_image_from_dynamic_data(&image_data, image_ext)
-                .map_err(|err| ProviderError::other(alloc::format!("{err}")))?)
-        }
-
-        #[cfg(not(feature = "image-decoders"))]
-        {
-            Err(ProviderError::other(NO_IMAGE_FORMATS_ENABLED_ERROR).into())
-        }
-    }
-
-    /// Set the data for a given MIME type as a byte vector that can be transferred
-    /// between applications.
-    pub fn set_data(&mut self, mime_type: SharedString, data: SharedVector<u8>) -> &mut Self {
-        self.set_provider(mime_type, || Ok(data))
+        self.inner
+            .as_ref()
+            .and_then(|inner| inner.image.clone())
+            .ok_or_else(|| DataTransferError::TypeNotFound("image".into()))
     }
 
     /// Get the set of available MIME types.
-    pub fn mime_types(&self) -> impl Iterator<Item = &str> + use<'_> {
-        self.providers.iter().map(|(type_, _)| &**type_)
+    pub fn mime_types(&self) -> impl Iterator<Item = &str> + '_ {
+        let image_mime_types = self.has_image().then_some(
+            // We can't extract this to a const because it's an iterator adapter,
+            // and we can't extract it to a function because borrowck fails to
+            // narrow `impl Iterator<Item = &'static str>` to `&'_ str`.
+            image::ImageFormat::all()
+                .filter(|fmt| fmt.writing_enabled())
+                .map(|fmt| fmt.to_mime_type()),
+        );
+        let plaintext_mime_types =
+            self.has_plaintext().then_some(PLAINTEXT_MIME_TYPES.iter().copied());
+
+        plaintext_mime_types.into_iter().flatten().chain(image_mime_types.into_iter().flatten())
     }
 
     /// Get the application-internal data represented by this [`DataTransfer`], if
     /// one exists.
     pub fn user_data(&self) -> Option<Rc<dyn Any>> {
         self.user_data.clone()
-    }
-
-    /// Set a lazily-evaluated provider for a given MIME type. The provider should return a byte
-    /// vector that can be transferred between applications, or an error if something goes wrong.
-    pub fn set_provider(
-        &mut self,
-        mime_type: SharedString,
-        provider: impl FnOnce() -> Result<SharedVector<u8>, ProviderError> + 'static,
-    ) -> &mut Self {
-        self.providers.push((mime_type, Rc::new(LazyCell::new(Box::new(provider)))));
-        self
-    }
-
-    /// Fetch the binary representation of this [`DataTransfer`] as the specified MIME
-    /// type.
-    ///
-    /// The caller should assume that this method call may do IO.
-    pub fn fetch(&self, mime_type: &str) -> Result<SharedVector<u8>, DataTransferError> {
-        self.providers
-            .iter()
-            .find_map(|(type_, value)| {
-                (type_ == mime_type).then(|| (***value).clone().map_err(Into::into))
-            })
-            .unwrap_or_else(|| Err(DataTransferError::TypeNotFound(mime_type.into())))
-    }
-
-    /// Fetch the binary representation of this [`DataTransfer`] as one of the specified
-    /// MIME types, with the preference order specified by this type (the order of `mime_types`
-    /// is not taken into account).
-    ///
-    /// The caller should assume that this method call may do IO.
-    fn find_type<'a, I>(
-        &self,
-        mime_types: I,
-    ) -> Option<Result<(&str, SharedVector<u8>), ProviderError>>
-    where
-        I: IntoIterator<Item = &'a str> + Clone,
-    {
-        // TODO: Should we prefer to go in the order specified in the data transfer or in the
-        // `mime_types` argument? Only X11 and Wayland have a proper concept of source-defined
-        // type ordering, so maybe it makes more sense for the destination to define the
-        // preference order.
-        self.providers.iter().find_map(|(type_, value)| {
-            mime_types
-                .clone()
-                .into_iter()
-                .any(|check_type| check_type == &**type_)
-                .then(|| (***value).clone().map(|value| (&**type_, value)))
-        })
     }
 }

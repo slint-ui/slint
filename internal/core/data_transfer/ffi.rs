@@ -3,14 +3,17 @@
 
 use super::DataTransfer;
 
+/// Completely incorrect to the actual layout of `DataTransfer`, but
+/// this at least makes the size and alignment correct. This does _not_
+/// copy/move correctly in C++, but due to use of trait objects in
+/// `DataTransfer` we cannot bindgen it directly.
+// TODO: Implement this correcly.
 #[repr(C)]
 pub struct DataTransferOpaque {
-    _unused_0: *mut core::ffi::c_void,
-    _unused_1: *mut core::ffi::c_void,
-    _unused_2: *mut core::ffi::c_void,
+    _rc_inner: *mut core::ffi::c_void,
+    _rc_any_0: *mut core::ffi::c_void,
+    _rc_any_1: *mut core::ffi::c_void,
 }
 
-const _: () = {
-    assert!(core::mem::align_of::<DataTransfer>() == core::mem::align_of::<DataTransferOpaque>());
-    assert!(core::mem::size_of::<DataTransfer>() == core::mem::size_of::<DataTransferOpaque>());
-};
+static_assertions::assert_eq_align!(DataTransferOpaque, DataTransfer);
+static_assertions::assert_eq_size!(DataTransferOpaque, DataTransfer);

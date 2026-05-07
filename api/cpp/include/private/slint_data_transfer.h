@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "private/slint_image_internal.h"
 #include "private/slint_data_transfer_internal.h"
 
 namespace slint {

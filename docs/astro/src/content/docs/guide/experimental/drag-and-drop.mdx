@@ -71,10 +71,8 @@ fn main() {
     // A helper for reading plaintext from a `DataTransfer` is also supplied.
     api.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
     api.on_can_drop(|data| {
-        // The set of plaintext and image MIME types that are supported by the
-        // helper methods is available as an associated constant.
-        data.mime_types()
-            .contains(|ty| slint::DataTransfer::PLAINTEXT_MIME_TYPES.contains(&ty)))
+        // This helper abstracts over various "plaintext" MIME types
+        data.has_plaintext()
     });
     // ...
 }
