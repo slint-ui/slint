@@ -8,8 +8,9 @@ use crate::input::InternalKeyboardModifierState;
 use crate::items::ColorScheme;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
-use alloc::rc::{Rc, Weak};
+use alloc::rc::Rc;
 use core::cell::Cell;
+use pin_weak::rc::PinWeak;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
@@ -17,12 +18,18 @@ crate::thread_local! {
 }
 
 #[pin_project::pin_project]
-pub(crate) struct SlintContextPinnedFields {
+pub(crate) struct SlintContextInner {
+    platform: Box<dyn Platform>,
+    pub(crate) window_count: core::cell::RefCell<isize>,
     /// Read by all translations, and marked dirty when the language changes so every
     /// translated string re-translates. The value is the currently selected language
     /// when bundling translations.
     #[pin]
     pub(crate) translations_dirty: Property<usize>,
+    pub(crate) translations_bundle_languages:
+        core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
+    #[cfg(feature = "tr")]
+    external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     /// Process-wide color scheme. Backends' system-theme observers write here; bindings
     /// read from it through [`SlintContext::color_scheme`]. Window-less components like
     /// `SystemTrayIcon` rely on this as their default source.
@@ -33,20 +40,10 @@ pub(crate) struct SlintContextPinnedFields {
     /// transparent color when the platform doesn't expose one.
     #[pin]
     pub(crate) accent_color: Property<Color>,
-}
-
-pub(crate) struct SlintContextInner {
-    platform: Box<dyn Platform>,
-    pub(crate) window_count: core::cell::RefCell<isize>,
-    pub(crate) pinned_fields: core::pin::Pin<Box<SlintContextPinnedFields>>,
-    pub(crate) translations_bundle_languages:
-        core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
-    #[cfg(feature = "tr")]
-    external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[cfg(feature = "shared-parley")]
     pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
     #[cfg(feature = "shared-swash")]
@@ -58,7 +55,7 @@ pub(crate) struct SlintContextInner {
 /// Currently it is not possible to have several platform at the same time in one process, but in the future it might be.
 /// See issue #4294
 #[derive(Clone)]
-pub struct SlintContext(pub(crate) Rc<SlintContextInner>);
+pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
 impl SlintContext {
     /// Create a new context with a given platform
@@ -66,23 +63,18 @@ impl SlintContext {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
 
-        Self(Rc::new(SlintContextInner {
+        Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
-            pinned_fields: Box::pin(SlintContextPinnedFields {
-                translations_dirty: Property::new_named(0, "SlintContext::translations"),
-                color_scheme: Property::new_named(
-                    ColorScheme::Unknown,
-                    "SlintContext::color_scheme",
-                ),
-                accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
-            }),
+            translations_dirty: Property::new_named(0, "SlintContext::translations"),
             translations_bundle_languages: Default::default(),
+            #[cfg(feature = "tr")]
+            external_translator: Default::default(),
+            color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
+            accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
             window_shown_hook: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
-            #[cfg(feature = "tr")]
-            external_translator: Default::default(),
             #[cfg(feature = "shared-parley")]
             font_context: {
                 let font_context = parley::FontContext {
@@ -136,25 +128,25 @@ impl SlintContext {
     /// Returns the process-wide color scheme. Reads register a property dependency,
     /// so bindings re-evaluate when the platform reports a system-theme change.
     pub fn color_scheme(&self) -> ColorScheme {
-        self.0.pinned_fields.as_ref().project_ref().color_scheme.get()
+        self.0.as_ref().project_ref().color_scheme.get()
     }
 
     /// Backend-side write path for the process-wide color scheme. Called by each
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_color_scheme(&self, scheme: ColorScheme) {
-        self.0.pinned_fields.as_ref().project_ref().color_scheme.set(scheme);
+        self.0.as_ref().project_ref().color_scheme.set(scheme);
     }
 
     /// Returns the process-wide system accent color. Reads register a property dependency,
     /// so bindings re-evaluate when the platform reports an accent-color change.
     pub fn accent_color(&self) -> Color {
-        self.0.pinned_fields.as_ref().project_ref().accent_color.get()
+        self.0.as_ref().project_ref().accent_color.get()
     }
 
     /// Backend-side write path for the process-wide accent color. Called by each
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
-        self.0.pinned_fields.as_ref().project_ref().accent_color.set(color);
+        self.0.as_ref().project_ref().accent_color.set(color);
     }
 
     /// Add one to the counter of "things keeping the event loop alive".
@@ -196,7 +188,7 @@ impl SlintContext {
     #[cfg(feature = "tr")]
     pub fn set_external_translator(&self, translator: Option<Box<dyn tr::Translator>>) {
         *self.0.external_translator.borrow_mut() = translator;
-        self.0.pinned_fields.as_ref().project_ref().translations_dirty.mark_dirty();
+        self.0.as_ref().project_ref().translations_dirty.mark_dirty();
     }
 
     #[cfg(feature = "tr")]
@@ -210,7 +202,7 @@ impl SlintContext {
     /// Returns a weak handle to this context, suitable for stashing in places that must
     /// not keep the context alive (e.g. a backend that's owned by the context itself).
     pub fn downgrade(&self) -> SlintContextWeak {
-        SlintContextWeak(Rc::downgrade(&self.0))
+        SlintContextWeak(PinWeak::downgrade(self.0.clone()))
     }
 }
 
@@ -219,7 +211,7 @@ impl SlintContext {
 /// `set_platform` so they can spawn futures and write process-wide state without
 /// holding the context strongly.
 #[derive(Clone)]
-pub struct SlintContextWeak(Weak<SlintContextInner>);
+pub struct SlintContextWeak(PinWeak<SlintContextInner>);
 
 impl SlintContextWeak {
     /// Attempts to upgrade to a strong [`SlintContext`].
