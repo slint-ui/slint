@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::{
-    animations::physics_simulation,
+    animations::physics_simulation::{self, Simulation},
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
@@ -37,25 +37,26 @@ where
     }
 
     /// Single iteration of the animation
-    pub fn compute_interpolated_value(&mut self) -> (crate::Coord, bool) {
+    pub fn update_value(&mut self, target: &mut crate::Coord) -> bool {
         match self.state {
             AnimationState::Delaying => {
                 // Decide on next state:
                 self.state = AnimationState::Animating { current_iteration: 0 };
-                self.compute_interpolated_value()
+                self.update_value(target)
             }
             AnimationState::Animating { current_iteration: _ } => {
-                let (val, finished) = self.simulation.step(crate::animations::current_tick());
+                // TODO: Pass in Coord directly?
+                let mut value: f32 = *target as f32;
+                let finished = self.simulation.step(&mut value, crate::animations::current_tick());
+                *target = value as crate::Coord;
                 if finished {
                     self.state = AnimationState::Done { iteration_count: 0 };
-                    self.compute_interpolated_value()
+                    true
                 } else {
-                    (val as crate::Coord, false)
+                    false
                 }
             }
-            AnimationState::Done { iteration_count: _ } => {
-                (self.simulation.curr_value() as crate::Coord, true)
-            }
+            AnimationState::Done { iteration_count: _ } => true,
         }
     }
 }
@@ -365,36 +366,41 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     }
 }
 
-impl<T> Property<Length<crate::Coord, T>> {
+unsafe impl<Unit, S: Simulation> BindingCallable<Length<crate::Coord, Unit>>
+    for RefCell<PropertyPhysicsAnimationData<S>>
+{
+    fn evaluate(self: Pin<&Self>, value: &mut Length<crate::Coord, Unit>) -> BindingResult {
+        let finished = self.borrow_mut().update_value(&mut value.0);
+        if finished {
+            BindingResult::RemoveBinding
+        } else {
+            crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.set_has_active_animations());
+            BindingResult::KeepBinding
+        }
+    }
+
+    // This binding should not be removed if the value is updated externally.
+    fn intercept_set(self: Pin<&Self>, _value: &Length<crate::Coord, Unit>) -> bool {
+        true
+    }
+}
+
+impl<Unit> Property<Length<crate::Coord, Unit>> {
     /// Change the value by using a physics animation
     pub fn set_physic_animation_value<
         S: physics_simulation::Simulation + 'static,
         AD: physics_simulation::Parameter<Output = S>,
     >(
         &self,
-        value: Length<crate::Coord, T>,
+        limit_value: Pin<Box<Property<f32>>>,
         simulation_data: AD,
     ) {
-        let d = RefCell::new(PropertyPhysicsAnimationData::new(
-            simulation_data.simulation(self.get_internal().0 as f32, value.0 as f32),
-        ));
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
-            self.handle.set_binding(
-                move |val: &mut Length<crate::Coord, T>| {
-                    let (value, finished) = d.borrow_mut().compute_interpolated_value();
-                    *val = Length::new(value);
-                    if finished {
-                        BindingResult::RemoveBinding
-                    } else {
-                        crate::animations::CURRENT_ANIMATION_DRIVER
-                            .with(|driver| driver.set_has_active_animations());
-                        BindingResult::KeepBinding
-                    }
-                },
-                #[cfg(slint_debug_property)]
-                self.debug_name.borrow().as_str(),
-            );
+            self.handle.set_binding::<Length<crate::Coord, Unit>, core::cell::RefCell<PropertyPhysicsAnimationData<S>>>(RefCell::new(PropertyPhysicsAnimationData::new(
+                simulation_data.simulation(self.get_internal().0 as f32, limit_value),
+            )));
         }
         self.handle.mark_dirty(
             #[cfg(slint_debug_property)]
