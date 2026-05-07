@@ -138,8 +138,8 @@ impl DataTransfer {
     /// Sets an image to be transferred by this [`DataTransfer`].
     ///
     /// The image can be read using [`fetch_image`](DataTransfer::fetch_image). If
-    /// you only need the [`DataTransfer`] to have an image representation,
-    /// [`From<Image>`](Image) can also be used for the same effect.
+    /// you only need the [`DataTransfer`] to have an image representation, use
+    /// [`From<Image>`](Image).
     ///
     /// Each [`DataTransfer`] can only have a single image set at once. If this
     /// method is called multiple times, the previous image will be overwritten.
@@ -154,7 +154,7 @@ impl DataTransfer {
     ///
     /// The image can be read using [`fetch_plaintext`](DataTransfer::fetch_plaintext).
     /// If you only need the [`DataTransfer`] to have a plaintext representation,
-    /// [`From<SharedString>`](SharedString) can also be used for the same effect.
+    /// use [`From<SharedString>`](SharedString).
     ///
     /// Each [`DataTransfer`] can only have a single plaintext representiation
     /// set at once. If this method is called multiple times, the previous text
