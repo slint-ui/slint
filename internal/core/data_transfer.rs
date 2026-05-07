@@ -132,6 +132,31 @@ pub enum DataTransferError {
     Provider(ProviderError),
 }
 
+impl core::error::Error for DataTransferError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::TypeNotFound(_) => None,
+            Self::Provider(err) => err.source(),
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            Self::TypeNotFound(mime_type) => mime_type,
+            #[expect(deprecated)]
+            Self::Provider(err) => err.description(),
+        }
+    }
+
+    fn cause(&self) -> Option<&dyn core::error::Error> {
+        match self {
+            Self::TypeNotFound(_) => None,
+            #[expect(deprecated)]
+            Self::Provider(err) => err.cause(),
+        }
+    }
+}
+
 impl core::fmt::Display for DataTransferError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -155,6 +180,22 @@ pub struct ProviderError {
     inner: Rc<std::io::Error>,
     #[cfg(not(feature = "std"))]
     inner: Rc<dyn core::error::Error + Send + Sync + 'static>,
+}
+
+impl core::error::Error for ProviderError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        (**self).source()
+    }
+
+    fn description(&self) -> &str {
+        #[expect(deprecated)]
+        (**self).description()
+    }
+
+    fn cause(&self) -> Option<&dyn core::error::Error> {
+        #[expect(deprecated)]
+        (**self).cause()
+    }
 }
 
 impl core::ops::Deref for ProviderError {
