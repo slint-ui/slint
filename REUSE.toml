@@ -163,6 +163,8 @@ path = [
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
   ".claude-plugin/*.json",
+  "skills/.claude-plugin/*.json",
+  "skills/**/SKILL.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
