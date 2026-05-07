@@ -577,9 +577,10 @@ fn lower_tooltips_in_component(
         let tooltip_offset = NamedReference::new(&tooltip_area, SmolStr::new_static(OFFSET));
         let tooltip_no_background =
             NamedReference::new(&tooltip_area, SmolStr::new_static(NO_BACKGROUND));
-        let tooltip_delay_binding: BindingExpression =
-            Expression::PropertyReference(NamedReference::new(&tooltip_area, SmolStr::new_static(DELAY)))
-                .into();
+        let tooltip_delay_binding: BindingExpression = Expression::PropertyReference(
+            NamedReference::new(&tooltip_area, SmolStr::new_static(DELAY)),
+        )
+        .into();
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
         let tooltip_text = (!has_custom_content)
@@ -594,8 +595,7 @@ fn lower_tooltips_in_component(
         );
         let popup_children = vec![tooltip_content.clone()];
 
-        let placement_enum = match tooltip_area.borrow().lookup_property(PLACEMENT).property_type
-        {
+        let placement_enum = match tooltip_area.borrow().lookup_property(PLACEMENT).property_type {
             Type::Enumeration(en) => en,
             _ => {
                 diag.push_error(
