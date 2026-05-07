@@ -320,15 +320,17 @@ fn update_visible_instances(
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
         // If an animation is ongoing we should not interrupt it
-        if !viewport_y.has_binding() {
-            let new_viewport_y = -state.anchor_y + new_offset_y;
-            if new_viewport_y != viewport_y.get().get() {
-                viewport_y.set(LogicalLength::new(new_viewport_y));
-            }
-            state.previous_viewport_y = new_viewport_y;
-        } else {
-            state.previous_viewport_y = viewport_y.get().0;
+        let new_viewport_y = -state.anchor_y + new_offset_y;
+        // Important: Use get_internal here, the viewport_y may have a binding on it (especially
+        // a physical animation).
+        // We must not yet trigger a re-evaluation of that binding, as we have already updated the
+        // viewport_width and viewport_height, but the viewport_y is not yet consistent.
+        // So the physics animations limit value may be inconsistent.
+        if new_viewport_y != viewport_y.get_internal().get() {
+            viewport_y.set(LogicalLength::new(new_viewport_y));
         }
+        state.previous_viewport_y = new_viewport_y;
+
         break;
     }
 

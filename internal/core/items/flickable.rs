@@ -471,6 +471,11 @@ impl FlickableDataInner {
 
         let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
 
+        if phase != TouchPhase::Ended {
+            viewport_x.remove_binding();
+            viewport_y.remove_binding();
+        }
+
         match phase {
             TouchPhase::Cancelled => {
                 viewport_x.set(new_pos.x_length());
@@ -539,21 +544,56 @@ impl FlickableDataInner {
             {
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-                let vw = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
-                let vh = (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
-                let limit_x =
-                    if dist.x < 0 as Coord { -vw } else { euclid::Length::new(Coord::default()) };
-                let limit_y =
-                    if dist.y < 0 as Coord { -vh } else { euclid::Length::new(Coord::default()) };
 
-                let limit =
-                    ensure_in_bound(flick, LogicalPoint::from_lengths(limit_x, limit_y), flick_rc);
+                let flick_weak = flick_rc.downgrade();
+                let calculate_limits = move || {
+                    flick_weak
+                        .upgrade()
+                        .and_then(|flick_rc| {
+                            flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
+                        })
+                        .map(|(flick_rc, flick)| {
+                            let flick = flick.as_pin_ref();
+                            ensure_in_bound(
+                                flick,
+                                LogicalPoint::from_lengths(
+                                    -flick.viewport_width(),
+                                    -flick.viewport_height(),
+                                ),
+                                &flick_rc,
+                            )
+                        })
+                };
+
+                let limit_x = if dist.x < 0 as Coord {
+                    let property = Box::pin(Property::new(0.0));
+                    property.set_binding({
+                        let calculate_limits = calculate_limits.clone();
+                        move || {
+                            calculate_limits().map(|limit| limit.x_length().get()).unwrap_or(0.0)
+                        }
+                    });
+                    property
+                } else {
+                    Box::pin(Property::new(0.0))
+                };
+
+                let limit_y = if dist.y < 0 as Coord {
+                    let property = Box::pin(Property::new(0.0));
+                    property.set_binding(move || {
+                        calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
+                    });
+                    property
+                } else {
+                    Box::pin(Property::new(0.0))
+                };
+
                 {
                     let simulation = physics_simulation::ConstantDecelerationParameters::new(
                         dist.x as f32 / (millis as f32 / 1000.),
                         DECELERATION,
                     );
-                    viewport_x.set_physic_animation_value(limit.x_length(), simulation);
+                    viewport_x.set_physic_animation_value(limit_x, simulation);
                 }
 
                 {
@@ -561,7 +601,7 @@ impl FlickableDataInner {
                         dist.y as f32 / (millis as f32 / 1000.),
                         DECELERATION,
                     );
-                    viewport_y.set_physic_animation_value(limit.y_length(), animation_y);
+                    viewport_y.set_physic_animation_value(limit_y, animation_y);
                 }
 
                 if dist.x != 0 as Coord || dist.y != 0 as Coord {
@@ -610,9 +650,9 @@ impl FlickableData {
                 inner.pressed_mouse_position = *position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
-                x.set(x.get()); // Stop animation by removing the binding
+                x.remove_binding(); // Stop animation by removing the binding
                 let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-                y.set(y.get()); // Stop animation by removing the binding
+                y.remove_binding(); // Stop animation by removing the binding
 
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
@@ -772,9 +812,11 @@ impl FlickableData {
                     let current_viewport_position =
                         LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
 
-                    // We calculate the new viewport position by adding the mouse delta to the current viewport position.
+                    // We calculate the new viewport position by adding the mouse delta in the flickable
+                    // coordinate system to the current viewport position.
                     // Do not rely on the existing viewport position to be stable, as e.g. the
                     // ListView will continuously update it.
+                    // So we cannot calculate the delta in viewport coordinates.
                     let new_viewport_position = current_viewport_position + mouse_delta;
 
                     let should_capture = || {
@@ -799,6 +841,8 @@ impl FlickableData {
                     if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen)
                         || should_capture()
                     {
+                        // The drag event is meant to move the viewport, set it to the new position
+                        // and start capturing mouse events.
                         let new_pos = ensure_in_bound(flick, new_viewport_position, flick_rc);
 
                         viewport_x.set(new_pos.x_length());
