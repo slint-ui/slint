@@ -77,9 +77,8 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    use core::ffi::c_void;
 
-    #[allow(non_camel_case_types)]
-    type c_void = ();
     #[repr(C)]
     /// Has the same layout as Callback<_>
     pub struct CallbackOpaque(*const c_void, *const c_void);

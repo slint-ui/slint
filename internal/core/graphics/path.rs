@@ -402,9 +402,7 @@ pub(crate) mod ffi {
 
     use super::super::*;
     use super::*;
-
-    #[allow(non_camel_case_types)]
-    type c_void = ();
+    use core::ffi::c_void;
 
     #[unsafe(no_mangle)]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path element array.

@@ -4,9 +4,8 @@
 use super::*;
 use crate::graphics::{Brush, Color};
 use crate::items::PropertyAnimation;
+use core::ffi::c_void;
 
-#[allow(non_camel_case_types)]
-type c_void = ();
 #[repr(C)]
 /// Has the same layout as PropertyHandle
 pub struct PropertyHandleOpaque(PropertyHandle);
