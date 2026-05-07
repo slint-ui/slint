@@ -383,9 +383,9 @@ fn update_locale_decimal_separator() {
                     .translations_bundle_decimal_separators
                     .borrow()
                     .as_ref()
-                    .and_then(|v| v.get(language_index).map(|v| *v))
+                    .and_then(|v| v.get(language_index))
             {
-                ctx.0.locale_decimal_separator.as_ref().set(c)
+                ctx.0.locale_decimal_separator.as_ref().set(*c)
             }
         } else {
             // No bundled languages
