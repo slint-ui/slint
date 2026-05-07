@@ -497,6 +497,18 @@ pub unsafe extern "C" fn slint_system_tray_icon_data_init(data: *mut SystemTrayI
     unsafe { core::ptr::write(data, SystemTrayIconDataBox::default()) };
 }
 
+/// C ABI counterpart of [`resolve_color_scheme`]. The C++ generator emits a call
+/// to this for `BuiltinFunction::ColorScheme` so a `Palette.color-scheme` binding
+/// inside a tray-rooted component resolves to the tray's scheme without forcing
+/// a window adapter to be created.
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_resolve_color_scheme(
+    root: &crate::item_tree::ItemTreeRc,
+) -> ColorScheme {
+    resolve_color_scheme(root)
+}
+
 /// # Safety
 /// This must be called using a non-null pointer pointing to an initialized SystemTrayIconDataBox
 #[cfg(feature = "ffi")]
