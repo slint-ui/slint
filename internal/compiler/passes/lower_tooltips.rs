@@ -7,10 +7,10 @@
 //! the hovered parent element and contains the tooltip content.
 //! The `ToolTip.placement` enum controls whether it appears at the mouse pointer position
 //! (`pointer`) or relative to the hovered element (`above-element`/`below-element`/`left-element`/`right-element`).
-//! Visibility is driven by an injected `TooltipArea` item's `has-hover` callback:
-//! - hover enters: start/restart a delay timer
-//! - timer fires: `ShowPopupWindow`
-//! - hover leaves: stop timer and `ClosePopupWindow`
+//! Visibility is driven by runtime behavior in `TooltipArea`:
+//! - hover enters: start/restart internal delay timer
+//! - timer fires: invoke `show()` callback
+//! - hover leaves: stop timer and invoke `hide()` callback
 //!   `TooltipArea` also tracks the last known pointer position (`mouse-x`/`mouse-y`) for
 //!   the `pointer` placement mode.
 //!
@@ -45,7 +45,6 @@ const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
 const LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP: &[&str] =
     &["GridLayout", "VerticalLayout", "HorizontalLayout", "FlexboxLayout"];
 
-const HAS_HOVER: &str = "has-hover";
 const MOUSE_X: &str = "mouse-x";
 const MOUSE_Y: &str = "mouse-y";
 const WIDTH: &str = "width";
@@ -80,25 +79,6 @@ fn build_tooltip_content(
         enclosing_component: enclosing_component.clone(),
         bindings,
         children,
-        ..Default::default()
-    }
-    .make_rc()
-}
-
-fn build_tooltip_delay_timer(
-    popup_id: &SmolStr,
-    enclosing_component: &std::rc::Weak<Component>,
-    timer_type: &ElementType,
-    mut timer_interval: BindingExpression,
-) -> ElementRc {
-    timer_interval.priority = 1;
-    Element {
-        id: format_smolstr!("{}-delay", popup_id),
-        base_type: timer_type.clone(),
-        enclosing_component: enclosing_component.clone(),
-        bindings: [(SmolStr::new_static("interval"), RefCell::new(timer_interval))]
-            .into_iter()
-            .collect(),
         ..Default::default()
     }
     .make_rc()
@@ -343,13 +323,8 @@ fn wire_tooltip_visibility_behavior(
     tooltip_child_index: usize,
     tooltip_area: &ElementRc,
     popup_window_rc: ElementRc,
-    timer_element_rc: ElementRc,
 ) {
-    let has_hover_nr = NamedReference::new(tooltip_area, SmolStr::new_static(HAS_HOVER));
     let popup_weak = Rc::downgrade(&popup_window_rc);
-    let timer_running = NamedReference::new(&timer_element_rc, SmolStr::new_static("running"));
-    let timer_weak = Rc::downgrade(&timer_element_rc);
-
     let show_popup = Expression::FunctionCall {
         function: BuiltinFunction::ShowPopupWindow.into(),
         arguments: vec![Expression::ElementReference(popup_weak.clone())],
@@ -360,76 +335,22 @@ fn wire_tooltip_visibility_behavior(
         arguments: vec![Expression::ElementReference(popup_weak)],
         source_location: None,
     };
-    let restart_timer = Expression::FunctionCall {
-        function: BuiltinFunction::RestartTimer.into(),
-        arguments: vec![Expression::ElementReference(timer_weak)],
-        source_location: None,
-    };
-    let set_running_true = Expression::SelfAssignment {
-        lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
-        rhs: Box::new(Expression::BoolLiteral(true)),
-        op: '=',
-        node: None,
-    };
-    let set_running_false = Expression::SelfAssignment {
-        lhs: Box::new(Expression::PropertyReference(timer_running.clone())),
-        rhs: Box::new(Expression::BoolLiteral(false)),
-        op: '=',
-        node: None,
-    };
 
-    let callback = Expression::Condition {
-        condition: Box::new(Expression::PropertyReference(has_hover_nr.clone())),
-        true_expr: Box::new(Expression::CodeBlock(vec![set_running_true, restart_timer.clone()])),
-        false_expr: Box::new(Expression::CodeBlock(vec![set_running_false.clone(), close_popup])),
-    };
-
-    let restart_on_move = Expression::Condition {
-        condition: Box::new(Expression::BinaryExpression {
-            lhs: Box::new(Expression::PropertyReference(has_hover_nr.clone())),
-            rhs: Box::new(Expression::PropertyReference(timer_running.clone())),
-            op: '&',
-        }),
-        true_expr: Box::new(Expression::CodeBlock(vec![restart_timer.clone()])),
-        false_expr: Box::new(Expression::CodeBlock(Vec::new())),
-    };
-    let timer_triggered = Expression::CodeBlock(vec![show_popup, set_running_false]);
-
-    tooltip_area
-        .borrow_mut()
-        .change_callbacks
-        .entry(SmolStr::new_static(HAS_HOVER))
-        .or_default()
-        .borrow_mut()
-        .push(callback);
-    tooltip_area
-        .borrow_mut()
-        .change_callbacks
-        .entry(SmolStr::new_static(MOUSE_X))
-        .or_default()
-        .borrow_mut()
-        .push(restart_on_move.clone());
-    tooltip_area
-        .borrow_mut()
-        .change_callbacks
-        .entry(SmolStr::new_static(MOUSE_Y))
-        .or_default()
-        .borrow_mut()
-        .push(restart_on_move);
+    tooltip_area.borrow_mut().bindings.insert(
+        SmolStr::new_static("show"),
+        RefCell::new(Expression::CodeBlock(vec![show_popup]).into()),
+    );
+    tooltip_area.borrow_mut().bindings.insert(
+        SmolStr::new_static("hide"),
+        RefCell::new(Expression::CodeBlock(vec![close_popup]).into()),
+    );
 
     {
         let mut elem_borrow = elem.borrow_mut();
         elem_borrow.children.insert(tooltip_child_index, tooltip_area.clone());
-        elem_borrow.children.insert(tooltip_child_index + 1, timer_element_rc.clone());
-        elem_borrow.children.insert(tooltip_child_index + 2, popup_window_rc);
+        elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
         elem_borrow.has_popup_child = true;
     }
-    let mut timer_triggered_binding: BindingExpression = timer_triggered.into();
-    timer_triggered_binding.priority = 1;
-    timer_element_rc
-        .borrow_mut()
-        .bindings
-        .insert(SmolStr::new_static("triggered"), RefCell::new(timer_triggered_binding));
 }
 
 fn lower_tooltips_in_component(
@@ -441,7 +362,6 @@ fn lower_tooltips_in_component(
     let tooltip_type = type_register.lookup_builtin_element(TOOLTIP_ELEMENT).unwrap();
     let tooltip_area_type = type_register.lookup_builtin_element(TOOLTIP_AREA_ELEMENT).unwrap();
     let popup_window_type = type_register.lookup_builtin_element(POPUP_WINDOW_ELEMENT).unwrap();
-    let timer_type = type_register.lookup_builtin_element("Timer").unwrap();
 
     let popup_close_policy_enum = BUILTIN.with(|e| e.enums.PopupClosePolicy.clone());
     let popup_close_policy_no_auto_close = EnumerationValue {
@@ -577,10 +497,6 @@ fn lower_tooltips_in_component(
         let tooltip_offset = NamedReference::new(&tooltip_area, SmolStr::new_static(OFFSET));
         let tooltip_no_background =
             NamedReference::new(&tooltip_area, SmolStr::new_static(NO_BACKGROUND));
-        let tooltip_delay_binding: BindingExpression = Expression::PropertyReference(
-            NamedReference::new(&tooltip_area, SmolStr::new_static(DELAY)),
-        )
-        .into();
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
         let tooltip_text = (!has_custom_content)
@@ -635,19 +551,7 @@ fn lower_tooltips_in_component(
             placement_enum,
         );
 
-        let timer_element_rc = build_tooltip_delay_timer(
-            &popup_id_for_text,
-            &enclosing_component,
-            &timer_type,
-            tooltip_delay_binding,
-        );
-        wire_tooltip_visibility_behavior(
-            elem,
-            tooltip_child_index,
-            &tooltip_area,
-            popup_window_rc,
-            timer_element_rc,
-        );
+        wire_tooltip_visibility_behavior(elem, tooltip_child_index, &tooltip_area, popup_window_rc);
     });
 }
 

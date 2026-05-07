@@ -2387,6 +2387,8 @@ export component TooltipArea inherits Empty {
     in property <duration> delay: 500ms;
     in property <length> offset: 8px;
     in property <bool> no-background: false;
+    callback show();
+    callback hide();
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }

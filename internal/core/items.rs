@@ -45,6 +45,7 @@ use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
+use core::time::Duration;
 use i_slint_core_macros::*;
 pub use system_tray::SystemTrayIcon;
 use vtable::*;
@@ -1893,7 +1894,11 @@ pub struct TooltipArea {
     pub delay: Property<i64>,
     pub offset: Property<LogicalLength>,
     pub no_background: Property<bool>,
+    pub show: Callback<VoidArg>,
+    pub hide: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
+    delay_timer: Cell<Option<crate::timers::Timer>>,
+    popup_visible: Cell<bool>,
 }
 
 impl Item for TooltipArea {
@@ -1915,20 +1920,28 @@ impl Item for TooltipArea {
         self: Pin<&Self>,
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
-        // Track hover in the filter stage so the compiler-generated tooltip callbacks
-        // observe enter/leave transitions reliably, independent of later input handling.
+        // Track hover in the filter stage so enter/leave transitions are reliable,
+        // independent of later input handling.
         if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
-            Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
+            self.set_hover_state(false, self_rc);
             return InputEventFilterResult::ForwardAndIgnore;
         }
+
         if let Some(pos) = event.position() {
             Self::FIELD_OFFSETS.mouse_x().apply_pin(self).set(pos.x_length());
             Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
         }
-        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
+
+        let next_hover = !matches!(event, MouseEvent::Exit);
+        self.set_hover_state(next_hover, self_rc);
+
+        if next_hover && !self.popup_visible.get() && matches!(event, MouseEvent::Moved { .. }) {
+            self.schedule_show(self_rc);
+        }
+
         InputEventFilterResult::ForwardAndInterceptGrab
     }
 
@@ -1944,7 +1957,7 @@ impl Item for TooltipArea {
             // continues receiving leave transitions, but ignore other interaction semantics.
             MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
             MouseEvent::Exit => {
-                Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
+                self.set_hover_state(false, _self_rc);
                 InputEventResult::EventAccepted
             }
             _ => InputEventResult::EventIgnored,
@@ -1998,6 +2011,59 @@ impl Item for TooltipArea {
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
         false
+    }
+}
+
+impl TooltipArea {
+    fn schedule_show(self: Pin<&Self>, self_rc: &ItemRc) {
+        if let Some(timer) = self.delay_timer.take() {
+            timer.stop();
+        }
+
+        let delay_ms = self.delay().max(0) as u64;
+        if delay_ms == 0 {
+            if self.has_hover() {
+                self.show.call(&());
+                self.popup_visible.set(true);
+            }
+            return;
+        }
+
+        let timer = crate::timers::Timer::default();
+        let self_weak = self_rc.downgrade();
+        timer.start(crate::timers::TimerMode::SingleShot, Duration::from_millis(delay_ms), move || {
+            let Some(self_rc) = self_weak.upgrade() else { return };
+            let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
+            let tooltip_area = tooltip_area.as_pin_ref();
+            if tooltip_area.has_hover() {
+                tooltip_area.show.call(&());
+                tooltip_area.popup_visible.set(true);
+            }
+        });
+        self.delay_timer.set(Some(timer));
+    }
+
+    fn hide_now(self: Pin<&Self>) {
+        if let Some(timer) = self.delay_timer.take() {
+            timer.stop();
+        }
+        if self.popup_visible.replace(false) {
+            self.hide.call(&());
+        }
+    }
+
+    fn set_hover_state(self: Pin<&Self>, new_hover: bool, self_rc: &ItemRc) {
+        let old_hover = self.has_hover();
+        if old_hover == new_hover {
+            return;
+        }
+
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(new_hover);
+        if new_hover {
+            self.schedule_show(self_rc);
+        } else {
+            self.hide_now();
+        }
     }
 }
 
