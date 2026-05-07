@@ -6,7 +6,7 @@
 //! For each `ToolTip` child, this pass synthesizes a `PopupWindow` anchored around
 //! the hovered parent element and contains the tooltip content.
 //! The `ToolTip.placement` enum controls whether it appears at the mouse pointer position
-//! (`pointer`) or relative to the hovered element (`above`/`below`/`left`/`right`).
+//! (`pointer`) or relative to the hovered element (`above-element`/`below-element`/`left-element`/`right-element`).
 //! Visibility is driven by an injected `TooltipArea` item's `has-hover` callback:
 //! - hover enters: start/restart a delay timer
 //! - timer fires: `ShowPopupWindow`
@@ -218,22 +218,22 @@ fn wire_tooltip_placement(
     };
     let is_left = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("left"))),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("left-element"))),
         op: '=',
     };
     let is_right = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("right"))),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("right-element"))),
         op: '=',
     };
     let is_above = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(tooltip_placement.clone())),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("above"))),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("above-element"))),
         op: '=',
     };
     let is_below = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(tooltip_placement)),
-        rhs: Box::new(Expression::EnumerationValue(placement_value("below"))),
+        rhs: Box::new(Expression::EnumerationValue(placement_value("below-element"))),
         op: '=',
     };
     let effective_popup_width = Expression::Condition {

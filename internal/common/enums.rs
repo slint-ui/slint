@@ -592,13 +592,13 @@ macro_rules! for_each_enums {
                 /// Place the tooltip at the current mouse pointer position.
                 Pointer,
                 /// Place the tooltip centered above the hovered element.
-                Above,
+                AboveElement,
                 /// Place the tooltip centered below the hovered element.
-                Below,
+                BelowElement,
                 /// Place the tooltip centered left of the hovered element.
-                Left,
+                LeftElement,
                 /// Place the tooltip centered right of the hovered element.
-                Right,
+                RightElement,
             }
 
             /// This enum describes the appearance of the ends of stroked paths.

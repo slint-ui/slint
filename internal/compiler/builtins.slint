@@ -2505,7 +2505,7 @@ export component ToolTip inherits Empty {
     /// Placement relative to the pointer or hovered element (<ToolTipPlacement />).
     ///
     /// - `pointer`: anchor using the hover position captured when shown; stays fixed until hidden.
-    /// - `above` / `below` / `left` / `right`: anchor centered along the hovered element's respective outside edge with a spacing gap.
+    /// - `above-element` / `below-element` / `left-element` / `right-element`: anchor centered along the hovered element's respective outside edge with a spacing gap.
     /// ```slint playground
     /// import { Button } from "std-widgets.slint";
     ///
@@ -2530,7 +2530,7 @@ export component ToolTip inherits Empty {
     ///             text: "Below";
     ///
     ///             ToolTip {
-    ///                 placement: below;
+    ///                 placement: below-element;
     ///                 text: "Anchored below the button";
     ///             }
     ///         }
