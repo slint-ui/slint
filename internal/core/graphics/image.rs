@@ -971,13 +971,16 @@ impl Image {
         self.0.size()
     }
 
+    #[cfg(any(feature = "ffi", feature = "std"))]
     fn path_str(&self) -> Option<&SharedString> {
         match &self.0 {
+            #[cfg(feature = "std")]
             ImageInner::EmbeddedImage(embedded)
                 if let ImageCacheKey::Path(CachedPath { path, .. }) = &embedded.cache_key =>
             {
                 Some(path)
             }
+            #[cfg(feature = "std")]
             ImageInner::NineSlice(nine) => match &nine.0 {
                 ImageInner::EmbeddedImage(embedded)
                     if let ImageCacheKey::Path(CachedPath { path, .. }) = &embedded.cache_key =>
