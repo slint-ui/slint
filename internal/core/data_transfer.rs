@@ -54,7 +54,7 @@ struct DataTransferInner {
 /// [`fetch_image`](DataTransfer::fetch_image).
 ///
 /// ```rust
-/// # use i_slint_core::string::ToSharedString as _;
+/// # use i_slint_core::{DataTransfer, string::ToSharedString as _};
 ///
 /// let message = "Hello, world!";
 /// let data = DataTransfer::from(message.to_shared_string());
