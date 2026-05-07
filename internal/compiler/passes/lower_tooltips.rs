@@ -51,6 +51,9 @@ const MOUSE_Y: &str = "mouse-y";
 const WIDTH: &str = "width";
 const HEIGHT: &str = "height";
 const PLACEMENT: &str = "placement";
+const OFFSET: &str = "offset";
+const DELAY: &str = "delay";
+const TEXT: &str = "text";
 const NO_BACKGROUND: &str = "no-background";
 
 fn build_tooltip_content(
@@ -552,24 +555,35 @@ fn lower_tooltips_in_component(
         let parent_width = NamedReference::new(elem, SmolStr::new_static(WIDTH));
         let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
 
-        let tooltip_placement =
-            NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
-        let tooltip_offset = NamedReference::new(&tooltip_config, SmolStr::new_static("offset"));
-        let tooltip_no_background =
-            NamedReference::new(&tooltip_config, SmolStr::new_static(NO_BACKGROUND));
-        let tooltip_delay_binding = tooltip_config
-            .borrow()
-            .bindings
-            .get("delay")
-            .expect("internal error: missing `delay` binding (builtin default should apply)")
-            .borrow()
-            .clone();
         let tooltip_area =
             build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
+        let copied_binding = |source_property: &str, target_property: &str| {
+            if let Some(binding) = tooltip_config.borrow().bindings.get(source_property) {
+                tooltip_area
+                    .borrow_mut()
+                    .bindings
+                    .insert(SmolStr::new(target_property), RefCell::new(binding.borrow().clone()));
+            }
+        };
+        copied_binding(PLACEMENT, PLACEMENT);
+        copied_binding(OFFSET, OFFSET);
+        copied_binding(DELAY, DELAY);
+        copied_binding(NO_BACKGROUND, NO_BACKGROUND);
+        if has_text_binding {
+            copied_binding(TEXT, TEXT);
+        }
+
+        let tooltip_placement = NamedReference::new(&tooltip_area, SmolStr::new_static(PLACEMENT));
+        let tooltip_offset = NamedReference::new(&tooltip_area, SmolStr::new_static(OFFSET));
+        let tooltip_no_background =
+            NamedReference::new(&tooltip_area, SmolStr::new_static(NO_BACKGROUND));
+        let tooltip_delay_binding: BindingExpression =
+            Expression::PropertyReference(NamedReference::new(&tooltip_area, SmolStr::new_static(DELAY)))
+                .into();
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
         let tooltip_text = (!has_custom_content)
-            .then(|| NamedReference::new(&tooltip_config, SmolStr::new_static("text")));
+            .then(|| NamedReference::new(&tooltip_area, SmolStr::new_static(TEXT)));
         let tooltip_content = build_tooltip_content(
             &popup_id_for_text,
             &enclosing_component,
@@ -578,15 +592,15 @@ fn lower_tooltips_in_component(
             tooltip_no_background,
             custom_children,
         );
-        let popup_children = vec![tooltip_config.clone(), tooltip_content.clone()];
+        let popup_children = vec![tooltip_content.clone()];
 
-        let placement_enum = match tooltip_config.borrow().lookup_property(PLACEMENT).property_type
+        let placement_enum = match tooltip_area.borrow().lookup_property(PLACEMENT).property_type
         {
             Type::Enumeration(en) => en,
             _ => {
                 diag.push_error(
                     "ToolTip.placement must be an enum value".into(),
-                    &*tooltip_config.borrow(),
+                    &*tooltip_area.borrow(),
                 );
                 return;
             }
