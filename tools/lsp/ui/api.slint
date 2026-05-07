@@ -467,7 +467,7 @@ export global Api {
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
-    callback outline-select-element(uri: string, offset: int);
+    callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
     callback outline-drop(data: string, uri: string, offset: int, location: DropLocation);
     callback outline-can-drop(data: string, uri: string, offset: int, location: DropLocation) -> bool;

@@ -256,12 +256,16 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
 }
 
 pub fn setup(api: &ui::Api<'_>) {
-    api.on_outline_select_element(|uri, offset| {
+    api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
             crate::common::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
             TextSize::new(offset as u32),
             None,
-            super::SelectionNotification::Now,
+            if notify_editor {
+                super::SelectionNotification::Now
+            } else {
+                super::SelectionNotification::Never
+            },
         );
     });
     api.on_outline_drop(|data, target_uri, target_offset, location| {

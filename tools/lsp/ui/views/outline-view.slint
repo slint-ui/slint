@@ -155,7 +155,7 @@ export component OutlineView inherits VerticalLayout {
                     }
                     ta := TouchArea {
                         clicked => {
-                            Api.outline-select-element(item.uri, item.offset);
+                            Api.outline-select-element(item.uri, item.offset, true);
                         }
                         double-clicked => {
                             item.is-expanded = !item.is-expanded;
@@ -163,6 +163,16 @@ export component OutlineView inherits VerticalLayout {
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.cancel {
                                 open-timer.running = false;
+                            }
+                            if self.has-hover {
+                                // On hover, only update the outline selection in the
+                                // preview, but not in the editor, as that might cause too
+                                // many jumps in the editor.
+                                // Helix also has a bug, where updating the selection by the LSP
+                                // will cause a new split to appear, which we want to avoid doing just
+                                // by hovering.
+                                // See: https://github.com/helix-editor/helix/issues/15429
+                                Api.outline-select-element(item.uri, item.offset, false);
                             }
                         }
                     }
