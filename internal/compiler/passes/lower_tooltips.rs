@@ -457,7 +457,8 @@ fn lower_tooltips_in_component(
             return;
         }
 
-        let is_tooltip_like = matches!(&elem.borrow().builtin_type(), Some(b) if b.name == TOOLTIP_ELEMENT);
+        let is_tooltip_like =
+            matches!(&elem.borrow().builtin_type(), Some(b) if b.name == TOOLTIP_ELEMENT);
         let is_direct_tooltip = matches!(&elem.borrow().base_type, t if *t == tooltip_type);
         if is_tooltip_like && !is_direct_tooltip {
             diag.push_error("ToolTip cannot be inherited".into(), &*elem.borrow());
@@ -499,11 +500,7 @@ fn lower_tooltips_in_component(
             );
             return;
         }
-        if elem
-            .borrow()
-            .builtin_type()
-            .is_some_and(|builtin| builtin.is_non_item_type)
-        {
+        if elem.borrow().builtin_type().is_some_and(|builtin| builtin.is_non_item_type) {
             diag.push_error(
                 "ToolTip cannot be used inside non-item elements".into(),
                 &*tooltip_candidate.borrow(),
