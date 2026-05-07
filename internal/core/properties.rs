@@ -974,6 +974,11 @@ impl<T: Clone> Property<T> {
         })
     }
 
+    /// Remove the binding of this property if any.
+    pub fn remove_binding(&self) {
+        self.handle.remove_binding();
+    }
+
     /// Change the value of this property
     ///
     /// If other properties have binding depending of this property, these properties will
