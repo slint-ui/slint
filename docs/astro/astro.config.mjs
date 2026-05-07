@@ -276,7 +276,7 @@ export default defineConfig({
                                         },
                                         {
                                             label: "Timer",
-                                            slug: "reference/generated/timer",
+                                            slug: "reference/timer",
                                         },
                                     ],
                                 },
@@ -307,15 +307,15 @@ export default defineConfig({
                                                 },
                                                 {
                                                     label: "FocusScope",
-                                                    slug: "reference/generated/keyboard-input/focus-scope",
+                                                    slug: "reference/keyboard-input/focus-scope",
                                                 },
                                                 {
                                                     label: "TextInput",
-                                                    slug: "reference/generated/keyboard-input/text-input",
+                                                    slug: "reference/keyboard-input/text-input",
                                                 },
                                                 {
                                                     label: "TextInputInterface",
-                                                    slug: "reference/generated/keyboard-input/text-input-interface",
+                                                    slug: "reference/keyboard-input/text-input-interface",
                                                 },
                                             ],
                                         },
@@ -328,21 +328,21 @@ export default defineConfig({
                                                 },
                                                 {
                                                     label: "GridLayout",
-                                                    slug: "reference/generated/layouts/grid-layout",
+                                                    slug: "reference/layouts/grid-layout",
                                                 },
                                                 {
                                                     label: "HorizontalLayout",
-                                                    slug: "reference/generated/layouts/horizontal-layout",
+                                                    slug: "reference/layouts/horizontal-layout",
                                                 },
                                                 {
                                                     label: "VerticalLayout",
-                                                    slug: "reference/generated/layouts/vertical-layout",
+                                                    slug: "reference/layouts/vertical-layout",
                                                 },
                                                 // FlexboxLayout is experimental. When it ships, drop
                                                 // `draft: true` from flexbox-layout.mdx and uncomment:
                                                 // {
                                                 //     label: "FlexboxLayout",
-                                                //     slug: "reference/generated/layouts/flexbox-layout",
+                                                //     slug: "reference/layouts/flexbox-layout",
                                                 // },
                                             ],
                                         },
@@ -361,7 +361,7 @@ export default defineConfig({
                                     items: [
                                         {
                                             label: "Global Structs and Enums",
-                                            slug: "reference/generated/global-structs-enums",
+                                            slug: "reference/global-structs-enums",
                                         },
                                         {
                                             label: "Global Functions",
@@ -379,7 +379,7 @@ export default defineConfig({
                                         },
                                         {
                                             label: "Platform Namespace",
-                                            slug: "reference/generated/platform",
+                                            slug: "reference/platform",
                                         },
                                         {
                                             label: "FontWeight Namespace",
@@ -518,8 +518,8 @@ export default defineConfig({
                     ],
                     {
                         exclude: [
-                            "/reference/generated/enums/**",
-                            "/reference/generated/structs/**",
+                            "/reference/enums/**",
+                            "/reference/structs/**",
                         ],
                     },
                 ),

@@ -18,7 +18,7 @@
         "href": "reference/primitive-types/#brush"
     },
     "BorderRadiusRectangle": {
-        "href": "reference/generated/elements/rectangle/#border-radius-properties"
+        "href": "reference/elements/rectangle/#border-radius-properties"
     },
     "cache-rendering-hint": {
         "href": "reference/common/#cache-rendering-hint"
@@ -45,13 +45,13 @@
         "href": "reference/primitive-types/#easing"
     },
     "Edges": {
-        "href": "reference/generated/global-structs-enums/#edges"
+        "href": "reference/global-structs-enums/#edges"
     },
     "EnumType": {
-        "href": "reference/generated/global-structs-enums/"
+        "href": "reference/global-structs-enums/"
     },
     "EventResult": {
-        "href": "reference/generated/global-structs-enums/#eventresult"
+        "href": "reference/global-structs-enums/#eventresult"
     },
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
@@ -60,7 +60,7 @@
         "href": "reference/primitive-types/#float"
     },
     "FocusReason": {
-        "href": "reference/generated/global-structs-enums/#focusreason"
+        "href": "reference/global-structs-enums/#focusreason"
     },
     "FocusHandling": {
         "href": "guide/development/focus/"
@@ -72,7 +72,7 @@
         "href": "reference/global-namespaces/font-weight/"
     },
     "GridLayout": {
-        "href": "reference/generated/layouts/grid-layout/"
+        "href": "reference/layouts/grid-layout/"
     },
     "Globals": {
         "href": "guide/language/coding/globals/"
@@ -81,10 +81,10 @@
         "href": "reference/std-widgets/layouts/horizontalbox/"
     },
     "HorizontalLayout": {
-        "href": "reference/generated/layouts/horizontal-layout/"
+        "href": "reference/layouts/horizontal-layout/"
     },
     "Image": {
-        "href": "reference/generated/elements/image/"
+        "href": "reference/elements/image/"
     },
     "ImageType": {
         "href": "reference/primitive-types/#image"
@@ -102,7 +102,7 @@
         "href": "reference/keyboard-input/overview/#key-bindings"
     },
     "KeyBinding": {
-        "href": "reference/generated/keyboard-input/focus-scope/#keybinding"
+        "href": "reference/keyboard-input/focus-scope/#keybinding"
     },
     "keys": {
         "href": "reference/primitive-types/#keys"
@@ -120,10 +120,10 @@
         "href": "guide/backends-and-renderers/backend_linuxkms/"
     },
     "MenuBar": {
-        "href": "reference/generated/window/menu-bar/"
+        "href": "reference/window/menu-bar/"
     },
     "Menu": {
-        "href": "reference/generated/window/context-menu-area/#menu"
+        "href": "reference/window/context-menu-area/#menu"
     },
     "Modules": {
         "href": "guide/language/coding/file/#modules"
@@ -138,7 +138,7 @@
         "href": "reference/std-widgets/globals/palette/"
     },
     "Path": {
-        "href": "reference/generated/elements/path/"
+        "href": "reference/elements/path/"
     },
     "percent": {
         "href": "reference/primitive-types/#percent"
@@ -147,10 +147,10 @@
         "href": "reference/primitive-types/#physical-length"
     },
     "PopupWindow": {
-        "href": "reference/generated/window/popup-window/"
+        "href": "reference/window/popup-window/"
     },
     "Point": {
-        "href": "reference/generated/global-structs-enums/#point"
+        "href": "reference/global-structs-enums/#point"
     },
     "ProgressIndicator": {
         "href": "reference/std-widgets/basic-widgets/progressindicator/"
@@ -159,13 +159,13 @@
         "href": "guide/language/concepts/reactivity/"
     },
     "Rectangle": {
-        "href": "reference/generated/elements/rectangle/"
+        "href": "reference/elements/rectangle/"
     },
     "relativeFontSize": {
         "href": "reference/primitive-types/#relative-font-size"
     },
     "Size": {
-        "href": "reference/generated/global-structs-enums/#size"
+        "href": "reference/global-structs-enums/#size"
     },
     "slintFile": {
         "href": "guide/language/coding/file/"
@@ -174,10 +174,10 @@
         "href": "reference/std-widgets/views/scrollview/"
     },
     "StyledText": {
-        "href": "reference/generated/elements/styled-text/"
+        "href": "reference/elements/styled-text/"
     },
     "SystemTrayIcon": {
-        "href": "reference/generated/window/system-tray-icon/"
+        "href": "reference/window/system-tray-icon/"
     },
     "styled_text": {
         "href": "reference/primitive-types/#styled-text"
@@ -186,7 +186,7 @@
         "href": "guide/language/coding/functions-and-callbacks/#callbacks"
     },
     "Flickable": {
-        "href": "reference/generated/gestures/flickable/"
+        "href": "reference/gestures/flickable/"
     },
     "StandardButton": {
         "href": "reference/std-widgets/basic-widgets/standardbutton/"
@@ -195,7 +195,7 @@
         "href": "reference/primitive-types/#string"
     },
     "StructType": {
-        "href": "reference/generated/global-structs-enums/"
+        "href": "reference/global-structs-enums/"
     },
     "StyleWidgets": {
         "href": "reference/std-widgets/style/"
@@ -204,16 +204,16 @@
         "href": "reference/std-widgets/globals/stylemetrics/"
     },
     "Text": {
-        "href": "reference/generated/elements/text/"
+        "href": "reference/elements/text/"
     },
     "TextEdit": {
         "href": "reference/std-widgets/views/textedit/"
     },
     "TextInput": {
-        "href": "reference/generated/keyboard-input/text-input/"
+        "href": "reference/keyboard-input/text-input/"
     },
     "Timer": {
-        "href": "reference/generated/timer/"
+        "href": "reference/timer/"
     },
     "Types": {
         "href": "reference/primitive-types/"
@@ -222,7 +222,7 @@
         "href": "reference/std-widgets/layouts/verticalbox/"
     },
     "VerticalLayout": {
-        "href": "reference/generated/layouts/vertical-layout/"
+        "href": "reference/layouts/vertical-layout/"
     },
     "VSCode": {
         "href": "guide/tooling/vscode/"
@@ -231,16 +231,16 @@
         "href": "guide/backends-and-renderers/backend_qt/"
     },
     "Window": {
-        "href": "reference/generated/window/window/"
+        "href": "reference/window/window/"
     },
     "Window.safe-area-insets": {
-        "href": "reference/generated/window/window/#safe-area-insets"
+        "href": "reference/window/window/#safe-area-insets"
     },
     "Window.virtual-keyboard-position": {
-        "href": "reference/generated/window/window/#virtual-keyboard-position"
+        "href": "reference/window/window/#virtual-keyboard-position"
     },
     "Window.virtual-keyboard-size": {
-        "href": "reference/generated/window/window/#virtual-keyboard-size"
+        "href": "reference/window/window/#virtual-keyboard-size"
     },
     "WinitBackend": {
         "href": "guide/backends-and-renderers/backend_winit/"
