@@ -90,7 +90,7 @@
         "icon": "$(preview)"
       },
       {
-        "command": "slint.connectRemotePreview",
+        "command": "slint.selectRemotePreview",
         "title": "Connect to Remote Preview",
         "category": "Slint",
         "icon": "$(preview)"
@@ -120,7 +120,7 @@
           "when": "editorLangId == slint"
         },
         {
-          "command": "slint.connectRemotePreview",
+          "command": "slint.selectRemotePreview",
           "when": "editorLangId == slint"
         },
         {
