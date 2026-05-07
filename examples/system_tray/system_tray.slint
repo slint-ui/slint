@@ -85,7 +85,7 @@ export component MainWindow inherits Window {
 }
 
 export component ExampleTray inherits SystemTrayIcon {
-    icon: (self.color-scheme == ColorScheme.unknown ? Palette.color-scheme : self.color-scheme) == ColorScheme.dark
+    icon: Palette.color-scheme == ColorScheme.dark
         ? @image-url("../../logo/slint-logo-small-dark.png")
         : @image-url("../../logo/slint-logo-small-light.png");
 

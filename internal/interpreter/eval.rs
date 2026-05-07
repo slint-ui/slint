@@ -1421,12 +1421,12 @@ fn call_builtin_function(
             let a = a.clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
-        BuiltinFunction::ColorScheme => corelib::window::WindowInner::from_pub(
-            local_context.component_instance.window_adapter().window(),
-        )
-        .context()
-        .color_scheme()
-        .into(),
+        BuiltinFunction::ColorScheme => {
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            corelib::items::resolve_color_scheme(&root).into()
+        }
         BuiltinFunction::AccentColor => {
             let color = corelib::window::WindowInner::from_pub(
                 local_context.component_instance.window_adapter().window(),

@@ -3913,8 +3913,13 @@ fn compile_builtin_function_call(
             })
         }
         BuiltinFunction::ColorScheme => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).context().color_scheme())
+            // Route through the runtime helper so a `Palette.color-scheme` binding
+            // inside a SystemTrayIcon-rooted component naturally resolves against
+            // the tray's scheme without going through any window adapter.
+            let global_access = &ctx.generator_state.global_access;
+            quote!(sp::resolve_color_scheme(
+                &#global_access.root_item_tree_weak.upgrade().unwrap()
+            ))
         }
         BuiltinFunction::AccentColor => {
             let window_adapter_tokens = access_window_adapter_field(ctx);

@@ -461,6 +461,28 @@ impl ItemConsts for SystemTrayIcon {
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
+/// Resolve the color scheme to use for bindings inside the given component instance.
+///
+/// If the root item of the tree is a [`SystemTrayIcon`], returns its tray-area scheme
+/// (written by the macOS AppKit observer). When that scheme is [`ColorScheme::Unknown`]
+/// — including on every non-AppKit backend, where the tray has no separate appearance —
+/// the function falls back to the process-wide [`SlintContext::color_scheme`].
+///
+/// This is the runtime entry point that the compiler emits for `BuiltinFunction::ColorScheme`,
+/// so a `Palette.color-scheme` binding inside a tray-rooted component naturally resolves
+/// against the tray's scheme without going through any window adapter.
+pub fn resolve_color_scheme(root: &crate::item_tree::ItemTreeRc) -> ColorScheme {
+    let root_item = ItemRc::new_root(root.clone());
+    if let Some(tray) = root_item.downcast::<SystemTrayIcon>() {
+        let scheme = tray.as_pin_ref().color_scheme();
+        if scheme != ColorScheme::Unknown {
+            return scheme;
+        }
+    }
+    crate::context::GLOBAL_CONTEXT
+        .with(|p| p.get().map_or(ColorScheme::Unknown, |ctx| ctx.color_scheme()))
+}
+
 /// # Safety
 /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
 /// hold a SystemTrayIconDataBox

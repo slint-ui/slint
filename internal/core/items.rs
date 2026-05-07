@@ -45,7 +45,7 @@ use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
-pub use system_tray::SystemTrayIcon;
+pub use system_tray::{SystemTrayIcon, resolve_color_scheme};
 use vtable::*;
 
 mod component_container;

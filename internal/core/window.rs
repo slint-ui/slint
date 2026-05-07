@@ -2178,7 +2178,8 @@ pub mod ffi {
     ) -> ColorScheme {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            WindowInner::from_pub(window_adapter.window()).context().color_scheme()
+            let root = WindowInner::from_pub(window_adapter.window()).component();
+            crate::items::resolve_color_scheme(&root)
         }
     }
 
