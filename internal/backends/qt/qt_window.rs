@@ -21,8 +21,8 @@ use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
 };
 use i_slint_core::items::{
-    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin,
-    MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin, MouseCursor,
+    Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -32,7 +32,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
-use i_slint_core::{ImageInner, Property, SharedString};
+use i_slint_core::{ImageInner, SharedString};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -42,7 +42,6 @@ use std::rc::{Rc, Weak};
 
 use crate::key_generated;
 use i_slint_core::renderer::Renderer;
-use std::cell::OnceCell;
 
 cpp! {{
     // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
@@ -285,17 +284,6 @@ cpp! {{
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
                     rust_window.window.dispatch_event(WindowEvent::WindowActiveChanged(active));
-                });
-            } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange) {
-                bool dark_color_scheme = qApp->palette().color(QPalette::Window).valueF() < 0.5;
-                rust!(Slint_updateWindowDarkColorScheme [rust_window: &QtWindow as "void*", dark_color_scheme: bool as "bool"] {
-                    if let Some(ds) = rust_window.color_scheme.get() {
-                        ds.as_ref().set(if dark_color_scheme {
-                            ColorScheme::Dark
-                        } else {
-                            ColorScheme::Light
-                        });
-                    }
                 });
             }
 
@@ -1854,28 +1842,6 @@ impl QtWindow {
             widget_ptr->rust_window = rust_window;
         }};
         ALL_WINDOWS.with(|aw| aw.borrow_mut().push(rc.self_weak.clone()));
-
-        let initial_scheme = if cpp! {unsafe [] -> bool as "bool" {
-            return qApp->palette().color(QPalette::Window).valueF() < 0.5;
-        }} {
-            ColorScheme::Dark
-        } else {
-            ColorScheme::Light
-        };
-        let initial_accent = {
-            let argb = cpp! {unsafe [] -> u32 as "QRgb" {
-                #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-                    return qApp->palette().color(QPalette::Accent).rgba();
-                #else
-                    return qApp->palette().color(QPalette::Highlight).rgba();
-                #endif
-            }};
-            i_slint_core::graphics::Color::from_argb_encoded(argb)
-        };
-        let ctx = WindowInner::from_pub(&rc.window).context();
-        ctx.set_color_scheme(initial_scheme);
-        ctx.set_accent_color(initial_accent);
-
         rc
     }
 
