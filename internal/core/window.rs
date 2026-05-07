@@ -1769,7 +1769,7 @@ pub mod ffi {
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::Size;
     use crate::graphics::{Color, IntSize, Rgba8Pixel};
-    use crate::items::{ColorScheme, WindowItem};
+    use crate::items::WindowItem;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -2171,17 +2171,6 @@ pub mod ffi {
         }
     }
 
-    /// Return whether the style is using a dark theme
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_color_scheme(
-        handle: *const WindowAdapterRcOpaque,
-    ) -> ColorScheme {
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            let root = WindowInner::from_pub(window_adapter.window()).component();
-            crate::items::resolve_color_scheme(&root)
-        }
-    }
 
     /// Return the system accent color, or transparent if not available
     #[unsafe(no_mangle)]
