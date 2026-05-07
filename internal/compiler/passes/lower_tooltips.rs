@@ -43,6 +43,8 @@ const TOOLTIP_AREA_ELEMENT: &str = "TooltipArea";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
 const TOOLTIP_GAP_PX: f64 = 8.;
+const LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP: &[&str] =
+    &["GridLayout", "VerticalLayout", "HorizontalLayout", "FlexboxLayout"];
 
 const HAS_HOVER: &str = "has-hover";
 const MOUSE_X: &str = "mouse-x";
@@ -455,6 +457,13 @@ fn lower_tooltips_in_component(
             return;
         }
 
+        let is_tooltip_like = matches!(&elem.borrow().builtin_type(), Some(b) if b.name == TOOLTIP_ELEMENT);
+        let is_direct_tooltip = matches!(&elem.borrow().base_type, t if *t == tooltip_type);
+        if is_tooltip_like && !is_direct_tooltip {
+            diag.push_error("ToolTip cannot be inherited".into(), &*elem.borrow());
+            return;
+        }
+
         let tooltip_indices: Vec<usize> = elem
             .borrow()
             .children
@@ -481,6 +490,27 @@ fn lower_tooltips_in_component(
         let tooltip_child_index = tooltip_indices[0];
 
         let tooltip_candidate = elem.borrow().children[tooltip_child_index].clone();
+        if elem.borrow().builtin_type().is_some_and(|builtin| {
+            LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&builtin.name.as_str())
+        }) {
+            diag.push_error(
+                "ToolTip cannot be used inside layout elements".into(),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
+        if elem
+            .borrow()
+            .builtin_type()
+            .is_some_and(|builtin| builtin.is_non_item_type)
+        {
+            diag.push_error(
+                "ToolTip cannot be used inside non-item elements".into(),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
+
         let has_custom_content = !tooltip_candidate.borrow().children.is_empty();
         let has_text_binding = tooltip_candidate.borrow().bindings.contains_key("text");
         if has_custom_content && has_text_binding {
