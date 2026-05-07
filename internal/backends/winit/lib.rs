@@ -838,10 +838,7 @@ impl WinitPlatformClipboard {
         crate::wasm_input_helper::set_clipboard_text(string.into(), clipboard);
     }
 
-    fn get(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-    ) -> Result<DataTransfer, PlatformError> {
+    fn get(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         crate::wasm_input_helper::get_clipboard_text(clipboard)
     }
 }
