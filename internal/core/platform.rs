@@ -7,13 +7,13 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
+use crate::SharedString;
 pub use crate::api::PlatformError;
 use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::renderer::Renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::OnceCell;
 pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
-use crate::{DataTransfer, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -127,25 +127,18 @@ pub trait Platform {
     /// Sends the given text into the system clipboard.
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
-    #[deprecated(
-        since = "1.17.0",
-        note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
-    )]
     fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
-        self.clipboard().set(clipboard, SharedString::from(text).into());
+        // Suppress unused argument warnings
+        let _ = (text, clipboard);
     }
 
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return None
-    #[deprecated(
-        since = "1.17.0",
-        note = "See `Platform::clipboard` and the `PlatformClipboard` trait, which allow using the clipboard for types other than plaintext"
-    )]
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
-        let data = self.clipboard().get(clipboard).ok()?;
-
-        data.fetch_plaintext().ok().map(|s| s.into())
+        // Suppress unused argument warnings
+        let _ = clipboard;
+        None
     }
 
     /// This function is called when debug() is used in .slint files. The implementation
@@ -167,32 +160,6 @@ pub trait Platform {
     /// The long press interval before showing a context menu
     fn long_press_interval(&self, _: crate::InternalToken) -> core::time::Duration {
         core::time::Duration::from_millis(500)
-    }
-}
-
-/// A trait representing the functions needed to get and set the data on the system clipboard.
-///
-/// An implementation of this trait is returned from [`Platform::clipboard`] and allows the
-/// user to interact with arbitrary data stored on the clipboard.
-pub trait PlatformClipboard {
-    /// Set the data stored on the specified clipboard to `value` (see [`DataTransfer`]).
-    fn set(&self, clipboard: Clipboard, value: DataTransfer);
-    /// Read the data stored on the specified clipboard.
-    fn get(&self, clipboard: Clipboard) -> Result<DataTransfer, PlatformError>;
-
-    /// Remove all data from the specified clipboard.
-    fn clear(&self, clipboard: Clipboard) {
-        self.set(clipboard, Default::default())
-    }
-}
-
-/// A default implemenation of [`PlatformClipboard`] which does not support reading or writing.
-pub struct DummyPlatformClipboard;
-
-impl PlatformClipboard for DummyPlatformClipboard {
-    fn set(&self, _: crate::platform::Clipboard, _: DataTransfer) {}
-    fn get(&self, _: crate::platform::Clipboard) -> Result<DataTransfer, PlatformError> {
-        Ok(Default::default())
     }
 }
 

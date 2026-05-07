@@ -4,7 +4,7 @@
 //! Types and helpers related to the [`DataTransfer`] type, which implements type-indexed arbitrary
 //! data transfer both within an application and between applications.
 
-use alloc::{boxed::Box, rc::Rc};
+use alloc::rc::Rc;
 use core::any::Any;
 
 use crate::{SharedString, api::Image};
@@ -32,43 +32,34 @@ struct DataTransferInner {
 ///
 /// The details will depend on the current platform, but the common features are:
 ///
-/// - Each `DataTransfer` contains multiple views over the same data in different formats,
-///   specified by MIME type
+/// - Each `DataTransfer` contains multiple views over the same data in different formats
 /// - The `DataTransfer` may contain an in-memory representation of the data, which can be
 ///   sent and received within the current application
-/// - Serializing to a given format may be done eagerly or lazily
+/// - Serializing to/deserializing from a given format may be done eagerly or lazily[^lazy-note]
 ///
-/// Wayland and X11 have direct support for specifying data transfer types using the MIME
-/// standard, but on platforms that have a different system, MIME types will be mapped to
-/// the host OS's types. For example, on Windows there is special-cased support for bitmaps
-/// using [`DataPackage.SetBitmap`][windows-bmp]. That would be mapped to the `image/bmp`
-/// MIME type.
+/// [^lazy-note]: Platforms differ on which formats can and cannot be lazy, but all support it in
+/// some capacity. Reading data from a `DataTransfer` cannot be assumed to be a cheap operation.
 ///
-/// [windows-bmp]: https://learn.microsoft.com/en-us/uwp/api/windows.applicationmodel.datatransfer.datapackage.setbitmap
-///
-/// > Note: The full mapping between OS type and MIME type for each supported platform will be
-/// > elaborated on here once the drag-and-drop feature has been completed. To track its
-/// > progress, see [the tracking issue][dnd-tracking-issue].
+/// Currently, only plaintext and image data is supported. Precisely how this maps to the
+/// backend will depend on platform and features. Work to expand this API is ongoing, see
+/// [the tracking issue for drag-and-drop][dnd-tracking-issue] to follow its progress.
 ///
 /// [dnd-tracking-issue]: https://github.com/slint-ui/slint/issues/1967
 ///
-/// The easiest way to construct this type is via the [`From<SharedString>`](SharedString) and
-/// [`From<Image>`](Image) implementations. The opposite of these operations are
-/// [`fetch_plaintext`](DataTransfer::fetch_plaintext) and [`fetch_image`](DataTransfer::fetch_image)
-/// respectively.
+/// The easiest way to construct this type is with the [`Default`] implementation, followed
+/// by [`set_plaintext`](DataTransfer::set_plaintext) or [`set_image`](DataTransfer::set_image).
+/// There are also implementations of [`From<SharedString>`](SharedString) and [`From<Image>`](Image)
+/// which construct a new `DataTransfer` using those methods respectively. The opposites of these
+/// operations are [`fetch_plaintext`](DataTransfer::fetch_plaintext) and
+/// [`fetch_image`](DataTransfer::fetch_image).
 ///
-/// The `From<SharedString>` implementation will create a plaintext `DataTransfer`. This
-/// currently means that it will provide `text/plain` and `text/plain;charset=utf-8`.
+/// ```rust
+/// # use i_slint_core::string::ToSharedString as _;
 ///
-/// The `From<Image>` implementation will create a `DataTransfer` that can be read as any of
-/// the image formats supported by Slint. Currently, the MIME types initialized by the
-/// `From<Image>` implementation are:
-///
-/// - `image/jpeg`
-/// - `image/gif`
-/// - `image/png`
-/// - `image/bmp`
-/// - `image/svg+xml` (if the `svg` feature is enabled)
+/// let message = "Hello, world!";
+/// let data = DataTransfer::from(message.to_shared_string());
+/// assert_eq!(data.fetch_plaintext().unwrap(), message);
+/// ```
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct DataTransfer {
@@ -84,7 +75,8 @@ pub struct DataTransfer {
 impl core::fmt::Debug for DataTransfer {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DataTransfer")
-            .field("mime_types", &self.mime_types().collect::<alloc::vec::Vec<_>>())
+            .field("has_plaintext", &self.has_plaintext())
+            .field("has_image", &self.has_image())
             .field("has_user_data", &self.user_data.is_some())
             .finish()
     }
@@ -127,167 +119,67 @@ impl From<Image> for DataTransfer {
 #[non_exhaustive]
 pub enum DataTransferError {
     /// The type was not listed in the set of available MIME types.
-    TypeNotFound(SharedString),
-    /// Some error occurred while running a provider.
-    Provider(ProviderError),
+    TypeNotFound,
 }
 
-impl core::error::Error for DataTransferError {
-    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
-        match self {
-            Self::TypeNotFound(_) => None,
-            Self::Provider(err) => err.source(),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match self {
-            Self::TypeNotFound(mime_type) => mime_type,
-            #[expect(deprecated)]
-            Self::Provider(err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn core::error::Error> {
-        match self {
-            Self::TypeNotFound(_) => None,
-            #[expect(deprecated)]
-            Self::Provider(err) => err.cause(),
-        }
-    }
-}
+impl core::error::Error for DataTransferError {}
 
 impl core::fmt::Display for DataTransferError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            DataTransferError::TypeNotFound(mime_type) => {
-                write!(f, "Type not supplied by data transfer: {mime_type}")
-            }
-            DataTransferError::Provider(provider_error) => {
-                write!(f, "Error running data transfer provider: {provider_error}")
+            Self::TypeNotFound => {
+                write!(f, "Type not supplied by data transfer")
             }
         }
     }
 }
 
-/// An error that can occur when a provider for a [`DataTransfer`] runs. See [`DataTransfer::set_provider`].
-///
-/// This is essentially just a wrapper around [`std::io::Error`] which removes the
-/// ability to access the [`ErrorKind`](std::io::ErrorKind) on `no_std` targets.
-#[derive(Debug, Clone)]
-pub struct ProviderError {
-    #[cfg(feature = "std")]
-    inner: Rc<std::io::Error>,
-    #[cfg(not(feature = "std"))]
-    inner: Rc<dyn core::error::Error + Send + Sync + 'static>,
-}
-
-impl core::error::Error for ProviderError {
-    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
-        (**self).source()
-    }
-
-    fn description(&self) -> &str {
-        #[expect(deprecated)]
-        (**self).description()
-    }
-
-    fn cause(&self) -> Option<&dyn core::error::Error> {
-        #[expect(deprecated)]
-        (**self).cause()
-    }
-}
-
-impl core::ops::Deref for ProviderError {
-    type Target = dyn core::error::Error;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.inner
-    }
-}
-
-#[cfg(feature = "std")]
-impl ProviderError {
-    /// Create a [`ProviderError`] with an unknown [`ErrorKind`](std::io::ErrorKind).
-    pub fn other<E>(other: E) -> Self
-    where
-        E: Into<Box<dyn core::error::Error + Send + Sync + 'static>>,
-    {
-        std::io::Error::other(other).into()
-    }
-
-    /// Returns the corresponding [`ErrorKind`](std::io::ErrorKind) for this error.
-    pub fn kind(&self) -> std::io::ErrorKind {
-        self.inner.kind()
-    }
-}
-
-#[cfg(not(feature = "std"))]
-impl ProviderError {
-    /// Create a [`ProviderError`] from some arbitrary error type.
-    pub fn other<E>(other: E) -> Self
-    where
-        E: Into<Box<dyn core::error::Error + Send + Sync + 'static>>,
-    {
-        ProviderError { inner: Rc::from(other.into()) }
-    }
-}
-
-impl core::fmt::Display for ProviderError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.inner.fmt(f)
-    }
-}
-
-#[cfg(feature = "std")]
-impl<T> From<T> for ProviderError
-where
-    T: Into<Rc<std::io::Error>>,
-{
-    fn from(value: T) -> Self {
-        Self { inner: value.into() }
-    }
-}
-
-impl<T> From<T> for DataTransferError
-where
-    T: Into<ProviderError>,
-{
-    fn from(value: T) -> Self {
-        Self::Provider(value.into())
-    }
-}
-
-const PLAINTEXT_MIME_TYPES: &[&str] = &["text/plain", "text/plain;charset=utf-8"];
-
 impl DataTransfer {
-    /// Set the internal special-cased image field
-    fn set_image(&mut self, image: Image) -> &mut Self {
+    /// Sets an image to be transferred by this [`DataTransfer`].
+    ///
+    /// The image can be read using [`fetch_image`](DataTransfer::fetch_image). If
+    /// you only need the [`DataTransfer`] to have an image representation,
+    /// [`From<Image>`](Image) can also be used for the same effect.
+    ///
+    /// Each [`DataTransfer`] can only have a single image set at once. If this
+    /// method is called multiple times, the previous image will be overwritten.
+    /// However, you can have, for example, both an image representation and a
+    /// plaintext representation set simultaneously on the same [`DataTransfer`].
+    pub fn set_image(&mut self, image: Image) -> &mut Self {
         Rc::make_mut(self.inner.get_or_insert_default()).image = Some(image);
         self
     }
 
-    /// Set the internal special-cased plaintext field
-    fn set_plaintext(&mut self, plaintext: SharedString) -> &mut Self {
+    /// Sets unstyled, basic text to be transferred by this [`DataTransfer`].
+    ///
+    /// The image can be read using [`fetch_plaintext`](DataTransfer::fetch_plaintext).
+    /// If you only need the [`DataTransfer`] to have a plaintext representation,
+    /// [`From<SharedString>`](SharedString) can also be used for the same effect.
+    ///
+    /// Each [`DataTransfer`] can only have a single plaintext representiation
+    /// set at once. If this method is called multiple times, the previous text
+    /// will be overwritten. However, you can have, for example, both an image
+    /// representation and a plaintext representation set simultaneously on the
+    /// same [`DataTransfer`].
+    pub fn set_plaintext(&mut self, plaintext: SharedString) -> &mut Self {
         Rc::make_mut(self.inner.get_or_insert_default()).plaintext = Some(plaintext);
         self
     }
 
     /// Returns `true` if this data transfer advertises that it is readable as an [`Image`].
     ///
-    /// This means that This does not necessarily mean that `fetch_image` will return `Ok`,
-    /// as an I/O error may occur.
+    /// This does not necessarily mean that `fetch_image` will return `Ok`, as an I/O error
+    /// may occur.
     pub fn has_image(&self) -> bool {
         self.inner.as_ref().is_some_and(|inner| inner.image.is_some())
     }
 
     /// Returns `true` if this data transfer advertises that it is readable as plaintext.
     ///
-    /// This means that This does not necessarily mean that `fetch_plaintext` will return
-    /// `Ok`, as an I/O error may occur.
+    /// This does not necessarily mean that `fetch_plaintext` will return `Ok`, as an I/O
+    /// error may occur.
     pub fn has_plaintext(&self) -> bool {
         self.inner.as_ref().is_some_and(|inner| inner.plaintext.is_some())
-            || self.mime_types().any(|ty| PLAINTEXT_MIME_TYPES.contains(&ty))
     }
 
     /// Set the application-internal data represented by this [`DataTransfer`].
@@ -301,38 +193,22 @@ impl DataTransfer {
 
     /// Helper to read this [`DataTransfer`] as plaintext, supporting multiple encodings.
     ///
-    /// The caller should assume that this method call may do IO.
+    /// The caller should assume that this method call may do I/O.
     pub fn fetch_plaintext(&self) -> Result<SharedString, DataTransferError> {
         self.inner
             .as_ref()
             .and_then(|inner| inner.plaintext.clone())
-            .ok_or_else(|| DataTransferError::TypeNotFound(PLAINTEXT_MIME_TYPES[0].into()))
+            .ok_or(DataTransferError::TypeNotFound)
     }
 
     /// Helper to read this [`DataTransfer`] as an image, supporting multiple image types.
     ///
-    /// The caller should assume that this method call may do IO.
+    /// The caller should assume that this method call may do I/O.
     pub fn fetch_image(&self) -> Result<Image, DataTransferError> {
         self.inner
             .as_ref()
             .and_then(|inner| inner.image.clone())
-            .ok_or_else(|| DataTransferError::TypeNotFound("image".into()))
-    }
-
-    /// Get the set of available MIME types.
-    pub fn mime_types(&self) -> impl Iterator<Item = &str> + '_ {
-        let image_mime_types = self.has_image().then_some(
-            // We can't extract this to a const because it's an iterator adapter,
-            // and we can't extract it to a function because borrowck fails to
-            // narrow `impl Iterator<Item = &'static str>` to `&'_ str`.
-            image::ImageFormat::all()
-                .filter(|fmt| fmt.writing_enabled())
-                .map(|fmt| fmt.to_mime_type()),
-        );
-        let plaintext_mime_types =
-            self.has_plaintext().then_some(PLAINTEXT_MIME_TYPES.iter().copied());
-
-        plaintext_mime_types.into_iter().flatten().chain(image_mime_types.into_iter().flatten())
+            .ok_or(DataTransferError::TypeNotFound)
     }
 
     /// Get the application-internal data represented by this [`DataTransfer`], if

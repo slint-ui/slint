@@ -36,7 +36,7 @@ public:
 
 private:
     /// Dummy pointers to ensure that this type is the same size as `DataTransfer` in
-    /// `i_slint_core`. See `i_slint_core::data_transfer::DataTransferCppSizeMock`.
+    /// `i_slint_core`. See `i_slint_core::data_transfer::ffi::DataTransferOpaque`.
     cbindgen_private::types::DataTransferOpaque _inner;
 };
 }

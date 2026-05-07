@@ -293,8 +293,53 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     #[cfg(not(no_qt))]
-    fn clipboard(&self) -> &dyn i_slint_core::platform::PlatformClipboard {
-        &QtPlatformClipboard
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
+        use cpp::cpp;
+
+        let is_selection: bool = match clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => false,
+            i_slint_core::platform::Clipboard::SelectionClipboard => true,
+            _ => return,
+        };
+
+        let text: qttypes::QString = text.to_string().into();
+
+        cpp! {unsafe [text as "QString", is_selection as "bool"] {
+            ensure_initialized();
+            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
+                return;
+            QGuiApplication::clipboard()->setText(text, is_selection ? QClipboard::Selection : QClipboard::Clipboard);
+        } }
+    }
+
+    #[cfg(not(no_qt))]
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+        use cpp::cpp;
+
+        let is_selection: bool = match clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => false,
+            i_slint_core::platform::Clipboard::SelectionClipboard => true,
+            _ => {
+                return None;
+            }
+        };
+
+        let has_type = cpp! {unsafe [is_selection as "bool"] -> bool as "bool" {
+            ensure_initialized();
+            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
+                return false;
+            return QGuiApplication::clipboard()->mimeData(is_selection ? QClipboard::Selection : QClipboard::Clipboard)->hasText();
+        } };
+
+        if !has_type {
+            return Some(Default::default());
+        }
+
+        let clipboard_string: String = cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
+            return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
+        }}.into();
+
+        Some(clipboard_string)
     }
 
     #[cfg(not(no_qt))]
@@ -330,76 +375,6 @@ impl i_slint_core::platform::Platform for Backend {
         } else {
             Err(i_slint_core::platform::PlatformError::Other("Failed to open URL".into()))
         }
-    }
-}
-
-#[cfg(not(no_qt))]
-struct QtPlatformClipboard;
-
-#[cfg(not(no_qt))]
-impl i_slint_core::platform::PlatformClipboard for QtPlatformClipboard {
-    fn set(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-        data: i_slint_core::data_transfer::DataTransfer,
-    ) {
-        use cpp::cpp;
-
-        let Ok(string) = data.clone().fetch_plaintext() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data.mime_types().collect::<Vec<_>>()
-            );
-            return;
-        };
-
-        let is_selection: bool = match clipboard {
-            i_slint_core::platform::Clipboard::DefaultClipboard => false,
-            i_slint_core::platform::Clipboard::SelectionClipboard => true,
-            _ => return,
-        };
-
-        let text: qttypes::QString = string.to_string().into();
-
-        cpp! {unsafe [text as "QString", is_selection as "bool"] {
-            ensure_initialized();
-            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
-                return;
-            QGuiApplication::clipboard()->setText(text, is_selection ? QClipboard::Selection : QClipboard::Clipboard);
-        } }
-    }
-
-    fn get(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-    ) -> Result<i_slint_core::data_transfer::DataTransfer, i_slint_core::platform::PlatformError>
-    {
-        use cpp::cpp;
-
-        let is_selection: bool = match clipboard {
-            i_slint_core::platform::Clipboard::DefaultClipboard => false,
-            i_slint_core::platform::Clipboard::SelectionClipboard => true,
-            _ => {
-                return Err(PlatformError::Other(format!("No such clipboard {clipboard:?}")));
-            }
-        };
-
-        let has_type = cpp! {unsafe [is_selection as "bool"] -> bool as "bool" {
-            ensure_initialized();
-            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
-                return false;
-            return QGuiApplication::clipboard()->mimeData(is_selection ? QClipboard::Selection : QClipboard::Clipboard)->hasText();
-        } };
-
-        if !has_type {
-            return Ok(Default::default());
-        }
-
-        let clipboard_string: String = cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
-            return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
-        }}.into();
-
-        Ok(i_slint_core::SharedString::from(clipboard_string).into())
     }
 }
 

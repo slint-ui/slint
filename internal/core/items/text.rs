@@ -1934,8 +1934,7 @@ impl TextInput {
         WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .clipboard()
-            .set(clipboard, text.into());
+            .set_clipboard_text(&text, clipboard);
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1951,10 +1950,7 @@ impl TextInput {
         if let Some(text) = WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .clipboard()
-            .get(clipboard)
-            .ok()
-            .and_then(|data| data.fetch_plaintext().ok())
+            .clipboard_text(clipboard)
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

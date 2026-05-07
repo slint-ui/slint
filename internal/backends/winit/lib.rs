@@ -10,9 +10,7 @@
 extern crate alloc;
 
 use event_loop::{CustomEvent, EventLoopState};
-use i_slint_core::SharedString;
 use i_slint_core::api::EventLoopError;
-use i_slint_core::data_transfer::DataTransfer;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::{EventLoopProxy, PlatformError};
 use i_slint_core::window::WindowAdapter;
@@ -422,9 +420,6 @@ impl SharedBackendData {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         allow_fallback: bool,
     ) -> Result<Self, PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
-        use raw_window_handle::HasDisplayHandle;
-
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
             #[cfg(feature = "wayland")]
@@ -476,13 +471,9 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
+        let clipboard = WinitPlatformClipboard::new(&event_loop)?;
+
         let event_loop_proxy = event_loop.create_proxy();
-        #[cfg(not(target_arch = "wasm32"))]
-        let clipboard = crate::clipboard::create_clipboard(
-            &event_loop
-                .display_handle()
-                .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
-        );
         Ok(Self {
             allow_fallback,
             renderer_name,
@@ -491,10 +482,7 @@ impl SharedBackendData {
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows,
             inactive_windows: Default::default(),
-            #[cfg(not(target_arch = "wasm32"))]
-            clipboard: WinitPlatformClipboard(RefCell::new(clipboard)),
-            #[cfg(target_arch = "wasm32")]
-            clipboard: WinitPlatformClipboard,
+            clipboard,
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             event_loop_generation: Default::default(),
@@ -784,8 +772,12 @@ impl i_slint_core::platform::Platform for Backend {
         )))
     }
 
-    fn clipboard(&self) -> &dyn i_slint_core::platform::PlatformClipboard {
-        &self.shared_data.clipboard
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
+        self.shared_data.clipboard.set(text, clipboard);
+    }
+
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+        self.shared_data.clipboard.get(clipboard)
     }
 
     #[cfg(target_os = "windows")]
@@ -837,16 +829,12 @@ struct WinitPlatformClipboard;
 struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
 
 #[cfg(target_arch = "wasm32")]
-impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
-    fn set(&self, clipboard: i_slint_core::platform::Clipboard, data: DataTransfer) {
-        let Ok(string) = data.clone().fetch_plaintext() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data.mime_types().collect::<Vec<_>>()
-            );
-            return;
-        };
+impl WinitPlatformClipboard {
+    fn new<T>(event_loop: &winit::event_loop::EventLoop<T>) -> Result<Self, PlatformError> {
+        Ok(WinitPlatformClipboard)
+    }
 
+    fn set(&self, string: &str, clipboard: i_slint_core::platform::Clipboard) {
         crate::wasm_input_helper::set_clipboard_text(string.into(), clipboard);
     }
 
@@ -854,26 +842,26 @@ impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
         &self,
         clipboard: i_slint_core::platform::Clipboard,
     ) -> Result<DataTransfer, PlatformError> {
-        Ok(crate::wasm_input_helper::get_clipboard_text(clipboard)
-            .map(|string| SharedString::from(string).into())
-            .unwrap_or_default())
+        crate::wasm_input_helper::get_clipboard_text(clipboard)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
-    fn set(&self, clipboard: i_slint_core::platform::Clipboard, data: DataTransfer) {
+impl WinitPlatformClipboard {
+    fn new<T>(event_loop: &winit::event_loop::EventLoop<T>) -> Result<Self, PlatformError> {
+        use raw_window_handle::HasDisplayHandle as _;
+
+        Ok(Self(core::cell::RefCell::new(crate::clipboard::create_clipboard(
+            &event_loop
+                .display_handle()
+                .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
+        ))))
+    }
+
+    fn set(&self, string: &str, clipboard: i_slint_core::platform::Clipboard) {
         let mut pair = self.0.borrow_mut();
         let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
             eprintln!("Unknown clipboard: {clipboard:?}");
-            return;
-        };
-
-        let Ok(string) = data.clone().fetch_plaintext() else {
-            eprintln!(
-                "Testing clipboard provided non-string data: {:?}",
-                data.mime_types().collect::<Vec<_>>()
-            );
             return;
         };
 
@@ -882,16 +870,10 @@ impl i_slint_core::platform::PlatformClipboard for WinitPlatformClipboard {
         }
     }
 
-    fn get(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-    ) -> Result<DataTransfer, PlatformError> {
+    fn get(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         let mut pair = self.0.borrow_mut();
-        let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
-            return Err(PlatformError::Other(format!("No such clipboard {clipboard:?}")));
-        };
-
-        Ok(SharedString::from(clipboard.get_contents()?).into())
+        clipboard::select_clipboard(&mut pair, clipboard.clone())
+            .and_then(|clipboard| clipboard.get_contents().ok())
     }
 }
 
