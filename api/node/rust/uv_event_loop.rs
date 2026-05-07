@@ -25,11 +25,10 @@
 mod platform {
     use super::super::ProcessEventsResult;
     use napi::Env;
-    use std::cell::OnceCell;
+    use std::cell::{Cell, OnceCell};
     use std::os::fd::BorrowedFd;
     use std::os::raw::c_int;
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::rc::Rc;
     use std::time::Duration;
 
     type UvBackendFdFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s) -> c_int;
@@ -43,6 +42,8 @@ mod platform {
     }
 
     impl UvFunctions {
+        /// Looks up libuv symbols at runtime so this addon also works in
+        /// non-libuv runtimes (e.g. Deno), where these symbols are absent.
         fn try_new(env: &Env) -> Option<Self> {
             let lib = libloading::os::unix::Library::this();
             // SAFETY: These symbols are exported by the Node.js binary with
@@ -89,7 +90,7 @@ mod platform {
 
     thread_local! {
         static CACHED_UV: OnceCell<Option<UvFunctions>> = const { OnceCell::new() };
-        static WATCHER_FLAG: OnceCell<Arc<AtomicBool>> = const { OnceCell::new() };
+        static WATCHER_FLAG: OnceCell<Rc<Cell<bool>>> = const { OnceCell::new() };
     }
 
     fn get_uv(env: &Env) -> napi::Result<UvFunctions> {
@@ -105,7 +106,7 @@ mod platform {
 
     /// Spawns a persistent future watching the libuv fd and returns
     /// the flag it sets when the fd becomes readable.
-    fn ensure_watcher_spawned(uv: &UvFunctions) -> napi::Result<Arc<AtomicBool>> {
+    fn ensure_watcher_spawned(uv: &UvFunctions) -> napi::Result<Rc<Cell<bool>>> {
         WATCHER_FLAG.with(|cell| {
             if let Some(flag) = cell.get() {
                 return Ok(flag.clone());
@@ -117,7 +118,7 @@ mod platform {
                 napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
             })?;
 
-            let flag = Arc::new(AtomicBool::new(false));
+            let flag = Rc::new(Cell::new(false));
             let flag_for_future = flag.clone();
             slint_interpreter::spawn_local(async move {
                 loop {
@@ -126,7 +127,7 @@ mod platform {
                     if async_fd.readable().await.is_err() {
                         break;
                     }
-                    flag_for_future.store(true, Ordering::Relaxed);
+                    flag_for_future.set(true);
                 }
             })
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
@@ -156,7 +157,7 @@ mod platform {
                 return Ok(ProcessEventsResult::Exited);
             }
 
-            if uv_timeout == 0 || fd_ready.swap(false, Ordering::Relaxed) {
+            if uv_timeout == 0 || fd_ready.replace(false) {
                 return Ok(ProcessEventsResult::Continue);
             }
         }
