@@ -130,7 +130,7 @@ pub mod api {
                 return Err(Self::Error::InvalidUsage);
             }
             Ok(Self(super::super::ImageInner::WGPUTexture(
-                super::super::WGPUTexture::WGPU27Texture(texture),
+                super::super::WGPUTexture::WGPU27Texture(texture).into(),
             )))
         }
     }

@@ -878,8 +878,13 @@ impl Image {
     ///         as new major WGPU releases become available.
     #[cfg(feature = "unstable-wgpu-27")]
     pub fn to_wgpu_27_texture(&self) -> Option<wgpu_27::Texture> {
+        #[cfg_attr(not(feature = "unstable-wgpu-28"), expect(irrefutable_let_patterns))]
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU27Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture_rc)
+                if WGPUTexture::WGPU27Texture(texture) = &**texture_rc =>
+            {
+                Some(texture.clone())
+            }
             _ => None,
         }
     }
