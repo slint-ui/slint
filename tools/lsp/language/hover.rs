@@ -6,7 +6,7 @@ use crate::common::{
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
-use i_slint_compiler::langtype::{BuiltinElement, BuiltinElementDocEntry, ElementType, Type};
+use i_slint_compiler::langtype::{BuiltinElement, ElementDocEntry, ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
@@ -37,7 +37,7 @@ pub fn get_tooltip(
             }
             ElementType::Builtin(b) => {
                 let raw = builtin_element_description(&b);
-                let cleaned = clean_builtin_doc(&raw);
+                let cleaned = clean_builtin_doc(raw);
                 let doc = if cleaned.is_empty() { None } else { Some(cleaned.as_str()) };
                 if b.is_global {
                     from_slint_code(&format!("global {}", b.name), doc)
@@ -167,15 +167,8 @@ fn from_property_in_element(
     from_property_in_type(&element.borrow().base_type, name, documentation)
 }
 
-/// Extract the first `Text` entry from a builtin element's doc entries.
-/// This is the `///` description before the element declaration.
-fn builtin_element_description(b: &BuiltinElement) -> String {
-    for entry in &b.docs {
-        if let BuiltinElementDocEntry::Text(text) = entry {
-            return text.clone();
-        }
-    }
-    String::new()
+fn builtin_element_description(b: &BuiltinElement) -> &str {
+    b.docs.iter().find_map(|e| match e { ElementDocEntry::Text(t) => Some(t.as_str()), _ => None }).unwrap_or("")
 }
 
 /// Extract the prose description from a raw builtins.slint doc comment,
@@ -186,7 +179,7 @@ fn clean_builtin_doc(raw: &str) -> String {
     let mut in_fence = false;
     for line in raw.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") || trimmed.starts_with(":::") {
             in_fence = !in_fence;
             continue;
         }

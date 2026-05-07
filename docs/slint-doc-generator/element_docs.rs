@@ -5,7 +5,7 @@
 // the compiler's TypeRegister.
 
 use i_slint_compiler::langtype::{
-    BuiltinElement, BuiltinElementDocEntry, BuiltinPropertyDefault, BuiltinPropertyInfo,
+    BuiltinElement, ElementDocEntry, BuiltinPropertyDefault, BuiltinPropertyInfo,
     ElementType, Type,
 };
 use i_slint_compiler::object_tree::PropertyVisibility;
@@ -312,7 +312,7 @@ fn visibility_to_direction(v: PropertyVisibility) -> &'static str {
 /// Whether a builtin element has any documentation worth showing.
 fn has_documentation(builtin: &BuiltinElement) -> bool {
     match builtin.docs.first() {
-        Some(BuiltinElementDocEntry::Text(t)) if !t.is_empty() => true,
+        Some(ElementDocEntry::Text(t)) if !t.is_empty() => true,
         _ => builtin.properties.values().any(|p| p.docs.is_some()),
     }
 }
@@ -320,7 +320,7 @@ fn has_documentation(builtin: &BuiltinElement) -> bool {
 /// Extract and clean the element description from the first doc entry.
 fn element_description(builtin: &BuiltinElement) -> String {
     match builtin.docs.first() {
-        Some(BuiltinElementDocEntry::Text(t)) => {
+        Some(ElementDocEntry::Text(t)) => {
             let mut d = t.clone();
             extract_group(&mut d);
             strip_annotation(&mut d, "\\draft");
@@ -337,11 +337,11 @@ fn element_description(builtin: &BuiltinElement) -> String {
 fn collect_builtin_text(builtin: &BuiltinElement, text: &mut String) {
     for entry in &builtin.docs {
         match entry {
-            BuiltinElementDocEntry::Text(t) => {
+            ElementDocEntry::Text(t) => {
                 text.push(' ');
                 text.push_str(t);
             }
-            BuiltinElementDocEntry::Member(name) => {
+            ElementDocEntry::Member(name) => {
                 if let Some(info) = builtin.properties.get(name.as_str())
                     && let Some(doc) = &info.docs
                 {
@@ -537,13 +537,13 @@ fn write_members(
 
     // If the first body entry is a text section, don't auto-generate "## Properties".
     let has_leading_section =
-        builtin.docs.get(start).is_some_and(|e| matches!(e, BuiltinElementDocEntry::Text(_)));
+        builtin.docs.get(start).is_some_and(|e| matches!(e, ElementDocEntry::Text(_)));
     let mut in_properties = has_leading_section;
     let mut in_callbacks = false;
     let mut in_functions = false;
     for entry in &builtin.docs[start..] {
         match entry {
-            BuiltinElementDocEntry::Text(text) => {
+            ElementDocEntry::Text(text) => {
                 let trimmed = text.trim_matches('\n');
                 for line in trimmed.lines() {
                     if line.starts_with("## Properties") {
@@ -562,7 +562,7 @@ fn write_members(
                 writeln!(file, "{}", transform_code_fences(&spaced, sc))?;
                 writeln!(file)?;
             }
-            BuiltinElementDocEntry::Member(name) => {
+            ElementDocEntry::Member(name) => {
                 let Some(info) = builtin.properties.get(name.as_str()) else { continue };
                 if info.docs.is_none() {
                     continue;
@@ -602,11 +602,7 @@ fn write_sub_element(
         return Ok(());
     }
 
-    let mut raw_desc = match child.docs.first() {
-        Some(BuiltinElementDocEntry::Text(t)) => t.clone(),
-        _ => String::new(),
-    };
-    let skip_children = strip_annotation(&mut raw_desc, "\\skip_children");
+    let skip_children = matches!(child.docs.first(), Some(ElementDocEntry::Text(t)) if t.contains("\\skip_children"));
     let description = element_description(child);
 
     writeln!(file, "## `{child_name}`")?;
@@ -623,7 +619,7 @@ fn write_sub_element(
     let mut fns: Vec<(&str, &BuiltinPropertyInfo)> = Vec::new();
 
     for entry in &child.docs[start..] {
-        if let BuiltinElementDocEntry::Member(name) = entry
+        if let ElementDocEntry::Member(name) = entry
             && let Some(info) = child.properties.get(name.as_str())
         {
             if info.docs.is_none() {
@@ -723,7 +719,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     // Generate a page for each exported element with documentation.
     for (name, is_global, builtin) in &elements {
         let mut description = match builtin.docs.first() {
-            Some(BuiltinElementDocEntry::Text(text)) => text.clone(),
+            Some(ElementDocEntry::Text(text)) => text.clone(),
             _ => continue,
         };
         if description.is_empty() {
