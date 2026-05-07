@@ -333,7 +333,7 @@ impl ImageCacheKey {
     pub fn new(resource: &ImageInner) -> Option<Self> {
         let key = match resource {
             ImageInner::None => return None,
-            ImageInner::EmbeddedImage { cache_key, .. } => cache_key.clone(),
+            ImageInner::EmbeddedImage(embedded) => embedded.cache_key.clone(),
             ImageInner::StaticTextures(textures) => {
                 Self::from_embedded_image_data(textures.data.as_slice())
             }
@@ -409,6 +409,16 @@ impl OpaqueImage for WGPUTexture {
     }
 }
 
+/// An embedded image, storing a cache key and the inline image data.
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
+pub struct EmbeddedImage {
+    /// The cache key uniquely identifying this image.
+    pub cache_key: ImageCacheKey,
+    /// The image data.
+    pub buffer: SharedImageBuffer,
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
@@ -420,10 +430,7 @@ pub enum ImageInner {
     /// A resource that does not represent any data.
     #[default]
     None = 0,
-    EmbeddedImage {
-        cache_key: ImageCacheKey,
-        buffer: SharedImageBuffer,
-    } = 1,
+    EmbeddedImage(vtable::VRc<drop_shim_vtable::DropShimVTable, EmbeddedImage>) = 1,
     #[cfg(feature = "svg")]
     Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>) = 2,
     StaticTextures(&'static StaticTextures) = 3,
@@ -433,9 +440,54 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
+    // Wrapped in `VRc`, as otherwise `WGPUTexture` bloats the type significantly.
     #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
-    WGPUTexture(WGPUTexture) = 8,
+    WGPUTexture(vtable::VRc<drop_shim_vtable::DropShimVTable, WGPUTexture>) = 8,
 }
+
+#[expect(unused)]
+mod drop_shim_vtable {
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    impl DropShim for super::WGPUTexture {}
+    impl DropShim for super::EmbeddedImage {}
+
+    /// Stub vtable to allow a `VRc` that only maintains lifetimes without granting access to
+    /// any functionality on the type.
+    #[cfg_attr(not(feature = "ffi"), i_slint_core_macros::remove_extern)]
+    #[vtable::vtable]
+    #[repr(C)]
+    pub(super) struct DropShimVTable {
+        /// in-place destructor (for VRc)
+        pub drop_in_place: unsafe extern "C" fn(vtable::VRefMut<DropShimVTable>) -> vtable::Layout,
+
+        /// dealloc function (for VRc)
+        pub dealloc: unsafe extern "C" fn(&DropShimVTable, ptr: *mut u8, layout: vtable::Layout),
+    }
+
+    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    DropShimVTable_static!(static WGPU_TEXTURE_DROP_VTABLE for super::WGPUTexture);
+    DropShimVTable_static!(static EMBEDDED_TEXTURE_DROP_VTABLE for super::EmbeddedImage);
+}
+
+#[cfg(all(debug_assertions, feature = "ffi"))]
+#[expect(unused)]
+const _: () = {
+    #[repr(u8)]
+    enum ImageInnerAllFeaturesDisabled {
+        None = 0,
+        EmbeddedImage(vtable::VRc<drop_shim_vtable::DropShimVTable, EmbeddedImage>) = 1,
+        StaticTextures(&'static StaticTextures) = 3,
+        #[cfg(target_arch = "wasm32")]
+        HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
+        BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
+        NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
+        #[cfg(not(target_arch = "wasm32"))]
+        BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
+    }
+
+    static_assertions::assert_eq_align!(ImageInner, ImageInnerAllFeaturesDisabled);
+    static_assertions::assert_eq_size!(ImageInner, ImageInnerAllFeaturesDisabled);
+};
 
 impl ImageInner {
     /// Return or render the image into a buffer
@@ -449,7 +501,7 @@ impl ImageInner {
         _target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
     ) -> Option<SharedImageBuffer> {
         match self {
-            ImageInner::EmbeddedImage { buffer, .. } => Some(buffer.clone()),
+            ImageInner::EmbeddedImage(embedded) => Some(embedded.buffer.clone()),
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => match svg.render(_target_size_for_scalable_source) {
                 Ok(b) => Some(b),
@@ -542,7 +594,7 @@ impl ImageInner {
     pub fn size(&self) -> IntSize {
         match self {
             ImageInner::None => Default::default(),
-            ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
+            ImageInner::EmbeddedImage(embedded) => embedded.buffer.size(),
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.size(),
@@ -561,10 +613,9 @@ impl ImageInner {
 impl PartialEq for ImageInner {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (
-                Self::EmbeddedImage { cache_key: l_cache_key, buffer: l_buffer },
-                Self::EmbeddedImage { cache_key: r_cache_key, buffer: r_buffer },
-            ) => l_cache_key == r_cache_key && l_buffer == r_buffer,
+            (Self::EmbeddedImage(embedded_l), Self::EmbeddedImage(embedded_r)) => {
+                **embedded_l == **embedded_r
+            }
             #[cfg(feature = "svg")]
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
@@ -716,19 +767,19 @@ impl Image {
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
     /// channels (red, green and blue) encoded as u8.
     pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
-        Image(ImageInner::EmbeddedImage {
+        Image(ImageInner::EmbeddedImage(vtable::VRc::new(EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGB8(buffer),
-        })
+        })))
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
     /// channels (red, green, blue and alpha) encoded as u8.
     pub fn from_rgba8(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
-        Image(ImageInner::EmbeddedImage {
+        Image(ImageInner::EmbeddedImage(vtable::VRc::new(EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8(buffer),
-        })
+        })))
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
@@ -737,10 +788,10 @@ impl Image {
     ///
     /// Only construct an Image with this function if you know that your pixels are encoded this way.
     pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
-        Image(ImageInner::EmbeddedImage {
+        Image(ImageInner::EmbeddedImage(vtable::VRc::new(EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8Premultiplied(buffer),
-        })
+        })))
     }
 
     /// Returns the pixel buffer for the Image if available in RGB format without alpha.
@@ -840,8 +891,13 @@ impl Image {
     ///         as new major WGPU releases become available.
     #[cfg(feature = "unstable-wgpu-28")]
     pub fn to_wgpu_28_texture(&self) -> Option<wgpu_28::Texture> {
+        #[cfg_attr(not(feature = "unstable-wgpu-27"), expect(irrefutable_let_patterns))]
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU28Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture_rc)
+                if let WGPUTexture::WGPU28Texture(texture) = &**texture_rc =>
+            {
+                Some(texture.clone())
+            }
             _ => None,
         }
     }
@@ -910,6 +966,25 @@ impl Image {
         self.0.size()
     }
 
+    fn path_str(&self) -> Option<&SharedString> {
+        match &self.0 {
+            ImageInner::EmbeddedImage(embedded)
+                if let ImageCacheKey::Path(CachedPath { path, .. }) = &embedded.cache_key =>
+            {
+                Some(path)
+            }
+            ImageInner::NineSlice(nine) => match &nine.0 {
+                ImageInner::EmbeddedImage(embedded)
+                    if let ImageCacheKey::Path(CachedPath { path, .. }) = &embedded.cache_key =>
+                {
+                    Some(path)
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     #[cfg(feature = "std")]
     /// Returns the path of the image on disk, if it was constructed via [`Self::load_from_path`].
     ///
@@ -923,20 +998,7 @@ impl Image {
     /// assert_eq!(image.path(), Some(path_buf.as_path()));
     /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
-        match &self.0 {
-            ImageInner::EmbeddedImage {
-                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                ..
-            } => Some(std::path::Path::new(path.as_str())),
-            ImageInner::NineSlice(nine) => match &nine.0 {
-                ImageInner::EmbeddedImage {
-                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                    ..
-                } => Some(std::path::Path::new(path.as_str())),
-                _ => None,
-            },
-            _ => None,
-        }
+        self.path_str().map(|str| std::path::Path::new(str.as_str()))
     }
 }
 
@@ -1035,10 +1097,10 @@ pub fn decode_image_data(data: &[u8], format: &str) -> Option<Image> {
         image::load_from_memory(data)
     };
     match decoded {
-        Ok(image) => Some(Image(ImageInner::EmbeddedImage {
+        Ok(image) => Some(Image(ImageInner::EmbeddedImage(vtable::VRc::new(EmbeddedImage {
             cache_key: ImageCacheKey::Invalid,
             buffer: cache::dynamic_image_to_shared_image_buffer(image),
-        })),
+        })))),
         Err(err) => {
             crate::debug_log!("Error decoding image data: {}", err);
             None
@@ -1370,6 +1432,42 @@ pub(crate) mod ffi {
         }
     }
 
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_image_from_shared_buffer_rgb8(
+        buffer: &SharedPixelBuffer<Rgb8Pixel>,
+        out: *mut Image,
+    ) {
+        let image = Image(ImageInner::EmbeddedImage(
+            EmbeddedImage {
+                cache_key: ImageCacheKey::Invalid,
+                buffer: SharedImageBuffer::RGB8(buffer.clone()),
+            }
+            .into(),
+        ));
+
+        unsafe {
+            core::ptr::write(out, image);
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_image_from_shared_buffer_rgba8(
+        buffer: &SharedPixelBuffer<Rgba8Pixel>,
+        out: *mut Image,
+    ) {
+        let image = Image(ImageInner::EmbeddedImage(
+            EmbeddedImage {
+                cache_key: ImageCacheKey::Invalid,
+                buffer: SharedImageBuffer::RGBA8(buffer.clone()),
+            }
+            .into(),
+        ));
+
+        unsafe {
+            core::ptr::write(out, image);
+        }
+    }
+
     #[cfg(feature = "std")]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_embedded_data(
@@ -1387,22 +1485,7 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
-        match &image.0 {
-            #[cfg(feature = "std")]
-            ImageInner::EmbeddedImage {
-                cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                ..
-            } => Some(path),
-            ImageInner::NineSlice(nine) => match &nine.0 {
-                #[cfg(feature = "std")]
-                ImageInner::EmbeddedImage {
-                    cache_key: ImageCacheKey::Path(CachedPath { path, .. }),
-                    ..
-                } => Some(path),
-                _ => None,
-            },
-            _ => None,
-        }
+        image.path_str()
     }
 
     #[unsafe(no_mangle)]

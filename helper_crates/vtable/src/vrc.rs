@@ -135,6 +135,12 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> core::fmt::Debug for VRc<VTable
     }
 }
 
+impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> From<X> for VRc<VTable, X> {
+    fn from(value: X) -> Self {
+        Self::new(value)
+    }
+}
+
 impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
     /// Create a new VRc from an instance of a type that can be associated with a VTable.
     ///

@@ -172,27 +172,27 @@ public:
     }
 
     /// Construct an image from a SharedPixelBuffer of RGB pixels.
-    Image(SharedPixelBuffer<Rgb8Pixel> buffer)
-        : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGB8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+    Image(SharedPixelBuffer<Rgb8Pixel> buffer) : data(Data::ImageInner_None())
     {
+        cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> buffer_private {
+            .width = buffer.width(),
+            .height = buffer.height(),
+            .data = buffer.m_data,
+        };
+
+        cbindgen_private::types::slint_image_from_shared_buffer_rgb8(&buffer_private, &data);
     }
 
     /// Construct an image from a SharedPixelBuffer of RGBA pixels.
-    Image(SharedPixelBuffer<Rgba8Pixel> buffer)
-        : data(Data::ImageInner_EmbeddedImage(
-                  cbindgen_private::types::ImageCacheKey::Invalid(),
-                  cbindgen_private::types::SharedImageBuffer::RGBA8(
-                          cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
-                                  .width = buffer.width(),
-                                  .height = buffer.height(),
-                                  .data = buffer.m_data })))
+    Image(SharedPixelBuffer<Rgba8Pixel> buffer) : data(Data::ImageInner_None())
     {
+        cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> buffer_private {
+            .width = buffer.width(),
+            .height = buffer.height(),
+            .data = buffer.m_data,
+        };
+
+        cbindgen_private::types::slint_image_from_shared_buffer_rgba8(&buffer_private, &data);
     }
 
     /// Returns the size of the Image in pixels.
@@ -275,6 +275,7 @@ public:
 private:
     using Tag = cbindgen_private::types::ImageInner::Tag;
     using Data = cbindgen_private::types::Image;
+
     Data data;
 };
 

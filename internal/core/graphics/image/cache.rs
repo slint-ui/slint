@@ -6,7 +6,7 @@ This module contains image and caching related types for the run-time library.
 */
 
 use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
-use crate::{SharedString, slice::Slice};
+use crate::{SharedString, graphics::image::EmbeddedImage, slice::Slice};
 
 struct ImageWeightInBytes;
 
@@ -14,7 +14,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
     fn weight(&self, _key: &ImageCacheKey, value: &ImageInner) -> usize {
         match value {
             ImageInner::None => 0,
-            ImageInner::EmbeddedImage { buffer, .. } => match buffer {
+            ImageInner::EmbeddedImage(embedded) => match &embedded.buffer {
                 SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
@@ -103,10 +103,12 @@ impl ImageCache {
                     None
                 },
                 |image| {
-                    Some(ImageInner::EmbeddedImage {
+                    use crate::graphics::image::EmbeddedImage;
+
+                    Some(ImageInner::EmbeddedImage(vtable::VRc::new(EmbeddedImage {
                         cache_key,
                         buffer: dynamic_image_to_shared_image_buffer(image),
-                    })
+                    })))
                 },
             )
         });
@@ -142,10 +144,10 @@ impl ImageCache {
             };
 
             match maybe_image {
-                Ok(image) => Some(ImageInner::EmbeddedImage {
+                Ok(image) => Some(ImageInner::EmbeddedImage(vtable::VRc::new(EmbeddedImage {
                     cache_key,
                     buffer: dynamic_image_to_shared_image_buffer(image),
-                }),
+                }))),
                 Err(decode_err) => {
                     crate::debug_log!("Error decoding embedded image: {}", decode_err);
                     None
