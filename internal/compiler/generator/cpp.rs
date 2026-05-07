@@ -4501,13 +4501,13 @@ fn compile_builtin_function_call(
             // inside a SystemTrayIcon-rooted component naturally resolves against
             // the tray's scheme without going through any window adapter.
             format!(
-                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); return slint::cbindgen_private::slint_resolve_color_scheme(&_root); }}()",
+                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); return slint::cbindgen_private::slint_context_color_scheme(&_root); }}()",
                 ctx.generator_state.global_access
             )
         }
         BuiltinFunction::AccentColor => {
             format!(
-                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); slint::Color col; slint::cbindgen_private::slint_accent_color(&_root, &col); return col; }}()",
+                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); slint::Color col; slint::cbindgen_private::slint_context_accent_color(&_root, &col); return col; }}()",
                 ctx.generator_state.global_access
             )
         }
