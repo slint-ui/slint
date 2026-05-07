@@ -9,7 +9,7 @@
     {
       "name": "slint",
       "description": "Enhances Claude's ability to work with, debug, and build Slint GUI applications",
-      "source": "./docs/skills",
+      "source": "./skills",
       "version": "0.1.0",
       "category": "development",
       "keywords": ["slint", "gui", "ui", "declarative", "rust", "cpp", "embedded"]

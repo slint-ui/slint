@@ -22,9 +22,18 @@ Use the Slint skill to give Claude Code or Codex project-specific guidance for w
   Enter the following in the Codex prompt to install the skill from GitHub:
 
   ```sh
-  $skill-installer install https://github.com/slint-ui/slint/tree/master/docs/skills/slint
+  $skill-installer install https://github.com/slint-ui/slint/tree/master/skills/slint
   ```
 
   Restart Codex after the install so it picks up the new skill.
+  </TabItem>
+  <TabItem label="npx skills">
+  Install the Slint skill into the current project with the [`skills`](https://github.com/vercel-labs/skills) CLI:
+
+  ```sh
+  npx skills add slint-ui/slint --skill slint
+  ```
+
+  This works for any agent supported by the `skills` CLI (Claude Code, Cursor, and others) and installs into the project's agent skills directory by default. Pass `-g` to install globally for all projects.
   </TabItem>
 </Tabs>
