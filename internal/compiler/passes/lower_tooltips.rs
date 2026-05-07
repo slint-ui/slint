@@ -42,7 +42,6 @@ const TOOLTIP_IMPL_ELEMENT: &str = "ToolTipImpl";
 const TOOLTIP_AREA_ELEMENT: &str = "TooltipArea";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
 const TOOLTIP_POPUP_ID_PREFIX: &str = "tooltip-popup-overlay-";
-const TOOLTIP_GAP_PX: f64 = 8.;
 const LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP: &[&str] =
     &["GridLayout", "VerticalLayout", "HorizontalLayout", "FlexboxLayout"];
 
@@ -191,6 +190,7 @@ fn wire_tooltip_placement(
     parent_height: NamedReference,
     pointer_x: NamedReference,
     pointer_y: NamedReference,
+    tooltip_offset: NamedReference,
     tooltip_placement: NamedReference,
     placement_enum: Rc<Enumeration>,
 ) {
@@ -272,30 +272,31 @@ fn wire_tooltip_placement(
         rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
         op: '/',
     };
+    let tooltip_offset_expr = Expression::PropertyReference(tooltip_offset);
     let x_left = Expression::BinaryExpression {
         lhs: Box::new(Expression::UnaryOp { sub: Box::new(effective_popup_width), op: '-' }),
-        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        rhs: Box::new(tooltip_offset_expr.clone()),
         op: '-',
     };
     let x_right = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(parent_width)),
-        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        rhs: Box::new(tooltip_offset_expr.clone()),
         op: '+',
     };
     let y_above = Expression::BinaryExpression {
         lhs: Box::new(Expression::UnaryOp { sub: Box::new(effective_popup_height), op: '-' }),
-        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        rhs: Box::new(tooltip_offset_expr.clone()),
         op: '-',
     };
     let y_below = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(parent_height)),
-        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        rhs: Box::new(tooltip_offset_expr.clone()),
         op: '+',
     };
     let x_pointer = Expression::PropertyReference(pointer_x);
     let y_pointer = Expression::BinaryExpression {
         lhs: Box::new(Expression::PropertyReference(pointer_y)),
-        rhs: Box::new(Expression::NumberLiteral(TOOLTIP_GAP_PX, Unit::Px)),
+        rhs: Box::new(tooltip_offset_expr),
         op: '+',
     };
 
@@ -553,6 +554,7 @@ fn lower_tooltips_in_component(
 
         let tooltip_placement =
             NamedReference::new(&tooltip_config, SmolStr::new_static(PLACEMENT));
+        let tooltip_offset = NamedReference::new(&tooltip_config, SmolStr::new_static("offset"));
         let tooltip_no_background =
             NamedReference::new(&tooltip_config, SmolStr::new_static(NO_BACKGROUND));
         let tooltip_delay_binding = tooltip_config
@@ -614,6 +616,7 @@ fn lower_tooltips_in_component(
             parent_height,
             pointer_x,
             pointer_y,
+            tooltip_offset,
             tooltip_placement,
             placement_enum,
         );
