@@ -307,15 +307,15 @@ export default defineConfig({
                                                 },
                                                 {
                                                     label: "FocusScope",
-                                                    slug: "reference/keyboard-input/focus-scope",
+                                                    slug: "reference/keyboard-input/focusscope",
                                                 },
                                                 {
                                                     label: "TextInput",
-                                                    slug: "reference/keyboard-input/text-input",
+                                                    slug: "reference/keyboard-input/textinput",
                                                 },
                                                 {
                                                     label: "TextInputInterface",
-                                                    slug: "reference/keyboard-input/text-input-interface",
+                                                    slug: "reference/keyboard-input/textinputinterface",
                                                 },
                                             ],
                                         },
@@ -328,21 +328,21 @@ export default defineConfig({
                                                 },
                                                 {
                                                     label: "GridLayout",
-                                                    slug: "reference/layouts/grid-layout",
+                                                    slug: "reference/layouts/gridlayout",
                                                 },
                                                 {
                                                     label: "HorizontalLayout",
-                                                    slug: "reference/layouts/horizontal-layout",
+                                                    slug: "reference/layouts/horizontallayout",
                                                 },
                                                 {
                                                     label: "VerticalLayout",
-                                                    slug: "reference/layouts/vertical-layout",
+                                                    slug: "reference/layouts/verticallayout",
                                                 },
                                                 // FlexboxLayout is experimental. When it ships, drop
                                                 // `draft: true` from flexbox-layout.mdx and uncomment:
                                                 // {
                                                 //     label: "FlexboxLayout",
-                                                //     slug: "reference/layouts/flexbox-layout",
+                                                //     slug: "reference/layouts/flexboxlayout",
                                                 // },
                                             ],
                                         },

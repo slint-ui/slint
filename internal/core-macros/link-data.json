@@ -72,7 +72,7 @@
         "href": "reference/global-namespaces/font-weight/"
     },
     "GridLayout": {
-        "href": "reference/layouts/grid-layout/"
+        "href": "reference/layouts/gridlayout/"
     },
     "Globals": {
         "href": "guide/language/coding/globals/"
@@ -81,7 +81,7 @@
         "href": "reference/std-widgets/layouts/horizontalbox/"
     },
     "HorizontalLayout": {
-        "href": "reference/layouts/horizontal-layout/"
+        "href": "reference/layouts/horizontallayout/"
     },
     "Image": {
         "href": "reference/elements/image/"
@@ -102,7 +102,7 @@
         "href": "reference/keyboard-input/overview/#key-bindings"
     },
     "KeyBinding": {
-        "href": "reference/keyboard-input/focus-scope/#keybinding"
+        "href": "reference/keyboard-input/focusscope/#keybinding"
     },
     "keys": {
         "href": "reference/primitive-types/#keys"
@@ -120,10 +120,10 @@
         "href": "guide/backends-and-renderers/backend_linuxkms/"
     },
     "MenuBar": {
-        "href": "reference/window/menu-bar/"
+        "href": "reference/window/menubar/"
     },
     "Menu": {
-        "href": "reference/window/context-menu-area/#menu"
+        "href": "reference/window/contextmenuarea/#menu"
     },
     "Modules": {
         "href": "guide/language/coding/file/#modules"
@@ -147,7 +147,7 @@
         "href": "reference/primitive-types/#physical-length"
     },
     "PopupWindow": {
-        "href": "reference/window/popup-window/"
+        "href": "reference/window/popupwindow/"
     },
     "Point": {
         "href": "reference/global-structs-enums/#point"
@@ -174,10 +174,10 @@
         "href": "reference/std-widgets/views/scrollview/"
     },
     "StyledText": {
-        "href": "reference/elements/styled-text/"
+        "href": "reference/elements/styledtext/"
     },
     "SystemTrayIcon": {
-        "href": "reference/window/system-tray-icon/"
+        "href": "reference/window/systemtrayicon/"
     },
     "styled_text": {
         "href": "reference/primitive-types/#styled-text"
@@ -210,7 +210,7 @@
         "href": "reference/std-widgets/views/textedit/"
     },
     "TextInput": {
-        "href": "reference/keyboard-input/text-input/"
+        "href": "reference/keyboard-input/textinput/"
     },
     "Timer": {
         "href": "reference/timer/"
@@ -222,7 +222,7 @@
         "href": "reference/std-widgets/layouts/verticalbox/"
     },
     "VerticalLayout": {
-        "href": "reference/layouts/vertical-layout/"
+        "href": "reference/layouts/verticallayout/"
     },
     "VSCode": {
         "href": "guide/tooling/vscode/"

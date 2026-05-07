@@ -1050,7 +1050,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let filename = format!("{}.mdx", mdx::to_kebab_case(&elem.name));
+        let filename = format!("{}.mdx", elem.name.to_ascii_lowercase());
         let path = match elem.group.as_deref() {
             Some(group) if !group.is_empty() => {
                 let subdir = generated_dir.join(group);
