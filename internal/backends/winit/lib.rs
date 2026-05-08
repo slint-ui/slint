@@ -105,7 +105,7 @@ fn default_renderer_factory(
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
             renderer::skia::WinitSkiaRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+        } else if #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))] {
             renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(all(enable_femtovg_renderer, supports_opengl))] {
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
@@ -129,7 +129,7 @@ fn try_create_window_with_fallback_renderer(
             feature = "renderer-skia-vulkan"
         ))]
         renderer::skia::WinitSkiaRenderer::new_suspended,
-        #[cfg(feature = "renderer-femtovg-wgpu")]
+        #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))]
         renderer::femtovg::WGPUFemtoVGRenderer::new_suspended,
         #[cfg(all(
             enable_femtovg_renderer,
@@ -1033,7 +1033,7 @@ fn create_renderer(
             }
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_data)
         }
-        #[cfg(feature = "renderer-femtovg-wgpu")]
+        #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
             if let Some(_api) = maybe_graphics_api {
                 #[cfg(feature = "unstable-wgpu-28")]
@@ -1123,7 +1123,7 @@ fn create_renderer(
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
-                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+                } else if #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))] {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
                     return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
