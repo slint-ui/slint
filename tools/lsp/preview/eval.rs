@@ -664,8 +664,9 @@ fn handle_builtin_function(
         }
         BuiltinFunction::ColorScheme => {
             local_context.window_adapter.as_ref().map_or(Value::Void, |win| {
-                let root = i_slint_core::window::WindowInner::from_pub(win.window()).component();
-                i_slint_core::window::resolve_color_scheme(&root).into()
+                let inner = i_slint_core::window::WindowInner::from_pub(win.window());
+                let root = inner.component();
+                inner.context().color_scheme(Some(&root)).into()
             })
         }
         BuiltinFunction::MonthDayCount => {

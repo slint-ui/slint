@@ -1756,23 +1756,14 @@ impl WindowInner {
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
-/// Runtime entry point for `BuiltinFunction::ColorScheme`. Returns the tray's own
-/// scheme when the root is a [`crate::items::SystemTrayIcon`], otherwise the
-/// component's [`crate::SlintContext`] value reached via its window adapter.
-pub fn resolve_color_scheme(root: &crate::item_tree::ItemTreeRc) -> crate::items::ColorScheme {
-    let root_item = ItemRc::new_root(root.clone());
-    if let Some(tray) = root_item.downcast::<crate::items::SystemTrayIcon>() {
-        let scheme = tray.as_pin_ref().color_scheme();
-        if scheme != crate::items::ColorScheme::Unknown {
-            return scheme;
-        }
-    }
+/// Resolve the [`crate::SlintContext`] associated with a component root by
+/// asking it for (or creating) its window adapter and reading the context off
+/// the resulting window. Returns `None` only when no adapter can be produced.
+pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
     let comp_ref_pin = vtable::VRc::borrow_pin(root);
     let mut adapter = None;
     comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
-    adapter.map_or(crate::items::ColorScheme::Unknown, |a| {
-        WindowInner::from_pub(a.window()).context().color_scheme()
-    })
+    adapter.map(|a| WindowInner::from_pub(a.window()).context().clone())
 }
 
 /// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color

@@ -50,7 +50,8 @@ pub extern "C" fn slint_context_accent_color(
 pub extern "C" fn slint_context_color_scheme(
     root: &i_slint_core::item_tree::ItemTreeRc,
 ) -> i_slint_core::items::ColorScheme {
-    i_slint_core::window::resolve_color_scheme(root)
+    i_slint_core::window::context_for_root(root)
+        .map_or(i_slint_core::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(root)))
 }
 
 #[unsafe(no_mangle)]

@@ -1441,7 +1441,9 @@ fn call_builtin_function(
             let root_weak =
                 vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
             let root = root_weak.upgrade().unwrap();
-            corelib::window::resolve_color_scheme(&root).into()
+            corelib::window::context_for_root(&root)
+                .map_or(corelib::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(&root)))
+                .into()
         }
         BuiltinFunction::AccentColor => {
             let root_weak =
