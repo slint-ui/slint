@@ -163,7 +163,7 @@ impl<T> SharedVector<T> {
 impl<T: Clone + PartialEq> SharedVector<T> {
     /// Replaces `from` by `to` in `self` `count` times
     /// `count` - number of times to do the replacements
-    pub fn replace_range(&mut self, from: &[T], to: &[T], mut count: usize) {
+    pub(crate) fn replace_range(&mut self, from: &[T], to: &[T], mut count: usize) {
         if from.is_empty() || count == 0 || from.len() != to.len() {
             return;
         }
