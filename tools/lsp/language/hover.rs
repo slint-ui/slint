@@ -168,7 +168,13 @@ fn from_property_in_element(
 }
 
 fn builtin_element_description(b: &BuiltinElement) -> &str {
-    b.docs.iter().find_map(|e| match e { ElementDocEntry::Text(t) => Some(t.as_str()), _ => None }).unwrap_or("")
+    b.docs
+        .iter()
+        .find_map(|e| match e {
+            ElementDocEntry::Text(t) => Some(t.as_str()),
+            _ => None,
+        })
+        .unwrap_or("")
 }
 
 /// Extract the prose description from a raw builtins.slint doc comment,

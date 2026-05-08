@@ -5,8 +5,7 @@
 // the compiler's TypeRegister.
 
 use i_slint_compiler::langtype::{
-    BuiltinElement, ElementDocEntry, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    ElementType, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementDocEntry, ElementType, Type,
 };
 use i_slint_compiler::object_tree::PropertyVisibility;
 
