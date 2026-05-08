@@ -721,23 +721,55 @@ class EventLoop {
             });
         }
 
-        // Give the nodejs event loop 16 ms to tick. This polling is sub-optimal, but it's the best we
-        // can do right now.
-        const nodejsPollInterval = 16;
-        const id = setInterval(() => {
-            if (
-                napi.processEvents() === napi.ProcessEventsResult.Exited ||
-                this.#quit_loop
-            ) {
-                clearInterval(id);
-                this.#terminateResolveFn!(undefined);
-                this.#terminateResolveFn = null;
-                this.#terminationPromise = null;
-                return;
-            }
-        }, nodejsPollInterval);
+        if (napi.hasIntegratedEventLoop?.()) {
+            // Winit blocks on native events while a background thread watches
+            // the libuv fd. On activity, winit yields and setImmediate
+            // reschedules so V8 can run JS callbacks before re-entering.
+            const enqueue =
+                typeof setImmediate === "function"
+                    ? setImmediate
+                    : (fn: () => void) => setTimeout(fn, 0);
+            const pump = () => {
+                if (this.#quit_loop) {
+                    this.#resolve();
+                    return;
+                }
+                const result = napi.runIntegratedEventLoop();
+                if (
+                    result === napi.ProcessEventsResult.Exited ||
+                    this.#quit_loop
+                ) {
+                    this.#resolve();
+                    return;
+                }
+                enqueue(pump);
+            };
+            enqueue(pump);
+        } else {
+            // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+            const nodejsPollInterval = 16;
+            const id = setInterval(() => {
+                if (
+                    napi.processEvents() === napi.ProcessEventsResult.Exited ||
+                    this.#quit_loop
+                ) {
+                    clearInterval(id);
+                    this.#resolve();
+                    return;
+                }
+            }, nodejsPollInterval);
+        }
 
         return this.#terminationPromise;
+    }
+
+    #resolve() {
+        if (this.#terminateResolveFn === null) {
+            return;
+        }
+        this.#terminateResolveFn(undefined);
+        this.#terminateResolveFn = null;
+        this.#terminationPromise = null;
     }
 
     quit() {
@@ -762,11 +794,15 @@ var globalEventLoop: EventLoop = new EventLoop();
  *                          on its own under the default, so set this to `false` only when an
  *                          application must run without any visible UI. (default true).
  *
- * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
- * implementation details between Slint's and Node.js' event loop, the two loops are merged
- * by spinning one after the other, at 16 millisecond intervals. This means that when the
- * application is idle, it continues to consume a low amount of CPU cycles, checking if either
- * event loop has any pending events.
+ * On Linux and macOS with Node.js,
+ * Slint uses an efficient event loop integration that watches libuv's backend
+ * file descriptor from a background thread.
+ * This provides zero idle CPU usage and near-instant response to both UI and
+ * JavaScript events.
+ *
+ * On Windows and other runtimes (Deno),
+ * the integration falls back to polling at 16 millisecond intervals,
+ * which consumes a small amount of CPU when idle.
  */
 export function runEventLoop(
     args?:

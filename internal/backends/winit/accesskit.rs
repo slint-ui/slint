@@ -7,7 +7,7 @@ use std::ptr::NonNull;
 use std::rc::Weak;
 
 use accesskit::{
-    Action, ActionRequest, Node, NodeId, Orientation, Role, Toggled, Tree, TreeId, TreeUpdate,
+    Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, Tree, TreeId, TreeUpdate,
 };
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
@@ -673,6 +673,17 @@ impl NodeCollection {
             node.set_orientation(match orientation {
                 i_slint_core::items::Orientation::Horizontal => Orientation::Horizontal,
                 i_slint_core::items::Orientation::Vertical => Orientation::Vertical,
+            });
+        }
+
+        if let Some(live) = item
+            .accessible_string_property(AccessibleStringProperty::Live)
+            .and_then(|s| s.parse::<i_slint_core::items::AccessibleLive>().ok())
+        {
+            node.set_live(match live {
+                i_slint_core::items::AccessibleLive::Off => Live::Off,
+                i_slint_core::items::AccessibleLive::Polite => Live::Polite,
+                i_slint_core::items::AccessibleLive::Assertive => Live::Assertive,
             });
         }
 

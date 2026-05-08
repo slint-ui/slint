@@ -72,7 +72,7 @@ internal: &internal
 api_cpp:
  - 'api/cpp/**'
  - 'tools/compiler/**'
- - *ci_config
+ - 'internal/compiler/generator/cpp*'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
@@ -88,7 +88,7 @@ api_node:
 api_rs:
  - 'api/rs/**'
  - 'Cargo.toml'
- - *ci_config
+ - 'internal/compiler/generator/rust*'
 
 tests:
  - 'tests/**'

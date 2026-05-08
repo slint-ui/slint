@@ -66,6 +66,8 @@ export component TestCase inherits Window {
     out property<TestStruct> default-struct : {
         label: "test",
     };
+    property<styled-text> unset-styled-text;
+    out property<styled-text> default-styled-text: unset-styled-text;
 
     out property<length> w1: s1.preferred-width;
     out property<length> w2: s2.preferred-width;
@@ -97,6 +99,7 @@ assert_eq!(instance.get_w5(), 65.0);
 assert!(instance.get_test());
 
 assert_eq!(instance.get_default_struct().text, StyledText::default());
+assert_eq!(instance.get_default_styled_text(), StyledText::default());
 
 // s11 uses an invalid interpolated color — check that it logged a debug_log error
 let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
@@ -112,5 +115,6 @@ assert(instance.get_w3() == 64.0);
 assert(instance.get_w4() == 64.0);
 assert(instance.get_w5() == 65.0);
 assert(instance.get_test());
+assert(instance.get_default_styled_text() == slint::private_api::StyledText());
 ```
 */

@@ -9,6 +9,9 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
+mod uv_event_loop;
+pub use uv_event_loop::*;
+
 use napi::Env;
 use napi::bindgen_prelude::*;
 
@@ -35,16 +38,20 @@ pub enum ProcessEventsResult {
     Exited,
 }
 
-#[napi]
-pub fn process_events() -> napi::Result<ProcessEventsResult> {
+fn process_events_with_timeout(timeout: std::time::Duration) -> napi::Result<ProcessEventsResult> {
     i_slint_backend_selector::with_platform(|b| {
-        b.process_events(std::time::Duration::ZERO, i_slint_core::InternalToken)
+        b.process_events(timeout, i_slint_core::InternalToken)
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
     .map(|result| match result {
-        core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
         core::ops::ControlFlow::Break(()) => ProcessEventsResult::Exited,
+        core::ops::ControlFlow::Continue(()) => ProcessEventsResult::Continue,
     })
+}
+
+#[napi]
+pub fn process_events() -> napi::Result<ProcessEventsResult> {
+    process_events_with_timeout(std::time::Duration::ZERO)
 }
 
 #[napi]

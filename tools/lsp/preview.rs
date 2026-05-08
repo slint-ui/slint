@@ -1579,9 +1579,10 @@ fn set_preview_factory(
 }
 
 /// Highlight the element pointed at the offset in the path.
-/// When path is None, remove the highlight.
+/// When the URL is None, remove the highlight.
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
+        element_selection::unselect_element();
         return;
     };
 

@@ -107,7 +107,7 @@ lsp-types = { workspace = true }
 i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
-slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-file-watcher", "internal-highlight", "internal-json", "image-default-formats"], optional = true }
 nucleo-matcher = "0.3.1"
 futures-util = "0.3.32"
 

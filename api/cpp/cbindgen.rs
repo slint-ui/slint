@@ -28,12 +28,20 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::PointerEventButton;")?;
             &mut enums_pub
         }};
+        (PointerEventKind) => {{
+            writeln!(enums_priv, "using slint::PointerEventKind;")?;
+            &mut enums_pub
+        }};
         (AccessibleRole) => {{
             writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
             &mut enums_pub
         }};
         (Orientation) => {{
             writeln!(enums_priv, "using slint::Orientation;")?;
+            &mut enums_pub
+        }};
+        (AccessibleLive) => {{
+            writeln!(enums_priv, "using slint::AccessibleLive;")?;
             &mut enums_pub
         }};
         ($_:ident) => {
@@ -113,6 +121,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
+    writeln!(structs_pub, "#include \"private/slint_enums.h\"")?;
     writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
@@ -545,7 +554,6 @@ fn gen_corelib(
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
             namespace slint::cbindgen_private {
-                struct PointerEvent;
                 struct Rect;
                 using LogicalRect = Rect;
                 using LogicalPoint = Point2D<float>;

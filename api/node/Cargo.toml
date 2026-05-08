@@ -58,5 +58,9 @@ send_wrapper = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 smol_str = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+libloading = "0.9"
+async-io = "2"
+
 [build-dependencies]
 napi-build = "2"

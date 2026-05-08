@@ -83,6 +83,8 @@ mod dynamic_item_tree;
 mod dynamic_type;
 mod eval;
 mod eval_layout;
+#[cfg(feature = "internal-file-watcher")]
+mod file_watcher;
 mod global_component;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
@@ -98,6 +100,10 @@ pub use api::*;
 #[cfg(feature = "internal")]
 #[doc(hidden)]
 pub use eval::default_value_for_type;
+
+#[cfg(feature = "internal-file-watcher")]
+#[doc(hidden)]
+pub use file_watcher::{FileChangeKind, FileWatcher, WatchEvent};
 
 #[cfg(test)]
 mod tests;

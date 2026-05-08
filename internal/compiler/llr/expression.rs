@@ -320,7 +320,10 @@ impl Expression {
             }
             Type::Keys => Expression::KeysLiteral(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
-            Type::StyledText => return None,
+            Type::StyledText => Expression::BuiltinFunctionCall {
+                function: BuiltinFunction::StringToStyledText,
+                arguments: vec![Expression::StringLiteral(SmolStr::default())],
+            },
         })
     }
 

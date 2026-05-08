@@ -37,6 +37,7 @@ fn write_global_structs_enums_index(
         r#"---
 title: Global Structs and Enums
 description: Global Structs and Enums
+slug: reference/global-structs-enums
 ---
 "#
     )?;
@@ -112,6 +113,7 @@ fn write_individual_enum_files(
             r#"---
 title: {0}
 description: {0} content
+slug: reference/enums/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
@@ -330,6 +332,7 @@ fn write_individual_struct_files(
             r#"---
 title: {0}
 description: {0} content
+slug: reference/structs/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/common/builtin_structs.rs -->
@@ -387,6 +390,7 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
 
     writeln!(file, "---")?;
     writeln!(file, "title: keys")?;
+    writeln!(file, "slug: reference/enums/keys")?;
     writeln!(file, "---")?;
     writeln!(file)?;
 

@@ -335,6 +335,11 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 Type::Enumeration(BUILTIN.with(|e| e.enums.Orientation.clone())),
                 PropertyVisibility::Input,
             ),
+            (
+                "accessible-live",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLive.clone())),
+                PropertyVisibility::Input,
+            ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
 }

@@ -34,15 +34,18 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
-    /// Spins an event loop for a specified period of time.
+    /// Processes pending events and waits for new ones up to the given timeout.
     ///
     /// This function is similar to `run_event_loop()` with two differences:
-    /// * The function is expected to return after the provided timeout, but
-    ///   allow for subsequent invocations to resume the previous loop. The
-    ///   function can return earlier if the loop was terminated otherwise,
-    ///   for example by `quit_event_loop()` or a last-window-closed mechanism.
-    /// * If the timeout is zero, the implementation should merely peek and
-    ///   process any pending events, but then return immediately.
+    /// * It processes any pending events,
+    ///   then blocks waiting for new events for up to `timeout`.
+    ///   It may return earlier than the timeout if events were received,
+    ///   if the loop was terminated via `quit_event_loop()`,
+    ///   or through a last-window-closed mechanism.
+    ///   Callers shouldn't assume the full timeout has elapsed when the function returns.
+    /// * If the timeout is zero,
+    ///   the implementation should merely peek and process any pending events,
+    ///   then return immediately.
     ///
     /// When the function returns `ControlFlow::Continue`, it is assumed that
     /// the loop remains intact and that in the future the caller should call

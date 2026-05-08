@@ -277,7 +277,10 @@ impl Item for SystemTrayIcon {
                     &ctx,
                 ) {
                     Ok(handle) => handle,
-                    Err(err) => panic!("{}", err),
+                    Err(err) => {
+                        crate::debug_log!("Slint: Failed to create system tray icon: {err}");
+                        return;
+                    }
                 };
 
                 let _ = tray.data.inner.set(handle);

@@ -1050,7 +1050,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let filename = format!("{}.mdx", mdx::to_kebab_case(&elem.name));
+        let filename = format!("{}.mdx", elem.name.to_ascii_lowercase());
         let path = match elem.group.as_deref() {
             Some(group) if !group.is_empty() => {
                 let subdir = generated_dir.join(group);
@@ -1064,6 +1064,11 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // Frontmatter.
+        let slug_stem = filename.strip_suffix(".mdx").unwrap();
+        let slug = match elem.group.as_deref() {
+            Some(group) if !group.is_empty() => format!("reference/{group}/{slug_stem}"),
+            _ => format!("reference/{slug_stem}"),
+        };
         writeln!(file, "---")?;
         writeln!(file, "title: {}", elem.name)?;
         if elem.is_global {
@@ -1071,6 +1076,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             writeln!(file, "description: {} element api.", elem.name)?;
         }
+        writeln!(file, "slug: {slug}")?;
         writeln!(file, "---")?;
 
         // Imports.
