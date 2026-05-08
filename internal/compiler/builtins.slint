@@ -2375,11 +2375,11 @@ export component PopupWindow {
 
 // Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
 export component TooltipArea inherits Empty {
-    /// Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+    // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
     out property <bool> has-hover;
-    /// Pointer x within this area during hover.
+    // Pointer x within this area during hover.
     out property <length> mouse-x;
-    /// Pointer y within this area during hover.
+    // Pointer y within this area during hover.
     out property <length> mouse-y;
     // Tooltip configuration folded from the user-facing ToolTip element during lowering.
     in property <string> text;
