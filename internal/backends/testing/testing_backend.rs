@@ -131,7 +131,7 @@ pub struct TestingBackend {
 impl TestingBackend {
     pub fn new(options: TestingBackendOptions) -> Self {
         Self {
-            clipboard: Default::default(),
+            clipboard: Mutex::default(),
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
             open_url: Default::default(),
@@ -168,20 +168,17 @@ impl i_slint_core::platform::Platform for TestingBackend {
     }
 
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
-            eprintln!("No such clipboard {clipboard:?}");
-            return;
+        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
+            *self.clipboard.lock().unwrap() = Some(text.into());
         }
-
-        *self.clipboard.lock().unwrap() = Some(text.into());
     }
 
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        if clipboard != i_slint_core::platform::Clipboard::DefaultClipboard {
-            return None;
+        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
+            self.clipboard.lock().unwrap().clone()
+        } else {
+            None
         }
-
-        self.clipboard.lock().unwrap().as_ref().map(|value| value.clone())
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
