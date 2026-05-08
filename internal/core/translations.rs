@@ -454,7 +454,6 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
             Ok(())
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
-            #[cfg(feature = "std")]
             ctx.0.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
             Ok(())
         } else {
