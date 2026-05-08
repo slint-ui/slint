@@ -127,17 +127,12 @@ pub trait Platform {
     /// Sends the given text into the system clipboard.
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
-    fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
-        // Suppress unused argument warnings
-        let _ = (text, clipboard);
-    }
+    fn set_clipboard_text(&self, _text: &str, _clipboard: Clipboard) {}
 
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return None
-    fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
-        // Suppress unused argument warnings
-        let _ = clipboard;
+    fn clipboard_text(&self, _clipboard: Clipboard) -> Option<String> {
         None
     }
 
