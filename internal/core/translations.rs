@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{SharedString, context::TranslationsBundled};
+use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
+use i_slint_common::TranslationsBundled;
 #[cfg(feature = "tr")]
 pub use tr::Translator;
 
@@ -430,20 +431,12 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let Some(translations) = &*translations else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let idx = translations.iter().position(|x| x.language == language);
-        if let Some(idx) = idx {
+        if let Some((idx, translation_bundle)) =
+            translations.iter().enumerate().find(|(_i, x)| x.language == language)
+        {
             ctx.0.translations_dirty.as_ref().set(idx);
             // Update the decimal separator
-            if let Some(c) = ctx
-                .0
-                .translations_bundle
-                .borrow()
-                .as_ref()
-                .and_then(|v| v.get(idx))
-                .map(|v| v.decimal_separator)
-            {
-                ctx.0.locale_decimal_separator.as_ref().set(c)
-            }
+            ctx.0.locale_decimal_separator.as_ref().set(translation_bundle.decimal_separator);
             Ok(())
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
@@ -595,15 +588,16 @@ mod ffi {
         languages: Slice<Slice<'static, u8>>,
         separators: Slice<u32>,
     ) {
-        let languages = languages
+        let translations = languages
             .iter()
-            .map(|x| core::str::from_utf8(x.as_slice()).unwrap())
+            .zip(separators.as_slice().iter())
+            .map(|(language, separator)| TranslationsBundled {
+                language: core::str::from_utf8(language.as_slice()).unwrap(),
+                decimal_separator: core::char::from_u32(*separator)
+                    .unwrap_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR),
+            })
             .collect::<alloc::vec::Vec<_>>();
-        let separators = separators
-            .iter()
-            .map(|p| core::char::from_u32(*p).unwrap_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR))
-            .collect::<alloc::vec::Vec<_>>();
-        set_bundled_languages(&languages, &separators);
+        set_bundled_languages(&translations);
     }
 
     #[unsafe(no_mangle)]

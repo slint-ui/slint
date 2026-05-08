@@ -2021,12 +2021,12 @@ fn generate_item_tree(
                 translations
                     .languages
                     .iter()
-                    .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
+                    .map(|(l, _)| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
             create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
                                                                                                      slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
-                                                                                                     translations.decimal_separators.len()));
+                                                                                                     translations.languages.len()));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -5307,13 +5307,13 @@ fn generate_translation(
     declarations.push(Declaration::Var(Var {
         ty: "uint32_t".into(),
         name: "slint_translation_bundle_decimal_separators".into(),
-        array_size: Some(translations.decimal_separators.len()),
+        array_size: Some(translations.languages.len()),
         init: Some(format!(
             "{{ {} }}",
             translations
-                .decimal_separators
+                .languages
                 .iter()
-                .map(|s| format_smolstr!("{}", *s as u32),)
+                .map(|(_, s)| format_smolstr!("{}", *s as u32),)
                 .join(", ")
         )),
         ..Default::default()
