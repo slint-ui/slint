@@ -684,6 +684,7 @@ impl NodeCollection {
                 i_slint_core::items::AccessibleLive::Off => Live::Off,
                 i_slint_core::items::AccessibleLive::Polite => Live::Polite,
                 i_slint_core::items::AccessibleLive::Assertive => Live::Assertive,
+                _ => Live::Off,
             });
         }
 
