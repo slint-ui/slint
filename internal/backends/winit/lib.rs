@@ -399,7 +399,8 @@ pub(crate) struct SharedBackendData {
     /// List of visible windows that have been created when without the event loop and
     /// need to be mapped to a winit Window as soon as the event loop becomes active.
     inactive_windows: RefCell<Vec<Weak<WinitWindowAdapter>>>,
-    clipboard: WinitPlatformClipboard,
+    #[cfg(not(target_arch = "wasm32"))]
+    clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
     not_running_event_loop: RefCell<Option<winit::event_loop::EventLoop<SlintEvent>>>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintEvent>,
     /// The generation is used to determine if a quit_event_loop call is meant for the current
@@ -420,6 +421,9 @@ impl SharedBackendData {
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         allow_fallback: bool,
     ) -> Result<Self, PlatformError> {
+        #[cfg(not(target_arch = "wasm32"))]
+        use raw_window_handle::HasDisplayHandle;
+
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
             #[cfg(feature = "wayland")]
@@ -471,9 +475,13 @@ impl SharedBackendData {
         let keyboard_notifications =
             ios::register_keyboard_notifications(Rc::downgrade(&active_windows));
 
-        let clipboard = WinitPlatformClipboard::new(&event_loop)?;
-
         let event_loop_proxy = event_loop.create_proxy();
+        #[cfg(not(target_arch = "wasm32"))]
+        let clipboard = crate::clipboard::create_clipboard(
+            &event_loop
+                .display_handle()
+                .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
+        );
         Ok(Self {
             allow_fallback,
             renderer_name,
@@ -482,7 +490,8 @@ impl SharedBackendData {
             skia_context: i_slint_renderer_skia::SkiaSharedContext::default(),
             active_windows,
             inactive_windows: Default::default(),
-            clipboard,
+            #[cfg(not(target_arch = "wasm32"))]
+            clipboard: RefCell::new(clipboard),
             not_running_event_loop: RefCell::new(Some(event_loop)),
             event_loop_proxy,
             event_loop_generation: Default::default(),
@@ -772,12 +781,28 @@ impl i_slint_core::platform::Platform for Backend {
         )))
     }
 
+    #[cfg(target_arch = "wasm32")]
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        self.shared_data.clipboard.set(text, clipboard);
+        crate::wasm_input_helper::set_clipboard_text(text.into(), clipboard);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
+        let mut pair = self.shared_data.clipboard.borrow_mut();
+        if let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard) {
+            clipboard.set_contents(text.into()).ok();
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        self.shared_data.clipboard.get(clipboard)
+        crate::wasm_input_helper::get_clipboard_text(clipboard)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+        let mut pair = self.shared_data.clipboard.borrow_mut();
+        clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 
     #[cfg(target_os = "windows")]
@@ -819,58 +844,6 @@ impl i_slint_core::platform::Platform for Backend {
         webbrowser::open(url).map_err(|e| {
             i_slint_core::platform::PlatformError::Other(format!("Failed to open URL: {e}"))
         })
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-struct WinitPlatformClipboard;
-
-#[cfg(not(target_arch = "wasm32"))]
-struct WinitPlatformClipboard(core::cell::RefCell<clipboard::ClipboardPair>);
-
-#[cfg(target_arch = "wasm32")]
-impl WinitPlatformClipboard {
-    fn new<T>(event_loop: &winit::event_loop::EventLoop<T>) -> Result<Self, PlatformError> {
-        Ok(WinitPlatformClipboard)
-    }
-
-    fn set(&self, string: &str, clipboard: i_slint_core::platform::Clipboard) {
-        crate::wasm_input_helper::set_clipboard_text(string.into(), clipboard);
-    }
-
-    fn get(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        crate::wasm_input_helper::get_clipboard_text(clipboard)
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl WinitPlatformClipboard {
-    fn new<T>(event_loop: &winit::event_loop::EventLoop<T>) -> Result<Self, PlatformError> {
-        use raw_window_handle::HasDisplayHandle as _;
-
-        Ok(Self(core::cell::RefCell::new(crate::clipboard::create_clipboard(
-            &event_loop
-                .display_handle()
-                .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
-        ))))
-    }
-
-    fn set(&self, string: &str, clipboard: i_slint_core::platform::Clipboard) {
-        let mut pair = self.0.borrow_mut();
-        let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard.clone()) else {
-            eprintln!("Unknown clipboard: {clipboard:?}");
-            return;
-        };
-
-        if let Err(e) = clipboard.set_contents(string.into()) {
-            eprintln!("Error writing clipboard: {e}");
-        }
-    }
-
-    fn get(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        let mut pair = self.0.borrow_mut();
-        clipboard::select_clipboard(&mut pair, clipboard.clone())
-            .and_then(|clipboard| clipboard.get_contents().ok())
     }
 }
 
