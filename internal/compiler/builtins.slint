@@ -2386,7 +2386,6 @@ export component TooltipArea inherits Empty {
     in property <ToolTipPlacement> placement;
     in property <duration> delay: 500ms;
     in property <length> offset: 8px;
-    in property <bool> no-background: false;
     callback show();
     callback hide();
     //-default_size_binding:expands_to_parent_geometry
@@ -2571,8 +2570,6 @@ export component ToolTip inherits Empty {
     in property <duration> delay: 500ms;
     /// Distance between the tooltip and the pointer/hovered element.
     in property <length> offset: 8px;
-    /// If true, custom-content tooltips are shown without themed background/border decoration.
-    in property <bool> no-background: false;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
 }

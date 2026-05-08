@@ -157,34 +157,6 @@ export component ControlsPage inherits Page {
                 }
             }
 
-            Button {
-                text: @tr("No-background ToolTip");
-                enabled: GallerySettings.widgets-enabled;
-
-                ToolTip {
-                    placement: above-element;
-                    no-background: true;
-
-                    Rectangle {
-                        border-radius: 6px;
-                        background: #374151;
-
-                        VerticalBox {
-                            padding: 8px;
-                            spacing: 4px;
-                            Text {
-                                text: @tr("Custom background");
-                                color: #fff;
-                                font-weight: 700;
-                            }
-                            Text {
-                                text: @tr("no-background: true");
-                                color: #d1d5db;
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 

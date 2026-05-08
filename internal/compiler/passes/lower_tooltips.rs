@@ -53,20 +53,15 @@ const PLACEMENT: &str = "placement";
 const OFFSET: &str = "offset";
 const DELAY: &str = "delay";
 const TEXT: &str = "text";
-const NO_BACKGROUND: &str = "no-background";
 
 fn build_tooltip_content(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_impl_type: &ElementType,
     tooltip_text: Option<NamedReference>,
-    tooltip_no_background: NamedReference,
     children: Vec<ElementRc>,
 ) -> ElementRc {
-    let mut bindings = std::collections::BTreeMap::from([(
-        SmolStr::new_static(NO_BACKGROUND),
-        RefCell::new(Expression::PropertyReference(tooltip_no_background).into()),
-    )]);
+    let mut bindings = std::collections::BTreeMap::new();
     if let Some(tooltip_text) = tooltip_text {
         bindings.insert(
             SmolStr::new_static("text"),
@@ -488,15 +483,12 @@ fn lower_tooltips_in_component(
         copied_binding(PLACEMENT, PLACEMENT);
         copied_binding(OFFSET, OFFSET);
         copied_binding(DELAY, DELAY);
-        copied_binding(NO_BACKGROUND, NO_BACKGROUND);
         if has_text_binding {
             copied_binding(TEXT, TEXT);
         }
 
         let tooltip_placement = NamedReference::new(&tooltip_area, SmolStr::new_static(PLACEMENT));
         let tooltip_offset = NamedReference::new(&tooltip_area, SmolStr::new_static(OFFSET));
-        let tooltip_no_background =
-            NamedReference::new(&tooltip_area, SmolStr::new_static(NO_BACKGROUND));
         let pointer_x = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_X));
         let pointer_y = NamedReference::new(&tooltip_area, SmolStr::new_static(MOUSE_Y));
         let tooltip_text = (!has_custom_content)
@@ -506,7 +498,6 @@ fn lower_tooltips_in_component(
             &enclosing_component,
             tooltip_impl_type,
             tooltip_text,
-            tooltip_no_background,
             custom_children,
         );
         let popup_children = vec![tooltip_content.clone()];

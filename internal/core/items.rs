@@ -1893,7 +1893,6 @@ pub struct TooltipArea {
     pub placement: Property<ToolTipPlacement>,
     pub delay: Property<i64>,
     pub offset: Property<LogicalLength>,
-    pub no_background: Property<bool>,
     pub show: Callback<VoidArg>,
     pub hide: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
