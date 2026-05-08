@@ -134,6 +134,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_point.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
@@ -362,6 +363,7 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
+        "DataTransferOpaque",
     ]
     .iter()
     .chain(items.iter())
@@ -393,6 +395,7 @@ fn gen_corelib(
         "PathData",
         "PathElement",
         "Brush",
+        "DataTransfer",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -549,6 +552,11 @@ fn gen_corelib(
             "",
         ),
         (
+            vec!["DataTransferOpaque"],
+            "slint_data_transfer_internal.h",
+            "",
+        ),
+        (
             vec!["MouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
@@ -665,6 +673,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
+            .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
@@ -799,6 +808,8 @@ fn gen_corelib(
         .with_include("private/slint_timer.h")
         .with_include("private/slint_builtin_structs_internal.h")
         .with_include("private/slint_events_internal.h")
+        .with_include("private/slint_data_transfer_internal.h")
+        .with_include("private/slint_data_transfer.h")
         .with_after_include(
             r"
 namespace slint {

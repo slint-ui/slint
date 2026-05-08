@@ -161,7 +161,7 @@ pub trait Platform {
 /// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]
 #[repr(u8)]
 #[non_exhaustive]
-#[derive(PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum Clipboard {
     /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
     /// Corresponds to the secondary clipboard on X11.
@@ -239,8 +239,7 @@ impl core::fmt::Display for SetPlatformError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for SetPlatformError {}
+impl core::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///

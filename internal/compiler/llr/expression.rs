@@ -255,6 +255,8 @@ pub enum Expression {
 
     EmptyComponentFactory,
 
+    EmptyDataTransfer,
+
     /// A reference to bundled translated string
     TranslationReference {
         /// An expression of type array of strings
@@ -319,6 +321,7 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::Keys => Expression::KeysLiteral(Keys::default()),
+            Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::BuiltinFunctionCall {
                 function: BuiltinFunction::StringToStyledText,
@@ -386,6 +389,7 @@ impl Expression {
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
+            Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
         }
     }
@@ -500,6 +504,7 @@ macro_rules! visit_impl {
                 $visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::EmptyDataTransfer => {}
             Expression::TranslationReference { format_args, plural, string_index: _ } => {
                 $visitor(format_args);
                 if let Some(plural) = plural {

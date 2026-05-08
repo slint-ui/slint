@@ -260,6 +260,9 @@ pub fn extract_builtin_structs(
         (Image) => {
             "image"
         };
+        (DataTransfer) => {
+            "data-transfer"
+        };
         ($pub_type:ident) => {
             stringify!($pub_type)
         };

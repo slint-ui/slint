@@ -382,6 +382,7 @@ if (SLINT_BUILD_RUNTIME)
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_pathdata_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_platform_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_properties_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_data_transfer_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_qt_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_sharedvector_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_string_internal.h

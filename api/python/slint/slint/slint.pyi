@@ -68,6 +68,17 @@ class Keys:
     def __repr__(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
 
+class DataTransfer:
+    r"""
+    Represents some form of type-indexed possibly-lazy data transfer.
+
+    Used for accessing the platform clipboard and drag-and-drop APIs. Currently
+    there is no way to interact with this from Python code.
+    """
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, other: object) -> bool: ...
+
 class Image:
     r"""
     Image objects can be set on Slint Image elements for display. Construct Image objects from a path to an

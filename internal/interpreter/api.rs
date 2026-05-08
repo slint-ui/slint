@@ -135,6 +135,8 @@ pub enum Value {
     ArrayOfU16(SharedVector<u16>) = 14,
     /// Correspond to the `keys` type in .slint
     Keys(Keys) = 15,
+    /// Correspond to the `data-transfer` type in .slint
+    DataTransfer(DataTransfer) = 16,
 }
 
 impl Value {
@@ -187,6 +189,9 @@ impl PartialEq for Value {
             Value::Keys(lhs) => {
                 matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
+            Value::DataTransfer(lhs) => {
+                matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -216,6 +221,7 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+            Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
         }
     }
 }
@@ -261,6 +267,7 @@ declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
+declare_value_conversion!(DataTransfer => [DataTransfer]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {

@@ -16,13 +16,14 @@ use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
+use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_preview_protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
 use lsp_types::Url;
-use slint::PlatformError;
+use slint::{PlatformError, SharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -741,7 +742,50 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) -> bool {
+/// An item in the preview UI being dragged.
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+enum DragItem {
+    /// An existing element instance to be moved.
+    MoveElementInstance { uri: SharedString, offset: u32 },
+    /// A new component from the palette to be instantiated.
+    NewComponent { index: usize },
+}
+
+/// Tried to convert a [`DataTransfer`] to a [`DragItem`], but the data transfer's user data
+/// was of the wrong type.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, Default)]
+pub struct InvalidDataTransferForDragItem;
+
+impl std::fmt::Display for InvalidDataTransferForDragItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`DataTransfer` user data was not `DropCommand`")
+    }
+}
+
+impl TryFrom<DataTransfer> for DragItem {
+    type Error = InvalidDataTransferForDragItem;
+
+    fn try_from(value: DataTransfer) -> Result<Self, Self::Error> {
+        value
+            .user_data()
+            .and_then(|any| any.downcast::<Self>().ok().as_deref().cloned())
+            .ok_or(InvalidDataTransferForDragItem)
+    }
+}
+
+impl From<DragItem> for DataTransfer {
+    fn from(value: DragItem) -> Self {
+        let mut out = DataTransfer::default();
+        out.set_user_data(Rc::new(value));
+        out
+    }
+}
+
+fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return false;
+    };
+
     if !on_drop_area {
         set_drop_mark(&None);
         return false;
@@ -753,9 +797,8 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
     let position = LogicalPoint::new(x, y);
 
-    let component = PREVIEW_STATE.with_borrow(|preview_state| {
-        preview_state.known_components.get(component_index as usize).cloned()
-    });
+    let component = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned());
 
     let Some(component) = component else {
         return false;
@@ -764,16 +807,20 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn drop_component(component_index: i32, x: f32, y: f32) {
+fn drop_component(data: DataTransfer, x: f32, y: f32) {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return;
+    };
+
     let Some(document_cache) = document_cache() else {
         return;
     };
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = PREVIEW_STATE.with_borrow(|preview_state| {
-        preview_state.known_components.get(component_index as usize).cloned()
-    }) else {
+    let Some(component) = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
+    else {
         return;
     };
 

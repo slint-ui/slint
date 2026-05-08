@@ -702,6 +702,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
             )
         }
         Type::Keys => SmolStr::new_static("slint.Keys"),
+        Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),
         ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

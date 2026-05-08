@@ -554,6 +554,7 @@ impl CppType for Type {
                 Some(format_smolstr!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?))
             }
             Type::Image => Some("slint::Image".into()),
+            Type::DataTransfer => Some("slint::DataTransfer".into()),
             Type::Enumeration(enumeration) => {
                 if enumeration.node.is_some() {
                     Some(ident(&enumeration.name))
@@ -4261,6 +4262,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
+        Expression::EmptyDataTransfer => "slint::DataTransfer()".into(),
         Expression::TranslationReference { format_args, string_index, plural } => {
             let args = compile_expression(format_args, ctx);
             match plural {

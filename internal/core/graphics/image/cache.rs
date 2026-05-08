@@ -5,7 +5,7 @@
 This module contains image and caching related types for the run-time library.
 */
 
-use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
+use super::{CachedPath, Image, ImageCacheKey, ImageInner, SharedImageBuffer};
 use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
@@ -105,7 +105,7 @@ impl ImageCache {
                 |image| {
                     Some(ImageInner::EmbeddedImage {
                         cache_key,
-                        buffer: dynamic_image_to_shared_image_buffer(image),
+                        buffer: super::dynamic_image_to_shared_image_buffer(image),
                     })
                 },
             )
@@ -119,67 +119,8 @@ impl ImageCache {
     ) -> Option<Image> {
         let cache_key = ImageCacheKey::from_embedded_image_data(data.as_slice());
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
-            #[cfg(feature = "svg")]
-            if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
-                return Some(ImageInner::Svg(vtable::VRc::new(
-                    super::svg::load_from_data(data.as_slice(), cache_key).map_or_else(
-                        |svg_err| {
-                            crate::debug_log!("Error loading SVG: {}", svg_err);
-                            None
-                        },
-                        Some,
-                    )?,
-                )));
-            }
-
-            let format = std::str::from_utf8(format.as_slice())
-                .ok()
-                .and_then(image::ImageFormat::from_extension);
-            let maybe_image = if let Some(format) = format {
-                image::load_from_memory_with_format(data.as_slice(), format)
-            } else {
-                image::load_from_memory(data.as_slice())
-            };
-
-            match maybe_image {
-                Ok(image) => Some(ImageInner::EmbeddedImage {
-                    cache_key,
-                    buffer: dynamic_image_to_shared_image_buffer(image),
-                }),
-                Err(decode_err) => {
-                    crate::debug_log!("Error decoding embedded image: {}", decode_err);
-                    None
-                }
-            }
+            ImageInner::load_from_data_with_cache_key(cache_key, data, format)
         })
-    }
-}
-
-pub(super) fn dynamic_image_to_shared_image_buffer(
-    dynamic_image: image::DynamicImage,
-) -> SharedImageBuffer {
-    use rgb::AsPixels;
-
-    if dynamic_image.color().has_alpha() {
-        let rgba8image = dynamic_image.to_rgba8();
-        // Prefer pre-multiplied alpha so that smooth-scaling won't bleed the alpha when blending
-        // in the renderers.
-        SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer {
-            width: rgba8image.width(),
-            height: rgba8image.height(),
-            data: rgba8image
-                .as_pixels()
-                .iter()
-                .map(|pixel| Image::rgba_to_premultiplied_rgba(*pixel))
-                .collect(),
-        })
-    } else {
-        let rgb8image = dynamic_image.to_rgb8();
-        SharedImageBuffer::RGB8(SharedPixelBuffer::clone_from_slice(
-            rgb8image.as_raw(),
-            rgb8image.width(),
-            rgb8image.height(),
-        ))
     }
 }
 
