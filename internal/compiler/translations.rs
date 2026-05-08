@@ -100,7 +100,11 @@ impl TranslationsBuilder {
                 path.display()
             )));
         }
-        assert_eq!(languages.len(), decimal_separators.len());
+        assert_eq!(
+            languages.len(),
+            decimal_separators.len(),
+            "The number of languages must match with the number of separators"
+        );
         Ok(Self {
             result: Translations {
                 strings: Vec::new(),
