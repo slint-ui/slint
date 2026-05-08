@@ -312,3 +312,116 @@ TEST_CASE("StyledText")
     auto text2 = slint::private_api::parse_markdown(
             u8"Text: \uE541", slint::private_api::make_slice(std::span(text_argument)));
 }
+
+TEST_CASE("DataTransfer")
+{
+    using slint::DataTransfer;
+
+    SECTION("Default construction")
+    {
+        DataTransfer a;
+        DataTransfer b;
+        REQUIRE(a == b);
+    }
+
+    SECTION("Copy construction")
+    {
+        DataTransfer a;
+        DataTransfer b(a);
+        REQUIRE(a == b);
+    }
+
+    SECTION("Copy assignment")
+    {
+        DataTransfer a;
+        DataTransfer b;
+        b = a;
+        REQUIRE(a == b);
+    }
+
+    SECTION("Self copy assignment")
+    {
+        DataTransfer a;
+        DataTransfer &ref = a;
+        a = ref;
+        REQUIRE(a == DataTransfer {});
+    }
+
+    SECTION("Move construction")
+    {
+        DataTransfer a;
+        DataTransfer b(std::move(a));
+        REQUIRE(b == DataTransfer {});
+    }
+
+    SECTION("Move assignment")
+    {
+        DataTransfer a;
+        DataTransfer b;
+        b = std::move(a);
+        REQUIRE(b == DataTransfer {});
+    }
+
+    SECTION("Plaintext")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_plaintext());
+        REQUIRE(!a.fetch_plaintext().has_value());
+
+        a.set_plaintext(slint::SharedString("hello"));
+        REQUIRE(a.has_plaintext());
+        REQUIRE(a.fetch_plaintext() == slint::SharedString("hello"));
+
+        // Overwrite.
+        a.set_plaintext(slint::SharedString("world"));
+        REQUIRE(a.fetch_plaintext() == slint::SharedString("world"));
+
+        // Clones share data, modifying one diverges them.
+        DataTransfer b(a);
+        REQUIRE(a == b);
+        b.set_plaintext(slint::SharedString("other"));
+        REQUIRE(a != b);
+        REQUIRE(a.fetch_plaintext() == slint::SharedString("world"));
+        REQUIRE(b.fetch_plaintext() == slint::SharedString("other"));
+    }
+
+    SECTION("Plaintext conversion constructor")
+    {
+        DataTransfer a { slint::SharedString("hi") };
+        REQUIRE(a.has_plaintext());
+        REQUIRE(!a.has_image());
+        REQUIRE(a.fetch_plaintext() == slint::SharedString("hi"));
+    }
+
+    SECTION("Image")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_image());
+        REQUIRE(!a.fetch_image().has_value());
+
+        slint::Image img(slint::SharedPixelBuffer<slint::Rgb8Pixel>(2, 1));
+        a.set_image(img);
+        REQUIRE(a.has_image());
+        auto fetched = a.fetch_image();
+        REQUIRE(fetched.has_value());
+        REQUIRE(fetched->size().width == 2);
+        REQUIRE(fetched->size().height == 1);
+    }
+
+    SECTION("Image conversion constructor")
+    {
+        slint::Image img(slint::SharedPixelBuffer<slint::Rgb8Pixel>(3, 4));
+        DataTransfer a { img };
+        REQUIRE(a.has_image());
+        REQUIRE(!a.has_plaintext());
+    }
+
+    SECTION("Plaintext and image coexist")
+    {
+        DataTransfer a;
+        a.set_plaintext(slint::SharedString("text"));
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(1, 1)));
+        REQUIRE(a.has_plaintext());
+        REQUIRE(a.has_image());
+    }
+}
