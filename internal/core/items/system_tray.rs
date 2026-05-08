@@ -38,7 +38,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_os = "windows")] {
         mod windows;
         use self::windows::PlatformTray;
-    } else if #[cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+    } else if #[cfg(all(feature = "std", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
         mod ksni;
         use self::ksni::PlatformTray;
     } else {
