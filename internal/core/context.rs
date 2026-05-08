@@ -5,6 +5,7 @@ use crate::Property;
 use crate::api::PlatformError;
 use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
+use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
@@ -125,9 +126,22 @@ impl SlintContext {
         self.0.platform.run_event_loop()
     }
 
-    /// Returns the process-wide color scheme. Reads register a property dependency,
-    /// so bindings re-evaluate when the platform reports a system-theme change.
-    pub fn color_scheme(&self) -> ColorScheme {
+    /// Returns the effective color scheme for the given component root, or the
+    /// process-wide scheme when `root` is `None`. A `SystemTrayIcon`-rooted
+    /// component resolves against the tray's own scheme first, falling back to
+    /// the process-wide value when the tray reports `Unknown`. Reads register a
+    /// property dependency, so bindings re-evaluate when the platform reports a
+    /// system-theme change.
+    pub fn color_scheme(&self, root: Option<&ItemTreeRc>) -> ColorScheme {
+        if let Some(root) = root {
+            let root_item = ItemRc::new_root(root.clone());
+            if let Some(tray) = root_item.downcast::<crate::items::SystemTrayIcon>() {
+                let scheme = tray.as_pin_ref().color_scheme();
+                if scheme != ColorScheme::Unknown {
+                    return scheme;
+                }
+            }
+        }
         self.0.as_ref().project_ref().color_scheme.get()
     }
 

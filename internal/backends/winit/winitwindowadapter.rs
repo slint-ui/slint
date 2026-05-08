@@ -478,7 +478,7 @@ impl WinitWindowAdapter {
         // new window, and the OS-specific query yields the accent color.
         cfg_if::cfg_if! {
             if #[cfg(xdg_desktop_settings)] {
-                let scheme = WindowInner::from_pub(self.window()).context().color_scheme();
+                let scheme = WindowInner::from_pub(self.window()).context().color_scheme(None);
                 winit_window.set_theme(match scheme {
                     ColorScheme::Dark => Some(winit::window::Theme::Dark),
                     ColorScheme::Light => Some(winit::window::Theme::Light),

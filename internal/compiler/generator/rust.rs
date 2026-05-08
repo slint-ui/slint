@@ -3915,13 +3915,15 @@ fn compile_builtin_function_call(
             })
         }
         BuiltinFunction::ColorScheme => {
-            // Route through the runtime helper so a `Palette.color-scheme` binding
-            // inside a SystemTrayIcon-rooted component naturally resolves against
-            // the tray's scheme without going through any window adapter.
+            // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
+            // resolves against the tray's own scheme; everything else falls back to the
+            // process-wide value held by the SlintContext.
             let global_access = &ctx.generator_state.global_access;
-            quote!(sp::resolve_color_scheme(
-                &#global_access.root_item_tree_weak.upgrade().unwrap()
-            ))
+            quote!({
+                let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
+                sp::context_for_root(&_root)
+                    .map_or(sp::ColorScheme::Unknown, |c| c.color_scheme(Some(&_root)))
+            })
         }
         BuiltinFunction::AccentColor => {
             let global_access = &ctx.generator_state.global_access;
