@@ -20,10 +20,16 @@ let img1_inner: &ImageInner = (&img1).into();
 let img2_inner: &ImageInner = (&img2).into();
 
 match (img1_inner, img2_inner) {
-    (ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(img1_path), .. }, ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(img2_path), .. }) => {
+    (ImageInner::EmbeddedImage(img1), ImageInner::EmbeddedImage(img2))
+        if let ImageCacheKey::Path(img1_path) = &img1.cache_key
+            && let ImageCacheKey::Path(img2_path) = &img2.cache_key =>
+    {
         assert_eq!(img1_path, img2_path)
     },
-    (ImageInner::EmbeddedImage { cache_key: ImageCacheKey::EmbeddedData(img1_addr), .. }, ImageInner::EmbeddedImage { cache_key: ImageCacheKey::EmbeddedData(img2_addr), .. }) => {
+    (ImageInner::EmbeddedImage(img1), ImageInner::EmbeddedImage(img2))
+        if let ImageCacheKey::EmbeddedData(img1_addr) = &img1.cache_key
+            && let ImageCacheKey::EmbeddedData(img2_addr) = &img2.cache_key =>
+    {
         assert_eq!(img1_addr, img2_addr)
     },
     _ => todo!("adjust this test to new image comparison"),

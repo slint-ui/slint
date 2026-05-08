@@ -129,9 +129,9 @@ pub mod api {
             {
                 return Err(Self::Error::InvalidUsage);
             }
-            Ok(Self(super::super::ImageInner::WGPUTexture(
+            Ok(Self(super::super::ImageInner::WGPUTexture(vtable::VRc::new(
                 super::super::WGPUTexture::WGPU28Texture(texture),
-            )))
+            ))))
         }
     }
 

@@ -39,13 +39,16 @@ pub(crate) fn as_skia_image(
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
         ImageInner::None => None,
-        ImageInner::EmbeddedImage { buffer, cache_key } => {
-            let result = image_buffer_to_skia_image(buffer);
+        ImageInner::EmbeddedImage(embedded) => {
+            let result = image_buffer_to_skia_image(&embedded.buffer);
             if let Some(img) = result.as_ref() {
                 core_cache::replace_cached_image(
-                    cache_key.clone(),
+                    embedded.cache_key.clone(),
                     ImageInner::BackendStorage(vtable::VRc::into_dyn(vtable::VRc::new(
-                        SkiaCachedImage { image: img.clone(), cache_key: cache_key.clone() },
+                        SkiaCachedImage {
+                            image: img.clone(),
+                            cache_key: embedded.cache_key.clone(),
+                        },
                     ))),
                 )
             }

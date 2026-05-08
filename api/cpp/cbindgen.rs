@@ -515,6 +515,8 @@ fn gen_corelib(
                 "slint_image_to_rgb8",
                 "slint_image_to_rgba8",
                 "slint_image_to_rgba8_premultiplied",
+                "slint_image_from_shared_buffer_rgb8",
+                "slint_image_from_shared_buffer_rgba8",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
