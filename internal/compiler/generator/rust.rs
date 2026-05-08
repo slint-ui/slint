@@ -359,7 +359,7 @@ fn generate_public_component(
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
         quote!(
-            sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES, _SLINT_TRANSLATED_DECIMAL_SEPARATORS);
+            sp::set_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
         )
     });
     #[cfg(not(feature = "bundle-translations"))]
@@ -4889,9 +4889,10 @@ fn generate_translations(
     });
 
     let lang = translations.languages.iter().map(|(lang, separator)| {
+        let lang = lang.as_str();
         quote!(
             sp::TranslationsBundled {
-                language: #(lang.as_str()),
+                language: #lang,
                 decimal_separator: #separator
             }
         )
@@ -4902,6 +4903,6 @@ fn generate_translations(
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
         #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
-        const _SLINT_BUNDLED_TRANSLATIONS: &[i_slint_common::TranslationsBundled] = &[#(#lang),*];
+        const _SLINT_BUNDLED_TRANSLATIONS: &[sp::TranslationsBundled] = &[#(#lang),*];
     )
 }
