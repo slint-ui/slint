@@ -424,4 +424,112 @@ TEST_CASE("DataTransfer")
         REQUIRE(a.has_plaintext());
         REQUIRE(a.has_image());
     }
+
+    SECTION("User data round-trip")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_user_data());
+        REQUIRE(!a.user_data().has_value());
+
+        auto value = std::make_shared<int>(42);
+        std::weak_ptr<int> observer = value;
+        REQUIRE(observer.use_count() == 1);
+
+        a.set_user_data(value);
+        REQUIRE(a.has_user_data());
+        REQUIRE(observer.use_count() == 2); // a + the local `value`
+
+        std::any fetched = a.user_data();
+        REQUIRE(fetched.has_value());
+        auto *fetched_ptr = std::any_cast<std::shared_ptr<int>>(&fetched);
+        REQUIRE(fetched_ptr != nullptr);
+        REQUIRE(**fetched_ptr == 42);
+        REQUIRE(observer.use_count() == 3); // a + value + fetched
+    }
+
+    SECTION("User data type mismatch")
+    {
+        DataTransfer a;
+        a.set_user_data(std::make_shared<int>(7));
+        REQUIRE(a.has_user_data());
+        std::any v = a.user_data();
+        REQUIRE(std::any_cast<std::shared_ptr<double>>(&v) == nullptr);
+        REQUIRE(std::any_cast<std::shared_ptr<int>>(&v) != nullptr);
+    }
+
+    SECTION("User data survives clone")
+    {
+        DataTransfer a;
+        auto value = std::make_shared<int>(99);
+        std::weak_ptr<int> observer = value;
+        a.set_user_data(value);
+        value.reset(); // only `a` and (later) any retrieved shared_ptr keep the value alive
+        REQUIRE(observer.use_count() == 1);
+
+        DataTransfer b(a);
+        REQUIRE(b.has_user_data());
+        REQUIRE(observer.use_count() == 1); // clone of `a` shares the same C++ shared_ptr
+
+        std::any from_a_any = a.user_data();
+        std::any from_b_any = b.user_data();
+        auto *from_a = std::any_cast<std::shared_ptr<int>>(&from_a_any);
+        auto *from_b = std::any_cast<std::shared_ptr<int>>(&from_b_any);
+        REQUIRE((from_a && from_b));
+        REQUIRE(**from_a == 99);
+        REQUIRE(**from_b == 99);
+        REQUIRE(from_a->get() == from_b->get());
+        REQUIRE(observer.use_count() == 3); // a + b + from_a (== from_b)
+    }
+
+    SECTION("Replacing user data drops the old value")
+    {
+        DataTransfer a;
+        auto first = std::make_shared<int>(1);
+        std::weak_ptr<int> first_observer = first;
+        a.set_user_data(first);
+        first.reset();
+        REQUIRE(first_observer.use_count() == 1);
+
+        a.set_user_data(std::make_shared<int>(2));
+        REQUIRE(first_observer.expired());
+        std::any v = a.user_data();
+        REQUIRE(**std::any_cast<std::shared_ptr<int>>(&v) == 2);
+    }
+
+    SECTION("Clearing user data drops the value")
+    {
+        DataTransfer a;
+        auto value = std::make_shared<int>(5);
+        std::weak_ptr<int> observer = value;
+        a.set_user_data(value);
+        value.reset();
+        REQUIRE(observer.use_count() == 1);
+
+        a.clear_user_data();
+        REQUIRE(!a.has_user_data());
+        REQUIRE(observer.expired());
+    }
+
+    SECTION("User data, plaintext, and image coexist")
+    {
+        DataTransfer a;
+        a.set_plaintext(slint::SharedString("text"));
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(1, 1)));
+        a.set_user_data(std::make_shared<int>(123));
+        REQUIRE(a.has_plaintext());
+        REQUIRE(a.has_image());
+        REQUIRE(a.has_user_data());
+        std::any v = a.user_data();
+        REQUIRE(**std::any_cast<std::shared_ptr<int>>(&v) == 123);
+    }
+
+    SECTION("User data with non-pointer value type")
+    {
+        DataTransfer a;
+        a.set_user_data(42);
+        REQUIRE(a.has_user_data());
+        std::any v = a.user_data();
+        REQUIRE(std::any_cast<int>(&v) != nullptr);
+        REQUIRE(*std::any_cast<int>(&v) == 42);
+    }
 }

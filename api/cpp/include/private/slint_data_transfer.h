@@ -6,6 +6,10 @@
 #include <optional>
 #include <utility>
 
+#ifndef SLINT_FEATURE_FREESTANDING
+#    include <any>
+#endif
+
 #include "private/slint_image.h"
 #include "private/slint_string.h"
 #include "private/slint_data_transfer_internal.h"
@@ -111,6 +115,37 @@ public:
         }
         return std::nullopt;
     }
+
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+    /// Overload of `set_user_data()` for callers that already hold a `std::any`.
+    void set_user_data(std::any value)
+    {
+        auto *box = new std::any(std::move(value));
+        cbindgen_private::types::slint_data_transfer_set_user_data(
+                this, box, +[](void *h) { delete static_cast<std::any *>(h); });
+    }
+
+    /// Returns the user data, or an empty `std::any` if none is set. Use `std::any_cast` to
+    /// extract the concrete value.
+    std::any user_data() const
+    {
+        const void *out = nullptr;
+        if (!cbindgen_private::types::slint_data_transfer_user_data(this, &out)) {
+            return {};
+        }
+        return *static_cast<const std::any *>(out);
+    }
+#endif
+
+    /// Returns `true` if this `DataTransfer` holds user data.
+    bool has_user_data() const
+    {
+        const void *out = nullptr;
+        return cbindgen_private::types::slint_data_transfer_user_data(this, &out);
+    }
+
+    /// Clears the user data, if any.
+    void clear_user_data() { cbindgen_private::types::slint_data_transfer_clear_user_data(this); }
 
     /// Compare two `DataTransfer` values for equality. This will return true if `b` is an
     /// unmodified clone of `a`, but if any modification has been done to either value since cloning
