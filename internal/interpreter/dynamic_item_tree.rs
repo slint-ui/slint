@@ -442,6 +442,15 @@ impl<'id> From<Rc<ItemTreeDescription<'id>>> for ErasedItemTreeDescription {
 
 /// ItemTreeDescription is a representation of a ItemTree suitable for interpretation
 ///
+/// Z info for a single child in a dynamically z-ordered parent.
+#[derive(Clone)]
+enum ZInterpreterChildInfo {
+    /// Z from a runtime property. Stores the property name on the root element.
+    Property(SmolStr),
+    /// Z known at compile time (repeater/conditional children).
+    Constant(f32),
+}
+
 /// It contains information about how to create and destroy the Component.
 /// Its first member is the ItemTreeVTable for generated instance, since it is a `#[repr(C)]`
 /// structure, it is valid to cast a pointer to the ItemTreeVTable back to a
@@ -484,6 +493,9 @@ pub struct ItemTreeDescription<'id> {
 
     /// The collection of compiled globals
     compiled_globals: Option<Rc<CompiledGlobalCollection>>,
+
+    /// For tree nodes with dynamic z-ordering: maps tree_index to per-child z info.
+    z_order_info: HashMap<u32, Vec<ZInterpreterChildInfo>>,
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
@@ -808,6 +820,62 @@ extern "C" fn visit_children_item(
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
+
+    // Macro needed because `visit_item_tree*` requires the closure to be generic over
+    // the generativity lifetime of Instance<'_>, which a regular closure cannot satisfy.
+    macro_rules! visit_dyn {
+        () => {
+            |_, order, visitor, index: u32| {
+                if (index as usize) >= instance_ref.description.repeater.len() {
+                    VisitChildrenResult::CONTINUE
+                } else {
+                    let rep_in_comp =
+                        unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
+                    ensure_repeater_updated(instance_ref, rep_in_comp);
+                    let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+                    repeater.visit(order, visitor)
+                }
+            }
+        };
+    }
+
+    // Check if this node has dynamic z-ordering
+    if index >= 0
+        && let Some(z_children) = instance_ref.description.z_order_info.get(&(index as u32))
+    {
+        let z_values: Vec<f32> = z_children
+            .iter()
+            .map(|child_info| match child_info {
+                ZInterpreterChildInfo::Constant(val) => *val,
+                ZInterpreterChildInfo::Property(prop_name) => instance_ref
+                    .description
+                    .custom_properties
+                    .get(prop_name)
+                    .and_then(|p| unsafe {
+                        p.prop
+                            .get(core::pin::Pin::new_unchecked(
+                                &*(instance_ref.as_ptr().add(p.offset)),
+                            ))
+                            .ok()
+                    })
+                    .and_then(|v| if let Value::Number(n) = v { Some(n as f32) } else { None })
+                    .unwrap_or(0.0),
+            })
+            .collect();
+        let mut sorted = i_slint_core::SharedVector::default();
+        i_slint_core::item_tree::compute_sorted_children_by_z(&z_values, &mut sorted);
+        return i_slint_core::item_tree::visit_item_tree(
+            instance_ref.instance,
+            &vtable::VRc::into_dyn(comp_rc),
+            get_item_tree(component).as_slice(),
+            index,
+            order,
+            v,
+            visit_dyn!(),
+            Some(sorted.as_slice()),
+        );
+    }
+
     i_slint_core::item_tree::visit_item_tree(
         instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
@@ -815,20 +883,8 @@ extern "C" fn visit_children_item(
         index,
         order,
         v,
-        |_, order, visitor, index| {
-            if index as usize >= instance_ref.description.repeater.len() {
-                // Do nothing: We are ComponentContainer and Our parent already did all the work!
-                VisitChildrenResult::CONTINUE
-            } else {
-                // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
-                // Safety: we do not mix the component with other component id in this function
-                let rep_in_comp =
-                    unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
-                ensure_repeater_updated(instance_ref, rep_in_comp);
-                let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
-                repeater.visit(order, visitor)
-            }
-        },
+        visit_dyn!(),
+        None,
     )
 }
 
@@ -1452,6 +1508,28 @@ pub(crate) fn generate_item_tree<'id>(
         drop_in_place,
         dealloc,
     };
+    // Build z_order_info from original elements
+    let mut z_order_info: HashMap<u32, Vec<ZInterpreterChildInfo>> = HashMap::new();
+    for (idx, elem_rc) in builder.original_elements.iter().enumerate() {
+        let elem = elem_rc.borrow();
+        if elem.has_dynamic_z_order {
+            let child_infos: Vec<_> = elem
+                .children
+                .iter()
+                .map(|child| match &child.borrow().z_order {
+                    Some(i_slint_compiler::object_tree::ZOrder::Constant(val)) => {
+                        ZInterpreterChildInfo::Constant(*val)
+                    }
+                    Some(i_slint_compiler::object_tree::ZOrder::Dynamic(nr)) => {
+                        ZInterpreterChildInfo::Property(nr.name().clone())
+                    }
+                    None => ZInterpreterChildInfo::Constant(0.0),
+                })
+                .collect();
+            z_order_info.insert(idx as u32, child_infos);
+        }
+    }
+
     let t = ItemTreeDescription {
         ct: t,
         dynamic_type: builder.type_builder.build(),
@@ -1473,6 +1551,7 @@ pub(crate) fn generate_item_tree<'id>(
         timers,
         popup_ids: std::cell::RefCell::new(HashMap::new()),
         popup_menu_description: builder.popup_menu_description,
+        z_order_info,
         #[cfg(feature = "internal-highlight")]
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "internal-highlight")]

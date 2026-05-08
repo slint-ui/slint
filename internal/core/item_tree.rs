@@ -1345,6 +1345,9 @@ fn visit_internal<State>(
 /// FIXME: the design of this use lots of indirection and stack frame in recursive functions
 /// Need to check if the compiler is able to optimize away some of it.
 /// Possibly we should generate code that directly call the visitor instead
+///
+/// If `sorted_children_offsets` is `Some`, it provides a pre-computed z-sorted order
+/// for children (offsets relative to children_index) instead of the sequential order.
 pub fn visit_item_tree<Base>(
     base: Pin<&Base>,
     item_tree: &ItemTreeRc,
@@ -1358,6 +1361,7 @@ pub fn visit_item_tree<Base>(
         vtable::VRefMut<ItemVisitorVTable>,
         u32,
     ) -> VisitChildrenResult,
+    sorted_children_offsets: Option<&[u32]>,
 ) -> VisitChildrenResult {
     let mut visit_at_index = |idx: u32| -> VisitChildrenResult {
         match &item_tree_array[idx as usize] {
@@ -1381,11 +1385,18 @@ pub fn visit_item_tree<Base>(
     } else {
         match &item_tree_array[index as usize] {
             ItemTreeNode::Item { children_index, children_count, .. } => {
-                for c in 0..*children_count {
-                    let idx = match order {
-                        TraversalOrder::BackToFront => *children_index + c,
-                        TraversalOrder::FrontToBack => *children_index + *children_count - c - 1,
+                if let Some(sorted) = sorted_children_offsets {
+                    debug_assert_eq!(sorted.len(), *children_count as usize);
+                }
+                let count = *children_count as usize;
+                for i in 0..count {
+                    let offset_idx = match order {
+                        TraversalOrder::BackToFront => i,
+                        TraversalOrder::FrontToBack => count - 1 - i,
                     };
+                    let idx = *children_index
+                        + sorted_children_offsets
+                            .map_or(offset_idx as u32, |sorted| sorted[offset_idx]);
                     let maybe_abort_index = visit_at_index(idx);
                     if maybe_abort_index.has_aborted() {
                         return maybe_abort_index;
@@ -1396,6 +1407,21 @@ pub fn visit_item_tree<Base>(
         };
         VisitChildrenResult::CONTINUE
     }
+}
+
+/// Compute a sorted list of child indices based on their z values.
+/// Writes into `out` which will contain child offsets (relative to children_index)
+/// sorted by the corresponding z value (stable sort).
+pub fn compute_sorted_children_by_z(z_values: &[f32], out: &mut crate::SharedVector<u32>) {
+    out.resize(z_values.len(), 0);
+    for (i, slot) in out.make_mut_slice().iter_mut().enumerate() {
+        *slot = i as u32;
+    }
+    out.make_mut_slice().sort_by(|&a, &b| {
+        z_values[a as usize]
+            .partial_cmp(&z_values[b as usize])
+            .unwrap_or(core::cmp::Ordering::Equal)
+    });
 }
 
 #[cfg(feature = "ffi")]
@@ -1460,7 +1486,43 @@ pub(crate) mod ffi {
             order,
             visitor,
             |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
+            None,
         )
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_visit_item_tree_with_sorted_children(
+        item_tree: &ItemTreeRc,
+        item_tree_array: Slice<ItemTreeNode>,
+        index: isize,
+        order: TraversalOrder,
+        visitor: VRefMut<ItemVisitorVTable>,
+        visit_dynamic: extern "C" fn(
+            base: *const c_void,
+            order: TraversalOrder,
+            visitor: vtable::VRefMut<ItemVisitorVTable>,
+            dyn_index: u32,
+        ) -> VisitChildrenResult,
+        sorted_children_offsets: Slice<u32>,
+    ) -> VisitChildrenResult {
+        crate::item_tree::visit_item_tree(
+            VRc::as_pin_ref(item_tree),
+            item_tree,
+            item_tree_array.as_slice(),
+            index,
+            order,
+            visitor,
+            |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
+            Some(sorted_children_offsets.as_slice()),
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_compute_sorted_children_by_z(
+        z_values: Slice<f32>,
+        out: &mut crate::SharedVector<u32>,
+    ) {
+        crate::item_tree::compute_sorted_children_by_z(z_values.as_slice(), out);
     }
 }
 

@@ -1,0 +1,195 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test dynamic z-ordering: z bound to expressions that change at runtime.
+// Tests: property-bound z, multiple children with mixed static/dynamic z,
+// and z values changing dynamically to reorder click targets.
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 100phx;
+
+    in-out property <int> clicked-value;
+    in-out property <bool> front: false;
+    in-out property <int> top-layer: 0;
+
+    // --- Section 1: Simple dynamic z swap (x: 0..100) ---
+    Rectangle {
+        x: 0phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 0 : 10;
+            clicked => { clicked-value = 1; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 10 : 0;
+            clicked => { clicked-value = 2; }
+        }
+    }
+
+    // --- Section 2: Multiple layers with one dynamic top (x: 100..200) ---
+    // Four overlapping layers. top-layer selects which is on top (z=100).
+    // Others have z=0 so the last one in source order wins ties.
+    Rectangle {
+        x: 100phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 0 ? 100 : 0;
+            clicked => { clicked-value = 10; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 1 ? 100 : 0;
+            clicked => { clicked-value = 11; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 2 ? 100 : 0;
+            clicked => { clicked-value = 12; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 3 ? 100 : 0;
+            clicked => { clicked-value = 13; }
+        }
+    }
+
+    // --- Section 3: Dynamic z mixed with static z children (x: 200..300) ---
+    // A static z=5 element and a dynamic z element that toggles above/below.
+    Rectangle {
+        x: 200phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: 5;
+            clicked => { clicked-value = 20; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 10 : 1;
+            clicked => { clicked-value = 21; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Section 1: front=false, first area has z=10 (on top)
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 1);
+
+// Flip: second area now z=10
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 2);
+
+// Section 2: top_layer=0, layer 0 is on top
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 10);
+
+// top_layer=2, layer 2 on top
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 12);
+
+// top_layer=3, layer 3 on top
+instance.set_top_layer(3);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 13);
+
+// top_layer=1, layer 1 on top
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 11);
+
+// Section 3: front=true, dynamic element z=10 > static z=5
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq!(instance.get_clicked_value(), 21);
+
+// front=false, dynamic element z=1 < static z=5
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq!(instance.get_clicked_value(), 20);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 1);
+
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 2);
+
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 10);
+
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 12);
+
+instance.set_top_layer(3);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 13);
+
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 11);
+
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq(instance.get_clicked_value(), 21);
+
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq(instance.get_clicked_value(), 20);
+```
+
+```js
+var instance = new slint.TestCase();
+
+// Section 1
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 1);
+
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 2);
+
+// Section 2
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 10);
+
+instance.top_layer = 2;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 12);
+
+instance.top_layer = 3;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 13);
+
+instance.top_layer = 1;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 11);
+
+// Section 3
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 250., 50.);
+assert.equal(instance.clicked_value, 21);
+
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 250., 50.);
+assert.equal(instance.clicked_value, 20);
+```
+*/

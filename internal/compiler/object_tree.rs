@@ -723,6 +723,15 @@ pub struct GeometryProps {
     pub height: NamedReference,
 }
 
+/// The z-order of a child element within a parent that has dynamic z-ordering.
+#[derive(Clone, Debug)]
+pub enum ZOrder {
+    /// z is a compile-time constant (used for repeater/conditional children).
+    Constant(f32),
+    /// z is bound to a runtime expression (NamedReference to the child's z property).
+    Dynamic(NamedReference),
+}
+
 impl GeometryProps {
     pub fn new(element: &ElementRc) -> Self {
         Self {
@@ -811,6 +820,12 @@ pub struct Element {
     pub repeated: Option<RepeatedElementInfo>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
+
+    /// This element's children have dynamic z-ordering (z bound to non-constant expressions)
+    pub has_dynamic_z_order: bool,
+    /// Per-child z-order info. Set when parent has dynamic z-ordering.
+    /// Stored on the child so it remains consistent when the children vector is reordered.
+    pub z_order: Option<ZOrder>,
 
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
@@ -2643,6 +2658,14 @@ pub fn visit_all_named_references_in_element(
         vis(&mut geometry_props.width);
         vis(&mut geometry_props.height);
         elem.borrow_mut().geometry_props = Some(geometry_props);
+    }
+
+    let z_order = elem.borrow_mut().z_order.take();
+    if let Some(mut zo) = z_order {
+        if let ZOrder::Dynamic(ref mut nr) = zo {
+            vis(nr);
+        }
+        elem.borrow_mut().z_order = Some(zo);
     }
 
     // visit two way bindings

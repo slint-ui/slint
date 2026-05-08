@@ -1595,6 +1595,12 @@ fn generate_item_tree(
 
     let mut item_tree_array: Vec<String> = Default::default();
     let mut item_array: Vec<String> = Default::default();
+    let mut z_sorted_nodes: Vec<(
+        usize,
+        Vec<llr::SubComponentInstanceIdx>,
+        Vec<llr::ZChildSource>,
+    )> = Vec::new();
+    let mut current_node_index: usize = 0;
 
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
@@ -1648,6 +1654,15 @@ fn generate_item_tree(
                 ));
             }
         }
+
+        if let Some(ref z_prop) = node.z_sort_order_property {
+            z_sorted_nodes.push((
+                current_node_index,
+                node.sub_component_path.clone(),
+                z_prop.clone(),
+            ));
+        }
+        current_node_index += 1;
     });
 
     let mut visit_children_statements = vec![
@@ -1675,9 +1690,56 @@ fn generate_item_tree(
 
     visit_children_statements.extend([
         "};".into(),
-        format!("auto self_rc = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->self_weak.lock()->into_dyn();"),
-        "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component) , index, order, visitor, dyn_visit);".to_owned(),
+        format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
+        "auto self_rc = self->self_weak.lock()->into_dyn();".into(),
     ]);
+
+    if !z_sorted_nodes.is_empty() {
+        visit_children_statements.push("switch (index) {".into());
+        for (node_idx, node_sub_component_path, child_z_refs) in &z_sorted_nodes {
+            let count = child_z_refs.len();
+            let z_reads: Vec<String> = child_z_refs
+                .iter()
+                .map(|z_source| match z_source {
+                    llr::ZChildSource::Constant(val) => format!("{val:.1}f"),
+                    llr::ZChildSource::Property(member_ref) => match member_ref {
+                        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
+                            let full_path: Vec<_> = node_sub_component_path
+                                .iter()
+                                .chain(local_reference.sub_component_path.iter())
+                                .copied()
+                                .collect();
+                            match &local_reference.reference {
+                                llr::LocalMemberIndex::Property(property_index) => {
+                                    let (compo_path, sub_component) =
+                                        follow_sub_component_path(root, sub_tree.root, &full_path);
+                                    let property_name =
+                                        ident(&sub_component.properties[*property_index].name);
+                                    format!("self->{compo_path}{property_name}.get()")
+                                }
+                                _ => "0.0f".into(),
+                            }
+                        }
+                        _ => "0.0f".into(),
+                    },
+                })
+                .collect();
+            let z_list = z_reads.join(", ");
+            visit_children_statements.push(format!("case {node_idx}: {{"));
+            visit_children_statements.push(format!("    float z_values[{count}] = {{{z_list}}};"));
+            visit_children_statements.push("    slint::SharedVector<uint32_t> sorted;".into());
+            visit_children_statements.push(format!("    slint::cbindgen_private::slint_compute_sorted_children_by_z(slint::cbindgen_private::Slice<float>{{z_values, {count}}}, &sorted);"));
+            visit_children_statements.push("    return slint::cbindgen_private::slint_visit_item_tree_with_sorted_children(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit, slint::cbindgen_private::Slice<uint32_t>{sorted.begin(), sorted.size()});".into());
+            visit_children_statements.push("}".into());
+        }
+        visit_children_statements.push("default:".into());
+        visit_children_statements.push("    return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit);".into());
+        visit_children_statements.push("}".into());
+    } else {
+        visit_children_statements.push(
+            "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component), index, order, visitor, dyn_visit);".into(),
+        );
+    }
 
     target_struct.members.push((
         Access::Private,

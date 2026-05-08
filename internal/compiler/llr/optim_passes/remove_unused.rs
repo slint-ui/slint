@@ -277,6 +277,25 @@ mod visitor {
         for p in public_properties {
             visit_public_property(p, &scope, state, visitor);
         }
+        visit_tree_node_z_properties(&mut item_tree.tree, &scope, state, visitor);
+    }
+
+    fn visit_tree_node_z_properties(
+        node: &mut crate::llr::TreeNode,
+        scope: &EvaluationScope,
+        state: &VisitorState,
+        visitor: &mut (impl Visitor + ?Sized),
+    ) {
+        if let Some(z_props) = &mut node.z_sort_order_property {
+            for z_source in z_props {
+                if let crate::llr::ZChildSource::Property(member_ref) = z_source {
+                    visit_member_reference(member_ref, scope, state, visitor);
+                }
+            }
+        }
+        for child in &mut node.children {
+            visit_tree_node_z_properties(child, scope, state, visitor);
+        }
     }
 
     pub fn visit_sub_component(
@@ -338,6 +357,8 @@ mod visitor {
                 visitor.visit_property_idx(data_prop, &inner_scope, state);
             }
 
+            visit_tree_node_z_properties(&mut sub_tree.tree, &inner_scope, state, visitor);
+
             if let Some(listview) = listview {
                 visit_member_reference(&mut listview.viewport_y, &scope, state, visitor);
                 visit_member_reference(&mut listview.viewport_height, &scope, state, visitor);
@@ -353,6 +374,7 @@ mod visitor {
         for p in popup_windows {
             let popup_scope = EvaluationScope::SubComponent(p.item_tree.root, None);
             visit_expression(p.position.get_mut(), &popup_scope, state, visitor);
+            visit_tree_node_z_properties(&mut p.item_tree.tree, &popup_scope, state, visitor);
         }
         for t in timers {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);
@@ -474,6 +496,7 @@ mod visitor {
         visit_member_reference(activated, &scope, state, visitor);
         visit_member_reference(close, &scope, state, visitor);
         visit_member_reference(entries, &scope, state, visitor);
+        visit_tree_node_z_properties(&mut item_tree.tree, &scope, state, visitor);
     }
 
     pub fn visit_public_property(
