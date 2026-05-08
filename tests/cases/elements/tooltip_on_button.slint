@@ -6,7 +6,6 @@ import { Button } from "std-widgets.slint";
 export component TestCase {
     width: 220px;
     height: 120px;
-
     in-out property <bool> tooltip-created;
 
     Button {
@@ -17,10 +16,9 @@ export component TestCase {
         text: "Save";
 
         ToolTip {
-            text: "Tooltip on Button";
             placement: above-element;
-            init => {
-                root.tooltip-created = true;
+            Rectangle {
+                init => { root.tooltip-created = true; }
             }
         }
     }

@@ -13,9 +13,10 @@ export component TestCase {
         height: parent.height;
 
         ToolTip {
-            text: "hover";
             placement: above-element;
-            init => { root.tooltip-created = true; }
+            Rectangle {
+                init => { root.tooltip-created = true; }
+            }
         }
     }
 }

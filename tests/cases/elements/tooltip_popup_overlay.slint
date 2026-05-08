@@ -5,7 +5,6 @@ export component TestCase {
     width: 200phx;
     height: 200phx;
     in-out property <bool> tooltip-created;
-
     Rectangle {
         x: 0px;
         y: 0px;
@@ -13,10 +12,11 @@ export component TestCase {
         height: parent.height;
 
         ToolTip {
-            text: "hello tooltip";
             placement: below-element;
-            init => {
-                root.tooltip-created = true;
+            Rectangle {
+                init => {
+                    root.tooltip-created = true;
+                }
             }
         }
     }
