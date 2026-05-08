@@ -1474,9 +1474,12 @@ impl WindowInner {
         let popup_window_adapter =
             popup_window_adapter.expect("It must be there because we set the global");
 
-        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
-        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
-        let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
+        // If the window adapter of the popup window and the parent window are equal, create a ChildWindow
+        // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).
+        // Tooltips also always use ChildWindow to keep positioning and hover behavior consistent across backends.
+        let location = if popup_kind == PopupKind::Tooltip
+            || Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter)
+        {
             // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
             let clip_region = if popup_kind == PopupKind::Tooltip {
                 None
