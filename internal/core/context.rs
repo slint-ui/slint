@@ -22,10 +22,8 @@ pub(crate) struct SlintContextInner {
     /// so that every translated string gets re-translated. The property's value is the current selected
     /// language when bundling translations.
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
-    pub(crate) translations_bundle_languages:
-        core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
-    pub(crate) translations_bundle_decimal_separators:
-        core::cell::RefCell<Option<alloc::vec::Vec<char>>>,
+    pub(crate) translations_bundle:
+        core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<char>>>,
@@ -57,8 +55,7 @@ impl SlintContext {
             platform,
             window_count: 0.into(),
             translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
-            translations_bundle_languages: Default::default(),
-            translations_bundle_decimal_separators: Default::default(),
+            translations_bundle: Default::default(),
             window_shown_hook: Default::default(),
             locale_decimal_separator: Box::pin(Property::new_named(
                 i_slint_common::DEFAULT_DECIMAL_SEPARATOR,

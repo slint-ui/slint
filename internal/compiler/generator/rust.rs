@@ -4887,15 +4887,21 @@ fn generate_translations(
         };
         quote!(#rule)
     });
-    let lang = translations.languages.iter().map(SmolStr::as_str).map(|lang| quote!(#lang));
-    let decimal_separators = translations.decimal_separators.iter().map(|s| quote!(#s));
+
+    let lang = translations.languages.iter().map(|(lang, separator)| {
+        quote!(
+            sp::TranslationsBundled {
+                language: #(lang.as_str()),
+                decimal_separator: #separator
+            }
+        )
+    });
 
     quote!(
         const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
         #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
-        const _SLINT_BUNDLED_LANGUAGES: &[&str] = &[#(#lang),*];
-        const _SLINT_TRANSLATED_DECIMAL_SEPARATORS: &[char] = &[#(#decimal_separators),*];
+        const _SLINT_BUNDLED_TRANSLATIONS: &[i_slint_common::TranslationsBundled] = &[#(#lang),*];
     )
 }

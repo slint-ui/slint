@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::SharedString;
+use crate::{SharedString, context::TranslationsBundled};
 use core::fmt::Display;
 pub use formatter::FormatArgs;
 #[cfg(feature = "tr")]
@@ -377,43 +377,35 @@ pub fn translate_from_bundle_with_plural(
 /// and decimal separators.
 /// Do nothing if the list is already assigned.
 /// It selects also the language based on the system locale as default
-pub fn set_bundled_languages(languages: &[&'static str], separators: &[char]) {
-    assert_eq!(
-        languages.len(),
-        separators.len(),
-        "The number of languages must match with the number of separators"
-    );
+pub fn set_bundled_languages(translations: &[TranslationsBundled]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        if ctx.0.translations_bundle_languages.borrow().is_none() {
-            ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
+
+        if ctx.0.translations_bundle.borrow().is_none() {
+            ctx.0.translations_bundle.replace(Some(translations.to_vec()));
             #[cfg(feature = "std")]
             {
-                if let Some(idx) = language_index_from_sys_locale(languages) {
+                if let Some(idx) = language_index_from_sys_locale(translations) {
                     ctx.0.translations_dirty.as_ref().set(idx);
                 }
             }
-        }
-
-        if ctx.0.translations_bundle_decimal_separators.borrow().is_none() {
-            ctx.0.translations_bundle_decimal_separators.replace(Some(separators.to_vec()));
         }
     });
 }
 
 /// attempt to select the right bundled translation based on the current system locale
 #[cfg(feature = "std")]
-fn language_index_from_sys_locale(languages: &[&'static str]) -> Option<usize> {
+fn language_index_from_sys_locale(languages: &[TranslationsBundled]) -> Option<usize> {
     let locale = sys_locale::get_locale()?;
     // first, try an exact match
-    let idx = languages.iter().position(|x| *x == locale);
+    let idx = languages.iter().position(|x| *x.language == locale);
     // else, only match the language part
     fn base(l: &str) -> &str {
         l.find(['-', '_', '@']).map_or(l, |i| &l[..i])
     }
     idx.or_else(|| {
         let locale = base(&locale);
-        languages.iter().position(|x| base(x) == locale)
+        languages.iter().position(|x| base(x.language) == locale)
     })
 }
 
@@ -434,22 +426,23 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let Some(ctx) = ctx.get() else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let languages = ctx.0.translations_bundle_languages.borrow();
-        let Some(languages) = &*languages else {
+        let translations = ctx.0.translations_bundle.borrow();
+        let Some(translations) = &*translations else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let idx = languages.iter().position(|x| *x == language);
+        let idx = translations.iter().position(|x| x.language == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
             // Update the decimal separator
             if let Some(c) = ctx
                 .0
-                .translations_bundle_decimal_separators
+                .translations_bundle
                 .borrow()
                 .as_ref()
                 .and_then(|v| v.get(idx))
+                .map(|v| v.decimal_separator)
             {
-                ctx.0.locale_decimal_separator.as_ref().set(*c)
+                ctx.0.locale_decimal_separator.as_ref().set(c)
             }
             Ok(())
         } else if language.is_empty() || language == "en" {
@@ -459,7 +452,7 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {
-                available_languages: languages.iter().map(|x| (*x).into()).collect(),
+                available_languages: translations.iter().map(|x| (*x.language).into()).collect(),
             })
         }
     })
