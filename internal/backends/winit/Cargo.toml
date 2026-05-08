@@ -77,8 +77,6 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
 winit = { git = "https://github.com/rust-windowing/winit.git", default-features = false }
-winit-wayland = { git = "https://github.com/rust-windowing/winit.git", optional = true }
-winit-x11 = { git = "https://github.com/rust-windowing/winit.git", optional = true }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
@@ -113,6 +111,8 @@ accesskit_winit = { version = "0.32", optional = true, default-features = false,
 copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
+winit-wayland = { git = "https://github.com/rust-windowing/winit.git", optional = true }
+winit-x11 = { git = "https://github.com/rust-windowing/winit.git", optional = true }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }

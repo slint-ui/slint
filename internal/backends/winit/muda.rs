@@ -3,19 +3,18 @@
 
 use super::CustomEvent;
 use super::WinitWindowAdapter;
-use crate::SlintEvent;
 use core::pin::Pin;
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use muda::ContextMenu;
+use std::collections::VecDeque;
 use std::rc::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use winit::event_loop::EventLoopProxy;
+use std::sync::{Arc, Mutex};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::window::Window;
 
 pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
@@ -49,11 +48,12 @@ impl PropertyDirtyHandler for MudaPropertyTracker {
 impl MudaAdapter {
     pub fn setup(
         menubar: &vtable::VRc<MenuVTable>,
-        winit_window: &Window,
-        proxy: EventLoopProxy<SlintEvent>,
+        winit_window: &dyn winit::window::Window,
+        proxy: &winit::event_loop::EventLoopProxy,
+        event_queue: &Arc<Mutex<VecDeque<CustomEvent>>>,
         window_adapter_weak: Weak<WinitWindowAdapter>,
     ) -> Self {
-        install_event_handler_if_necessary(proxy);
+        install_event_handler_if_necessary(proxy, event_queue);
 
         let tracker =
             Some(Box::pin(PropertyTracker::new_with_dirty_handler(MudaPropertyTracker {
@@ -67,11 +67,12 @@ impl MudaAdapter {
 
     pub fn show_context_menu(
         context_menu: &vtable::VRc<MenuVTable>,
-        winit_window: &Window,
+        winit_window: &dyn winit::window::Window,
         position: LogicalPosition,
-        proxy: EventLoopProxy<SlintEvent>,
+        proxy: &winit::event_loop::EventLoopProxy,
+        event_queue: &Arc<Mutex<VecDeque<CustomEvent>>>,
     ) -> Option<Self> {
-        install_event_handler_if_necessary(proxy);
+        install_event_handler_if_necessary(proxy, event_queue);
 
         let mut s = Self { entries: Default::default(), tracker: None, menu: None };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
@@ -79,8 +80,10 @@ impl MudaAdapter {
         match winit_window.window_handle().ok()?.as_raw() {
             #[cfg(target_os = "windows")]
             RawWindowHandle::Win32(handle) => {
-                let position = i_slint_core::api::WindowPosition::Logical(position);
-                let position = crate::winitwindowadapter::position_to_winit(&position);
+                let position = muda::dpi::Position::Logical(muda::dpi::LogicalPosition::new(
+                    position.x as f64,
+                    position.y as f64,
+                ));
                 unsafe {
                     s.menu
                         .as_ref()
@@ -93,11 +96,14 @@ impl MudaAdapter {
             RawWindowHandle::AppKit(handle) => {
                 // muda assumes a non-flipped NSView and flips Y internally. But winit's view
                 // has isFlipped=true, so we pre-flip Y to compensate.
-                let h =
-                    winit_window.inner_size().to_logical::<f64>(winit_window.scale_factor()).height;
-                let position = Some(winit::dpi::Position::Logical(
-                    winit::dpi::LogicalPosition::new(position.x as f64, h - position.y as f64),
-                ));
+                let h = winit_window
+                    .surface_size()
+                    .to_logical::<f64>(winit_window.scale_factor())
+                    .height;
+                let position = Some(muda::dpi::Position::Logical(muda::dpi::LogicalPosition::new(
+                    position.x as f64,
+                    h - position.y as f64,
+                )));
                 unsafe {
                     s.menu
                         .as_ref()
@@ -112,7 +118,7 @@ impl MudaAdapter {
 
     pub fn rebuild_menu(
         &mut self,
-        winit_window: &Window,
+        winit_window: &dyn winit::window::Window,
         menu_tree: Option<&vtable::VRc<MenuVTable>>,
         muda_type: MudaType,
     ) {
@@ -255,7 +261,7 @@ impl MudaAdapter {
                     create_default_app_menu(menu).unwrap();
                 }
 
-                let window_id = u64::from(winit_window.id()).to_string();
+                let window_id = winit_window.id().into_raw().to_string();
                 if let Some(menu) = self.menu.as_ref() {
                     for e in menu_entries {
                         menu.append(&*generate_menu_entry(
@@ -291,7 +297,7 @@ impl MudaAdapter {
     #[cfg(target_os = "windows")]
     pub fn set_menubar_theme(
         &self,
-        winit_window: &Window,
+        winit_window: &dyn winit::window::Window,
         theme: i_slint_core::items::ColorScheme,
     ) {
         let theme = match theme {
@@ -372,15 +378,21 @@ fn keys_to_accelerator(
     Some(KeyAccelerator::new(Some(modifiers), key))
 }
 
-fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {
+fn install_event_handler_if_necessary(
+    proxy: &winit::event_loop::EventLoopProxy,
+    event_queue: &Arc<Mutex<VecDeque<CustomEvent>>>,
+) {
     // `MenuEvent::set_event_handler()` in `muda` seems to use `OnceCell`, which is an
     // can only be set a single time.  Therefore, we need to take care to only call this
     // a single time
     //
     // Arguably, `set_event_handler()` is unsafe
     if !MUDA_SET_EVENT_HANDLER_INSTALLED.load(Ordering::Relaxed) {
+        let proxy = proxy.clone();
+        let event_queue = event_queue.clone();
         muda::MenuEvent::set_event_handler(Some(move |e| {
-            let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e)));
+            event_queue.lock().unwrap().push_back(CustomEvent::Muda(e));
+            proxy.wake_up();
         }));
 
         MUDA_SET_EVENT_HANDLER_INSTALLED.store(true, Ordering::Relaxed);
@@ -414,7 +426,7 @@ fn create_default_app_menu(menu_bar: &muda::Menu) -> Result<(), i_slint_core::ap
 /// On Windows, we need to disable window redraw while rebuilding the menu, otherwise
 /// we might see flickering
 #[allow(unused_variables)]
-fn win32_set_window_redraw(winit_window: &Window, redraw: bool) {
+fn win32_set_window_redraw(winit_window: &dyn winit::window::Window, redraw: bool) {
     #[cfg(target_os = "windows")]
     if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
         use std::os::raw::c_void;

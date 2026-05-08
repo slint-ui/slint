@@ -552,10 +552,10 @@ impl winit::application::ApplicationHandler for EventLoopState {
     }
 
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
-        if let Some(handler) = self.custom_application_handler.as_mut() {
-            if matches!(handler.proxy_wake_up(event_loop), EventResult::PreventDefault) {
-                return;
-            }
+        if let Some(handler) = self.custom_application_handler.as_mut()
+            && matches!(handler.proxy_wake_up(event_loop), EventResult::PreventDefault)
+        {
+            return;
         }
         let events = std::mem::take(&mut *self.shared_backend_data.event_queue.lock().unwrap());
         for event in events {
@@ -600,7 +600,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
                             let (e, muda_type) = e.split_once('|')?;
                             Some((
                                 self.shared_backend_data.window_by_id(
-                                    winit::window::WindowId::from(w.parse::<u64>().ok()?),
+                                    winit::window::WindowId::from_raw(w.parse::<usize>().ok()?),
                                 )?,
                                 e.parse::<usize>().ok()?,
                                 muda_type.parse::<crate::muda::MudaType>().ok()?,
@@ -714,11 +714,13 @@ impl EventLoopState {
 
         cfg_if::cfg_if! {
             if #[cfg(any(target_arch = "wasm32", ios_and_friends))] {
+                let shared_backend_data = self.shared_backend_data.clone();
                 winit_loop
-                    .run_app(&mut self)
+                    .run_app(self)
                     .map_err(|e| format!("Error running winit event loop: {e}"))?;
-                // This can't really happen, as run() doesn't return
-                Ok(Self::new(self.shared_backend_data.clone(), None))
+                // On wasm, run_app registers the app and returns immediately.
+                // On iOS, run_app blocks until the app exits.
+                Ok(Self::new(shared_backend_data, None))
             } else {
                 winit::event_loop::run_on_demand::EventLoopExtRunOnDemand::run_app_on_demand(&mut winit_loop, &mut self)
                     .map_err(|e| format!("Error running winit event loop: {e}"))?;
@@ -770,14 +772,15 @@ impl EventLoopState {
 
     #[cfg(target_arch = "wasm32")]
     pub fn spawn(self) -> Result<(), corelib::platform::PlatformError> {
-        use winit::platform::web::EventLoopExtWebSys;
         let not_running_loop_instance = self
             .shared_backend_data
             .not_running_event_loop
             .take()
             .ok_or_else(|| PlatformError::from("Nested event loops are not supported"))?;
 
-        not_running_loop_instance.spawn_app(self);
+        not_running_loop_instance
+            .run_app(self)
+            .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
         Ok(())
     }

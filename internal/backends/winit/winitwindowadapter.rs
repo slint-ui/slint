@@ -6,6 +6,7 @@
 // cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
+#[allow(unused_imports)]
 use core::pin::Pin;
 #[cfg(target_os = "macos")]
 use std::cell::OnceCell;
@@ -20,7 +21,7 @@ use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
+use winit::platform::web::WindowExtWeb;
 #[cfg(target_family = "windows")]
 use winit::platform::windows::WindowExtWindows;
 
@@ -43,8 +44,6 @@ use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
-#[cfg(any(enable_accesskit, muda))]
-use winit::event_loop::EventLoopProxy;
 use winit::window::{WindowAttributes, WindowButtons};
 
 pub(crate) fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
@@ -509,7 +508,7 @@ impl WinitWindowAdapter {
                 self.self_weak.clone(),
                 active_event_loop,
                 &winit_window,
-                self.event_loop_proxy.clone(),
+                self.shared_backend_data.event_loop_proxy.clone(),
             )
             .into(),
             #[cfg(muda)]
@@ -538,8 +537,9 @@ impl WinitWindowAdapter {
             let new_muda_adapter = self.menubar.borrow().as_ref().map(|menubar| {
                 crate::muda::MudaAdapter::setup(
                     menubar,
-                    &winit_window,
-                    self.event_loop_proxy.clone(),
+                    &*winit_window,
+                    &self.shared_backend_data.event_loop_proxy,
+                    &self.shared_backend_data.event_queue,
                     self.self_weak.clone(),
                 )
             });
@@ -615,9 +615,10 @@ impl WinitWindowAdapter {
 
         #[cfg(target_arch = "wasm32")]
         {
-            use winit::platform::web::WindowAttributesExtWebSys;
-
             use wasm_bindgen::JsCast;
+            use winit::platform::web::WindowAttributesWeb;
+
+            let mut web_attrs = WindowAttributesWeb::default();
 
             if let Some(html_canvas) = web_sys::window()
                 .ok_or_else(|| "winit backend: Could not retrieve DOM window".to_string())?
@@ -626,12 +627,14 @@ impl WinitWindowAdapter {
                 .get_element_by_id("canvas")
                 .and_then(|canvas_elem| canvas_elem.dyn_into::<web_sys::HtmlCanvasElement>().ok())
             {
-                attrs = attrs
-                    .with_canvas(Some(html_canvas))
-                    // Don't activate the window by default, as that will cause the page to scroll,
-                    // ignoring any existing anchors.
-                    .with_active(false);
+                web_attrs = web_attrs.with_canvas(Some(html_canvas));
             }
+
+            // Don't activate the window by default, as that will cause the page to scroll,
+            // ignoring any existing anchors.
+            // TODO: winit 0.31 removed `with_active(false)` — check if this is still needed
+            // or handled differently.
+            attrs = attrs.with_platform_attributes(Box::new(web_attrs));
         };
 
         Ok(attrs)
@@ -692,7 +695,7 @@ impl WinitWindowAdapter {
         };
         let mut maybe_muda_adapter = maybe_muda_adapter.borrow_mut();
         let Some(muda_adapter) = maybe_muda_adapter.as_mut() else { return };
-        muda_adapter.rebuild_menu(winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
+        muda_adapter.rebuild_menu(&**winit_window, self.menubar.borrow().as_ref(), MudaType::Menubar);
     }
 
     #[cfg(muda)]
@@ -787,14 +790,11 @@ impl WinitWindowAdapter {
             // with the width/height attribute (the size of the viewport/GL surface)
             // If they're not in sync, the UI would be shown as scaled
             #[cfg(target_arch = "wasm32")]
-            if let Some(html_canvas) = self
-                .winit_window_or_none
-                .borrow()
-                .as_window()
-                .and_then(|winit_window| winit_window.canvas())
-            {
-                html_canvas.set_width(physical_size.width);
-                html_canvas.set_height(physical_size.height);
+            if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+                if let Some(html_canvas) = winit_window.canvas() {
+                    html_canvas.set_width(physical_size.width);
+                    html_canvas.set_height(physical_size.height);
+                }
             }
         }
         Ok(())
@@ -1355,15 +1355,15 @@ impl WindowAdapter for WinitWindowAdapter {
 
         // Auto-resize to the preferred size if users (SlintPad) requests it
         #[cfg(target_arch = "wasm32")]
-        if let Some(canvas) =
-            winit_window_or_none.as_window().and_then(|winit_window| winit_window.canvas())
-        {
-            if is_preferred_sized_canvas(&canvas) {
-                let pref = new_constraints.preferred;
-                if pref.width > 0 as Coord || pref.height > 0 as Coord {
-                    // TODO: don't ignore error, propgate to caller
-                    self.resize_window(logical_size_to_winit(pref).into()).ok();
-                };
+        if let Some(winit_window) = winit_window_or_none.as_window() {
+            if let Some(canvas) = winit_window.canvas() {
+                if is_preferred_sized_canvas(&canvas) {
+                    let pref = new_constraints.preferred;
+                    if pref.width > 0 as Coord || pref.height > 0 as Coord {
+                        // TODO: don't ignore error, propgate to caller
+                        self.resize_window(logical_size_to_winit(pref).into()).ok();
+                    };
+                }
             }
         }
     }
@@ -1464,8 +1464,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         match request {
             corelib::window::InputMethodRequest::Enable(..) => {
                 let mut vkh = self.virtual_keyboard_helper.borrow_mut();
-                let Some(canvas) =
-                    self.winit_window().and_then(|winit_window| winit_window.canvas())
+                let Some(canvas) = self
+                    .winit_window()
+                    .and_then(|winit_window| winit_window.canvas().map(|c| (*c).clone()))
                 else {
                     return;
                 };
@@ -1497,10 +1498,12 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         {
             // On Windows, we must destroy the muda menu before re-creating a new one
             drop(muda_adapter.borrow_mut().take());
+            let winit_window = self.winit_window().unwrap();
             muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
                 self.menubar.borrow().as_ref().unwrap(),
-                &self.winit_window().unwrap(),
-                self.event_loop_proxy.clone(),
+                &*winit_window,
+                &self.shared_backend_data.event_loop_proxy,
+                &self.shared_backend_data.event_queue,
                 self.self_weak.clone(),
             )));
         }
@@ -1519,11 +1522,13 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         {
             // On Windows, we must destroy the muda menu before re-creating a new one
             drop(context_menu_muda_adapter.borrow_mut().take());
+            let winit_window = self.winit_window().unwrap();
             if let Some(new_adapter) = crate::muda::MudaAdapter::show_context_menu(
                 self.context_menu.borrow().as_ref().unwrap(),
-                &self.winit_window().unwrap(),
+                &*winit_window,
                 position,
-                self.event_loop_proxy.clone(),
+                &self.shared_backend_data.event_loop_proxy,
+                &self.shared_backend_data.event_queue,
             ) {
                 context_menu_muda_adapter.replace(Some(new_adapter));
                 return true;
