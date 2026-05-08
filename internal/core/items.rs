@@ -1897,8 +1897,8 @@ pub struct TooltipArea {
     pub show: Callback<VoidArg>,
     pub hide: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
-    delay_timer: Cell<Option<crate::timers::Timer>>,
     popup_visible: Cell<bool>,
+    timer_generation: Cell<u32>,
 }
 
 impl Item for TooltipArea {
@@ -2016,9 +2016,8 @@ impl Item for TooltipArea {
 
 impl TooltipArea {
     fn schedule_show(self: Pin<&Self>, self_rc: &ItemRc) {
-        if let Some(timer) = self.delay_timer.take() {
-            timer.stop();
-        }
+        let generation = self.timer_generation.get().wrapping_add(1);
+        self.timer_generation.set(generation);
 
         let delay_ms = self.delay().max(0) as u64;
         if delay_ms == 0 {
@@ -2029,28 +2028,20 @@ impl TooltipArea {
             return;
         }
 
-        let timer = crate::timers::Timer::default();
         let self_weak = self_rc.downgrade();
-        timer.start(
-            crate::timers::TimerMode::SingleShot,
-            Duration::from_millis(delay_ms),
-            move || {
-                let Some(self_rc) = self_weak.upgrade() else { return };
-                let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
-                let tooltip_area = tooltip_area.as_pin_ref();
-                if tooltip_area.has_hover() {
-                    tooltip_area.show.call(&());
-                    tooltip_area.popup_visible.set(true);
-                }
-            },
-        );
-        self.delay_timer.set(Some(timer));
+        crate::timers::Timer::single_shot(Duration::from_millis(delay_ms), move || {
+            let Some(self_rc) = self_weak.upgrade() else { return };
+            let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
+            let tooltip_area = tooltip_area.as_pin_ref();
+            if tooltip_area.timer_generation.get() == generation && tooltip_area.has_hover() {
+                tooltip_area.show.call(&());
+                tooltip_area.popup_visible.set(true);
+            }
+        });
     }
 
     fn hide_now(self: Pin<&Self>) {
-        if let Some(timer) = self.delay_timer.take() {
-            timer.stop();
-        }
+        self.timer_generation.set(self.timer_generation.get().wrapping_add(1));
         if self.popup_visible.replace(false) {
             self.hide.call(&());
         }
