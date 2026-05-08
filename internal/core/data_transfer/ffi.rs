@@ -3,6 +3,9 @@
 
 #![allow(unsafe_code)]
 
+use alloc::rc::Rc;
+use core::ffi::c_void;
+
 use super::DataTransfer;
 use crate::SharedString;
 use crate::api::Image;
@@ -120,4 +123,45 @@ pub extern "C" fn slint_data_transfer_fetch_image(d: &DataTransfer, out: &mut Im
         }
         Err(_) => false,
     }
+}
+
+/// C++-owned user-data handle stored in a `DataTransfer`.
+struct CppUserData {
+    handle: *mut c_void,
+    drop_fn: unsafe extern "C" fn(*mut c_void),
+}
+
+impl Drop for CppUserData {
+    fn drop(&mut self) {
+        unsafe { (self.drop_fn)(self.handle) }
+    }
+}
+
+/// Store `handle` as the user data of `d`. `drop_fn(handle)` runs when `d` is dropped.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_data_transfer_set_user_data(
+    d: &mut DataTransfer,
+    handle: *mut c_void,
+    drop_fn: unsafe extern "C" fn(*mut c_void),
+) {
+    d.set_user_data(Rc::new(CppUserData { handle, drop_fn }));
+}
+
+/// Write a borrowed pointer to `d`'s C++ user-data handle into `out_handle`.
+/// Returns `false` if `d` has no C++ user data.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_data_transfer_user_data(
+    d: &DataTransfer,
+    out_handle: *mut *const c_void,
+) -> bool {
+    let Some(any) = d.user_data() else { return false };
+    let Some(cpp) = any.downcast_ref::<CppUserData>() else { return false };
+    unsafe { *out_handle = cpp.handle as *const c_void };
+    true
+}
+
+/// Clear the user data of `d`, if any.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_clear_user_data(d: &mut DataTransfer) {
+    d.user_data = None;
 }
