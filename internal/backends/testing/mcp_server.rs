@@ -114,6 +114,18 @@ const TOOLS: &[ToolDef] = &[
         request_type: "RequestDispatchKeyEvent",
         optional_fields: &["eventType"],
     },
+    ToolDef {
+        name: "get_event_log",
+        description: "Read the bounded event log for dispatched window/input events. Pass the nextSequence value from the previous response as sinceSequence to poll incrementally. The response includes nextSequence (use as sinceSequence on the next call), droppedCount (events evicted when the 1024-entry cap was reached), and an events array. Omit maxEvents for the default page size. Use after interactions to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
+        request_type: "RequestEventLog",
+        optional_fields: &["windowHandle", "sinceSequence", "maxEvents", "clearAfterRead"],
+    },
+    ToolDef {
+        name: "clear_event_log",
+        description: "Clear the event log and reset the dropped-event counter. Useful before performing an interaction whose processed events should be verified.",
+        request_type: "RequestClearEventLog",
+        optional_fields: &[],
+    },
 ];
 
 fn tool_definitions() -> Value {
@@ -366,6 +378,26 @@ async fn handle_tool_call(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
+        "get_event_log" => {
+            let p: proto::RequestEventLog = deserialize_params(args)?;
+            let window_index = p.window_handle.map(handle_to_index).transpose()?;
+            let response = dispatch::event_log(
+                state,
+                window_index,
+                p.since_sequence,
+                p.max_events,
+                p.clear_after_read,
+            );
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
+        "clear_event_log" => {
+            let response = dispatch::clear_event_log(state);
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
         _ => Err(format!("Unknown tool: {name}")),
     }
 }
@@ -432,7 +464,8 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
-                    "8. take_screenshot again to verify the effect\n\n",
+                    "8. get_event_log → verify the runtime received and processed expected input/window events\n",
+                    "9. take_screenshot again to verify the visual effect\n\n",
 
                     "# Handle format\n\n",
                     "All handles are JSON objects with string-valued fields: {\"index\": \"0\", \"generation\": \"0\"}. ",
@@ -443,10 +476,12 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "# Enum values\n\n",
                     "Enum fields accept PascalCase strings:\n",
                     "- AccessibleRole: Unknown, Button, Checkbox, Combobox, List, Slider, Spinbox, Tab, TabList, Text, Table, Tree, ProgressIndicator, TextInput, Switch, ListItem, TabPanel, Groupbox, Image, RadioButton\n",
-                    "- PointerEventButton: Left, Right, Middle\n",
+                    "- PointerEventButton: Left, Right, Middle, Back, Forward, Other\n",
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
                     "- KeyEventType: PressAndRelease, Press, Release\n",
+                    "- RecordedEventSource: Runtime\n",
+                    "- RecordedEventResult: Processed, Accepted, Ignored\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 
@@ -1051,7 +1086,7 @@ mod tests {
     fn test_tool_definitions_structure() {
         let defs = tool_definitions();
         let tools = defs["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), TOOLS.len());
         for tool in tools {
             assert!(tool.get("name").and_then(|v| v.as_str()).is_some());
             assert!(tool.get("description").and_then(|v| v.as_str()).is_some());

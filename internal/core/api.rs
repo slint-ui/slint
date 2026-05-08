@@ -7,6 +7,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
+use crate::context::WindowEventDispatchResult;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -22,6 +23,15 @@ pub use crate::graphics::{
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
+
+impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
+    fn from(value: crate::input::KeyEventResult) -> Self {
+        match value {
+            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
+            crate::input::KeyEventResult::EventIgnored => Self::Ignored,
+        }
+    }
+}
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
@@ -642,7 +652,10 @@ impl Window {
         &self,
         event: crate::platform::WindowEvent,
     ) -> Result<(), PlatformError> {
-        match event {
+        // Only clone the event when a hook is installed to avoid allocation on the hot path.
+        let event_for_hook =
+            self.0.context().0.window_event_hook.borrow().is_some().then(|| event.clone());
+        let dispatch_result = match event {
             crate::platform::WindowEvent::PointerPressed { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Pressed {
                     position: position.to_euclid().cast(),
@@ -650,6 +663,7 @@ impl Window {
                     click_count: 0,
                     touch_finger_id: 0,
                 });
+                WindowEventDispatchResult::Processed
             }
             crate::platform::WindowEvent::PointerReleased { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Released {
@@ -658,12 +672,14 @@ impl Window {
                     click_count: 0,
                     touch_finger_id: 0,
                 });
+                WindowEventDispatchResult::Processed
             }
             crate::platform::WindowEvent::PointerMoved { position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
                 });
+                WindowEventDispatchResult::Processed
             }
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
                 self.0.process_mouse_input(MouseEvent::Wheel {
@@ -672,34 +688,40 @@ impl Window {
                     delta_y: delta_y as _,
                     phase: TouchPhase::Cancelled,
                 });
+                WindowEventDispatchResult::Processed
             }
             crate::platform::WindowEvent::PointerExited => {
                 self.0.process_mouse_input(MouseEvent::Exit);
+                WindowEventDispatchResult::Processed
             }
 
-            crate::platform::WindowEvent::KeyPressed { text } => {
-                self.0.process_key_input(InternalKeyEvent {
+            crate::platform::WindowEvent::KeyPressed { text } => self
+                .0
+                .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
                     key_event: crate::input::KeyEvent { text, ..Default::default() },
                     ..Default::default()
-                });
-            }
-            crate::platform::WindowEvent::KeyPressRepeated { text } => {
-                self.0.process_key_input(InternalKeyEvent {
+                })
+                .into(),
+            crate::platform::WindowEvent::KeyPressRepeated { text } => self
+                .0
+                .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
                     key_event: crate::input::KeyEvent { text, repeat: true, ..Default::default() },
                     ..Default::default()
-                });
-            }
-            crate::platform::WindowEvent::KeyReleased { text } => {
-                self.0.process_key_input(InternalKeyEvent {
+                })
+                .into(),
+            crate::platform::WindowEvent::KeyReleased { text } => self
+                .0
+                .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyReleased,
                     key_event: crate::input::KeyEvent { text, ..Default::default() },
                     ..Default::default()
-                });
-            }
+                })
+                .into(),
             crate::platform::WindowEvent::ScaleFactorChanged { scale_factor } => {
                 self.0.set_scale_factor(scale_factor);
+                WindowEventDispatchResult::Processed
             }
             crate::platform::WindowEvent::Resized { size } => {
                 self.0.set_window_item_geometry(size.to_euclid());
@@ -707,14 +729,33 @@ impl Window {
                 if let Some(item_rc) = self.0.focus_item.borrow().upgrade() {
                     item_rc.try_scroll_into_visible();
                 }
+                WindowEventDispatchResult::Processed
             }
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
                     self.hide()?;
+                    WindowEventDispatchResult::Accepted
+                } else {
+                    WindowEventDispatchResult::Ignored
                 }
             }
-            crate::platform::WindowEvent::WindowActiveChanged(bool) => self.0.set_active(bool),
+            crate::platform::WindowEvent::WindowActiveChanged(bool) => {
+                self.0.set_active(bool);
+                WindowEventDispatchResult::Processed
+            }
         };
+        if let Some(event_for_hook) = event_for_hook {
+            // Take the hook out before calling to allow re-entrant dispatch without a BorrowMutError.
+            let hook = self.0.context().0.window_event_hook.borrow_mut().take();
+            if let Some(mut hook) = hook {
+                hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
+                // Restore only if nothing replaced it during the call.
+                let mut slot = self.0.context().0.window_event_hook.borrow_mut();
+                if slot.is_none() {
+                    *slot = Some(hook);
+                }
+            }
+        }
         Ok(())
     }
 

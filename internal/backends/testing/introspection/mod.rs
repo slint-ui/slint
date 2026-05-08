@@ -10,7 +10,7 @@ use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowInner;
 use slotmap::{Key, KeyData, SlotMap};
 use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
@@ -24,10 +24,12 @@ pub(crate) mod proto;
 
 /// Maximum number of element handles kept in the arena before evicting the oldest.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
+const EVENT_LOG_CAP: usize = 1024;
 
 thread_local! {
     static SHARED_STATE: RefCell<Option<Rc<IntrospectionState>>> = const { RefCell::new(None) };
-    static HOOK_INSTALLED: Cell<bool> = const { Cell::new(false) };
+    static WINDOW_TRACKING_HOOK_INSTALLED: Cell<bool> = const { Cell::new(false) };
+    static EVENT_TRACKING_HOOK_INSTALLED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Returns the shared introspection state, creating it if needed.
@@ -47,9 +49,9 @@ pub(crate) fn shared_state() -> Rc<IntrospectionState> {
 /// Safe to call multiple times — only installs once.
 /// Chains with any previously installed hook.
 pub(crate) fn ensure_window_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
-    HOOK_INSTALLED.with(|installed| {
+    WINDOW_TRACKING_HOOK_INSTALLED.with(|installed| {
         if installed.get() {
-            return Ok(());
+            return ensure_event_tracking();
         }
         installed.set(true);
 
@@ -65,6 +67,32 @@ pub(crate) fn ensure_window_tracking() -> Result<(), i_slint_core::api::EventLoo
             }
             state.add_window(adapter);
         })))
+        .map_err(|_| i_slint_core::api::EventLoopError::NoEventLoopProvider)?;
+
+        ensure_event_tracking()
+    })
+}
+
+fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
+    EVENT_TRACKING_HOOK_INSTALLED.with(|installed| {
+        if installed.get() {
+            return Ok(());
+        }
+        installed.set(true);
+
+        let state = shared_state();
+        let previous_hook = i_slint_core::context::set_window_event_hook(None)
+            .map_err(|_| i_slint_core::api::EventLoopError::NoEventLoopProvider)?;
+        let previous_hook = RefCell::new(previous_hook);
+
+        i_slint_core::context::set_window_event_hook(Some(Box::new(
+            move |adapter, event, result| {
+                if let Some(prev) = previous_hook.borrow_mut().as_mut() {
+                    prev(adapter, event, result);
+                }
+                state.record_window_event(adapter, event, result);
+            },
+        )))
         .map_err(|_| i_slint_core::api::EventLoopError::NoEventLoopProvider)?;
 
         Ok(())
@@ -92,6 +120,9 @@ pub(crate) struct IntrospectionState {
     pub windows: RefCell<SlotMap<ArenaIndex, TrackedWindow>>,
     pub element_handles: RefCell<SlotMap<ArenaIndex, ElementHandle>>,
     element_handle_order: RefCell<VecDeque<ArenaIndex>>,
+    event_log: RefCell<VecDeque<proto::RecordedEvent>>,
+    next_event_sequence: Cell<u64>,
+    dropped_event_count: Cell<u64>,
 }
 
 impl IntrospectionState {
@@ -100,6 +131,9 @@ impl IntrospectionState {
             windows: Default::default(),
             element_handles: Default::default(),
             element_handle_order: Default::default(),
+            event_log: Default::default(),
+            next_event_sequence: Default::default(),
+            dropped_event_count: Default::default(),
         }
     }
 
@@ -117,6 +151,16 @@ impl IntrospectionState {
 
     pub fn window_handles(&self) -> Vec<ArenaIndex> {
         self.windows.borrow().iter().map(|(index, _)| index).collect()
+    }
+
+    fn window_handle_for_adapter(&self, adapter: &Rc<dyn WindowAdapter>) -> Option<ArenaIndex> {
+        self.windows.borrow().iter().find_map(|(index, tracked)| {
+            tracked
+                .window_adapter
+                .upgrade()
+                .filter(|tracked_adapter| Rc::ptr_eq(tracked_adapter, adapter))
+                .map(|_| index)
+        })
     }
 
     pub fn window_adapter(
@@ -147,7 +191,7 @@ impl IntrospectionState {
         let mut order = self.element_handle_order.borrow_mut();
         order.push_back(index);
         if arena.len() > ELEMENT_HANDLE_CAP {
-            let root_indices: std::collections::HashSet<ArenaIndex> =
+            let root_indices: HashSet<ArenaIndex> =
                 self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
             let mut budget = order.len();
             while arena.len() > ELEMENT_HANDLE_CAP && budget > 0 {
@@ -237,6 +281,84 @@ impl IntrospectionState {
         Ok(())
     }
 
+    pub fn record_window_event(
+        &self,
+        adapter: &Rc<dyn WindowAdapter>,
+        event: &i_slint_core::platform::WindowEvent,
+        result: i_slint_core::context::WindowEventDispatchResult,
+    ) {
+        let sequence = self.next_event_sequence.get();
+        self.next_event_sequence.set(sequence.saturating_add(1));
+
+        let timestamp_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+            .unwrap_or_default();
+
+        let mut log = self.event_log.borrow_mut();
+        if log.len() >= EVENT_LOG_CAP {
+            log.pop_front();
+            self.dropped_event_count.set(self.dropped_event_count.get().saturating_add(1));
+        }
+        log.push_back(proto::RecordedEvent {
+            sequence,
+            timestamp_ms,
+            window_handle: self.window_handle_for_adapter(adapter).map(index_to_handle),
+            source: proto::RecordedEventSource::Runtime.into(),
+            event: Some(convert_window_event_to_proto(event)),
+            result: convert_event_dispatch_result(result).into(),
+        });
+    }
+
+    pub fn query_event_log(
+        &self,
+        window_index: Option<ArenaIndex>,
+        since_sequence: u64,
+        max_events: u32,
+        clear_after_read: bool,
+    ) -> proto::EventLogResponse {
+        let max_events = if max_events == 0 { 200 } else { max_events.min(1000) } as usize;
+        let events: Vec<_> = self
+            .event_log
+            .borrow()
+            .iter()
+            .filter(|event| event.sequence >= since_sequence)
+            .filter(|event| {
+                window_index.is_none_or(|window_index| {
+                    event.window_handle.as_ref().is_some_and(|handle| {
+                        handle_to_index(handle.clone())
+                            .is_ok_and(|event_window| event_window == window_index)
+                    })
+                })
+            })
+            .take(max_events)
+            .cloned()
+            .collect();
+        let next_sequence = events
+            .last()
+            .map(|event| event.sequence.saturating_add(1))
+            .unwrap_or_else(|| self.next_event_sequence.get());
+        let returned_sequences: HashSet<u64> = events.iter().map(|event| event.sequence).collect();
+        let response = proto::EventLogResponse {
+            events,
+            // Pass the next unread sequence number directly so callers can use
+            // it as sinceSequence on the next poll without arithmetic.
+            next_sequence,
+            dropped_count: self.dropped_event_count.get(),
+        };
+        if clear_after_read {
+            self.event_log
+                .borrow_mut()
+                .retain(|event| !returned_sequences.contains(&event.sequence));
+        }
+        response
+    }
+
+    pub fn clear_event_log(&self) {
+        self.event_log.borrow_mut().clear();
+        self.dropped_event_count.set(0);
+    }
+
     pub fn window_properties(
         &self,
         window_index: ArenaIndex,
@@ -266,6 +388,100 @@ impl IntrospectionState {
     ) -> Result<proto::TakeSnapshotResponse, String> {
         let window_contents_as_encoded_image = self.take_snapshot(window_index, image_mime_type)?;
         Ok(proto::TakeSnapshotResponse { window_contents_as_encoded_image })
+    }
+}
+
+pub(crate) fn convert_window_event_to_proto(
+    event: &i_slint_core::platform::WindowEvent,
+) -> proto::WindowEvent {
+    use i_slint_core::platform::WindowEvent;
+    use proto::window_event::Event;
+
+    let event = match event {
+        WindowEvent::PointerPressed { position, button } => {
+            Some(Event::PointerPressed(proto::PointerPressEvent {
+                position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
+                button: convert_pointer_event_button_to_proto(*button).into(),
+            }))
+        }
+        WindowEvent::PointerReleased { position, button } => {
+            Some(Event::PointerReleased(proto::PointerReleaseEvent {
+                position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
+                button: convert_pointer_event_button_to_proto(*button).into(),
+            }))
+        }
+        WindowEvent::PointerMoved { position } => {
+            Some(Event::PointerMoved(proto::PointerMoveEvent {
+                position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
+            }))
+        }
+        WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
+            Some(Event::PointerScrolled(proto::PointerScrolledEvent {
+                position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
+                delta_x: *delta_x,
+                delta_y: *delta_y,
+            }))
+        }
+        WindowEvent::PointerExited => Some(Event::PointerExited(proto::PointerExitedEvent {})),
+        WindowEvent::KeyPressed { text } => {
+            Some(Event::KeyPressed(proto::KeyPressedEvent { text: text.to_string() }))
+        }
+        WindowEvent::KeyPressRepeated { text } => {
+            Some(Event::KeyPressRepeated(proto::KeyPressRepeatedEvent { text: text.to_string() }))
+        }
+        WindowEvent::KeyReleased { text } => {
+            Some(Event::KeyReleased(proto::KeyReleasedEvent { text: text.to_string() }))
+        }
+        WindowEvent::ScaleFactorChanged { scale_factor } => {
+            Some(Event::ScaleFactorChanged(proto::ScaleFactorChangedEvent {
+                scale_factor: *scale_factor,
+            }))
+        }
+        WindowEvent::Resized { size } => Some(Event::Resized(proto::ResizedEvent {
+            size: Some(proto::LogicalSize { width: size.width, height: size.height }),
+        })),
+        WindowEvent::CloseRequested => Some(Event::CloseRequested(proto::CloseRequestedEvent {})),
+        WindowEvent::WindowActiveChanged(active) => {
+            Some(Event::WindowActiveChanged(proto::WindowActiveChangedEvent { active: *active }))
+        }
+        // All current variants are covered above. This arm exists only because
+        // WindowEvent is #[non_exhaustive]; future variants will log with event: None.
+        #[allow(unreachable_patterns)]
+        _ => None,
+    };
+
+    proto::WindowEvent { event }
+}
+
+fn convert_pointer_event_button_to_proto(
+    button: i_slint_core::platform::PointerEventButton,
+) -> proto::PointerEventButton {
+    match button {
+        i_slint_core::platform::PointerEventButton::Left => proto::PointerEventButton::Left,
+        i_slint_core::platform::PointerEventButton::Right => proto::PointerEventButton::Right,
+        i_slint_core::platform::PointerEventButton::Middle => proto::PointerEventButton::Middle,
+        i_slint_core::platform::PointerEventButton::Back => proto::PointerEventButton::Back,
+        i_slint_core::platform::PointerEventButton::Forward => proto::PointerEventButton::Forward,
+        i_slint_core::platform::PointerEventButton::Other => proto::PointerEventButton::Other,
+        // PointerEventButton is #[non_exhaustive]; future buttons map to Other.
+        #[allow(unreachable_patterns)]
+        _ => proto::PointerEventButton::Other,
+    }
+}
+
+fn convert_event_dispatch_result(
+    result: i_slint_core::context::WindowEventDispatchResult,
+) -> proto::RecordedEventResult {
+    match result {
+        i_slint_core::context::WindowEventDispatchResult::Processed => {
+            proto::RecordedEventResult::Processed
+        }
+        i_slint_core::context::WindowEventDispatchResult::Accepted => {
+            proto::RecordedEventResult::Accepted
+        }
+        i_slint_core::context::WindowEventDispatchResult::Ignored => {
+            proto::RecordedEventResult::Ignored
+        }
     }
 }
 
@@ -442,6 +658,9 @@ pub(crate) fn convert_pointer_event_button(
         proto::PointerEventButton::Left => i_slint_core::platform::PointerEventButton::Left,
         proto::PointerEventButton::Right => i_slint_core::platform::PointerEventButton::Right,
         proto::PointerEventButton::Middle => i_slint_core::platform::PointerEventButton::Middle,
+        proto::PointerEventButton::Back => i_slint_core::platform::PointerEventButton::Back,
+        proto::PointerEventButton::Forward => i_slint_core::platform::PointerEventButton::Forward,
+        proto::PointerEventButton::Other => i_slint_core::platform::PointerEventButton::Other,
     }
 }
 
@@ -539,6 +758,21 @@ pub(crate) mod dispatch {
         state.take_snapshot_response(window, image_mime_type)
     }
 
+    pub(crate) fn event_log(
+        state: &IntrospectionState,
+        window: Option<ArenaIndex>,
+        since_sequence: u64,
+        max_events: u32,
+        clear_after_read: bool,
+    ) -> proto::EventLogResponse {
+        state.query_event_log(window, since_sequence, max_events, clear_after_read)
+    }
+
+    pub(crate) fn clear_event_log(state: &IntrospectionState) -> proto::ClearEventLogResponse {
+        state.clear_event_log();
+        proto::ClearEventLogResponse {}
+    }
+
     pub(crate) fn invoke_accessibility_action(
         state: &IntrospectionState,
         element: ArenaIndex,
@@ -634,6 +868,151 @@ fn test_handle_to_index_rejects_out_of_range_parts() {
     );
     assert!(
         handle_to_index(proto::Handle { index: 42, generation: u64::from(u32::MAX) + 1 }).is_err()
+    );
+}
+
+#[test]
+fn test_event_log_filters_since_sequence_and_window() {
+    let state = IntrospectionState::new();
+    let mut window_indices = SlotMap::with_key();
+    let first_window = window_indices.insert(());
+    let second_window = window_indices.insert(());
+
+    state.next_event_sequence.set(3);
+    state.event_log.borrow_mut().extend([
+        proto::RecordedEvent {
+            sequence: 0,
+            window_handle: Some(index_to_handle(first_window)),
+            source: proto::RecordedEventSource::Runtime.into(),
+            result: proto::RecordedEventResult::Processed.into(),
+            ..Default::default()
+        },
+        proto::RecordedEvent {
+            sequence: 1,
+            window_handle: Some(index_to_handle(second_window)),
+            source: proto::RecordedEventSource::Runtime.into(),
+            result: proto::RecordedEventResult::Accepted.into(),
+            ..Default::default()
+        },
+        proto::RecordedEvent {
+            sequence: 2,
+            window_handle: Some(index_to_handle(first_window)),
+            source: proto::RecordedEventSource::Runtime.into(),
+            result: proto::RecordedEventResult::Ignored.into(),
+            ..Default::default()
+        },
+    ]);
+
+    let response = state.query_event_log(Some(first_window), 1, 10, true);
+    assert_eq!(response.events.len(), 1);
+    assert_eq!(response.events[0].sequence, 2);
+    assert_eq!(response.next_sequence, 3);
+    // clear_after_read removes only returned events.
+    let remaining = state.query_event_log(None, 0, 10, false);
+    assert_eq!(remaining.events.iter().map(|event| event.sequence).collect::<Vec<_>>(), vec![0, 1]);
+    assert_eq!(remaining.next_sequence, 2);
+}
+
+#[test]
+fn test_event_log_eviction_at_cap() {
+    let state = IntrospectionState::new();
+
+    // Fill the log to capacity directly, simulating EVENT_LOG_CAP + 10 recorded events.
+    for seq in 0..(EVENT_LOG_CAP + 10) as u64 {
+        let mut log = state.event_log.borrow_mut();
+        if log.len() >= EVENT_LOG_CAP {
+            log.pop_front();
+            state.dropped_event_count.set(state.dropped_event_count.get().saturating_add(1));
+        }
+        log.push_back(proto::RecordedEvent {
+            sequence: seq,
+            source: proto::RecordedEventSource::Runtime.into(),
+            result: proto::RecordedEventResult::Processed.into(),
+            ..Default::default()
+        });
+        state.next_event_sequence.set(seq + 1);
+    }
+
+    assert_eq!(state.event_log.borrow().len(), EVENT_LOG_CAP);
+    assert_eq!(state.dropped_event_count.get(), 10);
+
+    // The oldest retained event should have sequence 10 (the first 10 were evicted).
+    let response = state.query_event_log(None, 0, 1, false);
+    assert_eq!(response.events[0].sequence, 10);
+    assert_eq!(response.dropped_count, 10);
+    assert_eq!(response.next_sequence, 11);
+
+    // After clear, dropped count and log reset, but the sequence cursor remains monotonic.
+    state.clear_event_log();
+    assert!(state.event_log.borrow().is_empty());
+    assert_eq!(state.dropped_event_count.get(), 0);
+    assert_eq!(state.next_event_sequence.get(), (EVENT_LOG_CAP + 10) as u64);
+    assert_eq!(state.query_event_log(None, 0, 1, false).next_sequence, (EVENT_LOG_CAP + 10) as u64);
+}
+
+#[test]
+fn test_event_log_pagination_cursor_advances_to_returned_page() {
+    let state = IntrospectionState::new();
+    for seq in 0..3 {
+        state.event_log.borrow_mut().push_back(proto::RecordedEvent {
+            sequence: seq,
+            source: proto::RecordedEventSource::Runtime.into(),
+            result: proto::RecordedEventResult::Processed.into(),
+            ..Default::default()
+        });
+    }
+    state.next_event_sequence.set(3);
+
+    let first_page = state.query_event_log(None, 0, 1, false);
+    assert_eq!(first_page.events[0].sequence, 0);
+    assert_eq!(first_page.next_sequence, 1);
+
+    let second_page = state.query_event_log(None, first_page.next_sequence, 1, false);
+    assert_eq!(second_page.events[0].sequence, 1);
+    assert_eq!(second_page.next_sequence, 2);
+}
+
+#[test]
+fn test_event_log_clear_keeps_sequence_monotonic() {
+    let state = IntrospectionState::new();
+    state.next_event_sequence.set(42);
+    state.event_log.borrow_mut().push_back(proto::RecordedEvent {
+        sequence: 41,
+        source: proto::RecordedEventSource::Runtime.into(),
+        result: proto::RecordedEventResult::Processed.into(),
+        ..Default::default()
+    });
+
+    state.clear_event_log();
+    assert_eq!(state.next_event_sequence.get(), 42);
+    assert_eq!(state.query_event_log(None, 42, 10, false).next_sequence, 42);
+}
+
+#[test]
+fn test_pointer_event_button_mapping_preserves_extended_buttons() {
+    assert_eq!(
+        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Back),
+        proto::PointerEventButton::Back
+    );
+    assert_eq!(
+        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Forward),
+        proto::PointerEventButton::Forward
+    );
+    assert_eq!(
+        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Other),
+        proto::PointerEventButton::Other
+    );
+    assert_eq!(
+        convert_pointer_event_button(proto::PointerEventButton::Back),
+        i_slint_core::platform::PointerEventButton::Back
+    );
+    assert_eq!(
+        convert_pointer_event_button(proto::PointerEventButton::Forward),
+        i_slint_core::platform::PointerEventButton::Forward
+    );
+    assert_eq!(
+        convert_pointer_event_button(proto::PointerEventButton::Other),
+        i_slint_core::platform::PointerEventButton::Other
     );
 }
 

@@ -13,6 +13,17 @@ use alloc::rc::Rc;
 use core::cell::Cell;
 use pin_weak::rc::PinWeak;
 
+/// Result of dispatching a window event through Slint's runtime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindowEventDispatchResult {
+    /// The event was processed, but the runtime does not expose a more specific result.
+    Processed,
+    /// The event was accepted by an item or runtime handler.
+    Accepted,
+    /// The event was ignored by the item tree.
+    Ignored,
+}
+
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
         = const { once_cell::unsync::OnceCell::new() }
@@ -47,6 +58,17 @@ pub(crate) struct SlintContextInner {
     pub(crate) accent_color: Property<Color>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    pub(crate) window_event_hook: core::cell::RefCell<
+        Option<
+            Box<
+                dyn FnMut(
+                    &Rc<dyn crate::platform::WindowAdapter>,
+                    &crate::platform::WindowEvent,
+                    WindowEventDispatchResult,
+                ),
+            >,
+        >,
+    >,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -84,7 +106,7 @@ impl SlintContext {
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
             window_shown_hook: Default::default(),
-
+            window_event_hook: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -292,6 +314,36 @@ pub fn set_window_shown_hook(
 ) -> Result<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>, PlatformError> {
     GLOBAL_CONTEXT.with(|p| match p.get() {
         Some(ctx) => Ok(ctx.0.window_shown_hook.replace(hook)),
+        None => Err(PlatformError::NoPlatform),
+    })
+}
+
+/// Internal function to set a hook that's invoked after a window event was dispatched.
+/// This is used by the system testing module. Returns a previously set hook, if any.
+pub fn set_window_event_hook(
+    hook: Option<
+        Box<
+            dyn FnMut(
+                &Rc<dyn crate::platform::WindowAdapter>,
+                &crate::platform::WindowEvent,
+                WindowEventDispatchResult,
+            ),
+        >,
+    >,
+) -> Result<
+    Option<
+        Box<
+            dyn FnMut(
+                &Rc<dyn crate::platform::WindowAdapter>,
+                &crate::platform::WindowEvent,
+                WindowEventDispatchResult,
+            ),
+        >,
+    >,
+    PlatformError,
+> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => Ok(ctx.0.window_event_hook.replace(hook)),
         None => Err(PlatformError::NoPlatform),
     })
 }
