@@ -293,11 +293,18 @@ pub fn mark_all_translations_dirty() {
         }
     }
 
-    update_locale_decimal_separator();
-
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         ctx.0.translations_dirty.mark_dirty();
+
+        // Update the decimal separator
+        #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+        if let Some(locale) = sys_locale::get_locale() {
+            ctx.0
+                .locale_decimal_separator
+                .as_ref()
+                .set(i_slint_common::decimal_separator_for_locale(&locale))
+        }
     })
 }
 
@@ -366,46 +373,16 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
-/// Determine the decimal separator from the language or the bundled decimal separator
-fn update_locale_decimal_separator() {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return };
-        ctx.0.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
-
-        if let Some(l) = ctx.0.translations_bundle_languages.borrow().as_ref()
-            && !l.is_empty()
-        {
-            // Check bundled
-            let language_index = ctx.0.translations_dirty.as_ref().get();
-            if let Some(_l) = l.get(language_index)
-                && let Some(c) = ctx
-                    .0
-                    .translations_bundle_decimal_separators
-                    .borrow()
-                    .as_ref()
-                    .and_then(|v| v.get(language_index))
-            {
-                ctx.0.locale_decimal_separator.as_ref().set(*c)
-            }
-        } else {
-            // No bundled languages
-
-            #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
-            if let Some(locale) = sys_locale::get_locale() {
-                ctx.0
-                    .locale_decimal_separator
-                    .as_ref()
-                    .set(i_slint_common::decimal_separator_for_locale(&locale))
-            }
-        }
-    });
-}
-
 /// This function is called by the generated code to assign the list of bundled languages
 /// and decimal separators.
 /// Do nothing if the list is already assigned.
 /// It selects also the language based on the system locale as default
 pub fn set_bundled_languages(languages: &[&'static str], separators: &[char]) {
+    assert_eq!(
+        languages.len(),
+        separators.len(),
+        "The number of languages must match with the number of separators"
+    );
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         if ctx.0.translations_bundle_languages.borrow().is_none() {
@@ -421,7 +398,6 @@ pub fn set_bundled_languages(languages: &[&'static str], separators: &[char]) {
         if ctx.0.translations_bundle_decimal_separators.borrow().is_none() {
             ctx.0.translations_bundle_decimal_separators.replace(Some(separators.to_vec()));
         }
-        update_locale_decimal_separator();
     });
 }
 
@@ -465,7 +441,16 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let idx = languages.iter().position(|x| *x == language);
         if let Some(idx) = idx {
             ctx.0.translations_dirty.as_ref().set(idx);
-            update_locale_decimal_separator();
+            // Update the decimal separator
+            if let Some(c) = ctx
+                .0
+                .translations_bundle_decimal_separators
+                .borrow()
+                .as_ref()
+                .and_then(|v| v.get(idx))
+            {
+                ctx.0.locale_decimal_separator.as_ref().set(*c)
+            }
             Ok(())
         } else if language.is_empty() || language == "en" {
             ctx.0.translations_dirty.as_ref().set(0);
