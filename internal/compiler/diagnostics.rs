@@ -130,7 +130,9 @@ impl SourceFileInner {
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
     pub fn line_column(&self, offset: usize, format: ByteFormat) -> (usize, usize) {
         let adjust_utf16 = |line_begin, col| {
-            if format == ByteFormat::Utf16 && let Some(source) = &self.source {
+            if format == ByteFormat::Utf16
+                && let Some(source) = &self.source
+            {
                 return byte_col_to_utf16_col(&source[line_begin..], col);
             }
             col
@@ -163,7 +165,9 @@ impl SourceFileInner {
     /// Returns the offset that corresponds to the line/column
     pub fn offset(&self, line: usize, column: usize, format: ByteFormat) -> usize {
         let adjust_utf16 = |line_begin, col| {
-            if format == ByteFormat::Utf16 && let Some(source) = &self.source {
+            if format == ByteFormat::Utf16
+                && let Some(source) = &self.source
+            {
                 return utf16_col_to_byte_col(&source[line_begin..], col);
             }
             col
