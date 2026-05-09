@@ -326,7 +326,7 @@ impl IntrospectionState {
             .filter(|event| {
                 window_index.is_none_or(|window_index| {
                     event.window_handle.as_ref().is_some_and(|handle| {
-                        handle_to_index(handle.clone())
+                        handle_to_index(*handle)
                             .is_ok_and(|event_window| event_window == window_index)
                     })
                 })
