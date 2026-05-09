@@ -1052,7 +1052,6 @@ declare_features! {
     backend_winit_wayland
     backend_linuxkms
     backend_linuxkms_noseat
-    backend_android_activity
     renderer_femtovg
     renderer_skia
     renderer_skia_opengl

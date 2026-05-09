@@ -38,7 +38,7 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
-#[cfg(all(target_os = "android", feature = "backend-android-activity"))]
+#[cfg(target_os = "android")]
 mod android {
     unsafe extern "C" {
         fn slint_main();

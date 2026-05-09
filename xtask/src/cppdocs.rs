@@ -93,7 +93,6 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
         backend_winit_wayland: false,
         backend_linuxkms: true,
         backend_linuxkms_noseat: false,
-        backend_android_activity: false,
         renderer_femtovg: true,
         renderer_skia: true,
         renderer_skia_opengl: false,
