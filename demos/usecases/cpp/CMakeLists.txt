@@ -5,11 +5,7 @@ cmake_minimum_required(VERSION 3.21)
 project(slint_cpp_usecases LANGUAGES CXX)
 
 if (NOT TARGET Slint::Slint)
-    if(SLINT_SOURCE_DIR)
-        add_subdirectory(${SLINT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/slint_build)
-    else()
-        find_package(Slint REQUIRED)
-    endif()
+    find_package(Slint REQUIRED)
 endif()
 
 if(NOT SLINT_STYLE)
